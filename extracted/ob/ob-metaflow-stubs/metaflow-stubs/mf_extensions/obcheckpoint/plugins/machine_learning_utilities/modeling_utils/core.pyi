@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-21T02:03:41.244711                                                            #
+# Generated on 2026-04-25T15:30:23.822319                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.model_storage
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.model_storage
 
 from ..datastore.core import STORAGE_FORMATS as STORAGE_FORMATS
 from ..exceptions import KeyNotFoundError as KeyNotFoundError

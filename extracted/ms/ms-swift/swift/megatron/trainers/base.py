@@ -37,7 +37,8 @@ from swift.megatron.utils import (apply_router_replay_patch, disable_forward_pre
 from swift.template import Template
 from swift.trainers import dynamic_gradient_checkpointing
 from swift.trainers.utils import patch_modelscope_hub_timeout
-from swift.utils import deep_getattr, get_last_valid_indices, get_logger, is_last_rank, is_master, ms_logger_context
+from swift.utils import (deep_getattr, gc_collect, get_current_device, get_last_valid_indices, get_logger, is_last_rank,
+                         is_master, ms_logger_context)
 from .batch_sampler import MegatronPretrainingRandomSampler, MegatronPretrainingSampler
 from .utils import (TrainerState, build_streaming_dataloader, get_batch_on_this_cp_rank, get_batch_on_this_pp_rank,
                     get_packed_seq_params)
@@ -189,6 +190,7 @@ class BaseMegatronTrainer(ABC):
         args = self.args
         self.unwrapped_models = get_mcore_model(args, self.template.config)
         self.config = self.unwrapped_models[0].config
+        logger.info(f'model_config: {self.config}')
         self.bridge = self.config.bridge
         self.peft_models = self._prepare_peft_model(self.unwrapped_models)
         self.wrapped_models = wrap_model(args, self.unwrapped_models)
@@ -696,7 +698,15 @@ class BaseMegatronTrainer(ABC):
         state = self.state
         if (args.metric_for_best_model is None or metrics is None or not is_last_rank()
                 or args.metric_for_best_model not in metrics):
-            return False
+            if args.metric_for_best_model is None:
+                return False
+            tensor = torch.zeros((3, ), device=get_current_device(), dtype=torch.float64)
+            torch.distributed.all_reduce(tensor)
+            is_new_best_metric = bool(tensor[2].item())
+            if is_new_best_metric:
+                state.best_metric = tensor[0].item()
+                state.best_global_step = int(tensor[1].item())
+            return is_new_best_metric
         metric_value = metrics[args.metric_for_best_model]
         op = operator.ge if args.greater_is_better else operator.le
         if state.best_metric is None:
@@ -707,6 +717,10 @@ class BaseMegatronTrainer(ABC):
             state.best_metric = metric_value
             state.best_global_step = state.global_step
             is_new_best_metric = True
+        tensor = torch.tensor([state.best_metric, state.best_global_step, is_new_best_metric],
+                              device=get_current_device(),
+                              dtype=torch.float64)
+        torch.distributed.all_reduce(tensor)
         return is_new_best_metric
 
     def save_checkpoint(self):
@@ -723,6 +737,7 @@ class BaseMegatronTrainer(ABC):
             model = []
         else:
             model = self.wrapped_models
+        gc_collect()
         save_mcore_checkpoint(
             args,
             model,
@@ -732,7 +747,7 @@ class BaseMegatronTrainer(ABC):
             peft_format=args.tuner_type == 'lora',
             output_dir=output_dir)
         state.last_model_checkpoint = output_dir
-        if state.best_global_step:
+        if state.best_global_step is not None:
             best_model_checkpoint = os.path.join(args.output_dir, f'checkpoint-{state.best_global_step}')
             if os.path.exists(best_model_checkpoint):
                 state.best_model_checkpoint = best_model_checkpoint

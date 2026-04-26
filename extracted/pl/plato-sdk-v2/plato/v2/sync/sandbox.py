@@ -65,6 +65,7 @@ from plato._generated.models import (
     VMManagementRequest,
 )
 from plato.v1.models.sandbox import PlatoConfig
+from plato.v2._wait_for_ready import poll_until_ready_sync
 from plato.v2.async_.flow_executor import FlowExecutor
 from plato.v2.models import SandboxState
 from plato.v2.types import Env, EnvFromArtifact, EnvFromResource, EnvFromSimulator, SimConfigCompute
@@ -779,11 +780,14 @@ class SandboxClient:
         # Step 2: Wait for VM
         self.console.print("[yellow]Waiting for VM to start...[/yellow]")
         step_start = time.time()
-        ready_response = sessions_wait_for_ready.sync(
-            client=self._http,
-            session_id=session_id,
+        ready_response = poll_until_ready_sync(
+            lambda per_call: sessions_wait_for_ready.sync(
+                client=self._http,
+                session_id=session_id,
+                timeout=per_call,
+                x_api_key=self.api_key,
+            ),
             timeout=timeout,
-            x_api_key=self.api_key,
         )
         if not ready_response.ready:
             errors = []

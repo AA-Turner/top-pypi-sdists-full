@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 # The MIT License (MIT)
 #
-# Copyright © 2014-2016 Tim Bielawa <timbielawa@gmail.com>
+# Copyright © 2014-2026 Tim Case <bitmath@lnx.cx>
 # See GitHub Contributors Graph for more information
 #
 # Permission is hereby granted, free of charge, to any person
@@ -23,7 +24,7 @@
 # ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-# pylint: disable=bad-continuation,missing-docstring,invalid-name,line-too-long
+# pylint: disable=line-too-long
 
 """Reference material:
 The bitmath homepage is located at:
@@ -36,24 +37,12 @@ decimal and binary prefixes:
 man 7 units (from the Linux Documentation Project 'man-pages' package)
 
 
-BEFORE YOU GET HASTY WITH EXCLUDING CODE FROM COVERAGE: If you
-absolutely need to skip code coverage because of a strange Python 2.x
-vs 3.x thing, use the fancy environment substitution stuff from the
-.coverage RC file. In review:
+* If you *NEED* to skip a statement because of something untestable:
 
-* If you *NEED* to skip a statement because of Python 2.x issues add the following::
-
-      # pragma: PY2X no cover
-
-* If you *NEED* to skip a statement because of Python 3.x issues add the following::
-
-      # pragma: PY3X no cover
-
-In this configuration, statements which are skipped in 2.x are still
-covered in 3.x, and the reverse holds true for tests skipped in 3.x.
+      # pragma: no cover
 """
 
-from __future__ import print_function
+from __future__ import annotations
 
 import argparse
 import contextlib
@@ -63,35 +52,45 @@ import numbers
 import os
 import os.path
 import platform
+import re
+import shutil
 import sys
+import threading
 
-# For device capacity reading in query_device_capacity(). Only supported
-# on posix systems for now. Will be addressed in issue #52 on GitHub.
+from collections.abc import Generator, Iterable, Iterator
+from typing import IO, Any, NamedTuple, Union
+
+# For device capacity reading in query_device_capacity().
 if os.name == 'posix':
     import stat
     import fcntl
     import struct
+elif os.name == 'nt':
+    import ctypes
+    import ctypes.wintypes
+    import msvcrt
 
+#: Platforms where :func:`query_device_capacity` is supported.
+#: Corresponds to possible values of :data:`os.name`. macOS (Darwin)
+#: is not supported due to SIP restrictions on raw block device access.
+SUPPORTED_PLATFORMS = frozenset({'posix', 'nt'})
 
-__all__ = ['Bit', 'Byte', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB',
+__all__ = ['Bit', 'Byte', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB',
            'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB', 'Kib',
-           'Mib', 'Gib', 'Tib', 'Pib', 'Eib', 'kb', 'Mb', 'Gb', 'Tb',
+           'Mib', 'Gib', 'Tib', 'Pib', 'Eib', 'Zib', 'Yib', 'kb', 'Mb', 'Gb', 'Tb',
            'Pb', 'Eb', 'Zb', 'Yb', 'getsize', 'listdir', 'format',
            'format_string', 'format_plural', 'parse_string', 'parse_string_unsafe',
-           'ALL_UNIT_TYPES', 'NIST', 'NIST_PREFIXES', 'NIST_STEPS',
-           'SI', 'SI_PREFIXES', 'SI_STEPS']
-
-# Python 3.x compat
-if sys.version > '3':
-    long = int  # pragma: PY2X no cover
-    unicode = str  # pragma: PY2X no cover
+           'sum', 'ALL_UNIT_TYPES', 'NIST', 'NIST_PREFIXES', 'NIST_STEPS',
+           'SI', 'SI_PREFIXES', 'SI_STEPS', 'Capacity', 'query_capacity',
+           'query_device_capacity']
 
 #: A list of all the valid prefix unit types. Mostly for reference,
 #: also used by the CLI tool as valid types
 ALL_UNIT_TYPES = ['Bit', 'Byte', 'kb', 'kB', 'Mb', 'MB', 'Gb', 'GB', 'Tb',
                   'TB', 'Pb', 'PB', 'Eb', 'EB', 'Zb', 'ZB', 'Yb',
                   'YB', 'Kib', 'KiB', 'Mib', 'MiB', 'Gib', 'GiB',
-                  'Tib', 'TiB', 'Pib', 'PiB', 'Eib', 'EiB']
+                  'Tib', 'TiB', 'Pib', 'PiB', 'Eib', 'EiB', 'Zib', 'ZiB',
+                  'Yib', 'YiB']
 
 # #####################################################################
 # Set up our module variables/constants
@@ -132,7 +131,7 @@ SI_STEPS = {
 
 
 #: All of the NIST prefixes
-NIST_PREFIXES = ['Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei']
+NIST_PREFIXES = ['Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi']
 
 #: Byte values represented by each NIST prefix unit
 NIST_STEPS = {
@@ -143,7 +142,9 @@ NIST_STEPS = {
     'Gi': 1073741824,
     'Ti': 1099511627776,
     'Pi': 1125899906842624,
-    'Ei': 1152921504606846976
+    'Ei': 1152921504606846976,
+    'Zi': 1180591620717411303424,
+    'Yi': 1208925819614629174706176
 }
 
 #: String representation, ex: ``13.37 MiB``, or ``42.0 kB``
@@ -152,13 +153,26 @@ format_string = "{value} {unit}"
 #: Pluralization behavior
 format_plural = False
 
+# Thread-local storage for context manager overrides. When a thread is inside
+# a bitmath.format() context, these shadow the module globals above for that
+# thread only — other threads are unaffected.
+_thread_local = threading.local()
+_FMT_SENTINEL = object()  # distinguishes "not set" from any real value
 
-def os_name():
-    # makes unittesting platform specific code easier
-    return os.name
+
+def _get_format_string():
+    return getattr(_thread_local, 'format_string', format_string)
 
 
-def capitalize_first(s):
+def _get_format_plural():
+    return getattr(_thread_local, 'format_plural', format_plural)
+
+
+def _get_bestprefix():
+    return getattr(_thread_local, 'bestprefix', False)
+
+
+def capitalize_first(s: str) -> str:
     """Capitalize ONLY the first letter of the input `s`
 
 * returns a copy of input `s` with the first letter capitalized
@@ -170,11 +184,11 @@ def capitalize_first(s):
 
 ######################################################################
 # Base class for everything else
-class Bitmath(object):
+class Bitmath:
     """The base class for all the other prefix classes"""
 
     # All the allowed input types
-    valid_types = (int, float, long)
+    valid_types: tuple[type, ...] = (int, float)
 
     def __init__(self, value=0, bytes=None, bits=None):
         """Instantiate with `value` by the unit, in plain bytes, or
@@ -225,18 +239,18 @@ only setting bits: assert value == 0 and bytes is None
         # We have the fundamental unit figured out. Set the 'pretty' unit
         self._set_prefix_value()
 
-    def _set_prefix_value(self):
+    def _set_prefix_value(self) -> None:
         self.prefix_value = self._to_prefix_value(self._byte_value)
 
-    def _to_prefix_value(self, value):
+    def _to_prefix_value(self, value: float) -> float:
         """Return the number of bits/bytes as they would look like if we
 converted *to* this unit"""
         return value / float(self._unit_value)
 
-    def _setup(self):
+    def _setup(self) -> tuple:
         raise NotImplementedError("The base 'bitmath.Bitmath' class can not be used directly")
 
-    def _do_setup(self):
+    def _do_setup(self) -> None:
         """Setup basic parameters for this class.
 
 `base` is the numeric base which when raised to `power` is equivalent
@@ -249,7 +263,7 @@ for the Kilobyte is 3.
         (self._base, self._power, self._name_singular, self._name_plural) = self._setup()
         self._unit_value = self._base ** self._power
 
-    def _norm(self, value):
+    def _norm(self, value: int | float) -> None:
         """Normalize the input value into the fundamental unit for this prefix
 type.
 
@@ -257,43 +271,41 @@ type.
    :raises ValueError: if the input value is not a type of real number
 """
         if isinstance(value, self.valid_types):
-            self._byte_value = value * self._unit_value
+            self._byte_value = float(value) * self._unit_value
             self._bit_value = self._byte_value * 8.0
         else:
-            raise ValueError("Initialization value '%s' is of an invalid type: %s. "
-                             "Must be one of %s" % (
-                                 value,
-                                 type(value),
-                                 ", ".join(str(x) for x in self.valid_types)))
+            raise ValueError(
+                f"Initialization value '{value}' is of an invalid type: {type(value)}. "
+                f"Must be one of {', '.join(str(x) for x in self.valid_types)}"
+            )
 
     ##################################################################
     # Properties
 
     #: The mathematical base of an instance
-    base = property(lambda s: s._base)
+    base = property(lambda s: s._base,
+                    doc="The mathematical base of the unit of the instance (this will be 2 or 10)")
 
-    binary = property(lambda s: bin(int(s.bits)))
-    """The binary representation of an instance in binary 1s and 0s. Note
+    binary = property(lambda s: bin(int(s.bits)),
+                      doc="""The binary representation of an instance in binary 1s and 0s. Note
 that for very large numbers this will mean a lot of 1s and 0s. For
-example, GiB(100) would be represented as::
+example, GiB(100) would be represented in Python as::
 
     0b1100100000000000000000000000000000000000
-
 That leading ``0b`` is normal. That's how Python represents binary.
-
-    """
+""")
 
     #: Alias for :attr:`binary`
-    bin = property(lambda s: s.binary)
+    bin = property(lambda s: s.binary, doc="Alias for the 'binary' property")
 
     #: The number of bits in an instance
-    bits = property(lambda s: s._bit_value)
+    bits = property(lambda s: s._bit_value, doc="The number of bits in an instance")
 
     #: The number of bytes in an instance
-    bytes = property(lambda s: s._byte_value)
+    bytes = property(lambda s: s._byte_value, doc="The number of bytes in an instance")
 
     #: The mathematical power of an instance
-    power = property(lambda s: s._power)
+    power = property(lambda s: s._power, doc="The mathematical power of an instance")
 
     @property
     def system(self):
@@ -306,8 +318,7 @@ That leading ``0b`` is normal. That's how Python represents binary.
             # I don't expect to ever encounter this logic branch, but
             # hey, it's better to have extra test coverage than
             # insufficient test coverage.
-            raise ValueError("Instances mathematical base is an unsupported value: %s" % (
-                str(self._base)))
+            raise ValueError(f"Instances mathematical base is an unsupported value: {self._base}")
 
     @property
     def unit(self):
@@ -323,14 +334,11 @@ For example:
    >>> Byte(1).unit == 'Byte'
    >>> Byte(1.1).unit == 'Bytes'
    >>> Gb(2).unit == 'Gbs'
-
         """
-        global format_plural
-
         if self.prefix_value == 1:
             # If it's a '1', return it singular, no matter what
             return self._name_singular
-        elif format_plural:
+        elif _get_format_plural():
             # Pluralization requested
             return self._name_plural
         else:
@@ -347,7 +355,6 @@ For example:
    >>> KiB(1).unit_plural == 'KiB'
    >>> Byte(1024).unit_plural == 'Bytes'
    >>> Gb(1).unit_plural == 'Gb'
-
         """
         return self._name_plural
 
@@ -387,33 +394,51 @@ instantiate the class ahead of time.
 
    >>> import bitmath
    >>> kib = bitmath.KiB.from_other(bitmath.MiB(1))
-   >>> print kib
+   >>> print(kib)
    KiB(1024.0)
 
         """
         if isinstance(item, Bitmath):
             return cls(bits=item.bits)
         else:
-            raise ValueError("The provided items must be a valid bitmath class: %s" %
-                             str(item.__class__))
+            raise ValueError(f"The provided items must be a valid bitmath class: {item.__class__}")
 
     ######################################################################
     # The following implement the Python datamodel customization methods
     #
-    # Reference: http://docs.python.org/2.7/reference/datamodel.html#basic-customization
+    # Reference: https://docs.python.org/3/reference/datamodel.html#basic-customization
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Representation of this object as you would expect to see in an
 interpreter"""
-        global _FORMAT_REPR
         return self.format(_FORMAT_REPR)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """String representation of this object"""
-        global format_string
-        return self.format(format_string)
+        if _get_bestprefix():
+            return self.best_prefix().format(_get_format_string())
+        return self.format(_get_format_string())
 
-    def format(self, fmt):
+    def __format__(self, fmt_spec: str) -> str:
+        """Support Python's string formatting protocol.
+
+When *fmt_spec* is empty, returns ``str(self)`` — the same as the
+default string representation (e.g. ``"1.0 KiB"``).
+
+When *fmt_spec* is a standard numeric format spec (e.g. ``".2f"``,
+``">10.1f"``), it is applied to ``self.value`` only, returning the
+formatted number without a unit suffix. The caller controls the
+surrounding string::
+
+    size = bitmath.MiB(2.847598437)
+    f'size: {size:.1f} {size.unit}'   # -> 'size: 2.8 MiB'
+    f'size: {size}'                    # -> 'size: 2.847598437 MiB'
+        """
+        if fmt_spec == '':
+            return str(self)
+        return self.value.__format__(fmt_spec)
+
+    def format(self, fmt: str) -> str:
         """Return a representation of this instance formatted with user
 supplied syntax"""
         _fmt_params = {
@@ -451,7 +476,8 @@ instance.
 Else, begin by recording the unit system the instance is defined
 by. This determines which steps (NIST_STEPS/SI_STEPS) we iterate over.
 
-If the instance is not already a ``Byte`` instance, convert it to one.
+If the instance is not already a ``Byte`` instance, convert it to one
+for the purpose of the log calculation.
 
 NIST units step up by powers of 1024, SI units step up by powers of
 1000.
@@ -465,9 +491,19 @@ value. E.g.:
 This will return a value >= 0. The following determines the 'best
 prefix unit' for representation:
 
-* result == 0, best represented as a Byte
+* result == 0, best represented as a Byte (or Bit for Bit-family inputs)
 * result >= len(SYSTEM_STEPS), best represented as an Exbi/Exabyte
 * 0 < result < len(SYSTEM_STEPS), best represented as SYSTEM_PREFIXES[result-1]
+
+Unit family is preserved: Bit-family instances (Bit, Kib, Mib, kb,
+Mb, etc.) always return a Bit-family result. Byte-family instances
+always return a Byte-family result.
+
+.. versionchanged:: 2.0.0
+   Bit-family instances now return Bit-family results. Previously,
+   ``best_prefix()`` always returned a Byte-family unit regardless of
+   the input type (e.g. ``Bit(30950093).best_prefix()`` returned
+   ``MiB`` instead of ``Mib``). See GitHub issue #95.
 
         """
 
@@ -476,7 +512,7 @@ prefix unit' for representation:
         if abs(self) < Byte(1):
             return Bit.from_other(self)
         else:
-            if type(self) is Byte:  # pylint: disable=unidiomatic-typecheck
+            if isinstance(self, Byte):
                 _inst = self
             else:
                 _inst = Byte.from_other(self)
@@ -512,7 +548,10 @@ prefix unit' for representation:
         # in the list.
 
         if _index == 0:
-            # Already a Byte() type, so return it.
+            # Below the first prefix threshold. Bit-family inputs return as
+            # Bit to preserve family; Byte-family inputs return as Byte.
+            if isinstance(self, Bit):
+                return Bit.from_other(self)
             return _inst
         elif _index >= len(_STEPS):
             # This is a really big number. Use the biggest prefix we've got
@@ -521,9 +560,12 @@ prefix unit' for representation:
             # There is an appropriate prefix unit to represent this
             _best_prefix = _STEPS[_index - 1]
 
-        _conversion_method = getattr(
-            self,
-            'to_%sB' % _best_prefix)
+        # Preserve unit family: Bit-family -> 'to_Xib'/'to_Xb',
+        # Byte-family -> 'to_XiB'/'to_XB'.
+        if isinstance(self, Bit):
+            _conversion_method = getattr(self, 'to_%sb' % _best_prefix)
+        else:
+            _conversion_method = getattr(self, 'to_%sB' % _best_prefix)
 
         return _conversion_method()
 
@@ -660,8 +702,12 @@ prefix unit' for representation:
     Eb = property(lambda s: s.to_Eb())
 
     ##################################################################
-    # The SI units go beyond the NIST units. They also have the Zetta
-    # and Yotta prefixes.
+
+    def to_ZiB(self):
+        return ZiB(bits=self._bit_value)
+
+    def to_Zib(self):
+        return Zib(bits=self._bit_value)
 
     def to_ZB(self):
         return ZB(bits=self._bit_value)
@@ -669,11 +715,18 @@ prefix unit' for representation:
     def to_Zb(self):
         return Zb(bits=self._bit_value)
 
-    # Properties
+    ZiB = property(lambda s: s.to_ZiB())
+    Zib = property(lambda s: s.to_Zib())
     ZB = property(lambda s: s.to_ZB())
     Zb = property(lambda s: s.to_Zb())
 
     ##################################################################
+
+    def to_YiB(self):
+        return YiB(bits=self._bit_value)
+
+    def to_Yib(self):
+        return Yib(bits=self._bit_value)
 
     def to_YB(self):
         return YB(bits=self._bit_value)
@@ -681,7 +734,8 @@ prefix unit' for representation:
     def to_Yb(self):
         return Yb(bits=self._bit_value)
 
-    #: A new object representing this instance as a Yottabyte
+    YiB = property(lambda s: s.to_YiB())
+    Yib = property(lambda s: s.to_Yib())
     YB = property(lambda s: s.to_YB())
     Yb = property(lambda s: s.to_Yb())
 
@@ -729,18 +783,7 @@ prefix unit' for representation:
     # Basic math operations
     ##################################################################
 
-    # Reference: http://docs.python.org/2.7/reference/datamodel.html#emulating-numeric-types
-
-    """These methods are called to implement the binary arithmetic
-operations (+, -, *, //, %, divmod(), pow(), **, <<, >>, &, ^, |). For
-instance, to evaluate the expression x + y, where x is an instance of
-a class that has an __add__() method, x.__add__(y) is called. The
-__divmod__() method should be the equivalent to using __floordiv__()
-and __mod__(); it should not be related to __truediv__() (described
-below). Note that __pow__() should be defined to accept an optional
-third argument if the ternary version of the built-in pow() function
-is to be supported.object.__complex__(self)
-"""
+    # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __add__(self, other):
         """Supported operations with result types:
@@ -777,7 +820,7 @@ is to be supported.object.__complex__(self)
 
 - bm1 * bm2 = bm1
 - bm * num = bm
-- num * bm = num (see rmul)
+- num * bm = bm (see rmul)
 """
         if isinstance(other, numbers.Number):
             # bm * num
@@ -789,18 +832,12 @@ is to be supported.object.__complex__(self)
             _self = self.prefix_value * self._base ** self._power
             return (type(self))(bytes=_other * _self)
 
-    """The division operator (/) is implemented by these methods. The
-__truediv__() method is used when __future__.division is in effect,
-otherwise __div__() is used. If only one of these two methods is
-defined, the object will not support division in the alternate
-context; TypeError will be raised instead."""
-
-    def __div__(self, other):
+    def __truediv__(self, other):
         """Division: Supported operations with result types:
 
 - bm1 / bm2 = num
 - bm / num = bm
-- num / bm = num (see rdiv)
+- num / bm = num (see rtruediv)
 """
         if isinstance(other, numbers.Number):
             # bm / num
@@ -810,39 +847,47 @@ context; TypeError will be raised instead."""
             # bm1 / bm2
             return self._byte_value / float(other.bytes)
 
-    def __truediv__(self, other):
-        # num / bm
-        return self.__div__(other)
+    def __floordiv__(self, other):
+        """Floor division: Supported operations with result types:
 
-    # def __floordiv__(self, other):
-    #     return NotImplemented
+- bm1 // bm2 = int (whole divisions, unitless — mirrors bm1 / bm2 returning a ratio)
+- bm // num  = bm (LHS type)
+"""
+        if isinstance(other, numbers.Number):
+            # bm // num
+            result = self._byte_value // other
+            return (type(self))(bytes=result)
+        else:
+            # bm1 // bm2
+            return int(self._byte_value // other.bytes)
 
-    # def __mod__(self, other):
-    #     return NotImplemented
+    def __mod__(self, other):
+        """Modulo (remainder): Supported operations with result types:
 
-    # def __divmod__(self, other):
-    #     return NotImplemented
+- bm1 % bm2 = bm (LHS type) — remainder after floor-dividing bm1 by bm2
+- bm % num  = bm (LHS type)
+"""
+        if isinstance(other, numbers.Number):
+            # bm % num
+            result = self._byte_value % other
+            return (type(self))(bytes=result)
+        else:
+            # bm1 % bm2
+            return (type(self))(bytes=self._byte_value % other.bytes)
 
-    # def __pow__(self, other, modulo=None):
-    #     return NotImplemented
+    def __divmod__(self, other):
+        """divmod(bm, other) == (bm // other, bm % other).
+
+Result types match __floordiv__ and __mod__.
+"""
+        return (self.__floordiv__(other), self.__mod__(other))
 
     ##################################################################
 
-    """These methods are called to implement the binary arithmetic
-operations (+, -, *, /, %, divmod(), pow(), **, <<, >>, &, ^, |) with
-reflected (swapped) operands. These functions are only called if the
-left operand does not support the corresponding operation and the
-operands are of different types. [2] For instance, to evaluate the
-expression x - y, where y is an instance of a class that has an
-__rsub__() method, y.__rsub__(x) is called if x.__sub__(y) returns
-NotImplemented.
-
-These are the add/sub/mul/div methods for syntax where a number type
-is given for the LTYPE and a bitmath object is given for the
-RTYPE. E.g., 3 * MiB(3), or 10 / GB(42)
-"""
-
     def __radd__(self, other):
+        # Special case: 0 + bm = bm (identity element, enables built-in sum())
+        if other == 0:
+            return self
         # num + bm = num
         return other + self.value
 
@@ -854,39 +899,63 @@ RTYPE. E.g., 3 * MiB(3), or 10 / GB(42)
         # num * bm = bm
         return self * other
 
-    def __rdiv__(self, other):
-        # num / bm = num
-        return other / float(self.value)
-
     def __rtruediv__(self, other):
         # num / bm = num
         return other / float(self.value)
 
-    """Called to implement the built-in functions complex(), int(),
-long(), and float(). Should return a value of the appropriate type.
+    """Called to implement the built-in functions complex(), int(), and
+float(). Should return a value of the appropriate type.
 
 If one of those methods does not support the operation with the
 supplied arguments, it should return NotImplemented.
 
-For bitmath purposes, these methods return the int/long/float
+For bitmath purposes, these methods return the int/float
 equivalent of the this instances prefix Unix value. That is to say:
 
     - int(KiB(3.336)) would return 3
-    - long(KiB(3.336)) would return 3L
     - float(KiB(3.336)) would return 3.336
 """
 
-    def __int__(self):
+    def __int__(self) -> int:
         """Return this instances prefix unit as an integer"""
         return int(self.prefix_value)
 
-    def __long__(self):
-        """Return this instances prefix unit as a long integer"""
-        return long(self.prefix_value)  # pragma: PY3X no cover
-
-    def __float__(self):
+    def __float__(self) -> float:
         """Return this instances prefix unit as a floating point number"""
         return float(self.prefix_value)
+
+    """floor/ceil/round operate on the prefix value and return the same unit
+type. They are explicit opt-in operations for when integer prefix values are
+needed. See the Rules for Math appendix in the bitmath documentation for the
+design rationale behind floating-point representation.
+"""
+
+    def __floor__(self):
+        """Return the largest integer prefix value <= this instance as the same type.
+
+Rounds the prefix value down. math.floor(MiB(1.9)) -> MiB(1).
+"""
+        return (type(self))(math.floor(self.prefix_value))
+
+    def __ceil__(self):
+        """Return the smallest integer prefix value >= this instance as the same type.
+
+Rounds the prefix value up. math.ceil(MiB(1.1)) -> MiB(2).
+"""
+        return (type(self))(math.ceil(self.prefix_value))
+
+    def __round__(self, ndigits=None):
+        """Return this instance rounded to ndigits precision as the same type.
+
+round(MiB(1.75)) -> MiB(2); round(KiB(1.555), 2) -> KiB(1.56).
+
+Rounds the prefix value using Python's built-in round(). When ndigits
+is omitted the result has an integer prefix value. Only round at the
+final output step; rounding intermediate results loses precision.
+"""
+        if ndigits is None:
+            return (type(self))(round(self.prefix_value))
+        return (type(self))(round(self.prefix_value, ndigits))
 
     ##################################################################
     # Bitwise operations
@@ -957,7 +1026,7 @@ bit of x AND of y is 0, otherwise it's 1."""
 class Byte(Bitmath):
     """Byte based types fundamentally operate on self._bit_value"""
     def _setup(self):
-        return (2, 0, 'Byte', 'Bytes')
+        return (2, 0, 'B', 'B')
 
 ######################################################################
 # NIST Prefixes for Byte based types
@@ -1009,6 +1078,22 @@ class EiB(Byte):
 
 
 Eio = EiB
+
+
+class ZiB(Byte):
+    def _setup(self):
+        return (2, 70, 'ZiB', 'ZiBs')
+
+
+Zio = ZiB
+
+
+class YiB(Byte):
+    def _setup(self):
+        return (2, 80, 'YiB', 'YiBs')
+
+
+Yio = YiB
 
 
 ######################################################################
@@ -1086,7 +1171,7 @@ class Bit(Bitmath):
         self.prefix_value = self._to_prefix_value(self._bit_value)
 
     def _setup(self):
-        return (2, 0, 'Bit', 'Bits')
+        return (2, 0, 'b', 'b')
 
     def _norm(self, value):
         """Normalize the input value into the fundamental unit for this prefix
@@ -1125,6 +1210,16 @@ class Pib(Bit):
 class Eib(Bit):
     def _setup(self):
         return (2, 60, 'Eib', 'Eibs')
+
+
+class Zib(Bit):
+    def _setup(self):
+        return (2, 70, 'Zib', 'Zibs')
+
+
+class Yib(Bit):
+    def _setup(self):
+        return (2, 80, 'Yib', 'Yibs')
 
 
 ######################################################################
@@ -1171,7 +1266,7 @@ class Yb(Bit):
 
 ######################################################################
 # Utility functions
-def best_prefix(bytes, system=NIST):
+def best_prefix(bytes: Bitmath | int | float, system: int = NIST) -> Bitmath:
     """Return a bitmath instance representing the best human-readable
 representation of the number of bytes given by ``bytes``. In addition
 to a numeric type, the ``bytes`` parameter may also be a bitmath type.
@@ -1198,28 +1293,83 @@ Or:
     return Byte(value).best_prefix(system=system)
 
 
-def query_device_capacity(device_fd):
-    """Create bitmath instances of the capacity of a system block device
+def _query_device_capacity_windows(device_fd: IO[Any]) -> int:
+    """Return device capacity in bytes on Windows via DeviceIoControl.
 
-Make one or more ioctl request to query the capacity of a block
-device. Perform any processing required to compute the final capacity
-value. Return the device capacity in bytes as a :class:`bitmath.Byte`
-instance.
+Windows physical disk paths look like ``\\\\.\\PhysicalDrive0``.
+Raises :class:`ValueError` if the file descriptor is not a physical device.
+Raises :class:`OSError` if the DeviceIoControl call fails.
+"""
+    if not device_fd.name.startswith('\\\\.\\'):
+        raise ValueError("The file descriptor provided is not of a device type")
 
-Thanks to the following resources for help figuring this out Linux/Mac
-ioctl's for querying block device sizes:
+    IOCTL_DISK_GET_DRIVE_GEOMETRY_EX = 0x000700A0
 
-* http://stackoverflow.com/a/12925285/263969
-* http://stackoverflow.com/a/9764508/263969
+    class DISK_GEOMETRY(ctypes.Structure):
+        _fields_ = [
+            ('Cylinders', ctypes.c_longlong),
+            ('MediaType', ctypes.c_uint),
+            ('TracksPerCylinder', ctypes.c_ulong),
+            ('SectorsPerTrack', ctypes.c_ulong),
+            ('BytesPerSector', ctypes.c_ulong),
+        ]
 
-   :param file device_fd: A ``file`` object of the device to query the
-   capacity of (as in ``get_device_capacity(open("/dev/sda"))``).
+    class DISK_GEOMETRY_EX(ctypes.Structure):
+        _fields_ = [
+            ('Geometry', DISK_GEOMETRY),
+            ('DiskSize', ctypes.c_longlong),
+            ('Data', ctypes.c_byte * 1),
+        ]
+
+    geometry = DISK_GEOMETRY_EX()
+    bytes_returned = ctypes.wintypes.DWORD(0)
+    handle = msvcrt.get_osfhandle(device_fd.fileno())
+
+    result = ctypes.windll.kernel32.DeviceIoControl(
+        handle,
+        IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
+        None,
+        0,
+        ctypes.byref(geometry),
+        ctypes.sizeof(geometry),
+        ctypes.byref(bytes_returned),
+        None,
+    )
+
+    if not result:
+        error_code = ctypes.windll.kernel32.GetLastError()
+        raise OSError(f"DeviceIoControl failed with error code: {error_code}")
+
+    return geometry.DiskSize
+
+
+def query_device_capacity(device_fd: IO[Any]) -> Byte:
+    """Query the raw physical capacity of a block device.
+
+Most users should prefer :func:`query_capacity`. This function is for
+callers who need raw physical device capacity (e.g. disk imaging tools).
+Requires root on Linux and administrator on Windows. Not supported on
+macOS (SIP restriction).
+
+   :param file device_fd: A ``file`` object of the device to query.
+   On Linux: ``open("/dev/sda", "rb")`` (requires root).
+   On Windows: ``open(r'\\\\.\\PhysicalDrive0', 'rb')`` (requires administrator).
 
    :return: a bitmath :class:`bitmath.Byte` instance equivalent to the
    capacity of the target device in bytes.
+   :raises NotImplementedError: on macOS or any other unsupported platform.
+   :raises ValueError: if the file descriptor is not a block device.
 """
-    if os_name() != 'posix':
-        raise NotImplementedError("'bitmath.query_device_capacity' is not supported on this platform: %s" % os_name())
+    if os.name not in SUPPORTED_PLATFORMS:
+        raise NotImplementedError(f"'bitmath.query_device_capacity' is not supported on this platform: {os.name}")
+    if os.name == 'nt':
+        return Byte(_query_device_capacity_windows(device_fd))
+
+    if platform.system() == 'Darwin':
+        raise NotImplementedError(
+            "query_device_capacity is not supported on macOS; "
+            "SIP blocks raw block device access. Use query_capacity() instead."
+        )
 
     s = os.stat(device_fd.name).st_mode
     if not stat.S_ISBLK(s):
@@ -1250,12 +1400,12 @@ ioctl's for querying block device sizes:
                 # Confirm this character is right by running (on Linux):
                 #
                 #    >>> import struct
-                #    >>> print 8 == struct.calcsize('L')
+                #    >>> print(8 == struct.calcsize('L'))
                 #
                 # The result should be true as long as your kernel
                 # headers define BLKGETSIZE64 as a u64 type (please
                 # file a bug report at
-                # https://github.com/tbielawa/bitmath/issues/new if
+                # https://github.com/timlnx/bitmath/issues/new if
                 # this does *not* work for you)
             ],
             # func is how the final result is decided. Because the
@@ -1265,45 +1415,6 @@ ioctl's for querying block device sizes:
             # BLKGETSIZE64.
             "func": lambda x: x["BLKGETSIZE64"]
         },
-        # ioctls for the "Darwin" (Mac OS X) platform
-        "Darwin": {
-            "request_params": [
-                # A list of parameters to calculate the block size.
-                #
-                # ( PARAM_NAME , FORMAT_CHAR , REQUEST_CODE )
-                ("DKIOCGETBLOCKCOUNT", "L", 0x40086419),
-                # Per <sys/disk.h>: get media's block count - uint64_t
-                #
-                # As in the BLKGETSIZE64 example, an unsigned 64 bit
-                # integer will use the 'L' formatting character
-                ("DKIOCGETBLOCKSIZE", "I", 0x40046418)
-                # Per <sys/disk.h>: get media's block size - uint32_t
-                #
-                # This request returns an unsigned 32 bit integer, or
-                # in other words: just a normal integer (or 'int' c
-                # type). That should require 4 bytes of space for
-                # buffering. According to the struct modules
-                # 'Formatting Characters' chart:
-                #
-                # * Character 'I' - Unsigned Int C Type (uint32_t) - Loads into a Python int type
-            ],
-            # OS X doesn't have a direct equivalent to the Linux
-            # BLKGETSIZE64 request. Instead, we must request how many
-            # blocks (or "sectors") are on the disk, and the size (in
-            # bytes) of each block. Finally, multiply the two together
-            # to obtain capacity:
-            #
-            #                      n Block * y Byte
-            # capacity (bytes)  =            -------
-            #                                1 Block
-            "func": lambda x: x["DKIOCGETBLOCKCOUNT"] * x["DKIOCGETBLOCKSIZE"]
-            # This expression simply accepts a dictionary ``x`` as a
-            # parameter, and then returns the result of multiplying
-            # the two named dictionary items together. In this case,
-            # that means multiplying ``DKIOCGETBLOCKCOUNT``, the total
-            # number of blocks, by ``DKIOCGETBLOCKSIZE``, the size of
-            # each block in bytes.
-        }
     }
 
     platform_params = ioctl_map[platform.system()]
@@ -1312,15 +1423,12 @@ ioctl's for querying block device sizes:
     for req_name, fmt, request_code in platform_params['request_params']:
         # Read the systems native size (in bytes) of this format type.
         buffer_size = struct.calcsize(fmt)
-        # Construct a buffer to store the ioctl result in
-        buffer = ' ' * buffer_size
-
         # This code has been ran on only a few test systems. If it's
         # appropriate, maybe in the future we'll add try/except
         # conditions for some possible errors. Really only for cases
         # where it would add value to override the default exception
         # message string.
-        buffer = fcntl.ioctl(device_fd.fileno(), request_code, buffer)
+        buffer = fcntl.ioctl(device_fd.fileno(), request_code, b'\x00' * buffer_size)
 
         # Unpack the raw result from the ioctl call into a familiar
         # python data type according to the ``fmt`` rules.
@@ -1331,7 +1439,72 @@ ioctl's for querying block device sizes:
     return Byte(platform_params['func'](results))
 
 
-def getsize(path, bestprefix=True, system=NIST):
+class Capacity(NamedTuple):
+    """Capacity of a filesystem volume returned by :func:`query_capacity`."""
+    total: 'Bitmath'
+    used: 'Bitmath'
+    free: 'Bitmath'
+
+
+# Matches a bare drive letter: "C", "c", "C:", "c:" — nothing else.
+_DRIVE_LETTER_RE = re.compile(r'^[A-Za-z]:?$')
+
+
+def query_capacity(path: Union[str, os.PathLike], bestprefix: bool = True,
+                   system: int = NIST) -> Capacity:
+    """Return the total, used, and free capacity of the volume at ``path``.
+
+This is the recommended API for querying volume or mount-point size. It
+works cross-platform without elevated privileges.
+
+   :param path: A path on the filesystem volume to query. On Windows, a
+   bare drive letter (``"C"``, ``"C:"``) is normalized to ``"C:\\"``.
+   :param bool bestprefix: When ``True`` (default), each field of the
+   returned :class:`Capacity` is already normalized via
+   :meth:`~bitmath.Bitmath.best_prefix` for human-readable output.
+   When ``False``, each field is a raw :class:`bitmath.Byte`.
+   :param int system: Unit system to use when ``bestprefix`` is ``True``.
+   Either :data:`bitmath.NIST` (default, binary prefixes like ``GiB``)
+   or :data:`bitmath.SI` (decimal prefixes like ``GB``). Ignored when
+   ``bestprefix`` is ``False``.
+
+   :return: A :class:`Capacity` NamedTuple with ``total``, ``used``, and
+   ``free`` fields, each a :class:`bitmath.Bitmath` instance.
+
+   :raises FileNotFoundError: if ``path`` does not exist.
+   :raises PermissionError: if the process lacks access to query ``path``.
+
+Example — attribute access (human-readable by default)::
+
+   cap = bitmath.query_capacity("/")
+   print(cap.total)   # e.g. 465.762 GiB
+
+Example — tuple unpacking::
+
+   total, used, free = bitmath.query_capacity("/")
+
+Example — raw bytes and SI prefixes::
+
+   cap_raw = bitmath.query_capacity("/", bestprefix=False)
+   cap_si = bitmath.query_capacity("/", system=bitmath.SI)
+"""
+    normalized: Union[str, os.PathLike] = path
+    if os.name == 'nt':
+        s = str(path).upper()
+        if _DRIVE_LETTER_RE.match(s):
+            normalized = s.rstrip(':') + ':\\'
+    usage = shutil.disk_usage(normalized)
+    total, used, free = Byte(usage.total), Byte(usage.used), Byte(usage.free)
+    if bestprefix:
+        return Capacity(
+            total.best_prefix(system=system),
+            used.best_prefix(system=system),
+            free.best_prefix(system=system),
+        )
+    return Capacity(total, used, free)
+
+
+def getsize(path: str, bestprefix: bool = True, system: int = NIST) -> Bitmath:
     """Return a bitmath instance in the best human-readable representation
 of the file size at `path`. Optionally, provide a preferred unit
 system by setting `system` to either `bitmath.NIST` (default) or
@@ -1348,8 +1521,14 @@ instances back.
         return Byte(size_bytes)
 
 
-def listdir(search_base, followlinks=False, filter='*',
-            relpath=False, bestprefix=False, system=NIST):
+def listdir(
+    search_base: str,
+    followlinks: bool = False,
+    filter: str = '*',
+    relpath: bool = False,
+    bestprefix: bool = False,
+    system: int = NIST,
+) -> Iterator[tuple[str, Bitmath]]:
     """This is a generator which recurses the directory tree
 `search_base`, yielding 2-tuples of:
 
@@ -1386,213 +1565,236 @@ def listdir(search_base, followlinks=False, filter='*',
                 yield (_return_path, getsize(_path, bestprefix=bestprefix, system=system))
             else:
                 if os.path.isdir(_path) or os.path.islink(_path):
-                    pass
+                    pass  # pragma: no cover
                 else:
                     yield (_return_path, getsize(_path, bestprefix=bestprefix, system=system))
 
 
-def parse_string(s):
-    """Parse a string with units and try to make a bitmath object out of
-it.
+def parse_string(s: str | numbers.Number, system: int = NIST, strict: bool = True) -> Bitmath:
+    """Parse a string with units and return a bitmath instance.
 
 String inputs may include whitespace characters between the value and
 the unit.
+
+:param s: The string to parse.
+:param system: Unit system to use when ``strict=False``. Ignored when
+    ``strict=True`` (the default). Set to ``bitmath.NIST`` (default)
+    or ``bitmath.SI``.
+:param strict: When ``True`` (default), the unit must be an exact
+    bitmath type name (e.g. ``"KiB"``, ``"MB"``). When ``False``,
+    accepts ambiguous input such as plain numbers, numeric strings,
+    and case-insensitive single-letter units (e.g. ``"4k"``,
+    ``"2.7M"``); see caveats below.
+
+When ``strict=False`` the following rules apply:
+
+* All inputs are assumed to be byte-based (not bit-based)
+* Plain numbers and numeric strings are assumed to be bytes
+* Single-letter units (``k``, ``M``, ``G``, etc.) are assumed NIST
+  unless ``system=bitmath.SI``
+* Inputs with an ``i`` after the leading letter (``Ki``, ``Mi``)
+  are treated as NIST units
+* Capitalisation does not matter
+
+The result is returned in the parsed unit system. To coerce the result
+into a preferred unit system call ``.best_prefix(system=system)`` on
+the return value::
+
+    parse_string("4k", strict=False).best_prefix(system=bitmath.SI)
+
+.. versionchanged:: 2.0.0
+   Added ``strict`` and ``system`` parameters. When ``strict=True``
+   (default) behavior is identical to the original function.
+   When ``strict=False`` the behavior of the former
+   ``parse_string_unsafe`` is applied. The ``system`` parameter
+   defaults to ``bitmath.NIST`` and is ignored when ``strict=True``.
     """
-    # Strings only please
-    if not isinstance(s, (str, unicode)):
-        raise ValueError("parse_string only accepts string inputs but a %s was given" %
-                         type(s))
+    if strict:
+        # Strings only please
+        if not isinstance(s, str):
+            raise ValueError(f"parse_string only accepts string inputs but a {type(s)} was given")
 
-    # get the index of the first alphabetic character
-    try:
-        index = list([i.isalpha() for i in s]).index(True)
-    except ValueError:
-        # If there's no alphabetic characters we won't be able to .index(True)
-        raise ValueError("No unit detected, can not parse string '%s' into a bitmath object" % s)
-
-    # split the string into the value and the unit
-    val, unit = s[:index], s[index:]
-
-    # see if the unit exists as a type in our namespace
-
-    if unit == "b":
-        unit_class = Bit
-    elif unit == "B":
-        unit_class = Byte
-    else:
-        if not (hasattr(sys.modules[__name__], unit) and isinstance(getattr(sys.modules[__name__], unit), type)):
-            raise ValueError("The unit %s is not a valid bitmath unit" % unit)
-        unit_class = globals()[unit]
-
-    try:
-        val = float(val)
-    except ValueError:
-        raise
-    try:
-        return unit_class(val)
-    except:  # pragma: no cover
-        raise ValueError("Can't parse string %s into a bitmath object" % s)
-
-
-def parse_string_unsafe(s, system=SI):
-    """Attempt to parse a string with ambiguous units and try to make a
-bitmath object out of it.
-
-This may produce inaccurate results if parsing shell output. For
-example `ls` may say a 2730 Byte file is '2.7K'. 2730 Bytes == 2.73 kB
-~= 2.666 KiB. See the documentation for all of the important details.
-
-Note the following caveats:
-
-* All inputs are assumed to be byte-based (as opposed to bit based)
-
-* Numerical inputs (those without any units) are assumed to be a
-  number of bytes
-
-* Inputs with single letter units (k, M, G, etc) are assumed to be SI
-  units (base-10). Set the `system` parameter to `bitmath.NIST` to
-  change this behavior.
-
-* Inputs with an `i` character following the leading letter (Ki, Mi,
-  Gi) are assumed to be NIST units (base 2)
-
-* Capitalization does not matter
-
-    """
-    if not isinstance(s, (str, unicode)) and \
-       not isinstance(s, numbers.Number):
-        raise ValueError("parse_string_unsafe only accepts string/number inputs but a %s was given" %
-                         type(s))
-
-    ######################################################################
-    # Is the input simple to parse? Just a number, or a number
-    # masquerading as a string perhaps?
-
-    # Test case: raw number input (easy!)
-    if isinstance(s, numbers.Number):
-        # It's just a number. Assume bytes
-        return Byte(s)
-
-    # Test case: a number pretending to be a string
-    if isinstance(s, (str, unicode)):
+        # get the index of the first alphabetic character
         try:
-            # Can we turn it directly into a number?
-            return Byte(float(s))
-        except ValueError:
-            # Nope, this is not a plain number
-            pass
+            index = next(i for i, c in enumerate(s) if c.isalpha())
+        except StopIteration:
+            # If there's no alphabetic characters we won't be able to find a match
+            raise ValueError(f"No unit detected, can not parse string '{s}' into a bitmath object")
 
-    ######################################################################
-    # At this point:
-    # - the input is also not just a number wrapped in a string
-    # - nor is is just a plain number type
-    #
-    # We need to do some more digging around now to figure out exactly
-    # what we were given and possibly normalize the input into a
-    # format we can recognize.
+        # split the string into the value and the unit
+        val, unit = s[:index], s[index:]
 
-    # First we'll separate the number and the unit.
-    #
-    # Get the index of the first alphabetic character
-    try:
-        index = list([i.isalpha() for i in s]).index(True)
-    except ValueError:  # pragma: no cover
-        # If there's no alphabetic characters we won't be able to .index(True)
-        raise ValueError("No unit detected, can not parse string '%s' into a bitmath object" % s)
-
-    # Split the string into the value and the unit
-    val, unit = s[:index], s[index:]
-
-    # Don't trust anything. We'll make sure the correct 'b' is in place.
-    unit = unit.rstrip('Bb')
-    unit += 'B'
-
-    # At this point we can expect `unit` to be either:
-    #
-    # - 2 Characters (for SI, ex: kB or GB)
-    # - 3 Caracters (so NIST, ex: KiB, or GiB)
-    #
-    # A unit with any other number of chars is not a valid unit
-
-    # SI
-    if len(unit) == 2:
-        # Has NIST parsing been requested?
-        if system == NIST:
-            # NIST units requested. Ensure the unit begins with a
-            # capital letter and is followed by an 'i' character.
-            unit = capitalize_first(unit)
-            # Insert an 'i' char after the first letter
-            _unit = list(unit)
-            _unit.insert(1, 'i')
-            # Collapse the list back into a 3 letter string
-            unit = ''.join(_unit)
-            unit_class = globals()[unit]
+        # see if the unit exists as a type in our namespace
+        if unit == "b":
+            unit_class = Bit
+        elif unit == "B":
+            unit_class = Byte
         else:
-            # Default parsing (SI format)
-            #
-            # Edge-case checking: SI 'thousand' is a lower-case K
-            if unit.startswith('K'):
-                unit = unit.replace('K', 'k')
-            elif not unit.startswith('k'):
-                # Otherwise, ensure the first char is capitalized
-                unit = capitalize_first(unit)
-
-            # This is an SI-type unit
-            if unit[0] in SI_PREFIXES:
-                unit_class = globals()[unit]
-    # NIST
-    elif len(unit) == 3:
-        unit = capitalize_first(unit)
-
-        # This is a NIST-type unit
-        if unit[:2] in NIST_PREFIXES:
+            if not (hasattr(sys.modules[__name__], unit) and isinstance(getattr(sys.modules[__name__], unit), type)):
+                raise ValueError(f"The unit {unit} is not a valid bitmath unit")
             unit_class = globals()[unit]
+
+        try:
+            val = float(val)
+        except ValueError:
+            raise
+        return unit_class(val)
+
     else:
-        # This is not a unit we recognize
-        raise ValueError("The unit %s is not a valid bitmath unit" % unit)
+        # strict=False path (formerly parse_string_unsafe)
+        if not isinstance(s, str) and not isinstance(s, numbers.Number):
+            raise ValueError(f"parse_string only accepts string/number inputs but a {type(s)} was given")
 
-    try:
-        unit_class
-    except UnboundLocalError:
-        raise ValueError("The unit %s is not a valid bitmath unit" % unit)
+        # Test case: raw number input (easy!)
+        if isinstance(s, numbers.Number):
+            return Byte(s)
 
-    return unit_class(float(val))
+        # Test case: a number pretending to be a string
+        if isinstance(s, str):
+            try:
+                return Byte(float(s))
+            except ValueError:
+                pass
+
+        # At this point the input is a string with a unit component.
+        # Separate the number and the unit.
+        try:
+            index = next(i for i, c in enumerate(s) if c.isalpha())
+        except StopIteration:  # pragma: no cover
+            raise ValueError(f"No unit detected, can not parse string '{s}' into a bitmath object")
+
+        val, unit = s[:index], s[index:]
+
+        # Explicit base-unit and word-form checks: handle B, b, bit(s),
+        # byte(s) before the prefix-normalization logic below.
+        _unit_lower = unit.lower()
+        if unit == 'B' or _unit_lower in ('byte', 'bytes'):
+            return Byte(float(val))
+        if unit == 'b' or _unit_lower in ('bit', 'bits'):
+            return Bit(float(val))
+
+        # Normalise: strip trailing b/B and append 'B' so we always
+        # work with byte-family units regardless of what was supplied.
+        unit = unit.rstrip('Bb')
+        unit += 'B'
+
+        if len(unit) == 2:
+            if system == NIST:
+                unit = capitalize_first(unit)
+                _unit = list(unit)
+                _unit.insert(1, 'i')
+                unit = ''.join(_unit)
+                if unit in globals():
+                    unit_class = globals()[unit]
+            else:
+                if unit.startswith('K'):
+                    unit = unit.replace('K', 'k')
+                elif not unit.startswith('k'):
+                    unit = capitalize_first(unit)
+                if unit[0] in SI_PREFIXES:
+                    unit_class = globals()[unit]
+        elif len(unit) == 3:
+            unit = capitalize_first(unit)
+            if unit[:2] in NIST_PREFIXES:
+                unit_class = globals()[unit]
+        else:
+            raise ValueError(f"The unit {unit} is not a valid bitmath unit")
+
+        try:
+            unit_class
+        except UnboundLocalError:
+            raise ValueError(f"The unit {unit} is not a valid bitmath unit")
+
+        return unit_class(float(val))
+
+
+def parse_string_unsafe(s: str | numbers.Number, system: int = NIST) -> Bitmath:
+    """Deprecated wrapper for ``parse_string(s, strict=False, system=system)``.
+
+.. deprecated:: 2.0.0
+   ``parse_string_unsafe`` is deprecated and will be removed in a
+   future release. Use ``parse_string(s, strict=False,
+   system=system)`` instead.
+
+   To suppress this warning::
+
+       import warnings
+       warnings.filterwarnings('ignore', category=DeprecationWarning,
+                               module='bitmath')
+    """
+    import warnings
+    warnings.warn(
+        "parse_string_unsafe is deprecated as of 2.0.0 and will be removed "
+        "in a future release. Use parse_string(s, strict=False, system=system) "
+        "instead. To suppress: "
+        "warnings.filterwarnings('ignore', category=DeprecationWarning, module='bitmath')",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return parse_string(s, system=system, strict=False)
+
+
+def sum(iterable: Iterable[Bitmath], start: Bitmath | None = None) -> Bitmath:
+    """Sum an iterable of bitmath instances, returning a Byte by default.
+
+The built-in sum() also works with bitmath objects: the __radd__
+identity (0 + bm = bm) means sum() preserves the type of the first
+element. Use bitmath.sum() instead when you need the result normalised
+to a specific unit regardless of input types — it accumulates into
+Byte(0) by default, or into the provided start instance.
+
+- bitmath.sum([MiB(1), GiB(1)]) -> Byte(1074790400.0)
+- bitmath.sum([KiB(1), KiB(2)], start=MiB(0)) -> MiB(0.0029296875)
+"""
+    result = Byte(0) if start is None else start
+    for item in iterable:
+        result = result + item
+    return result
 
 
 ######################################################################
-# Contxt Managers
+# Context Managers
 @contextlib.contextmanager
-def format(fmt_str=None, plural=False, bestprefix=False):
-    """Context manager for printing bitmath instances.
+def format(fmt_str: str | None = None, plural: bool = False, bestprefix: bool = False) -> Generator[None, None, None]:
+    """Thread-safe context manager for printing bitmath instances.
 
-``fmt_str`` - a formatting mini-language compat formatting string. See
+``fmt_str`` - a formatting mini-language compatible string. See
 the @properties (above) for a list of available items.
 
-``plural`` - True enables printing instances with 's's if they're
+``plural`` - True enables printing instances with 's' if they're
 plural. False (default) prints them as singular (no trailing 's').
 
-``bestprefix`` - True enables printing instances in their best
-human-readable representation. False, the default, prints instances
-using their current prefix unit.
+``bestprefix`` - True converts instances to their best human-readable
+prefix unit before formatting. False (default) formats the instance
+as its current prefix unit.
+
+All settings are thread-local: concurrent contexts in different threads
+are fully isolated from one another. Nested contexts within the same
+thread correctly save and restore the enclosing context's settings.
     """
-    if 'bitmath' not in globals():
-        import bitmath
+    prev_fmt = getattr(_thread_local, 'format_string', _FMT_SENTINEL)
+    prev_plural = getattr(_thread_local, 'format_plural', _FMT_SENTINEL)
+    prev_bestprefix = getattr(_thread_local, 'bestprefix', _FMT_SENTINEL)
 
-    if plural:
-        orig_fmt_plural = bitmath.format_plural
-        bitmath.format_plural = True
+    _thread_local.format_string = fmt_str if fmt_str is not None else format_string
+    _thread_local.format_plural = plural
+    _thread_local.bestprefix = bestprefix
 
-    if fmt_str:
-        orig_fmt_str = bitmath.format_string
-        bitmath.format_string = fmt_str
-
-    yield
-
-    if plural:
-        bitmath.format_plural = orig_fmt_plural
-
-    if fmt_str:
-        bitmath.format_string = orig_fmt_str
+    try:
+        yield
+    finally:
+        if prev_fmt is _FMT_SENTINEL:
+            del _thread_local.format_string
+        else:
+            _thread_local.format_string = prev_fmt
+        if prev_plural is _FMT_SENTINEL:
+            del _thread_local.format_plural
+        else:
+            _thread_local.format_plural = prev_plural
+        if prev_bestprefix is _FMT_SENTINEL:
+            del _thread_local.bestprefix
+        else:
+            _thread_local.bestprefix = prev_bestprefix
 
 
 def cli_script_main(cli_args):

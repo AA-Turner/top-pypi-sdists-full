@@ -56,7 +56,7 @@ class DatasetRevision(Protocol):
     """Filters performed on the dataset."""
 
     num_partitions: int
-    """Number of partitions for revision job."""
+    """Number of partitions that the revision job should eventually have when completed."""
 
     output_uris: str
     """Location of the outputs stored for the dataset."""
@@ -102,6 +102,7 @@ class DatasetRevision(Protocol):
     """Whether the offline query corresponding to this revision had errors."""
 
     partitions: list[DatasetPartition]
+    """All partitions that have been computed already."""
 
     metadata: Mapping[str, Any] | None = None
 

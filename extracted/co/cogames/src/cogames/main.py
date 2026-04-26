@@ -50,7 +50,7 @@ def _run_metadata_only_cli() -> None:
     @metadata_app.command("mission", hidden=True)
     def _missions_cmd(
         mission_filter: Optional[str] = typer.Argument(None, metavar="MISSION"),
-        game_name: str = typer.Option("cogs_vs_clips", "--game", help="Game whose missions to list."),
+        game_name: str = typer.Option("cogsguard", "--game", help="Game whose missions to list."),
     ) -> None:
         list_missions(mission_filter, game_name=game_name)
 
@@ -97,27 +97,21 @@ from cogames.cli.season import season_app
 from cogames.cli.submit import (
     DEFAULT_EPISODE_RUNNER_IMAGE,
     DEFAULT_SUBMIT_SERVER,
-    RESULTS_URL,
     create_bundle,
     ensure_docker_daemon_access,
     observatory_profile_url,
     upload_policy,
     validate_bundle_docker,
 )
+from cogames.curricula import make_rotation
 from cogames.device import resolve_training_device
 from cogames.display_detect import has_display
-from cogames.games.cogs_vs_clips.train.curricula import make_rotation
 from cogames.optional_deps import require_neural
 from cogames.seed import seed_rollout_rng
 from softmax.auth import DEFAULT_COGAMES_SERVER, load_current_cogames_token
 
 # Always add current directory to Python path so optional plugins in the repo are discoverable.
 sys.path.insert(0, ".")
-
-try:  # Optional plugin
-    from tribal_village_env.cogames import register_cli as register_tribal_cli  # type: ignore[import-not-found]
-except ImportError:  # pragma: no cover - plugin optional
-    register_tribal_cli = None
 
 
 logger = logging.getLogger("cogames.main")
@@ -128,15 +122,11 @@ _DOC_DESCRIPTIONS: dict[str, str] = {
     "mission": "Mission briefing for CvC Deployment",
     "technical_manual": "Technical manual for Cogames",
     "scripted_agent": "Scripted agent policy documentation",
-    "evals": "Evaluation missions documentation",
-    "mapgen": "Cogs vs Clips map generation documentation",
 }
 _DOC_RESOURCE_PATHS: dict[str, tuple[str, ...]] = {
     "mission": ("docs", "MISSION.md"),
     "technical_manual": ("docs", "TECHNICAL_MANUAL.md"),
     "scripted_agent": ("docs", "SCRIPTED_AGENT.md"),
-    "evals": ("games", "cogs_vs_clips", "evals", "README.md"),
-    "mapgen": ("games", "cogs_vs_clips", "docs", "cogs_vs_clips_mapgen.md"),
 }
 
 _POLICY_FREE_COMMANDS = {
@@ -225,11 +215,23 @@ def _validate_policy_name_or_exit(name: str) -> None:
         raise typer.Exit(1)
 
 
-def _print_async_submission_follow_up(policy_name: str, season_name: str) -> None:
+def _print_async_submission_follow_up(
+    policy_name: str,
+    season_name: str,
+    policy_version_id: UUID,
+    login_server_url: str,
+) -> None:
+    profile_url = observatory_profile_url(policy_version_id, login_server_url=login_server_url)
+    browser_skip_reason = _submit_browser_launch_skip_reason()
+    if browser_skip_reason is None:
+        webbrowser.open(profile_url)
+    else:
+        console.print(f"[dim]Browser launch skipped: {browser_skip_reason}[/dim]")
+    console.print(f"[dim]Profile:[/dim] {profile_url}")
     console.print("[dim]Evaluation runs asynchronously. Check status with:[/dim]")
     console.print(f"[dim]  cogames submissions --season {season_name} --policy {policy_name}[/dim]")
     console.print(f"[dim]  cogames leaderboard {season_name} --policy {policy_name}[/dim]")
-    console.print(f"[dim]Results:[/dim] {RESULTS_URL}")
+    console.print("[dim]To submit the next version, run the same upload command again.[/dim]")
 
 
 app = typer.Typer(
@@ -247,9 +249,6 @@ tutorial_app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-
-if register_tribal_cli is not None:
-    register_tribal_cli(app)
 
 
 @app.command(
@@ -295,7 +294,7 @@ def tutorial_cmd(
     console.print("[dim]Initializing Mettascope...[/dim]")
 
     # Load tutorial mission (CvC)
-    from cogames.games.cogs_vs_clips.missions.machina_1 import make_machina1_mission  # noqa: PLC0415
+    from cogsguard.missions.machina_1 import make_machina1_mission  # noqa: PLC0415
 
     # Create environment config
     env_cfg = make_machina1_mission(num_agents=1, max_steps=1000).make_env()
@@ -348,7 +347,7 @@ def cvc_tutorial_cmd(
     console.print("[dim]Initializing Mettascope...[/dim]")
 
     # Load CvC tutorial mission
-    from cogames.games.cogs_vs_clips.missions.tutorial import make_tutorial_mission  # noqa: PLC0415
+    from cogsguard.missions.tutorial import make_tutorial_mission  # noqa: PLC0415
 
     env_cfg = make_tutorial_mission().make_env()
     console.print("[dim]Tutorial phases appear in-game. Press Enter or click Next to advance.[/dim]")
@@ -409,7 +408,7 @@ This command has two modes:
 def games_cmd(
     ctx: typer.Context,
     game_name: str = typer.Option(
-        "cogs_vs_clips",
+        "cogsguard",
         "--game",
         help="Game whose missions to list or describe.",
         rich_help_panel="Describe",
@@ -557,7 +556,7 @@ def variants_cmd(
     if dependencies:
         from cogames.game import get_game  # noqa: PLC0415
 
-        print_variant_graph(get_game("cogs_vs_clips"), console)
+        print_variant_graph(get_game("cogsguard"), console)
     else:
         list_variants()
 
@@ -654,10 +653,10 @@ def play_cmd(
     ctx: typer.Context,
     # --- Game Setup ---
     game: str = typer.Option(
-        "cogs_vs_clips",
+        "cogsguard",
         "--game",
         metavar="GAME",
-        help="Game to play (default: cogs_vs_clips).",
+        help="Game to play (default: cogsguard).",
         rich_help_panel="Game Setup",
     ),
     mission: Optional[str] = typer.Option(
@@ -2220,7 +2219,10 @@ def upload_cmd(
 ) -> None:
     _validate_policy_name_or_exit(name)
 
-    season_info = _resolve_season(server, login_server, season)
+    submitting = not no_submit
+    submission_season = season
+    if submitting and submission_season is None:
+        submission_season = _resolve_season(server, login_server).name
 
     init_kwargs: dict[str, str] = {}
     if init_kwarg:
@@ -2228,7 +2230,6 @@ def upload_cmd(
             key, val = _parse_init_kwarg(kv)
             init_kwargs[key] = val
 
-    submitting = not no_submit
     parsed_secret_env: dict[str, str] = {}
     if use_bedrock:
         parsed_secret_env["USE_BEDROCK"] = "true"
@@ -2248,7 +2249,8 @@ def upload_cmd(
         skip_validation=skip_validation,
         init_kwargs=init_kwargs if init_kwargs else None,
         setup_script=setup_script,
-        season=season_info.name if submitting else None,
+        validation_season=submission_season,
+        submission_season=submission_season if submitting else None,
         image=image,
         secret_env=parsed_secret_env if parsed_secret_env else None,
     )
@@ -2260,7 +2262,9 @@ def upload_cmd(
             return
         if result.pools:
             console.print(f"[dim]Added to pools: {', '.join(result.pools)}[/dim]")
-        _print_async_submission_follow_up(result.name, season_info.name)
+        if submission_season is None:
+            raise AssertionError("submitting upload must resolve a season")
+        _print_async_submission_follow_up(result.name, submission_season, result.policy_version_id, login_server)
 
 
 @app.command(
@@ -2357,13 +2361,12 @@ def submit_cmd(
     if result.pools:
         console.print(f"[dim]Added to pools: {', '.join(result.pools)}[/dim]")
     profile_url = observatory_profile_url(pv.id, login_server_url=login_server)
-    console.print(f"[dim]Profile:[/dim] {profile_url}")
     browser_skip_reason = _submit_browser_launch_skip_reason()
     if browser_skip_reason is None:
         webbrowser.open(profile_url)
     else:
         console.print(f"[dim]Browser launch skipped: {browser_skip_reason}[/dim]")
-    console.print(f"[dim]Results:[/dim] {RESULTS_URL}")
+    console.print(f"[dim]Profile:[/dim] {profile_url}")
     console.print(f"[dim]CLI:[/dim] cogames leaderboard --season {season_name}")
 
 
@@ -2491,7 +2494,8 @@ def ship_cmd(
         skip_validation=skip_validation,
         init_kwargs=init_kwargs if init_kwargs else None,
         setup_script=setup_script,
-        season=season_info.name,
+        validation_season=season_info.name,
+        submission_season=season_info.name,
         image=image,
     )
 
@@ -2502,11 +2506,7 @@ def ship_cmd(
     if result.pools:
         console.print(f"[dim]Added to pools: {', '.join(result.pools)}[/dim]")
 
-    if dry_run:
-        console.print(f"[dim]Results:[/dim] {RESULTS_URL}")
-        return
-
-    _print_async_submission_follow_up(result.name, season_info.name)
+    _print_async_submission_follow_up(result.name, season_info.name, result.policy_version_id, login_server)
 
 
 @app.command(

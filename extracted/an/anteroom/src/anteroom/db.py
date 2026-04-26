@@ -599,6 +599,24 @@ CREATE TABLE IF NOT EXISTS background_tasks (
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS feedback_reports (
+    id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    conversation_id TEXT,
+    description TEXT NOT NULL DEFAULT '',
+    reporter_name TEXT NOT NULL DEFAULT 'local',
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending', 'sent', 'failed')),
+    error TEXT NOT NULL DEFAULT '',
+    payload_hash TEXT NOT NULL DEFAULT '',
+    bundle_json TEXT NOT NULL DEFAULT '{}',
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 1,
+    last_attempt_at TEXT,
+    next_retry_at TEXT
+);
+
 """
 
 _FTS_SCHEMA = """
@@ -2489,6 +2507,28 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
             )"""
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_wri_run_unconsumed ON workflow_run_inputs(run_id, consumed_at)")
+
+    # Feedback reports table (#1576)
+    if "feedback_reports" not in all_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS feedback_reports (
+                id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                conversation_id TEXT,
+                description TEXT NOT NULL DEFAULT '',
+                reporter_name TEXT NOT NULL DEFAULT 'local',
+                status TEXT NOT NULL DEFAULT 'pending'
+                    CHECK(status IN ('pending', 'sent', 'failed')),
+                error TEXT NOT NULL DEFAULT '',
+                payload_hash TEXT NOT NULL DEFAULT '',
+                bundle_json TEXT NOT NULL DEFAULT '{}',
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                max_attempts INTEGER NOT NULL DEFAULT 1,
+                last_attempt_at TEXT,
+                next_retry_at TEXT
+            )"""
+        )
 
     # Add message-level and source-chunk-level FTS5 tables for hybrid search (#810)
     try:

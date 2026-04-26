@@ -246,6 +246,7 @@ nav:
       - api/messages.md
       - api/spaces.md
       - api/memory.md
+      - api/feedback.md
       - api/config.md
       - api/usage.md
   - Develop:

@@ -102,6 +102,33 @@ class TestUnpack:
         assert not (dest_dir / "evals").exists()
         assert not (dest_dir / "demos").exists()
 
+    def test_unpacked_docs_can_use_internal_project_profile(
+        self,
+        fake_bundled: Path,
+        dest_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        (fake_bundled / "README.md").write_text("git clone https://github.com/troylar/anteroom.git\n")
+        (fake_bundled / "docs" / "index.md").write_text(
+            "See [#1580](https://github.com/troylar/anteroom/issues/1580).\n"
+        )
+        (fake_bundled / "mkdocs.yml").write_text(
+            "site_name: test\nrepo_url: https://github.com/troylar/anteroom\nrepo_name: troylar/anteroom\n"
+        )
+        monkeypatch.setenv("ANTEROOM_PROJECT_PROFILE", "neutral")
+        monkeypatch.setenv("ANTEROOM_PROJECT_NAME", "Internal Gateway")
+        monkeypatch.setenv("ANTEROOM_PROJECT_REPO_LABEL", "gitlab.internal/platform/gateway")
+        monkeypatch.setenv("ANTEROOM_PROJECT_REPO_URL", "https://gitlab.internal/platform/gateway")
+
+        with patch("anteroom.unpack._bundled_root", return_value=fake_bundled):
+            unpack(dest_dir)
+
+        rendered = "\n".join(
+            path.read_text() for path in (dest_dir / item for item in ("README.md", "mkdocs.yml", "docs/index.md"))
+        )
+        assert "github.com/troylar/anteroom" not in rendered
+        assert "gitlab.internal/platform/gateway" in rendered
+
     def test_skips_symlinks_escaping_bundled_root(self, fake_bundled: Path, dest_dir: Path, tmp_path: Path) -> None:
         """Symlinks pointing outside the bundled root are not copied."""
         outside = tmp_path / "outside"

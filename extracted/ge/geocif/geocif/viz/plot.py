@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 
 import cartopy
 import geopandas as gpd
@@ -112,28 +113,29 @@ def _draw_regions(ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
         if key:
             if series == "qualitative":
                 if isinstance(cmap, list):
-                    fc = cmap[(key - 1) % len(cmap)]
+                    fc = _normalize_color(cmap[(key - 1) % len(cmap)])
                 else:
-                    fc = cmap.colors[(key - 1) % len(cmap.colors)]
+                    fc = _normalize_color(cmap.colors[(key - 1) % len(cmap.colors)])
             else:
                 fc = cmap.mpl_colormap(norm(key))
 
-            if df_comb["geometry"][i].geom_type == "MultiPolygon":
-                geom = df_comb["geometry"][i]
-            elif df_comb["geometry"][i].geom_type == "Polygon":
-                geom = [df_comb["geometry"][i]]
+            from shapely.ops import unary_union
+            raw_geom = df_comb["geometry"][i]
+            # Merge sub-polygons to remove internal edges
+            merged = unary_union(raw_geom)
+            geom = [merged] if merged.geom_type == "Polygon" else merged
 
             region_feature = ShapelyFeature(
                 geom,
                 ccrs.PlateCarree(),
                 facecolor=fc,
-                edgecolor="black",
-                linestyle=":",
-                linewidth=0.2,
+                edgecolor="black" if do_borders else "none",
+                linestyle="-",
+                linewidth=0.5 if do_borders else 0.0,
                 alpha=alpha_feature,
             )
 
-            lw = 0.2 if do_borders else 0.0
+            lw = 0.5 if do_borders else 0.0
             ax.add_feature(region_feature, linewidth=lw)
 
             if annotate_regions:
@@ -148,47 +150,24 @@ def _draw_regions(ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
                 )
 
 
-def _add_scalebar(ax, df_comb):
-    """Add a scalebar using the centroid of plotted data for accurate distance."""
-    from matplotlib_scalebar.scalebar import ScaleBar
-    from shapely.geometry.point import Point
-    import geopandas as gp
 
-    centroid = df_comb.geometry.unary_union.centroid
-    if centroid.is_empty:
-        return
-    utm_zone = int((centroid.x + 180) / 6) + 1
-    hemisphere = 326 if centroid.y >= 0 else 327
-    epsg = hemisphere * 100 + utm_zone
-    points = gp.GeoSeries(
-        [Point(centroid.x, centroid.y), Point(centroid.x + 1, centroid.y)], crs=4326
-    )
-    points = points.to_crs(epsg=epsg)
-    dx = points[0].distance(points[1])
-
-    ax.add_artist(
-        ScaleBar(
-            dx,
-            box_alpha=0.75,
-            frameon=False,
-            location="upper right",
-            font_properties={"family": "serif", "size": "xx-small"},
-        )
-    )
+def _normalize_color(raw):
+    """Normalize a color tuple from 0-255 ints to 0-1 floats if needed."""
+    if isinstance(raw, (list, tuple)) and any(isinstance(c, int) and c > 1 for c in raw):
+        return tuple(c / 255.0 for c in raw)
+    return raw
 
 
 def _add_qualitative_legend(ax, cmap, dict_lup, alpha_feature, loc_legend, label):
     """Add a qualitative (categorical) legend."""
     if isinstance(cmap, list):
-        legend_artists = [
-            Line([0], [0], color=color, linewidth=2, alpha=alpha_feature)
-            for color in cmap
-        ]
+        colors = [_normalize_color(c) for c in cmap]
     else:
-        legend_artists = [
-            Line([0], [0], color=color, linewidth=2, alpha=alpha_feature)
-            for color in cmap.colors
-        ]
+        colors = [_normalize_color(c) for c in cmap.colors]
+    legend_artists = [
+        Line([0], [0], color=c, linewidth=2, alpha=alpha_feature)
+        for c in colors
+    ]
     legend_texts = list(dict_lup.values())
 
     legend = plt.legend(
@@ -278,10 +257,9 @@ def _add_colorbar(ax, cmap, norm, breaks, loc_legend, label,
         major_ticks[0].tick2line.set_visible(False)
 
 
-def _set_extent_and_save(ax, fig, name_country, dir_out, fname):
-    """Set map extent to match countries and save figure."""
+def _set_extent(ax, name_country):
+    """Set map extent and add country borders."""
     if not name_country:
-        _save(fig, dir_out, fname)
         return
 
     if name_country != "world":
@@ -301,8 +279,11 @@ def _set_extent_and_save(ax, fig, name_country, dir_out, fname):
                 logger.error(f"Country not found in Natural Earth: {cntr}")
                 continue
             poly = matches["geometry"].values[0]
+            # Dissolve to single exterior boundary (avoids internal admin lines)
+            from shapely.ops import unary_union
+            poly = unary_union(poly)
             ax.add_geometries(
-                poly, crs=ccrs.PlateCarree(), facecolor="none", edgecolor="black"
+                [poly], crs=ccrs.PlateCarree(), facecolor="none", edgecolor="black"
             )
             _name_country.append(cntr_lower.replace(" ", "_"))
 
@@ -312,8 +293,10 @@ def _set_extent_and_save(ax, fig, name_country, dir_out, fname):
         if any(c in ("united_states_of_america", "united_states") for c in _name_country):
             extent = [-130, -60, 22, 52]
 
-        extent[3] = extent[3] + 2  # space for title
-        extent[2] = extent[2] - 3  # space for legend
+        # Scale padding proportionally to country height (minimal — buffer=1.0 already adds 1°)
+        lat_range = extent[3] - extent[2]
+        extent[3] = extent[3] + lat_range * 0.05  # ~5% for title
+        extent[2] = extent[2] - lat_range * 0.08  # ~8% for legend
         ax.set_extent(extent)
     else:
         ax.add_feature(cartopy.feature.LAND.with_scale("50m"), color="white")
@@ -325,13 +308,11 @@ def _set_extent_and_save(ax, fig, name_country, dir_out, fname):
         )
         ax.set_extent([-179, 180, -60, 85])
 
-    _save(fig, dir_out, fname)
-
 
 def _save(fig, dir_out, fname):
     """Save figure and close."""
     try:
-        plt.savefig(dir_out / fname, dpi=350, bbox_inches="tight")
+        plt.savefig(Path(dir_out) / fname, dpi=350, bbox_inches="tight")
         plt.close(fig)
     except (OSError, ValueError) as e:
         logger.warning(f"Failed to save figure {fname}: {e}")
@@ -367,6 +348,7 @@ def plot_map(
     classify_by="region",
     extend="neither",
     fixed_range=None,
+    ax=None,
 ):
     """Plot a choropleth map of regions colored by a data variable.
 
@@ -397,13 +379,16 @@ def plot_map(
         extend: Colorbar extend arrows ("neither", "both", "min", "max").
         fixed_range: Force colorbar to use exact vmin/vmax range. Default True for diverging.
     """
-    os.makedirs(dir_out, exist_ok=True)
-
     if fixed_range is None:
         fixed_range = (series == "diverging")
 
-    proj = ccrs.PlateCarree()
-    fig, ax = plt.subplots(subplot_kw={"projection": proj})
+    # When ax is provided, draw into it (caller owns fig/save).
+    # When ax is None, create our own fig and save to disk.
+    external_ax = ax is not None
+    if not external_ax:
+        os.makedirs(dir_out, exist_ok=True)
+        proj = ccrs.PlateCarree()
+        fig, ax = plt.subplots(subplot_kw={"projection": proj})
 
     if name_country == "world":
         annotate_regions = False
@@ -420,11 +405,8 @@ def plot_map(
         annotate_region_column,
     )
 
-    if name_country != "world":
-        _add_scalebar(ax, df_comb)
-
     if title:
-        plt.title(title, fontsize=4, fontweight="semibold")
+        ax.set_title(title, fontsize=4, fontweight="semibold")
 
     if series == "qualitative":
         _add_qualitative_legend(ax, cmap, dict_lup, alpha_feature, loc_legend, label)
@@ -435,4 +417,9 @@ def plot_map(
                 legend_dividers, continuous_colorbar, series, extend,
             )
 
-    _set_extent_and_save(ax, fig, name_country, dir_out, fname)
+    _set_extent(ax, name_country)
+
+    if not external_ax:
+        _save(fig, dir_out, fname)
+
+    return ax

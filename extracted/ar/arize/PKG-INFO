@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize
-Version: 8.18.0
+Version: 8.19.0
 Summary: A helper library to interact with Arize AI APIs
 Project-URL: Homepage, https://arize.com
 Project-URL: Documentation, https://docs.arize.com/arize
@@ -1104,6 +1104,18 @@ org = client.organizations.update(
     organization="<organization-id-or-name>",
     name=...,        # Optional updated name
     description=..., # Optional updated description (pass "" to clear)
+)
+```
+
+### Delete an Organization
+
+> **Warning:** This operation is irreversible. It permanently deletes the
+> organization and all resources that belong to it, including all spaces
+> and their contents.
+
+```python
+client.organizations.delete(
+    organization="<organization-id-or-name>",
 )
 ```
 

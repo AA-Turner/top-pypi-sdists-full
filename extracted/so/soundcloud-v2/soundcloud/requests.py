@@ -1,6 +1,5 @@
 import string
 from dataclasses import asdict, dataclass
-import sys
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -9,14 +8,17 @@ from typing import (
     Generator,
     Generic,
     List,
+    Literal,
     Optional,
+    Protocol,
     Tuple,
     Type,
     TypeVar,
     Union,
+    get_args,
+    get_origin,
 )
-
-import requests
+from urllib.parse import parse_qs, urljoin, urlparse
 
 from soundcloud.resource.aliases import Like, RepostItem, SearchItem, StreamItem
 from soundcloud.resource.base import BaseData
@@ -34,24 +36,6 @@ from soundcloud.resource.web_profile import WebProfile
 
 if TYPE_CHECKING:
     from soundcloud.soundcloud import SoundCloud
-
-if sys.version_info >= (3, 8):
-    from typing import Protocol
-else:
-    from typing_extensions import Protocol
-
-try:
-    from typing import get_args, get_origin  # type: ignore[attr-defined]
-except ImportError:
-    # get_args and get_origin for version < 3.8
-    def get_args(tp):  # type: ignore[misc]
-        return getattr(tp, "__args__", ())
-
-    def get_origin(tp):  # type: ignore[no-redef]
-        return getattr(tp, "__origin__", None)
-
-
-from urllib.parse import parse_qs, urljoin, urlparse
 
 
 def _convert_dict(d, return_type: Type[BaseData]):
@@ -75,7 +59,7 @@ class Request(Generic[T]):
     base = "https://api-v2.soundcloud.com"
     format_url: str
     return_type: Type[T]
-    method: str = "GET"
+    method: Literal["GET", "POST", "DELETE"] = "GET"
 
     def _format_url_and_remove_params(self, kwargs: dict) -> str:
         format_args = {
@@ -110,12 +94,16 @@ class Request(Generic[T]):
         if use_auth and client._authorization is not None:
             headers["Authorization"] = client._authorization
 
-        with requests.request(
-            self.method, resource_url, json=body, headers=headers, params=params
-        ) as r:
-            if r.status_code in (400, 404, 500):
-                return None
-            r.raise_for_status()
+        r = client._session.request(
+            self.method,
+            resource_url,
+            json=body,
+            headers=headers,
+            params=params,
+        )
+        if r.status_code in (400, 404, 500):
+            return None
+        r.raise_for_status()
 
         if self.return_type == NoContentResponse:
             return NoContentResponse(r.status_code)  # type: ignore[return-value]
@@ -150,20 +138,20 @@ class CollectionRequest(Request, Generic[T]):
         if use_auth and client._authorization is not None:
             headers["Authorization"] = client._authorization
         while resource_url:
-            with requests.get(resource_url, params=params, headers=headers) as r:
-                if r.status_code in (400, 404, 500):
-                    return
-                r.raise_for_status()
-                data = r.json()
-                for resource in data["collection"]:
-                    yield _convert_dict(resource, self.return_type)
-                resource_url = data.get("next_href", None)
-                parsed = urlparse(resource_url)
-                params = parse_qs(parsed.query)
-                params["client_id"] = [
-                    client.client_id
-                ]  # next_href doesn't contain client_id
-                resource_url = urljoin(resource_url, parsed.path)
+            r = client._session.get(resource_url, params=params, headers=headers)
+            if r.status_code in (400, 404, 500):
+                return
+            r.raise_for_status()
+            data = r.json()
+            for resource in data["collection"]:
+                yield _convert_dict(resource, self.return_type)
+            resource_url = data.get("next_href", None)
+            parsed = urlparse(resource_url)
+            params = parse_qs(parsed.query)
+            params["client_id"] = [
+                client.client_id
+            ]  # next_href doesn't contain client_id
+            resource_url = urljoin(resource_url, parsed.path)
 
 
 @dataclass
@@ -184,12 +172,12 @@ class ListRequest(Request, Generic[T]):
         if use_auth and client._authorization is not None:
             headers["Authorization"] = client._authorization
         resources = []
-        with requests.get(resource_url, params=params, headers=headers) as r:
-            if r.status_code in (400, 404, 500):
-                return []
-            r.raise_for_status()
-            for resource in r.json():
-                resources.append(_convert_dict(resource, self.return_type))
+        r = client._session.get(resource_url, params=params, headers=headers)
+        if r.status_code in (400, 404, 500):
+            return []
+        r.raise_for_status()
+        for resource in r.json():
+            resources.append(_convert_dict(resource, self.return_type))
         return resources
 
 
@@ -227,11 +215,11 @@ class GraphQLRequest(Generic[Q, T]):
             "variables": asdict(query_args),
         }
 
-        with requests.post(self.base, json=data, params=params, headers=headers) as r:
-            if r.status_code in (400, 404, 500):
-                return None
-            r.raise_for_status()
-            return _convert_dict(r.json()["data"], self.return_type)
+        r = client._session.post(self.base, json=data, params=params, headers=headers)
+        if r.status_code in (400, 404, 500):
+            return None
+        r.raise_for_status()
+        return _convert_dict(r.json()["data"], self.return_type)
 
 
 """

@@ -1,11 +1,11 @@
-# Copyright (C) 2003-2021, Stefan Schwarzer <sschwarzer@sschwarzer.net>
+# Copyright (C) 2003-2026, Stefan Schwarzer <sschwarzer@sschwarzer.net>
 # and ftputil contributors (see `doc/contributors.txt`)
 # See the file LICENSE for licensing terms.
 
 import datetime
 import ftplib
 import functools
-import time
+import warnings
 
 import pytest
 
@@ -56,6 +56,7 @@ class TestPath:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert not host.path.isdir("notthere")
             assert not host.path.isfile("notthere")
@@ -82,6 +83,7 @@ class TestPath:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert not host.path.isdir("/notthere/notthere")
             assert not host.path.isfile("/notthere/notthere")
@@ -114,6 +116,7 @@ class TestPath:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert host.path.isdir(test_dir)
             assert not host.path.isfile(test_dir)
@@ -144,6 +147,7 @@ class TestPath:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert not host.path.isdir(test_file)
             assert host.path.isfile(test_file)
@@ -192,6 +196,7 @@ class TestPath:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert not host.path.isdir(test_link)
             assert not host.path.isfile(test_link)
@@ -261,6 +266,7 @@ class TestPath:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert not host.path.isdir(test_file)
             assert host.path.isfile(test_file)
@@ -297,12 +303,15 @@ class TestPath:
         FTPOSError = ftputil.error.FTPOSError
         # Test if exceptions are propagated.
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             with pytest.raises(FTPOSError):
                 host.path.isdir("index.html")
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             with pytest.raises(FTPOSError):
                 host.path.isfile("index.html")
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             with pytest.raises(FTPOSError):
                 host.path.islink("index.html")
 
@@ -349,8 +358,10 @@ class TestPath:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             assert host.path.isdir("/home/bad_link") is False
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             assert host.path.isfile("/home/bad_link") is False
 
     def test_exists(self):
@@ -382,6 +393,7 @@ class TestPath:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert host.path.exists("some_file")
             assert not host.path.exists("notthere")
@@ -391,7 +403,6 @@ class TestPath:
 
 
 class TestAcceptEitherBytesOrStr:
-
     # Use path arguments directly
     path_converter = staticmethod(lambda path: path)
 
@@ -525,6 +536,7 @@ class TestAcceptEitherBytesOrStr:
             as_bytes, encoding=ftputil.path_encoding.FTPLIB_DEFAULT_ENCODING
         )
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             # `isabs`
             assert not host.path.isabs("ä")
@@ -565,10 +577,11 @@ class TestAcceptEitherBytesOrStr:
         # We don't care about the _exact_ time, so don't bother with timezone
         # differences. Instead, do a simple sanity check.
         day = 24 * 60 * 60  # seconds
-        mtime_makes_sense = (
+        mtime_makes_sense = (  # noqa: E731
             lambda mtime: expected_mtime - day <= mtime <= expected_mtime + day
         )
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert mtime_makes_sense(host.path.getmtime(path_converter(("ä"))))
             assert mtime_makes_sense(
@@ -609,6 +622,7 @@ class TestAcceptEitherBytesOrStr:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert host.path.getsize(path_converter("ä")) == 512
             assert (
@@ -668,15 +682,18 @@ class TestAcceptEitherBytesOrStr:
             del names[:]
 
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
-            host.path.walk(path_converter("ä"), func=noop, arg=None)
-            host.path.walk(
-                path_converter(
-                    as_bytes("ä", ftputil.path_encoding.FTPLIB_DEFAULT_ENCODING)
-                ),
-                func=noop,
-                arg=None,
-            )
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=DeprecationWarning)
+                host.path.walk(path_converter("ä"), func=noop, arg=None)
+                host.path.walk(
+                    path_converter(
+                        as_bytes("ä", ftputil.path_encoding.FTPLIB_DEFAULT_ENCODING)
+                    ),
+                    func=noop,
+                    arg=None,
+                )
 
 
 class Path:
@@ -688,6 +705,5 @@ class Path:
 
 
 class TestAcceptEitherBytesOrStrFromPath(TestAcceptEitherBytesOrStr):
-
     # Take path arguments from `Path(...)` objects
     path_converter = Path

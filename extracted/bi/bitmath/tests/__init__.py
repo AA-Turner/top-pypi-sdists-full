@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 # The MIT License (MIT)
 #
-# Copyright © 2014 Tim Bielawa <timbielawa@gmail.com>
+# Copyright © 2014 Tim Case <timbielawa@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -24,12 +25,7 @@
 # SOFTWARE.
 
 
-import platform
-(major, minor, patch) = platform.python_version_tuple()
-if int(major) == 2 and int(minor) < 7:
-    import unittest2 as unittest
-else:
-    import unittest
+import unittest
 
 
 class TestCase(unittest.TestCase):
@@ -37,9 +33,8 @@ class TestCase(unittest.TestCase):
     Parent TestCase to use for all tests.
     """
 
-    def assertListEqual(self, l1, l2, msg=None):
-        """Assert that the contents of l1 and l2 are equal (disregarding
-ordering)"""
+    def assertListEqualUnordered(self, l1, l2, msg=None):
+        """Assert that l1 and l2 contain the same elements regardless of order."""
         self.assertEqual(len(l1), len(l2))
 
         # OK, the lists are of the same size. Let's test that each

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.430
+Version: 0.4.493
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -206,6 +206,40 @@ spatial_neighbor_k = 5          ; number of nearest neighbors
 
 For each admin region, the neighbor graph is built from training data using haversine distances and Pearson yield correlations as edge weights. Neighbor-aggregated features are added as `nbr_*` columns and flow through standard feature selection.
 
+### Experiments
+
+The experiments runner (`geocif.experiments`) provides 6 experiments for model selection, feature importance, and hyperparameter tuning:
+
+| # | Config name | Internal name | What it does |
+|---|-------------|---------------|--------------|
+| 0 | `model_comparison` | `models` | Runs each model in `comparison_models` head-to-head. Produces Bradley-Terry ranking, scatter plots, MAPE bars. Identifies best model per country (required by experiments 1 & 2). |
+| 1 | `cid_ablation` | `cids` | Runs the best model once per CID Type in isolation (Cold alone, FLDAS alone, etc.). Shows which climate driver category contributes most. Produces MAPE-by-CID bar chart, region×CID heatmap, year×CID chart, CID rank over time. |
+| 2 | `region_filter` | `region_filter` | Drops low-production regions and re-runs the best model to test if excluding noisy regions improves national accuracy. |
+| 3 | `optuna` | `optuna` | Bayesian (TPE) search over ML hyperparameters (learning rate, depth, regularization, etc.). Produces convergence, parameter importance, and parallel coordinate plots. |
+| 4 | `optuna_cid_types` | `optuna_cid_types` | Bayesian search for the best combination of CID Type categories (e.g. Rain+VI+ESI may beat using all 8 types). |
+| 5 | `optuna_cid_indices` | `optuna_cid_indices` | Bayesian search for the best subset of individual CID indices (e.g. PRCPTOT + AUC_NDVI + TG90p). Capped at `max_cid_indices` per trial. |
+
+**Dependencies:** Experiments 1 and 2 require experiment 0 first. Experiments 3–5 are independent.
+
+Configure in `geocif.txt`:
+
+```ini
+[experiments]
+run_experiments = ["model_comparison", "cid_ablation"]
+comparison_models = ["catboost", "tabpfn", "tabicl"]
+n_trials = 30
+n_trials_cid_types = 30
+n_trials_cid_indices = 60
+max_cid_indices = 25
+```
+
+Run:
+
+```python
+from geocif import experiments
+experiments.run(cfg_geocif)
+```
+
 ### Experiments output
 
 The experiments runner writes to a dedicated DB and analysis folder under `dir_output`:
@@ -405,7 +439,7 @@ panel_model = True
 cat_features = ["Harvest Year", "Region_ID", "Region"]
 outlook_n_years = 10        ; Number of historical years for yield outlook comparison
 outlook_aggregation = mean  ; mean or median
-run_time_steps = latest         ; latest, all, or N (every Nth time period)
+run_time_steps = latest         ; latest, current, all, or N (every Nth time period)
 run_cluster_analysis = False
 cluster_analysis_proxy = AUC_NDVI
 cluster_analysis_max_k = 8

@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from anteroom.config import AIConfig
+from anteroom.services.token_estimator import estimate_usage
 from anteroom.services.token_provider import TokenProvider
 
 # Create mock exception hierarchy matching litellm's real exceptions.
@@ -248,6 +249,20 @@ class TestBuildKwargs:
         kwargs = svc._build_kwargs([{"role": "user", "content": "hi"}])
         assert kwargs["api_key"] == "sk-or-test-key"
 
+    def test_strips_local_message_metadata(self) -> None:
+        svc = _make_service()
+        messages = [
+            {
+                "role": "user",
+                "content": "hi",
+                "metadata": {"compact_preserved_tail": True},
+                "position": 2,
+            }
+        ]
+        kwargs = svc._build_kwargs(messages)
+        assert kwargs["messages"] == [{"role": "user", "content": "hi"}]
+        assert messages[0]["metadata"] == {"compact_preserved_tail": True}
+
 
 # ---------------------------------------------------------------------------
 # Streaming
@@ -350,6 +365,55 @@ class TestLiteLLMStreamChat:
         usage_events = [e for e in events if e["event"] == "usage"]
         assert len(usage_events) == 1
         assert usage_events[0]["data"]["prompt_tokens"] == 10
+
+    @pytest.mark.asyncio
+    async def test_stream_fallback_usage_includes_tools_and_dynamic_system_prompt(self) -> None:
+        svc = _make_service(_make_config(model="openrouter/openai/gpt-4o", system_prompt="Base system."))
+        chunk = MagicMock()
+        chunk.usage = None
+        chunk.choices = [MagicMock()]
+        chunk.choices[0].delta.content = "Hello"
+        chunk.choices[0].delta.tool_calls = None
+        chunk.choices[0].finish_reason = None
+
+        done_chunk = MagicMock()
+        done_chunk.usage = None
+        done_chunk.choices = [MagicMock()]
+        done_chunk.choices[0].delta.content = None
+        done_chunk.choices[0].delta.tool_calls = None
+        done_chunk.choices[0].finish_reason = "stop"
+
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search",
+                    "description": "Search project files",
+                    "parameters": {"type": "object", "properties": {"query": {"type": "string"}}},
+                },
+            }
+        ]
+        mock_litellm = MagicMock()
+        mock_litellm.acompletion = AsyncMock(return_value=_AsyncChunkIterator([chunk, done_chunk]))
+
+        with patch("anteroom.services.litellm_provider.litellm", mock_litellm):
+            events: list[dict[str, Any]] = []
+            async for event in svc.stream_chat(
+                [{"role": "user", "content": "hi"}],
+                tools=tools,
+                extra_system_prompt="Dynamic context.",
+            ):
+                events.append(event)
+
+        sent_messages = mock_litellm.acompletion.call_args.kwargs["messages"]
+        message_only_prompt = estimate_usage(sent_messages, "Hello", "openrouter/openai/gpt-4o")["prompt_tokens"]
+        usage_events = [e for e in events if e["event"] == "usage"]
+        assert len(usage_events) == 1
+        usage = usage_events[0]["data"]
+        assert usage["estimated"] is True
+        assert usage["model"] == "openrouter/openai/gpt-4o"
+        assert usage["prompt_tokens"] > message_only_prompt
+        assert "Dynamic context." in sent_messages[0]["content"]
 
 
 # ---------------------------------------------------------------------------

@@ -517,6 +517,65 @@ class TestCliConfig:
         config, _ = load_config(cfg)
         assert config.cli.context_auto_compact_tokens == 100_000
 
+    def test_context_thresholds_derive_for_smaller_model_window(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"model_context_window": 32_000}},
+        )
+        config, _ = load_config(cfg)
+
+        assert config.cli.context_warn_tokens == 17_440
+        assert config.compaction.summary_trigger_token_count == 19_532
+        assert config.cli.context_auto_compact_tokens == 21_765
+
+    def test_explicit_context_thresholds_override_derived_defaults(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {
+                    "model_context_window": 32_000,
+                    "context_warn_tokens": 12_000,
+                    "context_auto_compact_tokens": 14_000,
+                },
+                "compaction": {"summary_trigger_token_count": 13_000},
+            },
+        )
+        config, _ = load_config(cfg)
+
+        assert config.cli.context_warn_tokens == 12_000
+        assert config.compaction.summary_trigger_token_count == 13_000
+        assert config.cli.context_auto_compact_tokens == 14_000
+
+    def test_context_threshold_env_overrides_are_honored(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MODEL_CONTEXT_WINDOW", "40_000")
+        monkeypatch.setenv("AI_CHAT_CONTEXT_RESERVED_OUTPUT_TOKENS", "4_000")
+        monkeypatch.setenv("AI_CHAT_CONTEXT_WARN_BUFFER_TOKENS", "8_000")
+        monkeypatch.setenv("AI_CHAT_CONTEXT_AUTO_COMPACT_BUFFER_TOKENS", "4_000")
+        monkeypatch.setenv("AI_CHAT_SUMMARY_TRIGGER_BUFFER_TOKENS", "6_000")
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+
+        config, _ = load_config(cfg)
+
+        assert config.cli.context_reserved_output_tokens == 4_000
+        assert config.cli.context_warn_tokens == 28_000
+        assert config.compaction.summary_trigger_token_count == 30_000
+        assert config.cli.context_auto_compact_tokens == 32_000
+
+    def test_legacy_context_threshold_env_overrides_are_honored(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("AI_CHAT_CONTEXT_WARN_TOKENS", "11_000")
+        monkeypatch.setenv("AI_CHAT_CONTEXT_AUTO_COMPACT_TOKENS", "12_000")
+        monkeypatch.setenv("AI_CHAT_SUMMARY_TRIGGER_TOKEN_COUNT", "13_000")
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+
+        config, _ = load_config(cfg)
+
+        assert config.cli.context_warn_tokens == 11_000
+        assert config.cli.context_auto_compact_tokens == 12_000
+        assert config.compaction.summary_trigger_token_count == 13_000
+
     def test_retry_delay_from_yaml(self, tmp_path: Path) -> None:
         cfg = _write_config(
             tmp_path,
@@ -593,6 +652,30 @@ class TestCliConfig:
         )
         config, _ = load_config(cfg)
         assert config.cli.tool_output_max_chars == 10_000
+
+    def test_update_check_message_default(self, tmp_path: Path) -> None:
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+        config, _ = load_config(cfg)
+        assert config.cli.update_check_message == (
+            "Update available: {current} -> {latest} -- pip install --upgrade anteroom"
+        )
+
+    def test_update_check_message_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"update_check_message": "Install {latest}; current {current}"},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.update_check_message == "Install {latest}; current {current}"
+
+    def test_update_check_message_from_env(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+        monkeypatch.setenv("AI_CHAT_UPDATE_CHECK_MESSAGE", "Ask IT for {latest}")
+        config, _ = load_config(cfg)
+        assert config.cli.update_check_message == "Ask IT for {latest}"
 
     def test_tool_replay_max_chars_default(self, tmp_path: Path) -> None:
         cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
@@ -2915,6 +2998,14 @@ class TestMemoryPromotionConfig:
         cfg = _minimal(tmp_path)
         config, _ = load_config(cfg)
         assert config.memory.promotion.local_auto_approve is True
+
+    def test_memory_promotion_local_auto_approve_env_var_false(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("AI_CHAT_MEMORY_PROMOTION_LOCAL_AUTO_APPROVE", "false")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.memory.promotion.local_auto_approve is False
 
     def test_memory_promotion_agent_proposals_env_var_false(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

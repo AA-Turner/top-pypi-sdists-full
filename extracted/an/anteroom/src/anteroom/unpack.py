@@ -102,6 +102,10 @@ def unpack(dest: str | Path, *, force: bool = False) -> None:
             ignore=shutil.ignore_patterns("__pycache__", "_bundled", "*.pyc"),
         )
 
+    from .services.docs_project_links import render_project_links_in_place
+
+    render_project_links_in_place(dest)
+
     print(f"Unpacked {copied} items to {dest.resolve()}")
     print()
     print("Quick start:")

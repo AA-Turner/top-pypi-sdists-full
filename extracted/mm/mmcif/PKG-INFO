@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mmcif
-Version: 1.1.0
+Version: 1.1.1
 Summary: mmCIF Core Access Library
 Author-email: John Westbrook <john.westbrook@rcsb.org>
 License: Apache-2.0
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests>=2.25

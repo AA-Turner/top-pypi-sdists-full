@@ -7,11 +7,9 @@ FormatSizeBase: t.TypeAlias = t.Literal[2, 10]  # default=2
 FormatSizeStyle: t.TypeAlias = t.Literal[  # default="default"
     "default",
     "abbreviated",
-    "abbreviated_lowercase",
     "abbreviated-lowercase",
     "full",
     "full-lowercase",
-    "full_lowercase",
 ]
 
 def fmt_size(
@@ -33,11 +31,11 @@ def parse_size(s: str) -> int:
 class SizeFormatter:
     """Human-readable bytes-size formatter."""
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         base: FormatSizeBase = 2,
         style: FormatSizeStyle = "default",
-    ) -> None:
+    ) -> t.Self:
         """Initialize human-readable bytes-size formatter."""
 
     def format(self, n: int) -> str:
@@ -46,11 +44,24 @@ class SizeFormatter:
     def __call__(self, n: int) -> str:
         """Return human-readable string representation of bytes-size."""
 
+    @property
+    def base(self) -> FormatSizeBase:
+        """Return base used by formatter."""
+    @property
+    def style(self) -> FormatSizeStyle:
+        """Return style used by formatter."""
+
+    def with_base(self, base: FormatSizeBase) -> SizeFormatter:
+        """Return new `SizeFormatter` with specified base."""
+
+    def with_style(self, style: FormatSizeStyle) -> SizeFormatter:
+        """Return new `SizeFormatter` with specified style."""
+
 @t.final
 class Size(FromStr, _Parse):
     """Bytes-size object."""
 
-    def __init__(self, size: int) -> None: ...
+    def __new__(cls, size: int) -> t.Self: ...
     @property
     def bytes(self) -> int: ...
     def format(

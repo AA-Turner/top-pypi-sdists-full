@@ -33,6 +33,10 @@ const App = (() => {
         }
     }
 
+    function isDebugMode() {
+        return _debugMode;
+    }
+
     // --- Theme System ---
 
     const THEMES = {
@@ -260,6 +264,9 @@ const App = (() => {
 
         // MCP modal
         _initMcpModal();
+
+        // Feedback modal
+        _initFeedbackModal();
 
         // Check config status and cache available models
         try {
@@ -1636,6 +1643,92 @@ const App = (() => {
         } catch { /* ignore */ }
     }
 
+    function _initFeedbackModal() {
+        const modal = document.getElementById('feedback-modal');
+        const openBtn = document.getElementById('btn-feedback');
+        const closeBtn = document.getElementById('feedback-modal-close');
+        const cancelBtn = document.getElementById('feedback-modal-cancel');
+        const submitBtn = document.getElementById('feedback-modal-submit');
+        const descEl = document.getElementById('feedback-description');
+        const historyEl = document.getElementById('feedback-include-history');
+        const resultEl = document.getElementById('feedback-result');
+
+        function _openFeedbackModal() {
+            descEl.value = '';
+            historyEl.checked = false;
+            resultEl.style.display = 'none';
+            resultEl.textContent = '';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit';
+            modal.style.display = 'flex';
+            setTimeout(() => descEl.focus(), 50);
+        }
+
+        function _closeFeedbackModal() {
+            modal.style.display = 'none';
+        }
+
+        if (openBtn) openBtn.addEventListener('click', _openFeedbackModal);
+        if (closeBtn) closeBtn.addEventListener('click', _closeFeedbackModal);
+        if (cancelBtn) cancelBtn.addEventListener('click', _closeFeedbackModal);
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) _closeFeedbackModal();
+            });
+        }
+
+        if (submitBtn) {
+            submitBtn.addEventListener('click', async () => {
+                const description = (descEl.value || '').trim();
+                if (!description) {
+                    descEl.focus();
+                    return;
+                }
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Sending…';
+                resultEl.style.display = 'none';
+
+                const body = {
+                    description,
+                    include_history: historyEl.checked && !!state.currentConversationId,
+                    conversation_id: state.currentConversationId || null,
+                    space_id: state.currentSpaceId || null,
+                };
+
+                try {
+                    const result = await api('/api/feedback', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body),
+                    });
+                    const status = result.status || 'failed';
+                    if (status === 'sent') {
+                        resultEl.style.background = 'var(--success, #2d6a2d)';
+                        resultEl.style.color = '#fff';
+                        resultEl.textContent = `Submitted via reporter '${result.reporter || 'local'}'.`;
+                    } else if (status === 'saved_locally') {
+                        resultEl.style.background = 'var(--info, #1a4a6a)';
+                        resultEl.style.color = '#fff';
+                        resultEl.textContent = result.message || 'No reporter configured. Bundle saved locally on the server.';
+                    } else {
+                        resultEl.style.background = 'var(--error-bg, #6a1a1a)';
+                        resultEl.style.color = '#fff';
+                        resultEl.textContent = `Failed: ${result.error || 'unknown error'}`;
+                    }
+                    resultEl.style.display = 'block';
+                    submitBtn.textContent = 'Done';
+                } catch (e) {
+                    resultEl.style.background = 'var(--error-bg, #6a1a1a)';
+                    resultEl.style.color = '#fff';
+                    resultEl.textContent = `Error: ${e.message}`;
+                    resultEl.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit';
+                }
+            });
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', init);
 
     // Test hooks — exercise the real SSE dedup + rendering path (#1315).
@@ -1675,7 +1768,7 @@ const App = (() => {
         state, api, _handle401, _getCsrfToken, _selectModel, newConversation, loadConversation,
         loadDatabases, addDatabase, loadSpaces, refreshModels, formatTimestamp,
         getTheme, setTheme, THEMES, openMcpModal, openSettings,
-        setPlanMode, _showPlanContent, _debugLog,
+        setPlanMode, _showPlanContent, _debugLog, isDebugMode,
         _testDeliverTaskCompleted, _testDeliverAgentStarted, _testDeliverAgentCompleted, _testClearDeliveredIds,
         _testDeliverHookOutcome,
     };

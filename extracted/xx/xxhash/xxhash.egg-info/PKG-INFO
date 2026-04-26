@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xxhash
-Version: 3.6.0
+Version: 3.7.0
 Summary: Python binding for xxHash
 Home-page: https://github.com/ifduyue/python-xxhash
 Author: Yue Du
@@ -12,7 +12,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -22,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Dynamic: author
@@ -322,6 +321,14 @@ Licensed under `BSD 2-Clause License <http://opensource.org/licenses/BSD-2-Claus
 
 CHANGELOG
 -----------
+
+v3.7.0 2025-04-25
+~~~~~~~~~~~~~~~~~
+
+- Drop support for Python 3.7
+- Build armv7l manylinux/musllinux wheels
+- Build riscv64 manylinux/musllinux wheels
+- Build android and ios wheels
 
 v3.6.0 2025-10-02
 ~~~~~~~~~~~~~~~~~

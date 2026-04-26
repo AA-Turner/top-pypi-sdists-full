@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.12.27
+Version: 2.12.30
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -49,6 +49,8 @@ Requires-Dist: matplotlib>=3.9.4; extra == "leaderboard"
 Requires-Dist: pymongo>=4.15.5; extra == "leaderboard"
 Provides-Extra: video
 Requires-Dist: torchcodec; extra == "video"
+Provides-Extra: github
+Requires-Dist: PyGithub>=1.60; extra == "github"
 Provides-Extra: peft
 Requires-Dist: peft>=0.11.0; extra == "peft"
 Provides-Extra: flagembedding
@@ -138,6 +140,9 @@ Requires-Dist: transformers[torch]>=4.56.0; extra == "llama-nemotron-embed-vl-1b
 Requires-Dist: torchvision>=0.22.0; extra == "llama-nemotron-embed-vl-1b-v2"
 Requires-Dist: flash-attn>=2.6.3; extra == "llama-nemotron-embed-vl-1b-v2"
 Requires-Dist: accelerate; extra == "llama-nemotron-embed-vl-1b-v2"
+Provides-Extra: multimodal-sbert
+Requires-Dist: sentence-transformers>=5.4.0; extra == "multimodal-sbert"
+Requires-Dist: transformers>=5.3.0; extra == "multimodal-sbert"
 Provides-Extra: faiss-cpu
 Requires-Dist: faiss-cpu>=1.12.0; extra == "faiss-cpu"
 Provides-Extra: eager-embed

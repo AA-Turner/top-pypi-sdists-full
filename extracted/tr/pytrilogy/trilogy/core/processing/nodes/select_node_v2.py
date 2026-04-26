@@ -138,6 +138,7 @@ class SelectNode(StrategyNode):
             force_group=self.force_group,
             hidden_concepts=self.hidden_concepts,
             ordering=self.ordering,
+            base_datasource=datasource,
         )
 
     def resolve_from_constant_datasources(self) -> QueryDatasource:
@@ -156,6 +157,7 @@ class SelectNode(StrategyNode):
             source_type=SourceType.CONSTANT,
             hidden_concepts=self.hidden_concepts,
             ordering=self.ordering,
+            base_datasource=datasource,
         )
 
     def _resolve(self) -> QueryDatasource:
@@ -190,7 +192,9 @@ class SelectNode(StrategyNode):
                 p.resolve() for p in self.parents
             ]
 
-            resolution.datasources += parent_sources
+            resolution.datasources += sorted(
+                parent_sources, key=lambda ds: ds.identifier
+            )
 
             source_map = resolve_concept_map(
                 parent_sources,

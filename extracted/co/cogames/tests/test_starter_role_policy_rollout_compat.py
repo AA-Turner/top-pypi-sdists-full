@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import pytest
+from cogsguard.missions.arena import make_basic_mission
+from cogsguard.missions.machina_1 import make_machina1_mission
+from cogsguard.missions.terrain import MapSeedVariant
+from cogsguard.missions.tutorial import make_tutorial_mission
 
-from cogames.games.cogs_vs_clips.missions.arena import make_basic_mission
-from cogames.games.cogs_vs_clips.missions.machina_1 import make_machina1_mission
-from cogames.games.cogs_vs_clips.missions.terrain import MapSeedVariant
-from cogames.games.cogs_vs_clips.missions.tutorial import make_tutorial_mission
 from cogames.policy.starter_agent import StarterCogPolicyImpl
 from mettagrid.policy.policy import PolicySpec
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
@@ -18,7 +18,6 @@ ROLE_POLICY_CLASS_PATH = {
     "scrambler": "cogames.policy.role_policies.ScramblerRolePolicy",
     "scout": "cogames.policy.role_policies.ScoutRolePolicy",
 }
-
 
 _CORE_MISSIONS = [make_machina1_mission(), make_basic_mission(), make_tutorial_mission()]
 
@@ -50,6 +49,39 @@ def test_starter_policy_withdraws_hearts_on_arena() -> None:
     )
 
     assert results.stats["game"].get("cogs/heart.withdrawn", 0.0) > 0.0
+
+
+def test_starter_policy_keeps_exploring_on_machina1() -> None:
+    env_cfg = make_machina1_mission(num_agents=8, max_steps=150).make_env()
+    results, _ = run_episode_local(
+        policy_specs=[PolicySpec(class_path="starter")],
+        assignments=[0] * env_cfg.game.num_agents,
+        env=env_cfg,
+        seed=42,
+        max_action_time_ms=10000,
+        render_mode="none",
+        device="cpu",
+    )
+
+    visit_counts = [agent.get("cell.visited", 0.0) for agent in results.stats["agent"]]
+    assert min(visit_counts) > 500, f"starter exploration regressed: visit_counts={visit_counts}"
+    assert sum(visit_counts) > 25000, f"starter exploration regressed: visit_counts={visit_counts}"
+
+
+def test_starter_policy_aligns_junctions_on_machina1() -> None:
+    env_cfg = make_machina1_mission(num_agents=8, max_steps=2000).make_env()
+    results, _ = run_episode_local(
+        policy_specs=[PolicySpec(class_path="starter")],
+        assignments=[0] * env_cfg.game.num_agents,
+        env=env_cfg,
+        seed=42,
+        max_action_time_ms=10000,
+        render_mode="none",
+        device="cpu",
+    )
+
+    aligned_total = sum(agent.get("junction.aligned_by_agent", 0.0) for agent in results.stats["agent"])
+    assert aligned_total > 0, f"starter failed to align any junctions: agent_stats={results.stats['agent']}"
 
 
 @pytest.mark.parametrize(

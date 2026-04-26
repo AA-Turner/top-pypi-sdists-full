@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from typing import Any, AsyncGenerator
 
 from ..config import AIConfig
+from .ai_service import CompletionResult, classify_completion_error
 from .egress_allowlist import check_egress_allowed
 from .error_sanitizer import sanitize_provider_error
+from .provider_messages import strip_local_message_fields
 from .provider_validation import (
     ProviderRequestError,
     _is_anthropic_or_bedrock_route,
@@ -129,7 +132,7 @@ class LiteLLMService:
         """Build kwargs dict for litellm.acompletion()."""
         kwargs: dict[str, Any] = {
             "model": self.config.model,
-            "messages": messages,
+            "messages": strip_local_message_fields(messages),
             "stream": stream,
             "timeout": float(self.config.request_timeout),
         }
@@ -165,12 +168,18 @@ class LiteLLMService:
         self,
         full_messages: list[dict[str, Any]],
         response_content: str,
+        tool_schemas: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
-        """Estimate usage via tiktoken when the API omits streaming usage."""
+        """Estimate usage when the API omits streaming usage."""
         try:
             from .token_estimator import estimate_usage
 
-            return estimate_usage(full_messages, response_content, self.config.model)
+            return estimate_usage(
+                full_messages,
+                response_content,
+                self.config.model,
+                tool_schemas=tool_schemas,
+            )
         except Exception:
             logger.debug("Token estimation fallback failed", exc_info=True)
             return None
@@ -277,14 +286,22 @@ class LiteLLMService:
                                 },
                             }
                         if not usage_data:
-                            usage_data = self._estimate_fallback_usage(full_messages, "".join(_response_parts))
+                            usage_data = self._estimate_fallback_usage(
+                                full_messages,
+                                "".join(_response_parts),
+                                tools,
+                            )
                         if usage_data:
                             yield {"event": "usage", "data": usage_data}
                         return
 
                     if choice.finish_reason == "stop":
                         if not usage_data:
-                            usage_data = self._estimate_fallback_usage(full_messages, "".join(_response_parts))
+                            usage_data = self._estimate_fallback_usage(
+                                full_messages,
+                                "".join(_response_parts),
+                                tools,
+                            )
                         if usage_data:
                             yield {"event": "usage", "data": usage_data}
                         yield {"event": "done", "data": {}}
@@ -292,7 +309,11 @@ class LiteLLMService:
 
                 # Stream ended without explicit finish_reason
                 if not usage_data:
-                    usage_data = self._estimate_fallback_usage(full_messages, "".join(_response_parts))
+                    usage_data = self._estimate_fallback_usage(
+                        full_messages,
+                        "".join(_response_parts),
+                        tools,
+                    )
                 if usage_data:
                     yield {"event": "usage", "data": usage_data}
                 yield {"event": "done", "data": {}}
@@ -497,15 +518,63 @@ class LiteLLMService:
         self,
         messages: list[dict[str, Any]],
         max_completion_tokens: int = 1000,
+        *,
+        cancel_event: asyncio.Event | None = None,
     ) -> str | None:
+        result = await self.complete_result(
+            messages,
+            max_completion_tokens=max_completion_tokens,
+            cancel_event=cancel_event,
+        )
+        return result.text
+
+    async def complete_result(
+        self,
+        messages: list[dict[str, Any]],
+        max_completion_tokens: int = 1000,
+        *,
+        cancel_event: asyncio.Event | None = None,
+    ) -> CompletionResult:
         try:
             self._validate_request(messages)
             kwargs = self._build_kwargs(messages, max_completion_tokens=max_completion_tokens)
-            response = await litellm.acompletion(**kwargs)
-            return response.choices[0].message.content if response.choices else None
-        except Exception:
-            logger.exception("Failed to generate completion")
-            return None
+            provider_coro = litellm.acompletion(**kwargs)
+            if cancel_event is None:
+                response = await provider_coro
+            else:
+                provider_task = asyncio.ensure_future(provider_coro)
+                cancel_wait = asyncio.ensure_future(cancel_event.wait())
+                done, pending = await asyncio.wait(
+                    {provider_task, cancel_wait},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for task in pending:
+                    task.cancel()
+                for task in pending:
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
+                        await task
+                if cancel_wait in done:
+                    return CompletionResult(text=None, error_code="cancelled", error_message="cancelled")
+                response = provider_task.result()
+            text = response.choices[0].message.content if response.choices else None
+            if not text:
+                return CompletionResult(text=None, error_code="empty_completion", error_message="empty completion")
+            return CompletionResult(text=text)
+        except LiteLLMAuthError:
+            return CompletionResult(text=None, error_code="auth_failed", error_message="authentication failed")
+        except LiteLLMContextError:
+            return CompletionResult(
+                text=None,
+                error_code="context_length_exceeded",
+                error_message="Conversation too long for model context window.",
+            )
+        except Exception as exc:
+            error_code, error_message = classify_completion_error(exc)
+            if error_code == "context_length_exceeded":
+                logger.warning("LiteLLM completion request exceeded context window: %s", exc)
+            else:
+                logger.exception("Failed to generate completion")
+            return CompletionResult(text=None, error_code=error_code, error_message=error_message)
 
     async def complete_with_usage(
         self,

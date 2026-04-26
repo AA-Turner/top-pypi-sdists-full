@@ -369,10 +369,7 @@ def export_forecast(
                 if not df_hvstat_crop.empty:
                     # Deduplicate to one row per fnid: prefer primary seasons
                     # (Main, Long, etc.) over Annual, mirroring stats.py logic.
-                    _PRIMARY = [
-                        "Long", "Gu", "Season A", "First", "1st Season",
-                        "Main", "Meher", "Main harvest", "Summer", "Wet",
-                    ]
+                    from geocif.utils import PRIMARY_SEASON_NAMES as _PRIMARY
                     df_hvstat_crop["_rank"] = df_hvstat_crop["season_name"].map(
                         lambda s: _PRIMARY.index(s) if s in _PRIMARY else len(_PRIMARY)
                     )
@@ -637,6 +634,315 @@ def export_national_forecast(
     return csv_path
 
 
+def export_historical(
+    parser,
+    source_name_version="geocif",
+    dir_out=None,
+):
+    """Export historical yield data as FDW Template 2 CSV.
+
+    Reads observed yield, area, and production from the hvstat CSV.
+    One row per (region, year, crop, season).
+    """
+    from geocif.yield_outlook import _load_shapefiles
+
+    countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
+    project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
+    dir_output = Path(parser.get("PATHS", "dir_output")) / project_name
+
+    if dir_out is None:
+        today = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY")
+        dir_out = dir_output / "ml" / "analysis" / today / "fdw"
+    else:
+        dir_out = Path(dir_out)
+    os.makedirs(dir_out, exist_ok=True)
+
+    dg, dict_config = _load_shapefiles(parser)
+    country_admin_levels = {
+        c.lower().replace("_", " "): parser.get(c, "admin_level", fallback="admin_1")
+        for c in countries
+    }
+    lookup = _build_shapefile_lookup(dg, country_admin_levels)
+
+    # Read full hvstat with all columns
+    dir_stats = Path(parser.get("PATHS", "dir_production_statistics"))
+    all_rows = []
+
+    for country in countries:
+        country_lower = country.lower().replace("_", " ")
+        country_title = country.replace("_", " ").title()
+        crops = ast.literal_eval(parser.get(country, "crops"))
+
+        # Get per-country hvstat file
+        hvstat_fn = "hvstat_africa_data_v1.0.csv"
+        if parser.has_option(country, "production_statistics_file"):
+            hvstat_fn = parser.get(country, "production_statistics_file")
+        elif parser.has_option("DEFAULT", "production_statistics_file"):
+            hvstat_fn = parser.get("DEFAULT", "production_statistics_file")
+
+        hvstat_path = dir_stats / hvstat_fn
+        if not hvstat_path.exists():
+            logger.warning(f"hvstat not found: {hvstat_path}")
+            continue
+
+        df_hv = pd.read_csv(hvstat_path, low_memory=False)
+        if "qc_flag" in df_hv.columns:
+            df_hv = df_hv[df_hv["qc_flag"] == 0]
+
+        admin_level = country_admin_levels.get(country_lower, "admin_1")
+        admin_col = "admin_1" if admin_level == "admin_1" else "admin_2"
+
+        for crop in crops:
+            crop_display = crop.replace("_", " ").title()
+            mask = (
+                (df_hv["country"].str.lower().str.replace("_", " ") == country_lower)
+                & (df_hv["product"].str.lower() == crop_display.lower())
+            )
+            df_crop = df_hv[mask]
+
+            for _, row in df_crop.iterrows():
+                region = row.get(admin_col, "")
+                region_lc = str(region).lower()
+
+                # Lookup FNID and admin names from shapefile
+                match = lookup[
+                    (lookup["_country_lc"] == country_lower)
+                    & (lookup["_region_lc"] == region_lc)
+                ]
+                source_id = match["ADM_ID"].values[0] if not match.empty and "ADM_ID" in match.columns else ""
+                adm1 = match["ADM1_NAME"].values[0] if not match.empty else region
+                adm2 = match["ADM2_NAME"].values[0] if not match.empty and "ADM2_NAME" in match.columns else ""
+                if admin_level == "admin_1":
+                    adm1, adm2 = region, ""
+
+                fdw_row = {
+                    "source_id": source_id,
+                    "source_name_version": source_name_version,
+                    "admin_0": country_title,
+                    "admin_1": adm1,
+                    "admin_2": adm2,
+                    "admin_3": "",
+                    "planted_year": _compute_planted_year(
+                        row.get("harvest_year"), row.get("planting_month"), row.get("harvest_month")
+                    ),
+                    "approx_planted_month": row.get("planting_month", ""),
+                    "harvest_year": row.get("harvest_year", ""),
+                    "approx_harvest_month": row.get("harvest_month", ""),
+                    "crop": crop_display,
+                    "crop_season": row.get("season_name", ""),
+                    "area_obs": row.get("area", ""),
+                    "area_obs_units": "ha" if pd.notna(row.get("area")) else "",
+                    "production_obs": row.get("production", ""),
+                    "production_obs_units": "tn" if pd.notna(row.get("production")) else "",
+                    "yield_obs": row.get("yield", ""),
+                    "yield_obs_units": "tn/ha" if pd.notna(row.get("yield")) else "",
+                }
+                all_rows.append(fdw_row)
+
+    if not all_rows:
+        logger.warning("No historical data to export.")
+        return None
+
+    df_fdw = pd.DataFrame(all_rows).fillna("")
+    scope = "africa" if len(countries) > 1 else countries[0].lower().replace(" ", "_")
+    admin_levels = set(country_admin_levels.values())
+    admin_unit = "admin2" if "admin_2" in admin_levels else "admin1"
+    today_str = ar.utcnow().to("America/New_York").format("YYYY-MM-DD")
+    fname = f"geocif_{scope}_{admin_unit}_historical_{today_str}.csv"
+    csv_path = dir_out / fname
+    df_fdw.to_csv(csv_path, index=False)
+    logger.info(f"FDW historical CSV saved to {csv_path} ({len(df_fdw)} rows)")
+    return csv_path
+
+
+def export_accuracy(
+    parser,
+    db_path=None,
+    forecast_year=None,
+    forecast_issue_date=None,
+    source_name_version="geocif",
+    group="UMD-Harvest",
+    dir_out=None,
+    experiment_name=None,
+):
+    """Export yield accuracy metrics as FDW Template 3 CSV.
+
+    One row per (region, crop, season) with metrics aggregated across
+    all available years. Uses LOOCV predictions from the SQLite DB.
+    """
+    from geocif.yield_outlook import _load_shapefiles, _query_predictions
+
+    if forecast_year is None:
+        forecast_year = ar.utcnow().to("America/New_York").year
+    if forecast_issue_date is None:
+        forecast_issue_date = ar.utcnow().to("America/New_York").format("YYYY-MM-DD")
+
+    countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
+    project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
+    dir_output = Path(parser.get("PATHS", "dir_output")) / project_name
+
+    if experiment_name is None:
+        experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
+
+    if db_path is None:
+        db_name = parser.get("DEFAULT", "db")
+        db_path = dir_output / "ml" / "db" / db_name
+    else:
+        db_path = Path(db_path)
+
+    if dir_out is None:
+        today = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY")
+        dir_out = dir_output / "ml" / "analysis" / today / "fdw"
+    else:
+        dir_out = Path(dir_out)
+    os.makedirs(dir_out, exist_ok=True)
+
+    model_version = f"geocif v{__version__}"
+
+    dg, dict_config = _load_shapefiles(parser)
+    country_admin_levels = {
+        c.lower().replace("_", " "): parser.get(c, "admin_level", fallback="admin_1")
+        for c in countries
+    }
+    lookup = _build_shapefile_lookup(dg, country_admin_levels)
+
+    # Load hvstat for harvest month info
+    df_hvstat = _load_hvstat(parser)
+
+    obs_col = "Observed Yield (tn per ha)"
+    pred_col = "Predicted Yield (tn per ha)"
+
+    all_rows = []
+
+    for country in countries:
+        country_lower = country.lower().replace("_", " ")
+        country_title = country.replace("_", " ").title()
+        crops = ast.literal_eval(parser.get(country, "crops"))
+        models = ast.literal_eval(parser.get(country, "models"))
+        admin_level = country_admin_levels.get(country_lower, "admin_1")
+
+        for crop in crops:
+            crop_display = crop.replace("_", " ").title()
+            table = f"{country}_{crop}"
+
+            for model in models:
+                df = _query_predictions(db_path, table, model, experiment_name=experiment_name)
+                if df.empty:
+                    continue
+
+                df = df.dropna(subset=[obs_col, pred_col])
+                df = df[df[obs_col] != 0]
+
+                # Use latest stage per (Region, Harvest Year) if multi-step
+                if "Stage Name" in df.columns:
+                    df = df.sort_values("Stage Name").groupby(
+                        ["Region", "Harvest Year"], as_index=False
+                    ).last()
+
+                for region, rdf in df.groupby("Region"):
+                    if len(rdf) < 2:
+                        continue
+
+                    region_lc = str(region).lower()
+                    match = lookup[
+                        (lookup["_country_lc"] == country_lower)
+                        & (lookup["_region_lc"] == region_lc)
+                    ]
+                    source_id = match["ADM_ID"].values[0] if not match.empty and "ADM_ID" in match.columns else ""
+                    adm1 = region if admin_level == "admin_1" else (match["ADM1_NAME"].values[0] if not match.empty else "")
+                    adm2 = region if admin_level == "admin_2" else ""
+
+                    y_obs = rdf[obs_col].values
+                    y_pred = rdf[pred_col].values
+
+                    errors = y_obs - y_pred
+                    mae = np.mean(np.abs(errors))
+                    rmse = np.sqrt(np.mean(errors ** 2))
+                    mean_obs = y_obs.mean()
+                    rrmse = (rmse / mean_obs * 100) if mean_obs != 0 else np.nan
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        pct_errors = np.abs(errors / y_obs) * 100
+                        pct_errors = pct_errors[np.isfinite(pct_errors)]
+                    mape = np.mean(pct_errors) if len(pct_errors) > 0 else np.nan
+                    # Pearson R² = square of correlation coefficient
+                    if np.std(y_obs) > 0 and np.std(y_pred) > 0:
+                        r2_pearson = np.corrcoef(y_obs, y_pred)[0, 1] ** 2
+                    else:
+                        r2_pearson = np.nan
+                    # True R² = coefficient of determination
+                    ss_res = np.sum(errors ** 2)
+                    ss_tot = np.sum((y_obs - mean_obs) ** 2)
+                    r2_true = (1 - ss_res / ss_tot) if ss_tot != 0 else np.nan
+
+                    years = sorted(rdf["Harvest Year"].unique())
+                    metric_years = ",".join(str(int(y)) for y in years)
+
+                    # Harvest month from hvstat
+                    harvest_month = ""
+                    if not df_hvstat.empty:
+                        hv_match = df_hvstat[
+                            (df_hvstat["product"].str.lower() == crop_display.lower())
+                            & (df_hvstat["fnid"] == source_id)
+                        ]
+                        if not hv_match.empty:
+                            harvest_month = hv_match["harvest_month"].values[0]
+
+                    # Parse model run date from DB
+                    date_model_run = ""
+                    if "Date" in rdf.columns:
+                        date_model_run = _parse_model_run_date(rdf["Date"].iloc[0])
+
+                    season_name = ""
+                    if not df_hvstat.empty:
+                        hv_match2 = df_hvstat[
+                            (df_hvstat["product"].str.lower() == crop_display.lower())
+                            & (df_hvstat["fnid"] == source_id)
+                        ]
+                        if not hv_match2.empty:
+                            season_name = hv_match2["season_name"].values[0]
+
+                    fdw_row = {
+                        "source_id": source_id,
+                        "source_name_version": source_name_version,
+                        "admin_0": country_title,
+                        "admin_1": adm1,
+                        "admin_2": adm2,
+                        "admin_3": "",
+                        "approx_harvest_month": harvest_month,
+                        "crop": crop_display,
+                        "crop_season": season_name,
+                        "forecast_issue_date": forecast_issue_date,
+                        "date_model_run": date_model_run,
+                        "input_croptype_product": "",
+                        "group": group,
+                        "model_version": model_version,
+                        "cross_validation_type": 0,
+                        "yield_mae": round(mae, 3),
+                        "yield_rmse": round(rmse, 3),
+                        "yield_rrmse": round(rrmse, 1) if not np.isnan(rrmse) else "",
+                        "yield_mape": round(mape, 1),
+                        "metric_years": metric_years,
+                        "r2_pearson": round(r2_pearson, 4) if not np.isnan(r2_pearson) else "",
+                        "r2_true": round(r2_true, 4) if not np.isnan(r2_true) else "",
+                        "notes": f"model={model}, LOOCV",
+                    }
+                    all_rows.append(fdw_row)
+
+    if not all_rows:
+        logger.warning("No accuracy data to export.")
+        return None
+
+    df_fdw = pd.DataFrame(all_rows).fillna("")
+    scope = "africa" if len(countries) > 1 else countries[0].lower().replace(" ", "_")
+    admin_levels = set(country_admin_levels.values())
+    admin_unit = "admin2" if "admin_2" in admin_levels else "admin1"
+    fname = f"geocif_{scope}_{admin_unit}_accuracy_{forecast_issue_date}.csv"
+    csv_path = dir_out / fname
+    df_fdw.to_csv(csv_path, index=False)
+    logger.info(f"FDW accuracy CSV saved to {csv_path} ({len(df_fdw)} rows)")
+    return csv_path
+
+
 def run(path_config_files=None, db_path=None, forecast_year=None, **kwargs):
     """Convenience entry point — accepts config file paths.
 
@@ -652,4 +958,6 @@ def run(path_config_files=None, db_path=None, forecast_year=None, **kwargs):
     _, parser = log.setup_logger_parser(path_config_files)
     regional_csv = export_forecast(parser, db_path=db_path, forecast_year=forecast_year, **kwargs)
     national_csv = export_national_forecast(parser, db_path=db_path, forecast_year=forecast_year, **kwargs)
-    return regional_csv, national_csv
+    historical_csv = export_historical(parser)
+    accuracy_csv = export_accuracy(parser, db_path=db_path, forecast_year=forecast_year, **kwargs)
+    return regional_csv, national_csv, historical_csv, accuracy_csv

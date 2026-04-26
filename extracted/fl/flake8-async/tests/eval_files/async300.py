@@ -42,6 +42,13 @@ async def foo():
 
     mylist = [asyncio.create_task(*args) for i in range(10)]
 
+    # returning the task is fine, the caller will save it
+    def returner():
+        return asyncio.create_task(*args)
+
+    def returner_list():
+        return [asyncio.create_task(*args)]
+
     # non-call usage is fine
     asyncio.create_task
     asyncio.create_task = args
@@ -60,7 +67,7 @@ async def foo():
     with asyncio.create_task(*args) as k:  # type: ignore[attr-defined]  # ASYNC300: 9
         ...
 
-    # import aliasing is not supported (this would raise ASYNC106 bad-async-library-import)
+    # function-local imports aren't tracked (so they don't leak to siblings)
     from asyncio import create_task
 
     create_task(*args)

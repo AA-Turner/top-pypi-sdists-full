@@ -25,6 +25,7 @@ _STRUCTURED_FIELDS: frozenset[str] = frozenset(
     {
         "exit_code",
         "error",
+        "status",
         "path",
         "file",
         "url",

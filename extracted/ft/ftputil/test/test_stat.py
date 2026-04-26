@@ -1,4 +1,4 @@
-# Copyright (C) 2003-2019, Stefan Schwarzer <sschwarzer@sschwarzer.net>
+# Copyright (C) 2003-2026, Stefan Schwarzer <sschwarzer@sschwarzer.net>
 # and ftputil contributors (see `doc/contributors.txt`)
 # See the file LICENSE for licensing terms.
 
@@ -41,7 +41,6 @@ def stat_tuple_to_seconds(t):
 
 
 class TestParsers:
-
     #
     # Helper methods
     #
@@ -94,7 +93,7 @@ class TestParsers:
             "-rw-r--r--   1 45854    200          4604 Dec 19 23:11 index.html",
             "drwxr-sr-x   2 45854    200           512 Jan 01  2000 os2",
             "----------   2 45854    200           512 May 29  2000 some_file",
-            "lrwxrwxrwx   2 45854    200           512 May 29  2000 osup -> " "../os2",
+            "lrwxrwxrwx   2 45854    200           512 May 29  2000 osup -> ../os2",
         ]
         # Note that the time shift is also subtracted from the datetimes that
         # have only day precision, i. e. a year but no time.
@@ -313,8 +312,7 @@ class TestParsers:
             # Is this `os1 -> os2` pointing to `os3`, or `os1` pointing to
             # `os2 -> os3` or the plain name `os1 -> os2 -> os3`? We don't
             # know, so we consider the line invalid.
-            "drwxr-sr-x   2 45854    200           512 May 29  2000 "
-            "os1 -> os2 -> os3",
+            "drwxr-sr-x   2 45854    200           512 May 29  2000 os1 -> os2 -> os3",
             # Missing name
             "-rwxr-sr-x   2 45854    200           51x May  4  2000 ",
         ]
@@ -588,6 +586,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             stat_result = host.stat("/foo")
             expected_result = (
@@ -616,6 +615,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             with pytest.raises(ftputil.error.PermanentError):
                 host.lstat("/notthere/irrelevant")
@@ -642,6 +642,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             with pytest.raises(ftputil.error.PermanentError):
                 host.lstat("/some_dir/notthere")
@@ -656,6 +657,7 @@ class TestLstatAndStat:
         """
         script = [Call("__init__"), Call("pwd", result="/"), Call("close")]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             with pytest.raises(ftputil.error.RootDirError) as exc_info:
                 host.lstat("/")
@@ -681,6 +683,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             stat_result = host.lstat("/some_file")
         assert oct(stat_result.st_mode) == "0o100644"
@@ -716,6 +719,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             stat_result = host.lstat("/some_file")
         assert stat_result._st_name == "some_file"
@@ -739,6 +743,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             stat_result = host.lstat("/some_dir")
         assert oct(stat_result.st_mode) == "0o42755"
@@ -794,6 +799,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             stat_result = host.lstat("/some_dir")
         assert stat_result._st_mtime_precision == 60
@@ -816,6 +822,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             stat_result = host.lstat("/some_dir")
         assert stat.S_ISDIR(stat_result.st_mode)
@@ -847,6 +854,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             stat_result = host.stat("/link")
         assert stat_result.st_size == 4604
@@ -879,6 +887,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             stat_result = host.stat("/link_link")
         assert stat_result.st_size == 4604
@@ -911,6 +920,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             with pytest.raises(ftputil.error.PermanentError):
                 host.stat("bad_link1")
@@ -940,6 +950,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert host._stat._allow_parser_switching is True
             # With these directory contents, we get a `ParserError` for the
@@ -967,11 +978,12 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert host._stat._allow_parser_switching is True
             assert host._stat._allow_parser_switching is True
             assert isinstance(host._stat._parser, ftputil.stat.UnixParser)
-            stat_result = host.lstat("some_file")
+            _stat_result = host.lstat("some_file")
             # The Unix parser worked, so keep it.
             assert isinstance(host._stat._parser, ftputil.stat.UnixParser)
             assert host._stat._allow_parser_switching is False
@@ -1002,6 +1014,7 @@ class TestLstatAndStat:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             assert host._stat._allow_parser_switching is True
             assert isinstance(host._stat._parser, ftputil.stat.UnixParser)
@@ -1055,6 +1068,7 @@ class TestListdir:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             host.stat_cache.disable()
             with pytest.raises(ftputil.error.PermanentError):
                 host.listdir("notthere")

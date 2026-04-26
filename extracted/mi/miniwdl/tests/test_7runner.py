@@ -711,12 +711,13 @@ class TestDownload(RunnerTestCase):
         """
 
         # uncached
-        inp = {"dir": "gs://genomics-public-data/ftp-trace.ncbi.nih.gov/1000genomes/ftp/phase3/integrated_sv_map/supporting/breakpoints/"}
+        # Use a small public gs:// directory that remains available.
+        inp = {"dir": "gs://gcp-public-data--gnomad/papers/2019-flagship-lof/v1.1/misc_files"}
         outp = self._run(wdl6, inp, task="directory_files")
-        self.assertEqual(len(outp["files"]), 4)
+        self.assertEqual(len(outp["files"]), 3)
 
         outp = self._run(wdl6, inp)
-        self.assertEqual(outp["file_count"], 4)
+        self.assertEqual(outp["file_count"], 3)
         logs = [str(record.msg) for record in capture.records]
 
         # cached
@@ -738,7 +739,7 @@ class TestDownload(RunnerTestCase):
         assert next((msg for msg in new_logs if "found in download cache" in msg), False)
         logs += new_logs
         outp = self._run(wdl6, inp, task="directory_files", cfg=cfg)
-        self.assertEqual(len(outp["files"]), 4)
+        self.assertEqual(len(outp["files"]), 3)
         new_logs = [str(record.msg) for record in capture.records][len(logs):]
         assert next((msg for msg in new_logs if "found in download cache" in msg), False)
         logs += new_logs
@@ -751,7 +752,7 @@ class RuntimeOverride(RunnerTestCase):
             input {
                 String who
             }
-            call t {
+            call t as tc {
                 input:
                     who = who
             }
@@ -775,9 +776,46 @@ class RuntimeOverride(RunnerTestCase):
         """
         outp = self._run(wdl, {
             "who": "Alice",
-            "t.runtime.container": ["ubuntu:20.10"]
+            "tc.runtime.container": ["ubuntu:20.10"]
         })
-        assert "20.10" in outp["t.issue"]
+        assert "20.10" in outp["tc.issue"]
+
+        outp = self._run(wdl, {
+            "who": "Alice",
+            "tc.requirements.container": ["ubuntu:24.04"]
+        })
+        assert "24.04" in outp["tc.issue"]
+
+    def test_task_named_requirements(self):
+        # "requirements" became a keyword in WDL 1.2, so before that a task or one of its inputs
+        # could be named "requirements" -- ensure that still works as expected
+        wdl = """
+        version 1.1
+        workflow w {
+            call requirements
+        }
+        task requirements {
+            input {
+                Int requirements = 21
+            }
+            command {}
+            output {
+                Int result = requirements
+            }
+            runtime {
+                docker: "ubuntu:24.04"
+            }
+        }
+        """
+        outp = self._run(wdl, {
+            "requirements.requirements": 42
+        })
+        assert outp["requirements.result"] == 42
+
+        with self.assertRaises(WDL.Error.InputError):
+            outp = self._run(wdl, {
+                "requirements.requirements": "bogus"
+            })
 
 
 class MiscRegressionTests(RunnerTestCase):
@@ -845,6 +883,9 @@ class MiscRegressionTests(RunnerTestCase):
             output {
                 Array[File] files_out = t.files_out
             }
+            hints {
+                allow_nested_inputs: true
+            }
         }
 
         task t {
@@ -861,6 +902,14 @@ class MiscRegressionTests(RunnerTestCase):
             }
             runtime {
                 container: ["ubuntu:20.04"]
+            }
+            hints {
+                short_task: true
+                inputs: input {
+                    files: hints {
+                        localization_optional: true
+                    }
+                }
             }
         }
         """

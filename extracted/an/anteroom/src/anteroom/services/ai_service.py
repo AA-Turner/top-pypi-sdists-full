@@ -7,16 +7,31 @@ import contextlib
 import json
 import logging
 import time
+from dataclasses import dataclass
 from typing import Any, AsyncGenerator
 
 from ..config import AIConfig
 from .async_tasks import cancel_task
 from .egress_allowlist import check_egress_allowed
 from .error_sanitizer import sanitize_provider_error
+from .provider_messages import strip_local_message_fields
 from .token_provider import TokenProvider, TokenProviderError
 from .user_errors import build_user_error
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class CompletionResult:
+    """Structured non-streaming completion result for internal callers."""
+
+    text: str | None
+    error_code: str | None = None
+    error_message: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        return self.error_code is None and bool(self.text)
 
 
 class _FirstTokenTimeoutError(Exception):
@@ -31,6 +46,31 @@ def _is_html_error(exc: Exception) -> bool:
     """Check if an API error contains an HTML response instead of JSON."""
     msg = str(exc).lower()
     return "<!doctype" in msg or "<html" in msg
+
+
+def classify_completion_error(exc: Exception) -> tuple[str, str]:
+    """Classify provider exceptions for non-streaming internal completions."""
+    body = getattr(exc, "body", {}) or {}
+    err_code = ""
+    err_msg = ""
+    if isinstance(body, dict):
+        err = body.get("error", {})
+        if isinstance(err, dict):
+            err_code = str(err.get("code") or "")
+            err_msg = str(err.get("message") or "")
+    raw_msg = err_msg or str(exc)
+    lowered = raw_msg.lower()
+    exc_name = type(exc).__name__.lower()
+    if (
+        err_code == "context_length_exceeded"
+        or "context_length" in lowered
+        or "context window" in lowered
+        or "maximum context" in lowered
+        or "prompt is too long" in lowered
+        or "contextwindow" in exc_name
+    ):
+        return "context_length_exceeded", sanitize_provider_error(raw_msg)
+    return "provider_error", sanitize_provider_error(raw_msg)
 
 
 def create_ai_service(config: AIConfig) -> "AIService":
@@ -226,12 +266,18 @@ class AIService:
         self,
         full_messages: list[dict[str, Any]],
         response_content: str,
+        tool_schemas: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
-        """Estimate usage via tiktoken when the API omits streaming usage."""
+        """Estimate usage when the API omits streaming usage."""
         try:
             from .token_estimator import estimate_usage
 
-            return estimate_usage(full_messages, response_content, self.config.model)
+            return estimate_usage(
+                full_messages,
+                response_content,
+                self.config.model,
+                tool_schemas=tool_schemas,
+            )
         except Exception:
             logger.debug("Token estimation fallback failed", exc_info=True)
             return None
@@ -257,7 +303,7 @@ class AIService:
         if extra_system_prompt:
             system_content = extra_system_prompt + "\n\n" + system_content
         system_msg = {"role": "system", "content": system_content}
-        full_messages = [system_msg] + messages
+        full_messages = [system_msg] + strip_local_message_fields(messages)
 
         kwargs: dict[str, Any] = {
             "model": self.config.model,
@@ -291,7 +337,17 @@ class AIService:
                     self.config.model,
                     len(full_messages),
                 )
-                yield {"event": "phase", "data": {"phase": "connecting"}}
+                yield {
+                    "event": "phase",
+                    "data": {
+                        "phase": "connecting",
+                        "attempt": attempt + 1,
+                        "max_attempts": max_attempts,
+                        "model": self.config.model,
+                        "provider": self.config.provider,
+                        "timeout_seconds": float(self.config.request_timeout),
+                    },
+                }
 
                 # --- Cancel-aware create() with hard timeout ---
                 # The bare `await create()` is not interruptible by cancel_event and
@@ -345,7 +401,20 @@ class AIService:
                     attempt + 1,
                     time.monotonic() - _attempt_start,
                 )
-                yield {"event": "phase", "data": {"phase": "waiting"}}
+                _connect_elapsed = time.monotonic() - _attempt_start
+                yield {
+                    "event": "phase",
+                    "data": {
+                        "phase": "waiting",
+                        "attempt": attempt + 1,
+                        "max_attempts": max_attempts,
+                        "model": self.config.model,
+                        "provider": self.config.provider,
+                        "elapsed_seconds": _connect_elapsed,
+                        "connect_elapsed_seconds": _connect_elapsed,
+                        "timeout_seconds": float(self.config.first_token_timeout),
+                    },
+                }
 
                 # --- First-token timeout (cancel-aware) ---
                 stream_iter = stream.__aiter__()
@@ -508,7 +577,11 @@ class AIService:
                                     },
                                 }
                             if not usage_data:
-                                usage_data = self._estimate_fallback_usage(full_messages, "".join(_response_parts))
+                                usage_data = self._estimate_fallback_usage(
+                                    full_messages,
+                                    "".join(_response_parts),
+                                    tools,
+                                )
                             if usage_data:
                                 yield {"event": "usage", "data": usage_data}
                             return
@@ -520,7 +593,11 @@ class AIService:
                                 time.monotonic() - _attempt_start,
                             )
                             if not usage_data:
-                                usage_data = self._estimate_fallback_usage(full_messages, "".join(_response_parts))
+                                usage_data = self._estimate_fallback_usage(
+                                    full_messages,
+                                    "".join(_response_parts),
+                                    tools,
+                                )
                             if usage_data:
                                 yield {"event": "usage", "data": usage_data}
                             yield {"event": "done", "data": {}}
@@ -533,6 +610,15 @@ class AIService:
                             pass  # Don't let slow stream cleanup block cancellation
 
                 # If we get here without returning, the stream ended without finish_reason
+                if not usage_data:
+                    usage_data = self._estimate_fallback_usage(
+                        full_messages,
+                        "".join(_response_parts),
+                        tools,
+                    )
+                if usage_data:
+                    yield {"event": "usage", "data": usage_data}
+                yield {"event": "done", "data": {}}
                 return
 
             except AuthenticationError:
@@ -635,6 +721,8 @@ class AIService:
                                 "max_attempts": max_attempts,
                                 "delay": delay,
                                 "reason": "transient_error",
+                                "elapsed_seconds": time.monotonic() - _attempt_start,
+                                "error_type": type(e).__name__,
                             },
                         }
                         if cancel_event:
@@ -677,17 +765,22 @@ class AIService:
                 self._build_client()
                 if cancel_event and cancel_event.is_set():
                     return  # user cancelled — don't emit retryable error
-                yield {
-                    "event": "error",
-                    "data": build_user_error(
-                        f"Stream timed out after {stream_elapsed:.0f}s.",
-                        code="timeout",
-                        suggestion="Response may be incomplete",
-                        retryable=True,
-                        provider=self.config.provider,
-                        model=self.config.model,
-                    ),
-                }
+                _error_payload = build_user_error(
+                    f"Stream timed out after {stream_elapsed:.0f}s.",
+                    code="timeout",
+                    suggestion="Response may be incomplete",
+                    retryable=True,
+                    provider=self.config.provider,
+                    model=self.config.model,
+                )
+                _error_payload.update(
+                    {
+                        "elapsed_seconds": stream_elapsed,
+                        "timeout_seconds": float(self.config.chunk_stall_timeout),
+                        "timeout_type": "stream_stall",
+                    }
+                )
+                yield {"event": "error", "data": _error_payload}
                 return
             except (APITimeoutError, APIConnectionError, _FirstTokenTimeoutError) as e:
                 last_transient_error = e
@@ -709,6 +802,8 @@ class AIService:
                             "max_attempts": max_attempts,
                             "delay": delay,
                             "reason": "transient_error",
+                            "elapsed_seconds": time.monotonic() - _attempt_start,
+                            "error_type": type(e).__name__,
                         },
                     }
                     # Sleep with cancel awareness
@@ -864,12 +959,29 @@ class AIService:
         letting callers like ``compact_messages`` interpret it as a
         compaction failure that leaves the history untouched (#1266).
         """
+        result = await self.complete_result(
+            messages,
+            max_completion_tokens=max_completion_tokens,
+            _token_refreshed=_token_refreshed,
+            cancel_event=cancel_event,
+        )
+        return result.text
+
+    async def complete_result(
+        self,
+        messages: list[dict[str, Any]],
+        max_completion_tokens: int = 1000,
+        _token_refreshed: bool = False,
+        *,
+        cancel_event: asyncio.Event | None = None,
+    ) -> CompletionResult:
+        """Structured non-streaming completion for recovery-aware internal callers."""
         from openai import AuthenticationError
 
         try:
             provider_coro = self.client.chat.completions.create(
                 model=self.config.model,
-                messages=messages,  # type: ignore[arg-type]
+                messages=strip_local_message_fields(messages),  # type: ignore[arg-type]
                 max_completion_tokens=max_completion_tokens,
             )
             if cancel_event is None:
@@ -888,21 +1000,28 @@ class AIService:
                         await t
                 if cancel_task in done:
                     # Cancel fired first — provider was cancelled above.
-                    return None
+                    return CompletionResult(text=None, error_code="cancelled", error_message="cancelled")
                 response = provider_task.result()
-            return response.choices[0].message.content if response.choices else None
+            text = response.choices[0].message.content if response.choices else None
+            if not text:
+                return CompletionResult(text=None, error_code="empty_completion", error_message="empty completion")
+            return CompletionResult(text=text)
         except AuthenticationError:
             if not _token_refreshed and self._try_refresh_token():
-                return await self.complete(
+                return await self.complete_result(
                     messages,
-                    max_completion_tokens,
+                    max_completion_tokens=max_completion_tokens,
                     _token_refreshed=True,
                     cancel_event=cancel_event,
                 )
-            return None
-        except Exception:
-            logger.exception("Failed to generate completion")
-            return None
+            return CompletionResult(text=None, error_code="auth_failed", error_message="authentication failed")
+        except Exception as exc:
+            error_code, error_message = classify_completion_error(exc)
+            if error_code == "context_length_exceeded":
+                logger.warning("Completion request exceeded context window: %s", exc)
+            else:
+                logger.exception("Failed to generate completion")
+            return CompletionResult(text=None, error_code=error_code, error_message=error_message)
 
     async def complete_with_usage(
         self,
@@ -922,7 +1041,7 @@ class AIService:
         try:
             kwargs: dict[str, Any] = {
                 "model": self.config.model,
-                "messages": messages,
+                "messages": strip_local_message_fields(messages),
                 "max_completion_tokens": max_completion_tokens,
             }
             if temperature is not None:

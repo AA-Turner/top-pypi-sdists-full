@@ -324,6 +324,11 @@ def find_optimal_kmeans(feature_matrix, max_clusters=15, random_state=42):
     from sklearn.cluster import KMeans
 
     n_samples = len(feature_matrix)
+    if n_samples < 2:
+        # Not enough samples to cluster — assign all to cluster 0
+        labels = np.zeros(n_samples, dtype=int)
+        return labels, 1, []
+
     k_range = range(1, min(max_clusters, n_samples))
 
     inertias = []
@@ -331,6 +336,12 @@ def find_optimal_kmeans(feature_matrix, max_clusters=15, random_state=42):
         km = KMeans(n_clusters=k, random_state=random_state)
         km.fit(feature_matrix)
         inertias.append(km.inertia_)
+
+    if len(inertias) < 2:
+        # Only one k tested — no elbow to find
+        km_single = KMeans(n_clusters=1, random_state=random_state)
+        km_single.fit(feature_matrix)
+        return km_single.labels_, 1, inertias
 
     knee = KneeLocator(
         k_range, inertias, curve="convex", direction="decreasing"
@@ -365,6 +376,10 @@ def detect_clusters(df, target_col="Yield (tn per ha)"):
     df_pivot = df_yield.pivot_table(
         index="Region", columns="Harvest Year", values=target_col, aggfunc="mean",
     )
+
+    if df_pivot.empty:
+        regions = df_yield["Region"].unique()
+        return pd.DataFrame({"Region": regions, "Region_ID": 0})
 
     # Fill NaNs with row median, then column median
     df_pivot = df_pivot.apply(lambda row: row.fillna(row.median()), axis=1)

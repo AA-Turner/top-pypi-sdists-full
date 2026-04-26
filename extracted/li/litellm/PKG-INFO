@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.83.13
+Version: 1.83.14
 Summary: Library to easily interface with LLM API providers
 Author: BerriAI
 License-Expression: MIT
@@ -8,13 +8,13 @@ License-File: LICENSE
 Requires-Dist: fastuuid==0.14.0
 Requires-Dist: httpx==0.28.1
 Requires-Dist: openai==2.24.0
-Requires-Dist: python-dotenv==1.0.1
+Requires-Dist: python-dotenv==1.2.2
 Requires-Dist: tiktoken==0.12.0
 Requires-Dist: importlib-metadata==8.5.0
 Requires-Dist: tokenizers==0.22.2
 Requires-Dist: click==8.1.8
 Requires-Dist: jinja2==3.1.6
-Requires-Dist: aiohttp==3.13.3
+Requires-Dist: aiohttp==3.13.4
 Requires-Dist: pydantic==2.12.5
 Requires-Dist: jsonschema==4.23.0
 Requires-Dist: diskcache==5.6.3 ; extra == 'caching'
@@ -28,7 +28,7 @@ Requires-Dist: redisvl==0.4.1 ; python_full_version < '3.14' and extra == 'extra
 Requires-Dist: a2a-sdk==0.3.24 ; extra == 'extra-proxy'
 Requires-Dist: google-cloud-aiplatform==1.133.0 ; extra == 'google'
 Requires-Dist: grpcio==1.78.0 ; extra == 'grpc'
-Requires-Dist: mlflow==3.9.0 ; extra == 'mlflow'
+Requires-Dist: mlflow==3.11.1 ; extra == 'mlflow'
 Requires-Dist: gunicorn==23.0.0 ; extra == 'proxy'
 Requires-Dist: uvicorn==0.33.0 ; extra == 'proxy'
 Requires-Dist: uvloop==0.21.0 ; sys_platform != 'win32' and extra == 'proxy'
@@ -36,10 +36,10 @@ Requires-Dist: fastapi==0.124.4 ; extra == 'proxy'
 Requires-Dist: backoff==2.2.1 ; extra == 'proxy'
 Requires-Dist: pyyaml==6.0.3 ; extra == 'proxy'
 Requires-Dist: rq==2.7.0 ; extra == 'proxy'
-Requires-Dist: orjson==3.11.5 ; extra == 'proxy'
+Requires-Dist: orjson==3.11.6 ; extra == 'proxy'
 Requires-Dist: apscheduler==3.11.2 ; extra == 'proxy'
 Requires-Dist: fastapi-sso==0.19.0 ; extra == 'proxy'
-Requires-Dist: pyjwt==2.11.0 ; extra == 'proxy'
+Requires-Dist: pyjwt==2.12.0 ; extra == 'proxy'
 Requires-Dist: python-multipart==0.0.26 ; extra == 'proxy'
 Requires-Dist: cryptography==46.0.7 ; extra == 'proxy'
 Requires-Dist: pynacl==1.6.2 ; extra == 'proxy'
@@ -48,8 +48,8 @@ Requires-Dist: boto3==1.42.59 ; extra == 'proxy'
 Requires-Dist: azure-identity==1.25.2 ; extra == 'proxy'
 Requires-Dist: azure-storage-blob==12.28.0 ; extra == 'proxy'
 Requires-Dist: mcp==1.26.0 ; extra == 'proxy'
-Requires-Dist: litellm-proxy-extras==0.4.68 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.38 ; extra == 'proxy'
+Requires-Dist: litellm-proxy-extras==0.4.69 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.39 ; extra == 'proxy'
 Requires-Dist: restrictedpython==8.1 ; extra == 'proxy'
 Requires-Dist: rich==13.9.4 ; extra == 'proxy'
 Requires-Dist: polars==1.38.1 ; extra == 'proxy'
@@ -69,8 +69,8 @@ Requires-Dist: sentry-sdk==2.21.0 ; extra == 'proxy-runtime'
 Requires-Dist: mangum==0.17.0 ; extra == 'proxy-runtime'
 Requires-Dist: azure-ai-contentsafety==1.0.0 ; extra == 'proxy-runtime'
 Requires-Dist: azure-storage-file-datalake==12.20.0 ; extra == 'proxy-runtime'
-Requires-Dist: pypdf==6.7.5 ; python_full_version < '3.14' and extra == 'proxy-runtime'
-Requires-Dist: llm-sandbox==0.3.31 ; extra == 'proxy-runtime'
+Requires-Dist: pypdf==6.10.2 ; python_full_version < '3.14' and extra == 'proxy-runtime'
+Requires-Dist: llm-sandbox==0.3.39 ; extra == 'proxy-runtime'
 Requires-Dist: detect-secrets==1.5.0 ; extra == 'proxy-runtime'
 Requires-Dist: semantic-router==0.1.12 ; python_full_version < '3.14' and extra == 'semantic-router'
 Requires-Dist: aurelio-sdk==0.0.19 ; python_full_version < '3.14' and extra == 'semantic-router'
@@ -575,6 +575,8 @@ make format-check   # Check formatting only
 ```
 
 For detailed contributing guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+> **📖 Contributing to documentation?** The LiteLLM docs have moved to a separate repository: [BerriAI/litellm-docs](https://github.com/BerriAI/litellm-docs). Please open doc PRs there. Docs are served at [docs.litellm.ai](https://docs.litellm.ai).
 
 ## Code Quality / Linting
 

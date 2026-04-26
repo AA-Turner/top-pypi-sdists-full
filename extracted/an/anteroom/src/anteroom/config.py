@@ -15,6 +15,20 @@ from typing import Any
 
 import yaml
 
+from .services.context_thresholds import (
+    DEFAULT_CONTEXT_AUTO_COMPACT_BUFFER_TOKENS,
+    DEFAULT_CONTEXT_AUTO_COMPACT_TOKENS,
+    DEFAULT_CONTEXT_WARN_BUFFER_TOKENS,
+    DEFAULT_CONTEXT_WARN_TOKENS,
+    DEFAULT_MAX_OUTPUT_TOKENS,
+    DEFAULT_MODEL_CONTEXT_WINDOW,
+    DEFAULT_SUMMARY_TRIGGER_BUFFER_TOKENS,
+    DEFAULT_SUMMARY_TRIGGER_TOKEN_COUNT,
+    ContextThresholdConfig,
+    derive_context_thresholds,
+)
+from .services.project_links import ProjectConfig, build_project_config
+
 logger = logging.getLogger(__name__)
 
 _UNSET = object()  # sentinel distinguishing "not set" from None/False/0
@@ -280,7 +294,8 @@ class AIConfig:
     allowed_models: list[str] = field(default_factory=list)  # empty = show all
     block_localhost_api: bool = False  # when True, reject loopback/localhost base_url
     provider: str = "openai"  # "openai", "anthropic", or "litellm"
-    max_output_tokens: int = 4096  # required by Anthropic; used as max_tokens for Anthropic provider
+    max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS
+    """Required by Anthropic; used as max_tokens for Anthropic provider."""
     litellm_bedrock_tools_confirmed: bool = False  # opt-in for Bedrock tool calling via LiteLLM
     model_family_aliases: dict[str, str] = field(default_factory=dict)  # map family names to model IDs
 
@@ -409,11 +424,37 @@ class CompactionConfig:
     """Enable the proactive microcompact stage (#1266).
 
     When True, the agent loop runs a cheap, deterministic, in-memory
-    history sweep before each LLM call. Phase 1 ships one strategy —
-    oversized-tool-output trimming — that reads
+    history sweep before each LLM call. It includes oversized-tool-output
+    trimming and token-pressure historical tool-result collapse. The former reads
     ``cli.tool_output_max_chars`` (the single trim-threshold authority,
     shared with reactive Strategy 1). Microcompact runs in-memory only;
     it never writes to SQLite."""
+
+    historical_tool_collapse_enabled: bool = True
+    """Enable proactive collapse of older tool-result content under token pressure.
+
+    When True, the agent loop may compact historical tool results before
+    LLM-backed summary compaction is needed. The strategy is turn-group aware,
+    preserves recent groups, and never writes collapsed results to SQLite."""
+
+    historical_tool_collapse_trigger_token_count: int = 80_000
+    """Estimated-token threshold for proactive historical tool-result collapse.
+
+    Clamped to ``[5_000, 500_000]`` at load time. This default is below the
+    summary compaction threshold so deterministic collapse can reduce pressure
+    before an LLM-backed summary is required."""
+
+    historical_tool_collapse_keep_recent_groups: int = 6
+    """Recent turn groups left untouched by proactive historical collapse.
+
+    Clamped to ``[0, 200]`` at load time. Turn groups keep assistant tool calls
+    together with their matching tool results."""
+
+    historical_tool_collapse_compact_chars: int = 1_000
+    """Character budget for each collapsed historical tool result.
+
+    Clamped to ``[50, 50_000]`` at load time. Structured fields such as status,
+    path, exit code, and error remain visible when they fit within the budget."""
 
     summary_trigger_msg_count: int = 80
     """Message-count threshold that triggers proactive summary compaction.
@@ -424,7 +465,7 @@ class CompactionConfig:
     ``services.compaction.PROACTIVE_COMPACTION_MSG_THRESHOLD`` reads
     from this field for backward compatibility."""
 
-    summary_trigger_token_count: int = 90_000
+    summary_trigger_token_count: int = DEFAULT_SUMMARY_TRIGGER_TOKEN_COUNT
     """Estimated-token threshold that triggers proactive summary compaction.
 
     When the estimated prompt token count reaches this value, the agent
@@ -432,6 +473,10 @@ class CompactionConfig:
     ``[5_000, 500_000]`` at load time. Legacy module constant
     ``services.compaction.PROACTIVE_COMPACTION_TOKEN_THRESHOLD`` reads
     from this field for backward compatibility."""
+
+    summary_trigger_buffer_tokens: int = DEFAULT_SUMMARY_TRIGGER_BUFFER_TOKENS
+    """Tokens to keep free before proactive summary compaction when deriving
+    ``summary_trigger_token_count`` from the active model context window."""
 
     reactive_max_attempts: int = 4
     """Max bounded retries after a ``context_length_exceeded`` error.
@@ -441,6 +486,24 @@ class CompactionConfig:
     giving up. Clamped to ``[0, 10]`` at load time. ``0`` disables
     reactive recovery entirely (not recommended — the loop will
     surface the original provider error)."""
+
+    summary_max_completion_tokens: int = 1000
+    """Maximum output budget for LLM compaction summaries.
+
+    The service scales the requested summary budget with conversation size,
+    capped by this value. Clamped to ``[256, 16000]`` at load time."""
+
+    summary_retry_max_attempts: int = 3
+    """Total summary attempts for prompt-too-long compaction failures.
+
+    Retries only occur for structured ``context_length_exceeded`` failures.
+    Clamped to ``[1, 10]`` at load time."""
+
+    summary_retry_drop_groups: int = 2
+    """Oldest safe turn groups to drop before each summary retry.
+
+    Turn-group boundaries keep assistant tool calls attached to tool results.
+    Clamped to ``[1, 50]`` at load time."""
 
 
 @dataclass
@@ -535,8 +598,11 @@ class CliConfig:
     max_tool_iterations: int = 50
     max_consecutive_text_only: int = 3  # stop after N text-only responses with no tool calls (0 = disabled)
     max_line_repeats: int = 5  # stop if a single response repeats the same line N+ times (0 = disabled)
-    context_warn_tokens: int = 80_000
-    context_auto_compact_tokens: int = 100_000
+    context_warn_tokens: int = DEFAULT_CONTEXT_WARN_TOKENS
+    context_auto_compact_tokens: int = DEFAULT_CONTEXT_AUTO_COMPACT_TOKENS
+    context_reserved_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS
+    context_warn_buffer_tokens: int = DEFAULT_CONTEXT_WARN_BUFFER_TOKENS
+    context_auto_compact_buffer_tokens: int = DEFAULT_CONTEXT_AUTO_COMPACT_BUFFER_TOKENS
     tool_dedup: bool = True  # collapse consecutive similar tool calls; False = show all
     retry_delay: float = 5.0  # seconds between CLI auto-retry countdown ticks
     max_retries: int = 3  # max CLI auto-retry attempts for retryable errors
@@ -547,11 +613,13 @@ class CliConfig:
     tool_output_max_chars: int = 10_000  # max chars per tool result before truncation
     tool_replay_max_chars: int = 10_000  # max chars per tool result on conversation resume
     file_reference_max_chars: int = 100_000  # max chars from @file references
-    model_context_window: int = 128_000  # model context window size for usage bar
+    model_context_window: int = DEFAULT_MODEL_CONTEXT_WINDOW  # model context window size for usage bar
     background_suggest_seconds: int = 30  # advisory threshold for background shell tasks (0 = disabled)
     detach_suggest_seconds: int = 120  # advisory threshold for detached subagents (0 = disabled)
     update_check: bool = True  # check PyPI for newer versions on startup
     update_check_command: str = ""  # custom command returning latest version (replaces pip index)
+    # Startup update notification template; empty string suppresses notification.
+    update_check_message: str = "Update available: {current} -> {latest} -- pip install --upgrade anteroom"
     show_attribution_footer: bool = True  # compact per-turn attribution line in CLI (#923)
     planning: PlanningConfig = field(default_factory=PlanningConfig)
     usage: UsageConfig = field(default_factory=UsageConfig)
@@ -1356,6 +1424,50 @@ class HookEntryConfig:
 
 
 @dataclass
+class FeedbackReporterConfig:
+    """A single named feedback reporter (command or webhook)."""
+
+    name: str = "default"
+    type: str = "command"  # "command" | "webhook"
+    command: str = ""
+    url: str = ""
+    timeout: int = 10  # clamped [1, 30]
+    enabled: bool = True
+
+    def __post_init__(self) -> None:
+        self.timeout = max(1, min(30, self.timeout))
+        if self.type not in ("command", "webhook"):
+            logger.warning("feedback reporter %r has unknown type %r — defaulting to 'command'", self.name, self.type)
+            object.__setattr__(self, "type", "command")
+
+
+@dataclass
+class FeedbackConfig:
+    """Feedback and bug reporting settings.
+
+    When no reporters are configured, the bundle is written to a local
+    JSON file and the path is printed.  Configure ``reporters`` to dispatch
+    to external systems such as GitHub Issues, Jira, or Slack.
+
+    ``include_history_default`` controls whether conversation history is
+    included without an explicit opt-in.  Off by default (privacy-safe).
+    """
+
+    reporters: list[FeedbackReporterConfig] = field(default_factory=list)
+    include_history_default: bool = False
+    max_history_messages: int = 10  # clamped [1, 50]
+    retry_attempts: int = 2  # total attempts, clamped [1, 5]
+    retry_backoff_seconds: float = 1.0  # clamped [0.0, 30.0]
+    max_bundle_bytes: int = 1_000_000  # clamped [10_000, 5_000_000]
+
+    def __post_init__(self) -> None:
+        self.max_history_messages = max(1, min(50, self.max_history_messages))
+        self.retry_attempts = max(1, min(5, self.retry_attempts))
+        self.retry_backoff_seconds = max(0.0, min(30.0, self.retry_backoff_seconds))
+        self.max_bundle_bytes = max(10_000, min(5_000_000, self.max_bundle_bytes))
+
+
+@dataclass
 class HooksConfig:
     """Runtime hook definitions for PreToolUse and PostToolUse events.
 
@@ -1596,6 +1708,7 @@ def _build_hooks_config(
 class AppConfig:
     ai: AIConfig
     app: AppSettings = field(default_factory=AppSettings)
+    project: ProjectConfig = field(default_factory=ProjectConfig)
     mcp_servers: list[McpServerConfig] = field(default_factory=list)
     mcp_tool_warning_threshold: int = 40  # warn when total MCP tools exceed this; 0 = disabled
     shared_databases: list[SharedDatabaseConfig] = field(default_factory=list)
@@ -1621,6 +1734,7 @@ class AppConfig:
     workflow: WorkflowConfig = field(default_factory=WorkflowConfig)
     pack_sources: list[PackSourceConfig] = field(default_factory=list)
     hooks: HooksConfig = field(default_factory=HooksConfig)
+    feedback: FeedbackConfig = field(default_factory=FeedbackConfig)
 
 
 def _resolve_data_dir() -> Path:
@@ -1943,9 +2057,11 @@ def load_config(
         provider = "openai"
 
     try:
-        max_output_tokens = int(ai_raw.get("max_output_tokens", os.environ.get("AI_CHAT_MAX_OUTPUT_TOKENS", 4096)))
+        max_output_tokens = int(
+            ai_raw.get("max_output_tokens", os.environ.get("AI_CHAT_MAX_OUTPUT_TOKENS", DEFAULT_MAX_OUTPUT_TOKENS))
+        )
     except (ValueError, TypeError):
-        max_output_tokens = 4096
+        max_output_tokens = DEFAULT_MAX_OUTPUT_TOKENS
 
     _raw_bedrock_confirmed = ai_raw.get(
         "litellm_bedrock_tools_confirmed",
@@ -2120,14 +2236,117 @@ def load_config(
         pass  # May fail on Windows or non-owned files
 
     cli_raw = raw.get("cli", {})
-    try:
-        context_warn_tokens = int(cli_raw.get("context_warn_tokens", 80_000))
-    except (ValueError, TypeError):
-        context_warn_tokens = 80_000
-    try:
-        context_auto_compact_tokens = int(cli_raw.get("context_auto_compact_tokens", 100_000))
-    except (ValueError, TypeError):
-        context_auto_compact_tokens = 100_000
+
+    def _cli_raw_or_env(key: str, env_key: str) -> tuple[Any, bool]:
+        if key in cli_raw:
+            return cli_raw[key], True
+        env_val = os.environ.get(env_key)
+        if env_val is not None:
+            return env_val, True
+        return None, False
+
+    def _compaction_raw_or_env(key: str, env_key: str) -> tuple[Any, bool]:
+        compaction_section = raw.get("compaction", {})
+        if isinstance(compaction_section, dict) and key in compaction_section:
+            return compaction_section[key], True
+        env_val = os.environ.get(env_key)
+        if env_val is not None:
+            return env_val, True
+        return None, False
+
+    def _parse_optional_int(value: Any, present: bool) -> int | None:
+        if not present:
+            return None
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return None
+
+    def _parse_int_setting(value: Any, *, default: int, lo: int, hi: int) -> int:
+        try:
+            return max(lo, min(hi, int(value)))
+        except (ValueError, TypeError):
+            return default
+
+    _raw_model_context_window, _model_context_window_present = _cli_raw_or_env(
+        "model_context_window", "AI_CHAT_MODEL_CONTEXT_WINDOW"
+    )
+    model_context_window = _parse_int_setting(
+        _raw_model_context_window if _model_context_window_present else DEFAULT_MODEL_CONTEXT_WINDOW,
+        default=DEFAULT_MODEL_CONTEXT_WINDOW,
+        lo=1000,
+        hi=2_000_000,
+    )
+
+    _raw_reserved_output, _reserved_output_present = _cli_raw_or_env(
+        "context_reserved_output_tokens", "AI_CHAT_CONTEXT_RESERVED_OUTPUT_TOKENS"
+    )
+    context_reserved_output_tokens = _parse_int_setting(
+        _raw_reserved_output if _reserved_output_present else max_output_tokens,
+        default=max_output_tokens,
+        lo=0,
+        hi=2_000_000,
+    )
+
+    _raw_warn_buffer, _warn_buffer_present = _cli_raw_or_env(
+        "context_warn_buffer_tokens", "AI_CHAT_CONTEXT_WARN_BUFFER_TOKENS"
+    )
+    context_warn_buffer_tokens = _parse_int_setting(
+        _raw_warn_buffer if _warn_buffer_present else DEFAULT_CONTEXT_WARN_BUFFER_TOKENS,
+        default=DEFAULT_CONTEXT_WARN_BUFFER_TOKENS,
+        lo=0,
+        hi=2_000_000,
+    )
+
+    _raw_auto_buffer, _auto_buffer_present = _cli_raw_or_env(
+        "context_auto_compact_buffer_tokens", "AI_CHAT_CONTEXT_AUTO_COMPACT_BUFFER_TOKENS"
+    )
+    context_auto_compact_buffer_tokens = _parse_int_setting(
+        _raw_auto_buffer if _auto_buffer_present else DEFAULT_CONTEXT_AUTO_COMPACT_BUFFER_TOKENS,
+        default=DEFAULT_CONTEXT_AUTO_COMPACT_BUFFER_TOKENS,
+        lo=0,
+        hi=2_000_000,
+    )
+
+    _raw_context_warn, _context_warn_present = _cli_raw_or_env("context_warn_tokens", "AI_CHAT_CONTEXT_WARN_TOKENS")
+    explicit_context_warn_tokens = _parse_optional_int(_raw_context_warn, _context_warn_present)
+
+    _raw_context_auto, _context_auto_present = _cli_raw_or_env(
+        "context_auto_compact_tokens", "AI_CHAT_CONTEXT_AUTO_COMPACT_TOKENS"
+    )
+    explicit_context_auto_compact_tokens = _parse_optional_int(_raw_context_auto, _context_auto_present)
+
+    _raw_summary_buffer, _summary_buffer_present = _compaction_raw_or_env(
+        "summary_trigger_buffer_tokens", "AI_CHAT_SUMMARY_TRIGGER_BUFFER_TOKENS"
+    )
+    summary_trigger_buffer_tokens = _parse_int_setting(
+        _raw_summary_buffer if _summary_buffer_present else DEFAULT_SUMMARY_TRIGGER_BUFFER_TOKENS,
+        default=DEFAULT_SUMMARY_TRIGGER_BUFFER_TOKENS,
+        lo=0,
+        hi=2_000_000,
+    )
+
+    _raw_summary_trigger, _summary_trigger_present = _compaction_raw_or_env(
+        "summary_trigger_token_count", "AI_CHAT_SUMMARY_TRIGGER_TOKEN_COUNT"
+    )
+    explicit_summary_trigger_token_count = _parse_optional_int(_raw_summary_trigger, _summary_trigger_present)
+
+    context_thresholds = derive_context_thresholds(
+        ContextThresholdConfig(
+            model_context_window=model_context_window,
+            reserved_output_tokens=context_reserved_output_tokens,
+            warn_buffer_tokens=context_warn_buffer_tokens,
+            auto_compact_buffer_tokens=context_auto_compact_buffer_tokens,
+            summary_trigger_buffer_tokens=summary_trigger_buffer_tokens,
+            explicit_warn_tokens=explicit_context_warn_tokens,
+            explicit_auto_compact_tokens=explicit_context_auto_compact_tokens,
+            explicit_summary_trigger_token_count=explicit_summary_trigger_token_count,
+        )
+    )
+    context_warn_tokens = context_thresholds.context_warn_tokens
+    context_auto_compact_tokens = context_thresholds.context_auto_compact_tokens
+    summary_trigger_token_count = context_thresholds.summary_trigger_token_count
+
     tool_dedup_env = os.environ.get("AI_CHAT_TOOL_DEDUP")
     tool_dedup_raw = tool_dedup_env if tool_dedup_env is not None else cli_raw.get("tool_dedup", True)
     tool_dedup = str(tool_dedup_raw).lower() not in ("false", "0", "no", "off")
@@ -2176,11 +2395,6 @@ def load_config(
         file_reference_max_chars = max(1000, min(10_000_000, int(cli_raw.get("file_reference_max_chars", 100_000))))
     except (ValueError, TypeError):
         file_reference_max_chars = 100_000
-    try:
-        model_context_window = max(1000, min(2_000_000, int(cli_raw.get("model_context_window", 128_000))))
-    except (ValueError, TypeError):
-        model_context_window = 128_000
-
     # Execution surface routing thresholds (#1317)
     try:
         background_suggest_seconds = max(
@@ -2210,6 +2424,15 @@ def load_config(
     _raw_update_check = cli_raw.get("update_check", os.environ.get("AI_CHAT_UPDATE_CHECK", "true"))
     update_check = str(_raw_update_check).lower() not in ("false", "0", "no")
     update_check_command = str(cli_raw.get("update_check_command", os.environ.get("AI_CHAT_UPDATE_CHECK_COMMAND", "")))
+    update_check_message = str(
+        cli_raw.get(
+            "update_check_message",
+            os.environ.get(
+                "AI_CHAT_UPDATE_CHECK_MESSAGE",
+                "Update available: {current} -> {latest} -- pip install --upgrade anteroom",
+            ),
+        )
+    )
 
     planning_raw = cli_raw.get("planning", {})
     if not isinstance(planning_raw, dict):
@@ -2587,6 +2810,9 @@ def load_config(
         max_tool_iterations=int(cli_raw.get("max_tool_iterations", 50)),
         context_warn_tokens=context_warn_tokens,
         context_auto_compact_tokens=context_auto_compact_tokens,
+        context_reserved_output_tokens=context_thresholds.reserved_output_tokens,
+        context_warn_buffer_tokens=context_warn_buffer_tokens,
+        context_auto_compact_buffer_tokens=context_auto_compact_buffer_tokens,
         tool_dedup=tool_dedup,
         retry_delay=retry_delay,
         max_retries=max_retries,
@@ -2602,6 +2828,7 @@ def load_config(
         detach_suggest_seconds=detach_suggest_seconds,
         update_check=update_check,
         update_check_command=update_check_command,
+        update_check_message=update_check_message,
         show_attribution_footer=str(
             os.environ.get(
                 "AI_CHAT_SHOW_ATTRIBUTION_FOOTER",
@@ -3002,6 +3229,62 @@ def load_config(
     )
     microcompact_enabled = str(_microcompact_raw).lower() not in ("false", "0", "no", "off")
 
+    _historical_tool_collapse_raw = compaction_raw.get(
+        "historical_tool_collapse_enabled",
+        os.environ.get("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_ENABLED", "true"),
+    )
+    historical_tool_collapse_enabled = str(_historical_tool_collapse_raw).lower() not in (
+        "false",
+        "0",
+        "no",
+        "off",
+    )
+    try:
+        historical_tool_collapse_trigger_token_count = max(
+            5_000,
+            min(
+                500_000,
+                int(
+                    compaction_raw.get(
+                        "historical_tool_collapse_trigger_token_count",
+                        os.environ.get("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_TRIGGER_TOKEN_COUNT", 80_000),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        historical_tool_collapse_trigger_token_count = 80_000
+    try:
+        historical_tool_collapse_keep_recent_groups = max(
+            0,
+            min(
+                200,
+                int(
+                    compaction_raw.get(
+                        "historical_tool_collapse_keep_recent_groups",
+                        os.environ.get("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_KEEP_RECENT_GROUPS", 6),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        historical_tool_collapse_keep_recent_groups = 6
+    try:
+        historical_tool_collapse_compact_chars = max(
+            50,
+            min(
+                50_000,
+                int(
+                    compaction_raw.get(
+                        "historical_tool_collapse_compact_chars",
+                        os.environ.get("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_COMPACT_CHARS", 1_000),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        historical_tool_collapse_compact_chars = 1_000
+
     # Summary compaction triggers (#1266 — promoted from hardcoded constants).
     try:
         summary_trigger_msg_count = max(
@@ -3018,22 +3301,6 @@ def load_config(
         )
     except (ValueError, TypeError):
         summary_trigger_msg_count = 80
-    try:
-        summary_trigger_token_count = max(
-            5_000,
-            min(
-                500_000,
-                int(
-                    compaction_raw.get(
-                        "summary_trigger_token_count",
-                        os.environ.get("AI_CHAT_SUMMARY_TRIGGER_TOKEN_COUNT", 90_000),
-                    )
-                ),
-            ),
-        )
-    except (ValueError, TypeError):
-        summary_trigger_token_count = 90_000
-
     # Reactive overflow ladder retry cap (#1266 — promoted from hardcoded constant).
     try:
         reactive_max_attempts = max(
@@ -3051,15 +3318,71 @@ def load_config(
     except (ValueError, TypeError):
         reactive_max_attempts = 4
 
+    try:
+        summary_max_completion_tokens = max(
+            256,
+            min(
+                16_000,
+                int(
+                    compaction_raw.get(
+                        "summary_max_completion_tokens",
+                        os.environ.get("AI_CHAT_COMPACT_SUMMARY_MAX_TOKENS", 1000),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        summary_max_completion_tokens = 1000
+
+    try:
+        summary_retry_max_attempts = max(
+            1,
+            min(
+                10,
+                int(
+                    compaction_raw.get(
+                        "summary_retry_max_attempts",
+                        os.environ.get("AI_CHAT_COMPACT_SUMMARY_RETRY_MAX_ATTEMPTS", 3),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        summary_retry_max_attempts = 3
+
+    try:
+        summary_retry_drop_groups = max(
+            1,
+            min(
+                50,
+                int(
+                    compaction_raw.get(
+                        "summary_retry_drop_groups",
+                        os.environ.get("AI_CHAT_COMPACT_SUMMARY_RETRY_DROP_GROUPS", 2),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        summary_retry_drop_groups = 2
+
     compaction_config = CompactionConfig(
         preserve_tail=preserve_tail,
         compact_rehydrate=compact_rehydrate,
         compact_rehydrate_max_files=compact_rehydrate_max_files,
         compact_rehydrate_max_errors=compact_rehydrate_max_errors,
         microcompact_enabled=microcompact_enabled,
+        historical_tool_collapse_enabled=historical_tool_collapse_enabled,
+        historical_tool_collapse_trigger_token_count=historical_tool_collapse_trigger_token_count,
+        historical_tool_collapse_keep_recent_groups=historical_tool_collapse_keep_recent_groups,
+        historical_tool_collapse_compact_chars=historical_tool_collapse_compact_chars,
         summary_trigger_msg_count=summary_trigger_msg_count,
         summary_trigger_token_count=summary_trigger_token_count,
+        summary_trigger_buffer_tokens=summary_trigger_buffer_tokens,
         reactive_max_attempts=reactive_max_attempts,
+        summary_max_completion_tokens=summary_max_completion_tokens,
+        summary_retry_max_attempts=summary_retry_max_attempts,
+        summary_retry_drop_groups=summary_retry_drop_groups,
     )
 
     # RAG config
@@ -3452,6 +3775,77 @@ def load_config(
         retention_days=audit_retention,
         redact_content=audit_redact,
         events=audit_events,
+    )
+
+    # Feedback config
+    feedback_raw = raw.get("feedback", {})
+    if not isinstance(feedback_raw, dict):
+        feedback_raw = {}
+    feedback_include_history = str(
+        feedback_raw.get("include_history_default", os.environ.get("AI_CHAT_FEEDBACK_INCLUDE_HISTORY", "false"))
+    ).lower() in ("true", "1", "yes")
+    try:
+        _raw_fb_hist = feedback_raw.get(
+            "max_history_messages", os.environ.get("AI_CHAT_FEEDBACK_MAX_HISTORY_MESSAGES", 10)
+        )
+        feedback_max_history = max(1, min(50, int(_raw_fb_hist)))
+    except (ValueError, TypeError):
+        feedback_max_history = 10
+    try:
+        _raw_fb_retry = feedback_raw.get("retry_attempts", os.environ.get("AI_CHAT_FEEDBACK_RETRY_ATTEMPTS", 2))
+        feedback_retry = max(1, min(5, int(_raw_fb_retry)))
+    except (ValueError, TypeError):
+        feedback_retry = 2
+    try:
+        _raw_fb_backoff = feedback_raw.get(
+            "retry_backoff_seconds", os.environ.get("AI_CHAT_FEEDBACK_RETRY_BACKOFF_SECONDS", 1.0)
+        )
+        feedback_backoff = max(0.0, min(30.0, float(_raw_fb_backoff)))
+    except (ValueError, TypeError):
+        feedback_backoff = 1.0
+    try:
+        _raw_fb_bytes = feedback_raw.get(
+            "max_bundle_bytes", os.environ.get("AI_CHAT_FEEDBACK_MAX_BUNDLE_BYTES", 1_000_000)
+        )
+        feedback_max_bytes = max(10_000, min(5_000_000, int(_raw_fb_bytes)))
+    except (ValueError, TypeError):
+        feedback_max_bytes = 1_000_000
+    feedback_reporters: list[FeedbackReporterConfig] = []
+    for r_raw in feedback_raw.get("reporters", []):
+        if not isinstance(r_raw, dict):
+            continue
+        try:
+            timeout_val = max(1, min(30, int(r_raw.get("timeout", 10))))
+        except (ValueError, TypeError):
+            timeout_val = 10
+        reporter_name = str(r_raw.get("name", "default")).strip() or "default"
+        reporter_type = str(r_raw.get("type", "command")).strip()
+        reporter_cmd = str(r_raw.get("command", "")).strip()
+        reporter_url = str(r_raw.get("url", "")).strip()
+        reporter_enabled = str(r_raw.get("enabled", "true")).lower() not in ("false", "0", "no")
+        if reporter_type == "command" and not reporter_cmd:
+            logger.warning("feedback reporter %r has type='command' but no command — skipped", reporter_name)
+            continue
+        if reporter_type == "webhook" and not reporter_url:
+            logger.warning("feedback reporter %r has type='webhook' but no url — skipped", reporter_name)
+            continue
+        feedback_reporters.append(
+            FeedbackReporterConfig(
+                name=reporter_name,
+                type=reporter_type,
+                command=reporter_cmd,
+                url=reporter_url,
+                timeout=timeout_val,
+                enabled=reporter_enabled,
+            )
+        )
+    feedback_config = FeedbackConfig(
+        reporters=feedback_reporters,
+        include_history_default=feedback_include_history,
+        max_history_messages=feedback_max_history,
+        retry_attempts=feedback_retry,
+        retry_backoff_seconds=feedback_backoff,
+        max_bundle_bytes=feedback_max_bytes,
     )
 
     # Memory config (#920 promotion/review pipeline)
@@ -3918,11 +4312,16 @@ def load_config(
                 priority=priority,
             )
         )
+    project_raw = raw.get("project", {})
+    if not isinstance(project_raw, dict):
+        project_raw = {}
+    project_config = build_project_config(project_raw)
 
     return (
         AppConfig(
             ai=ai,
             app=app_settings,
+            project=project_config,
             mcp_servers=mcp_servers,
             mcp_tool_warning_threshold=mcp_tool_warning_threshold,
             shared_databases=shared_databases,
@@ -3948,6 +4347,7 @@ def load_config(
             workflow=workflow_config,
             pack_sources=pack_sources_list,
             hooks=hooks_config,
+            feedback=feedback_config,
         ),
         enforced_fields,
     )

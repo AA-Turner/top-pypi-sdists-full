@@ -21,6 +21,7 @@ from anteroom.routers.chat import (
     _active_streams,
     _build_tool_list,
     _cancel_events,
+    _debug_diagnostics_requested,
     _extract_streaming_content,
     _extract_streaming_language,
     _is_safe_name,
@@ -1357,6 +1358,59 @@ class TestBuildChatSystemPrompt:
         assert "Do NOT use file tools" in result
 
     @pytest.mark.asyncio
+    async def test_attachment_statuses_distinguish_failed_extraction(self) -> None:
+        from anteroom.routers.chat import _build_chat_system_prompt
+
+        ai_service = MagicMock()
+        ai_service.config.model = "gpt-4o"
+        tool_registry = MagicMock()
+        tool_registry.list_tools.return_value = ["read_file", "docx"]
+        tool_registry._working_dir = None
+        mcp_manager = MagicMock()
+        mcp_manager.get_server_statuses.return_value = []
+        config = MagicMock()
+        config.app.tls = False
+        config.rag = None
+        config.codebase_index.map_tokens = 1000
+        db = MagicMock()
+
+        with (
+            patch("anteroom.routers.chat.build_runtime_context", return_value="Available tools: read_file, docx"),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
+            patch("anteroom.routers.chat.storage") as mock_storage,
+            patch("anteroom.services.codebase_index.create_index_service", return_value=None),
+        ):
+            mock_storage.get_canvas_for_conversation.return_value = None
+            result, _meta, _recalled = await _build_chat_system_prompt(
+                ai_service=ai_service,
+                tool_registry=tool_registry,
+                mcp_manager=mcp_manager,
+                config=config,
+                db=db,
+                conversation_id=str(uuid.uuid4()),
+                space_instructions=None,
+                plan_prompt="",
+                plan_mode=False,
+                message_text="summarize this",
+                source_ids=[],
+                source_tag=None,
+                source_group_id=None,
+                attachment_statuses=[
+                    {"filename": "good.pdf", "extracted": True},
+                    {"filename": "scan.pdf", "extracted": False, "warnings": ["no text found"]},
+                ],
+            )
+
+        assert "Extracted content is included directly" in result
+        assert "good.pdf" in result
+        assert "Text extraction failed for: scan.pdf" in result
+        assert "uploaded attachments are not workspace file paths" in result.lower()
+        assert "Available tools: read_file, docx" in result
+        assert "Use the appropriate tool" not in result
+        assert "use tools to read this file" not in result
+
+    @pytest.mark.asyncio
     async def test_no_attachment_guidance_when_no_files(self) -> None:
         from anteroom.routers.chat import _build_chat_system_prompt
 
@@ -1564,6 +1618,7 @@ def _make_stream_context(*, conv_id: str | None = None, plan_mode: bool = False)
     ctx.db_name = "personal"
     ctx.cancel_event = asyncio.Event()
     ctx.user_msg = None
+    ctx.debug_diagnostics = False
     return ctx
 
 
@@ -1641,6 +1696,24 @@ class TestStreamChatConfigThreading:
         assert captured_kwargs["max_line_repeats"] == CliConfig.max_line_repeats
 
 
+class TestDebugDiagnosticsRequested:
+    def test_requires_server_flag_and_header(self) -> None:
+        request = SimpleNamespace(
+            app=SimpleNamespace(state=SimpleNamespace(debug_diagnostics_enabled=True)),
+            headers={"x-anteroom-debug": "1"},
+        )
+
+        assert _debug_diagnostics_requested(request) is True
+
+    def test_header_alone_is_not_enough(self) -> None:
+        request = SimpleNamespace(
+            app=SimpleNamespace(state=SimpleNamespace(debug_diagnostics_enabled=False)),
+            headers={"x-anteroom-debug": "1"},
+        )
+
+        assert _debug_diagnostics_requested(request) is False
+
+
 class TestStreamChatEventsKinds:
     @pytest.mark.asyncio
     async def test_thinking_event_emitted(self) -> None:
@@ -1663,6 +1736,47 @@ class TestStreamChatEventsKinds:
         sse_events = [e for e in result if isinstance(e, dict) and "event" in e]
         event_types = [e["event"] for e in sse_events]
         assert "thinking" in event_types
+
+    @pytest.mark.asyncio
+    async def test_compaction_phase_breakdown_fields_forwarded(self) -> None:
+        ctx = _make_stream_context()
+        events = [
+            _make_agent_event(
+                "phase",
+                {
+                    "phase": "compacting",
+                    "reason": "token_threshold",
+                    "estimated_tokens": 101,
+                    "message_tokens": 12,
+                    "system_prompt_tokens": 78,
+                    "tool_schema_tokens": 11,
+                    "token_threshold": 100,
+                    "message_count": 5,
+                    "message_threshold": 80,
+                },
+            ),
+            _make_agent_event("done", {}),
+        ]
+
+        async def fake_agent_gen(*args, **kwargs):
+            for ev in events:
+                yield ev
+
+        with (
+            patch("anteroom.routers.chat.run_agent_loop", side_effect=fake_agent_gen),
+            patch("anteroom.routers.chat.storage") as mock_storage,
+        ):
+            mock_storage.get_conversation_token_total.return_value = 0
+            mock_storage.get_daily_token_total.return_value = 0
+            mock_storage.update_conversation_title = MagicMock()
+            result = await _collect_events(_stream_chat_events(ctx))
+
+        phase_event = next(e for e in result if isinstance(e, dict) and e.get("event") == "phase")
+        payload = json.loads(phase_event["data"])
+        assert payload["estimated_tokens"] == 101
+        assert payload["message_tokens"] == 12
+        assert payload["system_prompt_tokens"] == 78
+        assert payload["tool_schema_tokens"] == 11
 
     @pytest.mark.asyncio
     async def test_token_event_emitted(self) -> None:

@@ -63,6 +63,19 @@ class TestValidateConfigBasic:
         result = validate_config(raw)
         assert result.is_valid
 
+    def test_cli_version_check_keys_are_known(self) -> None:
+        result = validate_config(
+            {
+                "cli": {
+                    "update_check": False,
+                    "update_check_command": "internal-version",
+                    "update_check_message": "Install {latest}; current {current}",
+                }
+            }
+        )
+        assert result.is_valid
+        assert not any(error.path.startswith("cli.update_check") for error in result.errors)
+
 
 class TestUnknownKeys:
     def test_unknown_top_level_key(self) -> None:
@@ -86,6 +99,28 @@ class TestUnknownKeys:
                 "ai": {"base_url": "http://x", "api_key": "k", "model": "gpt-4"},
             }
         )
+        assert not result.has_warnings
+
+    def test_compaction_keys_are_known(self) -> None:
+        result = validate_config(
+            {
+                "compaction": {
+                    "microcompact_enabled": True,
+                    "historical_tool_collapse_enabled": True,
+                    "historical_tool_collapse_trigger_token_count": 80_000,
+                    "historical_tool_collapse_keep_recent_groups": 6,
+                    "historical_tool_collapse_compact_chars": 1_000,
+                    "summary_trigger_msg_count": 80,
+                    "summary_trigger_token_count": 90_000,
+                    "reactive_max_attempts": 4,
+                    "summary_max_completion_tokens": 4096,
+                    "summary_retry_max_attempts": 3,
+                    "summary_retry_drop_groups": 2,
+                }
+            }
+        )
+
+        assert result.is_valid
         assert not result.has_warnings
 
     def test_cli_hierarchy_known_no_warnings(self) -> None:
@@ -209,6 +244,37 @@ class TestIntFields:
         assert any(
             e.path == "cli.tool_replay_max_chars" and "will use default 10000" in e.message for e in result.errors
         )
+
+    def test_context_threshold_knobs_are_known_ints(self) -> None:
+        result = validate_config(
+            {
+                "cli": {
+                    "context_reserved_output_tokens": 4096,
+                    "context_warn_buffer_tokens": 43904,
+                    "context_auto_compact_buffer_tokens": 23904,
+                },
+                "compaction": {
+                    "summary_trigger_msg_count": 80,
+                    "summary_trigger_token_count": 90000,
+                    "summary_trigger_buffer_tokens": 33904,
+                    "reactive_max_attempts": 4,
+                },
+            }
+        )
+
+        assert not result.has_warnings, [e.path for e in result.errors]
+
+    def test_context_threshold_knobs_warn_when_out_of_range(self) -> None:
+        result = validate_config(
+            {
+                "cli": {"context_reserved_output_tokens": 3_000_000},
+                "compaction": {"summary_trigger_buffer_tokens": 3_000_000},
+            }
+        )
+
+        assert result.has_warnings
+        assert any(e.path == "cli.context_reserved_output_tokens" for e in result.errors)
+        assert any(e.path == "compaction.summary_trigger_buffer_tokens" for e in result.errors)
 
 
 class TestFloatFields:

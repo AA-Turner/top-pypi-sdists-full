@@ -88,15 +88,23 @@ class AgentExecutionManager:
     ) -> str:
         run_mounts = [mount.clone_for_run() for mount in task._all_mounts()]
         task_name = _task_slug(display_name or task._display_name or "agent-task")
-        published_transport = await self._prepare_git_mount(run_mounts, task_name)
 
-        # Wire up review gate if the task has a review_fn
+        # _prepare_git_mount resolves ``main``'s SHA from the bare and pins
+        # the agent's checkout to it. When N parallel ``runner.run()`` calls
+        # are kicked off via ``asyncio.gather``, doing this BEFORE the
+        # warm-pool acquire makes every coroutine snapshot main at the same
+        # pre-fanout SHA — even though the pool serializes them and later
+        # runners would otherwise see in-flight peers' merges. Defer the
+        # snapshot until after acquire so each agent picks up the latest
+        # main as it actually starts running.
         review_fn = task._review_fn
-        if review_fn is not None and published_transport is not None:
-            self._attach_review_gate(task, task_name, published_transport, review_fn)
 
         pooled_runtime = await self._warm_pool.acquire()
+        published_transport: GitTransport | None = None
         try:
+            published_transport = await self._prepare_git_mount(run_mounts, task_name)
+            if review_fn is not None and published_transport is not None:
+                self._attach_review_gate(task, task_name, published_transport, review_fn)
             agent_id = await task._run_on_runtime(
                 pooled_runtime.runtime_info,
                 instruction,

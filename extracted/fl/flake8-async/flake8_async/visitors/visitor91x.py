@@ -32,7 +32,6 @@ from .helpers import (
     fnmatch_qualified_name_cst,
     func_has_decorator,
     get_matching_call_cst,
-    identifier_to_string,
     iter_guaranteed_once_cst,
 )
 
@@ -131,7 +130,9 @@ class Visitor124(Flake8AsyncVisitor_cst):
             )
             # ignore functions with no_checkpoint_warning_decorators
             and not fnmatch_qualified_name_cst(
-                original_node.decorators, *self.options.no_checkpoint_warning_decorators
+                original_node.decorators,
+                *self.options.no_checkpoint_warning_decorators,
+                imports=self.imports,
             )
         ):
             self.error(original_node)
@@ -166,17 +167,17 @@ class LoopState:
         default_factory=set[Statement]
     )
     uncheckpointed_before_break: set[Statement] = field(default_factory=set[Statement])
-    # pyright emits reportUnknownVariableType, requiring the generic to default_factory
-    # to be specified.
-    # But for these we require a union, and `|` doesn't work on py39, and uses of
-    # `Union` gets autofixed by ruff.
-    # So.... let's just ignore the error for now
-    artificial_errors: set[  # pyright: ignore[reportUnknownVariableType]
-        cst.Return | cst.Yield
-    ] = field(default_factory=set)
-    nodes_needing_checkpoints: list[  # pyright: ignore[reportUnknownVariableType]
-        cst.Return | cst.Yield | ArtificialStatement
-    ] = field(default_factory=list)
+    artificial_errors: set[cst.Return | cst.Yield] = field(
+        default_factory=set[cst.Return | cst.Yield]
+    )
+    nodes_needing_checkpoints: list[cst.Return | cst.Yield | ArtificialStatement] = (
+        field(default_factory=list[cst.Return | cst.Yield | ArtificialStatement])
+    )
+    # If a missing checkpoint was detected for a return/yield inside an except
+    # clause, inserting the checkpoint there would trigger ASYNC120.  Instead,
+    # mark the innermost loop so a checkpoint is inserted at the top of the
+    # loop body.
+    needs_checkpoint_at_loop_start: bool = False
 
     def copy(self):
         return LoopState(
@@ -187,6 +188,7 @@ class LoopState:
             uncheckpointed_before_break=self.uncheckpointed_before_break.copy(),
             artificial_errors=self.artificial_errors.copy(),
             nodes_needing_checkpoints=self.nodes_needing_checkpoints.copy(),
+            needs_checkpoint_at_loop_start=self.needs_checkpoint_at_loop_start,
         )
 
 
@@ -346,13 +348,35 @@ class InsertCheckpointsInLoopBody(CommonVisitors):
         self.explicitly_imported_library = explicitly_imported
         self.nodes_needing_checkpoint = nodes_needing_checkpoint
         self.__library = library
+        # Depth of except handlers we're currently inside, and a flag set if
+        # we detected a node that would have been fixed inside an except
+        # clause — in that case the caller should insert a checkpoint at the
+        # top of the loop body instead.
+        self.except_depth = 0
+        self.needs_checkpoint_at_loop_start = False
 
     @property
     def library(self) -> tuple[str, ...]:
-        return self.__library if self.__library else ("trio",)
+        return self.__library or ("trio",)
 
     def should_autofix(self, node: cst.CSTNode, code: str | None = None) -> bool:
         return not self.noautofix
+
+    def visit_ExceptHandler(
+        self, node: cst.ExceptHandler | cst.ExceptStarHandler
+    ) -> None:
+        self.except_depth += 1
+
+    def leave_ExceptHandler(
+        self,
+        original_node: cst.ExceptHandler | cst.ExceptStarHandler,
+        updated_node: cst.ExceptHandler | cst.ExceptStarHandler,
+    ) -> Any:
+        self.except_depth -= 1
+        return updated_node
+
+    visit_ExceptStarHandler = visit_ExceptHandler
+    leave_ExceptStarHandler = leave_ExceptHandler
 
     def leave_Yield(
         self,
@@ -364,7 +388,15 @@ class InsertCheckpointsInLoopBody(CommonVisitors):
         if original_node in self.nodes_needing_checkpoint and self.should_autofix(
             original_node
         ):
-            self.add_statement = checkpoint_statement(self.library[0])
+            if self.except_depth > 0:
+                # Inserting inside an except clause would trigger ASYNC120.
+                # Signal to the caller to insert at the top of the loop body.
+                # ensure_imported_library is called by the caller at the
+                # insertion site so we don't add an import for a checkpoint
+                # that ends up suppressed.
+                self.needs_checkpoint_at_loop_start = True
+            else:
+                self.add_statement = checkpoint_statement(self.library[0])
         return updated_node
 
     # returns handled same as yield, but ofc needs to ignore types
@@ -415,6 +447,15 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
         self.try_state = TryState()
         self.match_state = MatchState()
 
+        # Depth of except handlers we're currently inside.  Used to avoid
+        # inserting checkpoints inside an except clause (which would trigger
+        # ASYNC120).
+        self.except_depth = 0
+        # Set when a missing checkpoint is detected inside an except clause
+        # for a return/yield that is not inside a loop.  We then insert a
+        # single checkpoint at the top of the function body instead.
+        self.add_checkpoint_at_function_start = False
+
         # ASYNC100
         self.has_checkpoint_stack: list[ContextManager] = []
         self.taskgroup_has_start_soon: dict[str, bool] = {}
@@ -424,6 +465,21 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
 
         # used to transfer new body between visit_FunctionDef and leave_FunctionDef
         self.new_body: cst.BaseSuite | None = None
+
+        # Tracks whether the current scope is a class body and, if so, which of
+        # `__aenter__`/`__aexit__` are directly defined on it (values: True if
+        # that method contains a checkpoint-like construct, False otherwise,
+        # missing key if not defined). Used to exempt async context manager
+        # methods from ASYNC910/911 when their partner method provides the
+        # checkpoint, or when the partner is inherited from a base class.
+        self.async_cm_class: dict[str, bool] | None = None
+        # Whether the enclosing class has an explicit base class (other than
+        # implicit `object`). We only assume a missing partner is inherited if
+        # the class actually inherits from something.
+        self.async_cm_class_has_bases = False
+        # Set on entry to an exempt `__aenter__`/`__aexit__` so that
+        # `error_91x` skips emitting ASYNC910/911.
+        self.exempt_async_cm_method = False
 
     def should_autofix(self, node: cst.CSTNode, code: str | None = None) -> bool:
         if code is None:
@@ -492,6 +548,60 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
                         self.suppress_imported_as.append("suppress")
                     return
 
+    # Async context manager methods may legitimately skip checkpointing if the
+    # partner method provides the checkpoint, or if the partner is inherited
+    # from a base class (which we charitably assume contains a checkpoint).
+    # See https://github.com/python-trio/flake8-async/issues/441.
+    def visit_ClassDef(self, node: cst.ClassDef) -> None:
+        self.save_state(node, "async_cm_class", "async_cm_class_has_bases")
+        defined: dict[str, bool] = {}
+        checkpointy = (
+            m.Await()
+            | m.With(asynchronous=m.Asynchronous())
+            | m.For(asynchronous=m.Asynchronous())
+        )
+        if isinstance(node.body, cst.IndentedBlock):
+            for stmt in node.body.body:
+                if (
+                    isinstance(stmt, cst.FunctionDef)
+                    and stmt.asynchronous is not None
+                    and stmt.name.value in ("__aenter__", "__aexit__")
+                ):
+                    defined[stmt.name.value] = bool(m.findall(stmt, checkpointy))
+        self.async_cm_class = defined
+        # Keyword args like `metaclass=` are in `node.keywords`, not `bases`.
+        self.async_cm_class_has_bases = bool(node.bases)
+
+    def leave_ClassDef(
+        self, original_node: cst.ClassDef, updated_node: cst.ClassDef
+    ) -> cst.ClassDef:
+        self.restore_state(original_node)
+        return updated_node
+
+    def _is_exempt_async_cm_method(self, node: cst.FunctionDef) -> bool:
+        if self.async_cm_class is None:
+            return False
+        name = node.name.value
+        if name not in ("__aenter__", "__aexit__"):
+            return False
+        if name not in self.async_cm_class:
+            return False
+        # A method that contains any checkpoint must always checkpoint: we
+        # still check it normally so conditional checkpoints are flagged.
+        if self.async_cm_class[name]:
+            return False
+        partner = "__aexit__" if name == "__aenter__" else "__aenter__"
+        if partner in self.async_cm_class:
+            # Partner is defined on the class; if it checkpoints, we're fine.
+            if self.async_cm_class[partner]:
+                return True
+            # Neither method checkpoints -- to avoid double-flagging (and a
+            # redundant autofix), we report and fix only `__aenter__`.
+            return name == "__aexit__"
+        # Partner is not defined on this class; only assume it is inherited
+        # (and contains a checkpoint) if the class inherits from something.
+        return self.async_cm_class_has_bases
+
     def visit_FunctionDef(self, node: cst.FunctionDef) -> bool:
         # `await` in default values happen in parent scope
         # we also know we don't ever modify parameters so we can ignore the return value
@@ -502,6 +612,8 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
         # we also ignore pytest fixtures
         if func_has_decorator(node, "overload", "fixture") or func_empty_body(node):
             return False  # subnodes can be ignored
+
+        is_exempt_cm = self._is_exempt_async_cm_method(node)
 
         self.save_state(
             node,
@@ -515,6 +627,11 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
             # node_dict is cleaned up and don't need to be saved
             "taskgroup_has_start_soon",
             "suppress_imported_as",  # a copy is saved, but state is not reset
+            "except_depth",
+            "add_checkpoint_at_function_start",
+            "async_cm_class",
+            "async_cm_class_has_bases",
+            "exempt_async_cm_method",
             copy=True,
         )
         self.uncheckpointed_statements = set()
@@ -523,11 +640,19 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
         self.loop_state = LoopState()
         # try_state is reset upon entering try
         self.taskgroup_has_start_soon = {}
+        self.except_depth = 0
+        self.add_checkpoint_at_function_start = False
+        # Class-level context does not apply to nested scopes.
+        self.async_cm_class = None
+        self.async_cm_class_has_bases = False
+        self.exempt_async_cm_method = is_exempt_cm
 
         self.async_function = (
             node.asynchronous is not None
             and not fnmatch_qualified_name_cst(
-                node.decorators, *self.options.no_checkpoint_warning_decorators
+                node.decorators,
+                *self.options.no_checkpoint_warning_decorators,
+                imports=self.imports,
             )
         )
         # only visit subnodes if there is an async function defined inside
@@ -568,6 +693,19 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
 
             self.ensure_imported_library()
 
+        if (
+            self.add_checkpoint_at_function_start
+            and self.new_body is not None
+            and isinstance(self.new_body, cst.IndentedBlock)
+        ):
+            # insert checkpoint at the top of body (for missing checkpoints
+            # detected on return/yield inside an except clause)
+            new_body_block = list(self.new_body.body)
+            new_body_block.insert(0, self.checkpoint_statement())
+            self.new_body = self.new_body.with_changes(body=new_body_block)
+
+            self.ensure_imported_library()
+
         if self.new_body is not None:
             updated_node = updated_node.with_changes(body=self.new_body)
         self.restore_state(original_node)
@@ -603,7 +741,15 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
             if len(self.uncheckpointed_statements) == 1 and self.should_autofix(
                 original_node
             ):
-                self.loop_state.nodes_needing_checkpoints.append(original_node)
+                if self.except_depth > 0:
+                    # Inserting a checkpoint inside the except clause would
+                    # trigger ASYNC120.  Instead mark the innermost loop so a
+                    # checkpoint is inserted at the top of the loop body.
+                    # ensure_imported_library is called at the actual
+                    # insertion site in leave_While.
+                    self.loop_state.needs_checkpoint_at_loop_start = True
+                else:
+                    self.loop_state.nodes_needing_checkpoints.append(original_node)
                 return False
 
         any_errors = False
@@ -623,7 +769,7 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
         if self.check_function_exit(original_node) and self.should_autofix(
             original_node
         ):
-            self.add_statement = self.checkpoint_statement()
+            self._set_missing_checkpoint_fix()
         # avoid duplicate error messages
         # but don't see it as a cancel point for ASYNC100
         self.checkpoint_schedule_point()
@@ -632,12 +778,61 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
         assert original_node.deep_equals(updated_node)
         return original_node
 
+    def _set_missing_checkpoint_fix(self) -> None:
+        """Record where to insert a fix for a detected missing checkpoint.
+
+        Normally we insert the checkpoint right before the offending
+        return/yield, but if the statement is inside an `except` clause that
+        would just trigger ASYNC120 (checkpoint inside except).  Instead we
+        insert a checkpoint at a safe location: the top of the innermost
+        enclosing loop (so yields between iterations are also covered), or
+        the top of the function body otherwise.
+
+        If the uncheckpointed statements include a prior yield (so the error
+        would be "yield since prior yield"), neither alternative actually
+        fixes the path, so we fall back to the old behavior of inserting
+        before the statement.  The resulting checkpoint may trigger ASYNC120
+        as a secondary diagnostic, but that is a pre-existing limitation of
+        the autofix in such contorted cases.
+        """
+        if self.except_depth > 0 and self._can_redirect_except_fix():
+            if ARTIFICIAL_STATEMENT in self.uncheckpointed_statements:
+                # we're inside a loop
+                self.loop_state.needs_checkpoint_at_loop_start = True
+            else:
+                self.add_checkpoint_at_function_start = True
+            # ensure_imported_library is called at the actual insertion site
+            # (leave_FunctionDef / leave_While) so we don't add an import for
+            # a checkpoint that ends up suppressed by noqa.
+        else:
+            self.add_statement = self.checkpoint_statement()
+
+    def _can_redirect_except_fix(self) -> bool:
+        """Check if the missing checkpoint can be fixed at a safe top location.
+
+        Redirecting to the top of the function or of the enclosing loop only
+        actually fixes the uncheckpointed path if every uncheckpointed
+        statement is "function definition" or the artificial loop-start
+        marker.  A previous yield indicates a path that the redirected
+        checkpoint would not cover.
+        """
+        return all(
+            isinstance(stmt, ArtificialStatement) or stmt.name == "function definition"
+            for stmt in self.uncheckpointed_statements
+        )
+
     def error_91x(
         self,
         node: cst.Return | cst.FunctionDef | cst.Yield,
         statement: Statement,
     ) -> bool:
         assert not isinstance(statement, ArtificialStatement), statement
+
+        # Exempt `__aenter__`/`__aexit__` when the partner method contains a
+        # checkpoint, or when the partner is missing and charitably assumed
+        # inherited.
+        if self.exempt_async_cm_method:
+            return False
 
         if isinstance(node, cst.FunctionDef):
             msg = "exit"
@@ -672,6 +867,7 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
                 "contextlib.suppress",
                 *self.suppress_imported_as,
                 *self.options.exception_suppress_context_managers,
+                imports=self.imports,
             )
             is not None
         )
@@ -689,7 +885,7 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
             return
 
         for item in node.items:
-            if isinstance(item.item, cst.Call) and identifier_to_string(
+            if isinstance(item.item, cst.Call) and self.canonical_name(
                 item.item.func
             ) in (
                 "trio.open_nursery",
@@ -727,7 +923,10 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
         for withitem in node.items:
             self.has_checkpoint_stack.append(ContextManager())
             if get_matching_call_cst(
-                withitem.item, "open_nursery", "create_task_group"
+                withitem.item,
+                "open_nursery",
+                "create_task_group",
+                imports=self.imports,
             ):
                 if withitem.asname is not None and isinstance(
                     withitem.asname.name, cst.Name
@@ -753,6 +952,7 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
                     "contextlib.suppress",
                     *self.suppress_imported_as,
                     *self.options.exception_suppress_context_managers,
+                    imports=self.imports,
                 )
                 is not None
             ):
@@ -763,12 +963,15 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
                 continue
 
             if res := (
-                get_matching_call_cst(withitem.item, *cancel_scope_names)
+                get_matching_call_cst(
+                    withitem.item, *cancel_scope_names, imports=self.imports
+                )
                 or get_matching_call_cst(
                     withitem.item,
                     "timeout",
                     "timeout_at",
                     base="asyncio",
+                    imports=self.imports,
                 )
             ):
                 # typing issue: https://github.com/Instagram/LibCST/issues/1107
@@ -843,7 +1046,7 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
         if self.check_function_exit(original_node) and self.should_autofix(
             original_node
         ):
-            self.add_statement = self.checkpoint_statement()
+            self._set_missing_checkpoint_fix()
 
         # mark as requiring checkpoint after
         pos = self.get_metadata(PositionProvider, original_node).start  # type: ignore
@@ -888,6 +1091,7 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
         self.uncheckpointed_statements = (
             self.try_state.body_uncheckpointed_statements.copy()
         )
+        self.except_depth += 1
 
     def leave_ExceptHandler(
         self,
@@ -897,6 +1101,7 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
         self.try_state.except_uncheckpointed_statements.update(
             self.uncheckpointed_statements
         )
+        self.except_depth -= 1
         return updated_node
 
     def visit_Try_orelse(self, node: cst.Try | cst.TryStar):
@@ -1108,6 +1313,10 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
         # the potential checkpoints
         if not any_error:
             self.loop_state.nodes_needing_checkpoints = []
+            # Also clear the loop-top insertion flag; it may have been set by
+            # return/yield nodes inside an except clause whose errors were
+            # suppressed via noqa.
+            self.loop_state.needs_checkpoint_at_loop_start = False
 
         if (
             self.loop_state.infinite_loop
@@ -1186,16 +1395,12 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
             self.restore_state(original_node)
             return updated_node
 
+        insert_at_loop_start = self.loop_state.needs_checkpoint_at_loop_start
+
         # ASYNC913, indefinite loop with no guaranteed checkpoint
         if self.loop_state.nodes_needing_checkpoints == [ARTIFICIAL_STATEMENT]:
             if self.should_autofix(original_node, code="ASYNC913"):
-                # insert checkpoint at start of body
-                new_body = list(updated_node.body.body)
-                new_body.insert(0, self.checkpoint_statement())
-                indentedblock = updated_node.body.with_changes(body=new_body)
-                updated_node = updated_node.with_changes(body=indentedblock)
-
-                self.ensure_imported_library()
+                insert_at_loop_start = True
         elif self.loop_state.nodes_needing_checkpoints:
             assert ARTIFICIAL_STATEMENT not in self.loop_state.nodes_needing_checkpoints
             transformer = InsertCheckpointsInLoopBody(
@@ -1211,6 +1416,18 @@ class Visitor91X(Flake8AsyncVisitor_cst, CommonVisitors):
 
             # include any necessary import added
             self.add_import.update(transformer.add_import)
+
+            if transformer.needs_checkpoint_at_loop_start:
+                insert_at_loop_start = True
+
+        if insert_at_loop_start:
+            # insert checkpoint at start of body
+            new_body = list(updated_node.body.body)
+            new_body.insert(0, self.checkpoint_statement())
+            indentedblock = updated_node.body.with_changes(body=new_body)
+            updated_node = updated_node.with_changes(body=indentedblock)
+
+            self.ensure_imported_library()
 
         self.restore_state(original_node)
         return updated_node

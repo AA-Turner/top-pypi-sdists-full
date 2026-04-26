@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from anteroom.services.compaction import _find_tail_boundary
+from anteroom.services.compaction import _find_tail_boundary, logical_tail_boundary
 
 # ---------------------------------------------------------------------------
 # _find_tail_boundary
@@ -40,6 +40,80 @@ class TestFindTailBoundary:
         idx = _find_tail_boundary(msgs, preserve_count=4)
         assert idx == 4
         assert msgs[idx]["role"] == "user"
+
+
+class TestLogicalTailBoundary:
+    """Logical runtime/storage tail mapping for persisted compaction."""
+
+    def test_maps_runtime_tool_results_to_parent_assistant_row(self) -> None:
+        runtime: list[dict[str, Any]] = [
+            {"role": "user", "content": "same"},
+            {"role": "assistant", "content": "same"},
+            {"role": "user", "content": "same"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"id": "tc1", "type": "function", "function": {"name": "bash", "arguments": "{}"}},
+                    {"id": "tc2", "type": "function", "function": {"name": "grep", "arguments": "{}"}},
+                ],
+            },
+            {"role": "tool", "tool_call_id": "tc1", "content": '{"ok": true}'},
+            {"role": "tool", "tool_call_id": "tc2", "content": '{"ok": true}'},
+            {"role": "user", "content": "same"},
+            {"role": "assistant", "content": "same"},
+        ]
+        stored: list[dict[str, Any]] = [
+            {"id": "m0", "role": "user", "content": "same", "tool_calls": []},
+            {"id": "m1", "role": "assistant", "content": "same", "tool_calls": []},
+            {"id": "m2", "role": "user", "content": "same", "tool_calls": []},
+            {
+                "id": "m3",
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{"id": "tc1"}, {"id": "tc2"}],
+            },
+            {"id": "m4", "role": "user", "content": "same", "tool_calls": []},
+            {"id": "m5", "role": "assistant", "content": "same", "tool_calls": []},
+        ]
+
+        boundary = logical_tail_boundary(runtime, stored, preserve_count=4)
+
+        assert boundary.aligned is True
+        assert boundary.runtime_split == 2
+        assert boundary.summarized_runtime_count == 2
+        assert boundary.preserved_runtime_count == 6
+        assert boundary.tail_message_ids == ["m2", "m3", "m4", "m5"]
+
+    def test_misaligned_stored_tool_calls_fail_closed(self) -> None:
+        runtime: list[dict[str, Any]] = [
+            {"role": "user", "content": "old"},
+            {"role": "assistant", "content": "old"},
+            {"role": "user", "content": "recent"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{"id": "tc1", "type": "function", "function": {"name": "bash", "arguments": "{}"}}],
+            },
+            {"role": "tool", "tool_call_id": "tc1", "content": '{"ok": true}'},
+            {"role": "user", "content": "next"},
+            {"role": "assistant", "content": "done"},
+        ]
+        stored: list[dict[str, Any]] = [
+            {"id": "m0", "role": "user", "content": "old", "tool_calls": []},
+            {"id": "m1", "role": "assistant", "content": "old", "tool_calls": []},
+            {"id": "m2", "role": "user", "content": "recent", "tool_calls": []},
+            {"id": "m3", "role": "assistant", "content": "", "tool_calls": []},
+            {"id": "m4", "role": "user", "content": "next", "tool_calls": []},
+            {"id": "m5", "role": "assistant", "content": "done", "tool_calls": []},
+        ]
+
+        boundary = logical_tail_boundary(runtime, stored, preserve_count=4)
+
+        assert boundary.runtime_split == 2
+        assert boundary.aligned is False
+        assert boundary.tail_message_ids == []
+        assert boundary.reason == "logical_group_structure_mismatch"
 
     def test_tool_orphan_prevention(self) -> None:
         """Split point walks back past orphaned tool results."""
@@ -724,9 +798,16 @@ class TestMicrocompactPipelineConfig:
 
         cfg = CompactionConfig()
         assert cfg.microcompact_enabled is True
+        assert cfg.historical_tool_collapse_enabled is True
+        assert cfg.historical_tool_collapse_trigger_token_count == 80_000
+        assert cfg.historical_tool_collapse_keep_recent_groups == 6
+        assert cfg.historical_tool_collapse_compact_chars == 1_000
         assert cfg.summary_trigger_msg_count == 80
         assert cfg.summary_trigger_token_count == 90_000
         assert cfg.reactive_max_attempts == 4
+        assert cfg.summary_max_completion_tokens == 1000
+        assert cfg.summary_retry_max_attempts == 3
+        assert cfg.summary_retry_drop_groups == 2
 
     def test_env_var_parse_microcompact_enabled_false(self, tmp_path: Any, monkeypatch: Any) -> None:
         """AI_CHAT_MICROCOMPACT_ENABLED=false disables the proactive stage."""
@@ -751,6 +832,24 @@ class TestMicrocompactPipelineConfig:
         cfg_path.write_text(yaml.dump({"ai": {"base_url": "http://localhost/v1", "api_key": "k", "model": "m"}}))
         cfg, _ = load_config(cfg_path)
         assert cfg.compaction.summary_trigger_msg_count == 1000
+
+    def test_env_var_parse_historical_tool_collapse(self, tmp_path: Any, monkeypatch: Any) -> None:
+        """Historical collapse env vars parse with clamps."""
+        import yaml
+
+        from anteroom.config import load_config
+
+        monkeypatch.setenv("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_ENABLED", "false")
+        monkeypatch.setenv("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_TRIGGER_TOKEN_COUNT", "1")
+        monkeypatch.setenv("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_KEEP_RECENT_GROUPS", "999")
+        monkeypatch.setenv("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_COMPACT_CHARS", "1")
+        cfg_path = tmp_path / "config.yaml"
+        cfg_path.write_text(yaml.dump({"ai": {"base_url": "http://localhost/v1", "api_key": "k", "model": "m"}}))
+        cfg, _ = load_config(cfg_path)
+        assert cfg.compaction.historical_tool_collapse_enabled is False
+        assert cfg.compaction.historical_tool_collapse_trigger_token_count == 5_000
+        assert cfg.compaction.historical_tool_collapse_keep_recent_groups == 200
+        assert cfg.compaction.historical_tool_collapse_compact_chars == 50
 
     def test_env_var_parse_summary_msg_count_clamped_lower(self, tmp_path: Any, monkeypatch: Any) -> None:
         """summary_trigger_msg_count below 10 clamps to 10."""
@@ -795,17 +894,22 @@ class TestMicrocompactPipelineConfig:
         from anteroom.config import load_config
 
         monkeypatch.setenv("AI_CHAT_SUMMARY_TRIGGER_MSG_COUNT", "50")
+        monkeypatch.setenv("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_KEEP_RECENT_GROUPS", "20")
         cfg_path = tmp_path / "config.yaml"
         cfg_path.write_text(
             yaml.dump(
                 {
                     "ai": {"base_url": "http://localhost/v1", "api_key": "k", "model": "m"},
-                    "compaction": {"summary_trigger_msg_count": 200},
+                    "compaction": {
+                        "summary_trigger_msg_count": 200,
+                        "historical_tool_collapse_keep_recent_groups": 8,
+                    },
                 }
             )
         )
         cfg, _ = load_config(cfg_path)
         assert cfg.compaction.summary_trigger_msg_count == 200
+        assert cfg.compaction.historical_tool_collapse_keep_recent_groups == 8
 
     def test_summary_token_count_clamped_lower(self, tmp_path: Any, monkeypatch: Any) -> None:
         """summary_trigger_token_count below 5000 clamps to 5000."""
@@ -840,9 +944,58 @@ class TestMicrocompactPipelineConfig:
         monkeypatch.setenv("AI_CHAT_SUMMARY_TRIGGER_MSG_COUNT", "not-a-number")
         monkeypatch.setenv("AI_CHAT_SUMMARY_TRIGGER_TOKEN_COUNT", "abc")
         monkeypatch.setenv("AI_CHAT_REACTIVE_MAX_ATTEMPTS", "xyz")
+        monkeypatch.setenv("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_TRIGGER_TOKEN_COUNT", "bad")
+        monkeypatch.setenv("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_KEEP_RECENT_GROUPS", "bad")
+        monkeypatch.setenv("AI_CHAT_HISTORICAL_TOOL_COLLAPSE_COMPACT_CHARS", "bad")
         cfg_path = tmp_path / "config.yaml"
         cfg_path.write_text(yaml.dump({"ai": {"base_url": "http://localhost/v1", "api_key": "k", "model": "m"}}))
         cfg, _ = load_config(cfg_path)
         assert cfg.compaction.summary_trigger_msg_count == 80
         assert cfg.compaction.summary_trigger_token_count == 90_000
         assert cfg.compaction.reactive_max_attempts == 4
+        assert cfg.compaction.historical_tool_collapse_trigger_token_count == 80_000
+        assert cfg.compaction.historical_tool_collapse_keep_recent_groups == 6
+        assert cfg.compaction.historical_tool_collapse_compact_chars == 1_000
+
+    def test_summary_retry_env_vars_parse_and_clamp(self, tmp_path: Any, monkeypatch: Any) -> None:
+        """Compaction summary recovery knobs are parsed from env and clamped."""
+        import yaml
+
+        from anteroom.config import load_config
+
+        monkeypatch.setenv("AI_CHAT_COMPACT_SUMMARY_MAX_TOKENS", "999999")
+        monkeypatch.setenv("AI_CHAT_COMPACT_SUMMARY_RETRY_MAX_ATTEMPTS", "99")
+        monkeypatch.setenv("AI_CHAT_COMPACT_SUMMARY_RETRY_DROP_GROUPS", "99")
+        cfg_path = tmp_path / "config.yaml"
+        cfg_path.write_text(yaml.dump({"ai": {"base_url": "http://localhost/v1", "api_key": "k", "model": "m"}}))
+        cfg, _ = load_config(cfg_path)
+        assert cfg.compaction.summary_max_completion_tokens == 16_000
+        assert cfg.compaction.summary_retry_max_attempts == 10
+        assert cfg.compaction.summary_retry_drop_groups == 50
+
+    def test_summary_retry_yaml_wins_over_env(self, tmp_path: Any, monkeypatch: Any) -> None:
+        """YAML values take precedence over summary retry env vars."""
+        import yaml
+
+        from anteroom.config import load_config
+
+        monkeypatch.setenv("AI_CHAT_COMPACT_SUMMARY_MAX_TOKENS", "4096")
+        monkeypatch.setenv("AI_CHAT_COMPACT_SUMMARY_RETRY_MAX_ATTEMPTS", "5")
+        monkeypatch.setenv("AI_CHAT_COMPACT_SUMMARY_RETRY_DROP_GROUPS", "5")
+        cfg_path = tmp_path / "config.yaml"
+        cfg_path.write_text(
+            yaml.dump(
+                {
+                    "ai": {"base_url": "http://localhost/v1", "api_key": "k", "model": "m"},
+                    "compaction": {
+                        "summary_max_completion_tokens": 2048,
+                        "summary_retry_max_attempts": 2,
+                        "summary_retry_drop_groups": 1,
+                    },
+                }
+            )
+        )
+        cfg, _ = load_config(cfg_path)
+        assert cfg.compaction.summary_max_completion_tokens == 2048
+        assert cfg.compaction.summary_retry_max_attempts == 2
+        assert cfg.compaction.summary_retry_drop_groups == 1

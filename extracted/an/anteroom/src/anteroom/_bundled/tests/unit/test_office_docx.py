@@ -222,6 +222,29 @@ class TestGracefulDegradation:
             assert "pip install" in result["error"]
 
 
+class TestPdfBoundary:
+    @pytest.mark.asyncio
+    async def test_pdf_read_rejected_explicitly(self):
+        result = await handle(action="read", path="report.pdf")
+        assert "error" in result
+        assert "only handles .docx" in result["error"]
+        assert "PDF attachments must be handled by PDF extraction" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_pdf_edit_rejected_explicitly(self):
+        result = await handle(action="edit", path="report.pdf", replacements=[{"old": "a", "new": "b"}])
+        assert "error" in result
+        assert "only handles .docx" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_pdf_rejection_precedes_backend_availability(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr("anteroom.tools.office_docx.AVAILABLE", False)
+        result = await handle(action="read", path="report.pdf")
+        assert "error" in result
+        assert "only handles .docx" in result["error"]
+        assert "No docx backend available" not in result["error"]
+
+
 # ---------------------------------------------------------------------------
 # New action tests (lib backend)
 # ---------------------------------------------------------------------------

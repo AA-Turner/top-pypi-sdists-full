@@ -104,11 +104,25 @@ def diff_strings(first: str, second: str, /) -> str:
     # make sure only single newline at end of file
 
 
-# replaces all instances of `original` with `new` in string
-# unless it's preceded by a `-`, which indicates it's part of a command-line flag
+# replaces all instances of `original` with `new` in string, matching at word
+# boundaries so e.g. "trio" doesn't rewrite "trio_websocket" or "qtrio", and
+# skipping occurrences preceded by a `-` (which would be part of a CLI flag).
 def replace_library(string: str, original: str = "trio", new: str = "anyio") -> str:
     def replace_str(string: str, original: str, new: str) -> str:
-        return re.sub(rf"(?<!-){original}", new, string)
+        # Match at word boundaries so e.g. "trio" doesn't rewrite
+        # "trio_websocket" or "qtrio". Library names (trio/anyio/asyncio)
+        # additionally allow a leading `_`, so the "_trio" suffix in error
+        # codes like "ASYNC103_trio" still gets rewritten when the test runs
+        # under a different library. Non-identifier patterns (like the quoted
+        # `"nursery"` error-message replacement) get no boundary anchors, as
+        # `\b"` would only match adjacent to a word char.
+        if original in ("trio", "anyio", "asyncio"):
+            pattern = rf"(?<!-)(?:\b|(?<=_)){original}\b"
+        elif re.fullmatch(r"\w+", original):
+            pattern = rf"(?<!-)\b{original}\b"
+        else:
+            pattern = rf"(?<!-){re.escape(original)}"
+        return re.sub(pattern, new, string)
 
     # this isn't super pretty, and doesn't include asyncio.TaskGroup(),
     # and could probably cover more methods, but /shrug
@@ -244,6 +258,12 @@ class MagicMarkers:
     # eval file is written using this library, so no substitution is required
     BASE_LIBRARY: str = "trio"
 
+    # File intentionally contains constructs that are syntactically valid for
+    # `ast.parse` but rejected by the bytecode compiler (e.g. `return` outside a
+    # function, `await` in a sync nested function). Used to skip the compile()
+    # sanity check in test_eval_files_compile.
+    NOCOMPILE: bool = False
+
     def library_no_error(self, library: str) -> bool:
         return {
             "anyio": self.ANYIO_NO_ERROR,
@@ -324,7 +344,7 @@ def test_eval(
     ):
         expected = []
 
-    plugin = Plugin.from_source(content)
+    plugin = Plugin.from_source(content, filename=path)
     errors = assert_expected_errors(
         plugin,
         *expected,
@@ -395,7 +415,7 @@ def _parse_eval_file(
 ) -> tuple[list[Error], list[str], str]:
     # version check
     check_version(test)
-    test = test.split("_")[0]
+    test = test.split("_", maxsplit=1)[0]
 
     parsed_args = []
 
@@ -515,6 +535,7 @@ error_codes_ignored_when_checking_transformed_sync_code = {
     "ASYNC122",
     "ASYNC123",
     "ASYNC125",
+    "ASYNC126",
     "ASYNC300",
     "ASYNC400",
     "ASYNC912",
@@ -543,6 +564,19 @@ class SyncTransformer(ast.NodeTransformer):
 
     def visit_AsyncFor(self, node: ast.AsyncFor):
         return self.replace_async(node, ast.For, node.target, node.iter)
+
+
+# ast.parse() is lenient and accepts some code that the bytecode compiler will
+# reject (e.g. `x = lambda: await foo()` or `return` outside a function). Running
+# compile() on each eval file catches accidental syntax errors in test fixtures
+# that would otherwise silently slip past the plugin's ast-based checks.
+@pytest.mark.parametrize(("test", "path"), test_files, ids=[f[0] for f in test_files])
+def test_eval_files_compile(test: str, path: Path):
+    check_version(test)
+    content = path.read_text()
+    if find_magic_markers(content).NOCOMPILE:
+        pytest.skip("file intentionally does not compile (has # NOCOMPILE marker)")
+    compile(content, str(path), "exec")
 
 
 @pytest.mark.parametrize(("test", "path"), test_files, ids=[f[0] for f in test_files])

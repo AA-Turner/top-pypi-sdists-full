@@ -11,6 +11,7 @@ Verifies that:
 from __future__ import annotations
 
 import io
+import re
 from collections.abc import Callable
 
 import pytest
@@ -411,6 +412,14 @@ class TestBuildThinkingTextTheme:
         set_theme(midnight)
         text = _build_thinking_text(1.0, cancel_msg="cancelled")
         assert midnight.ansi_fg("muted") in text
+
+    def test_thinking_text_zero_elapsed_cancel_is_sane(self) -> None:
+        set_theme(CliTheme.load("midnight"))
+        text = _build_thinking_text(0.0, cancel_msg="cancelled")
+        plain = _plain(text)
+        assert "cancelled" in plain
+        assert "0s" in plain
+        assert not re.search(r"\b\d{6,}s\b", plain)
 
 
 # ---------------------------------------------------------------------------

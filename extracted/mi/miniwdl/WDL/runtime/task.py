@@ -377,11 +377,13 @@ def _eval_task_inputs(
     # supplied None to override any default.
     input_decls = task.available_inputs
     posix_inputs = posix_inputs.filter(
-        lambda b: not (
-            isinstance(b.value, Value.Null)
-            and b.name in input_decls
-            and input_decls[b.name].expr
-            and not input_decls[b.name].type.optional
+        lambda b: (
+            not (
+                isinstance(b.value, Value.Null)
+                and b.name in input_decls
+                and input_decls[b.name].expr
+                and not input_decls[b.name].type.optional
+            )
         )
     )
 
@@ -501,6 +503,8 @@ def _eval_task_runtime(
         runtime_values[key] = expr.eval(env, stdlib)
     for b in inputs.enter_namespace("runtime"):
         runtime_values[b.name] = b.value  # input overrides
+    for b in inputs.enter_namespace("requirements"):
+        runtime_values[b.name] = b.value
     logger.debug(_("runtime values", **dict((key, str(v)) for key, v in runtime_values.items())))
 
     # have container implementation validate & postprocess into container.runtime_values

@@ -1,3 +1,14 @@
+"""Analysis and Diagnostics Runner.
+
+Queries the ML results database and generates diagnostic plots
+(scatter, MAPE, choropleth maps) and per-region/national metrics.
+
+Usage::
+
+    from geocif import analysis
+    analysis.run(cfg_geocif)
+"""
+
 import ast
 import os
 import shutil
@@ -749,7 +760,7 @@ class Geoanalysis:
         colors = [cmap(norm(year)) for year in x]
 
         # Create the plot
-        with plt.style.context("science"):
+        with plt.style.context(["science", "no-latex"]):
             fig, ax = plt.subplots(figsize=(10, 6))  # Explicitly define axes
 
             max_yield = max(y_observed.max(), y_predicted.max()) * 1.25
@@ -1275,7 +1286,7 @@ class Geoanalysis:
                         )
 
     def plot_metric(self, df, metric="$r^2$"):
-        with plt.style.context("science"):
+        with plt.style.context(["science", "no-latex"]):
             fig, ax = plt.subplots(figsize=(10, 5))
             ax = sns.lineplot(data=df, x="Date", y=metric, ax=ax)  # "$r^2$"
             ax.set_xlabel("")
@@ -1588,7 +1599,7 @@ class RegionalMapper(Geoanalysis):
 
             df_model = df_model.drop(df_tmp.index)
 
-            with plt.style.context("science"):
+            with plt.style.context(["science", "no-latex"]):
                 plt.figure(figsize=(12, 8))
                 for label, group_data in df_model.groupby("Country"):
                     sns.histplot(

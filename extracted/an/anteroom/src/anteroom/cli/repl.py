@@ -16,8 +16,8 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -37,9 +37,12 @@ from ..services.context_trust import (
     untrusted_section_marker,
     wrap_untrusted,
 )
+from ..services.memory_intent import detect_explicit_memory_intent
+from ..services.memory_save_status import format_memory_save_result
 from ..services.storage import get_run_label
-from ..services.tool_result_compact import compact_tool_output
+from ..services.token_estimator import RequestFixedOverhead as _FixedRequestOverhead
 from ..services.user_errors import format_user_error
+from ..services.version_check import VersionCheckStatus, check_for_update, format_update_message
 from ..tools import ToolRegistry, register_default_tools
 from ..tools.tool_context import build_tool_extra_context
 from . import renderer
@@ -81,6 +84,32 @@ _OPTION_PREFIX_RE = re.compile(r"^\s*(?:[A-Za-z]|\d+)[.)]\s+")
 # user types 'x' to cancel the ask_user prompt. Control character never
 # appears in legitimate user input.
 _CHOICE_CANCEL_SENTINEL = "\x00__cancel__"
+_INLINE_PDF_EXTRACTION_MARKER = 'source="inline_pdf_extraction"'
+_INLINE_PDF_BLOCKED_TOOL_NAMES = frozenset(
+    {
+        "bash",
+        "docx",
+        "glob_files",
+        "grep",
+        "pptx",
+        "read_file",
+        "run_agent",
+        "xlsx",
+    }
+)
+
+
+def _contains_inline_pdf_extraction(text: str) -> bool:
+    """Return True when a prompt contains inline PDF extraction output."""
+    return _INLINE_PDF_EXTRACTION_MARKER in text
+
+
+def _filter_tools_for_inline_pdf_turn(tools: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
+    """Remove local file-reading and delegation tools for inline-PDF turns."""
+    if not tools:
+        return tools
+    filtered = [tool for tool in tools if tool.get("function", {}).get("name") not in _INLINE_PDF_BLOCKED_TOOL_NAMES]
+    return filtered or None
 
 
 def _register_shift_enter_csi_u() -> None:
@@ -681,18 +710,6 @@ def _detect_git_branch() -> str | None:
     return None
 
 
-@dataclass(frozen=True)
-class _FixedRequestOverhead:
-    """Per-session fixed request overhead, computed once before the REPL
-    starts its concurrent tasks. Avoids re-tokenizing the (large) system
-    prompt and tool schemas on every turn, which kept the CLI auto-compact
-    check cheap enough not to starve the input collector task on slow
-    Python 3.10 CI (#1339)."""
-
-    system_prompt_tokens: int
-    tool_schema_tokens: int
-
-
 def _compute_fixed_request_overhead(
     system_prompt: str,
     tool_schemas: list[dict[str, Any]] | None,
@@ -704,17 +721,11 @@ def _compute_fixed_request_overhead(
     message list plus `extra_system_prompt` (which can change between
     turns via RAG injection).
     """
-    from ..services.token_estimator import estimate_request_tokens
+    from ..services.token_estimator import estimate_fixed_request_overhead
 
-    breakdown = estimate_request_tokens(
-        messages=[],
+    return estimate_fixed_request_overhead(
         system_prompt=system_prompt,
-        extra_system_prompt="",
         tool_schemas=tool_schemas,
-    )
-    return _FixedRequestOverhead(
-        system_prompt_tokens=breakdown.system_prompt_tokens,
-        tool_schema_tokens=breakdown.tool_schema_tokens,
     )
 
 
@@ -753,21 +764,12 @@ def _estimate_current_request(
     current history as-is. This keeps the visible toolbar/footer token count
     aligned with the same request shape used by the warn/auto-compact gate.
     """
-    from ..services.token_estimator import (
-        RequestTokenBreakdown,
-        count_message_tokens,
-        count_text_tokens,
-    )
+    from ..services.token_estimator import estimate_request_tokens_with_overhead
 
-    message_tokens = count_message_tokens(ai_messages)
-    extra_system_tokens = count_text_tokens(extra_system_prompt) + 4 if extra_system_prompt else 0
-    system_prompt_tokens = fixed_overhead.system_prompt_tokens + extra_system_tokens
-    total = message_tokens + system_prompt_tokens + fixed_overhead.tool_schema_tokens
-    return RequestTokenBreakdown(
-        message_tokens=message_tokens,
-        system_prompt_tokens=system_prompt_tokens,
-        tool_schema_tokens=fixed_overhead.tool_schema_tokens,
-        total=total,
+    return estimate_request_tokens_with_overhead(
+        messages=ai_messages,
+        extra_system_prompt=extra_system_prompt,
+        fixed_overhead=fixed_overhead,
     )
 
 
@@ -779,38 +781,10 @@ def _load_conversation_messages(
     Returns (ai_messages, stored_messages) where stored_messages is the raw
     list from storage.list_messages (includes metadata).
     """
+    from ..services.compaction import runtime_messages_from_stored_rows
+
     stored = storage.list_messages(db, conversation_id)
-    messages: list[dict[str, Any]] = []
-    for msg in stored:
-        role = msg["role"]
-        if role in ("user", "assistant", "system"):
-            entry: dict[str, Any] = {"role": role, "content": msg["content"]}
-            # Reconstruct tool_calls for assistant messages
-            tool_calls = msg.get("tool_calls", [])
-            if tool_calls and role == "assistant":
-                entry["tool_calls"] = [
-                    {
-                        "id": tc["id"],
-                        "type": "function",
-                        "function": {
-                            "name": tc["tool_name"],
-                            "arguments": json.dumps(tc["input"]),
-                        },
-                    }
-                    for tc in tool_calls
-                ]
-                # Add tool result messages
-                messages.append(entry)
-                for tc in tool_calls:
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tc["id"],
-                            "content": compact_tool_output(tc.get("output", {}), max_chars=tool_replay_max_chars),
-                        }
-                    )
-                continue
-            messages.append(entry)
+    messages = runtime_messages_from_stored_rows(stored, tool_replay_max_chars=tool_replay_max_chars)
     return messages, stored
 
 
@@ -885,56 +859,10 @@ class _LazyAIService:
 
 
 async def _check_for_update(current: str, *, command: str = "") -> str | None:
-    """Check for a newer version. Returns latest if newer, else None.
-
-    When *command* is set, runs it as a shell command and parses stdout as
-    a bare version string (e.g. ``1.161.0``).  When empty, falls back to
-    ``pip index versions anteroom``.
-    """
-    proc = None
-    try:
-        if command:
-            proc = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-        else:
-            proc = await asyncio.create_subprocess_exec(
-                sys.executable,
-                "-m",
-                "pip",
-                "index",
-                "versions",
-                "anteroom",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
-        if proc.returncode != 0:
-            return None
-        output = stdout.decode().strip()
-        if command:
-            # Custom command: stdout is a bare version string
-            latest = output.strip()
-        else:
-            # pip index: output format "anteroom (X.Y.Z)"
-            if "(" not in output or ")" not in output:
-                return None
-            latest = output.split("(")[1].split(")")[0].strip()
-        if not latest:
-            return None
-        from packaging.version import Version
-
-        if Version(latest) > Version(current):
-            return latest
-    except Exception:
-        if proc and proc.returncode is None:
-            try:
-                proc.kill()
-                await proc.wait()
-            except Exception:
-                pass
+    """Compatibility wrapper for tests and older imports."""
+    result = await check_for_update(current, command=command)
+    if result.status is VersionCheckStatus.UPDATE_AVAILABLE:
+        return result.latest
     return None
 
 
@@ -1223,6 +1151,15 @@ def _route_cancel_signal(
     return False
 
 
+def _turn_was_cancelled(
+    thinking: bool,
+    cancel_event: asyncio.Event,
+    cancel_acked: list[bool] | None = None,
+) -> bool:
+    """Return True when a turn should be summarized as user-cancelled."""
+    return bool(cancel_event.is_set() and (thinking or (cancel_acked is not None and cancel_acked[0])))
+
+
 def _cleanup_after_turn(
     cancel_event: asyncio.Event,
     agent_busy: asyncio.Event,
@@ -1286,6 +1223,18 @@ async def _drain_input_to_msg_queue(
                 if handled:
                     continue
             if queued_text.startswith("/"):
+                leading_pdf_expanded = _expand_file_references(
+                    queued_text,
+                    working_dir,
+                    file_max_chars=file_max_chars,
+                    leading_bare_pdf_only=True,
+                    expand_at_references=False,
+                )
+                if leading_pdf_expanded != queued_text:
+                    q_expanded = _expand_file_references(queued_text, working_dir, file_max_chars=file_max_chars)
+                    storage.create_message(db, conversation_id, "user", q_expanded, **(identity_kwargs or {}))
+                    await msg_queue.put({"role": "user", "content": q_expanded})
+                    continue
                 cmd = queued_text.lower().split()[0]
                 if cmd in _EXIT_COMMANDS:
                     cancel_event.set()
@@ -1305,6 +1254,49 @@ async def _drain_input_to_msg_queue(
                 if warn_callback:
                     warn_callback(cmd)
                 continue
+            if tool_registry is not None and config is not None:
+                intent = detect_explicit_memory_intent(queued_text)
+                if intent is not None and tool_registry.has_tool("save_memory"):
+                    storage.create_message(db, conversation_id, "user", queued_text, **(identity_kwargs or {}))
+                    tool_call_id = f"call_memory_{uuid.uuid4().hex}"
+                    arguments = {
+                        "content": intent.content,
+                        "category": intent.category,
+                        "scope": intent.scope,
+                    }
+                    result = await tool_registry.call_tool(
+                        "save_memory",
+                        arguments,
+                        _extra_context=build_tool_extra_context(
+                            bg_manager=None,
+                            detach_manager=None,
+                            conversation_id=conversation_id,
+                            db=db,
+                            config=config,
+                            tool_call_id=tool_call_id,
+                        ),
+                    )
+                    data_dir = getattr(getattr(config, "app", None), "data_dir", None)
+                    formatted = format_memory_save_result(result, data_dir=data_dir)
+                    assistant_msg = storage.create_message(
+                        db,
+                        conversation_id,
+                        "assistant",
+                        formatted.text,
+                        **(identity_kwargs or {}),
+                        metadata=formatted.metadata,
+                    )
+                    storage.create_tool_call(
+                        db,
+                        assistant_msg["id"],
+                        "save_memory",
+                        "builtin",
+                        arguments,
+                        tool_call_id,
+                        iteration=1,
+                    )
+                    storage.update_tool_call(db, tool_call_id, result, "error" if "error" in result else "success")
+                    continue
             q_expanded = _expand_file_references(queued_text, working_dir, file_max_chars=file_max_chars)
             storage.create_message(db, conversation_id, "user", q_expanded, **(identity_kwargs or {}))
             await msg_queue.put({"role": "user", "content": q_expanded})
@@ -1312,12 +1304,20 @@ async def _drain_input_to_msg_queue(
             break
 
 
-def _expand_file_references(text: str, working_dir: str, file_max_chars: int = 100_000) -> str:
+def _expand_file_references(
+    text: str,
+    working_dir: str,
+    file_max_chars: int = 100_000,
+    *,
+    leading_bare_pdf_only: bool = False,
+    expand_at_references: bool = True,
+) -> str:
     """Expand @path references in user input.
 
     @file.py      -> includes file contents inline
     @src/          -> includes directory listing
     @"path with spaces/file.py" -> handles quoted paths
+    /path/file.pdf -> includes PDF text for obvious existing PDF paths
 
     Binary files (PPTX, XLSX, PDF, etc.) are routed through
     document_extractor for text extraction instead of raw UTF-8 reads.
@@ -1345,11 +1345,18 @@ def _expand_file_references(text: str, working_dir: str, file_max_chars: int = 1
             return True
         return mime in text_mime_extras
 
-    def _replace(match: re.Match[str]) -> str:
-        raw_path = match.group(1).strip("\"'")
+    def _unescape_shell_path(raw_path: str) -> str:
+        """Accept paths pasted from a shell, e.g. ``ID\\ Card.pdf``."""
+        if "\\" not in raw_path:
+            return raw_path
+        return re.sub(r"""\\([\\\s"'$`!#&()*;<>?\[\]{}|])""", r"\1", raw_path)
+
+    def _expand_path(raw_path: str, original: str, *, include_directories: bool) -> str:
+        display_path = raw_path
+        raw_path = _unescape_shell_path(raw_path)
         validated, error = _validate_ref_path(raw_path, working_dir)
         if error:
-            return match.group(0)  # Skip blocked paths silently
+            return original  # Skip blocked paths silently
         resolved = Path(validated)
 
         if resolved.is_file():
@@ -1359,29 +1366,47 @@ def _expand_file_references(text: str, working_dir: str, file_max_chars: int = 1
                     content = resolved.read_text(encoding="utf-8", errors="replace")
                     if len(content) > file_max_chars:
                         content = content[:file_max_chars] + "\n... (truncated)"
-                    return f'\n<file path="{raw_path}">\n{content}\n</file>\n'
+                    return f'\n<file path="{display_path}">\n{content}\n</file>\n'
                 except OSError:
-                    return match.group(0)
+                    return original
             else:
                 try:
                     from ..services.document_extractor import EXTRACTABLE_MIME_TYPES, extract_text
 
+                    warnings: list[str] = []
                     if mime in EXTRACTABLE_MIME_TYPES:
                         file_data = resolved.read_bytes()
-                        extracted = extract_text(file_data, mime).text
+                        extraction_result = extract_text(file_data, mime)
+                        extracted = extraction_result.text
+                        warnings = extraction_result.warnings
                         if extracted:
                             if len(extracted) > file_max_chars:
                                 extracted = extracted[:file_max_chars] + "\n... (truncated)"
-                            return f'\n<file path="{raw_path}">\n{extracted}\n</file>\n'
+                            if mime == "application/pdf":
+                                return (
+                                    f'\n<file name="{resolved.name}" mime_type="{mime}" '
+                                    f"{_INLINE_PDF_EXTRACTION_MARKER}>\n"
+                                    f"[PDF text extracted inline from {resolved.name}. "
+                                    "Answer from this content; no file-reading tool is needed.]\n"
+                                    f"{extracted}\n</file>\n"
+                                )
+                            return f'\n<file path="{display_path}">\n{extracted}\n</file>\n'
+                    if mime == "application/pdf":
+                        reason = "; ".join(warnings) if warnings else "PDF text could not be extracted automatically"
+                        return (
+                            f'\n<file name="{resolved.name}" mime_type="{mime}" {_INLINE_PDF_EXTRACTION_MARKER}>'
+                            f"\n[PDF text could not be extracted automatically from {resolved.name} ({mime}): {reason}]"
+                            f"\n</file>\n"
+                        )
                     return (
-                        f'\n<file path="{raw_path}">'
+                        f'\n<file path="{display_path}">'
                         f"\n[Binary file: {resolved.name} ({mime})"
-                        f" — use tools to read this file]"
+                        f" - content could not be extracted automatically]"
                         f"\n</file>\n"
                     )
                 except OSError:
-                    return match.group(0)
-        elif resolved.is_dir():
+                    return original
+        elif include_directories and resolved.is_dir():
             try:
                 entries = sorted(resolved.iterdir())
                 listing = []
@@ -1391,11 +1416,50 @@ def _expand_file_references(text: str, working_dir: str, file_max_chars: int = 1
                 content = "\n".join(listing)
                 return f'\n<directory path="{raw_path}">\n{content}\n</directory>\n'
             except OSError:
-                return match.group(0)
-        else:
-            return match.group(0)
+                return original
+        return original
 
-    return _FILE_REF_RE.sub(_replace, text)
+    def _replace_ref(match: re.Match[str]) -> str:
+        raw_path = match.group(1).strip("\"'")
+        return _expand_path(raw_path, match.group(0), include_directories=True)
+
+    bare_pdf_replacements: list[tuple[str, str]] = []
+
+    def _stash_bare_pdf_expansion(expanded: str, original: str) -> str:
+        if expanded == original:
+            return original
+        token = f"<<<ANTEROOM_BARE_PDF_REF_{len(bare_pdf_replacements)}>>>"
+        bare_pdf_replacements.append((token, expanded))
+        return token
+
+    def _replace_quoted_pdf(match: re.Match[str]) -> str:
+        original = match.group(0)
+        raw_path = match.group("path")
+        expanded = _expand_path(raw_path, original, include_directories=False)
+        return _stash_bare_pdf_expansion(expanded, original)
+
+    def _replace_unquoted_pdf(match: re.Match[str]) -> str:
+        raw_path = match.group("path")
+        expanded = _expand_path(raw_path, raw_path, include_directories=False)
+        return _stash_bare_pdf_expansion(expanded, raw_path)
+
+    if leading_bare_pdf_only:
+        quoted_pdf_re = re.compile(r"""a^""")
+        path_pdf_re = re.compile(r"""(?P<path>/[^\n\r]*?\.pdf)(?=$|\s|[,.?!;:)\]}])""")
+    else:
+        quoted_pdf_re = re.compile(r"""(?<!@)(?P<quote>["'])(?P<path>[^"'\n\r]+\.pdf)(?P=quote)""")
+        path_pdf_re = re.compile(
+            r"""(?<![@\w])(?P<path>(?:~|/|\./|\../)[^\n\r]*?\.pdf|[A-Za-z0-9_.-][^\s<>"']*\.pdf)"""
+            r"""(?=$|\s|[,.?!;:)\]}])"""
+        )
+
+    expanded = quoted_pdf_re.sub(_replace_quoted_pdf, text)
+    expanded = path_pdf_re.sub(_replace_unquoted_pdf, expanded)
+    if expand_at_references:
+        expanded = _FILE_REF_RE.sub(_replace_ref, expanded)
+    for token, replacement in bare_pdf_replacements:
+        expanded = expanded.replace(token, replacement)
+    return expanded
 
 
 def _detect_project_context(working_dir: str) -> str:
@@ -4037,7 +4101,8 @@ async def run_cli(
             skill_lines = [
                 "\n<available_skills>",
                 "The following skills are available. When the user's request clearly matches a skill, "
-                "use the invoke_skill tool to run it.",
+                "use the invoke_skill tool to run it. Do not use invoke_skill for explicit memory-save requests; "
+                "use save_memory for those.",
             ]
             for name, desc in skill_descs:
                 skill_lines.append(f"- {name}: {desc}")
@@ -4095,13 +4160,15 @@ async def run_cli(
             build_date = renderer._get_build_date()
             if config.cli.update_check:
                 _update_task = asyncio.create_task(
-                    _check_for_update(__version__, command=config.cli.update_check_command)
+                    check_for_update(__version__, command=config.cli.update_check_command)
                 )
             installed_packs = packs_service.list_packs(db)
             pack_count = len(installed_packs)
             pack_names = [p["name"] for p in installed_packs] if installed_packs else None
             _vec_task = asyncio.create_task(_init_vector_manager())
             is_first_run = not storage.list_conversations(db, limit=1)
+            from ..services.project_links import project_display_label
+
             renderer.render_welcome(
                 model=config.ai.model,
                 tool_count=len(all_tool_names),
@@ -4114,17 +4181,20 @@ async def run_cli(
                 pack_count=pack_count,
                 pack_names=pack_names,
                 is_first_run=is_first_run,
+                project_display=project_display_label(config.project),
             )
 
             # Update check runs fully in background — never blocks the prompt.
             # The result is rendered via a done-callback when available.
             if config.cli.update_check:
 
-                def _on_update_check_done(task: asyncio.Task[str | None]) -> None:
+                def _on_update_check_done(task: asyncio.Task[Any]) -> None:
                     try:
-                        latest = task.result()
-                        if latest:
-                            renderer.render_update_available(__version__, latest)
+                        result = task.result()
+                        if result.status is VersionCheckStatus.UPDATE_AVAILABLE and result.latest:
+                            message = format_update_message(config.cli.update_check_message, __version__, result.latest)
+                            if message:
+                                renderer.render_update_available(message)
                     except Exception:
                         pass
 
@@ -4293,6 +4363,24 @@ async def _run_one_shot(
 
     from ..services.agent_loop import run_agent_loop
 
+    _debug_collector = None
+    _debug_summary_rendered = False
+    if logging.getLogger().isEnabledFor(logging.DEBUG):
+        from ..services.debug_diagnostics import DebugDiagnosticsCollector
+
+        _ai_cfg = getattr(ai_service, "config", None)
+        _debug_collector = DebugDiagnosticsCollector(
+            provider=getattr(_ai_cfg, "provider", None),
+            model=getattr(_ai_cfg, "model", None),
+        )
+
+    def _render_cli_debug_summary(stop_reason: str) -> None:
+        nonlocal _debug_summary_rendered
+        if _debug_collector is None or _debug_summary_rendered:
+            return
+        _debug_summary_rendered = True
+        renderer.render_debug_summary(_debug_collector.finish(stop_reason))
+
     try:
         while True:
             user_attempt += 1
@@ -4320,12 +4408,23 @@ async def _run_one_shot(
                 compact_rehydrate_max_files=config.compaction.compact_rehydrate_max_files,
                 compact_rehydrate_max_errors=config.compaction.compact_rehydrate_max_errors,
                 microcompact_enabled=config.compaction.microcompact_enabled,
+                historical_tool_collapse_enabled=config.compaction.historical_tool_collapse_enabled,
+                historical_tool_collapse_trigger_token_count=(
+                    config.compaction.historical_tool_collapse_trigger_token_count
+                ),
+                historical_tool_collapse_keep_recent_groups=config.compaction.historical_tool_collapse_keep_recent_groups,
+                historical_tool_collapse_compact_chars=config.compaction.historical_tool_collapse_compact_chars,
                 summary_trigger_msg_count=config.compaction.summary_trigger_msg_count,
                 summary_trigger_token_count=config.compaction.summary_trigger_token_count,
                 reactive_max_attempts=config.compaction.reactive_max_attempts,
+                summary_max_completion_tokens=config.compaction.summary_max_completion_tokens,
+                summary_retry_max_attempts=config.compaction.summary_retry_max_attempts,
+                summary_retry_drop_groups=config.compaction.summary_retry_drop_groups,
                 db=db,
                 conversation_id=conv["id"],
             ):
+                if _debug_collector is not None:
+                    _debug_collector.observe(event.kind, event.data)
                 if event.kind == "thinking":
                     if not thinking:
                         renderer.start_thinking()
@@ -4333,7 +4432,7 @@ async def _run_one_shot(
                         renderer.set_thinking_phase("accepted")
                         thinking = True
                 elif event.kind == "phase":
-                    renderer.set_thinking_phase(event.data.get("phase", ""))
+                    renderer.set_thinking_phase(event.data.get("phase", ""), event.data)
                 elif event.kind == "retrying":
                     renderer.set_retrying(event.data)
                 elif event.kind == "token":
@@ -4372,6 +4471,7 @@ async def _run_one_shot(
                         thinking = False
                     else:
                         renderer.render_error("Response blocked by DLP policy")
+                    _render_cli_debug_summary("dlp_blocked")
                 elif event.kind == "dlp_warning":
                     rules = ", ".join(event.data.get("matches", []))
                     renderer.render_error(f"DLP warning: sensitive data detected [{rules}]")
@@ -4388,6 +4488,7 @@ async def _run_one_shot(
                         thinking = False
                     else:
                         renderer.render_error("Response blocked by output content filter")
+                    _render_cli_debug_summary("output_filter_blocked")
                 elif event.kind == "output_filter_warning":
                     rules = ", ".join(event.data.get("matches", []))
                     renderer.render_error(f"Output filter warning: forbidden content detected [{rules}]")
@@ -4407,16 +4508,20 @@ async def _run_one_shot(
                         else:
                             await renderer.stop_thinking(cancel_msg="cancelled")
                             thinking = False
+                            _render_cli_debug_summary("cancelled")
                     elif thinking and retryable and user_attempt >= config.cli.max_retries:
                         # Exhausted user retries
                         await renderer.stop_thinking(error_msg=f"{error_msg} · {user_attempt} attempts failed")
                         thinking = False
+                        _render_cli_debug_summary(event.data.get("code") or "error")
                     elif thinking:
                         # Non-retryable error
                         await renderer.stop_thinking(error_msg=error_msg)
                         thinking = False
+                        _render_cli_debug_summary(event.data.get("code") or "error")
                     else:
                         renderer.render_error(event.data)
+                        _render_cli_debug_summary(event.data.get("code") or "error")
                 elif event.kind == "budget_warning":
                     if thinking:
                         await renderer.stop_thinking()
@@ -4426,7 +4531,7 @@ async def _run_one_shot(
                     # #1428: capture turn summary inputs. _current_turn_tools
                     # is the list maintained by render_tool_call_start/end;
                     # we snapshot it before stop_thinking() / response flush.
-                    _turn_cancelled = thinking and cancel_event.is_set()
+                    _turn_cancelled = _turn_was_cancelled(thinking, cancel_event)
                     _turn_tools = list(renderer._current_turn_tools)
                     _turn_elapsed = 0.0
                     if thinking and cancel_event.is_set():
@@ -4444,6 +4549,7 @@ async def _run_one_shot(
                         cancelled=_turn_cancelled,
                         error=None,
                     )
+                    _render_cli_debug_summary(event.data.get("stop_reason") or "completed")
                     if not cancel_event.is_set():
                         renderer.render_response_end()
 
@@ -5712,8 +5818,22 @@ async def _run_repl(
                 except Exception:
                     logger.debug("Workflow follow-up routing failed in CLI", exc_info=True)
 
-            # Handle commands
+            leading_slash_expanded: str | None = None
             if user_input.startswith("/"):
+                candidate_expanded = _expand_file_references(
+                    user_input,
+                    working_dir,
+                    file_max_chars=config.cli.file_reference_max_chars,
+                    leading_bare_pdf_only=True,
+                    expand_at_references=False,
+                )
+                if candidate_expanded != user_input:
+                    leading_slash_expanded = _expand_file_references(
+                        user_input, working_dir, file_max_chars=config.cli.file_reference_max_chars
+                    )
+
+            # Handle commands
+            if user_input.startswith("/") and leading_slash_expanded is None:
                 cmd = user_input.lower().split()[0]
                 if cmd in ("/quit", "/exit"):
                     exit_flag.set()
@@ -5940,6 +6060,9 @@ async def _run_repl(
                         rehydrate=config.compaction.compact_rehydrate,
                         rehydrate_max_files=config.compaction.compact_rehydrate_max_files,
                         rehydrate_max_errors=config.compaction.compact_rehydrate_max_errors,
+                        summary_max_completion_tokens=config.compaction.summary_max_completion_tokens,
+                        summary_retry_max_attempts=config.compaction.summary_retry_max_attempts,
+                        summary_retry_drop_groups=config.compaction.summary_retry_drop_groups,
                     )
                     continue
                 elif cmd == "/copy":
@@ -7847,6 +7970,55 @@ async def _run_repl(
                         renderer.console.print()
                     continue
 
+                elif cmd == "/feedback":
+                    parts_fb = user_input.split(maxsplit=1)
+                    raw_arg = parts_fb[1].strip() if len(parts_fb) > 1 else ""
+                    try:
+                        fb_args = shlex.split(raw_arg)
+                    except ValueError as exc:
+                        renderer.console.print(f"[{_ERROR}]Invalid /feedback arguments: {exc}[/{_ERROR}]\n")
+                        continue
+                    include_history = False
+                    description_parts: list[str] = []
+                    for arg in fb_args:
+                        if arg == "--include-history":
+                            include_history = True
+                        else:
+                            description_parts.append(arg)
+                    fb_description = " ".join(description_parts).strip()
+                    if not fb_description:
+                        renderer.console.print(
+                            f"[{CHROME}]Usage: /feedback <description> [--include-history][/{CHROME}]\n"
+                        )
+                        continue
+                    try:
+                        from .feedback_cli import handle_feedback_command
+
+                        fb_messages: list[dict[str, Any]] | None = ai_messages if include_history else None
+                        fb_msg = await handle_feedback_command(
+                            fb_description,
+                            include_history,
+                            config,
+                            db,
+                            conversation_id=conv.get("id"),
+                            conversation_messages=fb_messages,
+                            active_space=_active_space[0],
+                            tool_registry=tool_registry,
+                            mcp_manager=mcp_manager,
+                        )
+                        # Copy local file path to clipboard when available
+                        if "Bundle saved to:" in fb_msg:
+                            path_part = fb_msg.split("Bundle saved to:")[-1].strip()
+                            try:
+                                _copy_text_to_clipboard(path_part)
+                                fb_msg += " (path copied to clipboard)"
+                            except _ClipboardUnavailableError:
+                                pass
+                        renderer.console.print(f"[{CHROME}]{fb_msg}[/{CHROME}]\n")
+                    except Exception:
+                        logger.error("feedback command failed", exc_info=True)
+                        renderer.render_error("Feedback failed — see logs for details.")
+                    continue
                 elif cmd == "/clear":
                     active_sid = _active_space[0]["id"] if _active_space[0] else None
                     conv = storage.create_conversation(
@@ -7882,7 +8054,7 @@ async def _run_repl(
             # Check for skill invocation — preserve original for title generation
             original_user_input = user_input
             _direct_skill_policy: Any = None
-            if skill_registry and user_input.startswith("/"):
+            if skill_registry and user_input.startswith("/") and leading_slash_expanded is None:
                 is_skill, skill_prompt, _skill_obj = skill_registry.resolve_input_with_skill(user_input)
                 if is_skill:
                     user_input = skill_prompt
@@ -7892,7 +8064,7 @@ async def _run_repl(
             # For note/document types, save message without AI response
             current_conv_type = conv.get("type", "chat")
             if current_conv_type in ("note", "document"):
-                expanded = _expand_file_references(
+                expanded = leading_slash_expanded or _expand_file_references(
                     user_input, working_dir, file_max_chars=config.cli.file_reference_max_chars
                 )
                 storage.create_message(db, conv["id"], "user", expanded, **id_kw)
@@ -7906,28 +8078,42 @@ async def _run_repl(
             # prompt_toolkit's cursor teardown on the first message (#249).
 
             # Expand file references
-            expanded = _expand_file_references(
+            expanded = leading_slash_expanded or _expand_file_references(
                 user_input, working_dir, file_max_chars=config.cli.file_reference_max_chars
+            )
+            turn_tools_openai = (
+                _filter_tools_for_inline_pdf_turn(tools_openai)
+                if _contains_inline_pdf_extraction(expanded)
+                else tools_openai
+            )
+            turn_fixed_request_overhead = (
+                _compute_fixed_request_overhead(
+                    system_prompt=config.ai.system_prompt or "",
+                    tool_schemas=turn_tools_openai or None,
+                )
+                if turn_tools_openai is not tools_openai
+                else _fixed_request_overhead
             )
 
             # Auto-compact if approaching context limit (thresholds from config).
             # Full-request estimate includes system prompt + tool schemas + the
             # pending user turn (#1339). System prompt and tool schema token
             # counts are pre-computed once at REPL startup into
-            # `_fixed_request_overhead`, so the per-turn cost is only the
-            # message list + pending turn + small per-turn extra_system_prompt.
+            # `_fixed_request_overhead`, except rare inline-PDF turns that use
+            # a smaller per-turn tool schema.
             _req_breakdown = _estimate_full_request_with_pending_user(
                 ai_messages=ai_messages,
                 pending_user_content=expanded,
                 extra_system_prompt=extra_system_prompt or "",
-                fixed_overhead=_fixed_request_overhead,
+                fixed_overhead=turn_fixed_request_overhead,
             )
             token_estimate = _req_breakdown.total
             auto_compact_threshold = config.cli.context_auto_compact_tokens
             warn_threshold = config.cli.context_warn_tokens
             if token_estimate > auto_compact_threshold:
                 renderer.console.print(
-                    f"[yellow]Context approaching limit (~{token_estimate:,} tokens). Auto-compacting...[/yellow]"
+                    f"[yellow]Context approaching limit (~{token_estimate:,} tokens; "
+                    f"auto-compact at {auto_compact_threshold:,}). Auto-compacting...[/yellow]"
                 )
                 await _compact_messages(
                     ai_service,
@@ -7938,12 +8124,16 @@ async def _run_repl(
                     rehydrate=config.compaction.compact_rehydrate,
                     rehydrate_max_files=config.compaction.compact_rehydrate_max_files,
                     rehydrate_max_errors=config.compaction.compact_rehydrate_max_errors,
+                    summary_max_completion_tokens=config.compaction.summary_max_completion_tokens,
+                    summary_retry_max_attempts=config.compaction.summary_retry_max_attempts,
+                    summary_retry_drop_groups=config.compaction.summary_retry_drop_groups,
                 )
             elif token_estimate > warn_threshold:
                 renderer.console.print(
                     f"[yellow]Context: ~{token_estimate:,} tokens "
                     f"(msgs:{_req_breakdown.message_tokens:,} sys:{_req_breakdown.system_prompt_tokens:,} "
-                    f"tools:{_req_breakdown.tool_schema_tokens:,}). Use /compact to free space.[/yellow]"
+                    f"tools:{_req_breakdown.tool_schema_tokens:,}; warn at {warn_threshold:,}). "
+                    f"Use /compact to free space.[/yellow]"
                 )
 
             # Store user message
@@ -8113,6 +8303,27 @@ async def _run_repl(
 
                 from ..services.agent_loop import active_skill_policy, run_agent_loop
 
+                def _new_cli_debug_collector() -> Any:
+                    if not logging.getLogger().isEnabledFor(logging.DEBUG):
+                        return None
+                    from ..services.debug_diagnostics import DebugDiagnosticsCollector
+
+                    _ai_cfg = getattr(ai_service, "config", None)
+                    return DebugDiagnosticsCollector(
+                        provider=getattr(_ai_cfg, "provider", None),
+                        model=getattr(_ai_cfg, "model", None),
+                    )
+
+                _debug_collector = _new_cli_debug_collector()
+                _debug_summary_rendered = False
+
+                def _render_cli_debug_summary(stop_reason: str) -> None:
+                    nonlocal _debug_summary_rendered
+                    if _debug_collector is None or _debug_summary_rendered:
+                        return
+                    _debug_summary_rendered = True
+                    renderer.render_debug_summary(_debug_collector.finish(stop_reason))
+
                 active_skill_policy.set(_direct_skill_policy)
                 while True:
                     user_attempt += 1
@@ -8122,7 +8333,7 @@ async def _run_repl(
                         ai_service=ai_service,
                         messages=ai_messages,
                         tool_executor=tool_executor,
-                        tools_openai=tools_openai,
+                        tools_openai=turn_tools_openai,
                         cancel_event=cancel_event,
                         extra_system_prompt=extra_system_prompt,
                         max_iterations=config.cli.max_tool_iterations,
@@ -8146,12 +8357,25 @@ async def _run_repl(
                         compact_rehydrate_max_files=config.compaction.compact_rehydrate_max_files,
                         compact_rehydrate_max_errors=config.compaction.compact_rehydrate_max_errors,
                         microcompact_enabled=config.compaction.microcompact_enabled,
+                        historical_tool_collapse_enabled=config.compaction.historical_tool_collapse_enabled,
+                        historical_tool_collapse_trigger_token_count=(
+                            config.compaction.historical_tool_collapse_trigger_token_count
+                        ),
+                        historical_tool_collapse_keep_recent_groups=(
+                            config.compaction.historical_tool_collapse_keep_recent_groups
+                        ),
+                        historical_tool_collapse_compact_chars=config.compaction.historical_tool_collapse_compact_chars,
                         summary_trigger_msg_count=config.compaction.summary_trigger_msg_count,
                         summary_trigger_token_count=config.compaction.summary_trigger_token_count,
                         reactive_max_attempts=config.compaction.reactive_max_attempts,
+                        summary_max_completion_tokens=config.compaction.summary_max_completion_tokens,
+                        summary_retry_max_attempts=config.compaction.summary_retry_max_attempts,
+                        summary_retry_drop_groups=config.compaction.summary_retry_drop_groups,
                         db=db,
                         conversation_id=conv["id"],
                     ):
+                        if _debug_collector is not None:
+                            _debug_collector.observe(event.kind, event.data)
                         # Drain input_queue into msg_queue during streaming
                         await _drain_input_to_msg_queue(
                             input_queue,
@@ -8193,7 +8417,7 @@ async def _run_repl(
                                 renderer.set_thinking_phase("accepted")
                                 thinking = True
                         elif event.kind == "phase":
-                            renderer.set_thinking_phase(event.data.get("phase", ""))
+                            renderer.set_thinking_phase(event.data.get("phase", ""), event.data)
                         elif event.kind == "retrying":
                             renderer.set_retrying(event.data)
                         elif event.kind == "token":
@@ -8291,6 +8515,7 @@ async def _run_repl(
                                 thinking = False
                             else:
                                 renderer.render_error("Response blocked by DLP policy")
+                            _render_cli_debug_summary("dlp_blocked")
                         elif event.kind == "dlp_warning":
                             rules = ", ".join(event.data.get("matches", []))
                             renderer.render_error(f"DLP warning: sensitive data detected [{rules}]")
@@ -8309,6 +8534,7 @@ async def _run_repl(
                                 thinking = False
                             else:
                                 renderer.render_error("Response blocked by output content filter")
+                            _render_cli_debug_summary("output_filter_blocked")
                         elif event.kind == "output_filter_warning":
                             rules = ", ".join(event.data.get("matches", []))
                             renderer.render_error(f"Output filter warning: forbidden content detected [{rules}]")
@@ -8352,16 +8578,20 @@ async def _run_repl(
                                 else:
                                     total_elapsed += await renderer.stop_thinking(cancel_msg="cancelled")
                                     thinking = False
+                                    _render_cli_debug_summary("cancelled")
                             elif thinking and retryable and user_attempt >= config.cli.max_retries:
                                 total_elapsed += await renderer.stop_thinking(
                                     error_msg=f"{error_msg} · {user_attempt} attempts failed"
                                 )
                                 thinking = False
+                                _render_cli_debug_summary(event.data.get("code") or "error")
                             elif thinking:
                                 total_elapsed += await renderer.stop_thinking(error_msg=error_msg)
                                 thinking = False
+                                _render_cli_debug_summary(event.data.get("code") or "error")
                             else:
                                 renderer.render_error(event.data)
+                                _render_cli_debug_summary(event.data.get("code") or "error")
                         elif event.kind == "budget_warning":
                             if thinking:
                                 total_elapsed += await renderer.stop_thinking()
@@ -8378,7 +8608,7 @@ async def _run_repl(
                             collapse = bool(_plan_checklist_steps)
                             # #1428: capture turn summary inputs before
                             # stop_thinking() consumes elapsed.
-                            _turn_cancelled = bool(thinking and cancel_event.is_set())
+                            _turn_cancelled = _turn_was_cancelled(thinking, cancel_event, _cancel_acked)
                             _turn_tools = list(renderer._current_turn_tools)
                             _turn_elapsed = 0.0
                             if thinking and cancel_event.is_set():
@@ -8408,6 +8638,9 @@ async def _run_repl(
                                 cancelled=_turn_cancelled,
                                 error=None,
                             )
+                            _render_cli_debug_summary(event.data.get("stop_reason") or "completed")
+                            _debug_collector = _new_cli_debug_collector()
+                            _debug_summary_rendered = False
                             if not cancel_event.is_set():
                                 renderer.save_turn_history()
                                 renderer.render_response_end()
@@ -8805,6 +9038,9 @@ async def _compact_messages(
     rehydrate: bool = True,
     rehydrate_max_files: int = 20,
     rehydrate_max_errors: int = 5,
+    summary_max_completion_tokens: int = 1000,
+    summary_retry_max_attempts: int = 3,
+    summary_retry_drop_groups: int = 2,
 ) -> None:
     """Summarize conversation history to reduce context size.
 
@@ -8815,8 +9051,8 @@ async def _compact_messages(
     """
     from ..services.compaction import (
         REPL_CONTENT_TEMPLATE,
-        _find_tail_boundary,
         compact_messages,
+        logical_tail_boundary,
         persist_compacted_messages,
     )
 
@@ -8824,17 +9060,22 @@ async def _compact_messages(
         renderer.console.print(f"[{CHROME}]Not enough messages to compact[/{CHROME}]\n")
         return
 
-    # Pre-compute tail IDs from the stored conversation before the in-memory
-    # list is mutated.  We run the boundary algorithm on stored rows to use
-    # their real DB IDs for persistence.
+    # Pre-compute tail IDs from the same logical runtime boundary that will be
+    # compacted below. Stored rows collapse tool results into assistant rows,
+    # so a stored-row boundary would not be equivalent here.
     tail_message_ids: list[str] = []
+    tail_mapping_aligned = True
+    tail_mapping_reason: str | None = None
     if preserve_tail > 0:
         try:
             stored_rows = storage.list_messages(db, conversation_id)
-            stored_split = _find_tail_boundary(stored_rows, preserve_tail)
-            if stored_split > 0:
-                tail_message_ids = [r["id"] for r in stored_rows[stored_split:]]
+            boundary = logical_tail_boundary(ai_messages, stored_rows, preserve_tail)
+            tail_message_ids = boundary.tail_message_ids
+            tail_mapping_aligned = boundary.aligned
+            tail_mapping_reason = boundary.reason
         except Exception:
+            tail_mapping_aligned = False
+            tail_mapping_reason = "tail_mapping_exception"
             logger.warning("Failed to compute stored tail IDs for /compact persistence", exc_info=True)
 
     renderer.console.print(f"[{CHROME}]Generating summary...[/{CHROME}]")
@@ -8847,10 +9088,24 @@ async def _compact_messages(
         rehydrate=rehydrate,
         rehydrate_max_files=rehydrate_max_files,
         rehydrate_max_errors=rehydrate_max_errors,
+        summary_max_completion_tokens=summary_max_completion_tokens,
+        summary_retry_max_attempts=summary_retry_max_attempts,
+        summary_retry_drop_groups=summary_retry_drop_groups,
     )
     if not result.success:
-        renderer.render_error("Failed to generate summary")
+        detail = "Original history was left unchanged."
+        if result.failure_code == "context_length_exceeded":
+            detail = (
+                "Summary prompt was still too long after "
+                f"{result.attempts} attempt(s); original history was left unchanged."
+            )
+        renderer.render_error(f"Failed to generate summary. {detail}")
         return
+    if result.retries:
+        renderer.console.print(
+            f"[{CHROME}]Summary prompt was too long; retried {result.retries} time(s) "
+            f"after dropping {result.reduced_message_count} older message(s).[/{CHROME}]"
+        )
 
     # Persist the compacted shape so /resume sees the boundary-based form.
     try:
@@ -8860,13 +9115,18 @@ async def _compact_messages(
             if len(ai_messages) > 1 and ai_messages[1].get("metadata", {}).get("compact_boundary")
             else None
         )
-        if summary_msg is not None:
+        if summary_msg is not None and tail_mapping_aligned:
             persist_compacted_messages(
                 db,
                 conversation_id,
                 summary_msg=summary_msg,
                 boundary_msg=boundary_msg,
                 tail_message_ids=tail_message_ids,
+            )
+        elif summary_msg is not None:
+            logger.warning(
+                "Skipping /compact persistence because runtime/storage tail mapping failed: %s",
+                tail_mapping_reason or "unknown",
             )
     except Exception:
         logger.warning("Failed to persist compacted conversation from /compact", exc_info=True)

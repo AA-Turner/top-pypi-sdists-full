@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dishka
-Version: 1.10.0
+Version: 1.10.1
 Summary: Cute DI framework with scopes and agreeable API
 Author-email: Andrey Tikhonov <17@itishka.org>
 License-Expression: Apache-2.0

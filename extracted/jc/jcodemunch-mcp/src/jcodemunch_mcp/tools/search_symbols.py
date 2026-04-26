@@ -544,6 +544,15 @@ def search_symbols(
     except ValueError as e:
         return {"error": str(e)}
 
+    # v1.79.0 — apply learned per-repo semantic_weight override when the
+    # caller used the default. Treats 0.5 (the function default) as
+    # "unspecified"; explicit non-default values always win.
+    if (semantic or fusion) and semantic_weight == 0.5:
+        from ..retrieval.tuning import get_semantic_weight as _get_tuned_sw
+        semantic_weight = _get_tuned_sw(
+            f"{owner}/{name}", explicit=None, base_path=storage_path
+        )
+
     # Load index
     store = IndexStore(base_path=storage_path)
     index = store.load_index(owner, name)
@@ -940,6 +949,30 @@ def search_symbols(
         "results": scored_results,
         "_meta": meta,
     }
+    from ..retrieval.confidence import attach_confidence as _attach_confidence
+    from ..retrieval.confidence import extract_ledger_features as _ledger_feats
+    from ..retrieval.freshness import FreshnessProbe as _FreshnessProbe
+    from ..storage.token_tracker import record_ranking_event as _record_ranking_event
+    _probe = _FreshnessProbe(
+        source_root=getattr(index, "source_root", "") or None,
+        indexed_at=getattr(index, "indexed_at", ""),
+        index_sha=getattr(index, "git_head", None),
+        file_mtimes=getattr(index, "file_mtimes", None),
+    )
+    _probe.annotate(scored_results)
+    meta["freshness"] = _probe.summary(scored_results)
+    _attach_confidence(result, scored_results, is_stale=_probe.repo_is_stale)
+    _feat = _ledger_feats(scored_results)
+    _record_ranking_event(
+        tool="search_symbols",
+        repo=f"{owner}/{name}",
+        query=query,
+        returned_ids=[r.get("id", "") for r in scored_results],
+        confidence=result["_meta"].get("confidence"),
+        semantic_used=False,
+        repo_is_stale=_probe.repo_is_stale,
+        **_feat,
+    )
 
     # Feature 1: Add negative_evidence if present
     if negative_evidence is not None:
@@ -1180,6 +1213,30 @@ def _search_symbols_semantic(
         "results": scored_results,
         "_meta": meta,
     }
+    from ..retrieval.confidence import attach_confidence as _attach_confidence
+    from ..retrieval.confidence import extract_ledger_features as _ledger_feats
+    from ..retrieval.freshness import FreshnessProbe as _FreshnessProbe
+    from ..storage.token_tracker import record_ranking_event as _record_ranking_event
+    _probe = _FreshnessProbe(
+        source_root=getattr(index, "source_root", "") or None,
+        indexed_at=getattr(index, "indexed_at", ""),
+        index_sha=getattr(index, "git_head", None),
+        file_mtimes=getattr(index, "file_mtimes", None),
+    )
+    _probe.annotate(scored_results)
+    meta["freshness"] = _probe.summary(scored_results)
+    _attach_confidence(result, scored_results, is_stale=_probe.repo_is_stale)
+    _feat = _ledger_feats(scored_results)
+    _record_ranking_event(
+        tool="search_symbols",
+        repo=f"{owner}/{name}",
+        query=query,
+        returned_ids=[r.get("id", "") for r in scored_results],
+        confidence=result["_meta"].get("confidence"),
+        semantic_used=True,
+        repo_is_stale=_probe.repo_is_stale,
+        **_feat,
+    )
     best_score = max_cos if semantic_only else max_bm25
     if not scored_results or best_score < _ne_threshold:
         # Find files whose names partially match query terms
@@ -1425,6 +1482,30 @@ def _search_symbols_fusion(
         "results": scored_results,
         "_meta": meta,
     }
+    from ..retrieval.confidence import attach_confidence as _attach_confidence
+    from ..retrieval.confidence import extract_ledger_features as _ledger_feats
+    from ..retrieval.freshness import FreshnessProbe as _FreshnessProbe
+    from ..storage.token_tracker import record_ranking_event as _record_ranking_event
+    _probe = _FreshnessProbe(
+        source_root=getattr(index, "source_root", "") or None,
+        indexed_at=getattr(index, "indexed_at", ""),
+        index_sha=getattr(index, "git_head", None),
+        file_mtimes=getattr(index, "file_mtimes", None),
+    )
+    _probe.annotate(scored_results)
+    meta["freshness"] = _probe.summary(scored_results)
+    _attach_confidence(result, scored_results, is_stale=_probe.repo_is_stale)
+    _feat = _ledger_feats(scored_results)
+    _record_ranking_event(
+        tool="search_symbols_fusion",
+        repo=f"{owner}/{name}",
+        query=query,
+        returned_ids=[r.get("id", "") for r in scored_results],
+        confidence=result["_meta"].get("confidence"),
+        semantic_used=True,
+        repo_is_stale=_probe.repo_is_stale,
+        **_feat,
+    )
 
     if cacheable and cache_key is not None:
         _result_cache_put(cache_key, result)

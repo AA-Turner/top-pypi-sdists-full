@@ -6,6 +6,7 @@ import importlib
 from typing import Sequence
 
 from cogames.core import CoGameMission, CoGameMissionVariant
+from cogames.standalone_games import STANDALONE_GAMES
 from cogames.variants import VariantRegistry
 
 
@@ -31,25 +32,37 @@ class CoGame:
 
 
 _GAMES: dict[str, "CoGame"] = {}
-_GAME_MODULES: dict[str, str] = {
-    "cogs_vs_clips": "cogames.games.cogs_vs_clips.game.game",
-    "overcogged": "cogames.games.overcogged.game.game",
-}
+
+
+def _import_standalone_game(name: str) -> bool:
+    if name not in STANDALONE_GAMES:
+        return False
+    standalone_game = STANDALONE_GAMES[name]
+    import_root = standalone_game.module_name.split(".", 1)[0]
+
+    try:
+        importlib.import_module(standalone_game.module_name)
+    except ModuleNotFoundError as exc:
+        if exc.name in {standalone_game.package_name, import_root}:
+            raise ValueError(
+                f"Game '{name}' is not installed. Install it with:\n  pip install cogames[{name}]"
+            ) from exc
+        raise
+
+    return True
 
 
 def _ensure_game_loaded(name: str) -> None:
     if name in _GAMES:
         return
-    module_name = _GAME_MODULES.get(name)
-    if module_name is not None:
-        importlib.import_module(module_name)
+    _import_standalone_game(name)
 
 
 def get_game(name: str) -> "CoGame":
     """Get a registered game by name."""
     _ensure_game_loaded(name)
     if name not in _GAMES:
-        available = sorted({*_GAME_MODULES, *_GAMES})
+        available = sorted({*STANDALONE_GAMES, *_GAMES})
         raise ValueError(f"Unknown game '{name}'. Available: {', '.join(available)}")
     return _GAMES[name]
 

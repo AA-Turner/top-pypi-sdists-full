@@ -1828,7 +1828,7 @@ async function loadSubAgents() {
       var activeFirst = subagents.filter(function(a){return a.status==='active';}).concat(subagents.filter(function(a){return a.status!=='active';}));
       var topAgents = activeFirst.slice(0, 3);
       topAgents.forEach(function(agent) {
-        var icon = agent.status === 'active' ? '🔄' : agent.status === 'idle' ? '[ok]' : '⬜';
+        var icon = agent.status === 'active' ? '🔄' : agent.status === 'idle' ? '✅' : '⬜';
         var name = cleanTaskName(agent.displayName);
         if (name.length > 40) name = name.substring(0, 37) + '…';
         previewHtml += '<div class="subagent-item">';
@@ -2054,7 +2054,7 @@ async function loadActivityStream() {
             var time = new Date(msg.timestamp || Date.now()).toLocaleTimeString();
             
             if (content.includes('searching') || content.includes('search')) {
-              activity = time + ' [check] Searching web for information';
+              activity = time + ' 🔍 Searching web for information';
             } else if (content.includes('reading') || content.includes('file')) {
               activity = time + ' 📖 Reading files';
             } else if (content.includes('writing') || content.includes('edit')) {
@@ -2098,6 +2098,21 @@ var _brainRefreshTimer = null;
 var _brainSourceColors = {};
 var _brainColorPalette = ['#2dd4bf','#f97316','#eab308','#ec4899','#3b82f6','#a78bfa','#f43f5e','#10b981'];
 var _brainColorIdx = 0;
+// Persistent expand state across the 5s auto-refresh re-renders. Without
+// this, tapping a brain event "auto-collapses" within ~5s simply because
+// the next refresh wipes the .expanded class. Keyed by stable event id.
+var _brainExpandedKeys = {};
+
+function _brainEvKey(ev) {
+  return (ev.time || '') + '|' + (ev.type || '') + '|' + (ev.source || '');
+}
+
+function _toggleBrainEvent(el, key) {
+  _brainExpandedKeys[key] = !_brainExpandedKeys[key];
+  el.classList.toggle('expanded', !!_brainExpandedKeys[key]);
+  var td = el.querySelector('.brain-turn-detail');
+  if (td) td.style.display = _brainExpandedKeys[key] ? '' : 'none';
+}
 
 function brainSourceColor(source) {
   if (source === 'main') return '#a855f7';
@@ -2402,8 +2417,11 @@ function renderBrainStream(events) {
         if (subagentCount > 0) turnTimeline += '<span style="background:rgba(236,72,153,0.15);color:#ec4899;padding:1px 6px;border-radius:3px;">&#129302; ' + subagentCount + ' sub-agent' + (subagentCount > 1 ? 's' : '') + '</span>';
         if (turnDuration !== '?' && parseFloat(turnDuration) > 0) turnTimeline += '<span style="background:rgba(16,185,129,0.15);color:#10b981;padding:1px 6px;border-radius:3px;">&#9202; ' + turnDuration + 's</span>';
         turnTimeline += '</div>';
-        // Expandable timeline detail
-        turnTimeline += '<div class="brain-turn-detail" style="display:none;margin-top:6px;padding:6px 0 2px 16px;border-left:2px solid rgba(139,92,246,0.3);">';
+        // Expandable timeline detail. Initial display reflects the persisted
+        // expanded state so a 5s auto-refresh re-render preserves the user's
+        // tap; otherwise the row would appear to auto-collapse.
+        var _isExp = !!_brainExpandedKeys[_brainEvKey(ev)];
+        turnTimeline += '<div class="brain-turn-detail" style="display:' + (_isExp ? '' : 'none') + ';margin-top:6px;padding:6px 0 2px 16px;border-left:2px solid rgba(139,92,246,0.3);">';
         var currentSubagent = null;
         turnEvents.forEach(function(te) {
           var teIcon = _brainTypeIcons[te.type] || '&#128295;';
@@ -2438,7 +2456,9 @@ function renderBrainStream(events) {
         turnTimeline += '</div>';
       }
     }
-    html += '<div class="brain-event" onclick="this.classList.toggle(\'expanded\');var td=this.querySelector(\'.brain-turn-detail\');if(td)td.style.display=td.style.display===\'none\'?\'\':\'none\';">';
+    var _evKey = _brainEvKey(ev);
+    var _evExpCls = _brainExpandedKeys[_evKey] ? ' expanded' : '';
+    html += '<div class="brain-event' + _evExpCls + '" data-evkey="' + escHtml(_evKey) + '" onclick="_toggleBrainEvent(this, this.dataset.evkey)">';
     html += '<div class="brain-meta">';
     html += '<span class="brain-time">' + formatBrainTime(ev.time) + '</span>';
     html += '<span class="brain-type" style="background:rgba(100,100,100,0.15);color:' + color + ';padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;min-width:70px;text-align:center;display:inline-block;white-space:nowrap;">' + icon + ' ' + escHtml(evType) + '</span>';
@@ -3720,6 +3740,25 @@ var _cronJobs = [];
 var _cronExpanded = {};
 var _cronAutoRefreshTimer = null;
 var _cronActionsAvailable = false;
+var _cronView = 'active'; // 'active' | 'paused' | 'calendar'
+
+function setCronView(view) {
+  _cronView = view;
+  document.querySelectorAll('.cron-view-tab').forEach(function(b) {
+    if (b.dataset.view === view) b.classList.add('active'); else b.classList.remove('active');
+  });
+  renderCrons();
+}
+
+function _cronStatus(j) {
+  // Honest status: distinguish 'no run history yet' from 'pending'.
+  var s = (j.state && j.state.lastStatus) || j.lastStatus || '';
+  if (s) return s;
+  var lastMs = (j.state && j.state.lastRunAtMs) || (j.lastRun ? Date.parse(j.lastRun) : 0);
+  if (!lastMs) return 'no-data';
+  if (Date.now() - lastMs > 6 * 3600 * 1000) return 'stale';
+  return 'ok';
+}
 
 function toggleCronAutoRefresh() {
   var cb = document.getElementById('cron-auto-refresh');
@@ -3879,21 +3918,52 @@ async function loadCronsMultiNode() {
 }
 
 function renderCrons() {
+  var active = _cronJobs.filter(function(j){ return j.enabled !== false; });
+  var paused = _cronJobs.filter(function(j){ return j.enabled === false; });
+  var ca = document.getElementById('crons-count-active');
+  var cp = document.getElementById('crons-count-paused');
+  if (ca) ca.textContent = active.length ? '(' + active.length + ')' : '';
+  if (cp) cp.textContent = paused.length ? '(' + paused.length + ')' : '';
+
+  var listEl = document.getElementById('crons-list');
+  if (!listEl) return;
+
+  if (_cronView === 'calendar') {
+    renderCronCalendar(active);
+    return;
+  }
+
+  var jobs = _cronView === 'paused' ? paused : active;
+  if (jobs.length === 0) {
+    var msg = _cronView === 'paused'
+      ? 'No paused jobs. Disable any active job to see it here.'
+      : 'No active cron jobs yet. Click "+ New Job" to create one.';
+    listEl.innerHTML = '<div style="color:var(--text-muted);padding:24px;text-align:center;font-size:13px;">' + msg + '</div>';
+    return;
+  }
+
+  renderCronList(jobs);
+}
+
+function renderCronList(jobs) {
   var html = '';
-  _cronJobs.forEach(function(j) {
-    var status = j.state && j.state.lastStatus ? j.state.lastStatus : 'pending';
+  jobs.forEach(function(j) {
+    var status = _cronStatus(j);
     var isEnabled = j.enabled !== false;
     var disabledClass = isEnabled ? '' : ' cron-disabled';
     var expanded = _cronExpanded[j.id];
 
-    // Status badge -- show disabled if not enabled
-    var badgeLabel = isEnabled ? status : 'disabled';
+    var labelMap = {'no-data':'no data','stale':'stale','ok':'ok','error':'error','pending':'pending'};
+    var badgeLabel = isEnabled ? (labelMap[status] || status) : 'disabled';
     var badgeClass = isEnabled ? status : 'pending';
+    var badgeTitle = '';
+    if (status === 'no-data') badgeTitle = 'No run history yet — ClawMetry has not received any runs from your agent for this job. The schedule may still be firing on the agent side.';
+    else if (status === 'stale') badgeTitle = 'Last run was over 6h ago — job may have stopped firing.';
 
     html += '<div class="cron-item' + disabledClass + '" onclick="toggleCronExpand(\'' + escHtml(j.id) + '\')">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
     html += '<div class="cron-name">' + escHtml(j.name || j.id) + '</div>';
-    html += '<span class="cron-status ' + badgeClass + '">' + badgeLabel + '</span>';
+    html += '<span class="cron-status ' + badgeClass + '" title="' + escHtml(badgeTitle) + '">' + badgeLabel + '</span>';
     if (status === 'error') {
       var errMsg = (j.state && j.state.lastError) ? escHtml(j.state.lastError) : 'Unknown error';
       var errTime = (j.state && j.state.lastRunAtMs) ? new Date(j.state.lastRunAtMs).toLocaleString() : 'Unknown';
@@ -3953,12 +4023,125 @@ function renderCrons() {
 
     html += '</div>';
   });
-  document.getElementById('crons-list').innerHTML = html || 'No cron jobs';
+  document.getElementById('crons-list').innerHTML = html;
 
   // Load run history for expanded items
   Object.keys(_cronExpanded).forEach(function(id) {
     if (_cronExpanded[id]) loadCronRuns(id);
   });
+}
+
+function _cronDayLabel(key) {
+  var dayMs = 86400000;
+  var today = new Date(); today.setHours(0,0,0,0);
+  var d = new Date(key + 'T00:00:00');
+  var diff = Math.round((d - today) / dayMs);
+  var dayName = d.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'});
+  if (diff === 0) return 'Today &middot; ' + dayName;
+  if (diff === 1) return 'Tomorrow &middot; ' + dayName;
+  if (diff === -1) return 'Yesterday &middot; ' + dayName;
+  if (diff > 0) return 'In ' + diff + ' days &middot; ' + dayName;
+  return Math.abs(diff) + ' days ago &middot; ' + dayName;
+}
+function _cronTimeStr(ts) {
+  return new Date(ts).toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',hour12:false});
+}
+function _cronGroupByDay(items) {
+  var groups = {};
+  items.forEach(function(it) {
+    var key = new Date(it.ts).toISOString().slice(0,10);
+    (groups[key] = groups[key] || []).push(it);
+  });
+  return groups;
+}
+
+function renderCronCalendar(jobs) {
+  var listEl = document.getElementById('crons-list');
+  if (!listEl) return;
+  var now = Date.now();
+  var dayMs = 86400000;
+  var future = now + 7 * dayMs;
+  var past = now - 7 * dayMs;
+
+  var upcoming = [];
+  var recent = [];
+  jobs.forEach(function(j) {
+    var nextMs = j.state && j.state.nextRunAtMs;
+    if (nextMs && nextMs >= now && nextMs <= future) upcoming.push({ts: nextMs, job: j});
+    var lastMs = j.state && j.state.lastRunAtMs;
+    if (lastMs && lastMs >= past && lastMs <= now) {
+      recent.push({ts: lastMs, job: j, status: j.state.lastStatus || 'unknown'});
+    }
+  });
+  upcoming.sort(function(a,b){return a.ts - b.ts;});
+  recent.sort(function(a,b){return b.ts - a.ts;});
+
+  var html = '<div style="padding:12px;">';
+
+  // Summary tiles
+  html += '<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">';
+  [
+    {label:'Coming up (7d)', val: upcoming.length},
+    {label:'Ran (last 7d)',   val: recent.length},
+    {label:'Active jobs',     val: jobs.length},
+  ].forEach(function(t) {
+    html += '<div style="background:var(--bg-secondary);border-radius:8px;padding:10px 16px;flex:1;min-width:130px;">';
+    html += '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">' + t.label + '</div>';
+    html += '<div style="font-size:22px;font-weight:700;color:var(--text-primary);margin-top:2px;">' + t.val + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  if (upcoming.length === 0 && recent.length === 0) {
+    html += '<div style="background:var(--bg-secondary);border-radius:8px;padding:24px;text-align:center;color:var(--text-muted);font-size:13px;line-height:1.6;">';
+    html += '<div style="font-size:30px;margin-bottom:8px;">&#x1F4C5;</div>';
+    html += '<div><strong style="color:var(--text-primary);">No schedule data available yet.</strong></div>';
+    html += '<div style="margin-top:6px;max-width:480px;margin-left:auto;margin-right:auto;">ClawMetry shows runs once your agent reports them. If your jobs are scheduled but not running here, check the agent’s gateway connection or wait for the next scheduled fire.</div>';
+    html += '</div></div>';
+    listEl.innerHTML = html;
+    return;
+  }
+
+  if (upcoming.length > 0) {
+    html += '<div class="cron-cal-section">&#x1F552; Coming up</div>';
+    var upGroups = _cronGroupByDay(upcoming);
+    Object.keys(upGroups).sort().forEach(function(k) {
+      html += '<div class="cron-cal-day">';
+      html += '<div class="cron-cal-daylabel">' + _cronDayLabel(k) + '</div>';
+      upGroups[k].forEach(function(it) {
+        html += '<div class="cron-cal-row">';
+        html += '<div class="cron-cal-time">' + _cronTimeStr(it.ts) + '</div>';
+        html += '<div class="cron-cal-status" style="color:var(--text-muted);">&#x231B;</div>';
+        html += '<div class="cron-cal-name">' + escHtml(it.job.name || it.job.id) + '</div>';
+        html += '<div class="cron-cal-sched">' + escHtml(formatSchedule(it.job.schedule)) + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+  }
+
+  if (recent.length > 0) {
+    html += '<div class="cron-cal-section" style="margin-top:18px;">&#x2714;&#xFE0F; Recently ran</div>';
+    var pastGroups = _cronGroupByDay(recent);
+    Object.keys(pastGroups).sort().reverse().forEach(function(k) {
+      html += '<div class="cron-cal-day">';
+      html += '<div class="cron-cal-daylabel">' + _cronDayLabel(k) + '</div>';
+      pastGroups[k].forEach(function(it) {
+        var color = it.status === 'error' ? '#ef4444' : (it.status === 'ok' ? '#22c55e' : '#9ca3af');
+        var icon  = it.status === 'error' ? '&#x274C;' : (it.status === 'ok' ? '&#x2705;' : '&#x25CF;');
+        html += '<div class="cron-cal-row">';
+        html += '<div class="cron-cal-time">' + _cronTimeStr(it.ts) + '</div>';
+        html += '<div class="cron-cal-status" style="color:' + color + ';">' + icon + '</div>';
+        html += '<div class="cron-cal-name">' + escHtml(it.job.name || it.job.id) + '</div>';
+        html += '<div class="cron-cal-sched">' + escHtml(formatSchedule(it.job.schedule)) + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+  }
+
+  html += '</div>';
+  listEl.innerHTML = html;
 }
 
 function toggleCronExpand(jobId) {
@@ -3968,12 +4151,14 @@ function toggleCronExpand(jobId) {
 
 async function loadCronRuns(jobId) {
   try {
-    var data = await fetch('/api/cron/' + encodeURIComponent(jobId) + '/runs').then(r => r.json());
+    var resp = await fetch('/api/cron/' + encodeURIComponent(jobId) + '/runs');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    var data = await resp.json();
     var el = document.getElementById('cron-runs-' + jobId);
     if (!el) return;
-    var runs = data.runs || [];
+    var runs = (data && data.runs) || [];
     if (runs.length === 0) {
-      el.innerHTML = '<div style="color:var(--text-muted);">No run history available</div>';
+      el.innerHTML = '<div style="color:var(--text-muted);">No run history yet — your agent has not reported any runs for this job.</div>';
       return;
     }
     // Build calendar heatmap (last 30 days)
@@ -4015,7 +4200,7 @@ async function loadCronRuns(jobId) {
     el.innerHTML = h;
   } catch(e) {
     var el = document.getElementById('cron-runs-' + jobId);
-    if (el) el.innerHTML = '<div style="color:var(--text-error);">Failed to load runs</div>';
+    if (el) el.innerHTML = '<div style="color:var(--text-error);">Could not load run history (' + escHtml(String(e.message||e)) + '). The endpoint may be unreachable or your gateway is offline.</div>';
   }
 }
 
@@ -4510,7 +4695,7 @@ async function loadMCTasks() {
       {key:'in_progress', label:'In Progress', color:'#16a34a', bg:'#16a34a20', icon:'🔄', tasks:[]},
       {key:'review', label:'Review', color:'#d97706', bg:'#d9770620', icon:'👀', tasks:[]},
       {key:'blocked', label:'Blocked', color:'#dc2626', bg:'#dc262620', icon:'🚫', tasks:[]},
-      {key:'done', label:'Done', color:'#6b7280', bg:'#6b728020', icon:'[ok]', tasks:[]}
+      {key:'done', label:'Done', color:'#6b7280', bg:'#6b728020', icon:'✅', tasks:[]}
     ];
     tasks.forEach(function(t) {
       var col = t.column || 'inbox';
@@ -5415,7 +5600,7 @@ function displayCostWarnings(warnings) {
   
   var html = '';
   warnings.forEach(function(w) {
-    var icon = w.level === 'error' ? '🚨' : '[warn]';
+    var icon = w.level === 'error' ? '🚨' : '⚠️';
     html += '<div class="cost-warning ' + w.level + '">';
     html += '<div class="cost-warning-icon">' + icon + '</div>';
     html += '<div class="cost-warning-message">' + escHtml(w.message) + '</div>';
@@ -7089,7 +7274,7 @@ function processFlowEvent(line) {
   if (msg.includes('embedded run agent end') || msg.includes('embedded run prompt end')) {
     if (now - (flowThrottles['run-end']||0) < 1000) return;
     flowThrottles['run-end'] = now;
-    addFlowFeedItem('[ok] AI processing complete', '#50e080', 'ai');
+    addFlowFeedItem('✅ AI processing complete', '#50e080', 'ai');
     return;
   }
   if (msg.includes('session state') && msg.includes('new=processing')) {
@@ -7296,7 +7481,7 @@ function _ovRenderCard(agent, idx) {
   h += '</div>';
   h += '</div>';
   // Status badge top-right
-  h += '<span class="task-card-badge ' + sc + '" style="flex-shrink:0;">' + (sc === 'running' ? '🔄' : sc === 'failed' ? '❌' : '[ok]') + '</span>';
+  h += '<span class="task-card-badge ' + sc + '" style="flex-shrink:0;">' + (sc === 'running' ? '🔄' : sc === 'failed' ? '❌' : '✅') + '</span>';
   h += '</div>';
   // Row 3: Show details toggle
   h += '<button class="ov-toggle-btn" onclick="event.stopPropagation();var d=document.getElementById(\'' + detailId + '\');var o=d.classList.toggle(\'open\');this.textContent=o?\'▼ Hide details\':\'▶ Show details\';if(o){window._ovExpandedSet=window._ovExpandedSet||{};window._ovExpandedSet[\'' + escHtml(agent.sessionId) + '\']=true;}else{delete window._ovExpandedSet[\'' + escHtml(agent.sessionId) + '\'];}">' + (isOpen ? '▼ Hide details' : '▶ Show details') + '</button>';
@@ -7369,7 +7554,7 @@ async function loadOverviewTasks() {
       running.forEach(function(a) { html += _ovRenderCard(a, cardIdx++); });
     }
     if (done.length > 0) {
-      html += '<div class="task-group-header">[ok] Recently Completed (' + done.length + ')</div>';
+      html += '<div class="task-group-header">✅ Recently Completed (' + done.length + ')</div>';
       done.forEach(function(a) { html += _ovRenderCard(a, cardIdx++); });
     }
     if (failed.length > 0) {
@@ -7426,7 +7611,7 @@ var COMP_MAP = {
   'node-session': {type:'tool', name:'Sessions', icon:'📋'},
   'node-exec': {type:'tool', name:'Exec', icon:'⚡'},
   'node-browser': {type:'tool', name:'Web', icon:'🌍'},
-  'node-search': {type:'tool', name:'Search', icon:'[check]'},
+  'node-search': {type:'tool', name:'Search', icon:'🔍'},
   'node-cron': {type:'tool', name:'Cron', icon:'⏰'},
   'node-tts': {type:'tool', name:'TTS', icon:'🔊'},
   'node-memory': {type:'tool', name:'Memory', icon:'💾'},
@@ -7435,7 +7620,8 @@ var COMP_MAP = {
   'node-runtime': {type:'infra', name:'Runtime', icon:'⚙️'},
   'node-machine': {type:'infra', name:'Machine', icon:'🖥️'},
   'node-storage': {type:'infra', name:'Storage', icon:'💿'},
-  'node-network': {type:'infra', name:'Network', icon:'🔗'}
+  'node-network': {type:'infra', name:'Network', icon:'🔗'},
+  'node-skills': {type:'skills', name:'Skills', icon:'🧬'}
 };
 function initCompClickHandlers() {
   Object.keys(COMP_MAP).forEach(function(id) {
@@ -7514,8 +7700,29 @@ function openCompModal(nodeId) {
   // Track current component for time travel
   window._currentComponentId = nodeId;
   
-  document.getElementById('comp-modal-title').textContent = c.icon + ' ' + c.name;
-  
+  // Channel modals: surface a status badge in the title so users can tell
+  // "configured & quiet" from "never set up" (otherwise both render as 0).
+  var titleSuffix = '';
+  if (c.type === 'channel' && c.chKey) {
+    if (window._cmConfiguredChannels) {
+      titleSuffix = window._cmConfiguredChannels.has(c.chKey)
+        ? ' <span style="font-size:13px;color:#22c55e;font-weight:500;margin-left:8px;">🟢 Connected</span>'
+        : ' <span style="font-size:13px;color:#94a3b8;font-weight:500;margin-left:8px;">⚪ Not configured</span>';
+    } else {
+      // Fetch + cache, update the title async
+      fetch('/api/channels').then(function(r){return r.json();}).then(function(d){
+        window._cmConfiguredChannels = new Set(d.channels || []);
+        var t2 = document.getElementById('comp-modal-title');
+        if (!t2 || window._currentComponentId !== nodeId) return;
+        var conn = window._cmConfiguredChannels.has(c.chKey);
+        t2.innerHTML = (c.icon || '') + ' ' + escapeHtml(c.name) +
+          (conn ? ' <span style="font-size:13px;color:#22c55e;font-weight:500;margin-left:8px;">🟢 Connected</span>'
+                : ' <span style="font-size:13px;color:#94a3b8;font-weight:500;margin-left:8px;">⚪ Not configured</span>');
+      }).catch(function(){});
+    }
+  }
+  document.getElementById('comp-modal-title').innerHTML = (c.icon || '') + ' ' + escapeHtml(c.name) + titleSuffix;
+
   // Reset time travel state when opening new component
   _timeTravelMode = false;
   _currentTimeContext = null;
@@ -7684,7 +7891,83 @@ function openCompModal(nodeId) {
     return;
   }
 
-  if (nodeId === 'node-runtime' || nodeId === 'node-machine') {
+  // Skills modal — was a legend label only; now a proper clickable node
+  // that surfaces per-skill cost/usage attribution from /api/skill-attribution
+  // (backend already exists at routes/usage.py:813+).
+  if (nodeId === 'node-skills') {
+    var sBody = document.getElementById('comp-modal-body');
+    sBody.innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Loading skills…</div>';
+    document.getElementById('comp-modal-overlay').classList.add('open');
+    fetch('/api/skill-attribution').then(function(r){return r.json();}).then(function(data) {
+      if (!isCompModalActive('node-skills')) return;
+      var skills = data.skills || [];
+      var totalCost = data.total_cost || 0;
+      var html = '<div style="text-align:center;margin-bottom:16px;font-size:36px;">🧬</div>';
+      html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;">';
+      html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + skills.length + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Skills detected</div></div>';
+      html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:700;color:var(--text-primary);">$' + (typeof totalCost === 'number' ? totalCost.toFixed(2) : totalCost) + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Total Cost (Month)</div></div>';
+      html += '</div>';
+      if (skills.length === 0) {
+        html += '<div style="text-align:center;padding:30px 20px;color:var(--text-muted);">';
+        html += '<div style="font-size:14px;font-weight:600;margin-bottom:8px;">No skills detected yet</div>';
+        html += '<div style="font-size:12px;">' + escapeHtml(data.note || 'Skills are detected from /skills/ paths in tool-call details. Once your agent invokes a skill, it will appear here with cost attribution.') + '</div>';
+        html += '</div>';
+      } else {
+        html += '<div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Top Skills by Cost</div>';
+        html += '<div style="display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow-y:auto;">';
+        skills.slice(0, 20).forEach(function(s) {
+          html += '<div style="padding:10px 12px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border-secondary);">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+          html += '<span style="font-weight:600;font-size:13px;color:var(--text-primary);">🧬 ' + escapeHtml(s.name) + '</span>';
+          html += '<span style="font-size:13px;font-weight:700;color:#22c55e;">$' + (typeof s.total_cost === 'number' ? s.total_cost.toFixed(4) : s.total_cost) + '</span>';
+          html += '</div>';
+          var meta = [];
+          if (s.invocations) meta.push(s.invocations + ' invocation' + (s.invocations === 1 ? '' : 's'));
+          if (s.avg_cost) meta.push('avg $' + Number(s.avg_cost).toFixed(4));
+          if (s.last_used) {
+            try { meta.push('last used ' + _timeAgo(s.last_used)); } catch (e) {}
+          }
+          if (meta.length) html += '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + escapeHtml(meta.join(' · ')) + '</div>';
+          if (s.clawhub_url) {
+            html += '<div style="margin-top:6px;"><a href="' + escapeHtml(s.clawhub_url) + '" target="_blank" style="font-size:10px;color:var(--text-link,#60a5fa);text-decoration:none;">🔗 View on ClawHub</a></div>';
+          }
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+      // Only show the trailing note when we DO have skills — empty-state
+      // already renders the note inline above. Otherwise we'd show it twice.
+      if (data.note && skills.length > 0) {
+        html += '<div style="margin-top:12px;font-size:10px;color:var(--text-muted);font-style:italic;text-align:center;">' + escapeHtml(data.note) + '</div>';
+      }
+      sBody.innerHTML = html;
+      document.getElementById('comp-modal-footer').textContent = 'Auto-refreshing - Last updated: ' + new Date().toLocaleTimeString() + ' - ' + skills.length + ' skills';
+    }).catch(function(e) {
+      if (!isCompModalActive('node-skills')) return;
+      sBody.innerHTML = '<div style="padding:20px;color:var(--text-error);">Failed to load skills: ' + escapeHtml(e.message) + '</div>';
+    });
+    return;
+  }
+
+  // Hook the existing Automation Advisor live view (backend already exists at
+  // /api/automation-analysis); was falling through to the "Live view coming
+  // soon" stub previously.
+  if (nodeId === 'node-automation-advisor') {
+    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Analyzing your patterns...</div>';
+    document.getElementById('comp-modal-overlay').classList.add('open');
+    if (typeof loadAutomationAdvisorDataWithTime === 'function') {
+      try { loadAutomationAdvisorDataWithTime(); } catch (e) {
+        document.getElementById('comp-modal-body').innerHTML = '<div style="padding:20px;color:var(--text-error);">Failed to load: ' + e.message + '</div>';
+      }
+    }
+    return;
+  }
+
+  // Same items-shape modal fits Storage and Network too (both have real
+  // backend endpoints now: api_component_storage, api_component_network).
+  // Replaces the "Live view coming soon" stub.
+  if (nodeId === 'node-runtime' || nodeId === 'node-machine' ||
+      nodeId === 'node-storage' || nodeId === 'node-network') {
     document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Loading ' + c.name + ' info...</div>';
     document.getElementById('comp-modal-overlay').classList.add('open');
     fetch('/api/component/' + nodeId.replace('node-', '')).then(function(r){return r.json();}).then(function(data) {
@@ -8434,8 +8717,14 @@ function loadBrainData(isRefresh) {
     html += '<div style="text-align:center;margin-bottom:14px;"><span style="background:linear-gradient(135deg,#FFD54F,#FF9800);color:#1a1a2e;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:0.5px;">' + escapeHtml(s.model||'unknown') + '</span></div>';
 
     // Stats cards 2x2
+    // Honest count + per-call avg so users can sanity-check the ratio. A "low"
+    // call count with high tokens is normal (cached context + long output);
+    // showing tokens-per-call inline avoids the "only 3 calls?" trust panic.
+    var avgTokPerCall = (s.today_calls||0) > 0 ? Math.round(totalTok / s.today_calls) : 0;
+    var avgTokFmt = avgTokPerCall >= 1e6 ? (avgTokPerCall/1e6).toFixed(1)+'M' : avgTokPerCall >= 1e3 ? (avgTokPerCall/1e3).toFixed(1)+'K' : avgTokPerCall;
+    var callsTooltip = 'API round-trips today (one HTTP request to the LLM provider per call). Cached context tokens are reused across calls and counted as cache_read, not as separate calls. Counts only what your agent has uploaded — sessions still open or pending sync may not be reflected yet.';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">';
-    html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px 14px;text-align:center;"><div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + (s.today_calls||0) + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Today\'s Calls</div></div>';
+    html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px 14px;text-align:center;cursor:help;" title="' + callsTooltip + '"><div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + (s.today_calls||0) + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">API Calls Today</div>' + (avgTokPerCall ? '<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px;">~' + avgTokFmt + ' tok/call avg</div>' : '') + '</div>';
     html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px 14px;text-align:center;"><div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + fmtTok + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Tokens</div></div>';
     var costColor = parseFloat((s.today_cost||'$0').replace('$','')) > 50 ? '#f59e0b' : parseFloat((s.today_cost||'$0').replace('$','')) > 100 ? '#ef4444' : '#22c55e';
     html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px 14px;text-align:center;"><div style="font-size:24px;font-weight:700;color:' + costColor + ';">' + (s.today_cost||'$0.00') + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Cost</div></div>';
@@ -8471,7 +8760,7 @@ function loadBrainData(isRefresh) {
       html += '<div style="text-align:center;padding:20px;color:var(--text-muted);">No LLM calls found today</div>';
     } else {
       html += '<div style="display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto;">';
-      var TOOL_ICONS = {read:'📄',write:'✏️',edit:'🔧',exec:'⚡',process:'⚙️',browser:'🌐',web_search:'[check]',web_fetch:'🌍',message:'💬',tts:'🔊',image:'🖼️',canvas:'🎨',nodes:'📱'};
+      var TOOL_ICONS = {read:'📄',write:'✏️',edit:'🔧',exec:'⚡',process:'⚙️',browser:'🌐',web_search:'🔍',web_fetch:'🌍',message:'💬',tts:'🔊',image:'🖼️',canvas:'🎨',nodes:'📱'};
       var TOOL_COLORS = {exec:'#f59e0b',browser:'#3b82f6',web_search:'#8b5cf6',web_fetch:'#06b6d4',message:'#ec4899',read:'#6b7280',write:'#22c55e',edit:'#f97316',tts:'#a855f7',image:'#ef4444',canvas:'#14b8a6',nodes:'#6366f1',process:'#64748b'};
       calls.forEach(function(c) {
         var ts = c.timestamp ? new Date(c.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
@@ -8507,7 +8796,7 @@ function loadBrainData(isRefresh) {
     }
 
     body.innerHTML = html;
-    document.getElementById('comp-modal-footer').textContent = 'Auto-refreshing - Last updated: ' + new Date().toLocaleTimeString() + ' - ' + (data.total||0) + ' LLM calls today';
+    document.getElementById('comp-modal-footer').textContent = 'Auto-refreshing - Last updated: ' + new Date().toLocaleTimeString() + ' - ' + (data.total||0) + ' API call' + ((data.total||0) === 1 ? '' : 's') + ' synced today (each = one HTTP round-trip to the LLM provider)';
   }).catch(function(e) {
     if (!isCompModalActive(expectedNodeId)) return;
     var msg = String((e && e.message) || 'Unknown error');
@@ -8553,24 +8842,47 @@ function loadCostOptimizerData(isRefresh) {
 
     // ══ SECTION 2: Hardware ═══════════════════════════════════════
     var sys = (data.system) || {};
+    // Detect hardware family so we don't paint Apple-only copy (Metal,
+    // brew install) on Linux/CUDA users.
+    var _bk = String(sys.backend || '').toLowerCase();
+    var _isApple = _bk.indexOf('metal') >= 0 || /apple|m[1-4]\b/i.test(sys.cpu || '');
+    var _isCuda = _bk.indexOf('cuda') >= 0 || /nvidia|cuda|geforce|rtx|gtx/i.test(sys.gpu || '');
+    var _isAmdGpu = _bk.indexOf('rocm') >= 0 || /(amd|radeon)/i.test(sys.gpu || '');
+    var _hasGpu = _isApple || _isCuda || _isAmdGpu;
+    var _accelLabel = _isApple ? 'Metal' : _isCuda ? 'CUDA' : _isAmdGpu ? 'ROCm' : 'CPU';
+    var _ollamaInstall = _isApple ? 'brew install ollama' : 'curl -fsSL https://ollama.com/install.sh | sh';
+
     html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">🖥️ Your Hardware</div>';
     html += '<div class="hw-card">';
-    if (sys.cpu) html += '<span class="hw-card-chip">' + sys.cpu + '</span>';
+    if (sys.cpu) html += '<span class="hw-card-chip">' + escapeHtml(sys.cpu) + '</span>';
     if (sys.ram_gb) html += '<span class="hw-card-chip">' + sys.ram_gb + 'GB RAM</span>';
     if (sys.cores) html += '<span class="hw-card-chip">' + sys.cores + ' cores</span>';
-    if (sys.backend) html += '<span class="hw-card-chip green">' + sys.backend + '</span>';
+    if (sys.backend) html += '<span class="hw-card-chip green">' + escapeHtml(sys.backend) + '</span>';
     html += '</div>';
-    html += '<div class="hw-metal-notice">[warn] llmfit doesn\'t detect Apple Metal -- actual performance will be <strong>3-5x faster</strong> with Ollama\'s Metal backend</div>';
+    // Hardware-aware notice — only show Metal warning to Apple users.
+    if (_isApple && !data.llmfitMetalDetected) {
+      html += '<div class="hw-metal-notice">⚠️ llmfit doesn\'t detect Apple Metal -- actual performance will be <strong>3-5x faster</strong> with Ollama\'s Metal backend</div>';
+    } else if (_isCuda) {
+      html += '<div class="hw-metal-notice">ℹ️ Ollama with CUDA on ' + escapeHtml(sys.gpu || 'your GPU') + ' will run these models near-instantly.</div>';
+    } else if (!_hasGpu) {
+      html += '<div class="hw-metal-notice">ℹ️ No GPU detected — local models will run on CPU. Pick smaller (1B–7B) models for best results.</div>';
+    }
 
     // ══ SECTION 3: Recommended Local Models ══════════════════════
     html += '<div class="co-section">';
-    html += '<h3>🤖 Recommended Local Models <span style="font-size:11px;color:var(--text-muted);font-weight:400;">via llmfit - Metal-accelerated</span></h3>';
+    html += '<h3>🤖 Recommended Local Models <span style="font-size:11px;color:var(--text-muted);font-weight:400;">via llmfit - ' + _accelLabel + '-accelerated</span></h3>';
 
     if (!data.ollamaInstalled) {
       html += '<div class="co-ollama-prompt">';
-      html += '<div style="font-size:13px;color:#a78bfa;font-weight:600;">[warn] Ollama not installed -- install to run models locally (free!)</div>';
-      html += '<div class="co-ollama-cmd">brew install ollama</div>';
-      html += '<button class="co-action-btn" onclick="navigator.clipboard.writeText(\'brew install ollama\');this.textContent=\'[ok] Copied!\';setTimeout(()=>this.textContent=\'📋 Copy Install Command\',2000);">📋 Copy Install Command</button>';
+      html += '<div style="font-size:13px;color:#a78bfa;font-weight:600;">⚠️ Ollama not installed -- install to run models locally (free!)</div>';
+      html += '<div class="co-ollama-cmd">' + escapeHtml(_ollamaInstall) + '</div>';
+      // JSON.stringify(_ollamaInstall) produces "..." with literal " which
+      // collides with the onclick="..." double-quoted attribute and breaks
+      // out of the attribute scope (rendering raw JS inside the button).
+      // Encode " as &quot; so the HTML parser treats it as a literal quote
+      // inside the attribute, then the JS still sees a proper string.
+      var _esc1 = JSON.stringify(_ollamaInstall).replace(/"/g, '&quot;');
+      html += '<button class="co-action-btn" onclick="navigator.clipboard.writeText(' + _esc1 + ');this.textContent=\'✅ Copied!\';setTimeout(()=>this.textContent=\'📋 Copy Install Command\',2000);">📋 Copy Install Command</button>';
       html += '</div>';
     }
 
@@ -8578,7 +8890,8 @@ function loadCostOptimizerData(isRefresh) {
     if (models.length > 0) {
       models.slice(0, 5).forEach(function(m) {
         var badgeType = (m.useCase || '').toLowerCase().indexOf('cod') !== -1 ? 'coding' : 'chat';
-        var metalTps = m.estimatedTps ? Math.round(m.estimatedTps * 3.5) + ' tok/s*' : '--';
+        var _accelMult = _isApple ? 3.5 : _isCuda ? 3.0 : _isAmdGpu ? 2.0 : 1.0;
+        var metalTps = m.estimatedTps ? Math.round(m.estimatedTps * _accelMult) + ' tok/s*' : '--';
         var ollamaCmd = 'ollama pull ' + (m.ollamaName || m.name.toLowerCase().replace(/-instruct.*/i,'').replace(/[^a-z0-9.-]/g,'-'));
         html += '<div class="model-card">';
         html += '<div class="model-card-header">';
@@ -8587,18 +8900,18 @@ function loadCostOptimizerData(isRefresh) {
         html += '</div>';
         html += '<div class="model-card-stats">';
         html += '<div class="model-card-stat"><span class="model-card-stat-label">Score</span><span class="model-card-stat-value">' + (m.score || '--') + '</span></div>';
-        html += '<div class="model-card-stat"><span class="model-card-stat-label">Speed (Metal)</span><span class="model-card-stat-value">' + metalTps + '</span></div>';
+        html += '<div class="model-card-stat"><span class="model-card-stat-label">Speed (' + _accelLabel + ')</span><span class="model-card-stat-value">' + metalTps + '</span></div>';
         html += '<div class="model-card-stat"><span class="model-card-stat-label">RAM</span><span class="model-card-stat-value">' + (m.ramRequired || (m.memoryRequiredGb ? m.memoryRequiredGb + 'GB' : '--')) + '</span></div>';
         if (m.savingsEstimate) html += '<div class="model-card-stat"><span class="model-card-stat-label">Savings est.</span><span class="model-card-stat-value" style="color:#4ade80;">' + m.savingsEstimate + '</span></div>';
         html += '</div>';
-        html += '<div class="model-install-cmd" onclick="navigator.clipboard.writeText(\'' + ollamaCmd + '\');this.querySelector(\'span.cmd-text\').textContent=\'[ok] Copied!\';setTimeout(()=>this.querySelector(\'span.cmd-text\').textContent=\'' + ollamaCmd + '\',2000);">';
+        html += '<div class="model-install-cmd" onclick="navigator.clipboard.writeText(\'' + ollamaCmd + '\');this.querySelector(\'span.cmd-text\').textContent=\'✅ Copied!\';setTimeout(()=>this.querySelector(\'span.cmd-text\').textContent=\'' + ollamaCmd + '\',2000);">';
         html += '<span class="cmd-text">' + ollamaCmd + '</span>';
         html += '<span style="color:#4ade80;font-size:10px;flex-shrink:0;">📥 Copy</span>';
         html += '</div>';
         if (m.fullName) html += '<a style="display:block;margin-top:5px;font-size:10px;color:#60a5fa;text-decoration:none;" href="https://huggingface.co/' + m.fullName + '" target="_blank">🔗 View on HuggingFace</a>';
         html += '</div>';
       });
-      html += '<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">* Speed estimated with Ollama Metal backend (3-5x llmfit baseline)</div>';
+      html += '<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">* Speed estimated with Ollama ' + _accelLabel + ' backend</div>';
     } else {
       html += '<div style="color:var(--text-muted);font-size:13px;padding:10px 0;">llmfit not available -- install with: <code>pip install llmfit</code></div>';
     }
@@ -8628,14 +8941,15 @@ function loadCostOptimizerData(isRefresh) {
     html += '<div class="co-section">';
     html += '<h3>⚙️ Quick Actions</h3>';
     html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
-    html += '<button class="co-action-btn" style="width:auto;padding:6px 14px;" onclick="navigator.clipboard.writeText(\'brew install ollama\');this.textContent=\'[ok] Copied!\';setTimeout(()=>this.textContent=\'📋 Install Ollama\',2000);">📋 Install Ollama</button>';
-    html += '<button class="co-action-btn secondary" style="width:auto;padding:6px 14px;" onclick="navigator.clipboard.writeText(\'ollama serve\');this.textContent=\'[ok] Copied!\';setTimeout(()=>this.textContent=\'📋 ollama serve\',2000);">📋 ollama serve</button>';
-    html += '<a class="co-action-btn secondary" style="width:auto;padding:6px 14px;text-decoration:none;display:inline-block;" href="https://ollama.com/search" target="_blank">[check] Browse Models</a>';
+    var _esc2 = JSON.stringify(_ollamaInstall).replace(/"/g, '&quot;');
+    html += '<button class="co-action-btn" style="width:auto;padding:6px 14px;" onclick="navigator.clipboard.writeText(' + _esc2 + ');this.textContent=\'✅ Copied!\';setTimeout(()=>this.textContent=\'📋 Install Ollama\',2000);">📋 Install Ollama</button>';
+    html += '<button class="co-action-btn secondary" style="width:auto;padding:6px 14px;" onclick="navigator.clipboard.writeText(\'ollama serve\');this.textContent=\'✅ Copied!\';setTimeout(()=>this.textContent=\'📋 ollama serve\',2000);">📋 ollama serve</button>';
+    html += '<a class="co-action-btn secondary" style="width:auto;padding:6px 14px;text-decoration:none;display:inline-block;" href="https://ollama.com/search" target="_blank">🔍 Browse Models</a>';
     html += '</div>';
     html += '</div>';
 
     body.innerHTML = html;
-    document.getElementById('comp-modal-footer').textContent = 'Auto-refreshing - Last updated: ' + new Date().toLocaleTimeString() + ' - llmfit ✓ - Metal backend';
+    document.getElementById('comp-modal-footer').textContent = 'Auto-refreshing - Last updated: ' + new Date().toLocaleTimeString() + ' - ' + (data.llmfitAvailable ? 'llmfit ✓' : 'no llmfit') + ' - ' + _accelLabel + ' backend';
   }).catch(function(e) {
     if (!isCompModalActive(expectedNodeId)) return;
     if (!isRefresh) {
@@ -8790,7 +9104,7 @@ function loadAutomationAdvisorDataWithTime() {
     html += '<div style="text-align:center;margin-bottom:30px;"><div style="font-size:48px;margin-bottom:12px;">🧠</div><h2 style="margin:0;font-size:20px;">Automation Advisor</h2><p style="color:var(--text-muted);margin:8px 0 0 0;">Analyzing patterns to suggest new automations</p></div>';
     
     if (data.patterns && data.patterns.length > 0) {
-      html += '<h3 style="color:var(--text-primary);border-bottom:2px solid var(--border-primary);padding-bottom:8px;margin-bottom:16px;">[check] Detected Patterns</h3>';
+      html += '<h3 style="color:var(--text-primary);border-bottom:2px solid var(--border-primary);padding-bottom:8px;margin-bottom:16px;">🔍 Detected Patterns</h3>';
       data.patterns.forEach(function(pattern) {
         var priorityColor = pattern.priority === 'high' ? '#f44336' : pattern.priority === 'medium' ? '#ff9800' : '#4caf50';
         html += '<div style="background:var(--bg-hover);border-radius:8px;padding:16px;margin-bottom:16px;border-left:4px solid ' + priorityColor + ';">';
@@ -8802,7 +9116,7 @@ function loadAutomationAdvisorDataWithTime() {
     }
     
     if (data.suggestions && data.suggestions.length > 0) {
-      html += '<h3 style="color:var(--text-primary);border-bottom:2px solid var(--border-primary);padding-bottom:8px;margin-bottom:16px;">[tip] Automation Suggestions</h3>';
+      html += '<h3 style="color:var(--text-primary);border-bottom:2px solid var(--border-primary);padding-bottom:8px;margin-bottom:16px;">💡 Automation Suggestions</h3>';
       data.suggestions.forEach(function(suggestion) {
         var typeIcon = suggestion.type === 'cron' ? '⏰' : suggestion.type === 'skill' ? '[dev]' : '🔧';
         html += '<div style="background:var(--bg-hover);border-radius:8px;padding:16px;margin-bottom:16px;">';
@@ -8828,7 +9142,7 @@ function loadAutomationAdvisorDataWithTime() {
     html += '</div>';
     body.innerHTML = html;
   }).catch(function(e) {
-    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:16px;">[warn]</div><h3>Analysis Unavailable</h3><p>Unable to load automation analysis: ' + e.message + '</p></div>';
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><h3>Analysis Unavailable</h3><p>Unable to load automation analysis: ' + e.message + '</p></div>';
   });
 }
 
@@ -8882,6 +9196,29 @@ function loadGatewayData(isRefresh) {
     var body = document.getElementById('comp-modal-body');
     var s = data.stats || {};
     var cfg = s.config || {};
+    var routes = data.routes || [];
+
+    // Honesty: when everything is zero AND no routing events, the gateway
+    // hasn't synced any data yet (cloud user with bridge not running, or
+    // freshly installed node). Showing a row of misleading "0"s makes users
+    // think the gateway is broken; show a clear awaiting-data state instead.
+    var _allZero = !(s.today_messages||0) && !(s.today_heartbeats||0) &&
+                   !(s.today_crons||0) && !(s.today_errors||0) &&
+                   !(s.active_sessions||0) && routes.length === 0;
+    if (_allZero) {
+      var html0 = '<div style="text-align:center;padding:32px 24px;">';
+      html0 += '<div style="font-size:36px;margin-bottom:10px;opacity:0.6;">🌐</div>';
+      html0 += '<div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Gateway not yet synced</div>';
+      html0 += '<div style="font-size:12px;color:var(--text-muted);max-width:380px;margin:0 auto;line-height:1.5;">No routing events have been ingested yet. The gateway will appear here once your agent starts handling messages, heartbeats, or cron triggers.</div>';
+      if (s.uptime || s.last_seen_at) {
+        html0 += '<div style="margin-top:12px;font-size:11px;color:var(--text-muted);">⏱️ Last seen: ' + escapeHtml(s.uptime || s.last_seen_at) + '</div>';
+      }
+      html0 += '</div>';
+      document.getElementById('comp-modal-body').innerHTML = html0;
+      document.getElementById('comp-modal-footer').textContent =
+        'Auto-refreshing - Last updated: ' + new Date().toLocaleTimeString() + ' - awaiting data';
+      return;
+    }
 
     // Top stats row
     var html = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">';
@@ -8909,7 +9246,6 @@ function loadGatewayData(isRefresh) {
       html += '</div>';
     }
 
-    var routes = data.routes || [];
     if (routes.length === 0) {
       html += '<div style="text-align:center;padding:20px;color:var(--text-muted);">No routing events found today</div>';
     } else {
@@ -8923,7 +9259,7 @@ function loadGatewayData(isRefresh) {
         else if (r.from === 'telegram') { badge = '📱'; badgeColor = '#3b82f6'; }
         else if (r.from === 'whatsapp') { badge = '📲'; badgeColor = '#22c55e'; }
 
-        var status = r.status === 'error' ? '❌' : '[ok]';
+        var status = r.status === 'error' ? '❌' : '✅';
         var ts = r.timestamp ? new Date(r.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
         var model = r.to || '';
         if (model.length > 20) model = model.substring(0, 18) + '…';
@@ -9146,7 +9482,7 @@ function loadToolData(toolKey, comp, isRefresh) {
           var ts = _fmtToolTs(evt.timestamp);
           html += '<div style="padding:10px 12px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border-secondary);">';
           html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
-          html += '<div style="font-size:14px;font-weight:600;color:var(--text-primary);">[check] ' + escapeHtml(evt.detail || '') + '</div>';
+          html += '<div style="font-size:14px;font-weight:600;color:var(--text-primary);">🔍 ' + escapeHtml(evt.detail || '') + '</div>';
           html += '<span style="font-size:10px;color:var(--text-muted);white-space:nowrap;margin-left:8px;">' + ts + '</span>';
           html += '</div>';
           if (evt.result_count !== undefined) html += '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + evt.result_count + ' results returned</div>';
@@ -9181,7 +9517,16 @@ function loadToolData(toolKey, comp, isRefresh) {
           html += '<span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + (isErr ? 'var(--bg-error);color:#ef4444' : 'var(--bg-success);color:#22c55e') + ';">' + (isErr ? 'ERROR' : 'OK') + '</span>';
           html += '</div>';
           var exprStr = typeof j.expr === 'object' ? (j.expr.expr || j.expr.at || ('every ' + Math.round((j.expr.everyMs||0)/60000) + 'm') || JSON.stringify(j.expr)) : (j.expr || j.schedule || '');
-          html += '<div style="font-family:monospace;font-size:11px;color:var(--text-accent);margin-top:4px;">' + escapeHtml(exprStr) + '</div>';
+          // Show human-readable schedule if we can parse the cron expression,
+          // with the raw spec underneath in muted monospace for power users.
+          // Non-tech users can't parse "0 */6 * * *" — they need "every 6 hours".
+          var human = (typeof cronToHuman === 'function' && /\d/.test(exprStr || '')) ? cronToHuman(exprStr) : '';
+          if (human) {
+            html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;"><strong>Runs:</strong> ' + escapeHtml(human) + '</div>';
+            html += '<div style="font-family:monospace;font-size:10px;color:var(--text-muted);margin-top:2px;opacity:0.7;">' + escapeHtml(exprStr) + '</div>';
+          } else {
+            html += '<div style="font-family:monospace;font-size:11px;color:var(--text-accent);margin-top:4px;">' + escapeHtml(exprStr) + '</div>';
+          }
           var meta = [];
           if (j.lastRun) meta.push('Last: ' + _fmtToolDate(j.lastRun));
           if (j.nextRun) meta.push('Next: ' + _fmtToolDate(j.nextRun));
@@ -9603,7 +9948,13 @@ async function _renderModalBrainEvents(match) {
   try {
     var parentUuid = (match.parent || '').split(':').pop() || '';
     var childUuid  = (match.key || '').split(':').pop() || '';
-    var candidates = [parentUuid, childUuid, match.sessionId].filter(Boolean);
+    // Brain events emit `source` as the on-disk session-file UUID, NOT the
+    // subagent_id. They differ for sub-agents (sessionId + sessionFile are
+    // distinct fields). Without including the file-UUID variant the
+    // spawn-detail "Brain Events" tab said "No Brain events found in window"
+    // even when the sub-agent was actively running.
+    var fileUuid = (match.sessionFile || '').replace(/\.jsonl$/i, '');
+    var candidates = [parentUuid, childUuid, match.sessionId, fileUuid].filter(Boolean);
     if (!candidates.length) return;
 
     var startedMs = match.startedAt || Date.now();
@@ -9737,7 +10088,7 @@ function renderModalNarrative(el) {
     } else if (evt.type === 'tool') {
       icon = '🔧'; text = 'Called tool: <code>' + escHtml(evt.toolName||'') + '</code>';
     } else if (evt.type === 'result') {
-      icon = '[check]'; text = 'Got result (' + (evt.text||'').length + ' chars)';
+      icon = '✅'; text = 'Got result (' + (evt.text||'').length + ' chars)';
     } else return;
     html += '<div class="narrative-item"><span class="narr-icon">' + icon + '</span>' + text + '</div>';
   });
@@ -9777,7 +10128,7 @@ function renderEvtItem(evt, idx) {
     summary = '<strong>' + escHtml(evt.toolName||'tool') + '</strong> - ' + escHtml((evt.args||'').substring(0, 100));
     body = evt.args || '';
   } else if (evt.type === 'result') {
-    icon = '[check]'; typeClass = 'type-result';
+    icon = '✅'; typeClass = 'type-result';
     summary = '<strong>Result</strong> - ' + escHtml((evt.text||'').substring(0, 120));
     body = evt.text || '';
   } else {
@@ -9959,16 +10310,6 @@ async function bootDashboard() {
   (async function backgroundPrefetch() {
     try { await _withTimeout(loadCrons(), 5000, 'crons'); } catch (e) {}
     try { await _withTimeout(loadMemory(), 5000, 'memory'); } catch (e) {}
-    try {
-      var cronData = await _withTimeout(
-        fetch('/api/crons').then(function(r){return r.json();}),
-        3000,
-        'crons-tab-check'
-      );
-      if (cronData && cronData.jobs && cronData.jobs.length > 0) {
-        document.querySelectorAll('#crons-tab').forEach(function(t){ t.style.display = ''; });
-      }
-    } catch(e) {}
   })();
 
   startSystemHealthRefresh();

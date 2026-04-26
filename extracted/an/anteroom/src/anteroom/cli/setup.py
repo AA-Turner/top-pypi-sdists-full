@@ -547,6 +547,9 @@ def run_init_wizard(force: bool = False, team_config_path: str | None = None) ->
         if system_prompt:
             config_data["ai"]["system_prompt"] = system_prompt
 
+        if not team_config_path:
+            config_data["memory"] = {"promotion": {"local_auto_approve": True}}
+
         config_data["identity"] = identity_data
 
         # 8. Summary

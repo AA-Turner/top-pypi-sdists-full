@@ -198,6 +198,7 @@ class TestRunDocs:
         with (
             patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
+            patch("anteroom.services.docs_project_links.prepare_docs_site", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", mock_run),
         ):
             _run_docs(args)
@@ -225,6 +226,7 @@ class TestRunDocs:
         with (
             patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
+            patch("anteroom.services.docs_project_links.prepare_docs_site", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", mock_run),
         ):
             _run_docs(args)
@@ -244,6 +246,7 @@ class TestRunDocs:
         with (
             patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
+            patch("anteroom.services.docs_project_links.prepare_docs_site", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", side_effect=KeyboardInterrupt),
         ):
             # Should not raise
@@ -260,6 +263,7 @@ class TestRunDocs:
         with (
             patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
+            patch("anteroom.services.docs_project_links.prepare_docs_site", return_value=mkdocs_yml),
             patch(
                 "anteroom.__main__.subprocess.run",
                 side_effect=subprocess.CalledProcessError(2, "mkdocs"),
@@ -282,6 +286,7 @@ class TestRunDocs:
         with (
             patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
+            patch("anteroom.services.docs_project_links.prepare_docs_site", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", mock_run),
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -309,6 +314,7 @@ class TestRunDocs:
         with (
             patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
+            patch("anteroom.services.docs_project_links.prepare_docs_site", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", mock_run),
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -328,6 +334,7 @@ class TestRunDocs:
         with (
             patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
+            patch("anteroom.services.docs_project_links.prepare_docs_site", return_value=mkdocs_yml),
             patch("anteroom.__main__.subprocess.run", mock_run),
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -344,6 +351,7 @@ class TestRunDocs:
         with (
             patch("anteroom.__main__.importlib.util.find_spec", return_value=object()),
             patch("anteroom.__main__._find_mkdocs_yml", return_value=mkdocs_yml),
+            patch("anteroom.services.docs_project_links.prepare_docs_site", return_value=mkdocs_yml),
             pytest.raises(SystemExit, match="1"),
         ):
             _run_docs(args)

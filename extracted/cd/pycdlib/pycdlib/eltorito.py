@@ -16,10 +16,7 @@
 
 """Classes to support El Torito."""
 
-from __future__ import absolute_import
-from __future__ import print_function
-
-import os
+import logging
 import struct
 
 from pycdlib import pycdlibexception
@@ -35,7 +32,10 @@ if False:  # pylint: disable=using-constant-test
     from pycdlib import udf as udfmod  # NOQA pylint: disable=unused-import
 
 
-class EltoritoBootInfoTable(object):
+_logger = logging.getLogger('pycdlib')
+
+
+class EltoritoBootInfoTable:
     """
     A class that represents an El Torito Boot Info Table.  The Boot Info Table
     is an optional table that may be patched into the boot file at offset 8,
@@ -129,7 +129,7 @@ class EltoritoBootInfoTable(object):
         return 16
 
 
-class EltoritoValidationEntry(object):
+class EltoritoValidationEntry:
     """
     A class that represents an El Torito Validation Entry.  El Torito requires
     that the first entry in the El Torito Boot Catalog be a validation entry.
@@ -163,18 +163,10 @@ class EltoritoValidationEntry(object):
         Returns:
          The checksum of the data.
         """
-        def identity(x):
-            # type: (int) -> int
-            """
-            The identity function so we can use a function for python2/3
-            compatibility.
-            """
-            return x
-
-        if isinstance(data, str):
+        if isinstance(data, bytes):
+            myord = int
+        else:
             myord = ord
-        elif isinstance(data, bytes):
-            myord = identity
         csum = 0
         for i, val in enumerate(data):
             short = (myord(val) << (8 * (i % 2))) & 0xffff
@@ -274,7 +266,7 @@ class EltoritoValidationEntry(object):
         return self._record()
 
 
-class EltoritoEntry(object):
+class EltoritoEntry:
     """A class that represents an El Torito Entry (Initial or Section)."""
     __slots__ = ('_initialized', 'inode', 'boot_indicator',
                  'boot_media_type', 'load_segment', 'system_type',
@@ -490,7 +482,7 @@ class EltoritoEntry(object):
         self.sector_count = utils.ceiling_div(length, 512)
 
 
-class EltoritoSectionHeader(object):
+class EltoritoSectionHeader:
     """A class that represents an El Torito Section Header."""
     __slots__ = ('_initialized', 'header_indicator', 'platform_id',
                  'num_section_entries', 'id_string', 'section_entries')
@@ -618,7 +610,7 @@ class EltoritoSectionHeader(object):
         return b''.join(outlist)
 
 
-class EltoritoBootCatalog(object):
+class EltoritoBootCatalog:
     """
     A class that represents an El Torito Boot Catalog.  The boot catalog is the
     basic unit of El Torito, and is expected to contain a validation entry,
@@ -944,31 +936,19 @@ def hdmbrcheck(disk_mbr, sector_count, bootable):
             raise pycdlibexception.PyCdlibInvalidInput('Boot image has multiple partitions')
 
         if bootable and status != PARTITION_STATUS_ACTIVE:
-            # genisoimage prints a warning in this case, but we have no other
-            # warning prints in the whole codebase, and an exception will probably
-            # make us too fragile.  So we leave the code but don't do anything.
-            with open(os.devnull, 'w') as devnull:
-                print('Warning: partition not marked active', file=devnull)
+            _logger.warning('Warning: partition not marked active')
 
         cyl = ((s_seccyl & 0xC0) << 10) | s_cyl
         sec = s_seccyl & 0x3f
         if cyl != 0 or s_head != 1 or sec != 1:
-            # genisoimage prints a warning in this case, but we have no other
-            # warning prints in the whole codebase, and an exception will probably
-            # make us too fragile.  So we leave the code but don't do anything.
-            with open(os.devnull, 'w') as devnull:
-                print('Warning: partition does not start at 0/1/1', file=devnull)
+            _logger.warning('Warning: partition does not start at 0/1/1')
 
         cyl = ((e_seccyl & 0xC0) << 10) | e_cyl
         sec = e_seccyl & 0x3f
         geometry_sectors = (cyl + 1) * (e_head + 1) * sec
 
         if sector_count != geometry_sectors:
-            # genisoimage prints a warning in this case, but we have no other
-            # warning prints in the whole codebase, and an exception will probably
-            # make us too fragile.  So we leave the code but don't do anything.
-            with open(os.devnull, 'w') as devnull:
-                print('Warning: image size does not match geometry', file=devnull)
+            _logger.warning('Warning: image size does not match geometry')
 
         system_type = parttype
 

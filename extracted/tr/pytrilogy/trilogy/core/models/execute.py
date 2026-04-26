@@ -41,7 +41,7 @@ from trilogy.core.models.build import (
 )
 from trilogy.core.models.datasource import Address
 from trilogy.core.utility import safe_quote
-from trilogy.utility import unique
+from trilogy.utility import string_to_hash, unique
 
 LOGGER_PREFIX = "[MODELS_EXECUTE]"
 
@@ -145,7 +145,7 @@ class CTE:
         self, parent: "CTE", force_group: bool = False
     ) -> bool:
         qds_being_inlined = parent.source
-        ds_being_inlined = qds_being_inlined.datasources[0]
+        ds_being_inlined = qds_being_inlined.base_datasource
         if not isinstance(ds_being_inlined, BuildDatasource):
             return False
         if any(
@@ -155,14 +155,25 @@ class CTE:
             ]
         ):
             return False
-        self.source.datasources = [
-            ds_being_inlined,
-            *[
-                x
-                for x in self.source.datasources
-                if x.safe_identifier != qds_being_inlined.safe_identifier
+        # Replace the parent QDS with the BuildDatasource it represented.
+        self.source.datasources = sorted(
+            [
+                ds_being_inlined,
+                *[
+                    x
+                    for x in self.source.datasources
+                    if x.safe_identifier != qds_being_inlined.safe_identifier
+                ],
             ],
-        ]
+            key=lambda ds: ds.identifier,
+        )
+        # If the inlined QDS was the explicit base, the new BD takes over.
+        if (
+            self.source.base_datasource is not None
+            and self.source.base_datasource.safe_identifier
+            == qds_being_inlined.safe_identifier
+        ):
+            self.source.base_datasource = ds_being_inlined
         # need to identify this before updating joins
         if self.base_name == parent.name:
             self.base_name_override = ds_being_inlined.safe_location
@@ -287,21 +298,18 @@ class CTE:
 
     @property
     def is_root_datasource(self) -> bool:
-        return (
-            len(self.source.datasources) == 1
-            and isinstance(self.source.datasources[0], BuildDatasource)
-            and not self.source.datasources[0].name == CONSTANT_DATASET
-        )
+        base = self.source.base_datasource
+        return isinstance(base, BuildDatasource) and base.name != CONSTANT_DATASET
 
     @property
     def source_address(self) -> Union["Address", str]:
         if self.base_name_override:
             return self.base_name_override
-        if self.is_root_datasource:
-            ds = self.source.datasources[0]
-            if isinstance(ds, BuildDatasource) and isinstance(ds.address, Address):
-                return ds.address
-            return ds.safe_location
+        base = self.source.base_datasource
+        if isinstance(base, BuildDatasource) and base.name != CONSTANT_DATASET:
+            if isinstance(base.address, Address):
+                return base.address
+            return base.safe_location
         elif len(self.source.datasources) == 1 and len(self.parent_ctes) == 1:
             return self.parent_ctes[0].name
         elif self.relevant_base_ctes:
@@ -317,17 +325,19 @@ class CTE:
 
     @property
     def quote_address(self) -> bool:
-        if self.is_root_datasource:
-            root = self.source.datasources[0]
-            if isinstance(root, BuildDatasource) and isinstance(root.address, Address):
-                return not root.address.is_query
-            return True
-        elif not self.source.datasources:
-            return False
-        base = self.source.datasources[0]
-        if isinstance(base, BuildDatasource):
+        base = self.source.base_datasource
+        if isinstance(base, BuildDatasource) and base.name != CONSTANT_DATASET:
             if isinstance(base.address, Address):
                 return not base.address.is_query
+            return True
+        if not self.source.datasources:
+            return False
+        # No explicit base, but datasources is non-empty — preserve historical
+        # behavior of consulting the first listed datasource for quoting.
+        first = self.source.datasources[0]
+        if isinstance(first, BuildDatasource):
+            if isinstance(first.address, Address):
+                return not first.address.is_query
             return True
         return True
 
@@ -335,8 +345,9 @@ class CTE:
     def base_alias(self) -> str:
         if self.base_alias_override:
             return self.base_alias_override
-        if self.is_root_datasource:
-            return self.source.datasources[0].identifier
+        base = self.source.base_datasource
+        if isinstance(base, BuildDatasource) and base.name != CONSTANT_DATASET:
+            return base.identifier
         elif self.relevant_base_ctes:
             return self.relevant_base_ctes[0].name
         elif self.parent_ctes:
@@ -433,10 +444,8 @@ class CTE:
         # most likely to happen from inlining constants
         if not any([v for v in self.source_map.values()]):
             return False
-        if (
-            len(self.source.datasources) == 1
-            and self.source.datasources[0].name == CONSTANT_DATASET
-        ):
+        base = self.source.base_datasource
+        if isinstance(base, BuildDatasource) and base.name == CONSTANT_DATASET:
             return False
         return True
 
@@ -622,6 +631,11 @@ class QueryDatasource:
         field(default_factory=dict)
     )
     ordering: BuildOrderBy | None = None
+    # Explicit FROM-clause source. Set when this QDS represents a SELECT with a
+    # single canonical base (single BuildDatasource, constant placeholder, or a
+    # parent QDS being lifted up). Left as None for joins/merges/unions where
+    # no single source is "the base".
+    base_datasource: Optional[Union[BuildDatasource, "QueryDatasource"]] = None
 
     def __post_init__(self) -> None:
         self.datasources = sorted(self.datasources, key=lambda ds: ds.identifier)
@@ -635,17 +649,23 @@ class QueryDatasource:
             unique_pairs.add(pairing)
         self.input_concepts = unique(self.input_concepts, "address")
         self.output_concepts = unique(self.output_concepts, "address")
-        for key in ("input_concepts", "output_concepts"):
-            for concept in getattr(self, key):
+        if CONFIG.validate_missing:
+            all_concepts = self.input_concepts + self.output_concepts
+            mapped_canonical = {
+                c.canonical_address
+                for c in all_concepts
+                if c.address in self.source_map
+            }
+            for concept in all_concepts:
+                if concept.canonical_address in mapped_canonical:
+                    continue
                 if concept.address in self.hidden_concepts:
                     continue
-                if (
-                    concept.address not in self.source_map
-                    and not any(x in self.source_map for x in concept.pseudonyms)
-                    and CONFIG.validate_missing
+                if concept.address not in self.source_map and not any(
+                    x in self.source_map for x in concept.pseudonyms
                 ):
                     raise SyntaxError(
-                        f"Missing source map entry for {concept.address} on {key} with pseudonyms {concept.pseudonyms}, have map: {self.source_map}"
+                        f"Missing source map entry for {concept.address} with pseudonyms {concept.pseudonyms}, have map: {self.source_map}"
                     )
 
     def __repr__(self):
@@ -664,6 +684,7 @@ class QueryDatasource:
             partial_concepts=datasource.partial_concepts,
             hidden_concepts={c.address for c in datasource.hidden_concepts},
             nullable_concepts=datasource.nullable_concepts,
+            base_datasource=datasource,
         )
 
     @property
@@ -769,6 +790,14 @@ class QueryDatasource:
         other_hidden: set[str] = other.hidden_concepts or set()
         # hidden is the minimum overlapping set
         hidden = self_hidden.intersection(other_hidden)
+        # Carry the base from LHS through the merge — the merged datasources
+        # dict may have folded the original base into a wider entry (same
+        # safe_identifier), so resolve through it.
+        merged_base: Optional[Union[BuildDatasource, "QueryDatasource"]] = None
+        if self.base_datasource is not None:
+            merged_base = merged_datasources.get(
+                self.base_datasource.safe_identifier, self.base_datasource
+            )
         qds = QueryDatasource(
             input_concepts=unique(
                 self.input_concepts + other.input_concepts, "address"
@@ -793,6 +822,7 @@ class QueryDatasource:
             force_group=self.force_group,
             hidden_concepts=hidden,
             ordering=self.ordering,
+            base_datasource=merged_base,
         )
         logger.debug(
             f"[Query Datasource] merged with {[c.address for c in qds.output_concepts]} concepts"
@@ -802,15 +832,15 @@ class QueryDatasource:
 
     @property
     def identifier(self) -> str:
-        filters = abs(hash(str(self.condition))) if self.condition else ""
+        filters = string_to_hash(str(self.condition)) if self.condition else ""
         grain = "_".join(
             [str(c).replace(".", "_") for c in sorted(self.grain.components)]
         )
         group = ""
         if self.group_required:
-            keys = [
+            keys = sorted(
                 x.address for x in self.output_concepts if x.purpose != Purpose.METRIC
-            ]
+            )
             group = "_grouped_by_" + "_".join(keys)
         return (
             "_join_".join([d.identifier for d in self.datasources])
@@ -851,10 +881,6 @@ class QueryDatasource:
             f"{LOGGER_PREFIX} Concept {str(concept)} not found on {self.identifier};"
             f" have {existing_str} from {datasources}."
         )
-
-    @property
-    def safe_location(self):
-        return self.datasources[0].safe_location
 
 
 class RecursiveCTE(CTE):
@@ -1147,23 +1173,29 @@ class Join:
 
     def get_name(self, cte: CTE | UnionCTE) -> str:
         if cte.identifier in self.inlined_ctes:
-            return cte.source.datasources[0].safe_identifier
+            base = cte.source.base_datasource
+            assert isinstance(base, BuildDatasource)  # only BD CTEs can be inlined
+            return base.safe_identifier
         return cte.safe_identifier
 
     @property
     def right_name(self) -> str:
-        if self.right_cte.identifier in self.inlined_ctes:
-            return self.right_cte.source.datasources[0].safe_identifier
-        return self.right_cte.safe_identifier
+        return self.get_name(self.right_cte)
 
     @property
     def right_ref(self) -> str:
-        if self.quote:
-            if self.right_cte.identifier in self.inlined_ctes:
-                return f"{safe_quote(self.right_cte.source.datasources[0].safe_location, self.quote)} as {self.quote}{self.right_cte.source.datasources[0].safe_identifier}{self.quote}"
-            return f"{self.quote}{self.right_cte.safe_identifier}{self.quote}"
         if self.right_cte.identifier in self.inlined_ctes:
-            return f"{self.right_cte.source.datasources[0].safe_location} as {self.right_cte.source.datasources[0].safe_identifier}"
+            base = self.right_cte.source.base_datasource
+            assert isinstance(base, BuildDatasource)  # only BD CTEs can be inlined
+            location = (
+                safe_quote(base.safe_location, self.quote)
+                if self.quote
+                else base.safe_location
+            )
+            quote = self.quote or ""
+            return f"{location} as {quote}{base.safe_identifier}{quote}"
+        if self.quote:
+            return f"{self.quote}{self.right_cte.safe_identifier}{self.quote}"
         return self.right_cte.safe_identifier
 
     @property

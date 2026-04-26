@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wisent
-Version: 0.10.60
+Version: 0.11.6
 Summary: Monitor and influence AI Brains
 Home-page: https://github.com/wisent-ai/wisent
 Author: Lukasz Bartoszcze and the Wisent Team
@@ -15,6 +15,11 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: wisent-extractors>=0.1.2
+Requires-Dist: wisent-evaluators>=0.1.2
+Requires-Dist: wisent-gradio>=0.1.0
+Requires-Dist: wisent-optimizer>=0.1.0
+Requires-Dist: wisent-tools>=0.1.0
 Requires-Dist: torch>=1.9.0
 Requires-Dist: transformers>=4.46.0
 Requires-Dist: jinja2>=3.1.0

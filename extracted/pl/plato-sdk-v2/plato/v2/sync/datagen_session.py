@@ -17,6 +17,7 @@ from plato.v2._datagen_launch import (
     DatagenResponse,
     build_launch_config,
 )
+from plato.v2._wait_for_ready import poll_until_ready_sync
 from plato.v2.sync.session import Session
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
 
@@ -185,11 +186,14 @@ class DatagenSession(Session):
     ) -> DatagenSession:
         """Adopt an already-created Plato session (Chronos just launched one)."""
         try:
-            ready_response = sessions_wait_for_ready.sync(
-                client=http_client,
-                session_id=session_id,
+            ready_response = poll_until_ready_sync(
+                lambda per_call: sessions_wait_for_ready.sync(
+                    client=http_client,
+                    session_id=session_id,
+                    timeout=per_call,
+                    x_api_key=api_key,
+                ),
                 timeout=int(timeout),
-                x_api_key=api_key,
             )
             context = cls._check_ready_response(ready_response, timeout)
         except (TimeoutError, RuntimeError):

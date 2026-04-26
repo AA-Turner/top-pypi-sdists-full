@@ -946,6 +946,7 @@ def create_app(config: AppConfig | None = None, enforced_fields: list[str] | Non
     app.state.config = config
     app.state.rate_limit_config = config.rate_limit
     app.state.enforced_fields = enforced_fields
+    app.state.debug_diagnostics_enabled = False
 
     # Construct DLP scanner once at startup (compiled regexes reused across requests)
     app.state.dlp_scanner = None
@@ -1068,6 +1069,10 @@ def create_app(config: AppConfig | None = None, enforced_fields: list[str] | Non
     from .routers import specs as specs_router
 
     app.include_router(specs_router.router, prefix="/api")
+
+    from .routers import feedback as feedback_router
+
+    app.include_router(feedback_router.router, prefix="/api")
 
     if config.proxy.enabled:
         from .routers import proxy

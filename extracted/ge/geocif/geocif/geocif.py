@@ -1,8 +1,8 @@
-"""
-geocif.py - REFACTORED VERSION
+"""Geocif Dataclass — ML Pipeline Orchestrator.
 
-Main class for agricultural yield forecasting using climate and environmental indicators.
-Refactored to improve readability, maintainability, and debuggability.
+Central class that reads CID data, engineers features, trains LOOCV
+models, and stores predictions to SQLite. Instantiated and driven
+by ``geocif_runner.run(cfg)``.
 """
 
 import ast
@@ -153,15 +153,10 @@ class Geocif:
         self.check_yield_trend = self.parser.getboolean("ML", "check_yield_trend")
         self.detrend_method = self.parser.get("ML", "detrend_method") if self.parser.has_option("ML", "detrend_method") else "gaussian"
         self.run_time_steps = self.parser.get("ML", "run_time_steps", fallback="latest")
-        # When True, force every hindcast forecast_season to use the same
-        # stage set as today_year — operationally faithful hindcasts where
-        # each year's prediction is what the model would have said at the
-        # same calendar date in that year.  yield_outlook turns this on;
-        # geocif_runner/experiments leave it False to preserve existing
-        # full-season hindcast behavior.
-        self.align_hindcast_stage = self.parser.getboolean(
-            "ML", "align_hindcast_stage", fallback=False
-        )
+        # "current" means use today's partial-season stage window for ALL
+        # years (operationally faithful hindcasts). Replaces the old
+        # align_hindcast_stage flag.
+        self.align_hindcast_stage = (self.run_time_steps == "current")
         self.cat_features: list = ast.literal_eval(self.parser.get("ML", "cat_features"))
         self.use_spatial_neighbors = (
             self.parser.getboolean("ML", "use_spatial_neighbors")
@@ -478,10 +473,17 @@ class Geocif:
         self.dg = self.dg.rename(columns=rename)
 
     def _add_country_region_column(self):
-        """Add Country Region column for merging."""
+        """Add Country Region column for merging.
+
+        When running at admin_1 but the shapefile contains admin_2 polygons,
+        dissolve admin_2 geometries into admin_1 so each region has a single
+        merged polygon rather than keeping one arbitrary admin_2 sliver.
+        """
         if self.admin_zone == "admin_2" and "ADM2_NAME" in self.dg.columns:
             self.dg["Country Region"] = self.dg["ADM0_NAME"] + " " + self.dg["ADM2_NAME"]
         else:
+            # Dissolve admin_2 → admin_1 if shapefile is finer than requested
+            self.dg = utils.dissolve_to_admin1(self.dg)
             self.dg["Country Region"] = self.dg["ADM0_NAME"] + " " + self.dg["ADM1_NAME"]
 
         self.dg["Country Region"] = self.dg["Country Region"].str.lower()
@@ -676,20 +678,47 @@ class Geocif:
         Main execution pipeline - orchestrates the entire workflow.
 
         When ``run_time_steps`` is ``"all"`` or an integer N, the pipeline
-        runs at multiple cumulative time steps through the season.  Each
-        step re-filters the raw data to include only CIDs up to that point,
-        producing a separate model and predictions per step.
+        runs one model per time-step through the season.  Each step includes
+        all Stage_IDs whose period numbers fall within [planting..current],
+        so the feature set grows as the season progresses.
+
+        For ``"latest"`` or ``"current"``, the original single-pass flow
+        is used (all stages become feature columns in one model).
         """
-        # Save full stage list; _get_setup_stages builds subsets from it
+        if self.run_time_steps in ("latest", "current"):
+            self._execute_single_pass()
+        else:
+            self._execute_multi_step()
+
+    def _execute_single_pass(self):
+        """Original single-run pipeline — all stages as features."""
+        df = self._prepare_ml_dataframe()
+        df = self._add_lat_lon_to_data(df)
+
+        self._run_spatial_autocorrelation_if_enabled()
+        self._run_cluster_analysis(df)
+
+        dict_selected_features, dict_best_cid = self._generate_correlation_plots(df)
+
+        self._prepare_train_test_split(df)
+        self._compute_detrended_yield()
+        self._add_spatial_neighbor_features()
+
+        if self.run_ml:
+            self._execute_ml_pipeline(dict_selected_features, dict_best_cid)
+
+    def _execute_multi_step(self):
+        """Multi-step pipeline — one model per time-step from planting forward."""
         all_simulation_stages = list(self.simulation_stages)
-        stage_subsets = self._get_setup_stages()
+        step_subsets = self._get_setup_stages()
 
         df_inputs_orig = self.df_inputs.copy()
+        cached_latlon = None
 
-        for step_idx, stage_subset in enumerate(stage_subsets):
+        for step_idx, stage_subset in enumerate(step_subsets):
             self.simulation_stages = stage_subset
             self.df_inputs = df_inputs_orig.copy()
-            self._current_step_label = f"[{step_idx + 1}/{len(stage_subsets)}]"
+            self._current_step_label = f"[{step_idx + 1}/{len(step_subsets)}]"
 
             self.logger.info(
                 f"Time step {self._current_step_label}: "
@@ -697,7 +726,15 @@ class Geocif:
             )
 
             df = self._prepare_ml_dataframe()
-            df = self._add_lat_lon_to_data(df)
+
+            if cached_latlon is None:
+                df = self._add_lat_lon_to_data(df)
+                cached_latlon = df[["Country Region", "lat", "lon"]].drop_duplicates()
+            else:
+                df["Country Region"] = (
+                    df["Country"].astype(str) + " " + df["Region"].astype(str)
+                ).str.lower()
+                df = df.merge(cached_latlon, on="Country Region", how="left")
 
             if step_idx == 0:
                 self._run_spatial_autocorrelation_if_enabled()
@@ -712,7 +749,6 @@ class Geocif:
             if self.run_ml:
                 self._execute_ml_pipeline(dict_selected_features, dict_best_cid)
 
-        # Restore full stage list
         self.simulation_stages = all_simulation_stages
 
     def _filter_low_production_regions(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -777,10 +813,10 @@ class Geocif:
             base / self.country / self.crop /
             self.model_name / str(self.forecast_season)
         )
-        if self.run_time_steps != "latest" and hasattr(self, "stage_info"):
+        if self.run_time_steps not in ("latest", "current") and hasattr(self, "stage_info"):
             stage_name = self.stage_info.get("Stage Name", "")
             if stage_name:
-                dir_output = dir_output / stage_name.replace(" ", "_")
+                dir_output = dir_output / utils.friendly_stage_label(stage_name).replace(" - ", "-").replace(" ", "_")
         dir_output.mkdir(parents=True, exist_ok=True)
 
         filename = f"{self.country}_{self.crop}_{self.forecast_season}.csv"
@@ -1016,42 +1052,58 @@ class Geocif:
         )
 
     def _execute_ml_pipeline(self, dict_selected_features: Dict, dict_best_cid: Dict):
-        """Execute the machine learning training pipeline."""
+        """Execute the machine learning training pipeline.
+
+        Uses ``self.simulation_stages`` as-is — a single model run using
+        all stages in the list as feature columns.  When called from
+        ``_execute_multi_step``, the stages have already been set to the
+        subset for the current time step.
+        """
         self.logger.info(f"Running ML for {self.country} {self.crop}")
-        
-        setup_stages = self._get_setup_stages()
+
         num_regions = len(self.df_train["Region_ID"].unique())
-        
         step_label = getattr(self, "_current_step_label", "")
         stage_name = getattr(self, "stage_info", {}).get("Stage Name", "")
-        pbar = tqdm(setup_stages)
-        for stage in pbar:
+
+        pbar = tqdm([self.simulation_stages])
+        for stages in pbar:
             pbar.set_description(
                 f"{step_label} {self.country} {self.crop} {self.forecast_season} "
-                f"({num_regions} reg, {len(setup_stages)} stg) "
+                f"({num_regions} reg, {len(stages)} stg) "
                 f"{stage_name} {self.model_name}"
             )
-            
+
             try:
-                self.loop_ml(stage, dict_selected_features, dict_best_cid)
+                self.loop_ml(stages, dict_selected_features, dict_best_cid)
             except Exception as e:
-                self.logger.error(f"Error in ML loop for stage {stage}: {e}")
+                self.logger.error(f"Error in ML loop: {e}")
 
-    def _get_setup_stages(self) -> List:
-        """Determine which stage subsets to use for ML training.
+    def _get_setup_stages(self) -> List[List]:
+        """Build per-time-step stage subsets for multi-step execution.
 
-        Based on ``run_time_steps`` config:
-        - ``"latest"``: single run at the latest (full) stage set
-        - ``"all"``: one run per cumulative time step
-        - ``N`` (integer): one run every Nth step, always including latest
+        For ``run_time_steps = all`` or ``N``, returns a list of stage
+        subsets.  Each subset contains ALL Stage_IDs whose period numbers
+        fall within a growing window from planting forward.
+
+        The chronological order is derived from the longest Stage_ID
+        (which contains the full season sequence).  For ``_r`` methods,
+        Stage_ID arrays are ordered harvest→planting, so reversing gives
+        the planting-forward order.  This handles cross-year seasons
+        (e.g., Oct→Apr = ``[10, 11, 12, 1, 2, 3, 4]``) without assuming
+        contiguous integer ranges.
+
+        Returns:
+            List of stage subsets (each a list of numpy arrays).
         """
-        if self.run_time_steps == "latest":
+        if not self.simulation_stages:
             return [self.simulation_stages]
 
-        # Build cumulative subsets from the ordered stage list
-        # simulation_stages is a list of numpy arrays (one per stage)
-        n = len(self.simulation_stages)
-        if n <= 1:
+        # Find the longest stage — it contains the full season sequence
+        longest = max(self.simulation_stages, key=lambda s: len(s))
+        # Reverse: harvest→planting becomes planting→harvest
+        chronological = list(reversed([int(x) for x in longest]))
+
+        if len(chronological) <= 1:
             return [self.simulation_stages]
 
         step = 1
@@ -1061,14 +1113,25 @@ class Geocif:
             except ValueError:
                 return [self.simulation_stages]
 
-        # For reverse methods (_r), stages are ordered harvest→planting.
-        # Accumulate from planting forward: take from the end of the list.
+        # Build progression: cumulative prefixes of chronological order
         subsets = []
-        for i in range(step, n + 1, step):
-            subsets.append(self.simulation_stages[-i:])
-        # Always include the full set as the last entry
-        if len(subsets) == 0 or len(subsets[-1]) != n:
-            subsets.append(self.simulation_stages)
+        for i in range(step, len(chronological) + 1, step):
+            allowed = set(chronological[:i])
+            subset = [
+                s for s in self.simulation_stages
+                if all(int(x) in allowed for x in s)
+            ]
+            if subset:
+                subsets.append(subset)
+
+        # Ensure the last step includes the full season
+        all_periods = set(chronological)
+        full_subset = [
+            s for s in self.simulation_stages
+            if all(int(x) in all_periods for x in s)
+        ]
+        if not subsets or len(subsets[-1]) < len(full_subset):
+            subsets.append(full_subset)
 
         return subsets
 
@@ -1343,10 +1406,116 @@ class Geocif:
             clusters_assigned = fe.detect_clusters(df, self.target)
             df = df.merge(clusters_assigned, on="Region")
             df["Region_ID"] = df["Region_ID"].astype("category")
+        elif self.cluster_strategy == "crop_calendar":
+            clusters_assigned = self._cluster_by_crop_calendar(df)
+            df = df.merge(clusters_assigned, on="Region")
+            df["Region_ID"] = df["Region_ID"].astype("category")
+        elif self.cluster_strategy == "crop_calendar_yield":
+            clusters_assigned = self._cluster_by_calendar_then_yield(df)
+            df = df.merge(clusters_assigned, on="Region")
+            df["Region_ID"] = df["Region_ID"].astype("category")
         else:
             raise ValueError(f"Unsupported cluster strategy {self.cluster_strategy}")
 
         return df
+
+    def _cluster_by_crop_calendar(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Cluster regions by their crop calendar — regions with the same
+        set of non-NaN CID feature columns get the same Region_ID.
+
+        This ensures regions sharing a model have comparable CID feature
+        coverage (same growing season months), unlike yield-based clustering
+        which can group regions with different calendars.
+
+        Returns:
+            DataFrame with columns ["Region", "Region_ID"].
+        """
+        cid_cols = self.get_cid_column_names(df)
+        if not cid_cols:
+            return pd.DataFrame({"Region": df["Region"].unique(), "Region_ID": 0})
+
+        # For each region, compute which CID columns have data
+        region_profiles = {}
+        for region in df["Region"].unique():
+            mask = df["Region"] == region
+            non_null = frozenset(
+                col for col in cid_cols
+                if df.loc[mask, col].notna().any()
+            )
+            region_profiles[region] = non_null
+
+        # Assign cluster IDs: regions with identical non-null column sets
+        # share the same cluster
+        unique_profiles = {}
+        cluster_id = 0
+        region_to_cluster = {}
+
+        for region, profile in region_profiles.items():
+            if profile not in unique_profiles:
+                unique_profiles[profile] = cluster_id
+                cluster_id += 1
+            region_to_cluster[region] = unique_profiles[profile]
+
+        self.logger.info(
+            f"Crop calendar clustering: {len(region_to_cluster)} regions "
+            f"→ {cluster_id} clusters"
+        )
+
+        return pd.DataFrame({
+            "Region": list(region_to_cluster.keys()),
+            "Region_ID": list(region_to_cluster.values()),
+        })
+
+    def _cluster_by_calendar_then_yield(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Two-stage clustering: first by crop calendar, then by yield within
+        each calendar group.
+
+        1. Partition regions by CID feature coverage (crop calendar).
+           Regions with different calendars can never share a cluster.
+        2. Within each calendar group, sub-cluster by yield patterns
+           using K-Means (same as auto_detect).
+
+        Returns:
+            DataFrame with columns ["Region", "Region_ID"].
+        """
+        # Stage 1: calendar partitions
+        cal_clusters = self._cluster_by_crop_calendar(df)
+        cal_groups = cal_clusters.groupby("Region_ID")["Region"].apply(list).to_dict()
+
+        region_to_final = {}
+        final_id = 0
+
+        for cal_id, regions in cal_groups.items():
+            if len(regions) <= 1:
+                # Single region in this calendar group — its own cluster
+                for r in regions:
+                    region_to_final[r] = final_id
+                final_id += 1
+                continue
+
+            # Stage 2: yield-based sub-clustering within this calendar group
+            df_group = df[df["Region"].isin(regions)]
+            try:
+                sub_clusters = fe.detect_clusters(df_group, self.target)
+                for _, row in sub_clusters.iterrows():
+                    region_to_final[row["Region"]] = final_id + row["Region_ID"]
+                final_id += sub_clusters["Region_ID"].nunique()
+            except Exception:
+                # Fallback: all regions in this calendar group share one cluster
+                for r in regions:
+                    region_to_final[r] = final_id
+                final_id += 1
+
+        self.logger.info(
+            f"Calendar+yield clustering: {len(region_to_final)} regions "
+            f"→ {final_id} clusters "
+            f"({len(cal_groups)} calendar groups)"
+        )
+
+        return pd.DataFrame({
+            "Region": list(region_to_final.keys()),
+            "Region_ID": list(region_to_final.values()),
+        })
 
     def get_cid_column_names(self, df: pd.DataFrame) -> List[str]:
         """Get list of CID column names (excluding fixed/target/meta/engineered columns)."""
@@ -2130,10 +2299,10 @@ class Geocif:
             self.model_name / str(self.forecast_season)
         )
         # Add stage subdirectory when running multi-step
-        if self.run_time_steps != "latest" and hasattr(self, "stage_info"):
+        if self.run_time_steps not in ("latest", "current") and hasattr(self, "stage_info"):
             stage_name = self.stage_info.get("Stage Name", "")
             if stage_name:
-                dir_output = dir_output / stage_name.replace(" ", "_")
+                dir_output = dir_output / utils.friendly_stage_label(stage_name).replace(" - ", "-").replace(" ", "_")
         dir_output.mkdir(parents=True, exist_ok=True)
         return dir_output
 

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 
 from anteroom.services.agent_loop import AgentEvent, run_agent_loop
+from anteroom.services.ai_service import CompletionResult
 
 
 def _make_stream_events(
@@ -50,6 +53,36 @@ async def _collect(gen: Any) -> list[AgentEvent]:
 
 async def _executor(name: str, args: dict[str, Any]) -> dict[str, Any]:
     return {"result": "ok"}
+
+
+class _StructuredCompactionAi:
+    def __init__(self, rounds: list[list[dict[str, Any]]], completions: list[CompletionResult]) -> None:
+        self.rounds = rounds
+        self.completions = completions
+        self.stream_calls = 0
+        self.complete_calls: list[dict[str, Any]] = []
+
+    async def stream_chat(
+        self,
+        messages: Any,
+        tools: Any = None,
+        cancel_event: Any = None,
+        extra_system_prompt: Any = None,
+    ) -> Any:
+        idx = min(self.stream_calls, len(self.rounds) - 1)
+        self.stream_calls += 1
+        for event in self.rounds[idx]:
+            yield event
+
+    async def complete_result(
+        self,
+        messages: list[dict[str, Any]],
+        max_completion_tokens: int = 1000,
+        **kwargs: Any,
+    ) -> CompletionResult:
+        self.complete_calls.append({"messages": messages, "max_completion_tokens": max_completion_tokens})
+        idx = min(len(self.complete_calls) - 1, len(self.completions) - 1)
+        return self.completions[idx]
 
 
 # ---------------------------------------------------------------------------
@@ -432,6 +465,50 @@ class TestContextRecovery:
         ai.complete.assert_awaited()
 
     @pytest.mark.asyncio
+    async def test_strategy4_compaction_prompt_too_long_retry_metadata(self) -> None:
+        """Strategy 4 emits retry metadata when summary prompt reduction recovers."""
+        context_error_events: list[dict[str, Any]] = [
+            {"event": "error", "data": {"message": "too long", "code": "context_length_exceeded", "retryable": False}},
+        ]
+        success_events = _make_stream_events("done")
+        ai = _StructuredCompactionAi(
+            [context_error_events, success_events],
+            [
+                CompletionResult(text=None, error_code="context_length_exceeded", error_message="too long"),
+                CompletionResult(text="Recovered summary"),
+            ],
+        )
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "u1"},
+            {"role": "assistant", "content": "a1"},
+            {"role": "user", "content": "u2"},
+            {"role": "assistant", "content": "a2"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,  # type: ignore[arg-type]
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                summary_retry_max_attempts=2,
+                summary_retry_drop_groups=1,
+            )
+        )
+
+        assert any(e.kind == "done" for e in events)
+        retry_phases = [
+            e.data for e in events if e.kind == "phase" and e.data.get("reason") == "compaction_prompt_too_long"
+        ]
+        assert retry_phases
+        assert retry_phases[0]["attempt"] == 2
+        assert retry_phases[0]["dropped_messages"] == 1
+        assert any(
+            "Compaction summary prompt was too long" in e.data.get("content", "") for e in events if e.kind == "token"
+        )
+
+    @pytest.mark.asyncio
     async def test_max_recovery_attempts_bounded(self) -> None:
         """After max_context_recoveries repeated context errors, the loop
         gives up with a hard error rather than retrying forever.
@@ -535,90 +612,13 @@ class TestContextRecovery:
 
         # Compaction event indicates summary fired.
         assert any(e.kind == "compaction" for e in events)
-        assert any(e.kind == "phase" and e.data.get("phase") == "compacting" for e in events)
-        assert not any(
-            e.kind == "token" and "Compacting conversation history" in e.data.get("content", "") for e in events
-        )
-
-    @pytest.mark.asyncio
-    async def test_compacted_history_does_not_recompact_at_preserved_tail_floor(self) -> None:
-        """A low message threshold must not re-trigger compaction every turn."""
-        success_events = _make_stream_events("ok")
-        ai = _mock_ai_service(success_events)
-        ai.complete = AsyncMock(return_value="Summary")
-
-        messages: list[dict[str, Any]] = [
-            {
-                "role": "user",
-                "content": "previous summary",
-                "metadata": {"compact_summary": True},
-            },
-            {
-                "role": "system",
-                "content": "boundary",
-                "metadata": {"compact_boundary": True},
-            },
-            *[
-                {"role": "user" if i % 2 == 0 else "assistant", "content": f"tail {i}"}
-                for i in range(8)
-            ],
-        ]
-
-        events = await _collect(
-            run_agent_loop(
-                ai_service=ai,
-                messages=messages,
-                tool_executor=_executor,
-                tools_openai=None,
-                compact_preserve_tail=6,
-                summary_trigger_msg_count=10,
-                summary_trigger_token_count=1_000_000,
-            )
-        )
-
-        assert not any(e.kind == "compaction" for e in events)
-        assert not any(e.kind == "phase" and e.data.get("phase") == "compacting" for e in events)
-        ai.complete.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_compacted_history_recompacts_after_enough_new_messages(self) -> None:
-        """Already-compacted history can compact again once enough new context accumulates."""
-        success_events = _make_stream_events("ok")
-        ai = _mock_ai_service(success_events)
-        ai.complete = AsyncMock(return_value="Summary")
-
-        messages: list[dict[str, Any]] = [
-            {
-                "role": "user",
-                "content": "previous summary",
-                "metadata": {"compact_summary": True},
-            },
-            {
-                "role": "system",
-                "content": "boundary",
-                "metadata": {"compact_boundary": True},
-            },
-            *[
-                {"role": "user" if i % 2 == 0 else "assistant", "content": f"tail {i}"}
-                for i in range(10)
-            ],
-        ]
-
-        events = await _collect(
-            run_agent_loop(
-                ai_service=ai,
-                messages=messages,
-                tool_executor=_executor,
-                tools_openai=None,
-                compact_preserve_tail=6,
-                summary_trigger_msg_count=10,
-                summary_trigger_token_count=1_000_000,
-            )
-        )
-
-        assert any(e.kind == "compaction" for e in events)
-        assert any(e.kind == "phase" and e.data.get("phase") == "compacting" for e in events)
-        ai.complete.assert_awaited_once()
+        phases = [e.data for e in events if e.kind == "phase" and e.data.get("phase") == "compacting"]
+        assert phases
+        assert phases[0]["reason"] == "message_count"
+        assert phases[0]["message_count"] == 10
+        assert phases[0]["message_threshold"] == 8
+        tokens = [e.data.get("content", "") for e in events if e.kind == "token"]
+        assert not any("Compacting conversation history" in token for token in tokens)
 
     @pytest.mark.asyncio
     async def test_summary_trigger_token_count_from_config(self) -> None:
@@ -647,6 +647,278 @@ class TestContextRecovery:
         )
 
         assert any(e.kind == "compaction" for e in events)
+        phases = [e.data for e in events if e.kind == "phase" and e.data.get("phase") == "compacting"]
+        assert phases
+        assert phases[0]["reason"] == "token_threshold"
+        assert phases[0]["estimated_tokens"] >= 100
+        assert phases[0]["token_threshold"] == 100
+
+    @pytest.mark.asyncio
+    async def test_summary_triggers_on_full_request_fixed_overhead(self) -> None:
+        """Large system/tool overhead triggers even when message-only tokens are below threshold."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.config = SimpleNamespace(system_prompt="system overhead " * 500)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "short 1"},
+            {"role": "assistant", "content": "short 2"},
+            {"role": "user", "content": "short 3"},
+            {"role": "assistant", "content": "short 4"},
+            {"role": "user", "content": "short 5"},
+        ]
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "large_tool",
+                    "description": "tool schema overhead " * 100,
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            }
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=tools,
+                extra_system_prompt="dynamic overhead " * 100,
+                summary_trigger_msg_count=10_000,
+                summary_trigger_token_count=100,
+            )
+        )
+
+        assert any(e.kind == "compaction" for e in events)
+        phase = next(e.data for e in events if e.kind == "phase" and e.data.get("phase") == "compacting")
+        assert phase["reason"] == "token_threshold"
+        assert phase["message_tokens"] < 100
+        assert phase["estimated_tokens"] >= 100
+        assert phase["system_prompt_tokens"] > 0
+        assert phase["tool_schema_tokens"] > 0
+
+        compaction = next(e.data for e in events if e.kind == "compaction")
+        assert compaction["message_tokens"] == phase["message_tokens"]
+        assert compaction["system_prompt_tokens"] == phase["system_prompt_tokens"]
+        assert compaction["tool_schema_tokens"] == phase["tool_schema_tokens"]
+
+    @pytest.mark.asyncio
+    async def test_summary_does_not_trigger_below_thresholds(self) -> None:
+        """Proactive summary stays quiet when token and message thresholds are both below budget."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "short"},
+            {"role": "assistant", "content": "short"},
+            {"role": "user", "content": "short"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                summary_trigger_msg_count=10,
+                summary_trigger_token_count=128_000,
+            )
+        )
+
+        assert not any(e.kind == "compaction" for e in events)
+        assert not any(e.kind == "phase" and e.data.get("phase") == "compacting" for e in events)
+        ai.complete.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_compacted_history_does_not_immediately_recompact_preserved_tail(self) -> None:
+        """Existing compacted prefix/tail does not retrigger until new history accumulates."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "summary", "metadata": {"compact_summary": True}},
+            {
+                "role": "system",
+                "content": "boundary",
+                "metadata": {"compact_boundary": True, "preserved_count": 4},
+            },
+            {"role": "user", "content": "tail 1"},
+            {"role": "assistant", "content": "tail 2"},
+            {"role": "user", "content": "tail 3"},
+            {"role": "assistant", "content": "tail 4"},
+            {"role": "user", "content": "new 1"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                summary_trigger_msg_count=4,
+                summary_trigger_token_count=1_000_000,
+            )
+        )
+
+        assert not any(e.kind == "compaction" for e in events)
+        assert not any(e.kind == "phase" and e.data.get("phase") == "compacting" for e in events)
+        ai.complete.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_compacted_history_fixed_overhead_does_not_recompact_without_new_history(self) -> None:
+        """A compacted history is not repeatedly compacted for irreducible fixed overhead."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.config = SimpleNamespace(system_prompt="fixed overhead " * 500)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "summary", "metadata": {"compact_summary": True}},
+            {
+                "role": "system",
+                "content": "boundary",
+                "metadata": {"compact_boundary": True, "preserved_count": 4},
+            },
+            {"role": "user", "content": "tail 1", "metadata": {"compact_preserved_tail": True}},
+            {"role": "assistant", "content": "tail 2", "metadata": {"compact_preserved_tail": True}},
+            {"role": "user", "content": "new 1"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                summary_trigger_msg_count=10_000,
+                summary_trigger_token_count=100,
+            )
+        )
+
+        assert not any(e.kind == "compaction" for e in events)
+        assert not any(e.kind == "phase" and e.data.get("phase") == "compacting" for e in events)
+        ai.complete.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_compacted_history_recompacts_after_enough_new_messages(self) -> None:
+        """Compacted histories can compact again after the post-compaction tail crosses threshold."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "summary", "metadata": {"compact_summary": True}},
+            {
+                "role": "system",
+                "content": "boundary",
+                "metadata": {"compact_boundary": True, "preserved_count": 2},
+            },
+            {"role": "user", "content": "tail 1"},
+            {"role": "assistant", "content": "tail 2"},
+            {"role": "user", "content": "new 1"},
+            {"role": "assistant", "content": "new 2"},
+            {"role": "user", "content": "new 3"},
+            {"role": "assistant", "content": "new 4"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                summary_trigger_msg_count=4,
+                summary_trigger_token_count=1_000_000,
+            )
+        )
+
+        assert any(e.kind == "compaction" for e in events)
+        phases = [e.data for e in events if e.kind == "phase" and e.data.get("phase") == "compacting"]
+        assert phases
+        assert phases[0]["reason"] == "message_count"
+        assert phases[0]["message_count"] == 4
+
+    @pytest.mark.asyncio
+    async def test_compacted_history_counts_new_messages_after_preserved_tail_trim(self) -> None:
+        """Marked preserved-tail messages prevent stale boundary counts from hiding new turns."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "summary", "metadata": {"compact_summary": True}},
+            {
+                "role": "system",
+                "content": "boundary",
+                "metadata": {"compact_boundary": True, "preserved_count": 4},
+            },
+            {"role": "assistant", "content": "remaining tail", "metadata": {"compact_preserved_tail": True}},
+            {"role": "user", "content": "new 1"},
+            {"role": "assistant", "content": "new 2"},
+            {"role": "user", "content": "new 3"},
+            {"role": "assistant", "content": "new 4"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                summary_trigger_msg_count=4,
+                summary_trigger_token_count=1_000_000,
+            )
+        )
+
+        assert any(e.kind == "compaction" for e in events)
+        phases = [e.data for e in events if e.kind == "phase" and e.data.get("phase") == "compacting"]
+        assert phases
+        assert phases[0]["reason"] == "message_count"
+        assert phases[0]["message_count"] == 4
+
+    @pytest.mark.asyncio
+    async def test_compacted_history_ignores_rebuilt_tool_results_inside_marked_tail(self) -> None:
+        """Unmarked synthetic tool results inside a marked tail do not count as new turns."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "summary", "metadata": {"compact_summary": True}},
+            {
+                "role": "system",
+                "content": "boundary",
+                "metadata": {"compact_boundary": True, "preserved_count": 4},
+            },
+            {"role": "assistant", "content": "", "metadata": {"compact_preserved_tail": True}},
+            {"role": "tool", "tool_call_id": "tc1", "content": "rebuilt tool result"},
+            {"role": "user", "content": "remaining tail", "metadata": {"compact_preserved_tail": True}},
+            {"role": "user", "content": "new 1"},
+            {"role": "assistant", "content": "new 2"},
+            {"role": "user", "content": "new 3"},
+            {"role": "assistant", "content": "new 4"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                summary_trigger_msg_count=4,
+                summary_trigger_token_count=1_000_000,
+            )
+        )
+
+        assert any(e.kind == "compaction" for e in events)
+        phases = [e.data for e in events if e.kind == "phase" and e.data.get("phase") == "compacting"]
+        assert phases
+        assert phases[0]["reason"] == "message_count"
+        assert phases[0]["message_count"] == 4
 
     @pytest.mark.asyncio
     async def test_microcompact_fires_before_summary(self) -> None:
@@ -684,6 +956,92 @@ class TestContextRecovery:
         # Microcompact narration token surfaces in the event stream.
         tokens = [e for e in events if e.kind == "token"]
         assert any("Trimmed oversized tool outputs" in e.data.get("content", "") for e in tokens)
+
+    @pytest.mark.asyncio
+    async def test_historical_tool_collapse_fires_before_summary(self) -> None:
+        """Historical tool-result collapse can reduce pressure before LLM summary compaction."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        large_payload = json.dumps(
+            {"status": "ok", "path": "/tmp/big.log", "stdout": " ".join(f"token{i}" for i in range(10_000))}
+        )
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "first"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{"id": "tc1", "type": "function", "function": {"name": "bash", "arguments": "{}"}}],
+            },
+            {"role": "tool", "tool_call_id": "tc1", "content": large_payload},
+            {"role": "user", "content": "recent"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{"id": "tc2", "type": "function", "function": {"name": "bash", "arguments": "{}"}}],
+            },
+            {"role": "tool", "tool_call_id": "tc2", "content": json.dumps({"stdout": "recent"})},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                tool_output_max_chars=100_000,
+                historical_tool_collapse_enabled=True,
+                historical_tool_collapse_trigger_token_count=5_000,
+                historical_tool_collapse_keep_recent_groups=2,
+                historical_tool_collapse_compact_chars=250,
+                summary_trigger_msg_count=10_000,
+                summary_trigger_token_count=5_000,
+            )
+        )
+
+        collapse_events = [
+            e for e in events if e.kind == "compaction" and e.data.get("strategy") == "historical_tool_results"
+        ]
+        assert collapse_events
+        assert collapse_events[0].data["in_memory_only"] is True
+        assert collapse_events[0].data["modified_count"] == 1
+        assert any(e.kind == "phase" and e.data.get("reason") == "historical_tool_results" for e in events)
+        assert not any(e.kind == "compaction" and e.data.get("strategy") != "historical_tool_results" for e in events)
+        ai.complete.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_historical_tool_collapse_noops_below_pressure(self) -> None:
+        """Historical collapse does not run on small or low-token histories."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": "first"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{"id": "tc1", "type": "function", "function": {"name": "bash", "arguments": "{}"}}],
+            },
+            {"role": "tool", "tool_call_id": "tc1", "content": json.dumps({"stdout": "x" * 5000})},
+            {"role": "user", "content": "recent"},
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                historical_tool_collapse_enabled=True,
+                historical_tool_collapse_trigger_token_count=500_000,
+                summary_trigger_msg_count=10_000,
+                summary_trigger_token_count=1_000_000,
+            )
+        )
+
+        assert not any(e.kind == "compaction" for e in events)
+        assert not any("Collapsed older tool results" in e.data.get("content", "") for e in events if e.kind == "token")
 
     @pytest.mark.asyncio
     async def test_summary_triggers_at_exactly_threshold(self) -> None:
@@ -843,6 +1201,9 @@ class TestContextRecovery:
         assert any("Recovery failed" in e.data.get("message", "") for e in errors), (
             "Genuine compaction failure must still surface recovery-failed error"
         )
+        phases = [e.data for e in events if e.kind == "phase" and e.data.get("phase") == "compacting"]
+        assert phases
+        assert phases[0]["reason"] == "context_error_recovery"
 
         # No `cancelled` event — this is a real failure, not a cancel.
         assert not any(e.kind == "cancelled" for e in events)

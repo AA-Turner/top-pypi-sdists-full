@@ -59,16 +59,30 @@ class StructTypeDef(SourceNode):
     there. The referenced definition might itself be imported from yet another document.
     """
 
+    parameter_meta: Dict[str, Any]
+    """:type: Dict[str,Any]
+
+    ``parameter_meta{}`` section as a JSON-like dict"""
+
+    meta: Dict[str, Any]
+    """:type: Dict[str,Any]
+
+    ``meta{}`` section as a JSON-like dict"""
+
     def __init__(
         self,
         pos: SourcePosition,
         name: str,
         members: Dict[str, Type.Base],
+        parameter_meta: Dict[str, Any],
+        meta: Dict[str, Any],
         imported: "Optional[Tuple[Document,StructTypeDef]]" = None,
     ) -> None:
         super().__init__(pos)
         self.name = name
         self.members = members
+        self.parameter_meta = parameter_meta
+        self.meta = meta
         self.imported = imported
 
     @property
@@ -324,6 +338,8 @@ class Task(SourceNode):
         if self.effective_wdl_version not in ("draft-2", "1.0"):
             # synthetic placeholder to expose runtime overrides
             ans = ans.bind("_runtime", Decl(self.pos, Type.Any(), "_runtime"))
+            if self.effective_wdl_version not in ("1.1",):
+                ans = ans.bind("_requirements", Decl(self.pos, Type.Any(), "_requirements"))
 
         for decl in reversed(self.inputs if self.inputs is not None else self.postinputs):
             ans = ans.bind(decl.name, decl)
@@ -418,8 +434,10 @@ class Task(SourceNode):
             for _, runtime_expr in self.runtime.items():
                 errors.try1(
                     (
-                        lambda runtime_expr: lambda: runtime_expr.infer_type(
-                            type_env, stdlib, check_quant=check_quant, struct_types=struct_types
+                        lambda runtime_expr: (
+                            lambda: runtime_expr.infer_type(
+                                type_env, stdlib, check_quant=check_quant, struct_types=struct_types
+                            )
                         )
                     )(runtime_expr)
                 )  # .typecheck()
@@ -628,9 +646,14 @@ class Call(WorkflowNode):
                     decltype = decl.type.copy(optional=True) if decl.expr else decl.type
                     errors.try1(
                         (
-                            lambda expr, decltype: lambda: expr.infer_type(
-                                type_env, stdlib, check_quant=check_quant, struct_types=struct_types
-                            ).typecheck(decltype)
+                            lambda expr, decltype: (
+                                lambda: expr.infer_type(
+                                    type_env,
+                                    stdlib,
+                                    check_quant=check_quant,
+                                    struct_types=struct_types,
+                                ).typecheck(decltype)
+                            )
                         )(expr, decltype)
                     )
                 except KeyError:
@@ -1141,11 +1164,13 @@ class Workflow(SourceNode):
             for decl in self.inputs or []:
                 errors.try1(
                     (
-                        lambda decl, type_env: lambda: decl.typecheck(
-                            type_env,
-                            stdlib,
-                            check_quant=check_quant,
-                            struct_types=doc._struct_types,
+                        lambda decl, type_env: (
+                            lambda: decl.typecheck(
+                                type_env,
+                                stdlib,
+                                check_quant=check_quant,
+                                struct_types=doc._struct_types,
+                            )
                         )
                     )(decl, self._type_env)
                 )
@@ -1466,8 +1491,8 @@ class Document(SourceNode):
                 names.add(task.name)
                 errors.try1(
                     (
-                        lambda task: lambda: task.typecheck(
-                            self._struct_types, check_quant=check_quant
+                        lambda task: (
+                            lambda: task.typecheck(self._struct_types, check_quant=check_quant)
                         )
                     )(task)
                 )
@@ -1752,11 +1777,13 @@ def _typecheck_workflow_body(
                     _translate_struct_mismatch(
                         doc,
                         (
-                            lambda child, type_env: lambda: child.typecheck(
-                                type_env,
-                                stdlib,
-                                check_quant=check_quant,
-                                struct_types=doc._struct_types,
+                            lambda child, type_env: (
+                                lambda: child.typecheck(
+                                    type_env,
+                                    stdlib,
+                                    check_quant=check_quant,
+                                    struct_types=doc._struct_types,
+                                )
                             )
                         )(child, self._type_env),
                     )
@@ -1767,8 +1794,10 @@ def _typecheck_workflow_body(
                         _translate_struct_mismatch(
                             doc,
                             (
-                                lambda child, type_env: lambda: child.typecheck_input(
-                                    doc._struct_types, type_env, stdlib, check_quant=check_quant
+                                lambda child, type_env: (
+                                    lambda: child.typecheck_input(
+                                        doc._struct_types, type_env, stdlib, check_quant=check_quant
+                                    )
                                 )
                             )(child, self._type_env),
                         )
@@ -1782,8 +1811,10 @@ def _typecheck_workflow_body(
                         _translate_struct_mismatch(
                             doc,
                             (
-                                lambda child: lambda: _typecheck_workflow_body(
-                                    doc, stdlib, check_quant, child
+                                lambda child: (
+                                    lambda: _typecheck_workflow_body(
+                                        doc, stdlib, check_quant, child
+                                    )
                                 )
                             )(child),
                         )
@@ -1963,7 +1994,9 @@ def _import_structs(doc: Document):
             except KeyError:
                 pass
             if not existing:
-                st2 = StructTypeDef(imp.pos, name, st.members, imported=(imp.doc, st))
+                st2 = StructTypeDef(
+                    imp.pos, name, st.members, st.parameter_meta, st.meta, imported=(imp.doc, st)
+                )
                 doc.struct_typedefs = doc.struct_typedefs.bind(name, st2)
 
 

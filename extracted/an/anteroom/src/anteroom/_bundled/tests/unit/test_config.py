@@ -46,6 +46,31 @@ class TestLoadConfig:
         assert config.app.host == "0.0.0.0"
         assert config.app.port == 9090
 
+    def test_loads_project_link_config(self, tmp_path: Path) -> None:
+        cfg_file = _write_config(
+            tmp_path,
+            {
+                "ai": {
+                    "base_url": "https://api.example.com",
+                    "api_key": "sk-test-key",
+                    "model": "gpt-3.5-turbo",
+                },
+                "project": {
+                    "profile": "neutral",
+                    "name": "Internal Gateway",
+                    "repo_label": "gitlab.internal/platform/gateway",
+                    "repo_url": "https://gitlab.internal/platform/gateway",
+                    "issue_tracking": {"enabled": False},
+                },
+            },
+        )
+
+        config, _ = load_config(cfg_file)
+
+        assert config.project.name == "Internal Gateway"
+        assert config.project.repo_label == "gitlab.internal/platform/gateway"
+        assert config.project.issue_tracking.enabled is False
+
     def test_raises_when_api_key_missing(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("AI_CHAT_API_KEY", raising=False)
         monkeypatch.delenv("AI_CHAT_API_KEY_COMMAND", raising=False)

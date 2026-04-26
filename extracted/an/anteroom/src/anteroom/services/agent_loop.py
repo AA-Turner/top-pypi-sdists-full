@@ -16,8 +16,10 @@ from .compaction import (
     COMPACTION_MIN_MESSAGES,
     PROACTIVE_COMPACTION_MSG_THRESHOLD,
     PROACTIVE_COMPACTION_TOKEN_THRESHOLD,
+    CompactionResult,
     collapse_old_tool_results,
     drop_old_turn_groups,
+    logical_tail_boundary,
 )
 from .compaction import (
     compact_messages as _shared_compact_messages,
@@ -25,6 +27,7 @@ from .compaction import (
 from .context_trust import wrap_untrusted
 from .microcompact import microcompact as _microcompact
 from .token_budget import BudgetCheckResult, check_all_budgets
+from .token_estimator import RequestTokenBreakdown, estimate_request_tokens, request_breakdown_to_metadata
 from .tool_result_compact import compact_tool_output
 
 logger = logging.getLogger(__name__)
@@ -49,6 +52,7 @@ _DEFAULT_TOOL_TIMEOUT = 300  # 5 minutes hard cap per tool execution
 # with any external references.
 _PROACTIVE_COMPACTION_MSG_THRESHOLD = PROACTIVE_COMPACTION_MSG_THRESHOLD
 _PROACTIVE_COMPACTION_TOKEN_THRESHOLD = PROACTIVE_COMPACTION_TOKEN_THRESHOLD
+_COMPACT_PRESERVED_TAIL_METADATA = "compact_preserved_tail"
 
 
 def _humanize_tool_brief(tool_name: str, arguments: dict[str, Any]) -> str:
@@ -103,6 +107,125 @@ def _truncate_large_tool_outputs(
     return result.success
 
 
+def _compacted_history_state(messages: list[dict[str, Any]]) -> tuple[int, int]:
+    """Return ``(prefix_len, preserved_tail_len)`` for a compacted history.
+
+    Compacted histories start with ``metadata.compact_summary`` and may include
+    a boundary marker with ``metadata.compact_boundary`` immediately after the
+    summary.  The boundary marker records how many tail messages were preserved
+    at compaction time; those retained messages should not immediately count as
+    new history for the next proactive trigger.
+    """
+    if not messages:
+        return 0, 0
+
+    summary_metadata = messages[0].get("metadata") or {}
+    if not summary_metadata.get("compact_summary"):
+        return 0, 0
+
+    prefix_len = 1
+    preserved_tail_len = 0
+    if len(messages) > 1:
+        boundary_metadata = messages[1].get("metadata") or {}
+        if boundary_metadata.get("compact_boundary"):
+            prefix_len = 2
+            raw_preserved = boundary_metadata.get("preserved_count", 0)
+            if isinstance(raw_preserved, int):
+                preserved_tail_len = max(0, raw_preserved)
+
+    return prefix_len, preserved_tail_len
+
+
+def _mark_compacted_tail(messages: list[dict[str, Any]]) -> None:
+    """Mark preserved tail messages so future turns can count only new history."""
+    prefix_len, _preserved_tail_len = _compacted_history_state(messages)
+    if prefix_len == 0:
+        return
+    for msg in messages[prefix_len:]:
+        metadata = dict(msg.get("metadata") or {})
+        metadata[_COMPACT_PRESERVED_TAIL_METADATA] = True
+        msg["metadata"] = metadata
+
+
+def _new_history_since_compaction(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return messages appended after the existing compacted prefix/tail."""
+    prefix_len, preserved_tail_len = _compacted_history_state(messages)
+    if prefix_len == 0:
+        return messages
+    tail = messages[prefix_len:]
+    if any((msg.get("metadata") or {}).get(_COMPACT_PRESERVED_TAIL_METADATA) for msg in tail):
+        new_start = 0
+        while new_start < len(tail):
+            metadata = tail[new_start].get("metadata") or {}
+            if metadata.get(_COMPACT_PRESERVED_TAIL_METADATA):
+                new_start += 1
+                continue
+            if tail[new_start].get("role") == "tool" and new_start > 0:
+                new_start += 1
+                continue
+            break
+        return tail[new_start:]
+    return tail[preserved_tail_len:]
+
+
+def _proactive_compaction_phase(
+    messages: list[dict[str, Any]],
+    *,
+    request_breakdown: RequestTokenBreakdown,
+    summary_trigger_msg_count: int,
+    summary_trigger_token_count: int,
+) -> dict[str, Any] | None:
+    """Build proactive compaction phase metadata, or ``None`` if not needed."""
+    token_hit = request_breakdown.total >= summary_trigger_token_count
+    message_hit = len(messages) >= summary_trigger_msg_count
+    if not token_hit and not message_hit:
+        return None
+
+    from .token_estimator import count_message_tokens
+
+    prefix_len, _preserved_tail_len = _compacted_history_state(messages)
+    if prefix_len:
+        new_history = _new_history_since_compaction(messages)
+        new_token_estimate = count_message_tokens(new_history)
+        new_token_hit = new_token_estimate >= summary_trigger_token_count
+        new_message_hit = len(new_history) >= summary_trigger_msg_count
+        if not new_token_hit and not new_message_hit:
+            logger.debug(
+                "Skipping proactive compaction for already compacted history: "
+                "new_messages=%d threshold=%d new_tokens~%d threshold=%d",
+                len(new_history),
+                summary_trigger_msg_count,
+                new_token_estimate,
+                summary_trigger_token_count,
+            )
+            return None
+
+        token_hit = new_token_hit
+        message_hit = new_message_hit
+        message_count = len(new_history)
+    else:
+        message_count = len(messages)
+
+    reasons: list[str] = []
+    if token_hit:
+        reasons.append("token_threshold")
+    if message_hit:
+        reasons.append("message_count")
+
+    reason = "token_and_message_threshold" if len(reasons) == 2 else reasons[0]
+    return {
+        "phase": "compacting",
+        "reason": reason,
+        "reasons": reasons,
+        **request_breakdown_to_metadata(
+            request_breakdown,
+            token_threshold=summary_trigger_token_count,
+        ),
+        "message_count": message_count,
+        "message_threshold": summary_trigger_msg_count,
+    }
+
+
 def _coerce_tool_arguments(raw_arguments: Any) -> dict[str, Any]:
     """Normalize tool-call arguments to a dict."""
     if isinstance(raw_arguments, dict):
@@ -127,6 +250,9 @@ async def _compact_messages(
     rehydrate: bool = True,
     rehydrate_max_files: int = 20,
     rehydrate_max_errors: int = 5,
+    summary_max_completion_tokens: int = 1000,
+    summary_retry_max_attempts: int = 3,
+    summary_retry_drop_groups: int = 2,
     cancel_event: asyncio.Event | None = None,
 ) -> bool:
     """Summarize conversation history to reduce context size. Returns True on success.
@@ -146,25 +272,87 @@ async def _compact_messages(
     path used by live conversations so the compacted form survives
     ``/resume`` and web reload.
     """
-    from . import storage as _storage
-    from .compaction import _find_tail_boundary, persist_compacted_messages
-
-    # Pre-compute tail IDs from the stored conversation *before* the
-    # in-memory list is mutated.  We run the boundary algorithm on stored
-    # rows rather than ai_messages because stored rows carry the DB IDs we
-    # need for UPDATE + DELETE persistence.
+    # Pre-compute the persisted tail IDs from the same logical boundary that
+    # will mutate the runtime list below. Runtime and SQLite represent tool
+    # turns differently, so this must map by logical turn group rather than
+    # re-running the boundary algorithm over stored rows.
     tail_message_ids: list[str] = []
+    tail_mapping_aligned = True
+    tail_mapping_reason: str | None = None
     if db is not None and conversation_id is not None and preserve_tail > 0:
         try:
+            from . import storage as _storage
+
             stored_rows = _storage.list_messages(db, conversation_id)
-            stored_split = _find_tail_boundary(stored_rows, preserve_tail)
-            if stored_split > 0:
-                tail_message_ids = [r["id"] for r in stored_rows[stored_split:]]
+            boundary = logical_tail_boundary(messages, stored_rows, preserve_tail)
+            tail_message_ids = boundary.tail_message_ids
+            tail_mapping_aligned = boundary.aligned
+            tail_mapping_reason = boundary.reason
         except Exception:
+            tail_mapping_aligned = False
+            tail_mapping_reason = "tail_mapping_exception"
             logger.warning(
                 "Failed to compute stored tail IDs for persistence; compaction will run in-memory only",
                 exc_info=True,
             )
+
+    result = await _compact_messages_result(
+        ai_service,
+        messages,
+        preserve_tail=preserve_tail,
+        db=db,
+        conversation_id=conversation_id,
+        tail_message_ids=tail_message_ids,
+        tail_mapping_aligned=tail_mapping_aligned,
+        tail_mapping_reason=tail_mapping_reason,
+        rehydrate=rehydrate,
+        rehydrate_max_files=rehydrate_max_files,
+        rehydrate_max_errors=rehydrate_max_errors,
+        summary_max_completion_tokens=summary_max_completion_tokens,
+        summary_retry_max_attempts=summary_retry_max_attempts,
+        summary_retry_drop_groups=summary_retry_drop_groups,
+        cancel_event=cancel_event,
+    )
+    return result.success
+
+
+async def _compact_messages_result(
+    ai_service: AIService,
+    messages: list[dict[str, Any]],
+    *,
+    preserve_tail: int = 0,
+    db: Any | None = None,
+    conversation_id: str | None = None,
+    tail_message_ids: list[str] | None = None,
+    tail_mapping_aligned: bool = True,
+    tail_mapping_reason: str | None = None,
+    rehydrate: bool = True,
+    rehydrate_max_files: int = 20,
+    rehydrate_max_errors: int = 5,
+    summary_max_completion_tokens: int = 1000,
+    summary_retry_max_attempts: int = 3,
+    summary_retry_drop_groups: int = 2,
+    cancel_event: asyncio.Event | None = None,
+) -> CompactionResult:
+    """Summarize conversation history and return result metadata."""
+    if tail_message_ids is None:
+        tail_message_ids = []
+        if db is not None and conversation_id is not None and preserve_tail > 0:
+            try:
+                from . import storage as _storage
+                from .compaction import _find_tail_boundary
+
+                stored_rows = _storage.list_messages(db, conversation_id)
+                stored_split = _find_tail_boundary(stored_rows, preserve_tail)
+                if stored_split > 0:
+                    tail_message_ids = [r["id"] for r in stored_rows[stored_split:]]
+            except Exception:
+                tail_mapping_aligned = False
+                tail_mapping_reason = "tail_mapping_exception"
+                logger.warning(
+                    "Failed to compute stored tail IDs for persistence; compaction will run in-memory only",
+                    exc_info=True,
+                )
 
     result = await _shared_compact_messages(
         ai_service,
@@ -175,11 +363,20 @@ async def _compact_messages(
         rehydrate=rehydrate,
         rehydrate_max_files=rehydrate_max_files,
         rehydrate_max_errors=rehydrate_max_errors,
+        summary_max_completion_tokens=summary_max_completion_tokens,
+        summary_retry_max_attempts=summary_retry_max_attempts,
+        summary_retry_drop_groups=summary_retry_drop_groups,
         cancel_event=cancel_event,
     )
 
-    if result.success and db is not None and conversation_id is not None:
+    if result.success:
+        _mark_compacted_tail(messages)
+
+    if result.success and db is not None and conversation_id is not None and tail_mapping_aligned:
         try:
+            from . import storage as _storage
+            from .compaction import persist_compacted_messages
+
             summary_msg = messages[0] if messages else None
             boundary_msg = (
                 messages[1] if len(messages) > 1 and messages[1].get("metadata", {}).get("compact_boundary") else None
@@ -190,15 +387,26 @@ async def _compact_messages(
                     conversation_id,
                     summary_msg=summary_msg,
                     boundary_msg=boundary_msg,
-                    tail_message_ids=tail_message_ids,
+                    tail_message_ids=tail_message_ids or [],
                 )
+                for msg_id in tail_message_ids or []:
+                    _storage.merge_message_metadata(
+                        db,
+                        msg_id,
+                        {_COMPACT_PRESERVED_TAIL_METADATA: True},
+                    )
         except Exception:
             logger.warning(
                 "Failed to persist compacted conversation; in-memory form is intact",
                 exc_info=True,
             )
+    elif result.success and db is not None and conversation_id is not None:
+        logger.warning(
+            "Skipping compacted conversation persistence because runtime/storage tail mapping failed: %s",
+            tail_mapping_reason or "unknown",
+        )
 
-    return result.success
+    return result
 
 
 async def _execute_tool(
@@ -256,39 +464,6 @@ _NARRATION_PROMPT = (
 )
 
 
-def _has_compacted_prefix(messages: list[dict[str, Any]]) -> bool:
-    """Return True when history starts with a compact summary shape."""
-    if not messages:
-        return False
-    return bool(messages[0].get("metadata", {}).get("compact_summary"))
-
-
-def _compaction_prefix_len(messages: list[dict[str, Any]]) -> int:
-    """Length of the leading compact summary/boundary prefix, if present."""
-    if not _has_compacted_prefix(messages):
-        return 0
-    if len(messages) > 1 and messages[1].get("metadata", {}).get("compact_boundary"):
-        return 2
-    return 1
-
-
-def _enough_new_history_since_compaction(messages: list[dict[str, Any]], *, preserve_tail: int) -> bool:
-    """Avoid compacting a freshly compacted history again on every turn.
-
-    Boundary compaction cannot shrink below summary + boundary + preserved
-    tail. If the configured message threshold is at or below that floor,
-    total message count can immediately re-trigger compaction after each
-    user/assistant pair. Require at least ``COMPACTION_MIN_MESSAGES`` messages
-    beyond the preserved tail before re-compacting an already compacted shape.
-    """
-    prefix_len = _compaction_prefix_len(messages)
-    if prefix_len == 0:
-        return True
-    preserved_tail = max(0, preserve_tail)
-    compactable_since_last_summary = len(messages) - prefix_len - preserved_tail
-    return compactable_since_last_summary >= COMPACTION_MIN_MESSAGES
-
-
 async def run_agent_loop(
     ai_service: AIService,
     messages: list[dict[str, Any]],
@@ -316,9 +491,16 @@ async def run_agent_loop(
     compact_rehydrate_max_files: int = 20,
     compact_rehydrate_max_errors: int = 5,
     microcompact_enabled: bool = True,
+    historical_tool_collapse_enabled: bool = True,
+    historical_tool_collapse_trigger_token_count: int = 80_000,
+    historical_tool_collapse_keep_recent_groups: int = 6,
+    historical_tool_collapse_compact_chars: int = 1_000,
     summary_trigger_msg_count: int = PROACTIVE_COMPACTION_MSG_THRESHOLD,
     summary_trigger_token_count: int = PROACTIVE_COMPACTION_TOKEN_THRESHOLD,
     reactive_max_attempts: int = 4,
+    summary_max_completion_tokens: int = 1000,
+    summary_retry_max_attempts: int = 3,
+    summary_retry_drop_groups: int = 2,
     db: Any | None = None,
     conversation_id: str | None = None,
 ) -> AsyncGenerator[AgentEvent, None]:
@@ -433,6 +615,7 @@ async def run_agent_loop(
                 messages,
                 tool_output_max_chars=tool_output_max_chars,
                 min_messages=COMPACTION_MIN_MESSAGES,
+                strategies=["oversized_tool_outputs"],
             )
             if _mc.success:
                 logger.info(
@@ -445,25 +628,91 @@ async def run_agent_loop(
                     data={"content": "\n\n*Trimmed oversized tool outputs to stay within context limits...*\n\n"},
                 )
 
-        # Proactive compaction: compact before hitting the API context limit (#1339)
-        # Token-based threshold is primary; message-count is fallback for when
-        # the token estimate is unavailable or the loop lacks system prompt context.
-        # Thresholds config-driven since #1266.
-        from .token_estimator import count_message_tokens
-
-        _loop_token_estimate = count_message_tokens(messages)
-        _should_compact = (
-            _loop_token_estimate >= summary_trigger_token_count or len(messages) >= summary_trigger_msg_count
-        ) and _enough_new_history_since_compaction(messages, preserve_tail=compact_preserve_tail)
-        if _should_compact:
+        # Proactive compaction: compact before hitting the API context limit (#1339).
+        # Token and message-count thresholds are independent triggers, and the
+        # phase payload below tells UIs which threshold fired.
+        # Thresholds are config-driven since #1266.
+        _ai_config = getattr(ai_service, "config", None)
+        _raw_system_prompt = getattr(_ai_config, "system_prompt", "") if _ai_config is not None else ""
+        _system_prompt = _raw_system_prompt if isinstance(_raw_system_prompt, str) else ""
+        _loop_request_breakdown = estimate_request_tokens(
+            messages=messages,
+            system_prompt=_system_prompt,
+            extra_system_prompt=extra_system_prompt or "",
+            tool_schemas=tools_openai,
+        )
+        if microcompact_enabled and historical_tool_collapse_enabled:
+            _historical_mc = _microcompact(
+                messages,
+                tool_output_max_chars=tool_output_max_chars,
+                min_messages=COMPACTION_MIN_MESSAGES,
+                strategies=["historical_tool_results"],
+                historical_tool_collapse_enabled=historical_tool_collapse_enabled,
+                estimated_tokens=_loop_request_breakdown.total,
+                historical_tool_collapse_trigger_token_count=historical_tool_collapse_trigger_token_count,
+                historical_tool_collapse_keep_recent_groups=historical_tool_collapse_keep_recent_groups,
+                historical_tool_collapse_compact_chars=historical_tool_collapse_compact_chars,
+            )
+            if _historical_mc.success:
+                detail = _historical_mc.metadata.get("historical_tool_results", {})
+                logger.info(
+                    "Proactive historical tool-result collapse applied: modified=%d bytes_saved=%d",
+                    detail.get("modified_count", 0),
+                    _historical_mc.bytes_saved,
+                )
+                phase_data = {
+                    "phase": "compacting",
+                    "reason": "historical_tool_results",
+                    "reasons": ["historical_tool_results"],
+                    "strategy": "historical_tool_results",
+                    "bytes_saved": _historical_mc.bytes_saved,
+                    "modified_count": detail.get("modified_count", 0),
+                    "keep_recent_groups": detail.get(
+                        "keep_recent_groups",
+                        historical_tool_collapse_keep_recent_groups,
+                    ),
+                    "compact_chars": detail.get("compact_chars", historical_tool_collapse_compact_chars),
+                    "estimated_tokens": detail.get("estimated_tokens", _loop_request_breakdown.total),
+                    "token_threshold": historical_tool_collapse_trigger_token_count,
+                }
+                yield AgentEvent(kind="phase", data=phase_data)
+                yield AgentEvent(
+                    kind="token",
+                    data={"content": "\n\n*Collapsed older tool results to reduce context pressure...*\n\n"},
+                )
+                yield AgentEvent(
+                    kind="compaction",
+                    data={
+                        **phase_data,
+                        "new_message_count": len(messages),
+                        "in_memory_only": True,
+                    },
+                )
+                _loop_request_breakdown = estimate_request_tokens(
+                    messages=messages,
+                    system_prompt=_system_prompt,
+                    extra_system_prompt=extra_system_prompt or "",
+                    tool_schemas=tools_openai,
+                )
+        _compaction_phase = _proactive_compaction_phase(
+            messages,
+            request_breakdown=_loop_request_breakdown,
+            summary_trigger_msg_count=summary_trigger_msg_count,
+            summary_trigger_token_count=summary_trigger_token_count,
+        )
+        if _compaction_phase is not None:
             logger.info(
-                "Proactive compaction triggered: ~%d tokens, %d messages",
-                _loop_token_estimate,
-                len(messages),
+                "Proactive compaction triggered: reason=%s ~%d tokens, %d messages "
+                "(thresholds: %d tokens, %d messages)",
+                _compaction_phase["reason"],
+                _compaction_phase["estimated_tokens"],
+                _compaction_phase["message_count"],
+                summary_trigger_token_count,
+                summary_trigger_msg_count,
             )
             yield AgentEvent(kind="thinking", data={})
-            yield AgentEvent(kind="phase", data={"phase": "compacting"})
-            if await _compact_messages(
+            yield AgentEvent(kind="phase", data=_compaction_phase)
+            _compact_result = await _compact_messages_result(
                 ai_service,
                 messages,
                 preserve_tail=compact_preserve_tail,
@@ -472,9 +721,63 @@ async def run_agent_loop(
                 rehydrate=compact_rehydrate,
                 rehydrate_max_files=compact_rehydrate_max_files,
                 rehydrate_max_errors=compact_rehydrate_max_errors,
+                summary_max_completion_tokens=summary_max_completion_tokens,
+                summary_retry_max_attempts=summary_retry_max_attempts,
+                summary_retry_drop_groups=summary_retry_drop_groups,
                 cancel_event=cancel_event,
-            ):
-                yield AgentEvent(kind="compaction", data={"new_message_count": len(messages)})
+            )
+            if _compact_result.retries:
+                yield AgentEvent(
+                    kind="phase",
+                    data={
+                        "phase": "compacting",
+                        "reason": "compaction_prompt_too_long",
+                        "attempt": _compact_result.attempts,
+                        "max_attempts": summary_retry_max_attempts,
+                        "dropped_messages": _compact_result.reduced_message_count,
+                    },
+                )
+                yield AgentEvent(
+                    kind="token",
+                    data={
+                        "content": (
+                            "\n\n*Compaction summary prompt was too long — dropped older safe turns and retried...*\n\n"
+                        )
+                    },
+                )
+            if _compact_result.success:
+                yield AgentEvent(
+                    kind="compaction",
+                    data={
+                        "new_message_count": len(messages),
+                        "reason": _compaction_phase["reason"],
+                        "estimated_tokens": _compaction_phase["estimated_tokens"],
+                        "message_tokens": _compaction_phase["message_tokens"],
+                        "system_prompt_tokens": _compaction_phase["system_prompt_tokens"],
+                        "tool_schema_tokens": _compaction_phase["tool_schema_tokens"],
+                        "token_threshold": summary_trigger_token_count,
+                        "message_count": _compaction_phase["message_count"],
+                        "message_threshold": summary_trigger_msg_count,
+                        "attempts": _compact_result.attempts,
+                        "retries": _compact_result.retries,
+                        "dropped_messages": _compact_result.reduced_message_count,
+                    },
+                )
+            elif _compact_result.failure_code:
+                yield AgentEvent(
+                    kind="error",
+                    data={
+                        "message": (
+                            "Compaction failed while reducing conversation history. "
+                            "Original history was left unchanged."
+                        ),
+                        "code": _compact_result.failure_code,
+                        "retryable": _compact_result.failure_code == "context_length_exceeded",
+                        "attempts": _compact_result.attempts,
+                        "dropped_messages": _compact_result.reduced_message_count,
+                    },
+                )
+                return
 
         # Per-iteration injection checkpoint (#889): drain mid-run
         # workflow inputs from `injection_queue` BEFORE the next LLM call.
@@ -508,6 +811,7 @@ async def run_agent_loop(
         _line_run = 0
         _ai_call_start = time.monotonic()
         _first_token_logged = False
+        _first_response_elapsed: float | None = None
         logger.debug("agent_loop ai_call_start iteration=%d", iteration)
         async for event in ai_service.stream_chat(
             messages,
@@ -523,6 +827,7 @@ async def run_agent_loop(
                     etype,
                     time.monotonic() - _ai_call_start,
                 )
+                _first_response_elapsed = time.monotonic() - _ai_call_start
                 _first_token_logged = True
             if etype == "token":
                 chunk = event["data"]["content"]
@@ -550,7 +855,10 @@ async def run_agent_loop(
                         _dlp_blocked = True  # reuse flag to skip final scan
                         break
                 assistant_content += chunk
-                yield AgentEvent(kind="token", data={"content": chunk})
+                _token_data: dict[str, Any] = {"content": chunk, "iteration": iteration}
+                if _first_response_elapsed is not None:
+                    _token_data["first_response_elapsed_seconds"] = _first_response_elapsed
+                yield AgentEvent(kind="token", data=_token_data)
                 # Inline line repetition detection: check as lines complete
                 if max_line_repeats > 0:
                     _line_buf += chunk
@@ -576,14 +884,16 @@ async def run_agent_loop(
                         "id": event["data"]["id"],
                         "tool_name": event["data"]["function_name"],
                         "arguments": event["data"]["arguments"],
+                        "iteration": iteration,
+                        "first_response_elapsed_seconds": _first_response_elapsed,
                     },
                 )
             elif etype == "tool_call_args_delta":
-                yield AgentEvent(kind="tool_call_args_delta", data=event["data"])
+                yield AgentEvent(kind="tool_call_args_delta", data={**event["data"], "iteration": iteration})
             elif etype == "phase":
-                yield AgentEvent(kind="phase", data=event["data"])
+                yield AgentEvent(kind="phase", data={**event["data"], "iteration": iteration})
             elif etype == "retrying":
-                yield AgentEvent(kind="retrying", data=event["data"])
+                yield AgentEvent(kind="retrying", data={**event["data"], "iteration": iteration})
             elif etype == "usage":
                 request_tokens += event["data"].get("total_tokens", 0)
                 yield AgentEvent(kind="usage", data=event["data"])
@@ -594,7 +904,7 @@ async def run_agent_loop(
                 ):
                     got_context_error = True
                     break
-                yield AgentEvent(kind="error", data=event["data"])
+                yield AgentEvent(kind="error", data={**event["data"], "iteration": iteration})
                 return
             elif etype == "done":
                 break
@@ -668,10 +978,18 @@ async def run_agent_loop(
 
             # Strategy 4: full LLM compaction (last resort).
             yield AgentEvent(
+                kind="phase",
+                data={
+                    "phase": "compacting",
+                    "reason": "context_error_recovery",
+                    "reasons": ["context_error_recovery"],
+                },
+            )
+            yield AgentEvent(
                 kind="token",
                 data={"content": "\n\n*Context limit reached — compacting conversation and retrying...*\n\n"},
             )
-            if await _compact_messages(
+            _compact_result = await _compact_messages_result(
                 ai_service,
                 messages,
                 preserve_tail=compact_preserve_tail,
@@ -680,8 +998,31 @@ async def run_agent_loop(
                 rehydrate=compact_rehydrate,
                 rehydrate_max_files=compact_rehydrate_max_files,
                 rehydrate_max_errors=compact_rehydrate_max_errors,
+                summary_max_completion_tokens=summary_max_completion_tokens,
+                summary_retry_max_attempts=summary_retry_max_attempts,
+                summary_retry_drop_groups=summary_retry_drop_groups,
                 cancel_event=cancel_event,
-            ):
+            )
+            if _compact_result.retries:
+                yield AgentEvent(
+                    kind="phase",
+                    data={
+                        "phase": "compacting",
+                        "reason": "compaction_prompt_too_long",
+                        "attempt": _compact_result.attempts,
+                        "max_attempts": summary_retry_max_attempts,
+                        "dropped_messages": _compact_result.reduced_message_count,
+                    },
+                )
+                yield AgentEvent(
+                    kind="token",
+                    data={
+                        "content": (
+                            "\n\n*Compaction summary prompt was too long — dropped older safe turns and retried...*\n\n"
+                        )
+                    },
+                )
+            if _compact_result.success:
                 continue
 
             # Cancel fired during Strategy 4's LLM summary (#1266 senior
@@ -701,8 +1042,11 @@ async def run_agent_loop(
                     "message": (
                         "Conversation too long for model context window. "
                         "Recovery failed after all strategies. "
-                        "Please start a new conversation."
-                    )
+                        "Original history was left unchanged. Please start a new conversation."
+                    ),
+                    "code": _compact_result.failure_code or "context_recovery_failed",
+                    "attempts": _compact_result.attempts,
+                    "dropped_messages": _compact_result.reduced_message_count,
                 },
             )
             return
@@ -772,14 +1116,14 @@ async def run_agent_loop(
                             kind="output_filter_warning",
                             data={"matches": [m.rule_name for m in of_result.matches]},
                         )
-                yield AgentEvent(kind="assistant_message", data={"content": assistant_content})
+                yield AgentEvent(kind="assistant_message", data={"content": assistant_content, "iteration": iteration})
             # Append the final assistant response to the conversation history so
             # subsequent turns (including queued messages) see the complete context.
             # Tool-call iterations already append to messages above; this covers
             # the final no-tool-call response that was previously missing.
             if assistant_content:
                 messages.append({"role": "assistant", "content": assistant_content})
-            yield AgentEvent(kind="done", data={})
+            yield AgentEvent(kind="done", data={"stop_reason": "completed", "iteration": iteration})
 
             # Clear skill policy from the completed turn before checking
             # the queue — prevents leaking into a non-skill follow-up.
@@ -828,7 +1172,7 @@ async def run_agent_loop(
             len(assistant_content),
             time.monotonic() - _ai_call_start,
         )
-        yield AgentEvent(kind="assistant_message", data={"content": assistant_content})
+        yield AgentEvent(kind="assistant_message", data={"content": assistant_content, "iteration": iteration})
         messages.append(
             {
                 "role": "assistant",
@@ -858,6 +1202,7 @@ async def run_agent_loop(
                 "tool_summaries": [
                     _humanize_tool_brief(tc["function_name"], tc.get("arguments", {})) for tc in tool_calls_pending
                 ],
+                "iteration": iteration,
             },
         )
 
@@ -880,6 +1225,8 @@ async def run_agent_loop(
                         "tool_name": tc["function_name"],
                         "output": cancelled_result,
                         "status": "cancelled",
+                        "iteration": iteration,
+                        "execution_elapsed_seconds": time.monotonic() - _tools_start,
                     },
                 )
                 messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(cancelled_result)})
@@ -905,13 +1252,21 @@ async def run_agent_loop(
                             "tool_name": tc["function_name"],
                             "tool_args": tc.get("arguments", {}),
                             "reason": "approval_required",
+                            "iteration": iteration,
                         },
                     )
                     return
 
                 yield AgentEvent(
                     kind="tool_call_end",
-                    data={"id": tc["id"], "tool_name": tc["function_name"], "output": result, "status": tool_status},
+                    data={
+                        "id": tc["id"],
+                        "tool_name": tc["function_name"],
+                        "output": result,
+                        "status": tool_status,
+                        "iteration": iteration,
+                        "execution_elapsed_seconds": time.monotonic() - _tools_start,
+                    },
                 )
                 internal_keys = {
                     "_approval_decision",
@@ -979,7 +1334,14 @@ async def run_agent_loop(
                 tc, result, tool_status = await coro
                 yield AgentEvent(
                     kind="tool_call_end",
-                    data={"id": tc["id"], "tool_name": tc["function_name"], "output": result, "status": tool_status},
+                    data={
+                        "id": tc["id"],
+                        "tool_name": tc["function_name"],
+                        "output": result,
+                        "status": tool_status,
+                        "iteration": iteration,
+                        "execution_elapsed_seconds": time.monotonic() - _tools_start,
+                    },
                 )
                 # Strip internal metadata before sending to the LLM
                 # _approval_decision: safety gate audit field
@@ -1051,7 +1413,7 @@ async def run_agent_loop(
             )
 
         if cancel_event and cancel_event.is_set():
-            yield AgentEvent(kind="done", data={})
+            yield AgentEvent(kind="done", data={"stop_reason": "cancelled", "iteration": iteration})
             return
 
         # Background task turn-yield (#1311): if any tool result had
@@ -1060,7 +1422,7 @@ async def run_agent_loop(
         if _end_turn_requested:
             logger.debug("_end_turn requested — yielding turn to queue checkpoint")
             active_skill_policy.set(None)
-            yield AgentEvent(kind="done", data={})
+            yield AgentEvent(kind="done", data={"stop_reason": "yielded_to_queue", "iteration": iteration})
             if message_queue is not None:
                 try:
                     queued_msg = message_queue.get_nowait()
@@ -1086,7 +1448,7 @@ async def run_agent_loop(
             and not (cancel_event and cancel_event.is_set())
         ):
             auto_plan_suggested = True
-            yield AgentEvent(kind="auto_plan_suggest", data={"tool_calls": total_tool_calls})
+            yield AgentEvent(kind="auto_plan_suggest", data={"tool_calls": total_tool_calls, "iteration": iteration})
 
         # Enforce narration cadence: inject an ephemeral prompt to force a progress update.
         # The injected message is removed from history immediately after the narration response
@@ -1107,7 +1469,7 @@ async def run_agent_loop(
                     extra_system_prompt=extra_system_prompt,
                 ):
                     if event["event"] == "token":
-                        yield AgentEvent(kind="token", data=event["data"])
+                        yield AgentEvent(kind="token", data={**event["data"], "iteration": iteration})
                     elif event["event"] in ("done", "error"):
                         break
             except Exception:
@@ -1119,4 +1481,11 @@ async def run_agent_loop(
 
         assistant_content = ""
 
-    yield AgentEvent(kind="error", data={"message": f"Max iterations ({max_iterations}) reached"})
+    yield AgentEvent(
+        kind="error",
+        data={
+            "message": f"Max iterations ({max_iterations}) reached",
+            "code": "max_iterations",
+            "iteration": iteration,
+        },
+    )

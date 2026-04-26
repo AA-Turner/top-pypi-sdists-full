@@ -40,7 +40,7 @@ dependencies = [
     "python-dotenv>=1.2.2",  # https://github.com/zauberzeug/nicegui/security/dependabot/250, for uvicorn[standard]
     "tinycss2>=1.4.0,<2",
 ]
-version = "3.11.0"
+version = "3.11.1"
 
 [project.optional-dependencies]
 # NOTE: These dependencies repeat in the dependency-groups section below.

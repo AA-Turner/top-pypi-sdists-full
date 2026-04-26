@@ -2527,16 +2527,17 @@ def _load_eval_missions(module_path: str) -> list[CoGameMission]:
     return list(missions)
 
 
-def _load_diagnose_missions(mission_set: str) -> list[CoGameMission]:
+def load_diagnose_missions(mission_set: str) -> list[CoGameMission]:
     if mission_set == "all":
+        from cogsguard.evals.cvc_evals import CVC_EVAL_MISSIONS  # noqa: PLC0415
+        from cogsguard.evals.diagnostic_evals import DIAGNOSTIC_EVALS  # noqa: PLC0415
+
         from cogames.cli.mission import get_all_missions_list  # noqa: PLC0415
-        from cogames.games.cogs_vs_clips.evals.cvc_evals import CVC_EVAL_MISSIONS  # noqa: PLC0415
-        from cogames.games.cogs_vs_clips.evals.diagnostic_evals import DIAGNOSTIC_EVALS  # noqa: PLC0415
 
         missions_list: list[CoGameMission] = []
         missions_list.extend(CVC_EVAL_MISSIONS)
-        missions_list.extend(_load_eval_missions("cogames.games.cogs_vs_clips.evals.integrated_evals"))
-        missions_list.extend(_load_eval_missions("cogames.games.cogs_vs_clips.evals.spanning_evals"))
+        missions_list.extend(_load_eval_missions("cogsguard.evals.integrated_evals"))
+        missions_list.extend(_load_eval_missions("cogsguard.evals.spanning_evals"))
         missions_list.extend([mission_cls() for mission_cls in DIAGNOSTIC_EVALS])  # type: ignore[call-arg]
         eval_mission_names = {mission.name for mission in missions_list}
         for mission in get_all_missions_list():
@@ -2545,43 +2546,43 @@ def _load_diagnose_missions(mission_set: str) -> list[CoGameMission]:
         return missions_list
 
     if mission_set == "cvc_evals":
-        from cogames.games.cogs_vs_clips.evals.cvc_evals import CVC_EVAL_MISSIONS  # noqa: PLC0415
+        from cogsguard.evals.cvc_evals import CVC_EVAL_MISSIONS  # noqa: PLC0415
 
         return list(CVC_EVAL_MISSIONS)
 
     if mission_set == "diagnostic_evals":
-        from cogames.games.cogs_vs_clips.evals.diagnostic_evals import DIAGNOSTIC_EVALS  # noqa: PLC0415
+        from cogsguard.evals.diagnostic_evals import DIAGNOSTIC_EVALS  # noqa: PLC0415
 
         return [mission_cls() for mission_cls in DIAGNOSTIC_EVALS]  # type: ignore[call-arg]
 
     if mission_set == "tournament":
-        from cogames.games.cogs_vs_clips.evals.diagnostic_evals import DIAGNOSTIC_EVALS  # noqa: PLC0415
+        from cogsguard.evals.diagnostic_evals import DIAGNOSTIC_EVALS  # noqa: PLC0415
 
         missions_list = []
-        missions_list.extend(_load_eval_missions("cogames.games.cogs_vs_clips.evals.integrated_evals"))
+        missions_list.extend(_load_eval_missions("cogsguard.evals.integrated_evals"))
         missions_list.extend([mission_cls() for mission_cls in DIAGNOSTIC_EVALS])  # type: ignore[call-arg]
         return missions_list
 
     if mission_set == "integrated_evals":
-        return _load_eval_missions("cogames.games.cogs_vs_clips.evals.integrated_evals")
+        return _load_eval_missions("cogsguard.evals.integrated_evals")
 
     if mission_set == "spanning_evals":
-        return _load_eval_missions("cogames.games.cogs_vs_clips.evals.spanning_evals")
+        return _load_eval_missions("cogsguard.evals.spanning_evals")
 
     if mission_set == "role_specific_evals":
-        return _load_eval_missions("cogames.games.cogs_vs_clips.evals.role_specific_evals")
+        return _load_eval_missions("cogsguard.evals.role_specific_evals")
 
     if mission_set == "cognitive_substrate_evals":
-        return _load_eval_missions("cogames.games.cogs_vs_clips.evals.cognitive_substrate_evals")
+        return _load_eval_missions("cogsguard.evals.cognitive_substrate_evals")
 
     if mission_set == "cognitive_substrate_memory":
-        return _load_eval_missions("cogames.games.cogs_vs_clips.evals.cognitive_substrate.memory")
+        return _load_eval_missions("cogsguard.evals.cognitive_substrate.memory")
 
     if mission_set == "cognitive_substrate_exploration":
-        return _load_eval_missions("cogames.games.cogs_vs_clips.evals.cognitive_substrate.exploration")
+        return _load_eval_missions("cogsguard.evals.cognitive_substrate.exploration")
 
     if mission_set == "cognitive_substrate_planning":
-        return _load_eval_missions("cogames.games.cogs_vs_clips.evals.cognitive_substrate.planning")
+        return _load_eval_missions("cogsguard.evals.cognitive_substrate.planning")
 
     raise ValueError(f"Unknown mission set: {mission_set}")
 
@@ -2611,9 +2612,7 @@ def _cogs_for_mission(mission: CoGameMission, cogs_list: list[int], respect_cogs
 
 
 def _build_diagnose_case(mission: CoGameMission, num_cogs: int, steps: int) -> DiagnoseCase:
-    from cogames.cli.mission import apply_cogs_override  # noqa: PLC0415
-
-    mission_with_cogs = apply_cogs_override(mission, num_cogs)
+    mission_with_cogs = mission.with_cogs(num_cogs)
     env_cfg = mission_with_cogs.make_env()
     env_cfg.game.max_steps = steps
     name = f"{mission.full_name()} (cogs={num_cogs})"
@@ -2632,7 +2631,7 @@ def _build_diagnose_cases(
     respect_cogs_list = cogs is not None
     cases: list[DiagnoseCase] = []
 
-    missions = _load_diagnose_missions(mission_set)
+    missions = load_diagnose_missions(mission_set)
     for mission in missions:
         if not _matches_experiment(mission.name, experiment_filters):
             continue

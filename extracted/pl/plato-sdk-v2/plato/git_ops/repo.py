@@ -82,6 +82,30 @@ def status_short(repo_path: str) -> GitOpResult:
 
 def auto_commit(repo_path: str, commit_message: str) -> GitOpResult:
     repo = _repo(repo_path)
+    # Evict already-tracked paths that match the current .gitignore.
+    # ``git add -A`` respects .gitignore for *new* paths but does NOT
+    # un-stage paths that were already committed in a prior session.
+    # When a workspace is restored from a checkpoint that committed
+    # build artifacts (e.g. ``web/.next-3000/``, ``.runtime/``) and the
+    # gitignore is later broadened to exclude them, every auto-sync
+    # keeps committing modifications to those tracked files. List the
+    # offenders with ``ls-files -ci --exclude-standard`` (cached AND
+    # ignored) and ``rm --cached`` them so subsequent ``add -A`` writes
+    # a clean index.
+    try:
+        ignored_tracked = repo.git.ls_files("-ci", "--exclude-standard", "-z").split("\x00")
+        ignored_tracked = [p for p in ignored_tracked if p]
+        if ignored_tracked:
+            # Pass with --ignore-unmatch in case any path raced and is
+            # already gone, and cap the arg list to avoid blowing argv
+            # on pathological workspaces (10k+ entries).
+            for chunk_start in range(0, len(ignored_tracked), 200):
+                chunk = ignored_tracked[chunk_start : chunk_start + 200]
+                repo.git.rm("-r", "--cached", "--ignore-unmatch", "--", *chunk)
+    except GitCommandError:
+        # Don't block auto_commit on eviction failures — proceed with
+        # add -A and let the worst case be a single sticky tracked path.
+        pass
     repo.git.add(A=True)
     if repo.is_dirty(index=True, working_tree=False, untracked_files=True):
         # Build a descriptive commit message from the staged diff

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django_components"
-version = "0.148.0"
+version = "0.149.0"
 requires-python = ">=3.10, <4.0"
 description = "A way to create simple reusable template components in Django."
 keywords = ["django", "components", "css", "js", "html"]
@@ -52,6 +52,7 @@ dev = [
     "django-template-partials",
     "tox",
     "pytest",
+    "pytest-xdist",
     "pytest-django",
     "pytest-asyncio==1.3.0",
     "syrupy",
@@ -69,7 +70,7 @@ dev = [
     "asv",
     # NOTE: pin virtualenv to <20.31 until asv fixes integration
     # See https://github.com/airspeed-velocity/asv/issues/1484
-    "virtualenv==20.35.4",
+    "virtualenv==21.2.4",
     "typing-extensions>=4.12.2",
     "pathspec",
     "PyGithub",
@@ -80,6 +81,7 @@ dev = [
 ci = [
     "tox",
     "tox-gh-actions",
+    "pytest-xdist",
     "playwright",
     "requests",
     "types-requests",
@@ -87,7 +89,7 @@ ci = [
     "asv",
     # NOTE: pin virtualenv to <20.31 until asv fixes integration
     # See https://github.com/airspeed-velocity/asv/issues/1484
-    "virtualenv==20.35.4",
+    "virtualenv==21.2.4",
     "pytest-asyncio",
     "pytest-django",
     "typing-extensions>=4.12.2",
@@ -113,7 +115,9 @@ docs = [
     "mkdocstrings",
     "mkdocstrings-python",
     "pymdown-extensions",
-    "pygments",
+    # Pygments 2.20 breaks mkdocstrings signature rendering by rejecting the
+    # None filename value passed through pymdownx.highlight.
+    "pygments<2.20",
     "pygments-djc",
     "django>=4.2",
     "djc-core>=1.3.0",
@@ -136,6 +140,10 @@ namespaces = false
 [tool.pytest.ini_options]
 testpaths = ["tests", "docs/examples"]
 asyncio_mode = "auto"
+markers = [
+    "e2e: browser-based end-to-end tests that need the Django test server",
+    "benchmark_snapshot: large benchmark-render snapshot tests",
+]
 
 ###########################################
 # FORMATTING & TYPE-CHECKING TOOLS

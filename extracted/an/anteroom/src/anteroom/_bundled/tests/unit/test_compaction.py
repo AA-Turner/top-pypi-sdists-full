@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 
 from anteroom.services.agent_loop import _compact_messages as _agent_loop_compact
+from anteroom.services.ai_service import CompletionResult
 from anteroom.services.compaction import (
     AGENT_LOOP_CONTENT_TEMPLATE,
     COMPACTION_MIN_MESSAGES,
@@ -18,6 +20,7 @@ from anteroom.services.compaction import (
     _strip_session_state,
     build_compaction_history,
     collapse_old_tool_results,
+    collapse_old_tool_results_details,
     compact_messages,
     drop_old_turn_groups,
     extract_rehydration_state,
@@ -41,6 +44,22 @@ def _mock_ai_service(summary_text: str = "compacted summary") -> Any:
     svc = AsyncMock()
     svc.complete = AsyncMock(return_value=summary_text)
     return svc
+
+
+class _StructuredSummaryService:
+    def __init__(self, results: list[CompletionResult]) -> None:
+        self.results = results
+        self.calls: list[dict[str, Any]] = []
+
+    async def complete_result(
+        self,
+        messages: list[dict[str, Any]],
+        max_completion_tokens: int = 1000,
+        **kwargs: Any,
+    ) -> CompletionResult:
+        self.calls.append({"messages": messages, "max_completion_tokens": max_completion_tokens})
+        idx = min(len(self.calls) - 1, len(self.results) - 1)
+        return self.results[idx]
 
 
 @pytest.mark.asyncio
@@ -256,6 +275,124 @@ async def test_compact_messages_returns_result_dataclass_with_metadata() -> None
     # Frozen dataclass: attempting to mutate should fail.
     with pytest.raises(Exception):
         result.success = False  # type: ignore[misc]
+
+
+@pytest.mark.asyncio
+async def test_compact_messages_retries_context_length_by_dropping_safe_groups() -> None:
+    svc = _StructuredSummaryService(
+        [
+            CompletionResult(
+                text=None,
+                error_code="context_length_exceeded",
+                error_message="too long",
+            ),
+            CompletionResult(text="SUMMARY AFTER RETRY"),
+        ]
+    )
+    messages = _msgs(10)
+
+    result = await compact_messages(
+        svc,  # type: ignore[arg-type]
+        messages,
+        summary_retry_max_attempts=2,
+        summary_retry_drop_groups=2,
+    )
+
+    assert result.success is True
+    assert result.attempts == 2
+    assert result.retries == 1
+    assert result.reduced_message_count == 2
+    assert len(svc.calls) == 2
+    assert "user message 0" in svc.calls[0]["messages"][0]["content"]
+    assert "user message 0" not in svc.calls[1]["messages"][0]["content"]
+    assert len(messages) == 1
+    assert "SUMMARY AFTER RETRY" in messages[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_compact_messages_retry_exhaustion_leaves_messages_unchanged() -> None:
+    svc = _StructuredSummaryService(
+        [
+            CompletionResult(text=None, error_code="context_length_exceeded", error_message="too long"),
+            CompletionResult(text=None, error_code="context_length_exceeded", error_message="still too long"),
+        ]
+    )
+    messages = _msgs(8)
+    snapshot = [dict(m) for m in messages]
+
+    result = await compact_messages(
+        svc,  # type: ignore[arg-type]
+        messages,
+        summary_retry_max_attempts=2,
+        summary_retry_drop_groups=1,
+    )
+
+    assert result.success is False
+    assert result.failure_code == "context_length_exceeded"
+    assert result.attempts == 2
+    assert result.retries == 1
+    assert messages == snapshot
+
+
+@pytest.mark.asyncio
+async def test_compact_messages_non_context_structured_failure_does_not_retry() -> None:
+    svc = _StructuredSummaryService([CompletionResult(text=None, error_code="rate_limit", error_message="slow down")])
+    messages = _msgs(8)
+    snapshot = [dict(m) for m in messages]
+
+    result = await compact_messages(svc, messages, summary_retry_max_attempts=3)  # type: ignore[arg-type]
+
+    assert result.success is False
+    assert result.failure_code == "rate_limit"
+    assert result.attempts == 1
+    assert len(svc.calls) == 1
+    assert messages == snapshot
+
+
+@pytest.mark.asyncio
+async def test_compact_messages_uses_configured_scaled_summary_budget() -> None:
+    svc = _StructuredSummaryService([CompletionResult(text="summary")])
+    messages = [
+        {"role": "user", "content": "word " * 20_000},
+        {"role": "assistant", "content": "word " * 20_000},
+        {"role": "user", "content": "word " * 20_000},
+        {"role": "assistant", "content": "word " * 20_000},
+    ]
+
+    await compact_messages(
+        svc,  # type: ignore[arg-type]
+        messages,
+        summary_max_completion_tokens=4096,
+    )
+
+    assert svc.calls[0]["max_completion_tokens"] > 1000
+    assert svc.calls[0]["max_completion_tokens"] <= 4096
+
+
+@pytest.mark.asyncio
+async def test_compact_messages_omits_media_and_document_payloads_from_summary_prompt() -> None:
+    svc = _StructuredSummaryService([CompletionResult(text="summary")])
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "inspect this"},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64," + ("A" * 5000)}},
+                {"type": "document", "source": {"data": "B" * 5000}},
+            ],
+        },
+        {"role": "assistant", "content": "ok"},
+        {"role": "user", "content": "next"},
+        {"role": "assistant", "content": "done"},
+    ]
+
+    await compact_messages(svc, messages)  # type: ignore[arg-type]
+
+    prompt = svc.calls[0]["messages"][0]["content"]
+    assert "[image omitted from compaction summary]" in prompt
+    assert "[document omitted from compaction summary]" in prompt
+    assert "AAAAA" not in prompt
+    assert "BBBBB" not in prompt
 
 
 # -- build_compaction_history --
@@ -490,6 +627,40 @@ def test_collapse_old_tool_results_returns_false_when_no_tools() -> None:
     ]
     changed = collapse_old_tool_results(messages, keep_recent_groups=2, compact_chars=200)
     assert changed is False
+
+
+def test_collapse_old_tool_results_details_reports_metadata_and_preserves_fields() -> None:
+    large_payload = json.dumps(
+        {
+            "status": "error",
+            "exit_code": 1,
+            "path": "/tmp/run.log",
+            "error": "boom",
+            "stdout": "x" * 5000,
+        }
+    )
+    messages: list[dict[str, Any]] = [
+        {"role": "user", "content": "q1"},
+        _tool_call_msg("tc1"),
+        _tool_result("tc1", content=large_payload),
+        {"role": "user", "content": "q2"},
+        _tool_call_msg("tc2"),
+        _tool_result("tc2", content=large_payload),
+    ]
+
+    result = collapse_old_tool_results_details(messages, keep_recent_groups=2, compact_chars=260)
+
+    assert result.success is True
+    assert result.modified_count == 1
+    assert result.bytes_saved > 0
+    assert result.keep_recent_groups == 2
+    assert result.compact_chars == 260
+    collapsed = json.loads(messages[2]["content"])
+    assert collapsed["status"] == "error"
+    assert collapsed["exit_code"] == 1
+    assert collapsed["path"] == "/tmp/run.log"
+    assert collapsed["error"] == "boom"
+    assert messages[5]["content"] == large_payload
 
 
 # --- drop_old_turn_groups (tests 7-12) ---

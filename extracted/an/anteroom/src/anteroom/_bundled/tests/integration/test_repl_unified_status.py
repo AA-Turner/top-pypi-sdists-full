@@ -27,6 +27,7 @@ from anteroom.cli.renderer import (
     _reset_tool_phase,
     enter_tool_phase,
     exit_tool_phase,
+    render_debug_summary,
     render_turn_summary,
     start_tool_ticker,
     stop_tool_ticker_sync,
@@ -159,6 +160,31 @@ class TestUnifiedTurnStatus:
         # Exactly one "done" token; catches a stray double-print.
         assert output.count("done") == 1
         assert "2.0s" in output
+
+    def test_debug_summary_renders_redacted_metadata(self) -> None:
+        """Debug diagnostics print structured metadata without raw output."""
+        buf = io.StringIO()
+        r.console = Console(file=buf, force_terminal=False, width=120, highlight=False)
+
+        render_debug_summary(
+            {
+                "total_duration_seconds": 1.25,
+                "stop_reason": "completed",
+                "final_phase": "streaming",
+                "model": {"provider": "openai", "name": "gpt-test"},
+                "usage": {"total_tokens": 42},
+                "counters": {"tokens": 3, "token_chars": 99},
+                "retries": [{"attempt": 2}],
+                "tools": [{"name": "bash", "status": "success", "duration_seconds": 0.3}],
+                "runtime_events": [{"kind": "queued_message"}],
+            }
+        )
+
+        output = buf.getvalue()
+        assert "debug" in output
+        assert "completed" in output
+        assert "openai / gpt-test" in output
+        assert "bash:success" in output
 
     @pytest.mark.asyncio
     async def test_accepted_phase_shows_before_first_ai_event(self) -> None:

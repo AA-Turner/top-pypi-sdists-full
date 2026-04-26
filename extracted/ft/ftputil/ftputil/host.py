@@ -1,4 +1,4 @@
-# Copyright (C) 2002-2022, Stefan Schwarzer <sschwarzer@sschwarzer.net>
+# Copyright (C) 2002-2026, Stefan Schwarzer <sschwarzer@sschwarzer.net>
 # and ftputil contributors (see `doc/contributors.txt`)
 # See the file LICENSE for licensing terms.
 
@@ -8,12 +8,14 @@
 See `__init__.py` for an example.
 """
 
+import contextlib
 import datetime
 import errno
 import ftplib
 import stat
 import sys
 import time
+import warnings
 
 import ftputil.error
 import ftputil.file
@@ -28,10 +30,13 @@ import ftputil.tool
 __all__ = ["FTPHost"]
 
 
-# The "protected" attributes PyLint talks about aren't intended for clients of
-# the library. `FTPHost` objects need to use some of these library-internal
-# attributes though.
-# pylint: disable=protected-access
+# Sentinel object to make sure that clients set the time shift of `FTPHost`
+# instances when needed. See also ticket #160.
+_UNKNOWN_TIME_SHIFT = object()
+
+# Default time shift until ftputil 5.2.0. In version 6.0.0, there won't be a
+# default; the time shift will need to be set explicitly.
+_DEFAULT_TIME_SHIFT = 0.0
 
 
 # For Python versions 3.8 and below, ftputil has implicitly defaulted to
@@ -123,13 +128,31 @@ class FTPHost:
         # is, strictly speaking, dependent on the server OS but it seems to
         # work at least with Unix and Windows servers.
         self.curdir, self.pardir, self.sep = ".", "..", "/"
-        # Set default time shift (used in `upload_if_newer` and
-        # `download_if_newer`).
-        self._time_shift = 0.0
+        # Set default time shift (used in `upload_if_newer`,
+        # `download_if_newer` and stat-related methods).
+        self._time_shift = _UNKNOWN_TIME_SHIFT
         # Don't use `LIST -a` option by default. If the server doesn't
         # understand the `-a` option and interprets it as a path, the results
         # can be surprising. See ticket #110.
         self.use_list_a_option = False
+        # Control when time shift warnings should be allowed. For example,
+        # methods like `FTPHost.listdir` and `FTPHost.path.isdir` get stat
+        # information internally, but from the point of view of a user calling
+        # these methods, these methods aren't concerned with timestamp
+        # information.
+        #
+        # The value of level attribute is increased by 1 every time we call a
+        # method that shouldn't warn and is decreased by 1 when we leave the
+        # method. For example, `isdir` increases the level, so when `stat` is
+        # called from `isdir`, `stat` sees that warnings should be suppressed.
+        # If the level is larger than 0, the `time_shift` method returns the
+        # default time shift but leaves the actual `_time_shift` value at
+        # `_UNKNOWN_TIME_SHIFT`.
+        #
+        # Methods which are called internally, namely `stat`, only emit a
+        # warning if they're called with the level is 0, i.e. when not called
+        # internally.
+        self._time_shift_warnings_suppression_level = 0
 
     def keep_alive(self):
         """
@@ -251,7 +274,6 @@ class FTPHost:
         is available.
         """
         # Support the same arguments as `open`.
-        # pylint: disable=too-many-arguments
         path = ftputil.tool.as_str_path(path, encoding=self._encoding)
         host = self._available_child()
         if host is None:
@@ -390,6 +412,46 @@ class FTPHost:
                 "from 15-minute units".format(time_shift, int(maximum_deviation))
             )
 
+    def _warn_if_time_shift_unset_and_set_default(self):
+        """
+        Emit a deprecation warning if the time shift has not been explicitly
+        set, and set it to 0.0 (the pre-6.0.0 default).
+        """
+        if (self._time_shift_warnings_suppression_level == 0) and (
+            self._time_shift is _UNKNOWN_TIME_SHIFT
+        ):
+            warnings.warn(
+                "in ftputil 6.0.0, the time shift must be set with "
+                "`set_time_shift` or `synchronize_times` to get timestamp "
+                "stat data or to use `upload_if_newer` or `download_if_newer`",
+                DeprecationWarning,
+                # When `_warn_if_time_shift_unset_and_set_default` is called
+                # _and_ the above warning condition holds, it's always for a
+                # client calling a public ftputil method.
+                #
+                # For example, if some client code calls `stat` directly, the
+                # stack level from the
+                # `_warn_if_time_shift_unset_and_set_default` call in `stat`
+                # will be correct. On the other hand, if `stat` is called
+                # internally, e.g. from `listdir` the warning isn't emitted to
+                # begin with.
+                stacklevel=3,
+            )
+            self._time_shift = _DEFAULT_TIME_SHIFT
+
+    @contextlib.contextmanager
+    def _time_shift_warning_suppression(self):
+        """
+        Temporarily deactivate triggering time shift warnings.
+        """
+        # We _don't_ use a simple flag in order to distinguish when a method is
+        # called from client code versus internally in ftputil during another call.
+        self._time_shift_warnings_suppression_level += 1
+        try:
+            yield
+        finally:
+            self._time_shift_warnings_suppression_level -= 1
+
     def set_time_shift(self, time_shift):
         """
         Set the time shift value.
@@ -404,8 +466,9 @@ class FTPHost:
         The time shift is measured in seconds.
         """
         self.__assert_valid_time_shift(time_shift)
-        old_time_shift = self.time_shift()
-        if time_shift != old_time_shift:
+        if self._time_shift is _UNKNOWN_TIME_SHIFT:
+            self._time_shift = _DEFAULT_TIME_SHIFT
+        if time_shift != self._time_shift:
             # If the time shift changed, all entries in the cache will have
             # wrong times with respect to the updated time shift, therefore
             # clear the cache.
@@ -414,10 +477,17 @@ class FTPHost:
 
     def time_shift(self):
         """
-        Return the time shift between FTP server and client. See the
-        docstring of `set_time_shift` for more on this value.
+        Return the time shift between FTP server and UTC. See the docstring of
+        `set_time_shift` for more on this value.
         """
-        return self._time_shift
+        if self._time_shift_warnings_suppression_level == 0:
+            self._warn_if_time_shift_unset_and_set_default()
+            return self._time_shift
+        else:
+            if self._time_shift is _UNKNOWN_TIME_SHIFT:
+                return _DEFAULT_TIME_SHIFT
+            else:
+                return self._time_shift
 
     def synchronize_times(self):
         """
@@ -439,6 +509,12 @@ class FTPHost:
 
         If `synchronize_times` fails, it raises a `TimeShiftError`.
         """
+        # Set the time shift to 0.0 before measuring so the internal getmtime
+        # call doesn't trigger a deprecation warning. The measured value
+        # will be set via set_time_shift at the end.
+        if self._time_shift is _UNKNOWN_TIME_SHIFT:
+            self._time_shift = _DEFAULT_TIME_SHIFT
+            self.stat_cache.clear()
         helper_file_name = "_ftputil_sync_"
         # Open a dummy file for writing in the current directory on the FTP
         # host, then close it.
@@ -547,6 +623,7 @@ class FTPHost:
         `file_transfer`. The callback will be called with a single argument,
         the data chunk that was transferred before the callback was called.
         """
+        self._warn_if_time_shift_unset_and_set_default()
         ftputil.tool.raise_for_empty_path(source, path_argument_name="source")
         if target in ["", b""]:
             raise IOError("path argument `target` is empty")
@@ -578,14 +655,15 @@ class FTPHost:
         `file_transfer`. The callback will be called with a single argument,
         the data chunk that was transferred before the callback was called.
         """
-        ftputil.tool.raise_for_empty_path(source, path_argument_name="source")
-        if target in ["", b""]:
-            raise IOError("path argument `target` is empty")
-        source = ftputil.tool.as_str_path(source, encoding=self._encoding)
-        source_file, target_file = self._download_files(source, target)
-        ftputil.file_transfer.copy_file(
-            source_file, target_file, conditional=False, callback=callback
-        )
+        with self._time_shift_warning_suppression():
+            ftputil.tool.raise_for_empty_path(source, path_argument_name="source")
+            if target in ["", b""]:
+                raise IOError("path argument `target` is empty")
+            source = ftputil.tool.as_str_path(source, encoding=self._encoding)
+            source_file, target_file = self._download_files(source, target)
+            ftputil.file_transfer.copy_file(
+                source_file, target_file, conditional=False, callback=callback
+            )
 
     def download_if_newer(self, source, target, callback=None):
         """
@@ -600,6 +678,7 @@ class FTPHost:
         `file_transfer`. The callback will be called with a single argument,
         the data chunk that was transferred before the callback was called.
         """
+        self._warn_if_time_shift_unset_and_set_default()
         if source in ["", b""]:
             raise IOError("path argument `source` is empty")
         ftputil.tool.raise_for_empty_path(target, path_argument_name="target")
@@ -677,39 +756,36 @@ class FTPHost:
         """
         Change the directory on the host to `path`.
         """
-        path = ftputil.tool.as_str_path(path, encoding=self._encoding)
-        with ftputil.error.ftplib_error_to_ftp_os_error:
-            self._session.cwd(path)
-        # The path given as the argument is relative to the old current
-        # directory, therefore join them.
-        self._cached_current_dir = self.path.normpath(
-            self.path.join(self._cached_current_dir, path)
-        )
+        with self._time_shift_warning_suppression():
+            path = ftputil.tool.as_str_path(path, encoding=self._encoding)
+            with ftputil.error.ftplib_error_to_ftp_os_error:
+                self._session.cwd(path)
+            # The path given as the argument is relative to the old current
+            # directory, therefore join them.
+            self._cached_current_dir = self.path.normpath(
+                self.path.join(self._cached_current_dir, path)
+            )
 
-    # Ignore unused argument `mode`
-    # pylint: disable=unused-argument
     def mkdir(self, path, mode=None):
         """
         Make the directory path on the remote host. The argument `mode` is
         ignored and only "supported" for similarity with `os.mkdir`.
         """
-        ftputil.tool.raise_for_empty_path(path)
-        path = ftputil.tool.as_str_path(path, encoding=self._encoding)
+        with self._time_shift_warning_suppression():
+            ftputil.tool.raise_for_empty_path(path)
+            path = ftputil.tool.as_str_path(path, encoding=self._encoding)
 
-        def command(self, path):
-            """Callback function."""
-            with ftputil.error.ftplib_error_to_ftp_os_error:
-                self._session.mkd(path)
+            def command(self, path):
+                """Callback function."""
+                with ftputil.error.ftplib_error_to_ftp_os_error:
+                    self._session.mkd(path)
 
-        self._robust_ftp_command(command, path)
+            self._robust_ftp_command(command, path)
 
     # TODO: The virtual directory support doesn't have unit tests yet because
     # the mocking most likely would be quite complicated. The tests should be
     # added when mainly the `mock` library is used instead of the mock code in
     # `test.mock_ftplib`.
-    #
-    # Ignore unused argument `mode`
-    # pylint: disable=unused-argument
     def makedirs(self, path, mode=None, exist_ok=False):
         """
         Make the directory `path`, but also make not yet existing intermediate
@@ -721,48 +797,51 @@ class FTPHost:
         If `exist_ok` is `False` (the default) and the leaf directory exists,
         raise a `PermanentError` with `errno` 17.
         """
-        ftputil.tool.raise_for_empty_path(path)
-        path = ftputil.tool.as_str_path(path, encoding=self._encoding)
-        path = self.path.abspath(path)
-        directories = path.split(self.sep)
-        old_dir = self.getcwd()
-        try:
-            # Try to build the directory chain from the "uppermost" to the
-            # "lowermost" directory.
-            for index in range(1, len(directories)):
-                # Re-insert the separator which got lost by using `path.split`.
-                next_directory = self.sep + self.path.join(*directories[: index + 1])
-                # If we have "virtual directories" (see #86), just listing the
-                # parent directory won't tell us if a directory actually
-                # exists. So try to change into the directory.
-                try:
-                    self.chdir(next_directory)
-                except ftputil.error.PermanentError:
-                    # Directory presumably doesn't exist.
+        with self._time_shift_warning_suppression():
+            ftputil.tool.raise_for_empty_path(path)
+            path = ftputil.tool.as_str_path(path, encoding=self._encoding)
+            path = self.path.abspath(path)
+            directories = path.split(self.sep)
+            old_dir = self.getcwd()
+            try:
+                # Try to build the directory chain from the "uppermost" to the
+                # "lowermost" directory.
+                for index in range(1, len(directories)):
+                    # Re-insert the separator which got lost by using `path.split`.
+                    next_directory = self.sep + self.path.join(
+                        *directories[: index + 1]
+                    )
+                    # If we have "virtual directories" (see #86), just listing the
+                    # parent directory won't tell us if a directory actually
+                    # exists. So try to change into the directory.
                     try:
-                        self.mkdir(next_directory)
+                        self.chdir(next_directory)
                     except ftputil.error.PermanentError:
-                        # Find out the cause of the error. Re-raise the
-                        # exception only if the directory didn't exist already,
-                        # else something went _really_ wrong, e. g. there's a
-                        # regular file with the name of the directory.
-                        if not self.path.isdir(next_directory):
-                            raise
-                else:
-                    # Directory exists. If we are at the last directory
-                    # component and `exist_ok` is `False`, this is an error.
-                    if (index == len(directories) - 1) and (not exist_ok):
-                        # Before PEP 3151, if `exist_ok` is `False`, trying to
-                        # create an existing directory in the local file system
-                        # results in an `OSError` with `errno.EEXIST, so
-                        # emulate this also for FTP.
-                        ftp_os_error = ftputil.error.PermanentError(
-                            "path {!r} exists".format(path)
-                        )
-                        ftp_os_error.errno = errno.EEXIST
-                        raise ftp_os_error
-        finally:
-            self.chdir(old_dir)
+                        # Directory presumably doesn't exist.
+                        try:
+                            self.mkdir(next_directory)
+                        except ftputil.error.PermanentError:
+                            # Find out the cause of the error. Re-raise the
+                            # exception only if the directory didn't exist already,
+                            # else something went _really_ wrong, e. g. there's a
+                            # regular file with the name of the directory.
+                            if not self.path.isdir(next_directory):
+                                raise
+                    else:
+                        # Directory exists. If we are at the last directory
+                        # component and `exist_ok` is `False`, this is an error.
+                        if (index == len(directories) - 1) and (not exist_ok):
+                            # Before PEP 3151, if `exist_ok` is `False`, trying to
+                            # create an existing directory in the local file system
+                            # results in an `OSError` with `errno.EEXIST, so
+                            # emulate this also for FTP.
+                            ftp_os_error = ftputil.error.PermanentError(
+                                "path {!r} exists".format(path)
+                            )
+                            ftp_os_error.errno = errno.EEXIST
+                            raise ftp_os_error
+            finally:
+                self.chdir(old_dir)
 
     def rmdir(self, path):
         """
@@ -774,24 +853,28 @@ class FTPHost:
         directories as well, - if the server allowed it. This is no longer
         supported.
         """
-        ftputil.tool.raise_for_empty_path(path)
-        path = ftputil.tool.as_str_path(path, encoding=self._encoding)
-        path = self.path.abspath(path)
-        if self.listdir(path):
-            raise ftputil.error.PermanentError("directory '{}' not empty".format(path))
-        # XXX: How does `rmd` work with links?
-        def command(self, path):
-            """Callback function."""
-            with ftputil.error.ftplib_error_to_ftp_os_error:
-                self._session.rmd(path)
+        with self._time_shift_warning_suppression():
+            ftputil.tool.raise_for_empty_path(path)
+            path = ftputil.tool.as_str_path(path, encoding=self._encoding)
+            path = self.path.abspath(path)
+            if self.listdir(path):
+                raise ftputil.error.PermanentError(
+                    "directory '{}' not empty".format(path)
+                )
 
-        # Always invalidate the cache. If `_robust_ftp_command` raises an
-        # exception, we can't tell for sure if the removal failed on the server
-        # vs. it succeeded, but something went wrong after that.
-        try:
-            self._robust_ftp_command(command, path)
-        finally:
-            self.stat_cache.invalidate(path)
+            # XXX: How does `rmd` work with links?
+            def command(self, path):
+                """Callback function."""
+                with ftputil.error.ftplib_error_to_ftp_os_error:
+                    self._session.rmd(path)
+
+            # Always invalidate the cache. If `_robust_ftp_command` raises an
+            # exception, we can't tell for sure if the removal failed on the server
+            # vs. it succeeded, but something went wrong after that.
+            try:
+                self._robust_ftp_command(command, path)
+            finally:
+                self.stat_cache.invalidate(path)
 
     def remove(self, path):
         """
@@ -800,34 +883,35 @@ class FTPHost:
         Raise a `PermanentError` if the path doesn't exist, but maybe raise
         other exceptions depending on the state of the server (e. g. timeout).
         """
-        ftputil.tool.raise_for_empty_path(path)
-        path = ftputil.tool.as_str_path(path, encoding=self._encoding)
-        path = self.path.abspath(path)
-        # Though `isfile` includes also links to files, `islink` is needed to
-        # include links to directories.
-        if (
-            self.path.isfile(path)
-            or self.path.islink(path)
-            or not self.path.exists(path)
-        ):
-            # If the path doesn't exist, let the removal command trigger an
-            # exception with a more appropriate error message.
-            def command(self, path):
-                """Callback function."""
-                with ftputil.error.ftplib_error_to_ftp_os_error:
-                    self._session.delete(path)
+        with self._time_shift_warning_suppression():
+            ftputil.tool.raise_for_empty_path(path)
+            path = ftputil.tool.as_str_path(path, encoding=self._encoding)
+            path = self.path.abspath(path)
+            # Though `isfile` includes also links to files, `islink` is needed to
+            # include links to directories.
+            if (
+                self.path.isfile(path)
+                or self.path.islink(path)
+                or not self.path.exists(path)
+            ):
+                # If the path doesn't exist, let the removal command trigger an
+                # exception with a more appropriate error message.
+                def command(self, path):
+                    """Callback function."""
+                    with ftputil.error.ftplib_error_to_ftp_os_error:
+                        self._session.delete(path)
 
-            # Always invalidate the cache. If `_robust_ftp_command` raises an
-            # exception, we can't tell for sure if the removal failed on the
-            # server vs. it succeeded, but something went wrong after that.
-            try:
-                self._robust_ftp_command(command, path)
-            finally:
-                self.stat_cache.invalidate(path)
-        else:
-            raise ftputil.error.PermanentError(
-                "remove/unlink can only delete files and links, " "not directories"
-            )
+                # Always invalidate the cache. If `_robust_ftp_command` raises an
+                # exception, we can't tell for sure if the removal failed on the
+                # server vs. it succeeded, but something went wrong after that.
+                try:
+                    self._robust_ftp_command(command, path)
+                finally:
+                    self.stat_cache.invalidate(path)
+            else:
+                raise ftputil.error.PermanentError(
+                    "remove/unlink can only delete files and links, not directories"
+                )
 
     unlink = remove
 
@@ -852,92 +936,93 @@ class FTPHost:
         Implementation note: The code is copied from `shutil.rmtree` in
         Python 2.4 and adapted to ftputil.
         """
-        ftputil.tool.raise_for_empty_path(path)
-        path = ftputil.tool.as_str_path(path, encoding=self._encoding)
-        # The following code is an adapted version of Python 2.4's
-        # `shutil.rmtree` function.
-        if ignore_errors:
+        with self._time_shift_warning_suppression():
+            ftputil.tool.raise_for_empty_path(path)
+            path = ftputil.tool.as_str_path(path, encoding=self._encoding)
+            # The following code is an adapted version of Python 2.4's
+            # `shutil.rmtree` function.
+            if ignore_errors:
 
-            def new_onerror(*args):
-                """Do nothing."""
-                # pylint: disable=unused-argument
-                pass
+                def new_onerror(*args):
+                    """Do nothing."""
+                    pass
 
-        elif onerror is None:
+            elif onerror is None:
 
-            def new_onerror(*args):
-                """Re-raise exception."""
-                # pylint: disable=misplaced-bare-raise, unused-argument
-                raise
+                def new_onerror(*args):
+                    """Re-raise exception."""
+                    raise
 
-        else:
-            new_onerror = onerror
-        names = []
-        try:
-            names = self.listdir(path)
-        except ftputil.error.PermanentError:
-            new_onerror(self.listdir, path, sys.exc_info())
-        for name in names:
-            full_name = self.path.join(path, name)
-            try:
-                mode = self.lstat(full_name).st_mode
-            except ftputil.error.PermanentError:
-                mode = 0
-            if stat.S_ISDIR(mode):
-                self.rmtree(full_name, ignore_errors, new_onerror)
             else:
+                new_onerror = onerror
+            names = []
+            try:
+                names = self.listdir(path)
+            except ftputil.error.PermanentError:
+                new_onerror(self.listdir, path, sys.exc_info())
+            for name in names:
+                full_name = self.path.join(path, name)
                 try:
-                    self.remove(full_name)
+                    mode = self.lstat(full_name).st_mode
                 except ftputil.error.PermanentError:
-                    new_onerror(self.remove, full_name, sys.exc_info())
-        try:
-            self.rmdir(path)
-        except ftputil.error.FTPOSError:
-            new_onerror(self.rmdir, path, sys.exc_info())
+                    mode = 0
+                if stat.S_ISDIR(mode):
+                    self.rmtree(full_name, ignore_errors, new_onerror)
+                else:
+                    try:
+                        self.remove(full_name)
+                    except ftputil.error.PermanentError:
+                        new_onerror(self.remove, full_name, sys.exc_info())
+            try:
+                self.rmdir(path)
+            except ftputil.error.FTPOSError:
+                new_onerror(self.rmdir, path, sys.exc_info())
 
     def rename(self, source, target):
         """
         Rename the `source` on the FTP host to `target`.
         """
-        ftputil.tool.raise_for_empty_path(source, path_argument_name="source")
-        ftputil.tool.raise_for_empty_path(target, path_argument_name="target")
-        source = ftputil.tool.as_str_path(source, encoding=self._encoding)
-        target = ftputil.tool.as_str_path(target, encoding=self._encoding)
-        source_head, source_tail = self.path.split(source)
-        target_head, target_tail = self.path.split(target)
-        # Avoid code duplication below.
-        #
-        # Use `source_arg` and `target_arg` instead of `source` and `target` to
-        # make it clearer that we use the arguments passed to
-        # `rename_with_cleanup`, not any variables from the scope outside
-        # `rename_with_cleanup`.
-        def rename_with_cleanup(source_arg, target_arg):
-            try:
-                with ftputil.error.ftplib_error_to_ftp_os_error:
-                    self._session.rename(source_arg, target_arg)
-            # Always invalidate the cache entries in case the rename succeeds
-            # on the server, but the server doesn't manage to tell the client.
-            finally:
-                source_absolute_path = self.path.abspath(source_arg)
-                target_absolute_path = self.path.abspath(target_arg)
-                self.stat_cache.invalidate(source_absolute_path)
-                self.stat_cache.invalidate(target_absolute_path)
+        with self._time_shift_warning_suppression():
+            ftputil.tool.raise_for_empty_path(source, path_argument_name="source")
+            ftputil.tool.raise_for_empty_path(target, path_argument_name="target")
+            source = ftputil.tool.as_str_path(source, encoding=self._encoding)
+            target = ftputil.tool.as_str_path(target, encoding=self._encoding)
+            source_head, source_tail = self.path.split(source)
+            target_head, target_tail = self.path.split(target)
 
-        # The following code is in spirit similar to the code in the method
-        # `_robust_ftp_command`, though we do _not_ do _everything_ imaginable.
-        self._check_inaccessible_login_directory()
-        paths_contain_whitespace = (" " in source_head) or (" " in target_head)
-        if paths_contain_whitespace and source_head == target_head:
-            # Both items are in the same directory.
-            old_dir = self.getcwd()
-            try:
-                self.chdir(source_head)
-                rename_with_cleanup(source_tail, target_tail)
-            finally:
-                self.chdir(old_dir)
-        else:
-            # Use straightforward command.
-            rename_with_cleanup(source, target)
+            # Avoid code duplication below.
+            #
+            # Use `source_arg` and `target_arg` instead of `source` and `target` to
+            # make it clearer that we use the arguments passed to
+            # `rename_with_cleanup`, not any variables from the scope outside
+            # `rename_with_cleanup`.
+            def rename_with_cleanup(source_arg, target_arg):
+                try:
+                    with ftputil.error.ftplib_error_to_ftp_os_error:
+                        self._session.rename(source_arg, target_arg)
+                # Always invalidate the cache entries in case the rename succeeds
+                # on the server, but the server doesn't manage to tell the client.
+                finally:
+                    source_absolute_path = self.path.abspath(source_arg)
+                    target_absolute_path = self.path.abspath(target_arg)
+                    self.stat_cache.invalidate(source_absolute_path)
+                    self.stat_cache.invalidate(target_absolute_path)
+
+            # The following code is in spirit similar to the code in the method
+            # `_robust_ftp_command`, though we do _not_ do _everything_ imaginable.
+            self._check_inaccessible_login_directory()
+            paths_contain_whitespace = (" " in source_head) or (" " in target_head)
+            if paths_contain_whitespace and source_head == target_head:
+                # Both items are in the same directory.
+                old_dir = self.getcwd()
+                try:
+                    self.chdir(source_head)
+                    rename_with_cleanup(source_tail, target_tail)
+                finally:
+                    self.chdir(old_dir)
+            else:
+                # Use straightforward command.
+                rename_with_cleanup(source, target)
 
     # XXX: One could argue to put this method into the `_Stat` class, but I
     # refrained from that because then `_Stat` would have to know about
@@ -948,6 +1033,7 @@ class FTPHost:
         Return a directory listing as made by FTP's `LIST` command as a list of
         strings.
         """
+
         # Don't use `self.path.isdir` in this method because that would cause a
         # call of `(l)stat` and thus a call to `_dir`, so we would end up with
         # an infinite recursion.
@@ -982,14 +1068,15 @@ class FTPHost:
         If the directory listing from the server can't be parsed with any of
         the available parsers raise a `ParserError`.
         """
-        ftputil.tool.raise_for_empty_path(path)
-        original_path = path
-        path = ftputil.tool.as_str_path(path, encoding=self._encoding)
-        items = self._stat._listdir(path)
-        return [
-            ftputil.tool.same_string_type_as(original_path, item, self._encoding)
-            for item in items
-        ]
+        with self._time_shift_warning_suppression():
+            ftputil.tool.raise_for_empty_path(path)
+            original_path = path
+            path = ftputil.tool.as_str_path(path, encoding=self._encoding)
+            items = self._stat._listdir(path)
+            return [
+                ftputil.tool.same_string_type_as(original_path, item, self._encoding)
+                for item in items
+            ]
 
     def lstat(self, path, _exception_for_missing_path=True):
         """
@@ -1002,6 +1089,7 @@ class FTPHost:
         (`_exception_for_missing_path` is an implementation aid and _not_
         intended for use by ftputil clients.)
         """
+        self._warn_if_time_shift_unset_and_set_default()
         ftputil.tool.raise_for_empty_path(path)
         path = ftputil.tool.as_str_path(path, encoding=self._encoding)
         return self._stat._lstat(path, _exception_for_missing_path)
@@ -1019,6 +1107,7 @@ class FTPHost:
         (`_exception_for_missing_path` is an implementation aid and _not_
         intended for use by ftputil clients.)
         """
+        self._warn_if_time_shift_unset_and_set_default()
         ftputil.tool.raise_for_empty_path(path)
         path = ftputil.tool.as_str_path(path, encoding=self._encoding)
         return self._stat._stat(path, _exception_for_missing_path)
@@ -1029,30 +1118,51 @@ class FTPHost:
         filenames) on each iteration, like the `os.walk` function (see
         https://docs.python.org/library/os.html#os.walk ).
         """
-        ftputil.tool.raise_for_empty_path(top, path_argument_name="top")
-        top = ftputil.tool.as_str_path(top, encoding=self._encoding)
-        # The following code is copied from `os.walk` in Python 2.4 and adapted
-        # to ftputil.
-        try:
-            names = self.listdir(top)
-        except ftputil.error.FTPOSError as err:
-            if onerror is not None:
-                onerror(err)
-            return
-        dirs, nondirs = [], []
-        for name in names:
-            if self.path.isdir(self.path.join(top, name)):
-                dirs.append(name)
-            else:
-                nondirs.append(name)
-        if topdown:
-            yield top, dirs, nondirs
-        for name in dirs:
-            path = self.path.join(top, name)
-            if followlinks or not self.path.islink(path):
-                yield from self.walk(path, topdown, onerror, followlinks)
-        if not topdown:
-            yield top, dirs, nondirs
+        with self._time_shift_warning_suppression():
+            ftputil.tool.raise_for_empty_path(top, path_argument_name="top")
+            top = ftputil.tool.as_str_path(top, encoding=self._encoding)
+            # The following code is copied from `os.walk` in Python 2.4 and adapted
+            # to ftputil.
+            try:
+                names = self.listdir(top)
+            except ftputil.error.FTPOSError as err:
+                if onerror is not None:
+                    onerror(err)
+                return
+            dirs, nondirs = [], []
+            for name in names:
+                if self.path.isdir(self.path.join(top, name)):
+                    dirs.append(name)
+                else:
+                    nondirs.append(name)
+            if topdown:
+                # Save and restore the time shift warning suppression level.
+                # The idea here is that even if `walk` itself doesn't rely on
+                # timestamp data, the loop body in the client code may call
+                # methods like `stat`. However, if we didn't temporarily set
+                # the suppression level to 0, we'd also suppress the warnings
+                # for client code in `walk`'s loop.
+                old_level = self._time_shift_warnings_suppression_level
+                self._time_shift_warnings_suppression_level = 0
+                try:
+                    yield top, dirs, nondirs
+                finally:
+                    self._time_shift_warnings_suppression_level = old_level
+            for name in dirs:
+                path = self.path.join(top, name)
+                if followlinks or not self.path.islink(path):
+                    # No suppression level reset here since this recursively
+                    # calls into the regular `yield` (without `from`) which
+                    # _does_ reset the warning suppression level.
+                    yield from self.walk(path, topdown, onerror, followlinks)
+            if not topdown:
+                # See comment above.
+                old_level = self._time_shift_warnings_suppression_level
+                self._time_shift_warnings_suppression_level = 0
+                try:
+                    yield top, dirs, nondirs
+                finally:
+                    self._time_shift_warnings_suppression_level = old_level
 
     def chmod(self, path, mode):
         """
@@ -1064,17 +1174,18 @@ class FTPHost:
         `PermanentError`, according to the status code returned by the server.
         In particular, a non-existent path usually causes a `PermanentError`.
         """
-        ftputil.tool.raise_for_empty_path(path)
-        path = ftputil.tool.as_str_path(path, encoding=self._encoding)
-        path = self.path.abspath(path)
+        with self._time_shift_warning_suppression():
+            ftputil.tool.raise_for_empty_path(path)
+            path = ftputil.tool.as_str_path(path, encoding=self._encoding)
+            path = self.path.abspath(path)
 
-        def command(self, path):
-            """Callback function."""
-            with ftputil.error.ftplib_error_to_ftp_os_error:
-                self._session.voidcmd("SITE CHMOD 0{0:o} {1}".format(mode, path))
+            def command(self, path):
+                """Callback function."""
+                with ftputil.error.ftplib_error_to_ftp_os_error:
+                    self._session.voidcmd("SITE CHMOD 0{0:o} {1}".format(mode, path))
 
-        self._robust_ftp_command(command, path)
-        self.stat_cache.invalidate(path)
+            self._robust_ftp_command(command, path)
+            self.stat_cache.invalidate(path)
 
     def __getstate__(self):
         raise TypeError("cannot serialize FTPHost object")
@@ -1088,8 +1199,6 @@ class FTPHost:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # We don't need the `exc_*` arguments here.
-        # pylint: disable=unused-argument
         self.close()
         # Be explicit.
         return False

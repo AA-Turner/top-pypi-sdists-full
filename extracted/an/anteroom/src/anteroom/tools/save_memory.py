@@ -39,12 +39,15 @@ _MAX_CONTENT_CHARS = 500
 DEFINITION: dict[str, Any] = {
     "name": "save_memory",
     "description": (
-        "Propose a durable fact worth remembering across sessions. The fact "
-        "enters the user's review queue as a candidate and only becomes "
-        "active after explicit approval (unless the install has enabled "
-        "memory.promotion.local_auto_approve). Under the default approval "
-        "mode (ask_for_writes) the user is prompted before the candidate "
-        "is queued — that prompt IS the first review step."
+        "Save a durable fact worth remembering across sessions. Use this "
+        "directly when the user explicitly asks to remember or save a memory. "
+        "For obvious personal facts, default to category='preference' and "
+        "scope='user' without asking follow-up questions. The configured "
+        "memory promotion policy decides whether the fact becomes active "
+        "immediately (memory.promotion.local_auto_approve=true) or enters the "
+        "review queue. The returned memory_status is authoritative for "
+        "follow-up questions: active means recallable; candidate or "
+        "pending_review means stored for review but not recallable until approved."
     ),
     "parameters": {
         "type": "object",

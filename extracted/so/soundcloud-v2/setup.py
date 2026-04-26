@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup  # type: ignore[import-untyped]
 
 
 def readme():
@@ -10,7 +10,7 @@ def readme():
 
 setup(
     name="soundcloud-v2",
-    version="1.6.2",
+    version="1.7.0",
     description=(
         "Python wrapper for the internal v2 SoundCloud API.Does not require an API key."
     ),
@@ -24,8 +24,7 @@ setup(
     install_requires=[
         "dacite>=1.8.1",
         "python-dateutil>=2.8.2",
-        "requests",
-        "typing_extensions; python_version<'3.8'",
+        "curl_cffi>=0.10,<0.16",
     ],
     extras_require={
         "dev": [
@@ -33,14 +32,12 @@ setup(
             "pytest",
             "pytest-dotenv",
             "types-python-dateutil",
-            "types-requests",
             "mypy",
             "ruff",
         ],
         "docs": ["pdoc"],
     },
     classifiers=[
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
@@ -49,6 +46,6 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     project_urls={"Bug Tracker": "https://github.com/7x11x13/soundcloud.py/issues"},
 )

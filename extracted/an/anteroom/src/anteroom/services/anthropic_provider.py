@@ -9,6 +9,7 @@ import time
 from typing import Any, AsyncGenerator
 
 from ..config import AIConfig
+from .ai_service import CompletionResult, classify_completion_error
 from .async_tasks import cancel_task
 from .egress_allowlist import check_egress_allowed
 from .error_sanitizer import sanitize_provider_error
@@ -637,23 +638,72 @@ class AnthropicService:
         messages: list[dict[str, Any]],
         max_completion_tokens: int = 1000,
         _token_refreshed: bool = False,
+        *,
+        cancel_event: asyncio.Event | None = None,
     ) -> str | None:
+        result = await self.complete_result(
+            messages,
+            max_completion_tokens=max_completion_tokens,
+            _token_refreshed=_token_refreshed,
+            cancel_event=cancel_event,
+        )
+        return result.text
+
+    async def complete_result(
+        self,
+        messages: list[dict[str, Any]],
+        max_completion_tokens: int = 1000,
+        _token_refreshed: bool = False,
+        *,
+        cancel_event: asyncio.Event | None = None,
+    ) -> CompletionResult:
         try:
             _, anthropic_messages = _convert_messages(messages)
             self._validate_request(anthropic_messages)
-            response = await self.client.messages.create(
+            provider_coro = self.client.messages.create(
                 model=self.config.model,
                 max_tokens=max_completion_tokens,
                 messages=anthropic_messages,
             )
-            return response.content[0].text if response.content else None
+            if cancel_event is None:
+                response = await provider_coro
+            else:
+                provider_task = asyncio.ensure_future(provider_coro)
+                cancel_wait = asyncio.ensure_future(cancel_event.wait())
+                done, pending = await asyncio.wait(
+                    {provider_task, cancel_wait},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for task in pending:
+                    task.cancel()
+                for task in pending:
+                    try:
+                        await task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                if cancel_wait in done:
+                    return CompletionResult(text=None, error_code="cancelled", error_message="cancelled")
+                response = provider_task.result()
+            text = response.content[0].text if response.content else None
+            if not text:
+                return CompletionResult(text=None, error_code="empty_completion", error_message="empty completion")
+            return CompletionResult(text=text)
         except AnthropicAuthError:
             if not _token_refreshed and self._try_refresh_token():
-                return await self.complete(messages, max_completion_tokens, _token_refreshed=True)
-            return None
-        except Exception:
-            logger.exception("Failed to generate completion")
-            return None
+                return await self.complete_result(
+                    messages,
+                    max_completion_tokens=max_completion_tokens,
+                    _token_refreshed=True,
+                    cancel_event=cancel_event,
+                )
+            return CompletionResult(text=None, error_code="auth_failed", error_message="authentication failed")
+        except Exception as exc:
+            error_code, error_message = classify_completion_error(exc)
+            if error_code == "context_length_exceeded":
+                logger.warning("Anthropic completion request exceeded context window: %s", exc)
+            else:
+                logger.exception("Failed to generate completion")
+            return CompletionResult(text=None, error_code=error_code, error_message=error_message)
 
     async def complete_with_usage(
         self,

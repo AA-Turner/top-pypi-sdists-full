@@ -1,3 +1,14 @@
+"""ML Pipeline Runner.
+
+Trains crop yield forecasting models via LOOCV for each
+(country, crop, season, model) combination defined in config.
+
+Usage::
+
+    from geocif import geocif_runner
+    geocif_runner.run(cfg_geocif)
+"""
+
 import os
 import ast
 import multiprocessing as mp
@@ -105,7 +116,7 @@ def gather_pooled_inputs(parser):
             for (crop, season, model), clist in groups.items()]
 
 
-def execute_models(inputs, logger, parser, loop_fn=None):
+def execute_models(inputs, logger, parser, loop_fn=None, desc=None):
     """
     Executes the model either in parallel or serially based on configuration.
 
@@ -114,10 +125,12 @@ def execute_models(inputs, logger, parser, loop_fn=None):
         logger (logging.Logger): Logger for tracking execution details
         parser (configparser.ConfigParser): Configuration file parser
         loop_fn (callable): Function to call per input. Defaults to loop_execute.
+        desc (str): Progress bar description. Defaults to "Executing ML models".
     """
     if loop_fn is None:
         loop_fn = loop_execute
 
+    desc = desc or "Executing ML models"
     do_parallel = parser.getboolean("DEFAULT", "do_parallel_ml", fallback=False)
 
     # Add logger and parser to each element in inputs
@@ -131,15 +144,15 @@ def execute_models(inputs, logger, parser, loop_fn=None):
             for _ in tqdm(
                 pool.imap_unordered(loop_fn, inputs),
                 total=len(inputs),
-                desc="Executing ML models",
+                desc=desc,
             ):
                 pass
     else:
-        pbar = tqdm(inputs, desc="Executing ML models")
+        pbar = tqdm(inputs, desc=desc)
         for item in pbar:
             crop, season = item[2], item[3]
             label = item[1] if isinstance(item[1], str) else "pooled"
-            pbar.set_description(f"{label} {crop} {season}")
+            pbar.set_description(f"{desc} | {label} {crop} {season}")
             loop_fn(item)
 
     logger.info("======================================")
@@ -172,11 +185,19 @@ def _build_summary_params(parser, inputs):
             info["seasons"].add(str(season))
             info["models"].add(model)
 
+    # Resolve yield file per country
+    default_yield = "hvstat_africa_data_v1.0.csv"
+    if parser.has_option("DEFAULT", "production_statistics_file"):
+        default_yield = parser.get("DEFAULT", "production_statistics_file")
+
     params = [("Countries", countries)]
     for country, info in country_details.items():
         params.append((f"  {country} crops", sorted(info["crops"])))
         params.append((f"  {country} seasons", sorted(info["seasons"])))
         params.append((f"  {country} models", sorted(info["models"])))
+        ck = country.lower().replace(" ", "_")
+        yf = parser.get(ck, "production_statistics_file") if parser.has_option(ck, "production_statistics_file") else default_yield
+        params.append((f"  {country} yield file", yf))
 
     # Global settings
     for key in ["db", "method"]:
@@ -188,6 +209,7 @@ def _build_summary_params(parser, inputs):
         ("feature_selection", "ML"),
         ("cluster_strategy", "ML"),
         ("model_type", "ML"),
+        ("run_time_steps", "ML"),
         ("check_yield_trend", "ML"),
         ("use_single_time_period_as_feature", "ML"),
         ("lag_yield_as_feature", "ML"),

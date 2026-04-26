@@ -35,7 +35,11 @@ from ..services import storage
 from ..services.agent_loop import run_agent_loop
 from ..services.ai_service import AIService, create_ai_service
 from ..services.async_tasks import silence_task
+from ..services.compaction import runtime_messages_from_stored_rows
 from ..services.context_trust import trusted_section_marker, untrusted_section_marker, wrap_untrusted
+from ..services.debug_diagnostics import DebugDiagnosticsCollector
+from ..services.memory_intent import ExplicitMemoryIntent, detect_explicit_memory_intent
+from ..services.memory_save_status import format_memory_save_result
 from ..services.space_storage import get_space_local_dirs
 from ..services.user_errors import build_user_error
 from ..tools.path_utils import safe_resolve_pathlib
@@ -484,6 +488,25 @@ def _build_tool_list(
     return tools_openai, plan_path, plan_prompt
 
 
+def _format_attachment_extraction_failure(
+    filename: str | None,
+    mime_type: str | None,
+    warnings: list[str] | None = None,
+) -> str:
+    """Format model-visible attachment extraction failures without tool routing."""
+    display_name = filename or "attachment"
+    display_mime = mime_type or "application/octet-stream"
+    reason = "; ".join(w for w in (warnings or []) if w)
+    if not reason:
+        reason = "content could not be extracted automatically"
+    prefix = "PDF text" if display_mime == "application/pdf" else "Document text"
+    return (
+        f"[Attached file: {display_name} ({display_mime}) - "
+        f"{prefix} could not be extracted automatically: {reason}. "
+        "Uploaded attachments are not workspace file paths.]"
+    )
+
+
 async def _build_chat_system_prompt(
     *,
     ai_service: AIService,
@@ -507,6 +530,7 @@ async def _build_chat_system_prompt(
     skill_registry: Any = None,
     space_id: str | None = None,
     attachment_filenames: list[str] | None = None,
+    attachment_statuses: list[dict[str, Any]] | None = None,
     vec_manager: Any | None = None,
 ) -> tuple[str, dict[str, Any], list[RecalledMemory]]:
     """Assemble the extra system prompt from all context sources.
@@ -596,7 +620,8 @@ async def _build_chat_system_prompt(
             skill_lines = [
                 "\n<available_skills>",
                 "The following skills are available. When the user's request clearly matches a skill, "
-                "use the invoke_skill tool to run it.",
+                "use the invoke_skill tool to run it. Do not use invoke_skill for explicit memory-save requests; "
+                "use save_memory for those.",
             ]
             for sname, sdesc in skill_descs:
                 skill_lines.append(f"- {sname}: {sdesc}")
@@ -616,18 +641,37 @@ async def _build_chat_system_prompt(
     # Structural separation: everything below this marker is external/untrusted data
     extra += untrusted_section_marker()
 
-    # Attachment guidance — placed in the untrusted section because filenames are user-controlled
-    if attachment_filenames:
-        sanitized = [sanitize_trust_tags(fn) for fn in attachment_filenames]
-        names = ", ".join(sanitized)
-        extra += (
-            "\n\n## Attached Files\n"
-            f"The user has attached the following file(s): {names}\n"
-            "Their content has been extracted and included directly in the user's message below. "
-            "Read and use that content to answer the user's request. "
-            "Do NOT use file tools (read_file, pptx, xlsx, docx, glob_files, etc.) to re-read these files — "
-            "the content is already available in the conversation."
+    # Attachment guidance — placed in the untrusted section because filenames are user-controlled.
+    if attachment_statuses is None and attachment_filenames:
+        attachment_statuses = [{"filename": fn, "extracted": True} for fn in attachment_filenames]
+    if attachment_statuses:
+        extracted_names: list[str] = []
+        unextracted_names: list[str] = []
+        for status in attachment_statuses:
+            filename = sanitize_trust_tags(str(status.get("filename") or "attachment"))
+            if status.get("extracted"):
+                extracted_names.append(filename)
+            else:
+                unextracted_names.append(filename)
+
+        lines = ["\n\n## Attached Files", "The user has attached file(s) to this message."]
+        if extracted_names:
+            lines.append(
+                "Extracted content is included directly in the user's message for: "
+                + ", ".join(extracted_names)
+                + ". Read and use that included content to answer the user's request."
+            )
+        if unextracted_names:
+            lines.append(
+                "Text extraction failed for: "
+                + ", ".join(unextracted_names)
+                + ". Explain the extraction limitation to the user if the missing content is needed."
+            )
+        lines.append(
+            "Do NOT use file tools (read_file, pptx, xlsx, docx, glob_files, etc.) to read uploaded attachments; "
+            "uploaded attachments are not workspace file paths."
         )
+        extra += "\n".join(lines)
 
     # Canvas context (cap at 10K chars)
     canvas_context_limit = 10_000
@@ -1395,6 +1439,7 @@ class StreamContext:
     last_token_broadcast: float = 0.0
     prompt_meta: dict[str, Any] = field(default_factory=dict)
     user_msg: dict[str, Any] | None = None
+    debug_diagnostics: bool = False
     # Structured RecalledMemory list captured pre-turn (#1454). The chat
     # router needs the full ``content`` field for auto-propose dedupe;
     # ``prompt_meta["memory_recall_items"]`` only carries summary dicts.
@@ -1402,6 +1447,14 @@ class StreamContext:
 
 
 _DISCONNECT_POLL_INTERVAL = 3  # seconds
+
+
+def _debug_diagnostics_requested(request: Any) -> bool:
+    """Return true when server and client both opt into debug diagnostics."""
+    if not bool(getattr(request.app.state, "debug_diagnostics_enabled", False)):
+        return False
+    debug_header = request.headers.get("x-anteroom-debug", "")
+    return debug_header.lower() in {"1", "true", "yes", "on"}
 
 
 async def _poll_disconnect(
@@ -1628,6 +1681,133 @@ def _density_summary_fields_for_end(config: Any, tool_output: Any, status: str |
     }
 
 
+async def _stream_explicit_memory_save(
+    ctx: StreamContext,
+    tool_ctx: ToolExecutorContext,
+    intent: ExplicitMemoryIntent,
+) -> Any:
+    """Stream a deterministic save_memory call for explicit memory requests."""
+
+    tool_call_id = f"call_memory_{uuid_mod.uuid4().hex}"
+    arguments = {"content": intent.content, "category": intent.category, "scope": intent.scope}
+    current_assistant_msg = None
+    disconnect_task: asyncio.Task[None] | None = None
+    if ctx.request is not None:
+        disconnect_task = asyncio.create_task(_poll_disconnect(ctx.request, ctx.cancel_event))
+    if ctx.event_bus:
+        await ctx.event_bus.publish(
+            f"conversation:{ctx.conversation_id}",
+            {
+                "type": "stream_start",
+                "data": {"conversation_id": ctx.conversation_id, "client_id": ctx.client_id},
+            },
+        )
+    if ctx.prompt_meta:
+        yield {"event": "prompt_meta", "data": json.dumps(ctx.prompt_meta)}
+    if ctx.user_msg:
+        yield {
+            "event": "user_message",
+            "data": json.dumps({"id": ctx.user_msg["id"], "position": ctx.user_msg["position"]}),
+        }
+    try:
+        yield {
+            "event": "phase",
+            "data": json.dumps({"phase": "tool_exec", "tool_count": 1, "tool_names": ["save_memory"]}),
+        }
+        start_payload: dict[str, Any] = {
+            "id": tool_call_id,
+            "tool_name": "save_memory",
+            "server_name": "",
+            "input": arguments,
+        }
+        start_payload.update(_density_summary_fields_for_start(ctx.request.app.state.config, arguments))
+        yield {
+            "event": "tool_call_start",
+            "data": json.dumps(start_payload),
+        }
+        current_assistant_msg = storage.create_message(
+            ctx.db,
+            ctx.conversation_id,
+            "assistant",
+            "",
+            user_id=ctx.uid,
+            user_display_name=ctx.uname,
+        )
+        result = await _execute_web_tool(tool_ctx, "save_memory", {**arguments, "_tool_call_id": tool_call_id})
+        status = "error" if "error" in result else "success"
+        if current_assistant_msg:
+            approval_decision = result.pop("_approval_decision", None)
+            storage.create_tool_call(
+                ctx.db,
+                current_assistant_msg["id"],
+                "save_memory",
+                "builtin",
+                arguments,
+                tool_call_id,
+                approval_decision=approval_decision,
+                iteration=1,
+            )
+            storage.update_tool_call(ctx.db, tool_call_id, result, status)
+        end_payload: dict[str, Any] = {
+            "id": tool_call_id,
+            "output": result,
+            "status": status,
+        }
+        end_payload.update(_density_summary_fields_for_end(ctx.request.app.state.config, result, status))
+        yield {
+            "event": "tool_call_end",
+            "data": json.dumps(end_payload),
+        }
+        formatted = format_memory_save_result(result, data_dir=ctx.request.app.state.config.app.data_dir)
+        assistant_text = formatted.text
+        if current_assistant_msg:
+            storage.update_message_content(ctx.db, ctx.conversation_id, current_assistant_msg["id"], assistant_text)
+            storage.merge_message_metadata(ctx.db, current_assistant_msg["id"], formatted.metadata)
+        yield {"event": "token", "data": json.dumps({"content": assistant_text})}
+        if current_assistant_msg:
+            yield {
+                "event": "done",
+                "data": json.dumps(
+                    {
+                        "plan_mode": ctx.plan_mode,
+                        "assistant_message_id": current_assistant_msg["id"],
+                        "assistant_message_position": current_assistant_msg["position"],
+                    }
+                ),
+            }
+        else:
+            yield {"event": "done", "data": json.dumps({"plan_mode": ctx.plan_mode})}
+    except Exception:
+        logger.exception("Explicit memory save stream error")
+        yield {"event": "error", "data": json.dumps(build_user_error("An internal error occurred"))}
+    finally:
+        if disconnect_task is not None and not disconnect_task.done():
+            disconnect_task.cancel()
+            try:
+                await disconnect_task
+            except asyncio.CancelledError:
+                pass
+        _active_streams.pop(ctx.conversation_id, None)
+        queue = _message_queues.get(ctx.conversation_id)
+        if queue and queue.empty():
+            _message_queues.pop(ctx.conversation_id, None)
+        ce_set = _cancel_events.get(ctx.conversation_id)
+        if ce_set is not None:
+            ce_set.discard(ctx.cancel_event)
+            if not ce_set and _cancel_events.get(ctx.conversation_id) is ce_set:
+                _cancel_events.pop(ctx.conversation_id, None)
+        if ctx.conversation_id not in _active_streams:
+            _stream_locks.pop(ctx.conversation_id, None)
+        if ctx.event_bus:
+            await ctx.event_bus.publish(
+                f"conversation:{ctx.conversation_id}",
+                {
+                    "type": "stream_done",
+                    "data": {"conversation_id": ctx.conversation_id, "client_id": ctx.client_id},
+                },
+            )
+
+
 async def _stream_chat_events(ctx: StreamContext) -> Any:
     """Async generator that yields SSE events for the chat stream."""
 
@@ -1643,6 +1823,25 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
     # captures every tool call executed during the turn so attribution's
     # ``tools`` section is correct even when the final iteration is prose-only.
     _turn_tool_calls: list[dict[str, Any]] = []
+    _debug_summary_sent = False
+
+    def _new_debug_collector() -> DebugDiagnosticsCollector | None:
+        if not ctx.debug_diagnostics:
+            return None
+        ai_cfg = getattr(ctx.ai_service, "config", None)
+        return DebugDiagnosticsCollector(
+            provider=getattr(ai_cfg, "provider", None),
+            model=getattr(ai_cfg, "model", None),
+        )
+
+    _debug_collector = _new_debug_collector()
+
+    def _finish_debug_summary(stop_reason: str) -> dict[str, Any] | None:
+        nonlocal _debug_collector, _debug_summary_sent
+        if _debug_collector is None or _debug_summary_sent:
+            return None
+        _debug_summary_sent = True
+        return {"event": "debug_summary", "data": json.dumps(_debug_collector.finish(stop_reason))}
 
     # Spawn background disconnect poller so stale streams are cancelled promptly
     _disconnect_task: asyncio.Task[None] | None = None
@@ -1740,6 +1939,26 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                 "microcompact_enabled",
                 CompactionConfig.microcompact_enabled,
             ),
+            historical_tool_collapse_enabled=getattr(
+                getattr(_app_config, "compaction", None),
+                "historical_tool_collapse_enabled",
+                CompactionConfig.historical_tool_collapse_enabled,
+            ),
+            historical_tool_collapse_trigger_token_count=getattr(
+                getattr(_app_config, "compaction", None),
+                "historical_tool_collapse_trigger_token_count",
+                CompactionConfig.historical_tool_collapse_trigger_token_count,
+            ),
+            historical_tool_collapse_keep_recent_groups=getattr(
+                getattr(_app_config, "compaction", None),
+                "historical_tool_collapse_keep_recent_groups",
+                CompactionConfig.historical_tool_collapse_keep_recent_groups,
+            ),
+            historical_tool_collapse_compact_chars=getattr(
+                getattr(_app_config, "compaction", None),
+                "historical_tool_collapse_compact_chars",
+                CompactionConfig.historical_tool_collapse_compact_chars,
+            ),
             summary_trigger_msg_count=getattr(
                 getattr(_app_config, "compaction", None),
                 "summary_trigger_msg_count",
@@ -1754,6 +1973,21 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                 getattr(_app_config, "compaction", None),
                 "reactive_max_attempts",
                 CompactionConfig.reactive_max_attempts,
+            ),
+            summary_max_completion_tokens=getattr(
+                getattr(_app_config, "compaction", None),
+                "summary_max_completion_tokens",
+                CompactionConfig.summary_max_completion_tokens,
+            ),
+            summary_retry_max_attempts=getattr(
+                getattr(_app_config, "compaction", None),
+                "summary_retry_max_attempts",
+                CompactionConfig.summary_retry_max_attempts,
+            ),
+            summary_retry_drop_groups=getattr(
+                getattr(_app_config, "compaction", None),
+                "summary_retry_drop_groups",
+                CompactionConfig.summary_retry_drop_groups,
             ),
             db=ctx.db,
             conversation_id=ctx.conversation_id,
@@ -1771,6 +2005,8 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
 
             kind = agent_event.kind
             data = agent_event.data
+            if _debug_collector is not None:
+                _debug_collector.observe(kind, data)
 
             if kind == "usage":
                 _pending_usage = data
@@ -2080,12 +2316,16 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                 # helper around ``agent_gen``; no post-hoc flush needed.
 
             elif kind == "error":
+                if _debug_event := _finish_debug_summary("error"):
+                    yield _debug_event
                 yield {"event": "error", "data": json.dumps(data)}
 
             elif kind == "budget_warning":
                 yield {"event": "budget_warning", "data": json.dumps(data)}
 
             elif kind == "dlp_blocked":
+                if _debug_event := _finish_debug_summary("dlp_blocked"):
+                    yield _debug_event
                 yield {
                     "event": "error",
                     "data": json.dumps(
@@ -2111,6 +2351,8 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
             elif kind == "injection_detected":
                 action = data.get("action", "warn")
                 if action == "block":
+                    if _debug_event := _finish_debug_summary("injection_blocked"):
+                        yield _debug_event
                     yield {
                         "event": "error",
                         "data": json.dumps(
@@ -2134,6 +2376,8 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                     }
 
             elif kind == "output_filter_blocked":
+                if _debug_event := _finish_debug_summary("output_filter_blocked"):
+                    yield _debug_event
                 yield {
                     "event": "error",
                     "data": json.dumps(
@@ -2294,10 +2538,16 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                 if current_assistant_msg:
                     _done_payload["assistant_message_id"] = current_assistant_msg["id"]
                     _done_payload["assistant_message_position"] = current_assistant_msg["position"]
+                if _debug_event := _finish_debug_summary(data.get("stop_reason") or "completed"):
+                    yield _debug_event
                 yield {"event": "done", "data": json.dumps(_done_payload)}
+                _debug_summary_sent = False
+                _debug_collector = _new_debug_collector()
 
     except Exception:
         logger.exception("Chat stream error")
+        if _debug_event := _finish_debug_summary("internal_error"):
+            yield _debug_event
         yield {"event": "error", "data": json.dumps(build_user_error("An internal error occurred"))}
     finally:
         if _disconnect_task is not None and not _disconnect_task.done():
@@ -2726,13 +2976,14 @@ async def chat(conversation_id: str, request: Request) -> Any:
                         except Exception:
                             pass
                     else:
+                        validated_mime = att.get("mime_type") or f.content_type
                         try:
                             from ..services.document_extractor import EXTRACTABLE_MIME_TYPES, extract_text
 
-                            validated_mime = att.get("mime_type") or f.content_type
-                            extracted = None
+                            extraction_result = None
                             if validated_mime and validated_mime in EXTRACTABLE_MIME_TYPES:
-                                extracted = extract_text(file_data, validated_mime).text
+                                extraction_result = extract_text(file_data, validated_mime)
+                            extracted = extraction_result.text if extraction_result else None
                             if extracted:
                                 max_chars = 50_000
                                 if len(extracted) > max_chars:
@@ -2742,22 +2993,43 @@ async def chat(conversation_id: str, request: Request) -> Any:
                                         "type": "text",
                                         "filename": f.filename,
                                         "content": extracted,
+                                        "mime_type": validated_mime,
+                                        "extracted": True,
+                                        "warnings": extraction_result.warnings if extraction_result else [],
                                     }
                                 )
                             else:
+                                warnings = extraction_result.warnings if extraction_result else []
                                 attachment_contents.append(
                                     {
                                         "type": "text",
                                         "filename": f.filename,
-                                        "content": (
-                                            f"[Attached file: {f.filename} ({validated_mime})"
-                                            f" — content could not be extracted automatically."
-                                            f" Use the appropriate tool to read this file.]"
+                                        "content": _format_attachment_extraction_failure(
+                                            f.filename,
+                                            validated_mime,
+                                            warnings,
                                         ),
+                                        "mime_type": validated_mime,
+                                        "extracted": False,
+                                        "warnings": warnings,
                                     }
                                 )
                         except Exception:
                             logger.debug("Document extraction failed for %s", f.filename, exc_info=True)
+                            attachment_contents.append(
+                                {
+                                    "type": "text",
+                                    "filename": f.filename,
+                                    "content": _format_attachment_extraction_failure(
+                                        f.filename,
+                                        validated_mime,
+                                        ["document extraction failed unexpectedly"],
+                                    ),
+                                    "mime_type": validated_mime,
+                                    "extracted": False,
+                                    "warnings": ["document extraction failed unexpectedly"],
+                                }
+                            )
 
     cancel_event = asyncio.Event()
     async with _conv_stream_lock:
@@ -2805,10 +3077,13 @@ async def chat(conversation_id: str, request: Request) -> Any:
 
     ai_service = _get_ai_service(request, model_override=model_override)
 
-    # Build message history
+    # Build message history. Stored assistant tool-call rows are expanded into
+    # assistant/tool runtime groups so web reload matches CLI resume and later
+    # compaction can map the logical tail back to persisted row IDs.
     history = storage.list_messages(db, conversation_id)
-    ai_messages: list[dict[str, Any]] = []
-    for msg in history:
+    content_by_message_id: dict[str, Any] = {}
+    if user_msg and attachment_contents:
+        msg = user_msg
         content: Any = msg["content"]
         if user_msg and msg["id"] == user_msg["id"] and attachment_contents:
             parts: list[dict[str, Any]] = [{"type": "text", "text": msg["content"]}]
@@ -2818,7 +3093,11 @@ async def chat(conversation_id: str, request: Request) -> Any:
                 elif att["type"] == "text":
                     parts.append({"type": "text", "text": f"[Attached file: {att['filename']}]\n{att['content']}"})
             content = parts
-        ai_messages.append({"role": msg["role"], "content": content})
+        content_by_message_id[msg["id"]] = content
+    ai_messages = runtime_messages_from_stored_rows(
+        history,
+        content_by_message_id=content_by_message_id,
+    )
 
     # Build unified tool list: builtins + MCP
     tool_registry = request.app.state.tool_registry
@@ -2844,7 +3123,16 @@ async def chat(conversation_id: str, request: Request) -> Any:
     is_first_message = not regenerate and len(history) <= 1
     first_user_text = message_text
 
-    _att_filenames = [a["filename"] for a in attachment_contents if a.get("filename")] if attachment_contents else []
+    _attachment_statuses = [
+        {
+            "filename": a.get("filename"),
+            "mime_type": a.get("mime_type"),
+            "extracted": a.get("type") == "text" and a.get("extracted", True),
+            "warnings": a.get("warnings", []),
+        }
+        for a in attachment_contents
+        if a.get("filename")
+    ]
 
     extra_system_prompt, prompt_meta, recalled_memories = await _build_chat_system_prompt(
         ai_service=ai_service,
@@ -2867,7 +3155,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
         artifact_registry=req_art_reg,
         skill_registry=req_skill_reg,
         space_id=space_id,
-        attachment_filenames=_att_filenames,
+        attachment_statuses=_attachment_statuses,
         vec_manager=getattr(request.app.state, "vec_manager", None),
     )
 
@@ -2906,6 +3194,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
 
     # Preflight: full-request token accounting (#1339)
     from ..services.token_estimator import estimate_request_tokens as _est_req
+    from ..services.token_estimator import request_breakdown_to_metadata
 
     _web_breakdown = _est_req(
         messages=ai_messages,
@@ -2916,15 +3205,15 @@ async def chat(conversation_id: str, request: Request) -> Any:
     _web_warn_threshold = getattr(request.app.state.config.cli, "context_warn_tokens", 80000)
     _context_warning: dict[str, Any] | None = None
     if _web_breakdown.total > _web_warn_threshold:
-        _context_warning = {
-            "estimated_tokens": _web_breakdown.total,
-            "message_tokens": _web_breakdown.message_tokens,
-            "system_prompt_tokens": _web_breakdown.system_prompt_tokens,
-            "tool_schema_tokens": _web_breakdown.tool_schema_tokens,
-            "threshold": _web_warn_threshold,
-        }
+        _context_warning = request_breakdown_to_metadata(
+            _web_breakdown,
+            token_threshold=_web_warn_threshold,
+            threshold_field="threshold",
+        )
     if _context_warning is not None:
         prompt_meta["context_warning"] = _context_warning
+
+    debug_diagnostics = _debug_diagnostics_requested(request)
 
     # Build per-request safety approval context
     pending_approvals = getattr(request.app.state, "pending_approvals", {})
@@ -3022,8 +3311,15 @@ async def chat(conversation_id: str, request: Request) -> Any:
         request=request,
         prompt_meta=prompt_meta,
         user_msg=user_msg,
+        debug_diagnostics=debug_diagnostics,
         recalled_memories=recalled_memories,
     )
+
+    explicit_memory_intent = None
+    if not regenerate and not files and not plan_mode:
+        explicit_memory_intent = detect_explicit_memory_intent(message_text)
+    if explicit_memory_intent is not None and tool_registry.has_tool("save_memory"):
+        return EventSourceResponse(_stream_explicit_memory_save(stream_ctx, tool_exec_ctx, explicit_memory_intent))
 
     return EventSourceResponse(_stream_chat_events(stream_ctx))
 

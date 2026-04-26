@@ -117,6 +117,25 @@ class TestRunInit:
         mock_init.assert_called_once_with(force=False, team_config="/tmp/team.yaml")
 
 
+class TestKnowledgeDependencyCheck:
+    def test_pdf_dependency_hint_uses_default_install_guidance(self, capsys: pytest.CaptureFixture[str]) -> None:
+        from anteroom.__main__ import _check_knowledge_deps
+
+        def fake_import(name: str, *args, **kwargs):
+            if name == "pypdf":
+                raise ImportError("missing pypdf")
+            return MagicMock()
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            _check_knowledge_deps()
+
+        captured = capsys.readouterr()
+        assert "PDF text extraction" in captured.out
+        assert "pip install --upgrade anteroom" in captured.out
+        assert "pip install anteroom[docs]" not in captured.out
+        assert "PDF text extraction — install with: pip install anteroom[office]" not in captured.out
+
+
 # ---------------------------------------------------------------------------
 # _load_config_or_exit
 # ---------------------------------------------------------------------------

@@ -72,6 +72,7 @@ from plato._generated.models import (
     SetDateResponse,
     WaitForReadyResponse,
 )
+from plato.v2._wait_for_ready import poll_until_ready_sync
 from plato.v2.sync.environment import Environment
 from plato.v2.sync.flow_executor import FlowExecutor
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
@@ -185,11 +186,14 @@ class Session:
             raise RuntimeError(f"Failed to create environments: {failure_details}")
 
         try:
-            ready_response = sessions_wait_for_ready.sync(
-                client=http_client,
-                session_id=response.session_id,
+            ready_response = poll_until_ready_sync(
+                lambda per_call: sessions_wait_for_ready.sync(
+                    client=http_client,
+                    session_id=response.session_id,
+                    timeout=per_call,
+                    x_api_key=api_key,
+                ),
                 timeout=int(timeout),
-                x_api_key=api_key,
             )
             context = cls._check_ready_response(ready_response, timeout)
         except (TimeoutError, RuntimeError):
@@ -886,16 +890,18 @@ class Session:
         job_id = response.env.job_id
         is_desktop = bool(response.env.is_desktop)
 
-        # Wait for the job to be ready if requested
+        # Wait for the job to be ready if requested.
         mesh_ip: str | None = None
         if wait_for_ready:
-            ready_response = jobs_wait_for_ready.sync(
-                client=self._http,
-                job_id=job_id,
+            ready_response = poll_until_ready_sync(
+                lambda per_call: jobs_wait_for_ready.sync(
+                    client=self._http,
+                    job_id=job_id,
+                    timeout=per_call,
+                    x_api_key=self._api_key,
+                ),
                 timeout=timeout,
-                x_api_key=self._api_key,
             )
-
             if not ready_response.ready:
                 error = ready_response.error or "Unknown error"
                 raise TimeoutError(f"Job {job_id} did not become ready: {error}")

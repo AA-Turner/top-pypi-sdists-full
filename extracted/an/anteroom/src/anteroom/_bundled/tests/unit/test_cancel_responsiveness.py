@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import threading
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -80,22 +81,52 @@ class TestStopThinkingSyncCancelMsg:
         original_footer = renderer._footer_mode
         original_start = renderer._thinking_start
         original_stdout = renderer._stdout
+        original_invalidator = renderer._toolbar_invalidator
         try:
             renderer._footer_mode = True
-            renderer._thinking_start = 0.0  # will give large elapsed
+            renderer._thinking_start = 0.0
             mock_stdout = MagicMock()
             renderer._stdout = mock_stdout
             renderer._toolbar_invalidator = MagicMock()
 
-            renderer.stop_thinking_sync(cancel_msg="cancelled")
+            elapsed = renderer.stop_thinking_sync(cancel_msg="cancelled")
 
             assert not renderer._footer_mode
+            assert elapsed == 0.0
             mock_stdout.write.assert_called()
             written = mock_stdout.write.call_args[0][0]
             assert "cancelled" in written
+            assert not re.search(r"\b\d{6,}s\b", written)
             mock_stdout.flush.assert_called()
         finally:
             renderer._footer_mode = original_footer
+            renderer._thinking_start = original_start
+            renderer._stdout = original_stdout
+            renderer._toolbar_invalidator = original_invalidator
+
+    def test_raw_mode_cancel_with_unset_start_does_not_render_uptime(self) -> None:
+        from anteroom.cli import renderer
+
+        original_footer = renderer._footer_mode
+        original_repl = renderer._repl_mode
+        original_start = renderer._thinking_start
+        original_stdout = renderer._stdout
+        try:
+            renderer._footer_mode = False
+            renderer._repl_mode = True
+            renderer._thinking_start = 0.0
+            mock_stdout = MagicMock()
+            renderer._stdout = mock_stdout
+
+            elapsed = renderer.stop_thinking_sync(cancel_msg="cancelled")
+
+            assert elapsed == 0.0
+            written = "".join(call.args[0] for call in mock_stdout.write.call_args_list)
+            assert "cancelled" in written
+            assert not re.search(r"\b\d{6,}s\b", written)
+        finally:
+            renderer._footer_mode = original_footer
+            renderer._repl_mode = original_repl
             renderer._thinking_start = original_start
             renderer._stdout = original_stdout
 
@@ -105,6 +136,7 @@ class TestStopThinkingSyncCancelMsg:
         original_footer = renderer._footer_mode
         original_start = renderer._thinking_start
         original_stdout = renderer._stdout
+        original_invalidator = renderer._toolbar_invalidator
         try:
             renderer._footer_mode = True
             renderer._thinking_start = 0.0
@@ -121,6 +153,27 @@ class TestStopThinkingSyncCancelMsg:
             renderer._footer_mode = original_footer
             renderer._thinking_start = original_start
             renderer._stdout = original_stdout
+            renderer._toolbar_invalidator = original_invalidator
+
+
+class TestTurnWasCancelled:
+    """Tests for cancelled turn summary decisions."""
+
+    def test_acknowledged_cancel_counts_even_before_thinking(self) -> None:
+        from anteroom.cli.repl import _turn_was_cancelled
+
+        cancel_event = asyncio.Event()
+        cancel_event.set()
+
+        assert _turn_was_cancelled(False, cancel_event, [True]) is True
+
+    def test_programmatic_cancel_before_thinking_does_not_count_as_user_cancel(self) -> None:
+        from anteroom.cli.repl import _turn_was_cancelled
+
+        cancel_event = asyncio.Event()
+        cancel_event.set()
+
+        assert _turn_was_cancelled(False, cancel_event, [False]) is False
 
 
 class TestBashCancelAwareness:

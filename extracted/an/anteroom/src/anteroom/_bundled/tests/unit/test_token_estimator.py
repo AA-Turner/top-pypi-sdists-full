@@ -11,11 +11,16 @@ from unittest.mock import patch
 import pytest
 
 from anteroom.services.token_estimator import (
+    RequestFixedOverhead,
     RequestTokenBreakdown,
     count_message_tokens,
     count_text_tokens,
+    count_tool_schema_tokens,
+    estimate_fixed_request_overhead,
     estimate_request_tokens,
+    estimate_request_tokens_with_overhead,
     estimate_usage,
+    request_breakdown_to_metadata,
 )
 
 
@@ -65,6 +70,60 @@ class TestCountMessageTokens:
         msgs = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
         tokens = count_message_tokens(msgs)
         assert tokens > 4
+
+    def test_structured_text_part_counts_text_not_dict_repr(self) -> None:
+        msgs = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Hello",
+                        "metadata": {"local": "x" * 20_000},
+                    }
+                ],
+            }
+        ]
+        tokens = count_message_tokens(msgs)
+        assert tokens < 50
+
+    def test_image_part_uses_bounded_payload_estimate(self) -> None:
+        image_url = "data:image/png;base64," + ("A" * 60_000)
+        msgs = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": image_url}}]}]
+        tokens = count_message_tokens(msgs)
+        assert tokens > 85
+        assert tokens < 500
+
+    def test_document_part_uses_bounded_payload_estimate(self) -> None:
+        document = {
+            "type": "document",
+            "title": "Spec",
+            "source": {"type": "base64", "data": "A" * 250_000},
+        }
+        tokens = count_message_tokens([{"role": "user", "content": [document]}])
+        assert tokens > 300
+        assert tokens < 1000
+
+    def test_tool_role_counts_call_id_and_result_content(self) -> None:
+        without_id = count_message_tokens([{"role": "tool", "content": "done"}])
+        with_id = count_message_tokens([{"role": "tool", "tool_call_id": "call_123", "content": "done"}])
+        assert with_id > without_id
+
+    def test_anthropic_tool_blocks_are_counted_by_payload_shape(self) -> None:
+        msgs = [
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "I'll inspect it."},
+                    {"type": "tool_use", "id": "toolu_1", "name": "read_file", "input": {"path": "README.md"}},
+                ],
+            },
+            {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "toolu_1", "content": "contents"}],
+            },
+        ]
+        assert count_message_tokens(msgs) > 25
 
 
 class TestCountTextTokens:
@@ -116,6 +175,49 @@ class TestEstimateUsage:
         assert result["completion_tokens"] == 0
         assert result["total_tokens"] == 0
 
+    def test_expanded_inputs_include_system_and_tool_schemas(self) -> None:
+        msgs = [{"role": "user", "content": "Hi"}]
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search",
+                    "description": "Search docs",
+                    "parameters": {"type": "object", "properties": {"query": {"type": "string"}}},
+                },
+            }
+        ]
+        basic = estimate_usage(msgs, "Hello", "gpt-4o")
+        expanded = estimate_usage(
+            msgs,
+            "Hello",
+            "gpt-4o",
+            system_prompt="Base system.",
+            extra_system_prompt="Dynamic instructions.",
+            tool_schemas=tools,
+        )
+        assert expanded["prompt_tokens"] > basic["prompt_tokens"]
+        assert expanded["total_tokens"] == expanded["prompt_tokens"] + expanded["completion_tokens"]
+
+    def test_estimate_usage_prompt_matches_request_breakdown(self) -> None:
+        msgs = [{"role": "user", "content": [{"type": "text", "text": "Hi"}]}]
+        tools = [{"type": "function", "function": {"name": "bash", "parameters": {"type": "object"}}}]
+        usage = estimate_usage(
+            msgs,
+            "ok",
+            "model",
+            system_prompt="System.",
+            extra_system_prompt="Extra.",
+            tool_schemas=tools,
+        )
+        breakdown = estimate_request_tokens(
+            messages=msgs,
+            system_prompt="System.",
+            extra_system_prompt="Extra.",
+            tool_schemas=tools,
+        )
+        assert usage["prompt_tokens"] == breakdown.total
+
 
 class TestEstimateRequestTokens:
     """Tests for the shared full-request token accounting (#1339)."""
@@ -166,6 +268,24 @@ class TestEstimateRequestTokens:
         assert with_tools.total > without.total
         assert with_tools.tool_schema_tokens > 0
 
+    def test_tool_schema_counts_full_payload_with_dense_json_guard(self) -> None:
+        tool = {
+            "type": "function",
+            "function": {
+                "name": "write_json",
+                "description": "Write dense JSON",
+                "parameters": {
+                    "type": "object",
+                    "properties": {f"k{i}": {"type": "string", "enum": ["a", "b", "c"]} for i in range(20)},
+                    "required": [f"k{i}" for i in range(20)],
+                },
+            },
+        }
+        schema_tokens = count_tool_schema_tokens([tool])
+        serialized = json.dumps(tool, sort_keys=True, separators=(",", ":"))
+        assert schema_tokens >= (len(serialized) + 2) // 3
+        assert schema_tokens > count_text_tokens(tool["function"]["description"])
+
     def test_undercount_regression(self) -> None:
         """Full-request estimate must exceed message-only count when overhead is present."""
         msgs = [{"role": "user", "content": "Write a function."}]
@@ -207,6 +327,71 @@ class TestEstimateRequestTokens:
         assert isinstance(breakdown, RequestTokenBreakdown)
         with pytest.raises(AttributeError):
             breakdown.total = 999  # type: ignore[misc]
+
+    def test_cached_overhead_matches_direct_full_request_estimate(self) -> None:
+        msgs = [{"role": "user", "content": "Use the project context."}]
+        system_prompt = "Base system policy. " * 5
+        extra_system_prompt = "Dynamic RAG context. " * 3
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "description": "Read a file",
+                    "parameters": {"type": "object", "properties": {"path": {"type": "string"}}},
+                },
+            }
+        ]
+
+        direct = estimate_request_tokens(
+            messages=msgs,
+            system_prompt=system_prompt,
+            extra_system_prompt=extra_system_prompt,
+            tool_schemas=tools,
+        )
+        fixed = estimate_fixed_request_overhead(system_prompt=system_prompt, tool_schemas=tools)
+        cached = estimate_request_tokens_with_overhead(
+            messages=msgs,
+            extra_system_prompt=extra_system_prompt,
+            fixed_overhead=fixed,
+        )
+
+        assert cached == direct
+
+    def test_cached_overhead_handles_extra_without_base_system_prompt(self) -> None:
+        breakdown = estimate_request_tokens_with_overhead(
+            messages=[{"role": "user", "content": "Hi"}],
+            extra_system_prompt="Only dynamic context.",
+            fixed_overhead=RequestFixedOverhead(system_prompt_tokens=0, tool_schema_tokens=0),
+        )
+        direct = estimate_request_tokens(
+            messages=[{"role": "user", "content": "Hi"}],
+            extra_system_prompt="Only dynamic context.",
+        )
+
+        assert breakdown == direct
+
+    def test_request_breakdown_to_metadata_uses_stable_field_names(self) -> None:
+        breakdown = RequestTokenBreakdown(
+            message_tokens=11,
+            system_prompt_tokens=22,
+            tool_schema_tokens=33,
+            total=66,
+        )
+
+        metadata = request_breakdown_to_metadata(
+            breakdown,
+            token_threshold=100,
+            threshold_field="threshold",
+        )
+
+        assert metadata == {
+            "estimated_tokens": 66,
+            "message_tokens": 11,
+            "system_prompt_tokens": 22,
+            "tool_schema_tokens": 33,
+            "threshold": 100,
+        }
 
 
 class TestTiktokenFallback:

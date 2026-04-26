@@ -4,7 +4,24 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+# Cap on free-form text fields shipped over the SSH stdio channel.
+# A single GitOpResult is serialized as one JSON line; asyncio's StreamReader
+# default line buffer is 64KB, so any individual string field above this risks
+# pushing the encoded line past that limit and breaking readline(). Git output
+# (verbose push progress, status on a workspace with thousands of untracked
+# files, GitCommandError stderr dumps) can balloon past 64KB. Truncate to keep
+# both head + tail visible for debugging.
+_TEXT_FIELD_CAP = 16 * 1024
+
+
+def _truncate_text(value: str) -> str:
+    if len(value) <= _TEXT_FIELD_CAP:
+        return value
+    half = _TEXT_FIELD_CAP // 2
+    return f"{value[:half]}\n... [truncated {len(value) - _TEXT_FIELD_CAP} bytes] ...\n{value[-half:]}"
+
 
 GitOperation = Literal[
     "ping",
@@ -150,3 +167,10 @@ class GitOpResult(BaseModel):
     git_status: str | None = None
     ahead_behind: str | None = None
     files: list[str] | None = None
+
+    @field_validator("stdout", "stderr", "git_status", mode="before")
+    @classmethod
+    def _cap_text(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return _truncate_text(v)

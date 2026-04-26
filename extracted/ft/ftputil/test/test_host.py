@@ -1,4 +1,4 @@
-# Copyright (C) 2002-2021, Stefan Schwarzer <sschwarzer@sschwarzer.net>
+# Copyright (C) 2002-2026, Stefan Schwarzer <sschwarzer@sschwarzer.net>
 # and ftputil contributors (see `doc/contributors.txt`)
 # See the file LICENSE for licensing terms.
 
@@ -14,7 +14,6 @@ import random
 import time
 import unittest
 import unittest.mock
-import warnings
 
 import pytest
 
@@ -54,6 +53,7 @@ def as_bytes(string, encoding=ftputil.path_encoding.DEFAULT_ENCODING):
 # Test cases
 #
 
+
 # For Python < 3.9, the `default_session_factory` is just `ftplib.FTP`. It's
 # not worth it to test the factory then.
 @pytest.mark.skipif(
@@ -84,15 +84,14 @@ class TestDefaultSessionFactory:
         with unittest.mock.patch("ftplib.FTP.__init__") as ftp_mock:
             # Prevent `TypeError` when Python checks the `__init__` result.
             ftp_mock.return_value = None
-            session = ftputil.host.default_session_factory(
+            _session = ftputil.host.default_session_factory(
                 "localhost", "ftptest", "dummy", *args, **kwargs
             )
             assert len(ftp_mock.call_args_list) == 1
             assert (
                 # Don't compare the `self` argument. It changes for every test
                 # run.
-                ftp_mock.call_args.args
-                == ("localhost", "ftptest", "dummy") + args
+                ftp_mock.call_args.args == ("localhost", "ftptest", "dummy") + args
             )
             assert ftp_mock.call_args.kwargs == expected_kwargs
 
@@ -114,7 +113,7 @@ class TestDefaultSessionFactory:
         """
         kwargs = {"timeout": 1.0, "source_address": None}
         expected_kwargs = kwargs.copy()
-        expected_kwargs["encoding"] = ftputil.path_encoding.DEFAULT_ENCODING
+        expected_kwargs["encoding"] = ftputil.path_encoding.DEFAULT_ENCODING  # ty: ignore[invalid-assignment]
         self._test_extra_arguments(kwargs=kwargs, expected_kwargs=expected_kwargs)
 
     def test_custom_encoding(self):
@@ -245,6 +244,7 @@ class TestSetParser:
             Call("close"),
         ]
         with test_base.ftp_host_factory(scripted_session.factory(script)) as host:
+            host.set_time_shift(0.0)
             assert host._stat._allow_parser_switching is True
             trivial_parser = TestSetParser.TrivialParser()
             host.set_parser(trivial_parser)
@@ -346,7 +346,6 @@ class TestRecursiveListingForDotAsPath:
 
 
 class TestTimeShift:
-
     # Helper mock class that frees us from setting up complicated session
     # scripts for the remote calls.
     class _Path:
@@ -608,6 +607,7 @@ class TestUploadAndDownload:
         # about a missing scripted session for the `FTPFile` host.
         multisession_factory = scripted_session.factory(script)
         with test_base.ftp_host_factory(multisession_factory) as host:
+            host.set_time_shift(0.0)
             flag = host.upload_if_newer(str(local_source), "/newer")
         assert flag is False
 
@@ -619,11 +619,11 @@ class TestUploadAndDownload:
         local_source = tmp_path / "test_source"
         file_content = b"dummy_content"
         local_source.write_bytes(file_content)
-        remote_file_name = "dummy_name"
+        remote_file_name = "older"
         dir_result = test_base.dir_line(
             mode_string="-rw-r--r--",
             date_=datetime.date.today() - datetime.timedelta(days=1),
-            name="older",
+            name=remote_file_name,
         )
         host_script = [
             Call("__init__"),
@@ -641,7 +641,7 @@ class TestUploadAndDownload:
             Call("voidcmd", args=("TYPE I",)),
             Call(
                 "transfercmd",
-                args=("STOR older", None),
+                args=(f"STOR {remote_file_name}", None),
                 result=test_base.MockableBytesIO(),
             ),
             Call("voidresp"),
@@ -651,7 +651,8 @@ class TestUploadAndDownload:
         multisession_factory = scripted_session.factory(host_script, file_script)
         with unittest.mock.patch("test.test_base.MockableBytesIO.write") as write_mock:
             with test_base.ftp_host_factory(multisession_factory) as host:
-                flag = host.upload_if_newer(str(local_source), "/older")
+                host.set_time_shift(0.0)
+                flag = host.upload_if_newer(str(local_source), f"/{remote_file_name}")
             write_mock.assert_called_with(file_content)
         assert flag is True
         # Target doesn't exist, so upload.
@@ -664,6 +665,7 @@ class TestUploadAndDownload:
         multisession_factory = scripted_session.factory(host_script, file_script)
         with unittest.mock.patch("test.test_base.MockableBytesIO.write") as write_mock:
             with test_base.ftp_host_factory(multisession_factory) as host:
+                host.set_time_shift(0.0)
                 flag = host.upload_if_newer(str(local_source), "/notthere")
             write_mock.assert_called_with(file_content)
         assert flag is True
@@ -690,6 +692,7 @@ class TestUploadAndDownload:
         ]
         multisession_factory = scripted_session.factory(host_script, file_script)
         with test_base.ftp_host_factory(multisession_factory) as host:
+            host.set_time_shift(0.0)
             flag = host.download_if_newer("/newer", str(local_target))
         assert flag is True
         assert local_target.read_bytes() == data
@@ -731,6 +734,7 @@ class TestUploadAndDownload:
         ]
         multisession_factory = scripted_session.factory(host_script, file_script)
         with test_base.ftp_host_factory(multisession_factory) as host:
+            host.set_time_shift(0.0)
             flag = host.download_if_newer("/newer", str(local_target))
         assert flag is True
         assert local_target.read_bytes() == data
@@ -770,6 +774,7 @@ class TestUploadAndDownload:
         ]
         multisession_factory = scripted_session.factory(host_script, file_script)
         with test_base.ftp_host_factory(multisession_factory) as host:
+            host.set_time_shift(0.0)
             flag = host.download_if_newer("/newer", str(local_target))
         assert flag is False
 
@@ -941,11 +946,13 @@ class TestAcceptEitherUnicodeOrBytes:
         # Unicode
         session_factory = scripted_session.factory(script)
         with test_base.ftp_host_factory(session_factory) as host:
+            host.set_time_shift(0.0)
             items = host.listdir("ä")
         assert items == ["ö", "o"]
         # Bytes
         session_factory = scripted_session.factory(script)
         with test_base.ftp_host_factory(session_factory) as host:
+            host.set_time_shift(0.0)
             items = host.listdir(
                 as_bytes("ä", ftputil.path_encoding.FTPLIB_DEFAULT_ENCODING)
             )
@@ -983,11 +990,13 @@ class TestAcceptEitherUnicodeOrBytes:
         # Unicode
         session_factory = scripted_session.factory(script)
         with test_base.ftp_host_factory(session_factory) as host:
+            host.set_time_shift(0.0)
             method = getattr(host, method_name)
             method(path)
         # Bytes
         session_factory = scripted_session.factory(script)
         with test_base.ftp_host_factory(session_factory) as host:
+            host.set_time_shift(0.0)
             method = getattr(host, method_name)
             method(as_bytes(path, ftputil.path_encoding.FTPLIB_DEFAULT_ENCODING))
 
@@ -1215,11 +1224,13 @@ class TestAcceptEitherUnicodeOrBytes:
         # Unicode
         session_factory = scripted_session.factory(script)
         with test_base.ftp_host_factory(session_factory) as host:
-            result = list(host.walk("/ä"))
+            host.set_time_shift(0.0)
+            _result = list(host.walk("/ä"))
         # Bytes
         session_factory = scripted_session.factory(script)
         with test_base.ftp_host_factory(session_factory) as host:
-            result = list(
+            host.set_time_shift(0.0)
+            _result = list(
                 host.walk(as_bytes("/ä", ftputil.path_encoding.FTPLIB_DEFAULT_ENCODING))
             )
 

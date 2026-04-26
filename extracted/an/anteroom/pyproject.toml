@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anteroom"
-version = "1.172.0"
+version = "1.173.0"
 description = "Anteroom - your gateway to AI conversation"
 readme = "README.md"
 license = "Apache-2.0"
@@ -36,6 +36,8 @@ dependencies = [
     "numpy>=1.24.0",
     "urllib3>=2.6.3",
     "pyperclip>=1.8.0",
+    # PDF text extraction is a default knowledge workflow capability.
+    "pypdf>=6.10.2",
     # Docs server (aroom docs) — mkdocs invoked directly via python -m mkdocs
     "mkdocs>=1.6,<2",
     "mkdocs-material>=9.5",
@@ -61,7 +63,6 @@ index = [
     "tree-sitter-language-pack>=0.2.0",
 ]
 docs = [
-    "pypdf>=6.7.4",
     "python-docx>=1.0",
 ]
 office = [
@@ -122,6 +123,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 anteroom = [
+    "project-links.*.yaml",
     "static/**/*",
     "cli/default_skills/*.yaml",
     "packs/**/*",

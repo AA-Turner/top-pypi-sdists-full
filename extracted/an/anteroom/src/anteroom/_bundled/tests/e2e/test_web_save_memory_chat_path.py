@@ -37,7 +37,16 @@ import httpx
 import pytest
 import uvicorn
 
-from anteroom.config import AIConfig, AppConfig, AppSettings, EmbeddingsConfig, SafetyConfig
+from anteroom.config import (
+    AIConfig,
+    AppConfig,
+    AppSettings,
+    EmbeddingsConfig,
+    MemoryConfig,
+    MemoryPromotionConfig,
+    SafetyConfig,
+)
+from anteroom.services import storage
 from tests.e2e.conftest import (
     _NoopRateLimiter,
     mock_tool_call_stream,
@@ -191,6 +200,105 @@ def _respond_to_approval(
 
 
 class TestSaveMemoryChatPath:
+    def test_explicit_memory_utterance_bypasses_invoke_skill(
+        self,
+        save_memory_client: httpx.Client,
+        save_memory_conversation_id: str,
+        save_memory_app_server: tuple[str, Path, Any],
+    ) -> None:
+        _, _, app = save_memory_app_server
+        chat_result: dict = {}
+        chat_thread = threading.Thread(
+            target=_do_chat,
+            args=(
+                save_memory_client,
+                save_memory_conversation_id,
+                "save my name Troy Larson as a memorry",
+                lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("AI should not be called")),
+                chat_result,
+            ),
+            daemon=True,
+        )
+        chat_thread.start()
+
+        approval_id = _poll_pending_approval(app)
+        assert approval_id is not None
+        resp = _respond_to_approval(save_memory_client, approval_id, approved=True, scope="once")
+        assert resp.status_code == 200
+
+        chat_thread.join(timeout=30)
+        assert "response" in chat_result, f"Chat failed: {chat_result}"
+        assert chat_result["response"].status_code == 200
+
+        events = parse_sse_events(chat_result["response"])
+        starts = [e for e in events if e["event"] == "tool_call_start"]
+        assert [e["data"].get("tool_name") for e in starts] == ["save_memory"]
+        assert all(e["data"].get("tool_name") != "invoke_skill" for e in starts)
+        end_events = [e for e in events if e["event"] == "tool_call_end"]
+        assert end_events
+        assert end_events[0]["data"]["output"]["memory_status"] == "candidate"
+        token_text = "".join(e["data"].get("content", "") for e in events if e["event"] == "token")
+        assert "memory candidate" in token_text
+        assert "not active or recallable until approved" in token_text
+        assert "may" not in token_text.lower()
+        assistant = [
+            m for m in storage.list_messages(app.state.db, save_memory_conversation_id) if m["role"] == "assistant"
+        ][0]
+        assert assistant["metadata"]["memory_save"]["memory_status"] == "candidate"
+        assert assistant["metadata"]["memory_save"]["recallable"] is False
+        assert assistant["tool_calls"][0]["output"]["memory_status"] == "candidate"
+
+    def test_explicit_memory_utterance_reports_active_when_auto_approved(
+        self,
+        save_memory_client: httpx.Client,
+        save_memory_conversation_id: str,
+        save_memory_app_server: tuple[str, Path, Any],
+    ) -> None:
+        _, _, app = save_memory_app_server
+        original_memory_config = app.state.config.memory
+        app.state.config.memory = MemoryConfig(promotion=MemoryPromotionConfig(local_auto_approve=True))
+        chat_result: dict = {}
+        try:
+            chat_thread = threading.Thread(
+                target=_do_chat,
+                args=(
+                    save_memory_client,
+                    save_memory_conversation_id,
+                    "save my name Active Larson as a memorry",
+                    lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("AI should not be called")),
+                    chat_result,
+                ),
+                daemon=True,
+            )
+            chat_thread.start()
+
+            approval_id = _poll_pending_approval(app)
+            assert approval_id is not None
+            resp = _respond_to_approval(save_memory_client, approval_id, approved=True, scope="once")
+            assert resp.status_code == 200
+
+            chat_thread.join(timeout=30)
+        finally:
+            app.state.config.memory = original_memory_config
+
+        assert "response" in chat_result, f"Chat failed: {chat_result}"
+        assert chat_result["response"].status_code == 200
+        events = parse_sse_events(chat_result["response"])
+        end_events = [e for e in events if e["event"] == "tool_call_end"]
+        assert end_events
+        assert end_events[0]["data"]["output"]["memory_status"] == "active"
+        token_text = "".join(e["data"].get("content", "") for e in events if e["event"] == "token")
+        assert "active memory" in token_text
+        assert "eligible for recall" in token_text
+        assert "may" not in token_text.lower()
+        assistant_messages = [
+            m for m in storage.list_messages(app.state.db, save_memory_conversation_id) if m["role"] == "assistant"
+        ]
+        assistant = assistant_messages[-1]
+        assert assistant["metadata"]["memory_save"]["memory_status"] == "active"
+        assert assistant["metadata"]["memory_save"]["recallable"] is True
+        assert assistant["tool_calls"][0]["output"]["memory_status"] == "active"
+
     def test_stubbed_llm_tool_call_approved_persists_candidate(
         self,
         save_memory_client: httpx.Client,

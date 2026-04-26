@@ -84,18 +84,44 @@ class Visitor102(Flake8AsyncVisitor):
         self._potential_120.clear()
 
     def is_safe_aclose_call(self, node: ast.Await) -> bool:
-        return (
-            isinstance(node.value, ast.Call)
-            # only known safe if no arguments
+        if not isinstance(node.value, ast.Call):
+            return False
+        # allow `<x>.aclose()` with no arguments
+        if (
+            isinstance(node.value.func, ast.Attribute)
+            and node.value.func.attr == "aclose"
             and not node.value.args
             and not node.value.keywords
-            and isinstance(node.value.func, ast.Attribute)
-            and node.value.func.attr == "aclose"
+        ):
+            return True
+        # allow `trio.aclose_forcefully(<x>)` / `anyio.aclose_forcefully(<x>)`,
+        # which are specifically designed for cleanup and cancel immediately by design
+        return (
+            get_matching_call(node.value, "aclose_forcefully", imports=self.imports)
+            is not None
+        )
+
+    # trio.lowlevel.cancel_shielded_checkpoint (and the anyio equivalent) are
+    # explicitly a schedule-but-not-cancel point, so they're safe to await
+    # inside a finally / cancelled except / __aexit__.
+    def is_safe_shielded_checkpoint(self, node: ast.Await) -> bool:
+        return (
+            isinstance(node.value, ast.Call)
+            and not node.value.args
+            and not node.value.keywords
+            and self.canonical_name(node.value.func)
+            in (
+                "trio.lowlevel.cancel_shielded_checkpoint",
+                "anyio.lowlevel.cancel_shielded_checkpoint",
+            )
         )
 
     def visit_Await(self, node: ast.Await):
-        # allow calls to `.aclose()`
-        if not (self.is_safe_aclose_call(node)):
+        # allow calls to `.aclose()`, `[trio/anyio].aclose_forcefully(...)`, and
+        # `[trio/anyio].lowlevel.cancel_shielded_checkpoint()`
+        if not (
+            self.is_safe_aclose_call(node) or self.is_safe_shielded_checkpoint(node)
+        ):
             self.async_call_checker(node)
 
     visit_AsyncFor = async_call_checker
@@ -110,6 +136,7 @@ class Visitor102(Flake8AsyncVisitor):
                 "open_nursery",
                 "create_task_group",
                 *cancel_scope_names,
+                imports=self.imports,
             )
             if call is None:
                 continue
@@ -128,9 +155,17 @@ class Visitor102(Flake8AsyncVisitor):
         # asyncio.TaskGroup() appears to be a source of cancellation when exiting.
         for item in node.items:
             if not (
-                get_matching_call(item.context_expr, "open_nursery", base="trio")
+                get_matching_call(
+                    item.context_expr,
+                    "open_nursery",
+                    base="trio",
+                    imports=self.imports,
+                )
                 or get_matching_call(
-                    item.context_expr, "create_task_group", base="anyio"
+                    item.context_expr,
+                    "create_task_group",
+                    base="anyio",
+                    imports=self.imports,
                 )
             ):
                 self.async_call_checker(node)
@@ -153,6 +188,10 @@ class Visitor102(Flake8AsyncVisitor):
         self._critical_scope = Statement("try/finally", node.lineno, node.col_offset)
         self.visit_nodes(node.finalbody)
 
+        # we've manually visited the Try fields above; stop the runner from doing
+        # it a second time via generic_visit.
+        self.novisit = True
+
     visit_TryStar = visit_Try
 
     def visit_ExceptHandler(self, node: ast.ExceptHandler):
@@ -166,7 +205,10 @@ class Visitor102(Flake8AsyncVisitor):
         self._trio_context_managers = []
         self._potential_120 = []
 
-        if self.cancelled_caught or (res := critical_except(node)) is None:
+        if (
+            self.cancelled_caught
+            or (res := critical_except(node, self.imports)) is None
+        ):
             self._critical_scope = Statement("except", node.lineno, node.col_offset)
         else:
             self._critical_scope = res

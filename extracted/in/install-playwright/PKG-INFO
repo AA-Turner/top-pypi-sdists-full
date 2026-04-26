@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: install-playwright
-Version: 1.0.0
+Version: 1.0.1
 Summary: Execute `playwright install` from Python
 Project-URL: Repository, https://github.com/eggplants/install-playwright-python
 Author-email: eggplants <w10776e8w@yahoo.co.jp>
-License: MIT
+License-Expression: MIT
 License-File: LICENSE
 Keywords: browser,install,playwright
 Classifier: License :: OSI Approved :: MIT License

@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: soundcloud-v2
-Version: 1.6.2
+Version: 1.7.0
 Summary: Python wrapper for the internal v2 SoundCloud API.Does not require an API key.
 Home-page: https://github.com/7x11x13/soundcloud.py
 Author: 7x11x13
 Author-email: x7x11x13@gmail.com
 Project-URL: Bug Tracker, https://github.com/7x11x13/soundcloud.py/issues
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -14,19 +13,17 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: dacite>=1.8.1
 Requires-Dist: python-dateutil>=2.8.2
-Requires-Dist: requests
-Requires-Dist: typing_extensions; python_version < "3.8"
+Requires-Dist: curl_cffi<0.16,>=0.10
 Provides-Extra: dev
 Requires-Dist: coveralls; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-dotenv; extra == "dev"
 Requires-Dist: types-python-dateutil; extra == "dev"
-Requires-Dist: types-requests; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Provides-Extra: docs

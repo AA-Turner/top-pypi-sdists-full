@@ -161,6 +161,28 @@ class TestToolRegistry:
         assert "grep" in names
 
     @pytest.mark.asyncio
+    async def test_docx_pdf_path_hard_denied_before_approval(self) -> None:
+        from anteroom.config import SafetyConfig
+
+        reg = ToolRegistry()
+        called = False
+
+        async def handler(**kwargs):
+            nonlocal called
+            called = True
+            return {"ok": True}
+
+        reg.register("docx", handler, {"name": "docx", "description": ""})
+        reg.set_safety_config(SafetyConfig(approval_mode="ask_for_writes"), working_dir="/tmp")
+
+        result = await reg.call_tool("docx", {"action": "read", "path": "/tmp/card.pdf"})
+
+        assert called is False
+        assert result.get("safety_blocked") is True
+        assert result.get("_approval_decision") == "hard_denied"
+        assert "PDFs are extracted inline" in result.get("error", "")
+
+    @pytest.mark.asyncio
     async def test_destructive_command_confirmation_denied(self) -> None:
         from anteroom.config import SafetyConfig
         from anteroom.tools.safety import SafetyVerdict

@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 from . import __version__
 from .config import AppConfig, _get_config_path, load_config
+from .services.version_check import VersionCheckStatus, check_for_update
 
 
 def _find_mkdocs_yml() -> Path | None:
@@ -71,6 +72,10 @@ def _run_docs(args: argparse.Namespace) -> None:
     if mkdocs_yml is None:
         print("Cannot find mkdocs.yml.", file=sys.stderr)
         sys.exit(1)
+
+    from .services.docs_project_links import prepare_docs_site
+
+    mkdocs_yml = prepare_docs_site(mkdocs_yml)
 
     if getattr(args, "docs_build", False):
         print(f"Running mkdocs build --strict in {mkdocs_yml.parent} ...")
@@ -509,10 +514,10 @@ async def _validate_ai_connection(config: AppConfig) -> None:
 
 
 def _check_knowledge_deps() -> None:
-    """Check availability of optional knowledge pipeline dependencies."""
+    """Check availability of knowledge pipeline dependencies."""
     deps = [
         ("fastembed", "Local embeddings (default)", "pip install fastembed"),
-        ("pypdf", "PDF text extraction", "pip install anteroom[office]"),
+        ("pypdf", "PDF text extraction (default)", "pip install --upgrade anteroom"),
         ("docx", "DOCX text extraction", "pip install anteroom[office]"),
         ("pptx", "PPTX text extraction", "pip install anteroom[office]"),
         ("openpyxl", "XLSX text extraction", "pip install anteroom[office]"),
@@ -529,7 +534,7 @@ def _check_knowledge_deps() -> None:
     if all_ok:
         print("   All knowledge pipeline dependencies available.")
     else:
-        print("   Some optional dependencies are missing (knowledge features will degrade gracefully).")
+        print("   Some knowledge dependencies are missing (features will degrade gracefully).")
 
 
 async def _test_connection(config: AppConfig) -> None:
@@ -891,6 +896,31 @@ def _run_usage(
     print()
 
 
+def _run_version_check(config: AppConfig, args: argparse.Namespace) -> None:
+    """Run an explicit, user-visible version check."""
+    command = getattr(args, "version_check_command", None)
+    if command is None:
+        command = config.cli.update_check_command
+
+    result = asyncio.run(check_for_update(__version__, command=command))
+    print(f"Current version: {result.current}")
+    print(f"Check source: {result.source}")
+
+    if result.status is VersionCheckStatus.UPDATE_AVAILABLE:
+        print(f"Update available: {result.current} -> {result.latest}")
+        return
+    if result.status is VersionCheckStatus.CURRENT:
+        print(f"Anteroom is up to date: {result.current}")
+        return
+    if result.status is VersionCheckStatus.NOT_NEWER:
+        print(f"No newer version available: latest checked version is {result.latest}")
+        return
+
+    reason = f": {result.reason}" if result.reason else ""
+    print(f"Unable to check for updates{reason}", file=sys.stderr)
+    sys.exit(1)
+
+
 def _run_audit(args: argparse.Namespace) -> None:
     """Handle `aroom audit` subcommands."""
     action = getattr(args, "audit_action", None)
@@ -985,6 +1015,7 @@ def _run_web(
     from .app import create_app
 
     app = create_app(config, enforced_fields=enforced_fields)
+    app.state.debug_diagnostics_enabled = bool(debug)
 
     ssl_kwargs: dict[str, Any] = {}
     scheme = "http"
@@ -2722,6 +2753,17 @@ def main() -> None:
         help="Output as JSON",
     )
 
+    # `aroom version check` subcommand
+    version_parser = subparsers.add_parser("version", help="Version utilities")
+    version_subparsers = version_parser.add_subparsers(dest="version_action")
+    version_check_parser = version_subparsers.add_parser("check", help="Check whether a newer version is available")
+    version_check_parser.add_argument(
+        "--command",
+        dest="version_check_command",
+        default=None,
+        help="One-off shell command that prints the latest version to stdout",
+    )
+
     # `aroom audit` subcommand
     audit_parser = subparsers.add_parser("audit", help="Audit log management")
     audit_subparsers = audit_parser.add_subparsers(dest="audit_action")
@@ -3529,6 +3571,13 @@ def main() -> None:
         )
         return
 
+    if args.command == "version":
+        if getattr(args, "version_action", None) == "check":
+            _run_version_check(config, args)
+            return
+        print("Usage: aroom version check", file=sys.stderr)
+        sys.exit(1)
+
     if args.command == "artifact":
         _run_artifact(config, args)
         return
@@ -3596,6 +3645,9 @@ def main() -> None:
         if mkdocs_yml is None:
             print("Cannot find mkdocs.yml.", file=sys.stderr)
             sys.exit(1)
+        from .services.docs_project_links import prepare_docs_site
+
+        mkdocs_yml = prepare_docs_site(mkdocs_yml)
         bg_port = getattr(args, "port", None) or 8400
         bg_host = getattr(args, "bg_docs_host", "127.0.0.1")
         sys.exit(_exec_mkdocs_serve(bg_host, bg_port, mkdocs_yml))

@@ -1,7 +1,8 @@
 """Text extraction from binary document formats.
 
 Provides extract_text() which dispatches to format-specific extractors.
-Dependencies (pypdf, python-docx, python-pptx, openpyxl) are optional —
+PDF extraction is available in the default install. Office format
+dependencies (python-docx, python-pptx, openpyxl) are optional and
 extraction gracefully returns None when they are not installed.
 """
 
@@ -64,7 +65,11 @@ def _extract_pdf(data: bytes) -> ExtractionResult:
     try:
         from pypdf import PdfReader
     except ImportError:
-        msg = "pypdf not installed — PDF text extraction unavailable. Install with: pip install anteroom[docs]"
+        msg = (
+            "pypdf not installed — PDF text extraction unavailable. "
+            "This dependency is included in the default Anteroom install; "
+            "reinstall or upgrade Anteroom in this environment."
+        )
         logger.warning(msg)
         return ExtractionResult(warnings=[msg])
     try:
@@ -75,7 +80,11 @@ def _extract_pdf(data: bytes) -> ExtractionResult:
             if text:
                 pages.append(text)
         result = "\n\n".join(pages).strip()
-        return ExtractionResult(text=result if result else None)
+        if result:
+            return ExtractionResult(text=result)
+        msg = "PDF text could not be extracted automatically - no text found; scanned/image-only PDFs may require OCR"
+        logger.warning(msg)
+        return ExtractionResult(warnings=[msg])
     except Exception as exc:
         msg = f"Failed to extract text from PDF: {exc}"
         logger.warning(msg, exc_info=True)

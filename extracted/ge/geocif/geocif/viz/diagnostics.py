@@ -12,6 +12,8 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+from geocif.utils import friendly_stage_label  # noqa: F401 — re-exported for callers
+
 
 # ---------------------------------------------------------------------------
 # Forest plot: predicted yield with CI, optional reference markers
@@ -256,7 +258,7 @@ def scatter_obs_pred(df, title, dir_out, fname):
     r2   = r2_score(y_obs, y_pred)
 
     try:
-        with plt.style.context("science"):
+        with plt.style.context(["science", "no-latex"]):
             fig, ax = plt.subplots(figsize=(7, 5))
     except OSError:
         fig, ax = plt.subplots(figsize=(7, 5))
@@ -383,6 +385,8 @@ def mape_bar_chart(
     if df.empty or "MAPE" not in df.columns or "Region" not in df.columns:
         return
 
+    import scienceplots  # noqa: F401
+
     df_plot = df.groupby("Region")["MAPE"].mean()
     if df_plot.empty:
         return
@@ -395,18 +399,20 @@ def mape_bar_chart(
     else:
         df_plot = df_plot.sort_values(ascending=True)
 
-    fig, ax = plt.subplots(figsize=(8, max(3, len(df_plot) * 0.35)))
-    bars = ax.barh(df_plot.index, df_plot.values, color="steelblue")
-    for bar, val in zip(bars, df_plot.values):
-        ax.text(val + 0.3, bar.get_y() + bar.get_height() / 2,
-                f"{val:.1f}%", va="center", fontsize=8)
+    with plt.style.context(["science", "no-latex"]):
+        fig, ax = plt.subplots(figsize=(8, max(3, len(df_plot) * 0.35)))
+        bars = ax.barh(df_plot.index, df_plot.values, color="steelblue")
+        for bar, val in zip(bars, df_plot.values):
+            ax.text(val + 0.3, bar.get_y() + bar.get_height() / 2,
+                    f"{val:.1f}%", va="center", fontsize=8)
 
-    ax.set_xlabel("MAPE (%)")
-    ax.set_title(title, fontsize=10, fontweight="bold")
-    plt.tight_layout()
-    Path(dir_out).mkdir(parents=True, exist_ok=True)
-    fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
-    plt.close(fig)
+        ax.set_xlabel("MAPE (%)")
+        ax.set_title(title, fontsize=10, fontweight="bold")
+        ax.tick_params(axis='y', length=0)
+        plt.tight_layout()
+        Path(dir_out).mkdir(parents=True, exist_ok=True)
+        fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
+        plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
@@ -439,27 +445,31 @@ def mape_by_year(
     if df.empty or year_col not in df.columns or mape_col not in df.columns:
         return
 
+    import scienceplots  # noqa: F401
+
     mape_series = df.groupby(year_col)[mape_col].mean().sort_index()
     if mape_series.empty:
         return
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.bar(
-        [str(int(y)) for y in mape_series.index],
-        mape_series.values,
-        color="steelblue",
-    )
-    if threshold is not None:
-        ax.axhline(y=threshold, color="gray", linestyle="--")
-    ax.set_xlabel("")
-    ax.set_ylabel(f"{mape_col} (%)" if mape_col != "MAPE" else "MAPE (%)")
-    if title:
-        ax.set_title(title, fontsize=10, fontweight="bold")
-    plt.xticks(rotation=0)
-    plt.tight_layout()
-    Path(dir_out).mkdir(parents=True, exist_ok=True)
-    fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
-    plt.close(fig)
+    with plt.style.context(["science", "no-latex"]):
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.bar(
+            [str(int(y)) for y in mape_series.index],
+            mape_series.values,
+            color="steelblue",
+        )
+        if threshold is not None:
+            ax.axhline(y=threshold, color="gray", linestyle="--")
+        ax.set_xlabel("")
+        ax.set_ylabel(f"{mape_col} (%)" if mape_col != "MAPE" else "MAPE (%)")
+        if title:
+            ax.set_title(title, fontsize=10, fontweight="bold")
+        ax.tick_params(axis='x', length=0)
+        plt.xticks(rotation=0)
+        plt.tight_layout()
+        Path(dir_out).mkdir(parents=True, exist_ok=True)
+        fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
+        plt.close(fig)
 
 
 # ---------------------------------------------------------------------------

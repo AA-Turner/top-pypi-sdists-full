@@ -210,6 +210,14 @@ class TestHappyPath:
         )
         assert "error" not in result
         assert result["memory_status"] == "active"
+        existing = list_memories(db)
+        assert len(existing) == 1
+        metadata = existing[0].get("metadata") or {}
+        assert metadata["reviewed_by"] == "system:auto_approve"
+        assert metadata["reviewed_at"]
+        lineage = metadata.get("lineage") or []
+        assert lineage[0]["event"] == "auto_approved"
+        assert lineage[0]["actor"] == "system"
 
 
 # ---------------------------------------------------------------------------

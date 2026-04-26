@@ -1,13 +1,13 @@
 from pathlib import Path
 
 import pytest
+from cogsguard.game.clips import AngryClipsVariant, ClipsVariant
+from cogsguard.game.clips.clips import JUNCTION_ALIGN_DISTANCE
+from cogsguard.game.game import CvCGame
+from cogsguard.missions.machina_1 import MachinaOneMission
+from cogsguard.missions.terrain import find_machina_arena
 
 from cogames.cli.mission import find_mission, get_mission, resolve_mission
-from cogames.games.cogs_vs_clips.game.clips import AngryClipsVariant, ClipsVariant
-from cogames.games.cogs_vs_clips.game.clips.clips import JUNCTION_ALIGN_DISTANCE
-from cogames.games.cogs_vs_clips.game.game import CvCGame
-from cogames.games.cogs_vs_clips.missions.machina_1 import MachinaOneMission
-from cogames.games.cogs_vs_clips.missions.terrain import find_machina_arena
 
 
 def test_get_mission_accepts_reward_variants() -> None:
@@ -88,7 +88,7 @@ def test_file_mission_honors_steps_override(tmp_path: Path) -> None:
     assert env_cfg.game.max_steps == 777
 
 
-def test_cogs_override_updates_spawn_count_and_mission_counts() -> None:
+def test_cogs_selection_updates_spawn_count_and_mission_counts() -> None:
     _, env_cfg, mission = get_mission("machina_1", cogs=2)
 
     assert mission is not None

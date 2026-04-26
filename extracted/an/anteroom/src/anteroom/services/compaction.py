@@ -25,9 +25,9 @@ import re
 import shlex
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
-from .ai_service import AIService
+from .ai_service import AIService, CompletionResult
 from .token_estimator import count_message_tokens
 from .tool_result_compact import compact_tool_output
 
@@ -139,6 +139,52 @@ class CompactionResult:
     original_count: int
     original_tokens: int
     summary: str
+    attempts: int = 0
+    retries: int = 0
+    reduced_message_count: int = 0
+    failure_code: str | None = None
+    failure_message: str | None = None
+
+
+RUNTIME_STORAGE_MESSAGE_ID_KEY = "_storage_message_id"
+"""Local-only runtime message key carrying the backing SQLite message row ID."""
+
+RUNTIME_STORAGE_PARENT_MESSAGE_ID_KEY = "_storage_parent_message_id"
+"""Local-only runtime tool-result key carrying its parent assistant row ID."""
+
+
+@dataclass(frozen=True)
+class _LogicalTurnGroup:
+    """Structural representation of one runtime or persisted turn group."""
+
+    role: str
+    start: int
+    end: int
+    tool_call_ids: tuple[str, ...] = ()
+    message_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class LogicalTailBoundary:
+    """Shared runtime/storage boundary decision for tail-preserving compaction."""
+
+    runtime_split: int
+    summarized_runtime_count: int
+    preserved_runtime_count: int
+    tail_message_ids: list[str]
+    aligned: bool
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class ToolResultCollapseResult:
+    """Outcome of deterministic historical tool-result collapse."""
+
+    success: bool
+    modified_count: int = 0
+    bytes_saved: int = 0
+    keep_recent_groups: int = 2
+    compact_chars: int = 200
 
 
 # ---------------------------------------------------------------------------
@@ -464,6 +510,212 @@ def _find_tail_boundary(messages: list[dict[str, Any]], preserve_count: int) -> 
     return candidate
 
 
+def _tool_call_ids_from_message(msg: dict[str, Any]) -> tuple[str, ...]:
+    ids: list[str] = []
+    for tc in msg.get("tool_calls") or []:
+        tc_id = tc.get("id")
+        if tc_id:
+            ids.append(str(tc_id))
+    return tuple(ids)
+
+
+def _runtime_logical_groups(messages: list[dict[str, Any]]) -> list[_LogicalTurnGroup]:
+    groups: list[_LogicalTurnGroup] = []
+    for start, end in _identify_turn_groups(messages):
+        msg = messages[start]
+        role = str(msg.get("role") or "")
+        message_id = msg.get(RUNTIME_STORAGE_MESSAGE_ID_KEY)
+        groups.append(
+            _LogicalTurnGroup(
+                role=role,
+                start=start,
+                end=end,
+                tool_call_ids=_tool_call_ids_from_message(msg) if role == "assistant" else (),
+                message_ids=(str(message_id),) if message_id else (),
+            )
+        )
+    return groups
+
+
+def _stored_logical_groups(stored_messages: list[dict[str, Any]]) -> list[_LogicalTurnGroup]:
+    groups: list[_LogicalTurnGroup] = []
+    for idx, msg in enumerate(stored_messages):
+        role = str(msg.get("role") or "")
+        msg_id = msg.get("id")
+        groups.append(
+            _LogicalTurnGroup(
+                role=role,
+                start=idx,
+                end=idx + 1,
+                tool_call_ids=_tool_call_ids_from_message(msg) if role == "assistant" else (),
+                message_ids=(str(msg_id),) if msg_id else (),
+            )
+        )
+    return groups
+
+
+def _groups_compatible(runtime_group: _LogicalTurnGroup, stored_group: _LogicalTurnGroup) -> bool:
+    if runtime_group.role != stored_group.role:
+        return False
+    if runtime_group.role == "assistant" and set(runtime_group.tool_call_ids) != set(stored_group.tool_call_ids):
+        return False
+    if (
+        runtime_group.message_ids
+        and stored_group.message_ids
+        and runtime_group.message_ids[0] != stored_group.message_ids[0]
+    ):
+        return False
+    return True
+
+
+def logical_tail_boundary(
+    runtime_messages: list[dict[str, Any]],
+    stored_messages: list[dict[str, Any]] | None,
+    preserve_count: int,
+) -> LogicalTailBoundary:
+    """Select one logical tail boundary and map it to persisted message IDs.
+
+    Runtime history stores assistant tool-call turns as an assistant message
+    followed by one or more ``role="tool"`` messages. SQLite stores the same
+    turn as one assistant row with child ``tool_calls`` rows. This helper runs
+    the existing provider-safe runtime boundary selection once, maps that
+    boundary by logical turn-group index to stored rows, and returns the tail
+    row IDs that persistence should preserve.
+    """
+    runtime_split = _find_tail_boundary(runtime_messages, preserve_count)
+    if runtime_split <= 0:
+        return LogicalTailBoundary(
+            runtime_split=0,
+            summarized_runtime_count=len(runtime_messages),
+            preserved_runtime_count=0,
+            tail_message_ids=[],
+            aligned=True,
+        )
+
+    if stored_messages is None:
+        return LogicalTailBoundary(
+            runtime_split=runtime_split,
+            summarized_runtime_count=runtime_split,
+            preserved_runtime_count=len(runtime_messages) - runtime_split,
+            tail_message_ids=[],
+            aligned=False,
+            reason="stored_messages_missing",
+        )
+
+    runtime_groups = _runtime_logical_groups(runtime_messages)
+    stored_groups = _stored_logical_groups(stored_messages)
+    if len(runtime_groups) != len(stored_groups):
+        return LogicalTailBoundary(
+            runtime_split=runtime_split,
+            summarized_runtime_count=runtime_split,
+            preserved_runtime_count=len(runtime_messages) - runtime_split,
+            tail_message_ids=[],
+            aligned=False,
+            reason="logical_group_count_mismatch",
+        )
+
+    tail_group_index: int | None = None
+    for idx, group in enumerate(runtime_groups):
+        if group.start == runtime_split:
+            tail_group_index = idx
+            break
+    if tail_group_index is None:
+        return LogicalTailBoundary(
+            runtime_split=runtime_split,
+            summarized_runtime_count=runtime_split,
+            preserved_runtime_count=len(runtime_messages) - runtime_split,
+            tail_message_ids=[],
+            aligned=False,
+            reason="runtime_split_not_on_group_boundary",
+        )
+
+    for runtime_group, stored_group in zip(runtime_groups, stored_groups, strict=True):
+        if not _groups_compatible(runtime_group, stored_group):
+            return LogicalTailBoundary(
+                runtime_split=runtime_split,
+                summarized_runtime_count=runtime_split,
+                preserved_runtime_count=len(runtime_messages) - runtime_split,
+                tail_message_ids=[],
+                aligned=False,
+                reason="logical_group_structure_mismatch",
+            )
+
+    tail_message_ids: list[str] = []
+    for group in stored_groups[tail_group_index:]:
+        tail_message_ids.extend(group.message_ids)
+
+    return LogicalTailBoundary(
+        runtime_split=runtime_split,
+        summarized_runtime_count=runtime_split,
+        preserved_runtime_count=len(runtime_messages) - runtime_split,
+        tail_message_ids=tail_message_ids,
+        aligned=True,
+    )
+
+
+def runtime_messages_from_stored_rows(
+    stored_messages: list[dict[str, Any]],
+    *,
+    tool_replay_max_chars: int = 10_000,
+    content_by_message_id: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Expand stored rows into provider/runtime chat messages.
+
+    Assistant rows with child tool calls replay as an assistant message plus
+    synthetic tool-result messages. Local storage IDs are kept on runtime
+    messages for later compaction mapping and stripped at the provider
+    boundary by ``provider_messages.strip_local_message_fields``.
+    """
+    messages: list[dict[str, Any]] = []
+    content_by_message_id = content_by_message_id or {}
+    for msg in stored_messages:
+        role = msg.get("role")
+        if role not in ("user", "assistant", "system"):
+            continue
+
+        msg_id = str(msg.get("id") or "")
+        content = content_by_message_id.get(msg_id, msg.get("content"))
+        entry: dict[str, Any] = {
+            "role": role,
+            "content": content,
+        }
+        if msg_id:
+            entry[RUNTIME_STORAGE_MESSAGE_ID_KEY] = msg_id
+        if msg.get("metadata"):
+            entry["metadata"] = msg["metadata"]
+
+        tool_calls = msg.get("tool_calls") or []
+        if tool_calls and role == "assistant":
+            entry["tool_calls"] = [
+                {
+                    "id": tc["id"],
+                    "type": "function",
+                    "function": {
+                        "name": tc["tool_name"],
+                        "arguments": json.dumps(tc.get("input") or {}),
+                    },
+                }
+                for tc in tool_calls
+            ]
+            messages.append(entry)
+            for tc in tool_calls:
+                tool_entry: dict[str, Any] = {
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": compact_tool_output(tc.get("output"), max_chars=tool_replay_max_chars),
+                }
+                if msg_id:
+                    tool_entry[RUNTIME_STORAGE_PARENT_MESSAGE_ID_KEY] = msg_id
+                metadata = entry.get("metadata") or {}
+                if metadata.get("compact_preserved_tail"):
+                    tool_entry["metadata"] = {"compact_preserved_tail": True}
+                messages.append(tool_entry)
+            continue
+
+        messages.append(entry)
+    return messages
+
+
 def build_compaction_history(messages: list[dict[str, Any]]) -> str:
     """Build a structured history string for the compaction summary prompt.
 
@@ -481,7 +733,7 @@ def build_compaction_history(messages: list[dict[str, Any]]) -> str:
 
     for msg in messages:
         role = msg.get("role", "unknown")
-        content = msg.get("content", "")
+        content = _content_for_compaction_summary(msg.get("content", ""))
         # Strip any `<session_state>` block (#1414) from prior summaries so
         # re-compaction does not incorporate stale rehydration state into the
         # new summary prose.
@@ -498,12 +750,11 @@ def build_compaction_history(messages: list[dict[str, Any]]) -> str:
                 snippet = str(result["error"])[:200]
                 history_text.append(f"  tool_result: {tool_name} -> ERROR: {snippet}")
             else:
-                safe_content = content if isinstance(content, str) else ""
-                snippet = safe_content[:200] + "..." if len(safe_content) > 200 else safe_content
+                snippet = content[:200] + "..." if len(content) > 200 else content
                 history_text.append(f"  tool_result: {tool_name} -> SUCCESS: {snippet}")
             continue
 
-        if isinstance(content, str) and content:
+        if content:
             truncated = content[:500] + "..." if len(content) > 500 else content
             history_text.append(f"{role}: {truncated}")
 
@@ -521,6 +772,112 @@ def build_compaction_history(messages: list[dict[str, Any]]) -> str:
     return "\n".join(history_text)
 
 
+_MEDIA_OMIT_MARKERS = {
+    "image": "[image omitted from compaction summary]",
+    "image_url": "[image omitted from compaction summary]",
+    "input_image": "[image omitted from compaction summary]",
+    "document": "[document omitted from compaction summary]",
+    "input_document": "[document omitted from compaction summary]",
+    "file": "[document omitted from compaction summary]",
+    "pdf": "[document omitted from compaction summary]",
+}
+
+
+def _content_for_compaction_summary(content: Any) -> str:
+    """Return compact text for the summary prompt, omitting bulky media payloads."""
+    if isinstance(content, str):
+        return content
+    if content is None:
+        return ""
+    if not isinstance(content, list):
+        return str(content)
+
+    parts: list[str] = []
+    for part in content:
+        if isinstance(part, str):
+            parts.append(part)
+            continue
+        if not isinstance(part, dict):
+            parts.append(str(part))
+            continue
+        part_type = str(part.get("type") or "").lower()
+        marker = _MEDIA_OMIT_MARKERS.get(part_type)
+        if marker:
+            parts.append(marker)
+            continue
+        if part_type == "text":
+            text = part.get("text")
+            if isinstance(text, str):
+                parts.append(text)
+            continue
+        # Provider-specific content blocks sometimes omit type but carry a
+        # bulky key directly.
+        bulky_key = next((key for key in _MEDIA_OMIT_MARKERS if key in part), None)
+        if bulky_key:
+            parts.append(_MEDIA_OMIT_MARKERS[bulky_key])
+            continue
+        text = part.get("text") or part.get("content")
+        if isinstance(text, str):
+            parts.append(text)
+    return "\n".join(parts)
+
+
+def _summary_completion_budget(original_tokens: int, summary_max_completion_tokens: int) -> int:
+    """Scale summary budget with input size, capped by config."""
+    configured = max(256, summary_max_completion_tokens)
+    scaled = max(1000, original_tokens // 50)
+    return min(configured, scaled)
+
+
+def _reduce_head_for_compaction_retry(
+    head: list[dict[str, Any]],
+    *,
+    drop_groups: int = 2,
+) -> tuple[list[dict[str, Any]], int]:
+    """Drop oldest safe turn groups from a summary head for prompt-too-long retry."""
+    groups = _identify_turn_groups(head)
+    if len(groups) <= 1:
+        return head, 0
+    groups_to_drop = min(max(1, drop_groups), len(groups) - 1)
+    cut = groups[groups_to_drop][0]
+    if cut <= 0 or cut >= len(head):
+        return head, 0
+    return head[cut:], cut
+
+
+async def _complete_for_compaction(
+    ai_service: AIService,
+    *,
+    messages: list[dict[str, Any]],
+    max_completion_tokens: int,
+    cancel_event: asyncio.Event | None,
+) -> CompletionResult:
+    """Call the structured completion path when available, preserving old mocks."""
+    complete_result = getattr(ai_service, "complete_result", None)
+    instance_complete_override = "complete" in getattr(ai_service, "__dict__", {})
+    if callable(complete_result) and "complete_result" in dir(type(ai_service)) and not instance_complete_override:
+        return cast(
+            CompletionResult,
+            await complete_result(
+                messages=messages,
+                max_completion_tokens=max_completion_tokens,
+                cancel_event=cancel_event,
+            ),
+        )
+
+    try:
+        text = await ai_service.complete(
+            messages=messages,
+            max_completion_tokens=max_completion_tokens,
+            cancel_event=cancel_event,
+        )
+    except Exception as exc:
+        raise exc
+    if not text:
+        return CompletionResult(text=None, error_code="empty_completion", error_message="empty completion")
+    return CompletionResult(text=text)
+
+
 async def compact_messages(
     ai_service: AIService,
     messages: list[dict[str, Any]],
@@ -532,6 +889,9 @@ async def compact_messages(
     rehydrate: bool = True,
     rehydrate_max_files: int = 20,
     rehydrate_max_errors: int = 5,
+    summary_max_completion_tokens: int = 1000,
+    summary_retry_max_attempts: int = 3,
+    summary_retry_drop_groups: int = 2,
     cancel_event: asyncio.Event | None = None,
 ) -> CompactionResult:
     """Summarize conversation history in place to reduce context size.
@@ -580,53 +940,105 @@ async def compact_messages(
             original_count=original_count,
             original_tokens=original_tokens,
             summary="",
+            failure_code="too_few_messages",
+            failure_message="not enough messages to compact",
         )
 
     split = _find_tail_boundary(messages, preserve_tail)
     head = messages[:split] if split > 0 else list(messages)
     tail = messages[split:] if split > 0 else []
 
-    history_text = build_compaction_history(head)
-    summary_prompt = _SUMMARY_PROMPT_PREFIX + history_text
+    attempt_head = list(head)
+    max_attempts = max(1, summary_retry_max_attempts)
+    output_budget = _summary_completion_budget(original_tokens, summary_max_completion_tokens)
+    attempts = 0
+    reduced_message_count = 0
+    last_failure_code: str | None = None
+    last_failure_message: str | None = None
+    summary = ""
 
-    try:
-        raw_summary = await ai_service.complete(
-            messages=[{"role": "user", "content": summary_prompt}],
-            max_completion_tokens=1000,
-            cancel_event=cancel_event,
-        )
-    except Exception:
-        logger.exception("Failed to generate compaction summary")
-        return CompactionResult(
-            success=False,
-            original_count=original_count,
-            original_tokens=original_tokens,
-            summary="",
-        )
+    for attempt in range(1, max_attempts + 1):
+        attempts = attempt
+        history_text = build_compaction_history(attempt_head)
+        summary_prompt = _SUMMARY_PROMPT_PREFIX + history_text
 
-    # ``AIService.complete()`` swallows provider errors (AuthenticationError,
-    # network, rate limits, etc.) and returns ``None``.  Treating that as a
-    # success path with fallback text would silently collapse the live
-    # conversation into "Conversation summary unavailable." — the CLI
-    # ``/compact`` flow in particular historically rendered an error and
-    # left ``ai_messages`` untouched.  Preserve that contract: any falsy
-    # result from ``complete()`` is a failure that leaves ``messages``
-    # alone and signals the caller to surface an error.
-    if not raw_summary:
-        logger.warning("Compaction summary empty/None — treating as failure; messages left untouched")
-        return CompactionResult(
-            success=False,
-            original_count=original_count,
-            original_tokens=original_tokens,
-            summary="",
-        )
+        try:
+            completion = await _complete_for_compaction(
+                ai_service,
+                messages=[{"role": "user", "content": summary_prompt}],
+                max_completion_tokens=output_budget,
+                cancel_event=cancel_event,
+            )
+        except Exception as exc:
+            logger.exception("Failed to generate compaction summary")
+            return CompactionResult(
+                success=False,
+                original_count=original_count,
+                original_tokens=original_tokens,
+                summary="",
+                attempts=attempts,
+                retries=max(0, attempts - 1),
+                reduced_message_count=reduced_message_count,
+                failure_code="provider_error",
+                failure_message=str(exc),
+            )
 
-    summary = raw_summary
+        if completion.text:
+            summary = completion.text
+            break
+
+        last_failure_code = completion.error_code or "empty_completion"
+        last_failure_message = completion.error_message
+
+        if last_failure_code != "context_length_exceeded" or attempt >= max_attempts:
+            logger.warning(
+                "Compaction summary failed (%s) — messages left untouched",
+                last_failure_code,
+            )
+            return CompactionResult(
+                success=False,
+                original_count=original_count,
+                original_tokens=original_tokens,
+                summary="",
+                attempts=attempts,
+                retries=max(0, attempts - 1),
+                reduced_message_count=reduced_message_count,
+                failure_code=last_failure_code,
+                failure_message=last_failure_message,
+            )
+
+        reduced_head, dropped = _reduce_head_for_compaction_retry(
+            attempt_head,
+            drop_groups=summary_retry_drop_groups,
+        )
+        if dropped <= 0:
+            logger.warning("Compaction summary prompt too long and no safe retry reduction is available")
+            return CompactionResult(
+                success=False,
+                original_count=original_count,
+                original_tokens=original_tokens,
+                summary="",
+                attempts=attempts,
+                retries=max(0, attempts - 1),
+                reduced_message_count=reduced_message_count,
+                failure_code=last_failure_code,
+                failure_message=last_failure_message,
+            )
+
+        reduced_message_count += dropped
+        attempt_head = reduced_head
+        logger.info(
+            "Retrying compaction summary after prompt-too-long; attempt=%d/%d dropped_messages=%d",
+            attempt + 1,
+            max_attempts,
+            reduced_message_count,
+        )
 
     # Boundary-based output shape: the template describes how many messages
     # the summary *replaced*, not the full conversation size.  When no tail
     # is preserved, summarised_count equals original_count and the shape is
     # identical to the legacy full-summary path.
+    head = attempt_head
     summarised_count = len(head)
 
     compacted_content = content_template.format(
@@ -703,6 +1115,9 @@ async def compact_messages(
         original_count=original_count,
         original_tokens=original_tokens,
         summary=summary,
+        attempts=attempts,
+        retries=max(0, attempts - 1),
+        reduced_message_count=reduced_message_count,
     )
 
 
@@ -892,6 +1307,40 @@ def collapse_old_tool_results(
     keep_recent_groups: int = 2,
     compact_chars: int = 200,
 ) -> bool:
+    """Boolean-compatible wrapper for historical tool-result collapse."""
+    return collapse_old_tool_results_details(
+        messages,
+        keep_recent_groups=keep_recent_groups,
+        compact_chars=compact_chars,
+    ).success
+
+
+def _tool_content_for_compaction(content: Any) -> Any:
+    if isinstance(content, str):
+        try:
+            parsed = json.loads(content)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return content
+        if isinstance(parsed, dict):
+            return parsed
+    return content
+
+
+def _tool_content_size(content: Any) -> int:
+    if isinstance(content, str):
+        return len(content)
+    try:
+        return len(json.dumps(content, default=str))
+    except Exception:
+        return len(repr(content))
+
+
+def collapse_old_tool_results_details(
+    messages: list[dict[str, Any]],
+    *,
+    keep_recent_groups: int = 2,
+    compact_chars: int = 200,
+) -> ToolResultCollapseResult:
     """Compact historical tool results (all older turn groups) to ``compact_chars``.
 
     This is a cheaper pre-compaction recovery step than full LLM compaction:
@@ -906,26 +1355,44 @@ def collapse_old_tool_results(
 
     Operates on turn-group boundaries — the most recent
     ``keep_recent_groups`` turn groups are left untouched, including any
-    tool-result messages inside them.  Returns ``True`` if any tool-role
-    message was modified, ``False`` otherwise.
+    tool-result messages inside them.  Returns structured details for
+    proactive callers; :func:`collapse_old_tool_results` preserves the
+    historical boolean contract for reactive callers.
     """
+    keep_recent_groups = max(0, keep_recent_groups)
+    compact_chars = max(2, compact_chars)
     groups = _identify_turn_groups(messages)
     if len(groups) <= keep_recent_groups:
-        return False
+        return ToolResultCollapseResult(
+            success=False,
+            keep_recent_groups=keep_recent_groups,
+            compact_chars=compact_chars,
+        )
 
     # Cutoff: the end-exclusive index of the last group we compact.
     cutoff = groups[-keep_recent_groups][0] if keep_recent_groups > 0 else len(messages)
 
-    modified = False
+    modified_count = 0
+    bytes_saved = 0
     for idx in range(cutoff):
         msg = messages[idx]
         if msg.get("role") != "tool":
             continue
-        new_content = compact_tool_output(msg.get("content", ""), max_chars=compact_chars)
-        if new_content != msg.get("content", ""):
+        original_content = msg.get("content", "")
+        original_len = _tool_content_size(original_content)
+        new_content = compact_tool_output(_tool_content_for_compaction(original_content), max_chars=compact_chars)
+        new_len = len(new_content)
+        if new_content != original_content and new_len < original_len:
             msg["content"] = new_content
-            modified = True
-    return modified
+            modified_count += 1
+            bytes_saved += original_len - new_len
+    return ToolResultCollapseResult(
+        success=modified_count > 0,
+        modified_count=modified_count,
+        bytes_saved=bytes_saved,
+        keep_recent_groups=keep_recent_groups,
+        compact_chars=compact_chars,
+    )
 
 
 def drop_old_turn_groups(

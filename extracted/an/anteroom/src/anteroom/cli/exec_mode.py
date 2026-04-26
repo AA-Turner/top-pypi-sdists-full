@@ -451,6 +451,12 @@ async def run_exec_mode(
             compact_rehydrate_max_files=config.compaction.compact_rehydrate_max_files,
             compact_rehydrate_max_errors=config.compaction.compact_rehydrate_max_errors,
             microcompact_enabled=config.compaction.microcompact_enabled,
+            historical_tool_collapse_enabled=config.compaction.historical_tool_collapse_enabled,
+            historical_tool_collapse_trigger_token_count=(
+                config.compaction.historical_tool_collapse_trigger_token_count
+            ),
+            historical_tool_collapse_keep_recent_groups=config.compaction.historical_tool_collapse_keep_recent_groups,
+            historical_tool_collapse_compact_chars=config.compaction.historical_tool_collapse_compact_chars,
             summary_trigger_msg_count=config.compaction.summary_trigger_msg_count,
             summary_trigger_token_count=config.compaction.summary_trigger_token_count,
             reactive_max_attempts=config.compaction.reactive_max_attempts,

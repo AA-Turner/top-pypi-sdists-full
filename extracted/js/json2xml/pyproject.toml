@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "json2xml"
-version = "6.0.6"
+version = "6.0.7"
 description = "Simple Python Library to convert JSON to XML"
 readme = "README.rst"
 requires-python = ">=3.10"
@@ -54,7 +54,6 @@ fast = ["json2xml-rs>=0.1.0"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-xvs = true
 addopts = "--cov=json2xml --cov-report=xml:coverage/reports/coverage.xml --cov-report=term"
 [tool.ruff]
 exclude = [

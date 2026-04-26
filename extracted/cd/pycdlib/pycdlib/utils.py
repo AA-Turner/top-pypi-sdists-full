@@ -16,13 +16,6 @@
 
 """Various utilities for PyCdlib."""
 
-from __future__ import absolute_import
-
-try:
-    import cStringIO  # pylint: disable=import-error
-except ImportError:
-    pass
-
 import io
 import math
 import os
@@ -33,8 +26,8 @@ import time
 
 from pycdlib import pycdlibexception
 
+win32_has_pywin32 = False
 if sys.platform == "win32":
-    win32_has_pywin32 = False
     try:
         import win32con  # pylint: disable=import-error
         import win32file  # pylint: disable=import-error
@@ -45,7 +38,7 @@ if sys.platform == "win32":
 
 # For mypy annotations
 if False:  # pylint: disable=using-constant-test
-    from typing import BinaryIO, List, Optional, Tuple  # NOQA pylint: disable=unused-import
+    from typing import Any, BinaryIO, Generator, IO, List, Optional, Tuple  # NOQA pylint: disable=unused-import
 
 
 def swab_32bit(x):
@@ -98,8 +91,8 @@ def ceiling_div(numer, denom):
     return -(-numer // denom)
 
 
-def copy_data(data_length, blocksize, infp, outfp):
-    # type: (int, int, BinaryIO, BinaryIO) -> None
+def copy_data_yield(data_length, blocksize, infp, outfp):
+    # type: (int, int, BinaryIO, IO[Any]) -> Generator
     """
     A utility function to copy data from the input file object to the output
     file object.
@@ -113,10 +106,8 @@ def copy_data(data_length, blocksize, infp, outfp):
      Nothing.
     """
     left = data_length
-    readsize = blocksize
     while left > 0:
-        if left < readsize:
-            readsize = left
+        readsize = min(blocksize, left)
         data = infp.read(readsize)
         # We have seen ISOs in the wild (Tribes Vengeance 1of4.iso) that
         # lie about the size of their files, causing reads to fail (since
@@ -127,6 +118,25 @@ def copy_data(data_length, blocksize, infp, outfp):
             data_len = left
         outfp.write(data)
         left -= data_len
+        yield data_len
+
+
+def copy_data(data_length, blocksize, infp, outfp):
+    # type: (int, int, BinaryIO, IO[Any]) -> None
+    """
+    A utility function to copy data from the input file object to the output
+    file object.
+
+    Parameters:
+     data_length - The amount of data to copy.
+     blocksize - How much data to copy per iteration.
+     infp - The file object to copy data from.
+     outfp - The file object to copy data to.
+    Returns:
+     Nothing.
+    """
+    for len_unused in copy_data_yield(data_length, blocksize, infp, outfp):
+        pass
 
 
 def encode_space_pad(instr, length, encoding):
@@ -191,10 +201,7 @@ def normpath(path):
         elif new_comps:
             new_comps.pop()
     newpath = sep * initial_slashes + sep.join(new_comps)
-    if sys.version_info >= (3, 0):
-        newpath_bytes = newpath.encode('utf-8')
-    else:
-        newpath_bytes = newpath.decode('utf-8').encode('utf-8')
+    newpath_bytes = newpath.encode('utf-8')
     if not starts_with_slash(newpath_bytes):
         raise pycdlibexception.PyCdlibInvalidInput('Must be a path starting with /')
 
@@ -230,7 +237,7 @@ def gmtoffset_from_tm(tm, localtime):
 
 
 def zero_pad(fp, data_size, pad_size):
-    # type: (BinaryIO, int, int) -> None
+    # type: (IO[Any], int, int) -> int
     """
     A function to write padding out from data_size up to pad_size
     efficiently.
@@ -240,23 +247,24 @@ def zero_pad(fp, data_size, pad_size):
      data_size - The current size of the data.
      pad_size - The boundary size of data to pad out to.
     Returns:
-     Nothing.
+     The number of bytes that were padded.
     """
     padbytes = pad_size - (data_size % pad_size)
     if padbytes == pad_size:
         # Nothing to pad, get out.
-        return
+        return 0
 
     fp.seek(padbytes - 1, os.SEEK_CUR)
     fp.write(b'\x00')
+    return padbytes - 1
 
 
 def starts_with_slash(path):
     # type: (bytes) -> bool
     """
     A function to determine if a path starts with a slash.  This is somewhat
-    difficult to do portably between Python2 and Python3 and with performance,
-    so we have a dedicated function for it.
+    difficult to do portably with performance, so we have a dedicated function
+    for it.
 
     Parameters:
      path - The path to determine if it starts with a slash
@@ -297,12 +305,7 @@ def file_object_supports_binary(fp):
     if hasattr(fp, 'mode'):
         return 'b' in fp.mode
 
-    # Python 3
-    if sys.version_info >= (3, 0):
-        return isinstance(fp, (io.RawIOBase, io.BufferedIOBase))
-
-    # Python 2
-    return isinstance(fp, (cStringIO.OutputType, cStringIO.InputType, io.RawIOBase, io.BufferedIOBase))
+    return isinstance(fp, (io.RawIOBase, io.BufferedIOBase))
 
 
 def truncate_basename(basename, iso_level, is_dir):
@@ -440,7 +443,7 @@ def mangle_dir_for_iso9660(orig, iso_level):
     return truncate_basename(orig, iso_level, True)
 
 
-class Win32RawDevice(object):
+class Win32RawDevice:
     """
     Class to read and seek a Windows Raw Device IO object without bother.
     It deals with getting the full size, allowing full access to all sectors,

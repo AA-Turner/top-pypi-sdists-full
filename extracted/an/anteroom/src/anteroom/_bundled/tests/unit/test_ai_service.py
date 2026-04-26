@@ -11,6 +11,7 @@ import pytest
 
 from anteroom.config import AIConfig
 from anteroom.services.ai_service import AIService, _is_html_error, _StreamTimeoutError
+from anteroom.services.token_estimator import estimate_usage
 
 
 def _make_config(**overrides) -> AIConfig:
@@ -163,6 +164,102 @@ def _make_service(config: AIConfig | None = None) -> AIService:
     service._token_provider = None
     service.client = MagicMock()
     return service
+
+
+class TestProviderMessagePayload:
+    @pytest.mark.asyncio
+    async def test_stream_chat_strips_local_message_metadata(self):
+        """Local compaction metadata must not be sent as provider message fields."""
+
+        class MockStream:
+            def __aiter__(self):
+                return self._gen().__aiter__()
+
+            async def _gen(self):
+                yield MagicMock(
+                    choices=[MagicMock(delta=MagicMock(content=None, tool_calls=None), finish_reason="stop")]
+                )
+
+            async def close(self):
+                pass
+
+        service = _make_service()
+        service.client.chat.completions.create = AsyncMock(return_value=MockStream())
+        messages = [
+            {
+                "role": "user",
+                "content": "continue",
+                "metadata": {"compact_preserved_tail": True},
+                "id": "local-id",
+                "position": 3,
+            }
+        ]
+
+        async for _ in service.stream_chat(messages):
+            pass
+
+        sent_messages = service.client.chat.completions.create.call_args.kwargs["messages"]
+        assert sent_messages[1] == {"role": "user", "content": "continue"}
+        assert messages[0]["metadata"] == {"compact_preserved_tail": True}
+
+
+class TestFallbackUsageEstimation:
+    @pytest.mark.asyncio
+    async def test_stream_fallback_usage_includes_tools_and_dynamic_system_prompt(self):
+        class MockStream:
+            def __aiter__(self):
+                return self._gen().__aiter__()
+
+            async def _gen(self):
+                token_chunk = MagicMock()
+                token_chunk.usage = None
+                token_chunk.choices = [MagicMock()]
+                token_chunk.choices[0].delta.content = "hello"
+                token_chunk.choices[0].delta.tool_calls = None
+                token_chunk.choices[0].finish_reason = None
+                yield token_chunk
+
+                done_chunk = MagicMock()
+                done_chunk.usage = None
+                done_chunk.choices = [MagicMock()]
+                done_chunk.choices[0].delta.content = None
+                done_chunk.choices[0].delta.tool_calls = None
+                done_chunk.choices[0].finish_reason = "stop"
+                yield done_chunk
+
+            async def close(self):
+                pass
+
+        service = _make_service(_make_config(model="gpt-4o", system_prompt="Base system."))
+        service.client.chat.completions.create = AsyncMock(return_value=MockStream())
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "description": "Read a file",
+                    "parameters": {"type": "object", "properties": {"path": {"type": "string"}}},
+                },
+            }
+        ]
+
+        events = []
+        async for event in service.stream_chat(
+            [{"role": "user", "content": "hi"}],
+            tools=tools,
+            extra_system_prompt="Dynamic context.",
+        ):
+            events.append(event)
+
+        sent_messages = service.client.chat.completions.create.call_args.kwargs["messages"]
+        message_only_prompt = estimate_usage(sent_messages, "hello", "gpt-4o")["prompt_tokens"]
+        usage_events = [event for event in events if event["event"] == "usage"]
+        assert len(usage_events) == 1
+        usage = usage_events[0]["data"]
+        assert usage["estimated"] is True
+        assert usage["model"] == "gpt-4o"
+        assert usage["prompt_tokens"] > message_only_prompt
+        assert "Dynamic context." in sent_messages[0]["content"]
 
 
 class TestConnectionErrorHandling:

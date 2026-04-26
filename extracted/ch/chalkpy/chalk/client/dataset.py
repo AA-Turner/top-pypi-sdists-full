@@ -32,6 +32,7 @@ from typing import (
 from urllib.parse import urlparse
 
 import requests as requests
+from packaging.version import InvalidVersion, parse
 from typing_extensions import assert_never
 
 from chalk.client import ChalkBaseException, Dataset, DatasetRevision
@@ -50,6 +51,7 @@ from chalk.client.models import (
     QueryStatus,
 )
 from chalk.client.response import DatasetPartition
+from chalk.config.project_config import load_project_config
 from chalk.features import DataFrame, Feature, FeatureWrapper, ResolverProtocol, deserialize_dtype, ensure_feature
 from chalk.features._encoding.pyarrow import pyarrow_to_polars
 from chalk.features.feature_set import FeatureSetBase
@@ -805,6 +807,7 @@ class DatasetRevisionImpl(DatasetRevision):
         givens_uri: Optional[str],
         status: QueryStatus,
         filters: DatasetFilter,
+        num_partitions: int,
         partitions: Sequence[DatasetPartitionImpl],
         output_uris: str,
         output_version: int,
@@ -831,7 +834,7 @@ class DatasetRevisionImpl(DatasetRevision):
         self.givens_uri = givens_uri
         self.status = status
         self.filters = filters
-        self.num_partitions = len(partitions)
+        self.num_partitions = num_partitions
         self.partitions = list(partitions)
         self.output_uris = output_uris
         self.output_version = output_version
@@ -1498,6 +1501,19 @@ This occurred during the actual execution of resolver {resolver.fqn}.
         if self._hydrated:
             return
 
+        num_partitions_to_await = self.num_partitions
+
+        # check for legacy behavior
+        config = load_project_config()
+        if config is not None and config.environments is not None:
+            env_settings = config.environments.get(self.environment)
+            if env_settings is not None and env_settings.platform_version is not None:
+                try:
+                    if parse(env_settings.platform_version) < parse("3.34.0"):
+                        num_partitions_to_await = self.num_computers
+                except InvalidVersion:
+                    pass
+
         # If the initial `offline_query` call has a timeout set, use that.
         timeout = timeout if timeout is not ... else self.timeout
         self._client.await_operation_completion(
@@ -1505,7 +1521,7 @@ This occurred during the actual execution of resolver {resolver.fqn}.
             show_progress=show_progress_bool,
             caller_method=caller_method,
             environment_id=self.environment,
-            num_shards=self.num_partitions,
+            num_shards=num_partitions_to_await,
             timeout=timeout,
             raise_on_dataset_failure=True,
         )
@@ -1991,6 +2007,7 @@ def dataset_revision_from_response(
         givens_uri=revision.givens_uri,
         status=revision.status,
         filters=revision.filters,
+        num_partitions=revision.num_partitions or 0,
         partitions=partitions,
         output_uris=revision.output_uris,
         output_version=revision.output_version,

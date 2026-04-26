@@ -22,10 +22,14 @@ from geocif import geocif_runner as gc
 from geocif import logger as log
 from geocif import utils as ut
 from .viz import plot
+from .utils import friendly_stage_label
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 logger = logging.getLogger(__name__)
+
+# Re-export for local use
+_display_model_name = ut.display_model_name
 
 # Show usage info on import
 from rich.console import Console
@@ -102,6 +106,27 @@ def _load_shapefiles(parser):
         if "ADM0_NAME" not in dg_country.columns:
             dg_country.loc[:, "ADM0_NAME"] = country.title().replace("_", " ")
 
+        # Filter to current country before dissolve (avoids processing entire gpkg)
+        country_display = country.title().replace("_", " ")
+        mask = dg_country["ADM0_NAME"].str.lower().str.replace("_", " ") == country_display.lower()
+        dg_country = dg_country[mask].copy()
+
+        # Dissolve admin_2 → admin_1 per country when running at admin_1
+        if admin_zone == "admin_1":
+            n_before = len(dg_country)
+            dg_country = ut.dissolve_to_admin1(dg_country)
+            logger.info(f"Dissolved {country} admin_2→admin_1: {n_before}→{len(dg_country)} rows")
+
+        # Create "Country Region" merge column per country's admin level
+        if admin_zone == "admin_2" and "ADM2_NAME" in dg_country.columns:
+            dg_country["Country Region"] = (
+                dg_country["ADM0_NAME"] + " " + dg_country["ADM2_NAME"]
+            ).str.lower()
+        else:
+            dg_country["Country Region"] = (
+                dg_country["ADM0_NAME"] + " " + dg_country["ADM1_NAME"]
+            ).str.lower()
+
         all_shapefiles.append(dg_country)
 
     # Add pooled table entries when pool_countries is enabled
@@ -122,15 +147,6 @@ def _load_shapefiles(parser):
             }
 
     dg = pd.concat(all_shapefiles, ignore_index=True)
-
-    # Create "Country Region" merge column (same pattern as analysis.py:1229-1242)
-    dg["Country Region"] = dg["ADM0_NAME"]
-    dg["Country Region"] = dg["Country Region"].str.cat(dg["ADM1_NAME"], sep=" ")
-    if "ADM2_NAME" in dg.columns:
-        dg.loc[dg["ADM2_NAME"].notna(), "Country Region"] = (
-            dg["ADM0_NAME"] + " " + dg["ADM2_NAME"]
-        )
-    dg["Country Region"] = dg["Country Region"].str.lower().replace("_", " ")
 
     return dg, dict_config
 
@@ -344,7 +360,8 @@ def _load_observed_baselines(countries, crop, parser, current_year=None):
 
 
 def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
-                                    stage_name=""):
+                                    stage_name="", forecast_year=None,
+                                    admin_level="admin_1"):
     """Generate scatter, MAPE bar chart, and MAPE map for one stage.
 
     Args:
@@ -354,7 +371,9 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
         dir_outlook: Base output directory.
         stage_name: Stage name suffix for filenames/subdirectories.
     """
+    import matplotlib.pyplot as plt
     from .viz import diagnostics as diag
+    import scienceplots  # noqa: F401
 
     obs_col = "Observed Yield (tn per ha)"
     pred_col = "Predicted Yield (tn per ha)"
@@ -363,7 +382,8 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
         return
 
     countries_display = [country.title().replace("_", " ")]
-    stage_safe = stage_name.replace(" ", "_") if stage_name else ""
+    friendly = friendly_stage_label(stage_name) if stage_name else ""
+    stage_safe = friendly.replace(" - ", "-").replace(" ", "_") if friendly else ""
     stage_suffix = f"_{stage_safe}" if stage_safe else ""
 
     dir_plots = dir_outlook / "plots" / model / country
@@ -376,46 +396,236 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
 
     title = f"{country.title()} {crop.title()} — {model}"
     if stage_name:
-        title += f" ({stage_name})"
+        title += f" ({diag.friendly_stage_label(stage_name)})"
 
-    diag.scatter_obs_pred(df, title, dir_plots,
-                          f"scatter_{country}_{crop}_{model}{stage_suffix}.png")
+    with plt.style.context(["science", "no-latex"]):
+        diag.scatter_obs_pred(df, title, dir_plots,
+                              f"scatter_{country}_{crop}_{model}{stage_suffix}.png")
 
-    df_mape = (
-        df.assign(
-            MAPE=lambda d: (
-                (d[pred_col] - d[obs_col]).abs() / d[obs_col].replace(0, np.nan) * 100
+        df_mape = (
+            df.assign(
+                MAPE=lambda d: (
+                    (d[pred_col] - d[obs_col]).abs() / d[obs_col].replace(0, np.nan) * 100
+                )
             )
+            .groupby("Region", as_index=False)["MAPE"].mean()
         )
-        .groupby("Region", as_index=False)["MAPE"].mean()
-    )
-    diag.mape_bar_chart(df_mape, title, dir_plots,
-                        f"mape_bar_{country}_{crop}_{model}{stage_suffix}.png")
+        prod_pct = diag.compute_production_pct(df, country)
+        diag.mape_bar_chart(df_mape, title, dir_plots,
+                            f"mape_bar_{country}_{crop}_{model}{stage_suffix}.png",
+                            production_pct=prod_pct)
 
     df_mape["Country Region"] = (
         country.lower().replace("_", " ") + " " + df_mape["Region"].str.lower()
     )
     df_mape = df_mape.rename(columns={"MAPE": "Mean Absolute Percentage Error"})
     dg_sub = dg[dg["ADM0_NAME"].isin(countries_display)].copy()
+    logger.info(f"Map GeoDataFrame: {len(dg_sub)} rows, geom types: {dg_sub.geometry.type.unique()}")
     diag.mape_choropleth(
         dg_sub, df_mape, countries_display, False,
         dir_maps, f"mape_map_{country}_{crop}_{model}{stage_suffix}.png",
     )
 
+    # Combined: predicted yield map + MAPE bar chart
+    _plot_combined_map_mape(
+        df, df_mape, dg_sub, country, crop, model, dir_plots,
+        f"combined_{country}_{crop}_{model}{stage_suffix}.png",
+        title, prod_pct,
+        forecast_year=forecast_year, admin_level=admin_level,
+    )
 
-def _plot_mape_progression(df, country, crop, model, dir_outlook):
-    """Plot MAPE progression across time steps for multi-stage runs.
 
-    Produces a line chart with:
-    - One thin line per region (MAPE at each stage)
-    - A bold line for the area-weighted national MAPE
+def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
+                            dir_out, fname, title, prod_pct,
+                            forecast_year=None, admin_level="admin_1"):
+    """Side-by-side: predicted yield choropleth (left) + MAPE bar chart (right).
 
-    Args:
-        df: DataFrame with obs/pred/stage columns for all stages.
-        country, crop, model: Identifiers.
-        dir_outlook: Base output directory.
+    Reuses ``viz.plot.plot_map`` with ``ax=`` for the map panel.
     """
+    import cartopy.crs as ccrs
     import matplotlib.pyplot as plt
+    import palettable as pal
+    import scienceplots  # noqa: F401
+    from .viz.diagnostics import _label_with_pct, _sort_by_production
+
+    pred_col = "Predicted Yield (tn per ha)"
+
+    # Use forecast_year if provided, else latest year in data
+    if forecast_year and "Harvest Year" in df.columns:
+        df_latest = df[df["Harvest Year"] == forecast_year].copy()
+        display_year = forecast_year
+    elif "Harvest Year" in df.columns:
+        display_year = df["Harvest Year"].max()
+        df_latest = df[df["Harvest Year"] == display_year].copy()
+    else:
+        df_latest = df.copy()
+        display_year = ""
+
+    if df_latest.empty or pred_col not in df_latest.columns:
+        return
+
+    df_latest["Country Region"] = (
+        country.lower().replace("_", " ") + " " + df_latest["Region"].str.lower()
+    )
+    df_pred_region = df_latest.groupby(["Region", "Country Region"])[pred_col].mean().reset_index()
+
+    # MAPE bar data — sort by production share descending (largest at top)
+    mape_col = "Mean Absolute Percentage Error"
+    if mape_col not in df_mape.columns:
+        return
+    df_bar = df_mape.groupby("Region")[mape_col].mean()
+    if prod_pct:
+        order = sorted(df_bar.index, key=lambda r: prod_pct.get(r, 0), reverse=True)
+        df_bar = df_bar.reindex(order)
+        df_bar.index = _label_with_pct(df_bar.index, prod_pct)
+    else:
+        df_bar = df_bar.sort_values(ascending=False)
+
+    countries_display = [country.title().replace("_", " ")]
+    # Annotation column based on admin level
+    annot_col = "ADM2_NAME" if admin_level == "admin_2" else "ADM1_NAME"
+
+    with plt.style.context(["science", "no-latex"]):
+        fig = plt.figure(figsize=(14, max(5, len(df_bar) * 0.5)))
+        ax_map = fig.add_subplot(1, 2, 1, projection=ccrs.PlateCarree())
+        ax_bar = fig.add_subplot(1, 2, 2)
+
+        # Left: predicted yield map via plot_map
+        plot.plot_map(
+            dg_sub,
+            df_pred_region,
+            merge_col="Country Region",
+            name_country=countries_display,
+            name_col=pred_col,
+            label="Predicted yield (tn/ha)",
+            title=f"Predicted Yield — {display_year}",
+            vmin=float(df_pred_region[pred_col].min()),
+            vmax=float(df_pred_region[pred_col].max()),
+            cmap=pal.scientific.sequential.Bamako_20_r,
+            series="sequential",
+            annotate_regions=True,
+            annotate_region_column=annot_col,
+            ax=ax_map,
+        )
+
+        # Right: MAPE bar chart
+        bars = ax_bar.barh(df_bar.index, df_bar.values, color="steelblue")
+        for bar, val in zip(bars, df_bar.values):
+            ax_bar.text(val + 0.3, bar.get_y() + bar.get_height() / 2,
+                        f"{val:.1f}%", va="center", fontsize=8)
+        ax_bar.set_xlabel("MAPE (%)")
+        ax_bar.set_title("MAPE by Region", fontsize=10, fontweight="bold")
+        ax_bar.tick_params(axis='y', length=0)
+
+        fig.suptitle(title, fontsize=12, fontweight="bold", y=1.02)
+        fig.subplots_adjust(wspace=0.3)
+
+        Path(dir_out).mkdir(parents=True, exist_ok=True)
+        fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
+        plt.close(fig)
+
+
+def _stage_sort_key(name):
+    """Sort stage names chronologically by window length."""
+    _month_order = {
+        "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+        "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
+    }
+    parts = name.split("-")
+    if len(parts) == 2:
+        s = _month_order.get(parts[0].strip().split()[0], 0)
+        e = _month_order.get(parts[1].strip().split()[0], 0)
+        return (s - e) % 12 if s >= e else s - e + 12
+    return 0
+
+
+def _compute_region_metric(df, stages_sorted, metric_col):
+    """Compute per-region metric at each stage."""
+    return (
+        df.groupby(["Stage Name", "Region"])[metric_col]
+        .mean()
+        .reset_index()
+    )
+
+
+def _compute_national_metric(df, stages_sorted, metric_col, has_area):
+    """Compute area-weighted (or simple mean) national metric per stage."""
+    rows = []
+    for stage in stages_sorted:
+        ds = df[df["Stage Name"] == stage]
+        if has_area:
+            stats = ds.groupby("Region").agg(
+                val=(metric_col, "mean"),
+                area=("Area (ha)", "first"),
+            ).dropna()
+            if stats.empty or stats["area"].sum() == 0:
+                rows.append({"Stage Name": stage, "National": ds[metric_col].mean()})
+            else:
+                weighted = (stats["val"] * stats["area"]).sum() / stats["area"].sum()
+                rows.append({"Stage Name": stage, "National": weighted})
+        else:
+            rows.append({"Stage Name": stage, "National": ds[metric_col].mean()})
+    return pd.DataFrame(rows)
+
+
+def _plot_metric_progression(df, stages_sorted, metric_col, ylabel, title,
+                             country, crop, model, dir_out, fname,
+                             prod_pct, has_area):
+    """Generic progression plot for any per-region metric across time steps."""
+    import matplotlib.pyplot as plt
+    import scienceplots  # noqa: F401
+
+    region_vals = _compute_region_metric(df, stages_sorted, metric_col)
+    df_national = _compute_national_metric(df, stages_sorted, metric_col, has_area)
+
+    with plt.style.context(["science", "no-latex"]):
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        regions = sorted(region_vals["Region"].unique(),
+                         key=lambda r: prod_pct.get(r, 0), reverse=True)
+        n_regions = len(regions)
+
+        if n_regions <= 20:
+            cmap = plt.cm.get_cmap("tab20", max(n_regions, 1))
+        else:
+            import matplotlib.colors as mcolors
+            colors_b = plt.cm.tab20b(np.linspace(0, 1, 20))
+            colors_c = plt.cm.tab20c(np.linspace(0, 1, 20))
+            cmap = mcolors.ListedColormap(np.vstack([colors_b, colors_c]))
+
+        markers = ["o", "s", "D", "^", "v", "<", ">", "p", "h", "X", "*", "P"]
+        for i, region in enumerate(regions):
+            rdf = region_vals[region_vals["Region"] == region]
+            rdf = rdf.set_index("Stage Name").reindex(stages_sorted)
+            rlabel = f"{region} ({prod_pct[region]:.1f}%)" if region in prod_pct else region
+            ax.plot(stages_sorted, rdf[metric_col].values, color=cmap(i),
+                    alpha=0.65, linewidth=1.8, marker=markers[i % len(markers)],
+                    markersize=5, label=rlabel)
+
+        df_national = df_national.set_index("Stage Name").reindex(stages_sorted)
+        nat_label = "National (area-weighted)" if has_area else "National (mean)"
+        ax.plot(stages_sorted, df_national["National"].values,
+                color="black", linewidth=3, marker="o", markersize=7,
+                label=nat_label, zorder=10)
+
+        friendly_labels = [friendly_stage_label(s) for s in stages_sorted]
+        ax.set_xticks(range(len(stages_sorted)))
+        ax.set_xticklabels(friendly_labels, rotation=45, ha="right", fontsize=8)
+        ax.set_xlabel("")
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+        ncol = 2 if n_regions > 10 else 1
+        ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=7, ncol=ncol)
+        plt.tight_layout()
+
+        os.makedirs(dir_out, exist_ok=True)
+        fig.savefig(dir_out / fname, dpi=250, bbox_inches="tight")
+        plt.close(fig)
+
+
+def _plot_all_progressions(df, country, crop, model, dir_outlook):
+    """Plot MAPE, R², and RMSE progression across time steps."""
+    from sklearn.metrics import r2_score
 
     obs_col = "Observed Yield (tn per ha)"
     pred_col = "Predicted Yield (tn per ha)"
@@ -425,69 +635,80 @@ def _plot_mape_progression(df, country, crop, model, dir_outlook):
 
     df = df[df[obs_col] != 0].copy()
     df["MAPE"] = (df[pred_col] - df[obs_col]).abs() / df[obs_col] * 100
+    df["RMSE_sq"] = (df[pred_col] - df[obs_col]) ** 2
 
-    stages_sorted = sorted(df["Stage Name"].dropna().unique())
+    stages_sorted = sorted(df["Stage Name"].dropna().unique(), key=_stage_sort_key)
     if len(stages_sorted) < 2:
         return
 
-    # Per-region MAPE at each stage
-    region_mape = (
-        df.groupby(["Stage Name", "Region"])["MAPE"]
-        .mean()
-        .reset_index()
+    has_area = "Area (ha)" in df.columns and df["Area (ha)"].notna().any()
+
+    from .viz import diagnostics as diag
+    prod_pct = diag.compute_production_pct(df, country)
+
+    dir_progression = dir_outlook / "plots" / model / country / "progression"
+    base_title = f"{country.title()} {crop.title()} ({model})"
+
+    # MAPE
+    _plot_metric_progression(
+        df, stages_sorted, "MAPE", "MAPE (%)",
+        f"MAPE Progression — {base_title}",
+        country, crop, model, dir_progression,
+        f"mape_progression_{country}_{crop}_{model}.png",
+        prod_pct, has_area,
     )
 
-    # Area-weighted national MAPE at each stage
-    has_area = "Area (ha)" in df.columns and df["Area (ha)"].notna().any()
-    national_rows = []
+    # RMSE — compute per (Stage Name, Region)
+    rmse_data = []
     for stage in stages_sorted:
-        ds = df[df["Stage Name"] == stage]
+        for region in df["Region"].unique():
+            mask = (df["Stage Name"] == stage) & (df["Region"] == region)
+            ds = df[mask]
+            if len(ds) >= 2:
+                rmse = np.sqrt((ds["RMSE_sq"]).mean())
+                rmse_data.append({"Stage Name": stage, "Region": region, "RMSE": rmse})
+    if rmse_data:
+        df_rmse = pd.DataFrame(rmse_data)
+        # Merge area for national weighting
         if has_area:
-            region_stats = ds.groupby("Region").agg(
-                mape=("MAPE", "mean"),
-                area=("Area (ha)", "first"),
-            ).dropna()
-            if region_stats.empty or region_stats["area"].sum() == 0:
-                national_rows.append({"Stage Name": stage, "National MAPE": ds["MAPE"].mean()})
-            else:
-                weighted = (region_stats["mape"] * region_stats["area"]).sum() / region_stats["area"].sum()
-                national_rows.append({"Stage Name": stage, "National MAPE": weighted})
-        else:
-            national_rows.append({"Stage Name": stage, "National MAPE": ds["MAPE"].mean()})
-    df_national = pd.DataFrame(national_rows)
+            area_map = df.groupby("Region")["Area (ha)"].first()
+            df_rmse = df_rmse.merge(area_map, on="Region", how="left")
+        df["RMSE"] = np.sqrt(df["RMSE_sq"])
+        _plot_metric_progression(
+            df_rmse, stages_sorted, "RMSE", "RMSE (tn/ha)",
+            f"RMSE Progression — {base_title}",
+            country, crop, model, dir_progression,
+            f"rmse_progression_{country}_{crop}_{model}.png",
+            prod_pct, has_area,
+        )
 
-    # Plot
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    regions = sorted(region_mape["Region"].unique())
-    cmap = plt.cm.get_cmap("tab20", max(len(regions), 1))
-    for i, region in enumerate(regions):
-        rdf = region_mape[region_mape["Region"] == region]
-        rdf = rdf.set_index("Stage Name").reindex(stages_sorted)
-        ax.plot(stages_sorted, rdf["MAPE"].values, color=cmap(i),
-                alpha=0.4, linewidth=1, label=region)
-
-    # National line
-    df_national = df_national.set_index("Stage Name").reindex(stages_sorted)
-    label = "National (area-weighted)" if has_area else "National (mean)"
-    ax.plot(stages_sorted, df_national["National MAPE"].values,
-            color="black", linewidth=2.5, marker="o", markersize=5, label=label)
-
-    ax.set_xlabel("Stage")
-    ax.set_ylabel("MAPE (%)")
-    ax.set_title(f"MAPE Progression — {country.title()} {crop.title()} ({model})")
-    ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=7, ncol=1)
-    plt.xticks(rotation=45, ha="right", fontsize=8)
-    plt.tight_layout()
-
-    dir_plots = dir_outlook / "plots" / model / country
-    os.makedirs(dir_plots, exist_ok=True)
-    fig.savefig(dir_plots / f"mape_progression_{country}_{crop}_{model}.png",
-                dpi=250, bbox_inches="tight")
-    plt.close(fig)
+    # R² — compute per (Stage Name, Region)
+    r2_data = []
+    for stage in stages_sorted:
+        for region in df["Region"].unique():
+            mask = (df["Stage Name"] == stage) & (df["Region"] == region)
+            ds = df[mask]
+            if len(ds) >= 2:
+                try:
+                    r2 = r2_score(ds[obs_col], ds[pred_col])
+                    r2_data.append({"Stage Name": stage, "Region": region, "R2": r2})
+                except ValueError:
+                    pass
+    if r2_data:
+        df_r2 = pd.DataFrame(r2_data)
+        if has_area:
+            df_r2 = df_r2.merge(area_map, on="Region", how="left")
+        _plot_metric_progression(
+            df_r2, stages_sorted, "R2", "R²",
+            f"R² Progression — {base_title}",
+            country, crop, model, dir_progression,
+            f"r2_progression_{country}_{crop}_{model}.png",
+            prod_pct, has_area,
+        )
 
 
-def _generate_diagnostics(df_pred_store, dg, dir_outlook):
+def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
+                          dict_config=None):
     """Generate scatter, MAPE bar chart, and MAPE map per (country, crop, model, stage).
 
     When multi-step results are present (multiple Stage Names), produces
@@ -497,6 +718,12 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook):
         if df.empty:
             continue
 
+        # Get admin_level for this country/crop
+        admin_level = "admin_1"
+        if dict_config:
+            cfg = dict_config.get(f"{country}_{crop}", {})
+            admin_level = cfg.get("admin_zone", "admin_1")
+
         # Check for multiple stages
         stages = df["Stage Name"].dropna().unique() if "Stage Name" in df.columns else []
 
@@ -504,13 +731,248 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook):
             for stage_name in sorted(stages):
                 df_stage = df[df["Stage Name"] == stage_name]
                 _generate_diagnostics_for_stage(
-                    df_stage, country, crop, model, dg, dir_outlook, stage_name
+                    df_stage, country, crop, model, dg, dir_outlook, stage_name,
+                    forecast_year=current_year, admin_level=admin_level,
                 )
-            # MAPE progression across time steps
-            _plot_mape_progression(df, country, crop, model, dir_outlook)
+            _plot_all_progressions(df, country, crop, model, dir_outlook)
+        else:
+            # Single stage or no stages — generate once
+            _generate_diagnostics_for_stage(
+                df, country, crop, model, dg, dir_outlook,
+                forecast_year=current_year, admin_level=admin_level,
+            )
 
-        # Always produce an aggregate (latest stage or all data)
-        _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook)
+    # Model comparison plots (only when multiple models)
+    _generate_model_comparison(df_pred_store, dg, dir_outlook)
+
+
+def _generate_model_comparison(df_pred_store, dg, dir_outlook):
+    """Compare model performance when multiple models are available.
+
+    Produces grouped bar charts of MAPE, RMSE, and R² by region and by year,
+    plus a choropleth map showing which model has the lowest MAPE per region.
+    Saved to ``outlook/plots/model_comparison/{country}/``.
+    """
+    import matplotlib.pyplot as plt
+    import scienceplots  # noqa: F401
+    from sklearn.metrics import r2_score
+    from .viz import diagnostics as diag
+
+    obs_col = "Observed Yield (tn per ha)"
+    pred_col = "Predicted Yield (tn per ha)"
+
+    # Group by (country, crop) across models
+    country_crop_models = {}
+    for (country, crop, model), df in df_pred_store.items():
+        key = (country, crop)
+        if key not in country_crop_models:
+            country_crop_models[key] = {}
+        country_crop_models[key][model] = df
+
+    for (country, crop), model_dfs in country_crop_models.items():
+        if len(model_dfs) < 2:
+            continue
+
+        dir_comp = dir_outlook / "plots" / "model_comparison" / country
+        os.makedirs(dir_comp, exist_ok=True)
+
+        # Build metrics per model × region and model × year
+        rows_region = []
+        rows_year = []
+        for model, df in model_dfs.items():
+            df = df.dropna(subset=[obs_col, pred_col])
+            if df.empty:
+                continue
+            df = df[df[obs_col] != 0].copy()
+            df["MAPE"] = (df[pred_col] - df[obs_col]).abs() / df[obs_col] * 100
+            df["SE"] = (df[pred_col] - df[obs_col]) ** 2
+
+            # By region
+            for region, rdf in df.groupby("Region"):
+                if len(rdf) < 2:
+                    continue
+                try:
+                    r2 = r2_score(rdf[obs_col], rdf[pred_col])
+                except ValueError:
+                    r2 = np.nan
+                rows_region.append({
+                    "Model": model, "Region": region,
+                    "MAPE": rdf["MAPE"].mean(),
+                    "RMSE": np.sqrt(rdf["SE"].mean()),
+                    "R2": r2,
+                })
+
+            # By year
+            for year, ydf in df.groupby("Harvest Year"):
+                if len(ydf) < 2:
+                    continue
+                try:
+                    r2 = r2_score(ydf[obs_col], ydf[pred_col])
+                except ValueError:
+                    r2 = np.nan
+                rows_year.append({
+                    "Model": model, "Harvest Year": year,
+                    "MAPE": ydf["MAPE"].mean(),
+                    "RMSE": np.sqrt(ydf["SE"].mean()),
+                    "R2": r2,
+                })
+
+        if not rows_region:
+            continue
+
+        df_region = pd.DataFrame(rows_region)
+        df_year = pd.DataFrame(rows_year)
+        base_title = f"{country.title()} {crop.title()}"
+
+        # Consistent model colors across all plots
+        all_models_sorted = sorted(df_region["Model"].unique())
+        # Hand-picked high-contrast palette for small model counts
+        _FIXED_PALETTE = [
+            (0.122, 0.467, 0.706, 1.0),  # steel blue
+            (0.839, 0.153, 0.157, 1.0),  # brick red
+            (0.173, 0.627, 0.173, 1.0),  # forest green
+            (0.580, 0.404, 0.741, 1.0),  # muted purple
+            (1.000, 0.498, 0.055, 1.0),  # orange
+            (0.549, 0.337, 0.294, 1.0),  # brown
+            (0.890, 0.467, 0.761, 1.0),  # pink
+            (0.498, 0.498, 0.498, 1.0),  # grey
+        ]
+        _MODEL_COLORS = {
+            m: _FIXED_PALETTE[i % len(_FIXED_PALETTE)]
+            for i, m in enumerate(all_models_sorted)
+        }
+
+        # Production share per region (reuse existing utility)
+        first_df = next(iter(model_dfs.values()))
+        prod_pct = diag.compute_production_pct(first_df, country)
+
+        # National area-weighted metric per model (for legend labels)
+        national_metrics = {}
+        for model, df in model_dfs.items():
+            df = df.dropna(subset=[obs_col, pred_col])
+            if df.empty:
+                continue
+            df = df[df[obs_col] != 0].copy()
+            df["MAPE"] = (df[pred_col] - df[obs_col]).abs() / df[obs_col] * 100
+            df["SE"] = (df[pred_col] - df[obs_col]) ** 2
+            has_area = "Area (ha)" in df.columns and df["Area (ha)"].notna().any()
+            stats = df.groupby("Region").agg(
+                mape=("MAPE", "mean"),
+                rmse_sq=("SE", "mean"),
+                area=("Area (ha)", "first") if has_area else ("MAPE", "count"),
+            ).dropna()
+            if has_area and stats["area"].sum() > 0:
+                w_mape = (stats["mape"] * stats["area"]).sum() / stats["area"].sum()
+                w_rmse = np.sqrt((stats["rmse_sq"] * stats["area"]).sum() / stats["area"].sum())
+            else:
+                w_mape = stats["mape"].mean()
+                w_rmse = np.sqrt(stats["rmse_sq"].mean())
+            national_metrics[model] = {"MAPE": w_mape, "RMSE": w_rmse}
+
+        def _model_legend(model, metric):
+            """Model display name with national metric in parentheses."""
+            display = _display_model_name(model)
+            nm = national_metrics.get(model, {})
+            val = nm.get(metric)
+            if val is not None:
+                unit = "%" if metric == "MAPE" else "tn/ha" if metric == "RMSE" else ""
+                return f"{display} (nat: {val:.1f}{unit})"
+            return display
+
+        with plt.style.context(["science", "no-latex"]):
+            # By region: grouped bar for each metric
+            for metric, ylabel in [("MAPE", "MAPE (%)"), ("RMSE", "RMSE (tn/ha)"), ("R2", "R²")]:
+                pivot = df_region.pivot_table(index="Region", columns="Model", values=metric)
+                if pivot.empty:
+                    continue
+                # Sort by production share descending (largest producer at top)
+                if prod_pct:
+                    order = sorted(pivot.index, key=lambda r: prod_pct.get(r, 0), reverse=True)
+                    pivot = pivot.reindex(order)
+                    pivot.index = [
+                        f"{r} ({prod_pct[r]:.1f}%)" if r in prod_pct else r
+                        for r in pivot.index
+                    ]
+                # Rename columns to include national metric
+                # Use consistent model colors
+                bar_colors = [_MODEL_COLORS.get(m, "steelblue") for m in pivot.columns]
+                pivot.columns = [_model_legend(m, metric) for m in pivot.columns]
+                fig, ax = plt.subplots(figsize=(10, max(4, len(pivot) * 0.5)))
+                pivot.plot.barh(ax=ax, color=bar_colors)
+                ax.set_xlabel(ylabel)
+                ax.set_title(f"{ylabel} by Region — {base_title}", fontweight="bold")
+                ax.legend(title="Model", fontsize=8)
+                ax.tick_params(axis='y', length=0)
+                plt.tight_layout()
+                fig.savefig(dir_comp / f"{metric.lower()}_by_region_{country}_{crop}.png",
+                            dpi=250, bbox_inches="tight")
+                plt.close(fig)
+
+            # By year: grouped bar for each metric
+            for metric, ylabel in [("MAPE", "MAPE (%)"), ("RMSE", "RMSE (tn/ha)"), ("R2", "R²")]:
+                if df_year.empty:
+                    continue
+                pivot = df_year.pivot_table(index="Harvest Year", columns="Model", values=metric)
+                if pivot.empty:
+                    continue
+                bar_colors = [_MODEL_COLORS.get(m, "steelblue") for m in pivot.columns]
+                pivot.columns = [_model_legend(m, metric) for m in pivot.columns]
+                fig, ax = plt.subplots(figsize=(12, 5))
+                pivot.plot.bar(ax=ax, color=bar_colors)
+                ax.set_ylabel(ylabel)
+                ax.set_title(f"{ylabel} by Year — {base_title}", fontweight="bold")
+                ax.legend(title="Model", fontsize=8)
+                ax.tick_params(axis='x', length=0)
+                plt.xticks(rotation=45, ha="right")
+                plt.tight_layout()
+                fig.savefig(dir_comp / f"{metric.lower()}_by_year_{country}_{crop}.png",
+                            dpi=250, bbox_inches="tight")
+                plt.close(fig)
+
+        # Best model per region map (qualitative choropleth)
+        # For each region, pick the model with lowest MAPE
+        best_model = (
+            df_region.sort_values("MAPE")
+            .drop_duplicates(subset=["Region"], keep="first")
+            [["Region", "Model"]].copy()
+        )
+        best_model["Country Region"] = (
+            country.lower().replace("_", " ") + " " + best_model["Region"].str.lower()
+        )
+        # Encode model as integer for qualitative map, using consistent colors
+        model_to_id = {m: i + 1 for i, m in enumerate(all_models_sorted)}
+        best_model["Best Model"] = best_model["Model"].map(model_to_id)
+        # Legend: integer id → display name
+        dict_lup = {
+            mid: _display_model_name(m) for m, mid in model_to_id.items()
+        }
+        # Build color list matching model order (convert RGBA tuple to list for plot_map)
+        model_cmap = [list(_MODEL_COLORS[m][:3]) for m in all_models_sorted]
+
+        logger.info(
+            f"Best model per region ({country} {crop}): "
+            f"{best_model[['Region', 'Model', 'Best Model']].to_dict('records')}"
+        )
+
+        countries_display = [country.title().replace("_", " ")]
+        dg_sub = dg[dg["ADM0_NAME"].isin(countries_display)].copy()
+
+        plot.plot_map(
+            dg_sub,
+            best_model,
+            dict_lup=dict_lup,
+            merge_col="Country Region",
+            name_country=countries_display,
+            name_col="Best Model",
+            dir_out=dir_comp,
+            fname=f"best_model_map_{country}_{crop}.png",
+            title=f"Best Model by Region (lowest MAPE) — {base_title}",
+            label="Model",
+            series="qualitative",
+            cmap=model_cmap,
+            annotate_regions=True,
+            use_key=True,
+        )
 
 
 def _generate_outlook_map(
@@ -552,7 +1014,8 @@ def _generate_outlook_map(
     else:
         fname = f"yield_outlook_{'_'.join(countries)}_{crop}_{model}{stage_suffix}_{current_year}.png"
 
-    stage_label = f", stage {stage_name}" if stage_name else ""
+    friendly = friendly_stage_label(stage_name) if stage_name else ""
+    stage_label = f", {friendly}" if friendly else ""
     label = col_label or f"% departure from {n_years}-year hindcast {aggregation}\n{crop.title()}, {current_year}{stage_label}"
     plot.plot_map(
         dg,
@@ -633,7 +1096,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
         parser.set("DEFAULT", "experiment_name", "outlook")
         orig_db = parser.get("DEFAULT", "db")
-        outlook_db = ar.utcnow().to("America/New_York").format("[outlook_]MM[_]DD[_]YYYY[.db]")
+        outlook_db = ar.utcnow().to("America/New_York").format("[outlook_]MM[_]DD[_]YYYY[_]HH[h]mm[.db]")
         parser.set("DEFAULT", "db", outlook_db)
         pool_countries_flag = parser.getboolean("ML", "pool_countries", fallback=False)
         if pool_countries_flag:
@@ -647,6 +1110,18 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         crops = sorted({row[2] for row in inputs})
         models = sorted({row[4] for row in inputs})
 
+        # Resolve yield file per country
+        default_yield = "hvstat_africa_data_v1.0.csv"
+        if parser.has_option("DEFAULT", "production_statistics_file"):
+            default_yield = parser.get("DEFAULT", "production_statistics_file")
+        yield_files = {}
+        for c in countries:
+            ck = c.lower().replace(" ", "_")
+            if parser.has_option(ck, "production_statistics_file"):
+                yield_files[c] = parser.get(ck, "production_statistics_file")
+            else:
+                yield_files[c] = default_yield
+
         params = [
             ("Countries", countries),
             ("Crops", crops),
@@ -655,11 +1130,14 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("Outlook index window", f"{n_years} years"),
             ("Seasons", f"{outlook_seasons[0]}-{outlook_seasons[-1]}"),
             ("Aggregation", aggregation),
-            ("Stage alignment", str(parser.getboolean("ML", "align_hindcast_stage", fallback=False))),
+            ("Time steps", parser.get("ML", "run_time_steps", fallback="latest")),
             ("Pooled", str(pool_countries_flag)),
+            ("FDW export", str(fdw_export)),
             ("DB", parser.get("DEFAULT", "db")),
             ("Total combinations", str(len(inputs))),
         ]
+        for c, yf in yield_files.items():
+            params.append((f"  {c} yield file", yf))
         ut.display_run_summary("GeoCIF Yield Outlook", params, wait=10)
 
         if pool_countries_flag:
@@ -759,7 +1237,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 all_outlook_frames.append(df_outlook)
 
                 # Generate map — saved in maps/{model}[/{stage}] subfolder
-                stage_safe = stage_name.replace(" ", "_")
+                stage_safe = friendly_stage_label(stage_name).replace(" - ", "-").replace(" ", "_")
                 dir_model = dir_outlook / "maps" / model
                 if len(available_stages) > 1:
                     dir_model = dir_model / stage_safe
@@ -800,7 +1278,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 name_col="Predicted Yield (tn per ha)",
                 dir_out=dir_model,
                 fname=pred_fname,
-                label=f"Predicted yield (tn/ha)\n{crop.title()}, {current_year}, stage {stage_name}",
+                label=f"Predicted yield (tn/ha)\n{crop.title()}, {current_year}, {friendly_stage_label(stage_name)}",
                 vmin=float(df_pred_map["Predicted Yield (tn per ha)"].min()),
                 vmax=float(df_pred_map["Predicted Yield (tn per ha)"].max()),
                 cmap=pal.scientific.sequential.Bamako_20_r,
@@ -1000,70 +1478,74 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     stage_name="combined", annotate_regions=False,
                 )
 
-        # Ensemble: mean of outlook_index / current_predicted / hist_predicted across models
-        df_ensemble = (
-            df_all.groupby(
-                ["Country", "Region", "Country Region", "Crop", "Forecast Year"],
-                as_index=False,
-            ).agg({
-                "outlook_index": "mean",
-                "current_predicted": "mean",
-                "hist_predicted": "mean",
-                "Stage Name": "last",
-            })
-        )
-        df_ensemble["Model"] = "ensemble"
-
-        dir_ens = dir_outlook / "maps" / "ensemble"
-        os.makedirs(dir_ens, exist_ok=True)
-
-        # Per-country ensemble maps
-        for (country_val, crop_val), df_group in df_ensemble.groupby(["Country", "Crop"]):
-            map_countries_val = countries if country_val == "pooled" else [country_val]
-            stage_val = df_group["Stage Name"].iloc[0]
-            _generate_outlook_map(
-                dg, df_group, map_countries_val, crop_val,
-                "ensemble", current_year, n_years, aggregation, dir_ens,
-                stage_name=stage_val, annotate_regions=False,
+        # Ensemble: mean across models (skip when only one model)
+        n_models = df_all["Model"].nunique()
+        df_ensemble = None
+        if n_models > 1:
+            df_ensemble = (
+                df_all.groupby(
+                    ["Country", "Region", "Country Region", "Crop", "Forecast Year"],
+                    as_index=False,
+                ).agg({
+                    "outlook_index": "mean",
+                    "current_predicted": "mean",
+                    "hist_predicted": "mean",
+                    "Stage Name": "last",
+                })
             )
+            df_ensemble["Model"] = "ensemble"
 
-        # Multi-country ensemble maps
-        for crop_val, df_group in df_ensemble.groupby("Crop"):
-            if len(df_group["Country"].unique()) > 1:
+            dir_ens = dir_outlook / "maps" / "ensemble"
+            os.makedirs(dir_ens, exist_ok=True)
+
+            # Per-country ensemble maps
+            for (country_val, crop_val), df_group in df_ensemble.groupby(["Country", "Crop"]):
+                map_countries_val = countries if country_val == "pooled" else [country_val]
+                stage_val = df_group["Stage Name"].iloc[0]
                 _generate_outlook_map(
-                    dg, df_group, df_group["Country"].unique().tolist(), crop_val,
+                    dg, df_group, map_countries_val, crop_val,
                     "ensemble", current_year, n_years, aggregation, dir_ens,
-                    stage_name="combined", annotate_regions=False,
+                    stage_name=stage_val, annotate_regions=False,
                 )
 
-        # Ensemble observed-baseline anomaly maps
-        for crop_val, df_ens_crop in df_ensemble.groupby("Crop"):
-            countries_ens = df_ens_crop["Country"].unique().tolist()
-            obs_baselines_ens = _load_observed_baselines(countries_ens, crop_val, parser, current_year=current_year)
-            for period_label, df_obs in obs_baselines_ens.items():
-                df_ens_anom = df_ens_crop[
-                    ["Country", "Region", "Country Region", "current_predicted"]
-                ].merge(df_obs, on="Region", how="left")
-                df_ens_anom["obs_anomaly"] = np.where(
-                    df_ens_anom["obs_mean"] != 0,
-                    (df_ens_anom["current_predicted"] - df_ens_anom["obs_mean"])
-                    / df_ens_anom["obs_mean"] * 100,
-                    np.nan,
-                )
-                dir_ens_obs = dir_ens / "obs_anomaly" / period_label
-                os.makedirs(dir_ens_obs, exist_ok=True)
-                _generate_outlook_map(
-                    dg, df_ens_anom, countries_ens, crop_val, "ensemble", current_year,
-                    n_years, aggregation, dir_ens_obs,
-                    col="obs_anomaly",
-                    col_label=f"% departure from {period_label} observed mean\n{crop_val.title()}, {current_year}",
-                )
+            # Multi-country ensemble maps
+            for crop_val, df_group in df_ensemble.groupby("Crop"):
+                if len(df_group["Country"].unique()) > 1:
+                    _generate_outlook_map(
+                        dg, df_group, df_group["Country"].unique().tolist(), crop_val,
+                        "ensemble", current_year, n_years, aggregation, dir_ens,
+                        stage_name="combined", annotate_regions=False,
+                    )
+
+            # Ensemble observed-baseline anomaly maps
+            for crop_val, df_ens_crop in df_ensemble.groupby("Crop"):
+                countries_ens = df_ens_crop["Country"].unique().tolist()
+                obs_baselines_ens = _load_observed_baselines(countries_ens, crop_val, parser, current_year=current_year)
+                for period_label, df_obs in obs_baselines_ens.items():
+                    df_ens_anom = df_ens_crop[
+                        ["Country", "Region", "Country Region", "current_predicted"]
+                    ].merge(df_obs, on="Region", how="left")
+                    df_ens_anom["obs_anomaly"] = np.where(
+                        df_ens_anom["obs_mean"] != 0,
+                        (df_ens_anom["current_predicted"] - df_ens_anom["obs_mean"])
+                        / df_ens_anom["obs_mean"] * 100,
+                        np.nan,
+                    )
+                    dir_ens_obs = dir_ens / "obs_anomaly" / period_label
+                    os.makedirs(dir_ens_obs, exist_ok=True)
+                    _generate_outlook_map(
+                        dg, df_ens_anom, countries_ens, crop_val, "ensemble", current_year,
+                        n_years, aggregation, dir_ens_obs,
+                        col="obs_anomaly",
+                        col_label=f"% departure from {period_label} observed mean\n{crop_val.title()}, {current_year}",
+                    )
 
         # Diagnostic plots: scatter, MAPE bar, MAPE map per (country, crop, model)
-        _generate_diagnostics(df_pred_store, dg, dir_outlook)
+        _generate_diagnostics(df_pred_store, dg, dir_outlook,
+                              current_year=current_year, dict_config=dict_config)
 
-        # Long-format CSV: all individual-model rows + ensemble rows
-        df_long = pd.concat([df_all, df_ensemble], ignore_index=True)
+        # Long-format CSV
+        df_long = pd.concat([df_all] + ([df_ensemble] if df_ensemble is not None else []), ignore_index=True)
         csv_path = dir_outlook / f"yield_outlook_{scope}_{crops_str}_{current_year}.csv"
         df_long.to_csv(csv_path, index=False)
         logger.info(f"Outlook CSV saved to {csv_path}")
@@ -1083,9 +1565,20 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     else:
         logger.warning("No outlook data generated — check DB has predictions.")
 
-    # Optional FDW forecast CSV export
+    # Optional PDF report
+    generate_report_flag = parser.getboolean("ML", "generate_report", fallback=False)
+    if generate_report_flag and all_outlook_frames:
+        from .report import generate_report
+        all_models = sorted({row[4] for row in inputs}) if inputs else models
+        generate_report(
+            dir_outlook, parser, current_year,
+            countries, sorted({row[2] for row in inputs}) if inputs else crops,
+            all_models,
+        )
+
+    # Optional FDW CSV exports (Template 1 forecast + Template 2 historical + Template 3 accuracy)
     if fdw_export:
-        from geocif.fdw_export import export_forecast
+        from geocif.fdw_export import export_forecast, export_historical, export_accuracy
 
         export_forecast(
             parser,
@@ -1093,6 +1586,13 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             forecast_year=current_year,
             experiment_name="outlook",
             n_years=10,
+        )
+        export_historical(parser)
+        export_accuracy(
+            parser,
+            db_path=db_path,
+            forecast_year=current_year,
+            experiment_name="outlook",
         )
 
 

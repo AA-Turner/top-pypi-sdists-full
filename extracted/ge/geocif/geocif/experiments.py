@@ -1,3 +1,15 @@
+"""Experiments Runner.
+
+Runs model comparison, CID ablation, region filtering, and Optuna
+hyperparameter search experiments. Results are stored in a dedicated
+experiments database and analysis folder.
+
+Usage::
+
+    from geocif import experiments
+    experiments.run(cfg_geocif, n_trials=30)
+"""
+
 import ast
 import os
 import sqlite3
@@ -12,9 +24,28 @@ import pandas as pd
 import seaborn as sns
 import sklearn
 
+import scienceplots  # noqa: F401
+
 from geocif import geocif_runner as gc
 from geocif import logger as log
 from geocif import utils as ut
+
+# Shared fixed palette for model/experiment colors
+_FIXED_PALETTE = [
+    (0.122, 0.467, 0.706, 1.0),  # steel blue
+    (0.839, 0.153, 0.157, 1.0),  # brick red
+    (0.173, 0.627, 0.173, 1.0),  # forest green
+    (0.580, 0.404, 0.741, 1.0),  # muted purple
+    (1.000, 0.498, 0.055, 1.0),  # orange
+    (0.549, 0.337, 0.294, 1.0),  # brown
+    (0.890, 0.467, 0.761, 1.0),  # pink
+    (0.498, 0.498, 0.498, 1.0),  # grey
+]
+
+
+def _fmt(name: str) -> str:
+    """Format a param_value that might be a model name for display."""
+    return ut.display_model_name(name)
 
 # Show usage info on import
 from rich.console import Console
@@ -30,7 +61,8 @@ _table.add_row("cfg", "\\[geobase.txt, countries.txt, crops.txt, geocif.txt]")
 _console.print(Panel(_table, title="[bold bright_white]GeoCIF Experiments Runner[/]", border_style="bright_blue", padding=(1, 2)))
 
 import scienceplots  # noqa: F401 — required to register the 'science' style (SciencePlots ≥2.0.0)
-plt.style.use(["science", "no-latex"])
+# Note: scienceplots style is applied per-plot via plt.style.context() in
+# diagnostic functions, not globally — avoids affecting maps and heatmaps.
 sklearn.set_config(transform_output="pandas")
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -84,7 +116,8 @@ def main(inputs, logger, parser, section, item, values):
         # Each value gets a unique experiment name for tracking
         parser.set("DEFAULT", "experiment_name", f"{section}_{item}_{value}")
         parser.set(section, item, str(value))
-        gc.execute_models(inputs, logger, parser)
+        gc.execute_models(inputs, logger, parser,
+                          desc=f"{section}.{item} = {value}")
 
     parser.set(section, item, str(original_value))
 
@@ -107,7 +140,8 @@ def main_models(logger, parser, models):
             parser.set(country, "models", f'["{model}"]')
 
         inputs = gc.gather_inputs(parser)
-        gc.execute_models(inputs, logger, parser)
+        gc.execute_models(inputs, logger, parser,
+                          desc=f"Exp 0: model_comparison — {model}")
 
     # Restore originals
     for country, orig in originals.items():
@@ -165,7 +199,7 @@ def experiment_2_region_filter(logger, parser, best_models):
     parser.set("DEFAULT", "filter_low_production_regions", "True")
 
     inputs = gc.gather_inputs(parser)
-    gc.execute_models(inputs, logger, parser)
+    gc.execute_models(inputs, logger, parser, desc="Exp 2: region_filter")
 
     # Restore originals
     parser.set("DEFAULT", "filter_low_production_regions", "False")
@@ -195,7 +229,8 @@ def experiment_1_cid_ablation(logger, parser, best_models, all_cids):
         parser.set("DEFAULT", "use_cids", f'["{cid}"]')
 
         inputs = gc.gather_inputs(parser)
-        gc.execute_models(inputs, logger, parser)
+        gc.execute_models(inputs, logger, parser,
+                          desc=f"Exp 1: cid_ablation — {cid}")
 
     # Restore originals
     parser.set("DEFAULT", "use_cids", orig_use_cids)
@@ -328,7 +363,8 @@ def _optimize_cid_subset(mode, inputs, logger, parser, n_trials=30,
         parser.set("DEFAULT", "use_cids", str(selected))
 
         try:
-            gc.execute_models(inputs, logger, parser)
+            gc.execute_models(inputs, logger, parser,
+                              desc=f"Optuna {tag} trial {trial.number + 1} (n={n})")
         except Exception as e:
             logger.warning(f"Trial {trial.number} ({tag}, n={n}) failed: {e}")
             return float("inf")
@@ -407,7 +443,8 @@ def optimize_hyperparameters(inputs, logger, parser, n_trials=30):
             parser.set("ML", key, str(value))
 
         try:
-            gc.execute_models(inputs, logger, parser)
+            gc.execute_models(inputs, logger, parser,
+                              desc=f"Optuna HP trial {trial.number + 1}")
         except Exception as e:
             logger.warning(f"Trial {trial.number} failed: {e}")
             return float("inf")
@@ -735,21 +772,24 @@ def analyze_model_ranking(parser, logger, metric="rmse", n_bootstrap=200):
 
         labels = list(strata_scores.keys())
         scores_mat = np.array([strata_scores[l] for l in labels])  # (n_strata, n_models)
-        fig, ax = plt.subplots(figsize=(max(8, len(labels) * 1.4), 5))
-        x = np.arange(len(labels))
-        bar_w = 0.8 / n
-        colors = plt.cm.tab10(np.linspace(0, 1, n))
-        for mi, model in enumerate(models):
-            ax.bar(x + mi * bar_w - 0.4 + bar_w / 2,
-                   scores_mat[:, mi], bar_w, label=model, color=colors[mi], alpha=0.85)
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels, rotation=30, ha="right")
-        ax.set_ylabel("Log-strength score")
-        ax.set_title(f"BT Strengths by {' / '.join(strata_cols)} ({metric.upper()})")
-        ax.legend(title="Model", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
-        plt.tight_layout()
-        fig.savefig(dir_plots / f"{fname}.png", dpi=250)
-        plt.close(fig)
+        colors = [_FIXED_PALETTE[i % len(_FIXED_PALETTE)] for i in range(n)]
+
+        with plt.style.context(["science", "no-latex"]):
+            fig, ax = plt.subplots(figsize=(max(8, len(labels) * 1.4), 5))
+            x = np.arange(len(labels))
+            bar_w = 0.8 / n
+            for mi, model in enumerate(models):
+                ax.bar(x + mi * bar_w - 0.4 + bar_w / 2,
+                       scores_mat[:, mi], bar_w, label=_fmt(model),
+                       color=colors[mi], alpha=0.85)
+            ax.set_xticks(x)
+            ax.set_xticklabels(labels, rotation=30, ha="right")
+            ax.set_ylabel("Log-strength score")
+            ax.set_title(f"BT Strengths by {' / '.join(strata_cols)} ({metric.upper()})")
+            ax.legend(title="Model", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
+            plt.tight_layout()
+            fig.savefig(dir_plots / f"{fname}.png", dpi=250)
+            plt.close(fig)
 
     # ── Save scores CSV ───────────────────────────────────────────────────────
     rows = [{"Model": models[i], "BT_score": bt_params[i],
@@ -842,13 +882,18 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
         total_combos *= len(values)
 
     all_cids = ast.literal_eval(parser.get("ML", "use_cids"))
+    if all_cids == ["all"]:
+        select_by = parser.get("DEFAULT", "select_cid_by", fallback="Type")
+        all_cids_display = _all_cid_types() if select_by == "Type" else _all_cid_indices()
+    else:
+        all_cids_display = all_cids
 
     params = gc._build_summary_params(parser, inputs)
     params.append(("Experiments", ", ".join(run_experiments) if run_experiments else "(none)"))
     if "model_comparison" in run_experiments:
         params.append(("Exp 0: models", ", ".join(model_experiment)))
     if "cid_ablation" in run_experiments:
-        params.append(("Exp 1: CIDs", ", ".join(all_cids)))
+        params.append(("Exp 1: CIDs", ", ".join(all_cids_display)))
     if "optuna" in run_experiments:
         params.append(("Optimization", f"Optuna TPE, {n_trials} trials"))
         for name, values in hp_space:
@@ -887,6 +932,10 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
     if "cid_ablation" in run_experiments:
         logger.info("Experiment 1: CID ablation")
         all_cids = ast.literal_eval(parser.get("ML", "use_cids"))
+        if all_cids == ["all"]:
+            select_by = parser.get("DEFAULT", "select_cid_by", fallback="Type")
+            all_cids = _all_cid_types() if select_by == "Type" else _all_cid_indices()
+            logger.info(f"  Expanded 'all' to {len(all_cids)} CID {select_by}s: {all_cids}")
         parser = experiment_1_cid_ablation(logger, parser, best_models, all_cids)
 
         cid_exp_list = [("cids", "", "", "str", all_cids)]
@@ -1071,11 +1120,12 @@ def _plot_boxplot(df_exp_data, experiment_name, dir_plots):
     if df_exp.empty:
         return
     df_exp["APE_calc"] = df_exp["APE"]
+    df_exp["param_display"] = df_exp["param_value"].map(_fmt)
 
-    fig, ax = plt.subplots(figsize=(max(8, df_exp["param_value"].nunique() * 1.5), 6))
-    sns.boxplot(data=df_exp, x="param_value", y="APE_calc", hue="Country", ax=ax)
+    fig, ax = plt.subplots(figsize=(max(8, df_exp["param_display"].nunique() * 1.5), 6))
+    sns.boxplot(data=df_exp, x="param_display", y="APE_calc", hue="Country", ax=ax)
     ax.set_title(f"APE Distribution — {experiment_name}")
-    ax.set_xlabel("Parameter Value")
+    ax.set_xlabel("")
     ax.set_ylabel("Absolute Percentage Error (%)")
     ax.set_ylim(0, min(100, df_exp["APE_calc"].quantile(0.95) * 1.2))
     ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
@@ -1106,31 +1156,36 @@ def _plot_regional_mape(df_metrics, df_exp_data, experiment_name, dir_plots):
 
     df_raw = _filter_experiment(df_exp_data, experiment_name)
 
-    for country in df_exp["Country"].unique():
-        df_c = df_exp[df_exp["Country"] == country]
-        if df_c.empty:
-            continue
+    with plt.style.context(["science", "no-latex"]):
+        for country in df_exp["Country"].unique():
+            df_c = df_exp[df_exp["Country"] == country]
+            if df_c.empty:
+                continue
 
-        prod_pct = _compute_production_pct(df_raw, country)
+            prod_pct = _compute_production_pct(df_raw, country)
 
-        pivot = df_c.pivot_table(
-            index="Region", columns="param_value", values="MAPE", aggfunc="mean"
-        )
-        if pivot.empty:
-            continue
+            pivot = df_c.pivot_table(
+                index="Region", columns="param_value", values="MAPE", aggfunc="mean"
+            )
+            if pivot.empty:
+                continue
 
-        # Order by descending production share
-        pivot = _order_by_production(pivot, prod_pct, ascending=True)
+            # Display names for model columns
+            pivot.columns = [_fmt(c) for c in pivot.columns]
+            bar_colors = [_FIXED_PALETTE[i % len(_FIXED_PALETTE)] for i in range(len(pivot.columns))]
 
-        fig, ax = plt.subplots(figsize=(max(10, len(pivot.columns) * 1.2), max(5, len(pivot) * 0.4)))
-        pivot.plot(kind="barh", ax=ax)
-        ax.set_title(f"Mean MAPE by Region — {experiment_name} — {country}")
-        ax.set_xlabel("MAPE (%)")
-        ax.set_ylabel("Region (% of national production)")
-        ax.legend(title="Model", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
-        plt.tight_layout()
-        fig.savefig(dir_plots / f"mape_region_{experiment_name}_{country}.png", dpi=250)
-        plt.close(fig)
+            # Order by descending production share
+            pivot = _order_by_production(pivot, prod_pct, ascending=True)
+
+            fig, ax = plt.subplots(figsize=(max(10, len(pivot.columns) * 1.2), max(5, len(pivot) * 0.4)))
+            pivot.plot(kind="barh", ax=ax, color=bar_colors)
+            ax.set_title(f"Mean MAPE by Region — {experiment_name} — {country}")
+            ax.set_xlabel("MAPE (%)")
+            ax.set_ylabel("")
+            ax.legend(title="Model", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
+            plt.tight_layout()
+            fig.savefig(dir_plots / f"mape_region_{experiment_name}_{country}.png", dpi=250)
+            plt.close(fig)
 
 
 def _plot_overall_comparison(df_metrics, experiments, dir_plots):
@@ -1192,20 +1247,21 @@ def _plot_error_distribution(df_exp_data, experiment_name, dir_plots):
     cap = df_exp["APE_calc"].quantile(0.95)
     df_plot = df_exp[df_exp["APE_calc"] <= cap]
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for val in sorted(df_plot["param_value"].unique()):
-        subset = df_plot[df_plot["param_value"] == val]["APE_calc"]
-        if len(subset) > 5:
-            subset.plot.kde(ax=ax, label=val)
+    with plt.style.context(["science", "no-latex"]):
+        fig, ax = plt.subplots(figsize=(10, 6))
+        for val in sorted(df_plot["param_value"].unique()):
+            subset = df_plot[df_plot["param_value"] == val]["APE_calc"]
+            if len(subset) > 5:
+                subset.plot.kde(ax=ax, label=_fmt(val))
 
-    ax.set_title(f"APE Distribution — {experiment_name}")
-    ax.set_xlabel("Absolute Percentage Error (%)")
-    ax.set_ylabel("Density")
-    ax.set_xlim(0, None)
-    ax.legend(title="Value", fontsize=8)
-    plt.tight_layout()
-    fig.savefig(dir_plots / f"error_distribution_{experiment_name}.png", dpi=250)
-    plt.close(fig)
+        ax.set_title(f"APE Distribution — {experiment_name}")
+        ax.set_xlabel("Absolute Percentage Error (%)")
+        ax.set_ylabel("Density")
+        ax.set_xlim(0, None)
+        ax.legend(title="Value", fontsize=8)
+        plt.tight_layout()
+        fig.savefig(dir_plots / f"error_distribution_{experiment_name}.png", dpi=250)
+        plt.close(fig)
 
 
 def _plot_feature_frequency(df_exp_data, experiment_name, dir_plots):
@@ -1253,11 +1309,13 @@ def _plot_feature_frequency(df_exp_data, experiment_name, dir_plots):
     for (country, crop), grp in df_freq.groupby(["Country", "Crop"]):
         grp_sorted = grp.sort_values("Count", ascending=True).tail(20)
         n_features = len(grp_sorted)
-        fig, ax = plt.subplots(figsize=(8, max(4, n_features * 0.35)))
-        ax.barh(grp_sorted["Feature"], grp_sorted["Count"], color="steelblue")
-        ax.set_xlabel("Selection Frequency")
-        ax.set_title(f"Feature Selection Frequency — {country} {crop}\n({experiment_name})")
-        plt.tight_layout()
+        with plt.style.context(["science", "no-latex"]):
+            fig, ax = plt.subplots(figsize=(8, max(4, n_features * 0.35)))
+            ax.barh(grp_sorted["Feature"], grp_sorted["Count"],
+                    color=_FIXED_PALETTE[0])
+            ax.set_xlabel("Selection Frequency")
+            ax.set_title(f"Feature Selection Frequency — {country} {crop}\n({experiment_name})")
+            plt.tight_layout()
         fig.savefig(
             dir_plots / f"feature_freq_{experiment_name}_{country}_{crop}.png",
             dpi=250,
@@ -1279,17 +1337,20 @@ def _plot_mape_by_year(df_exp_data, experiment_name, dir_plots):
     )
     mape_by_year = mape_by_year.sort_values("Harvest Year")
 
-    fig, ax = plt.subplots(figsize=(10, 5))
-    for pv, grp in mape_by_year.groupby("param_value"):
-        ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o", label=pv)
-    ax.set_xlabel("Harvest Year")
-    ax.set_ylabel("MAPE (%)")
-    ax.set_title(f"MAPE by Year — {experiment_name}")
-    ax.legend(title="Model", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
-    ax.grid(True, alpha=0.3)
-    plt.tight_layout()
-    fig.savefig(dir_plots / f"mape_year_{experiment_name}.png", dpi=250)
-    plt.close(fig)
+    with plt.style.context(["science", "no-latex"]):
+        fig, ax = plt.subplots(figsize=(10, 5))
+        pv_list = sorted(mape_by_year["param_value"].unique())
+        for i, pv in enumerate(pv_list):
+            grp = mape_by_year[mape_by_year["param_value"] == pv]
+            ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o",
+                    label=_fmt(pv), color=_FIXED_PALETTE[i % len(_FIXED_PALETTE)])
+        ax.set_xlabel("")
+        ax.set_ylabel("MAPE (%)")
+        ax.set_title(f"MAPE by Year — {experiment_name}")
+        ax.legend(title="Model", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
+        plt.tight_layout()
+        fig.savefig(dir_plots / f"mape_year_{experiment_name}.png", dpi=250)
+        plt.close(fig)
 
 
 def _plot_mape_by_cid(df_exp_data, experiment_name, dir_plots):
@@ -1303,16 +1364,19 @@ def _plot_mape_by_cid(df_exp_data, experiment_name, dir_plots):
     if "All CIDs" in mape.index:
         all_cids_val = mape.pop("All CIDs")
         mape = pd.concat([pd.Series({"All CIDs": all_cids_val}), mape])
-    fig, ax = plt.subplots(figsize=(max(8, len(mape) * 0.8), 5))
-    bar_colors = ["black" if idx == "All CIDs" else "steelblue" for idx in mape.index]
-    mape.plot(kind="bar", ax=ax, color=bar_colors)
-    ax.set_xlabel("CID Type")
-    ax.set_ylabel("MAPE (%)")
-    ax.set_title(f"MAPE by CID Type — {experiment_name}")
-    ax.tick_params(axis="x", rotation=45)
-    plt.tight_layout()
-    fig.savefig(dir_plots / f"mape_cid_{experiment_name}.png", dpi=250)
-    plt.close(fig)
+
+    with plt.style.context(["science", "no-latex"]):
+        fig, ax = plt.subplots(figsize=(max(8, len(mape) * 0.8), 5))
+        bar_colors = ["black" if idx == "All CIDs" else _FIXED_PALETTE[0]
+                       for idx in mape.index]
+        mape.plot(kind="bar", ax=ax, color=bar_colors)
+        ax.set_xlabel("")
+        ax.set_ylabel("MAPE (%)")
+        ax.set_title(f"MAPE by CID Type — {experiment_name}")
+        ax.tick_params(axis="x", rotation=45)
+        plt.tight_layout()
+        fig.savefig(dir_plots / f"mape_cid_{experiment_name}.png", dpi=250)
+        plt.close(fig)
 
 
 def _plot_mape_by_cid_region(df_exp_data, experiment_name, dir_plots):
@@ -1341,7 +1405,7 @@ def _plot_mape_by_cid_region(df_exp_data, experiment_name, dir_plots):
         fig, ax = plt.subplots(figsize=(max(8, len(pivot.columns) * 1.2), max(5, len(pivot) * 0.4)))
         sns.heatmap(pivot, annot=True, fmt=".1f", cmap="YlOrRd", ax=ax, linewidths=0.5)
         ax.set_title(f"MAPE by Region × CID — {country}\n({experiment_name})")
-        ax.set_xlabel("CID Type")
+        ax.set_xlabel("")
         ax.set_ylabel("Region (% of production)")
         for tick in ax.get_xticklabels():
             if tick.get_text() == "All CIDs":
@@ -1363,34 +1427,36 @@ def _plot_mape_by_cid_year(df_exp_data, experiment_name, dir_plots):
         .sort_values("Harvest Year")
     )
 
-    fig, ax = plt.subplots(figsize=(10, 5))
     cid_names = sorted(pv for pv in mape_by_year["param_value"].unique() if pv != "All CIDs")
-    cmap = plt.cm.get_cmap("tab20", max(len(cid_names), 1))
-    cid_colors = {name: cmap(i) for i, name in enumerate(cid_names)}
-    # Plot individual CIDs first, then "All CIDs" on top
+    cid_colors = {name: _FIXED_PALETTE[i % len(_FIXED_PALETTE)]
+                  for i, name in enumerate(cid_names)}
     groups = dict(list(mape_by_year.groupby("param_value")))
-    for pv in cid_names:
-        if pv in groups:
-            grp = groups[pv]
-            ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o", label=pv, color=cid_colors[pv])
-    if "All CIDs" in groups:
-        grp = groups["All CIDs"]
-        ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o", label="All CIDs",
-                color="black", linewidth=2.5, zorder=10)
-    ax.set_xlabel("Harvest Year")
-    ax.set_ylabel("MAPE (%)")
-    ax.set_title(f"MAPE by Year × CID — {experiment_name}")
-    # Place "All CIDs" first in legend
-    handles, labels = ax.get_legend_handles_labels()
-    if "All CIDs" in labels:
-        idx = labels.index("All CIDs")
-        handles = [handles[idx]] + handles[:idx] + handles[idx + 1:]
-        labels = [labels[idx]] + labels[:idx] + labels[idx + 1:]
-    ax.legend(handles, labels, title="CID Type", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
-    ax.grid(True, alpha=0.3)
-    plt.tight_layout()
-    fig.savefig(dir_plots / f"mape_cid_year_{experiment_name}.png", dpi=250)
-    plt.close(fig)
+
+    with plt.style.context(["science", "no-latex"]):
+        fig, ax = plt.subplots(figsize=(10, 5))
+        # Plot individual CIDs first, then "All CIDs" on top
+        for pv in cid_names:
+            if pv in groups:
+                grp = groups[pv]
+                ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o",
+                        label=pv, color=cid_colors[pv])
+        if "All CIDs" in groups:
+            grp = groups["All CIDs"]
+            ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o", label="All CIDs",
+                    color="black", linewidth=2.5, zorder=10)
+        ax.set_xlabel("")
+        ax.set_ylabel("MAPE (%)")
+        ax.set_title(f"MAPE by Year × CID — {experiment_name}")
+        # Place "All CIDs" first in legend
+        handles, labels = ax.get_legend_handles_labels()
+        if "All CIDs" in labels:
+            idx = labels.index("All CIDs")
+            handles = [handles[idx]] + handles[:idx] + handles[idx + 1:]
+            labels = [labels[idx]] + labels[:idx] + labels[idx + 1:]
+        ax.legend(handles, labels, title="CID Type", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
+        plt.tight_layout()
+        fig.savefig(dir_plots / f"mape_cid_year_{experiment_name}.png", dpi=250)
+        plt.close(fig)
 
 
 def _plot_cid_rank_by_year(df_exp_data, experiment_name, dir_plots):
@@ -1419,9 +1485,12 @@ def _plot_cid_rank_by_year(df_exp_data, experiment_name, dir_plots):
         cbar_kws={"label": "Rank (1 = best)"},
     )
     ax.set_title(f"CID Rank by Year (1 = lowest MAPE) — {experiment_name}")
-    ax.set_xlabel("CID Type")
-    ax.set_ylabel("Harvest Year")
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    ax.tick_params(axis="x", rotation=45)
+    ax.tick_params(axis="y", rotation=0)
     for tick in ax.get_xticklabels():
+        tick.set_ha("right")
         if tick.get_text() == "All CIDs":
             tick.set_fontweight("bold")
     plt.tight_layout()

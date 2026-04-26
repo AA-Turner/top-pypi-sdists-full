@@ -172,6 +172,13 @@ class ToolRegistry:
                 tool_name=tool_name,
                 hard_denied=True,
             )
+        if tool_name == "docx" and str(arguments.get("path") or "").lower().endswith(".pdf"):
+            return SafetyVerdict(
+                needs_approval=True,
+                reason="Tool 'docx' only handles .docx files; PDFs are extracted inline before model routing",
+                tool_name=tool_name,
+                hard_denied=True,
+            )
 
         tier = get_tool_tier(tool_name, tier_overrides=config.tool_tiers)
 

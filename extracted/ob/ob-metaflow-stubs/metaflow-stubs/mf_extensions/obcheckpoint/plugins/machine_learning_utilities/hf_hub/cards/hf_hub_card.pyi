@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-21T02:03:41.286967                                                            #
+# Generated on 2026-04-25T15:30:23.850758                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import threading
+import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import threading
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.card_utils.async_cards
+    import threading
 
 from ...card_utils.async_cards import CardRefresher as CardRefresher
 from ...card_utils.extra_components import UpadateableTable as UpadateableTable

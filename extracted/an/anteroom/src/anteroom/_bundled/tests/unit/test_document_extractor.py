@@ -119,7 +119,8 @@ class TestPdfExtraction:
         with patch.dict(sys.modules, {"pypdf": _make_pypdf_mock(mock_reader)}):
             result = _extract_pdf(b"fake-pdf")
             assert result.text is None
-            assert result.warnings == []
+            assert len(result.warnings) == 1
+            assert "PDF text could not be extracted automatically" in result.warnings[0]
 
     def test_pages_with_none_text_skipped(self) -> None:
         p1 = MagicMock()
@@ -139,6 +140,8 @@ class TestPdfExtraction:
             assert result.text is None
             assert len(result.warnings) == 1
             assert "pypdf not installed" in result.warnings[0]
+            assert "default Anteroom install" in result.warnings[0]
+            assert "anteroom[docs]" not in result.warnings[0]
 
     def test_corrupt_pdf_returns_warning(self) -> None:
         mock_mod = MagicMock()

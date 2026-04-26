@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rjieba
-Version: 0.2.0
+Version: 0.2.1
 Summary: jieba-rs Python binding
 Author: messense <messense@icloud.com>
 Author-email: messense <messense@icloud.com>

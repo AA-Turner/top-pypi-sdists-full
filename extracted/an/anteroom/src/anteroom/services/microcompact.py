@@ -22,6 +22,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from .compaction import collapse_old_tool_results_details
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,12 +41,23 @@ class MicroCompactResult:
     success: bool
     strategies_applied: list[str] = field(default_factory=list)
     bytes_saved: int = 0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class StrategyOutcome:
+    """Strategy-level result normalized by :func:`microcompact`."""
+
+    success: bool
+    bytes_saved: int = 0
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def _strategy_oversized_tool_outputs(
     messages: list[dict[str, Any]],
     *,
     tool_output_max_chars: int,
+    **_: Any,
 ) -> int:
     """Trim tool result messages whose content exceeds ``tool_output_max_chars``.
 
@@ -103,15 +116,76 @@ def _strategy_oversized_tool_outputs(
     return bytes_saved
 
 
+def _strategy_historical_tool_results(
+    messages: list[dict[str, Any]],
+    *,
+    historical_tool_collapse_enabled: bool = False,
+    historical_tool_collapse_force: bool = False,
+    estimated_tokens: int | None = None,
+    historical_tool_collapse_trigger_token_count: int = 90_000,
+    historical_tool_collapse_keep_recent_groups: int = 6,
+    historical_tool_collapse_compact_chars: int = 1_000,
+    **_: Any,
+) -> StrategyOutcome:
+    """Collapse older tool results when token pressure is high.
+
+    The default is a no-op so registering this strategy does not make small
+    conversations mutate on every turn. The shared agent loop passes the
+    current token estimate and config thresholds when pressure is reached.
+    Tests may opt in directly with ``historical_tool_collapse_force=True``.
+    """
+    if not historical_tool_collapse_enabled and not historical_tool_collapse_force:
+        return StrategyOutcome(success=False)
+
+    pressure_hit = (
+        historical_tool_collapse_force
+        or historical_tool_collapse_trigger_token_count <= 0
+        or (estimated_tokens is not None and estimated_tokens >= historical_tool_collapse_trigger_token_count)
+    )
+    if not pressure_hit:
+        return StrategyOutcome(
+            success=False,
+            metadata={
+                "estimated_tokens": estimated_tokens,
+                "trigger_token_count": historical_tool_collapse_trigger_token_count,
+            },
+        )
+
+    result = collapse_old_tool_results_details(
+        messages,
+        keep_recent_groups=historical_tool_collapse_keep_recent_groups,
+        compact_chars=historical_tool_collapse_compact_chars,
+    )
+    return StrategyOutcome(
+        success=result.success,
+        bytes_saved=result.bytes_saved,
+        metadata={
+            "modified_count": result.modified_count,
+            "bytes_saved": result.bytes_saved,
+            "keep_recent_groups": result.keep_recent_groups,
+            "compact_chars": result.compact_chars,
+            "estimated_tokens": estimated_tokens,
+            "trigger_token_count": historical_tool_collapse_trigger_token_count,
+        },
+    )
+
+
 # Strategy registry. Keys are stable string names surfaced in
 # ``MicroCompactResult.strategies_applied`` and in the ``strategies``
 # filter kwarg of :func:`microcompact`. New strategies plug in by
 # adding an entry here.
-_Strategy = Callable[..., int]
+_Strategy = Callable[..., int | StrategyOutcome]
 
 STRATEGIES: dict[str, _Strategy] = {
     "oversized_tool_outputs": _strategy_oversized_tool_outputs,
+    "historical_tool_results": _strategy_historical_tool_results,
 }
+
+
+def _normalize_outcome(raw: int | StrategyOutcome) -> StrategyOutcome:
+    if isinstance(raw, StrategyOutcome):
+        return raw
+    return StrategyOutcome(success=raw > 0, bytes_saved=max(0, raw))
 
 
 def microcompact(
@@ -120,6 +194,7 @@ def microcompact(
     tool_output_max_chars: int,
     min_messages: int = 4,
     strategies: list[str] | None = None,
+    **strategy_kwargs: Any,
 ) -> MicroCompactResult:
     """Run deterministic, in-memory trimming strategies on ``messages``.
 
@@ -141,6 +216,7 @@ def microcompact(
     selected: list[str] = list(STRATEGIES.keys()) if strategies is None else list(strategies)
     applied: list[str] = []
     total_saved = 0
+    metadata: dict[str, Any] = {}
 
     for name in selected:
         fn = STRATEGIES.get(name)
@@ -148,16 +224,24 @@ def microcompact(
             logger.warning("microcompact: unknown strategy %r — skipping", name)
             continue
         try:
-            saved = fn(messages, tool_output_max_chars=tool_output_max_chars)
+            raw_outcome = fn(
+                messages,
+                tool_output_max_chars=tool_output_max_chars,
+                **strategy_kwargs,
+            )
+            outcome = _normalize_outcome(raw_outcome)
         except Exception:
             logger.exception("microcompact strategy %r failed — leaving messages untouched", name)
             continue
-        if saved > 0:
+        if outcome.metadata:
+            metadata[name] = outcome.metadata
+        if outcome.success:
             applied.append(name)
-            total_saved += saved
+            total_saved += outcome.bytes_saved
 
     return MicroCompactResult(
         success=bool(applied),
         strategies_applied=applied,
         bytes_saved=total_saved,
+        metadata=metadata,
     )

@@ -4,10 +4,7 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.12"
-
-mkdocs:
-  configuration: mkdocs.yml
-
-python:
-  install:
-    - requirements: docs/requirements.txt
+  commands:
+    - python -m pip install -r docs/requirements.txt
+    - python -m pip install -e .
+    - rendered_mkdocs="$(python scripts/render_project_docs.py --print-path)" && python -m mkdocs build --strict -f "$rendered_mkdocs" --site-dir "$READTHEDOCS_OUTPUT/html"

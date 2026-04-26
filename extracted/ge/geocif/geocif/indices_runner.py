@@ -1,3 +1,14 @@
+"""CID Indices Pipeline Runner.
+
+Computes Climatic Impact Driver (CID) indices from EO/climate data
+for each country, crop, and season using ICCLIM via multiprocessing.
+
+Usage::
+
+    from geocif import indices_runner
+    indices_runner.run(cfg_geocif)
+"""
+
 import ast
 import logging
 import warnings

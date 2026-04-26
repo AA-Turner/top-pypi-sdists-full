@@ -114,7 +114,7 @@ def test_load_conversation_messages_default_replay_limit_is_10000() -> None:
 async def test_check_for_update_returns_newer_version() -> None:
     proc = _FakeProc(stdout=b"anteroom (9.9.9)\n", returncode=0)
 
-    with patch("anteroom.cli.repl.asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
+    with patch("anteroom.services.version_check.asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
         assert await _check_for_update("1.0.0") == "9.9.9"
 
 
@@ -128,8 +128,8 @@ async def test_check_for_update_cleans_up_on_exception() -> None:
         raise RuntimeError("boom")
 
     with (
-        patch("anteroom.cli.repl.asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)),
-        patch("anteroom.cli.repl.asyncio.wait_for", side_effect=_raise_runtime),
+        patch("anteroom.services.version_check.asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)),
+        patch("anteroom.services.version_check.asyncio.wait_for", side_effect=_raise_runtime),
     ):
         assert await _check_for_update("1.0.0") is None
 

@@ -81,6 +81,7 @@ from plato._generated.models import (
     SetDateResponse,
     WaitForReadyResponse,
 )
+from plato.v2._wait_for_ready import poll_until_ready_async
 from plato.v2.async_.cdp_bridge import CDP_PORT_BASE, resolve_cdp_ws_url, shared_cdp_chromium
 from plato.v2.async_.environment import Environment
 from plato.v2.async_.flow_backends import (
@@ -275,11 +276,14 @@ class Session:
             return cls(http_client=http_client, api_key=api_key, context=context)
 
         try:
-            ready_response = await sessions_wait_for_ready.asyncio(
-                client=http_client,
-                session_id=response.session_id,
+            ready_response = await poll_until_ready_async(
+                lambda per_call: sessions_wait_for_ready.asyncio(
+                    client=http_client,
+                    session_id=response.session_id,
+                    timeout=per_call,
+                    x_api_key=api_key,
+                ),
                 timeout=int(timeout),
-                x_api_key=api_key,
             )
             logger.info(f"wait_for_ready returned ready={ready_response.ready}")
             context = cls._check_ready_response(ready_response, timeout)
@@ -1038,16 +1042,18 @@ class Session:
         job_id = response.env.job_id
         is_desktop = bool(response.env.is_desktop)
 
-        # Wait for the job to be ready if requested
+        # Wait for the job to be ready if requested.
         mesh_ip: str | None = None
         if wait_for_ready:
-            ready_response = await jobs_wait_for_ready.asyncio(
-                client=self._http,
-                job_id=job_id,
+            ready_response = await poll_until_ready_async(
+                lambda per_call: jobs_wait_for_ready.asyncio(
+                    client=self._http,
+                    job_id=job_id,
+                    timeout=per_call,
+                    x_api_key=self._api_key,
+                ),
                 timeout=timeout,
-                x_api_key=self._api_key,
             )
-
             if not ready_response.ready:
                 error = ready_response.error or "Unknown error"
                 raise TimeoutError(f"Job {job_id} did not become ready: {error}")

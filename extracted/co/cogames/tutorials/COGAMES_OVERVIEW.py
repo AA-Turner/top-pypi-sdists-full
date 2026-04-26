@@ -81,8 +81,8 @@
 # %pip install mettagrid cogames pufferlib-core --quiet
 
 # %%
-from cogames.games.cogs_vs_clips.game import NoVibesVariant
-from cogames.games.cogs_vs_clips.missions.machina_1 import make_machina1_mission
+from cogsguard.game import NoVibesVariant
+from cogsguard.missions.machina_1 import make_machina1_mission
 from mettagrid.envs.mettagrid_puffer_env import MettaGridPufferEnv
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.simulator import Simulator
@@ -196,7 +196,7 @@ for feat in sorted(policy_env_info.obs_features, key=lambda feat: feat.name):
 # - **`tag`** — object type at a cell (wall, junction, extractor, agent, etc.)
 # - **`vibe`** — role/resource identity of the object
 # - **`agent:group`** — team membership
-# - **`aoe_mask`** — territory: 0=neutral, 1=friendly, 2=enemy
+# - **territory observations** — current territory plus sparse boundary transitions; see `mettagrid/docs/territory.md`
 # - **`inv:*`** — agent inventory (energy, heart, resources, gear)
 # - **`episode_completion_pct`**, **`last_action`**, **`last_reward`** — global agent state
 #

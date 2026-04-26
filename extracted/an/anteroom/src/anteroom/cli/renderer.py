@@ -238,6 +238,7 @@ _thinking_line_visible: bool = False
 
 # Lifecycle phase tracking
 _thinking_phase: str = ""  # current phase: connecting, waiting, streaming, tool_exec
+_thinking_phase_data: dict[str, Any] = {}
 _thinking_tokens: int = 0  # token counter during streaming
 _streaming_chars: int = 0  # character counter during streaming
 _last_chunk_time: float = 0  # monotonic time of last token (for stall detection)
@@ -256,6 +257,14 @@ _throughput_window: deque[tuple[float, int]] = deque()  # (monotonic_time, chars
 _THROUGHPUT_STALL_THRESHOLD: float = 30.0  # chars/sec below which "stalled" triggers
 _THROUGHPUT_WINDOW_SECS: float = 10.0  # rolling window size
 _THROUGHPUT_WARMUP_SECS: float = 8.0  # don't trigger throughput stall before this
+
+
+def _thinking_elapsed() -> float:
+    """Return elapsed thinking time, clamped for unset or invalid starts."""
+    if _thinking_start <= 0:
+        return 0.0
+    return max(0.0, time.monotonic() - _thinking_start)
+
 
 # Tool call timing
 _tool_start: float = 0
@@ -859,7 +868,9 @@ def start_thinking(*, newline: bool = False) -> None:
     interleaving between them (#249).  Retry calls should omit it.
     """
     global _thinking_start, _spinner, _last_spinner_update, _tool_batch_active, _thinking_ticker_task
-    global _thinking_phase, _thinking_tokens, _streaming_chars, _last_chunk_time, _phase_start_time, _retrying_info
+    global _thinking_phase, _thinking_phase_data, _thinking_tokens
+    global _streaming_chars, _last_chunk_time, _phase_start_time
+    global _retrying_info
     global _plan_written_lines, _thinking_cancelled, _thinking_line_visible, _footer_mode
     _flush_dedup()
     _thinking_cancelled = False
@@ -872,6 +883,7 @@ def start_thinking(*, newline: bool = False) -> None:
     _reset_tool_phase()
     _thinking_start = time.monotonic()
     _thinking_phase = ""
+    _thinking_phase_data = {}
     _thinking_tokens = 0
     _streaming_chars = 0
     _last_chunk_time = 0
@@ -1151,7 +1163,7 @@ async def stop_thinking(
             pass
         _thinking_ticker_task = None
     if _spinner:
-        elapsed = time.monotonic() - _thinking_start
+        elapsed = _thinking_elapsed()
         _spinner.stop()
         _spinner = None
     elif _footer_mode:
@@ -1159,7 +1171,7 @@ async def stop_thinking(
         # patch_stdout proxy) so prompt_toolkit stays in control.
         # Use Rich markup throughout — _build_thinking_text returns raw
         # ANSI escapes which would render as garbled text in console.print().
-        elapsed = time.monotonic() - _thinking_start
+        elapsed = _thinking_elapsed()
         if not quiet:
             _thinking_phase = ""
             if error_msg:
@@ -1180,7 +1192,7 @@ async def stop_thinking(
         if _toolbar_invalidator:
             _toolbar_invalidator()
     else:
-        elapsed = time.monotonic() - _thinking_start
+        elapsed = _thinking_elapsed()
         if _repl_mode and _stdout:
             # Clear the plan block if it's on screen
             if _plan_written_lines > 0:
@@ -1236,11 +1248,11 @@ def stop_thinking_sync(*, cancel_msg: str = "") -> float:
         _thinking_ticker_task.cancel()
         _thinking_ticker_task = None
     if _spinner:
-        elapsed = time.monotonic() - _thinking_start
+        elapsed = _thinking_elapsed()
         _spinner.stop()
         _spinner = None
     elif _footer_mode:
-        elapsed = time.monotonic() - _thinking_start
+        elapsed = _thinking_elapsed()
         # Footer mode: toolbar owns the busy indicator.  Clear footer state
         # FIRST to prevent the ticker from writing concurrently, then render
         # the cancel ack directly to the raw stderr fd.
@@ -1260,7 +1272,7 @@ def stop_thinking_sync(*, cancel_msg: str = "") -> float:
         if _toolbar_invalidator:
             _toolbar_invalidator()
     else:
-        elapsed = time.monotonic() - _thinking_start
+        elapsed = _thinking_elapsed()
         if _repl_mode and _stdout:
             # Clear plan block if present
             if _plan_written_lines > 0:
@@ -1328,11 +1340,12 @@ async def thinking_countdown(
 _retrying_info: dict[str, Any] = {}
 
 
-def set_thinking_phase(phase: str) -> None:
+def set_thinking_phase(phase: str, data: dict[str, Any] | None = None) -> None:
     """Update the current lifecycle phase displayed by the thinking ticker."""
-    global _thinking_phase, _last_chunk_time, _phase_start_time
+    global _thinking_phase, _thinking_phase_data, _last_chunk_time, _phase_start_time
     changed = phase != _thinking_phase
     _thinking_phase = phase
+    _thinking_phase_data = dict(data or {})
     _phase_start_time = time.monotonic()
     _last_chunk_time = time.monotonic()
     if changed:
@@ -1341,9 +1354,10 @@ def set_thinking_phase(phase: str) -> None:
 
 def set_retrying(data: dict[str, Any]) -> None:
     """Update retry state displayed by the thinking ticker."""
-    global _thinking_phase, _retrying_info
+    global _thinking_phase, _thinking_phase_data, _retrying_info
     _retrying_info = data
     _thinking_phase = "retrying"
+    _thinking_phase_data = dict(data or {})
     _invalidate_footer_toolbar()
 
 
@@ -1377,6 +1391,43 @@ def increment_streaming_chars(n: int) -> None:
         _throughput_window.popleft()
 
 
+def _format_count(value: Any) -> str:
+    if isinstance(value, int):
+        return f"{value:,}"
+    return "?"
+
+
+def _compaction_phase_detail(data: dict[str, Any] | None = None) -> str:
+    """Return a compact human-readable reason for a compaction phase."""
+    payload = data if data is not None else _thinking_phase_data
+    reason = payload.get("reason")
+    if reason == "context_error_recovery":
+        return "context-error recovery"
+    if reason == "compaction_prompt_too_long":
+        return (
+            "summary prompt too long; "
+            f"attempt {_format_count(payload.get('attempt'))}/{_format_count(payload.get('max_attempts'))}, "
+            f"dropped {_format_count(payload.get('dropped_messages'))} messages"
+        )
+
+    token_detail = (
+        f"token threshold {_format_count(payload.get('estimated_tokens'))}/"
+        f"{_format_count(payload.get('token_threshold'))}"
+    )
+    message_detail = (
+        f"message threshold {_format_count(payload.get('message_count'))}/"
+        f"{_format_count(payload.get('message_threshold'))}"
+    )
+
+    if reason == "token_threshold":
+        return token_detail
+    if reason == "message_count":
+        return message_detail
+    if reason == "token_and_message_threshold":
+        return f"{token_detail} · {message_detail}"
+    return ""
+
+
 def _phase_label() -> str:
     """Return a phase-aware label for the thinking line (#1366, #1428).
 
@@ -1385,22 +1436,23 @@ def _phase_label() -> str:
     - ``accepted`` → ``"Working..."`` (initial ack between prompt submit and first phase)
     - ``connecting`` → ``"Connecting..."``
     - ``waiting`` → ``"Thinking..."``
-    - ``compacting`` → ``"Compacting conversation history..."``
     - ``streaming`` → ``"Writing..."``
     - ``retrying`` → ``"Thinking..."`` (retry suffix handles detail)
     - ``tool_exec`` → tool-context label via ``_tool_phase_label()``
+    - ``compacting`` → compaction-context label via ``_compaction_phase_detail()``
     """
     phase = _thinking_phase
     if phase == "accepted":
         return "Working..."
     if phase == "connecting":
         return "Connecting..."
-    if phase == "compacting":
-        return "Compacting conversation history..."
     if phase == "streaming":
         return "Writing..."
     if phase == "tool_exec":
         return _tool_phase_label()
+    if phase == "compacting":
+        detail = _compaction_phase_detail()
+        return f"Compacting conversation history... {detail}" if detail else "Compacting conversation history..."
     # waiting, retrying, empty, unknown → default
     return "Thinking..."
 
@@ -1509,10 +1561,10 @@ def _phase_suffix(elapsed: float) -> str:
     # tool_exec: label already shows tool context via _phase_label(); no suffix needed
     if phase == "tool_exec":
         return ""
+    if phase == "compacting":
+        return ""
     # connecting: label already says "Connecting..." — no suffix needed (#1382)
     if phase == "connecting":
-        return ""
-    if phase == "compacting":
         return ""
     # waiting suppressed during calm window
     if elapsed < 5.0:
@@ -1836,6 +1888,72 @@ def render_turn_summary(
                 text.append(f"  {sep}  ", style=muted)
                 text.append(" ".join(seen), style=muted)
     console.print(text)
+
+
+def render_debug_summary(summary: dict[str, Any]) -> None:
+    """Render an opt-in per-turn debug diagnostics summary."""
+    if not summary:
+        return
+    muted = _theme.muted
+    accent = _theme.accent or _theme.secondary
+    sep = "·"
+
+    duration = summary.get("total_duration_seconds")
+    duration_text = f"{duration:.1f}s" if isinstance(duration, int | float) else "?s"
+    stop_reason = str(summary.get("stop_reason") or "unknown")
+    final_phase = str(summary.get("final_phase") or "unknown")
+
+    header = Text()
+    header.append("debug", style=accent)
+    header.append(f"  {sep}  ", style=muted)
+    header.append(duration_text, style=muted)
+    header.append(f"  {sep}  ", style=muted)
+    header.append(stop_reason, style=muted)
+    header.append(f"  {sep}  ", style=muted)
+    header.append(final_phase, style=muted)
+    console.print(header)
+
+    usage_raw = summary.get("usage")
+    counters_raw = summary.get("counters")
+    model_raw = summary.get("model")
+    usage: dict[str, Any] = usage_raw if isinstance(usage_raw, dict) else {}
+    counters: dict[str, Any] = counters_raw if isinstance(counters_raw, dict) else {}
+    model: dict[str, Any] = model_raw if isinstance(model_raw, dict) else {}
+    details: list[str] = []
+    model_label = " / ".join(str(x) for x in (model.get("provider"), model.get("name")) if x)
+    if model_label:
+        details.append(f"model {model_label}")
+    if usage.get("total_tokens") is not None:
+        details.append(f"tokens {usage.get('total_tokens')}")
+    details.append(f"stream {counters.get('tokens', 0)} chunks/{counters.get('token_chars', 0)} chars")
+    retries_raw = summary.get("retries")
+    retries: list[Any] = retries_raw if isinstance(retries_raw, list) else []
+    if retries:
+        details.append(f"retries {len(retries)}")
+    if details:
+        line = Text("  " + "  ".join(details), style=muted)
+        console.print(line)
+
+    tools_raw = summary.get("tools")
+    tools: list[Any] = tools_raw if isinstance(tools_raw, list) else []
+    if tools:
+        tool_bits: list[str] = []
+        for tool in tools[:5]:
+            if not isinstance(tool, dict):
+                continue
+            name = str(tool.get("name") or "tool")
+            status = str(tool.get("status") or "unknown")
+            elapsed = tool.get("duration_seconds")
+            elapsed_text = f" {elapsed:.2f}s" if isinstance(elapsed, int | float) else ""
+            tool_bits.append(f"{name}:{status}{elapsed_text}")
+        if tool_bits:
+            console.print(Text("  tools " + ", ".join(tool_bits), style=muted))
+
+    events_raw = summary.get("runtime_events")
+    events: list[Any] = events_raw if isinstance(events_raw, list) else []
+    event_names = [str(e.get("kind")) for e in events[:6] if isinstance(e, dict) and e.get("kind")]
+    if event_names:
+        console.print(Text("  events " + ", ".join(event_names), style=muted))
 
 
 # ---------------------------------------------------------------------------
@@ -2945,6 +3063,7 @@ def render_welcome(
     pack_count: int = 0,
     pack_names: list[str] | None = None,
     is_first_run: bool = False,
+    project_display: str = "",
 ) -> None:
     display_dir = _short_path(working_dir)
     branch = f" ({git_branch})" if git_branch else ""
@@ -2971,7 +3090,8 @@ def render_welcome(
         version_parts.append(f"v{version}")
     if build_date:
         version_parts.append(f"Built {build_date}")
-    version_parts.append("github.com/troylar/anteroom")
+    if project_display:
+        version_parts.append(project_display)
     console.print(f"  [{MUTED}]{_SEP.join(version_parts)}[/{MUTED}]")
     console.print()
 
@@ -2997,11 +3117,8 @@ def render_welcome(
         console.print(f"  [{MUTED}]Type a message, or /help for commands[/{MUTED}]\n")
 
 
-def render_update_available(current: str, latest: str) -> None:
-    console.print(
-        f"  [{GOLD}]Update available:[/] [{MUTED}]{current} \u2192 {latest}[/{MUTED}]"
-        f" [{MUTED}]\u2014 pip install --upgrade anteroom[/{MUTED}]\n"
-    )
+def render_update_available(message: str) -> None:
+    console.print(f"  [{GOLD}]{escape(message)}[/{GOLD}]\n")
 
 
 def render_help() -> None:

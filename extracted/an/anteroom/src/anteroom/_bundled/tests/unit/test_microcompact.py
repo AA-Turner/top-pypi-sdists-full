@@ -7,6 +7,7 @@ the single-source-of-truth invariant with reactive Strategy 1.
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from typing import Any
 
@@ -222,8 +223,101 @@ class TestResultDataclass:
 
 class TestRegistry:
     def test_registry_keys_are_stable(self) -> None:
-        """Phase 1 ships exactly one strategy — guard against accidental renames."""
+        """Registry names are stable because config and events surface them."""
         assert "oversized_tool_outputs" in STRATEGIES
+        assert "historical_tool_results" in STRATEGIES
+
+
+class TestHistoricalToolResults:
+    def test_strategy_collapses_older_tool_results_under_pressure(self) -> None:
+        old_payload = json.dumps(
+            {
+                "status": "error",
+                "exit_code": 2,
+                "path": "/tmp/old.log",
+                "error": "permission denied",
+                "stdout": "x" * 5000,
+            }
+        )
+        recent_payload = json.dumps({"status": "ok", "stdout": "y" * 5000})
+        messages = [
+            {"role": "user", "content": "first"},
+            _assistant_with_tool_call("tc1", "bash"),
+            _tool_msg("tc1", old_payload),
+            {"role": "user", "content": "recent"},
+            _assistant_with_tool_call("tc2", "bash"),
+            _tool_msg("tc2", recent_payload),
+        ]
+
+        result = microcompact(
+            messages,
+            tool_output_max_chars=10_000,
+            min_messages=1,
+            strategies=["historical_tool_results"],
+            historical_tool_collapse_enabled=True,
+            estimated_tokens=120_000,
+            historical_tool_collapse_trigger_token_count=80_000,
+            historical_tool_collapse_keep_recent_groups=2,
+            historical_tool_collapse_compact_chars=260,
+        )
+
+        assert result.success is True
+        assert result.strategies_applied == ["historical_tool_results"]
+        assert result.bytes_saved > 0
+        assert result.metadata["historical_tool_results"]["modified_count"] == 1
+        collapsed = json.loads(messages[2]["content"])
+        assert collapsed["status"] == "error"
+        assert collapsed["exit_code"] == 2
+        assert collapsed["path"] == "/tmp/old.log"
+        assert "permission denied" in collapsed["error"]
+        assert len(messages) == 6
+        assert messages[1]["tool_calls"][0]["id"] == messages[2]["tool_call_id"]
+        assert messages[5]["content"] == recent_payload
+
+    def test_strategy_noops_below_pressure(self) -> None:
+        messages = [
+            {"role": "user", "content": "first"},
+            _assistant_with_tool_call("tc1", "bash"),
+            _tool_msg("tc1", json.dumps({"stdout": "x" * 5000})),
+            {"role": "user", "content": "recent"},
+            _assistant_with_tool_call("tc2", "bash"),
+            _tool_msg("tc2", json.dumps({"stdout": "y" * 5000})),
+        ]
+        before = deepcopy(messages)
+
+        result = microcompact(
+            messages,
+            tool_output_max_chars=10_000,
+            min_messages=1,
+            strategies=["historical_tool_results"],
+            historical_tool_collapse_enabled=True,
+            estimated_tokens=10_000,
+            historical_tool_collapse_trigger_token_count=80_000,
+        )
+
+        assert result.success is False
+        assert messages == before
+
+    def test_strategy_can_be_forced_for_direct_invocation(self) -> None:
+        messages = [
+            {"role": "user", "content": "first"},
+            _assistant_with_tool_call("tc1", "bash"),
+            _tool_msg("tc1", json.dumps({"stdout": "x" * 5000})),
+            {"role": "user", "content": "recent"},
+        ]
+
+        result = microcompact(
+            messages,
+            tool_output_max_chars=10_000,
+            min_messages=1,
+            strategies=["historical_tool_results"],
+            historical_tool_collapse_force=True,
+            historical_tool_collapse_keep_recent_groups=1,
+            historical_tool_collapse_compact_chars=120,
+        )
+
+        assert result.success is True
+        assert result.metadata["historical_tool_results"]["bytes_saved"] > 0
 
 
 class TestStrategyOneAgreesWithMicrocompact:

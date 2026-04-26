@@ -16,8 +16,6 @@
 
 """Implementation of header Volume Descriptors for Ecma-119/ISO9660."""
 
-from __future__ import absolute_import
-
 import struct
 import time
 
@@ -40,7 +38,7 @@ VOLUME_DESCRIPTOR_TYPE_SET_TERMINATOR = 255
 allzero = b'\x00' * 2048
 
 
-class PrimaryOrSupplementaryVD(object):
+class PrimaryOrSupplementaryVD:
     """
     A class representing a Primary or Supplementary Volume Descriptor on this
     ISO.  These are the first things on the ISO that are parsed, and contain all
@@ -171,9 +169,20 @@ class PrimaryOrSupplementaryVD(object):
         if path_table_size_le != utils.swab_32bit(path_table_size_be):
             raise pycdlibexception.PyCdlibInvalidISO('Little-endian and big-endian path table size disagree')
         self.path_tbl_size = path_table_size_le
-        self.path_table_num_extents = utils.ceiling_div(self.path_tbl_size, 4096) * 2
 
         self.path_table_location_be = utils.swab_32bit(self.path_table_location_be)
+
+        # Here we calculate the number of extents that the path tables take.
+        # This is simply the difference between the beginning of the BE path table
+        # and the LE path table. We have to calculate it like this because while
+        # most ISOs in the wild use 4096 between these groups, some ISOs do not.
+        # FIXME: In point of fact, this is *also* wrong.  There is no guarantee
+        # that these two are adjacent, so calculating the difference between them
+        # is kind of meaningless.  The right answer here is to get rid of
+        # self.path_table_num_extents altogether, though it is unclear to me how
+        # to specify to reshuffle_extents exactly how much space we should allocate
+        # for the path tables.
+        self.path_table_num_extents = self.path_table_location_be - self.path_table_location_le
 
         self.encoding = 'ascii'
         if self.escape_sequences in (b'%/@'.ljust(32, b'\x00'), b'%/C'.ljust(32, b'\x00'), b'%/E'.ljust(32, b'\x00')):
@@ -908,7 +917,7 @@ def joliet_vd_factory(joliet, sys_ident, vol_ident, set_size, seqnum,
     return svd
 
 
-class FileOrTextIdentifier(object):
+class FileOrTextIdentifier:
     """
     A class to represent a file or text identifier as specified in Ecma-119
     section 8.4.20 (Primary Volume Descriptor Publisher Identifier),
@@ -996,7 +1005,7 @@ class FileOrTextIdentifier(object):
         return not equal
 
 
-class VolumeDescriptorSetTerminator(object):
+class VolumeDescriptorSetTerminator:
     """
     A class that represents a Volume Descriptor Set Terminator.  The VDST
     signals the end of volume descriptors on the ISO.
@@ -1125,7 +1134,7 @@ def vdst_factory():
     return vdst
 
 
-class BootRecord(object):
+class BootRecord:
     """A class representing an ISO9660 Boot Record."""
     __slots__ = ('_initialized', 'boot_system_identifier', 'boot_identifier',
                  'boot_system_use', 'orig_extent_loc', 'new_extent_loc')
@@ -1256,7 +1265,7 @@ class BootRecord(object):
         self.new_extent_loc = extent
 
 
-class VersionVolumeDescriptor(object):
+class VersionVolumeDescriptor:
     """
     A class representing a Version Volume Descriptor.  This volume descriptor is
     not mentioned in any of the standards, but is included by genisoimage, so it

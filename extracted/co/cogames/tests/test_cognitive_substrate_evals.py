@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import pytest
-from typer.testing import CliRunner
-
-import cogames.diagnose as diagnose_module
-from cogames.games.cogs_vs_clips.evals.cognitive_substrate import CATEGORY_MISSIONS, EVAL_MISSIONS
-from cogames.games.cogs_vs_clips.evals.cognitive_substrate.benchmark import (
+from cogsguard.evals.cognitive_substrate import CATEGORY_MISSIONS, EVAL_MISSIONS
+from cogsguard.evals.cognitive_substrate.benchmark import (
     default_benchmark_policy_specs,
     run_local_benchmark,
     scripted_gap_closed,
 )
+from typer.testing import CliRunner
+
+import cogames.diagnose as diagnose_module
 from cogames.main import app
 from mettagrid.map_builder.map_builder import HasSeed
 from mettagrid.policy.policy import PolicySpec
@@ -60,11 +60,11 @@ def test_cognitive_substrate_missions_defer_map_seed_to_rollout_seed(mission) ->
 
 
 def test_cognitive_substrate_diagnose_sources_load_expected_categories() -> None:
-    aggregate = diagnose_module._load_diagnose_missions("cognitive_substrate_evals")
+    aggregate = diagnose_module.load_diagnose_missions("cognitive_substrate_evals")
     assert {mission.name for mission in aggregate} == {mission.name for mission in EVAL_MISSIONS}
 
     for category, expected_missions in CATEGORY_MISSIONS.items():
-        loaded = diagnose_module._load_diagnose_missions(f"cognitive_substrate_{category}")
+        loaded = diagnose_module.load_diagnose_missions(f"cognitive_substrate_{category}")
         assert {mission.name for mission in loaded} == {mission.name for mission in expected_missions}
 
 

@@ -17,6 +17,7 @@ from rich.console import Console
 from anteroom.config import AIConfig, AppConfig, AppSettings, CliConfig, SafetyConfig
 from anteroom.db import _SCHEMA, ThreadSafeConnection
 from anteroom.services.agent_loop import AgentEvent
+from anteroom.services.document_extractor import ExtractionResult
 
 
 def _make_db(tmp_path: Path) -> ThreadSafeConnection:
@@ -353,3 +354,146 @@ async def test_multiline_narration_then_tool_through_run_repl_single_render(tmp_
     assert plain.count(multiline) == 1, (
         f"multiline narration printed {plain.count(multiline)} times; raw output was:\n{raw!r}"
     )
+
+
+def _tool_schema(name: str) -> dict[str, Any]:
+    return {"type": "function", "function": {"name": name, "parameters": {"type": "object", "properties": {}}}}
+
+
+async def _capture_repl_turn_tool_names(tmp_path: Path, user_text: str, tools: list[dict[str, Any]]) -> set[str]:
+    from anteroom.cli.repl import _run_repl
+
+    db = _make_db(tmp_path)
+    config = _make_config(tmp_path)
+    captured_tools: list[dict[str, Any]] | None = None
+    buf = StringIO()
+    captured_console = Console(
+        file=buf,
+        force_terminal=True,
+        color_system="truecolor",
+        width=100,
+        highlight=False,
+    )
+
+    prompt_calls = 0
+
+    async def fake_prompt(*args: Any, **kwargs: Any) -> str:
+        nonlocal prompt_calls
+        prompt_calls += 1
+        if prompt_calls == 1:
+            return user_text
+        await asyncio.sleep(0.2)
+        raise EOFError()
+
+    async def fake_agent_loop(**kwargs: Any) -> Any:
+        nonlocal captured_tools
+        captured_tools = kwargs.get("tools_openai")
+        yield AgentEvent(kind="thinking", data={})
+        yield AgentEvent(kind="token", data={"content": "Captured."})
+        yield AgentEvent(kind="done", data={})
+
+    mock_ai = MagicMock()
+    mock_ai.stream_chat = AsyncMock()
+    mock_ai.generate_title = AsyncMock(return_value="test")
+    mock_ai.config = MagicMock()
+    mock_ai.config.narration_cadence = 0
+    mock_tool_executor = AsyncMock()
+
+    mock_session_instance = MagicMock()
+    mock_session_instance.prompt_async = fake_prompt
+    mock_session_instance.default_buffer = MagicMock()
+    mock_session_instance.default_buffer.on_text_changed = MagicMock()
+
+    with (
+        patch("anteroom.cli.repl.renderer.console", captured_console),
+        patch("anteroom.cli.repl.renderer._stdout_console", captured_console),
+        patch("anteroom.cli.repl.renderer.render_error", lambda msg: captured_console.print(f"Error: {msg}")),
+        patch("anteroom.cli.repl.renderer.render_conversation_recap", lambda *a, **k: None),
+        patch("anteroom.cli.repl.renderer.use_stdout_console", lambda: None),
+        patch("anteroom.cli.repl._patch_stdout", _noop_patch_stdout, create=True),
+        patch("prompt_toolkit.patch_stdout.patch_stdout", _noop_patch_stdout),
+        patch("prompt_toolkit.PromptSession") as mock_session_cls,
+        patch("anteroom.cli.streaming.Live", _PersistentFrameLive),
+        patch("anteroom.services.agent_loop.run_agent_loop", side_effect=fake_agent_loop),
+    ):
+        mock_session_cls.return_value = mock_session_instance
+        try:
+            await _run_repl(
+                config=config,
+                db=db,
+                ai_service=mock_ai,
+                tool_executor=mock_tool_executor,
+                tools_openai=tools,
+                extra_system_prompt="",
+                all_tool_names=[tool["function"]["name"] for tool in tools],
+                working_dir=str(tmp_path),
+            )
+        except (EOFError, KeyboardInterrupt, SystemExit):
+            pass
+
+    assert captured_tools is not None
+    return {tool["function"]["name"] for tool in captured_tools}
+
+
+@pytest.mark.asyncio
+async def test_inline_pdf_turn_filters_file_tools_and_subagents(tmp_path: Path) -> None:
+    pdf = tmp_path / "ID Card.pdf"
+    pdf.write_bytes(b"%PDF-1.4 fake pdf")
+    tools = [
+        _tool_schema(name)
+        for name in (
+            "bash",
+            "glob_files",
+            "grep",
+            "read_file",
+            "docx",
+            "xlsx",
+            "pptx",
+            "run_agent",
+            "ask_user",
+            "save_memory",
+        )
+    ]
+
+    with patch(
+        "anteroom.services.document_extractor.extract_text",
+        return_value=ExtractionResult(text="PDF text"),
+    ):
+        names = await _capture_repl_turn_tool_names(tmp_path, f"{pdf} what's in this pdf", tools)
+
+    assert {"ask_user", "save_memory"} <= names
+    assert not (
+        names
+        & {
+            "bash",
+            "glob_files",
+            "grep",
+            "read_file",
+            "docx",
+            "xlsx",
+            "pptx",
+            "run_agent",
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_non_pdf_turn_preserves_file_tools_and_subagents(tmp_path: Path) -> None:
+    tools = [
+        _tool_schema(name)
+        for name in (
+            "bash",
+            "glob_files",
+            "grep",
+            "read_file",
+            "docx",
+            "xlsx",
+            "pptx",
+            "run_agent",
+            "ask_user",
+        )
+    ]
+
+    names = await _capture_repl_turn_tool_names(tmp_path, "inspect the repo", tools)
+
+    assert names == {tool["function"]["name"] for tool in tools}

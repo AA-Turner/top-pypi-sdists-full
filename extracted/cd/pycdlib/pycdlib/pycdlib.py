@@ -16,26 +16,16 @@
 
 """Main PyCdlib class and support classes and utilities."""
 
-from __future__ import absolute_import
-
 import bisect
 import collections
+import functools
 import inspect
 import io
-import logging
 import os
 import struct
 import sys
 import time
-try:
-    from cStringIO import StringIO as BytesIO
-except ImportError:
-    from io import BytesIO
 
-try:
-    from functools import lru_cache
-except ImportError:
-    from pycdlib.backport_functools import lru_cache  # type: ignore
 from pycdlib import dr
 from pycdlib import eltorito
 from pycdlib import facade
@@ -52,10 +42,6 @@ from pycdlib import utils
 if False:  # pylint: disable=using-constant-test
     from typing import Any, BinaryIO, Callable, Deque, Dict, Generator, IO, List, Optional, Tuple, Union  # NOQA pylint: disable=unused-import
 
-have_py_3 = True
-if sys.version_info.major == 2:
-    have_py_3 = False
-
 # There are a number of specific ways that numerical data is stored in the
 # ISO9660/Ecma-119 standard.  In the text these are reference by the section
 # number they are stored in.  A brief synopsis:
@@ -69,7 +55,6 @@ if sys.version_info.major == 2:
 # We allow A-Z, 0-9, and _ as "d1" characters.  The below is the fastest way to
 # build that list as integers.
 _allowed_d1_characters = set(tuple(range(65, 91)) + tuple(range(48, 58)) + tuple((ord(b'_'),)))
-_logger = logging.getLogger(__name__)
 
 
 def _check_d1_characters(name):
@@ -544,7 +529,7 @@ def _find_dr_record_by_name(vd, path, encoding):
     raise pycdlibexception.PyCdlibInvalidInput('Could not find path')
 
 
-class PyCdlib(object):
+class PyCdlib:
     """The main class for manipulating ISOs."""
     __slots__ = ('_initialized', '_cdfp', 'pvds', 'svds', 'vdsts', 'brs', 'pvd',
                  'rock_ridge', '_always_consistent', '_has_udf', 'joliet_vd',
@@ -570,7 +555,7 @@ class PyCdlib(object):
         Returns:
          Nothing.
         """
-        self._cdfp = BytesIO()
+        self._cdfp = io.BytesIO()  # type: IO[Any]
         self.svds = []  # type: List[headervd.PrimaryOrSupplementaryVD]
         self.brs = []  # type: List[headervd.BootRecord]
         self.vdsts = []  # type: List[headervd.VolumeDescriptorSetTerminator]
@@ -719,7 +704,7 @@ class PyCdlib(object):
         """
         self._cdfp.seek(extent * self.logical_block_size)
 
-    @lru_cache(maxsize=256)
+    @functools.lru_cache(maxsize=256)
     def _find_iso_record(self, iso_path):
         # type: (bytes) -> dr.DirectoryRecord
         """
@@ -735,7 +720,7 @@ class PyCdlib(object):
         """
         return _find_dr_record_by_name(self.pvd, iso_path, 'utf-8')
 
-    @lru_cache(maxsize=256)
+    @functools.lru_cache(maxsize=256)
     def _find_rr_record(self, rr_path):
         # type: (bytes) -> dr.DirectoryRecord
         """
@@ -812,7 +797,7 @@ class PyCdlib(object):
 
         raise pycdlibexception.PyCdlibInvalidInput('Could not find path')
 
-    @lru_cache(maxsize=256)
+    @functools.lru_cache(maxsize=256)
     def _find_joliet_record(self, joliet_path):
         # type: (bytes) -> dr.DirectoryRecord
         """
@@ -830,7 +815,7 @@ class PyCdlib(object):
             raise pycdlibexception.PyCdlibInternalError('Joliet path requested on non-Joliet ISO')
         return _find_dr_record_by_name(self.joliet_vd, joliet_path, 'utf-16_be')
 
-    @lru_cache(maxsize=256)
+    @functools.lru_cache(maxsize=256)
     def _find_udf_record(self, udf_path):
         # type: (bytes) -> Tuple[Optional[udfmod.UDFFileIdentifierDescriptor], udfmod.UDFFileEntry]
         """
@@ -1584,7 +1569,7 @@ class PyCdlib(object):
             current_extent += utils.ceiling_div(self.eltorito_boot_catalog.dirrecords[0].get_data_length(),
                                                 self.logical_block_size)
 
-            class _EltoritoEncapsulation(object):
+            class _EltoritoEncapsulation:
                 """
                 An internal class to encapsulate an El Torito Entry object with
                 additional necessary metadata for sorting.
@@ -2013,31 +1998,23 @@ class PyCdlib(object):
         self._cdfp.seek(0, os.SEEK_END)
         last_physical_extent = (self._cdfp.tell() // self.logical_block_size) - 1
         last_pvd_extent = self.pvd.space_size - 1
-        anchor_locations = {256, last_pvd_extent - 256, last_pvd_extent,
-                            last_physical_extent, last_physical_extent - 256}
+        potential_anchor_locations = {256, last_pvd_extent - 256,
+                                      last_pvd_extent, last_physical_extent,
+                                      last_physical_extent - 256}
 
-        for loc in anchor_locations:
+        for loc in potential_anchor_locations:
             self._seek_to_extent(loc)
-            anchor_data = self._cdfp.read(self.logical_block_size)
-            anchor_tag = udfmod.UDFTag()
-            try:
-                anchor_tag.parse(anchor_data, loc)
-            except pycdlibexception.PyCdlibInvalidISO:
+            potential_anchor_data = self._cdfp.read(self.logical_block_size)
+            potential_anchor = udfmod.parse_anchor(potential_anchor_data, loc)
+            if potential_anchor is None:
                 continue
 
-            if anchor_tag.tag_ident != 2:
-                continue
-
-            anchor = udfmod.UDFAnchorVolumeStructure()
-            anchor.parse(anchor_data, loc, anchor_tag)
-            self.udf_anchors.append(anchor)
+            if len(self.udf_anchors) > 0 and potential_anchor != self.udf_anchors[0]:
+                raise pycdlibexception.PyCdlibInvalidISO('Anchor points do not match')
+            self.udf_anchors.append(potential_anchor)
 
         if len(self.udf_anchors) < 2:
             raise pycdlibexception.PyCdlibInvalidISO('Expected at least 2 UDF Anchors')
-
-        for anchor in self.udf_anchors[1:]:
-            if self.udf_anchors[0] != anchor:
-                raise pycdlibexception.PyCdlibInvalidISO('Anchor points do not match')
 
         # ECMA-167, Part 3, 8.4.2 says that the anchors identify the main volume
         # descriptor sequence, so look for it here.
@@ -2060,26 +2037,11 @@ class PyCdlib(object):
             self._seek_to_extent(self.udf_main_descs.logical_volumes[0].integrity_sequence.extent_location)
             integrity_data = self._cdfp.read(self.udf_main_descs.logical_volumes[0].integrity_sequence.extent_length)
 
-            offset = 0
-            current_extent = self.udf_main_descs.logical_volumes[0].integrity_sequence.extent_location
-            desc_tag = udfmod.UDFTag()
-            desc_tag.parse(integrity_data[offset:], current_extent)
-            if desc_tag.tag_ident != 9:
-                raise pycdlibexception.PyCdlibInvalidISO('UDF Volume Integrity Tag identifier not 9')
-            self.udf_logical_volume_integrity = udfmod.UDFLogicalVolumeIntegrityDescriptor()
-            self.udf_logical_volume_integrity.parse(integrity_data[offset:offset + 512],
-                                                    current_extent, desc_tag)
-
-            offset += self.logical_block_size
-            if len(integrity_data) >= (offset + self.logical_block_size):
-                current_extent += 1
-                desc_tag = udfmod.UDFTag()
-                desc_tag.parse(integrity_data[offset:], current_extent)
-                if desc_tag.tag_ident != 8:
-                    raise pycdlibexception.PyCdlibInvalidISO('UDF Logical Volume Integrity Terminator Tag identifier not 8')
-                self.udf_logical_volume_integrity_terminator = udfmod.UDFTerminatingDescriptor()
-                self.udf_logical_volume_integrity_terminator.parse(current_extent,
-                                                                   desc_tag)
+            ulvi, ulvi_term = udfmod.parse_logical_volume_integrity(integrity_data,
+                                                                    self.udf_main_descs.logical_volumes[0].integrity_sequence.extent_location,
+                                                                    self.logical_block_size)
+            self.udf_logical_volume_integrity = ulvi
+            self.udf_logical_volume_integrity_terminator = ulvi_term
 
         # Now look for the File Set Descriptor.
         current_extent = self.udf_main_descs.partitions[0].part_start_location
@@ -2087,61 +2049,9 @@ class PyCdlib(object):
         # Read the data for the File Set and File Terminator together
         file_set_and_term_data = self._cdfp.read(2 * self.logical_block_size)
 
-        desc_tag = udfmod.UDFTag()
-        desc_tag.parse(file_set_and_term_data[:self.logical_block_size], 0)
-        if desc_tag.tag_ident != 256:
-            raise pycdlibexception.PyCdlibInvalidISO('UDF File Set Tag identifier not 256')
-        self.udf_file_set.parse(file_set_and_term_data[:self.logical_block_size],
-                                current_extent, desc_tag)
-
-        current_extent += 1
-        (tag_ident,) = struct.unpack_from('<H', file_set_and_term_data, self.logical_block_size)
-        self.udf_file_set_terminator = udfmod.UDFTerminatingDescriptor()
-        if tag_ident == 8:
-            desc_tag = udfmod.UDFTag()
-            desc_tag.parse(file_set_and_term_data[self.logical_block_size:],
-                           current_extent - self.udf_main_descs.partitions[0].part_start_location)
-            self.udf_file_set_terminator.parse(current_extent, desc_tag)
-        else:
-            # In this case, the UDF ISO had an invalid File Set Terminator Tag.
-            # But this isn't fatal, so log a warning and continue on.
-            _logger.warning('Missing UDF File Set Terminator, continuing')
-            self.udf_file_set_terminator.new()
-            self.udf_file_set_terminator.orig_extent_loc = current_extent
-            self.udf_file_set_terminator.desc_tag.tag_location = current_extent - self.udf_main_descs.partitions[0].part_start_location
-
-    def _parse_udf_file_entry(self, abs_file_entry_extent, icb, parent):
-        # type: (int, udfmod.UDFLongAD, Optional[udfmod.UDFFileEntry]) -> Optional[udfmod.UDFFileEntry]
-        """
-        An internal method to parse a single UDF File Entry and return the
-        corresponding object.
-
-        Parameters:
-         abs_file_entry_extent - The extent number the file entry starts at.
-         icb - The ICB object for the data.
-         parent - The parent of the UDF File Entry.
-        Returns:
-         A UDF File Entry object corresponding to the on-disk File Entry.
-        """
-        self._seek_to_extent(abs_file_entry_extent)
-        icbdata = self._cdfp.read(icb.extent_length)
-
-        if all(v == 0 for v in bytearray(icbdata)):
-            # We have seen ISOs in the wild (Windows 2008 Datacenter Enterprise
-            # Standard SP2 x86 DVD) where the UDF File Identifier points to a
-            # UDF File Entry of all zeros.  In those cases, we just keep the
-            # File Identifier, and keep the UDF File Entry blank.
-            return None
-
-        desc_tag = udfmod.UDFTag()
-        desc_tag.parse(icbdata, icb.log_block_num)
-        if desc_tag.tag_ident != 261:
-            raise pycdlibexception.PyCdlibInvalidISO('UDF File Entry Tag identifier not 261')
-
-        file_entry = udfmod.UDFFileEntry()
-        file_entry.parse(icbdata, abs_file_entry_extent, parent, desc_tag)
-
-        return file_entry
+        self.udf_file_set, self.udf_file_set_terminator = udfmod.parse_file_set(file_set_and_term_data,
+                                                                                current_extent,
+                                                                                self.logical_block_size)
 
     def _walk_udf_directories(self, extent_to_inode):
         # type: (Dict[int, inode.Inode]) -> None
@@ -2155,9 +2065,14 @@ class PyCdlib(object):
          Nothing.
         """
         part_start = self.udf_main_descs.partitions[0].part_start_location
-        self.udf_root = self._parse_udf_file_entry(part_start + self.udf_file_set.root_dir_icb.log_block_num,
-                                                   self.udf_file_set.root_dir_icb,
-                                                   None)
+
+        abs_file_entry_extent = part_start + self.udf_file_set.root_dir_icb.log_block_num
+        self._seek_to_extent(abs_file_entry_extent)
+        icbdata = self._cdfp.read(self.udf_file_set.root_dir_icb.extent_length)
+        self.udf_root = udfmod.parse_file_entry(icbdata,
+                                                abs_file_entry_extent,
+                                                self.udf_file_set.root_dir_icb.log_block_num,
+                                                None)
 
         udf_file_entries = collections.deque([self.udf_root])
         while udf_file_entries:
@@ -2175,24 +2090,24 @@ class PyCdlib(object):
                 while offset < len(data):
                     current_extent = (abs_file_ident_extent * self.logical_block_size + offset) // self.logical_block_size
 
-                    desc_tag = udfmod.UDFTag()
-                    desc_tag.parse(data[offset:], current_extent - part_start)
-                    if desc_tag.tag_ident != 257:
-                        raise pycdlibexception.PyCdlibInvalidISO('UDF File Identifier Tag identifier not 257')
-                    file_ident = udfmod.UDFFileIdentifierDescriptor()
-                    offset += file_ident.parse(data[offset:],
-                                               current_extent,
-                                               desc_tag,
-                                               udf_file_entry)
+                    file_ident, bytes_forward = udfmod.parse_file_ident(data[offset:],
+                                                                        current_extent,
+                                                                        part_start,
+                                                                        udf_file_entry)
+                    offset += bytes_forward
+
                     if file_ident.is_parent():
                         # For a parent, no further work to do.
                         udf_file_entry.track_file_ident_desc(file_ident)
                         continue
 
                     abs_file_entry_extent = part_start + file_ident.icb.log_block_num
-                    next_entry = self._parse_udf_file_entry(abs_file_entry_extent,
-                                                            file_ident.icb,
-                                                            udf_file_entry)
+                    self._seek_to_extent(abs_file_entry_extent)
+                    icbdata = self._cdfp.read(file_ident.icb.extent_length)
+                    next_entry = udfmod.parse_file_entry(icbdata,
+                                                         abs_file_entry_extent,
+                                                         file_ident.icb.log_block_num,
+                                                         udf_file_entry)
 
                     # For a non-parent, we delay adding this to the list of
                     # fi_descs until after we check whether this is a valid
@@ -2583,7 +2498,7 @@ class PyCdlib(object):
             else:
                 break
 
-    class _WriteRange(object):
+    class _WriteRange:
         """
         A class to store the offset and length of a written section of data.
         A sorted list of these is used to determine whether we are unintentionally
@@ -2635,7 +2550,7 @@ class PyCdlib(object):
                 bisect.insort_left(self._write_check_list, self._WriteRange(start, end - 1))
 
     def _output_file_data(self, outfp, blocksize, ino):
-        # type: (BinaryIO, int, inode.Inode) -> int
+        # type: (BinaryIO, int, inode.Inode) -> Generator
         """
         Internal method to write a directory record entry out.
 
@@ -2647,27 +2562,27 @@ class PyCdlib(object):
          The total number of bytes written out.
         """
         outfp.seek(ino.extent_location() * self.logical_block_size)
-        tmp_start = outfp.tell()
+        start_offset = outfp.tell()
         with inode.InodeOpenData(ino, self.logical_block_size) as (data_fp, data_len):
-            utils.copy_data(data_len, blocksize, data_fp, outfp)
-            utils.zero_pad(outfp, data_len, self.logical_block_size)
+            for len_copied in utils.copy_data_yield(data_len, blocksize, data_fp, outfp):  # pylint: disable=use-yield-from
+                yield len_copied
+            yield utils.zero_pad(outfp, data_len, self.logical_block_size)
 
         if self._track_writes:
             end = outfp.tell()
             bisect.insort_left(self._write_check_list,
-                               self._WriteRange(tmp_start, end - 1))
+                               self._WriteRange(start_offset, end - 1))
 
         # If this file is being used as a bootfile, and a boot info table is
         # present, patch the boot info table into offset 8 here.
         if ino.boot_info_table is not None:
             old = outfp.tell()
-            outfp.seek(tmp_start + 8)
-            self._outfp_write_with_check(outfp, ino.boot_info_table.record(),
-                                         enable_overwrite_check=False)
+            outfp.seek(start_offset + 8)
+            rec = ino.boot_info_table.record()
+            self._outfp_write_with_check(outfp, rec, enable_overwrite_check=False)
             outfp.seek(old)
-        return outfp.tell() - tmp_start
 
-    class _Progress(object):
+    class _Progress:
         """
         An inner class to deal with progress.
         """
@@ -2680,10 +2595,7 @@ class PyCdlib(object):
             self.progress_cb = progress_cb
             self.progress_opaque = progress_opaque
             if self.progress_cb is not None:
-                if have_py_3:
-                    arglen = len(inspect.getfullargspec(self.progress_cb).args)
-                else:
-                    arglen = len(inspect.getargspec(self.progress_cb).args)  # pylint: disable=W1505
+                arglen = len(inspect.getfullargspec(self.progress_cb).args)
 
                 if arglen == 2:
                     self._call = lambda done, total, opaque: self.progress_cb(done, total)  # type: ignore
@@ -2697,9 +2609,7 @@ class PyCdlib(object):
         def call(self, length):
             # type: (int) -> None
             """Add the length to done, then call progress_cb if it is not None."""
-            self.done += length
-            if self.done > self.total:
-                self.done = self.total
+            self.done = min(self.done + length, self.total)
             self._call(self.done, self.total, self.progress_opaque)
 
         def finish(self):
@@ -3011,7 +2921,8 @@ class PyCdlib(object):
         # file out of the original, so do that here.
         for ino in self.inodes:
             if ino.get_data_length() > 0:
-                progress.call(self._output_file_data(outfp, blocksize, ino))
+                for len_copied in self._output_file_data(outfp, blocksize, ino):
+                    progress.call(len_copied)
 
         # Pad out to the total size of the disk, in case that the last thing
         # written is shorter than a full logical block size.  Not all file-like
@@ -3191,16 +3102,19 @@ class PyCdlib(object):
                 vd = self.pvd
                 rr = self.rock_ridge
                 xa = self.xa
-            elif joliet_new_path is not None:
+            else:
+                # Above we checked to make sure we got exactly one new path, so
+                # we know for certain that this is Joliet.
                 if self.joliet_vd is None:
                     raise pycdlibexception.PyCdlibInternalError('Tried to link to Joliet record on non-Joliet ISO')
+                if joliet_new_path is None:
+                    # This can really never happen, but here to make mypy happy
+                    raise pycdlibexception.PyCdlibInternalError('Invalid joliet_new_path')
                 # ... to a file on the Joliet filesystem.
                 (new_name, new_parent) = self._joliet_name_and_parent_from_path(joliet_new_path)
                 vd = self.joliet_vd
                 rr = ''
                 xa = False
-            # Above we checked to make sure we got at least one new path, so we
-            # don't need to worry about the else situation here.
 
             new_rec = dr.DirectoryRecord()
             new_rec.new_file(vd, length, new_name, new_parent,
@@ -4146,7 +4060,7 @@ class PyCdlib(object):
         if self._initialized:
             raise pycdlibexception.PyCdlibInvalidInput('This object already has an ISO; either close it or create a new object')
 
-        fp = open(filename, mode)  # pylint: disable=consider-using-with
+        fp = open(filename, mode)  # pylint: disable=consider-using-with,unspecified-encoding
         self._managing_fp = True
         try:
             self._open_fp(fp)
@@ -4445,7 +4359,7 @@ class PyCdlib(object):
 
     def add_file(self, filename, iso_path=None, rr_name=None, joliet_path=None,
                  file_mode=None, udf_path=None):
-        # type: (str, Optional[str], Optional[str], str, Optional[int], Optional[str]) -> None
+        # type: (str, Optional[str], Optional[str], Optional[str], Optional[int], Optional[str]) -> None
         """
         Add a file to the ISO.  If the ISO is a Rock Ridge one, then a Rock
         Ridge name must also be provided.  If the ISO is a Joliet one, then a
@@ -4566,8 +4480,7 @@ class PyCdlib(object):
         # Write out the actual file contents.
         self._seek_to_extent(child.extent_location())
         with inode.InodeOpenData(child.inode, self.logical_block_size) as (data_fp, data_len):
-            utils.copy_data(data_len, self.logical_block_size, data_fp,
-                            self._cdfp)
+            utils.copy_data(data_len, self.logical_block_size, data_fp, self._cdfp)
             utils.zero_pad(self._cdfp, data_len, self.logical_block_size)
 
         # Finally write out the directory record entry.
@@ -4594,6 +4507,9 @@ class PyCdlib(object):
                 abs_offset = abs_extent_loc * self.logical_block_size + offset
             elif isinstance(record, udfmod.UDFFileEntry):
                 abs_offset = record.extent_location() * self.logical_block_size
+            else:
+                # This should never happen
+                raise pycdlibexception.PyCdlibInternalError('Invalid record type')
 
             record.set_data_length(length)
             self._cdfp.seek(abs_offset)
@@ -4771,7 +4687,7 @@ class PyCdlib(object):
 
     def add_directory(self, iso_path=None, rr_name=None, joliet_path=None,
                       file_mode=None, udf_path=None):
-        # type: (Optional[str], Optional[str], Optional[str], int, Optional[str]) -> None
+        # type: (Optional[str], Optional[str], Optional[str], Optional[int], Optional[str]) -> None
         """
         Add a directory to the ISO.  At least one of an iso_path, joliet_path,
         or udf_path must be provided.  Providing joliet_path on a non-Joliet
@@ -5121,7 +5037,7 @@ class PyCdlib(object):
                      boot_load_size=None, platform_id=0, boot_info_table=False,
                      efi=False, media_name='noemul', bootable=True,
                      boot_load_seg=0, udf_bootcatfile=None):
-        # type: (str, Optional[str], Optional[str], Optional[str], int, int, bool, bool, str, bool, int, Optional[str]) -> None
+        # type: (str, Optional[str], Optional[str], Optional[str], Optional[int], int, bool, bool, str, bool, int, Optional[str]) -> None
         """
         Add an El Torito Boot Record, and associated files, to the ISO.  The
         file that will be used as the bootfile must be passed into this function
@@ -5456,7 +5372,7 @@ class PyCdlib(object):
 
             # The inode for the symlink array.
             ino = inode.Inode()
-            ino.new(len(symlink_bytearray), BytesIO(symlink_bytearray), False, 0)
+            ino.new(len(symlink_bytearray), io.BytesIO(symlink_bytearray), False, 0)
             ino.linked_records.append((file_entry, False))
             ino.num_udf += 1
             file_entry.inode = ino
@@ -5520,7 +5436,7 @@ class PyCdlib(object):
                 rec = self._get_rr_entry(normpath)
                 use_rr = True
 
-        for c in _yield_children(rec, use_rr):
+        for c in _yield_children(rec, use_rr):  # pylint: disable=use-yield-from
             yield c
 
     def list_children(self, **kwargs):
@@ -5571,7 +5487,7 @@ class PyCdlib(object):
             else:
                 rec = self._get_iso_entry(utils.normpath(kwargs['iso_path']))
 
-            for c in _yield_children(rec, use_rr):
+            for c in _yield_children(rec, use_rr):  # pylint: disable=use-yield-from
                 yield c
 
     def get_entry(self, iso_path, joliet=False):
@@ -5783,12 +5699,8 @@ class PyCdlib(object):
                 names.insert(0, name.decode(encoding))
                 udf_rec = udf_rec.parent
 
-        if have_py_3:
-            # Python 3, just return the encoded version.
-            return '/'.join(names)
-
-        # Python 2.
-        return '/'.join(names).encode('utf-8')  # type: ignore
+        # Return the encoded version.
+        return '/'.join(names)
 
     def duplicate_pvd(self):
         # type: () -> None
@@ -5837,6 +5749,8 @@ class PyCdlib(object):
         elif joliet_path is not None:
             joliet_path_bytes = self._normalize_joliet_path(joliet_path)
             rec = self._find_joliet_record(joliet_path_bytes)
+        else:
+            raise pycdlibexception.PyCdlibInvalidInput('Must provide exactly one of iso_path, rr_path, or joliet_path')
 
         rec.change_existence(True)
 
@@ -5867,6 +5781,8 @@ class PyCdlib(object):
         elif joliet_path is not None:
             joliet_path_bytes = self._normalize_joliet_path(joliet_path)
             rec = self._find_joliet_record(joliet_path_bytes)
+        else:
+            raise pycdlibexception.PyCdlibInvalidInput('Must provide exactly one of iso_path, rr_path, or joliet_path')
 
         rec.change_existence(False)
 
@@ -5933,6 +5849,7 @@ class PyCdlib(object):
          rr_path - The absolute Rock Ridge path to the starting entry on the ISO.
          joliet_path - The absolute Joliet path to the starting entry on the ISO.
          udf_path - The absolute UDF path to the starting entry on the ISO.
+         encoding - The encoding to use for returned strings.
         Yields:
          3-tuples of (path-to-here, dirlist, filelist)
         Returns:
@@ -5942,10 +5859,13 @@ class PyCdlib(object):
             raise pycdlibexception.PyCdlibInvalidInput('This object is not initialized; call either open() or new() to create an ISO')
 
         num_paths = 0
+        user_encoding = None
         for key, value in kwargs.items():
             if key in ('joliet_path', 'rr_path', 'iso_path', 'udf_path'):
                 if value is not None:
                     num_paths += 1
+            elif key == 'encoding':
+                user_encoding = value
             else:
                 raise pycdlibexception.PyCdlibInvalidInput("Invalid keyword, must be one of 'iso_path', 'rr_path', 'joliet_path', or 'udf_path'")
 
@@ -5991,22 +5911,20 @@ class PyCdlib(object):
                 if child is None or child.is_dot() or child.is_dotdot():
                     continue
 
-                if isinstance(child, udfmod.UDFFileEntry) and child.file_ident is not None:
-                    encoding = child.file_ident.encoding
+                if user_encoding is not None:
+                    encoding = user_encoding
                 else:
-                    encoding = default_encoding
+                    if isinstance(child, udfmod.UDFFileEntry) and child.file_ident is not None:
+                        encoding = child.file_ident.encoding
+                    else:
+                        encoding = default_encoding
 
                 if path_type == 'rr_path':
                     name = child.rock_ridge.name()
                 else:
                     name = child.file_identifier()
 
-                if have_py_3:
-                    # Python 3, just return the encoded version.
-                    encoded = name.decode(encoding)
-                else:
-                    # Python 2.
-                    encoded = name.decode(encoding).encode('utf-8')
+                encoded = name.decode(encoding)
 
                 if child.is_dir():
                     dirlist.append(encoded)

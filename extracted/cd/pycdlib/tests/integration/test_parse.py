@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import pytest
 import subprocess
 import os
 import sys
 import struct
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -1060,7 +1061,7 @@ def test_parse_write_with_progress(tmpdir):
     iso.open(str(outfile))
     iso.write(str(tmpdir.join('writetest.iso')), progress_cb=_progress)
 
-    assert(test_parse_write_with_progress.num_progress_calls == 14)
+    assert(test_parse_write_with_progress.num_progress_calls == 16)
     assert(test_parse_write_with_progress.done == 73728)
 
     iso.close()
@@ -1087,7 +1088,7 @@ def test_parse_write_with_progress_three_arg(tmpdir):
     collect = {'num_calls': 0, 'done': 0}
     iso.write(str(tmpdir.join('writetest.iso')), progress_cb=_progress, progress_opaque=collect)
 
-    assert(collect['num_calls'] == 14)
+    assert(collect['num_calls'] == 16)
     assert(collect['done'] == 73728)
 
     iso.close()
@@ -3187,3 +3188,96 @@ def test_parse_invalid_vdst(tmpdir):
         fp.write(b'\x00')
 
     do_a_test(tmpdir, outfile, check_onefile)
+
+def test_parse_walk_shiftjis(tmpdir):
+    # The filename below is Shift-JIS encoded, and in Japanese is: 検索ブラウザ.exe
+    # (according to Google translate, 'search browser.exe')
+    # 16 bytes
+    shiftjis_filename = b'\x8c\x9f\x8d\xf5\x83\x75\x83\x89\x83\x45\x83\x55\x2e\x65\x78\x65'
+
+    indir = tmpdir.mkdir('shiftjis')
+    outfile = str(indir)+'.iso'
+    with open(os.path.join(str(indir), 'foofoofoofoo.exe'), 'wb') as outfp:
+        outfp.write(b'foo\n')
+    subprocess.call(['genisoimage', '-v', '-v', '-iso-level', '3', '-no-pad',
+                     '-o', str(outfile), str(indir)])
+
+    with open(str(outfile), 'r+b') as fp:
+        fp.seek(23*2048 + 101)
+        fp.write(shiftjis_filename)
+
+    iso = pycdlib.PyCdlib()
+    iso.open(str(outfile))
+
+    expected_filenames = [shiftjis_filename.decode('shiftjis') + ';1']
+
+    # Ensure that we don't see duplicates of any directory names
+    seen_filenames = []
+    for dirname, dirlist, filelist in iso.walk(iso_path='/', encoding='shiftjis'):
+        seen_filenames.extend(filelist)
+
+    assert(expected_filenames == seen_filenames)
+    iso.close()
+
+def test_parse_walk_vietnamese(tmpdir):
+    # The filename below is UTF8 encoded, and in Vietnamese is: Yêu cầu ưu đãi
+    # (according to Google translate, 'request offer')
+    # 20 bytes
+    vietnamese_filename = b'\x59\xc3\xaa\x75\x20\x63\xe1\xba\xa7\x75\x20\xc6\xb0\x75\x20\xc4\x91\xc3\xa3\x69'
+
+    indir = tmpdir.mkdir('vietnamese')
+    outfile = str(indir)+'.iso'
+    with open(os.path.join(str(indir), 'foodfoodfoodfood.foo'), 'wb') as outfp:
+        outfp.write(b'foo\n')
+    subprocess.call(['genisoimage', '-v', '-v', '-iso-level', '3', '-no-pad',
+                     '-o', str(outfile), str(indir)])
+
+    with open(str(outfile), 'r+b') as fp:
+        fp.seek(23*2048 + 101)
+        fp.write(vietnamese_filename)
+
+    iso = pycdlib.PyCdlib()
+    iso.open(str(outfile))
+
+    expected_filenames = [vietnamese_filename.decode('utf8') + ';1']
+
+    # Ensure that we don't see duplicates of any directory names
+    seen_filenames = []
+    for dirname, dirlist, filelist in iso.walk(iso_path='/'):
+        seen_filenames.extend(filelist)
+
+    assert(expected_filenames == seen_filenames)
+    iso.close()
+
+def test_parse_one_extent_path_tables(tmpdir):
+    indir = tmpdir.mkdir('onefileonextentpathtables')
+    outfile = str(indir)+'.iso'
+    with open(os.path.join(str(indir), 'foo'), 'wb') as outfp:
+        outfp.write(b'foo\n')
+    subprocess.call(['genisoimage', '-v', '-v', '-iso-level', '1', '-no-pad',
+                     '-o', str(outfile), str(indir)])
+
+    # genisoimage always creates ISOs with two extent path tables.  For this
+    # test, we need to cut out the empty second extent from the path tables.
+    # Read the whole thing into memory, and then cut out those bits.
+    with open(str(outfile), 'rb') as infp:
+        contents = infp.read()
+
+    shrunk = bytearray(contents[:0xa000] + contents[0xa800:0xb000] + contents[0xb800:])
+
+    # The things we need to shrink by two extents to make a valid ISO are the
+    # PVD space size, the root dir record location, the path table root dir
+    # location, the dot file record, the dotdot file record, and the FOO file
+    # record.
+    # We also need to move the PTR BE location up one extent.
+
+    for offset in (0x8050, 0x8057, 0x809e, 0x80a5, 0x9802, 0xa005, 0xa802, 0xa809, 0xa824, 0xa82b, 0xa846, 0xa84d):
+        shrunk[offset] = shrunk[offset] - 2
+
+    # Move the PTR BE up one extent
+    shrunk[0x8097] = 0x14
+
+    with open(str(outfile), 'wb') as outfp:
+        outfp.write(shrunk)
+
+    do_a_test(tmpdir, outfile, check_onefile_one_extent_path_tables)

@@ -6,12 +6,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from cogsguard.missions.machina_1 import make_machina1_mission
+from cogsguard.missions.terrain import find_machina_arena
 from typer.testing import CliRunner
 
 import cogames.diagnose as diagnose_module
 import cogames.main as main_module
-from cogames.games.cogs_vs_clips.missions.machina_1 import make_machina1_mission
-from cogames.games.cogs_vs_clips.missions.terrain import find_machina_arena
 from mettagrid.simulator.multi_episode.summary import MultiEpisodeRolloutPolicySummary, MultiEpisodeRolloutSummary
 
 runner = CliRunner()
@@ -172,7 +172,7 @@ def test_importing_diagnose_does_not_eagerly_import_cli_mission() -> None:
     assert result.returncode == 0, result.stderr
 
 
-def test_build_diagnose_case_updates_cvc_spawn_count_with_cogs_override() -> None:
+def test_build_diagnose_case_updates_cvc_spawn_count_with_cogs() -> None:
     case = diagnose_module._build_diagnose_case(
         mission=make_machina1_mission(num_agents=8, max_steps=50),
         num_cogs=2,
@@ -349,7 +349,7 @@ def test_evaluate_stage1_pack_contract_role_specific_pack_defaults() -> None:
 
 
 def test_load_diagnose_missions_role_specific_evals_contains_tutorial_roles() -> None:
-    missions = diagnose_module._load_diagnose_missions("role_specific_evals")
+    missions = diagnose_module.load_diagnose_missions("role_specific_evals")
     mission_names = {mission.name for mission in missions}
 
     assert mission_names == set(_ROLE_SPECIFIC_PROBE_MISSIONS)

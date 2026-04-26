@@ -17,11 +17,14 @@ from anteroom.services.compaction import (
     BOUNDARY_MARKER_CONTENT,
     build_boundary_marker,
     persist_compacted_messages,
+    runtime_messages_from_stored_rows,
 )
 from anteroom.services.storage import (
     create_conversation,
     create_message,
+    create_tool_call,
     list_messages,
+    update_tool_call,
 )
 
 
@@ -358,3 +361,72 @@ def test_nonexistent_tail_id_is_noop_on_update(db: ThreadSafeConnection) -> None
     loaded = list_messages(db, conv_id)
     # Summary + 2 real tail messages (fake ID doesn't create a row)
     assert len(loaded) == 3
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_compaction_persists_same_logical_tool_tail(db: ThreadSafeConnection) -> None:
+    """Runtime tool-result entries map back to their parent assistant row ID."""
+    from unittest.mock import AsyncMock
+
+    from anteroom.services.agent_loop import _compact_messages
+
+    conv_id = create_conversation(db, title="Tool tail")["id"]
+    create_message(db, conv_id, "user", "old question")
+    create_message(db, conv_id, "assistant", "old answer")
+    create_message(db, conv_id, "user", "recent duplicate")
+    assistant = create_message(db, conv_id, "assistant", "")
+    create_tool_call(db, assistant["id"], "bash", "builtin", {"command": "echo hi"}, tool_call_id="tc1")
+    update_tool_call(db, "tc1", {"stdout": "hi"}, "success")
+    recent_user = create_message(db, conv_id, "user", "recent duplicate")
+    recent_assistant = create_message(db, conv_id, "assistant", "done")
+
+    att_id = "att-tail"
+    db.execute(
+        "INSERT INTO attachments (id, message_id, filename, mime_type, size_bytes, storage_path)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (att_id, recent_user["id"], "tail.txt", "text/plain", 3, "/tmp/tail.txt"),
+    )
+    db.execute(
+        "CREATE TABLE IF NOT EXISTS message_embeddings ("
+        " message_id TEXT PRIMARY KEY,"
+        " conversation_id TEXT NOT NULL,"
+        " chunk_index INTEGER NOT NULL DEFAULT 0,"
+        " content_hash TEXT NOT NULL,"
+        " status TEXT NOT NULL DEFAULT 'embedded',"
+        " created_at TEXT NOT NULL,"
+        " FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE"
+        ")"
+    )
+    db.execute(
+        "INSERT INTO message_embeddings (message_id, conversation_id, content_hash, status, created_at)"
+        " VALUES (?, ?, ?, ?, ?)",
+        (recent_assistant["id"], conv_id, "hash-tail", "embedded", "2026-04-17T00:00:00Z"),
+    )
+    db.commit()
+
+    ai_messages = runtime_messages_from_stored_rows(list_messages(db, conv_id))
+    svc = AsyncMock()
+    svc.complete = AsyncMock(return_value="Summary")
+
+    ok = await _compact_messages(svc, ai_messages, preserve_tail=4, db=db, conversation_id=conv_id)
+
+    assert ok is True
+    loaded = list_messages(db, conv_id)
+    loaded_ids = [m["id"] for m in loaded]
+    assert loaded[0]["role"] == "system"
+    assert loaded[1]["metadata"]["compact_boundary"] is True
+    assert assistant["id"] in loaded_ids
+    assert recent_user["id"] in loaded_ids
+    assert recent_assistant["id"] in loaded_ids
+    assert len([m for m in loaded if m["role"] not in {"system"}]) == 4
+
+    tool_calls = db.execute_fetchall("SELECT id, message_id FROM tool_calls ORDER BY id")
+    assert [(r["id"], r["message_id"]) for r in tool_calls] == [("tc1", assistant["id"])]
+    attachment = db.execute_fetchone("SELECT message_id FROM attachments WHERE id = ?", (att_id,))
+    assert attachment is not None
+    assert attachment["message_id"] == recent_user["id"]
+    embedding = db.execute_fetchone(
+        "SELECT message_id FROM message_embeddings WHERE message_id = ?",
+        (recent_assistant["id"],),
+    )
+    assert embedding is not None

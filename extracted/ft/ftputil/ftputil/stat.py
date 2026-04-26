@@ -1,4 +1,4 @@
-# Copyright (C) 2002-2020, Stefan Schwarzer <sschwarzer@sschwarzer.net>
+# Copyright (C) 2002-2026, Stefan Schwarzer <sschwarzer@sschwarzer.net>
 # and ftputil contributors (see `doc/contributors.txt`)
 # See the file LICENSE for licensing terms.
 
@@ -48,10 +48,6 @@ class StatResult(tuple):
     def __init__(self, sequence):
         # Don't call `__init__` via `super`. Construction from a sequence is
         # implicitly handled by `tuple.__new__`, not `tuple.__init__`.
-        # pylint: disable=super-init-not-called
-        #
-        # Use `sequence` parameter to remain compatible to `__new__` interface.
-        # pylint: disable=unused-argument
         #
         # These may be overwritten in a `Parser.parse_line` method.
         self._st_name = ""
@@ -145,8 +141,6 @@ class Parser:
         If the mode string can't be parsed, raise an
         `ftputil.error.ParserError`.
         """
-        # Allow derived classes to make use of `self`.
-        # pylint: disable=no-self-use
         if len(mode_string) != 10:
             raise ftputil.error.ParserError(
                 "invalid mode string '{}'".format(mode_string)
@@ -181,7 +175,6 @@ class Parser:
             )
         return st_mode
 
-    # pylint: disable=no-self-use
     def _as_int(self, int_string, int_description):
         """
         Return `int_string` converted to an integer.
@@ -212,8 +205,7 @@ class Parser:
             )
         except ValueError:
             invalid_datetime = (
-                f"{year:04d}-{month:02d}-{day:02d} "
-                f"{hour:02d}:{minute:02d}:{second:02d}"
+                f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}"
             )
             raise ftputil.error.ParserError(
                 "invalid datetime {0!r}".format(invalid_datetime)
@@ -225,9 +217,9 @@ class Parser:
         """
         Return a floating point number, like from `time.mktime`, by parsing the
         string arguments `month_abbreviation`, `day` and `year_or_time`. The
-        parameter `time_shift` is the difference "time on server" - "time on
-        client" and is available as the `time_shift` parameter in the
-        `parse_line` interface.
+        parameter `time_shift` is the difference "time on server" - "UTC time"
+        and is available as the `time_shift` parameter in the `parse_line`
+        interface.
 
         If `with_precision` is true return a two-element tuple consisting of
         the floating point number as described in the previous paragraph and
@@ -300,9 +292,9 @@ class Parser:
                 server_year, month, day, hour, minute, 0
             ) > server_now.replace(second=0) + datetime.timedelta(seconds=120):
                 server_year -= 1
-        # The time shift is the time difference the server is ahead. So to get
-        # back to client time (UTC), subtract the time shift. The calculation
-        # is supposed to be the same for negative time shifts; in this case we
+        # The time shift is the time difference the server is ahead of UTC. So
+        # to get back to UTC, subtract the time shift. The calculation is
+        # supposed to be the same for negative time shifts; in this case we
         # subtract a negative time shift, i. e. add the absolute value of the
         # time shift to the server date time.
         server_utc_datetime = self._datetime(
@@ -326,7 +318,7 @@ class Parser:
         string arguments `date` and `time_`. The parameter `time_shift` is the
         difference
 
-            "time on server" - "time on client"
+            "time on server" - "UTC time"
 
         and can be set as the `time_shift` parameter in the `parse_line`
         interface.
@@ -352,12 +344,6 @@ class Parser:
         If this method can't make sense of the given arguments, it raises an
         `ftputil.error.ParserError`.
         """
-        # Derived classes might want to use `self`.
-        # pylint: disable=no-self-use
-        #
-        # Derived classes may need access to `time_shift`.
-        # pylint: disable=unused-argument
-        #
         # For the time being, I don't add a `with_precision` parameter as in
         # the MS parser because the precision for the DOS format is always a
         # minute and can be set in `MSParser.parse_line`. Should you find
@@ -439,8 +425,6 @@ class UnixParser(Parser):
 
         If the line can't be parsed, raise a `ParserError`.
         """
-        # The local variables are rather simple.
-        # pylint: disable=too-many-locals
         try:
             (
                 mode_string,
@@ -501,7 +485,6 @@ class UnixParser(Parser):
         )
         # These attributes are kind of "half-official". I'm not sure whether
         # they should be used by ftputil client code.
-        # pylint: disable=protected-access
         stat_result._st_mtime_precision = st_mtime_precision
         stat_result._st_name = st_name
         stat_result._st_target = st_target
@@ -523,8 +506,6 @@ class MSParser(Parser):
         The parameter `time_shift` isn't used in this method but is listed for
         compatibility with the base class.
         """
-        # The local variables are rather simple.
-        # pylint: disable=too-many-locals
         try:
             date, time_, dir_or_size, name = line.split(None, 3)
         except ValueError:
@@ -575,7 +556,6 @@ class MSParser(Parser):
         )
         # These attributes are kind of "half-official". I'm not sure whether
         # they should be used by ftputil client code.
-        # pylint: disable=protected-access
         # _st_name and _st_target
         stat_result._st_name = name
         stat_result._st_target = None
@@ -591,8 +571,6 @@ class _Stat:
     """
     Methods for stat'ing directories, links and regular files.
     """
-
-    # pylint: disable=protected-access
 
     def __init__(self, host):
         self._host = host
@@ -627,13 +605,16 @@ class _Stat:
             new_size = int(math.ceil(1.1 * len(lines)))
             cache.resize(new_size)
         # Yield stat results from lines.
+        #
+        # Although for a `listdir` call we're only interested in the names, use
+        # the `time_shift` parameter to store the correct timestamp values in
+        # the cache. Use `_ftputil_internal_call` to avoid triggering the
+        # deprecation warning for internal operations.
+        time_shift = self._host.time_shift()
         for line in lines:
             if self._parser.ignores_line(line):
                 continue
-            # Although for a `listdir` call we're only interested in the names,
-            # use the `time_shift` parameter to store the correct timestamp
-            # values in the cache.
-            stat_result = self._parser.parse_line(line, self._host.time_shift())
+            stat_result = self._parser.parse_line(line, time_shift)
             # Skip entries "." and "..".
             if stat_result._st_name in [self._host.curdir, self._host.pardir]:
                 continue

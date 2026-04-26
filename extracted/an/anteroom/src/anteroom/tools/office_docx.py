@@ -47,6 +47,16 @@ _MAX_EDIT_OPS = 500
 _DDE_PREFIX = re.compile(r"^[=+\-@]")
 
 
+def _reject_non_docx_path(action: str, display_path: str) -> str | None:
+    """Keep the DOCX tool scoped to Word documents."""
+    if display_path.lower().endswith(".pdf"):
+        return (
+            f"The docx tool only handles .docx files for action '{action}'. "
+            "PDF attachments must be handled by PDF extraction."
+        )
+    return None
+
+
 def _sanitize_text_value(val: str) -> str:
     """Strip leading DDE injection characters from template replacement values.
 
@@ -251,13 +261,17 @@ def _open_document_com(
 
 
 async def handle(action: str, path: str, **kwargs: Any) -> dict[str, Any]:
-    if not AVAILABLE:
-        return {"error": "No docx backend available. Install with: pip install anteroom[office]"}
-
     working_dir = kwargs.pop("_working_dir", None) or os.getcwd()
     resolved, error = validate_path(path, working_dir)
     if error:
         return {"error": error}
+
+    non_docx_error = _reject_non_docx_path(action, path)
+    if non_docx_error:
+        return {"error": non_docx_error}
+
+    if not AVAILABLE:
+        return {"error": "No docx backend available. Install with: pip install anteroom[office]"}
 
     if _BACKEND == "com":
         return await _dispatch_com(action, resolved, path, working_dir=working_dir, **kwargs)

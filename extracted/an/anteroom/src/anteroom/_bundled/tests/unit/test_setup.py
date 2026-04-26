@@ -208,6 +208,7 @@ class TestRunInitWizard:
         assert data["identity"]["user_id"]
         assert data["identity"]["public_key"]
         assert data["identity"]["private_key"]
+        assert data["memory"]["promotion"]["local_auto_approve"] is True
 
     def test_keyboard_interrupt_cancels(self, tmp_path: Path) -> None:
         config_path = tmp_path / "config.yaml"
@@ -332,6 +333,50 @@ class TestWizardIdentity:
         assert identity["user_id"]
         assert "BEGIN PUBLIC KEY" in identity["public_key"]
         assert "BEGIN PRIVATE KEY" in identity["private_key"]
+
+    def test_team_config_bootstrap_does_not_enable_memory_auto_approve(self, tmp_path: Path) -> None:
+        config_path = tmp_path / "config.yaml"
+        team_config = tmp_path / "team.yaml"
+        team_config.write_text("ai:\n  base_url: http://team\n  api_key: sk-team\n  model: gpt-4\n")
+
+        prompt_responses = {
+            "Provider": "5",
+            "Base URL": "http://localhost:11434/v1",
+            "Model (number or name)": "1",
+            "Choice": "8",
+            "Display name": "TeamUser",
+        }
+        confirm_responses = {
+            "Use a command to fetch": False,
+            "Test connection now?": False,
+            "Set a custom system prompt?": False,
+            "Write configuration?": True,
+        }
+
+        def mock_prompt_ask(prompt, **kwargs):
+            for key, val in prompt_responses.items():
+                if key in prompt:
+                    return val
+            return kwargs.get("default", "1")
+
+        def mock_confirm_ask(prompt, **kwargs):
+            for key, val in confirm_responses.items():
+                if key in prompt:
+                    return val
+            return kwargs.get("default", False)
+
+        with (
+            patch("anteroom.cli.setup._is_interactive", return_value=True),
+            patch("anteroom.config._get_config_path", return_value=config_path),
+            patch("anteroom.cli.setup.Prompt.ask", side_effect=mock_prompt_ask),
+            patch("anteroom.cli.setup.Confirm.ask", side_effect=mock_confirm_ask),
+        ):
+            result = run_init_wizard(team_config_path=team_config)
+
+        assert result is True
+        data = yaml.safe_load(config_path.read_text())
+        assert data.get("memory", {}).get("promotion", {}).get("local_auto_approve") is None
+        assert data["team_config_path"] == str(team_config)
 
     def test_render_summary_with_identity(self) -> None:
         config_data = {

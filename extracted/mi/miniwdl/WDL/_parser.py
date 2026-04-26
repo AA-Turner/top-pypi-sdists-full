@@ -407,6 +407,9 @@ class _DocTransformer(_ExprTransformer):
             d[k] = v
         return {"runtime": d}
 
+    def hints_section(self, meta, items):
+        return {"hints": items[0]}
+
     def task(self, meta, items):
         d = {"noninput_decls": []}
         for item in items:
@@ -427,6 +430,7 @@ class _DocTransformer(_ExprTransformer):
                 assert "name" not in d
                 d["name"] = item.value
         self._check_keyword(self._sp(meta), d["name"])
+        # TODO: discarding d["hints"] for now (AST repr to be designed)
         return Tree.Task(
             self._sp(meta),
             d["name"],
@@ -532,6 +536,7 @@ class _DocTransformer(_ExprTransformer):
         output_idents_pos = None
         parameter_meta = None
         meta_section = None
+        hints_section = None
         for item in items[1:]:
             if isinstance(item, dict):
                 if "inputs" in item:
@@ -562,6 +567,12 @@ class _DocTransformer(_ExprTransformer):
                             self._sp(meta), "redundant workflow parameter_meta sections"
                         )
                     parameter_meta = item["parameter_meta"]
+                elif "hints" in item:
+                    if hints_section is not None:
+                        raise Error.MultipleDefinitions(
+                            self._sp(meta), "redundant workflow hints sections"
+                        )
+                    hints_section = item["hints"]
                 else:
                     assert False
             elif isinstance(item, (Tree.Call, Tree.Conditional, Tree.Decl, Tree.Scatter)):
@@ -569,6 +580,7 @@ class _DocTransformer(_ExprTransformer):
             else:
                 assert False
         self._check_keyword(self._sp(meta), items[0].value)
+        # TODO: discarding hints_section for now (AST repr to be designed)
         return Tree.Workflow(
             self._sp(meta),
             items[0].value,
@@ -586,14 +598,32 @@ class _DocTransformer(_ExprTransformer):
         name = items[0]
         self._check_keyword(self._sp(meta), name)
         members = {}
-        for d in items[1:]:
-            assert not d.expr
-            if d.name in members:
-                raise Error.MultipleDefinitions(
-                    self._sp(meta), f"duplicate struct member '{d.name}'"
-                )
-            members[d.name] = d.type
-        return Tree.StructTypeDef(self._sp(meta), name, members)
+        parameter_meta = None
+        meta_section = None
+        for item in items[1:]:
+            if isinstance(item, dict):
+                if "meta" in item:
+                    if meta_section is not None:
+                        raise Error.MultipleDefinitions(
+                            self._sp(meta), "redundant struct meta sections"
+                        )
+                    meta_section = item["meta"]
+                elif "parameter_meta" in item:
+                    if parameter_meta is not None:
+                        raise Error.MultipleDefinitions(
+                            self._sp(meta), "redundant struct parameter_meta sections"
+                        )
+                    parameter_meta = item["parameter_meta"]
+                else:
+                    assert False
+            elif isinstance(item, Tree.Decl):
+                assert not item.expr
+                if item.name in members:
+                    raise Error.MultipleDefinitions(
+                        self._sp(meta), f"duplicate struct member '{item.name}'"
+                    )
+                members[item.name] = item.type
+        return Tree.StructTypeDef(self._sp(meta), name, members, parameter_meta, meta_section)
 
     def import_alias(self, meta, items):
         assert len(items) == 2

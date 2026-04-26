@@ -9,8 +9,8 @@ a full `RequestTokenBreakdown`.
 
 These tests verify:
 
-1. The fixed overhead precompute pulls system_prompt_tokens and
-   tool_schema_tokens from `estimate_request_tokens`.
+1. The fixed overhead precompute delegates to the shared
+   `estimate_fixed_request_overhead` helper.
 2. The per-turn helper appends the pending user turn to the message list,
    adds cached overhead, and returns the correct totals.
 3. Large pending turns push the total above a given warn threshold
@@ -31,26 +31,23 @@ from anteroom.cli.repl import (
     _estimate_full_request_with_pending_user,
     _FixedRequestOverhead,
 )
-from anteroom.services.token_estimator import RequestTokenBreakdown
 
 
 class TestComputeFixedRequestOverhead:
     def test_overhead_matches_full_estimator(self, monkeypatch: Any) -> None:
-        """_compute_fixed_request_overhead must pull system_prompt_tokens
-        and tool_schema_tokens from estimate_request_tokens verbatim."""
+        """_compute_fixed_request_overhead must return the shared fixed-overhead value."""
         captured: dict[str, Any] = {}
 
         def fake_estimate(**kwargs: Any) -> Any:
             captured.update(kwargs)
-            return RequestTokenBreakdown(
-                message_tokens=0,
+            return _FixedRequestOverhead(
                 system_prompt_tokens=77,
                 tool_schema_tokens=33,
-                total=110,
+                has_system_prompt=True,
             )
 
         monkeypatch.setattr(
-            "anteroom.services.token_estimator.estimate_request_tokens",
+            "anteroom.services.token_estimator.estimate_fixed_request_overhead",
             fake_estimate,
         )
 
@@ -60,11 +57,8 @@ class TestComputeFixedRequestOverhead:
         )
         assert overhead.system_prompt_tokens == 77
         assert overhead.tool_schema_tokens == 33
-        # Must pass empty messages so the per-turn message work isn't
-        # double-counted.
-        assert captured["messages"] == []
         assert captured["system_prompt"] == "SYS"
-        assert captured["extra_system_prompt"] == ""
+        assert captured["tool_schemas"] == [{"function": {"name": "t", "parameters": {}}}]
 
     def test_empty_inputs_produce_zero_overhead(self) -> None:
         overhead = _compute_fixed_request_overhead(system_prompt="", tool_schemas=None)
@@ -104,7 +98,7 @@ class TestFullRequestWithPendingUser:
         breakdown = _estimate_full_request_with_pending_user(
             ai_messages=history,
             pending_user_content="PENDING",
-            extra_system_prompt="EXTRA",  # len 5, +4 overhead = 9
+            extra_system_prompt="EXTRA",
             fixed_overhead=overhead,
         )
 
@@ -116,12 +110,12 @@ class TestFullRequestWithPendingUser:
 
         # Per-turn message tokens from the mock = 100.
         assert breakdown.message_tokens == 100
-        # System prompt = cached fixed (500) + extra_system_prompt (5 + 4) = 509.
-        assert breakdown.system_prompt_tokens == 509
+        # System prompt = cached fixed (500) + extra_system_prompt (5) + separator (2) = 507.
+        assert breakdown.system_prompt_tokens == 507
         # Tool schemas = cached fixed (50).
         assert breakdown.tool_schema_tokens == 50
-        # Total = 100 + 509 + 50 = 659.
-        assert breakdown.total == 659
+        # Total = 100 + 507 + 50 = 657.
+        assert breakdown.total == 657
 
     def test_empty_extra_system_prompt_does_not_add_overhead(self, monkeypatch: Any) -> None:
         monkeypatch.setattr(
@@ -233,9 +227,9 @@ class TestCurrentRequestEstimate:
 
         assert captured_msgs["messages"] == history
         assert breakdown.message_tokens == 80
-        assert breakdown.system_prompt_tokens == 509
+        assert breakdown.system_prompt_tokens == 507
         assert breakdown.tool_schema_tokens == 50
-        assert breakdown.total == 639
+        assert breakdown.total == 637
 
     def test_does_not_mutate_input(self, monkeypatch: Any) -> None:
         monkeypatch.setattr(

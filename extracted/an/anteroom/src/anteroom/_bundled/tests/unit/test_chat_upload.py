@@ -287,6 +287,20 @@ class TestAttachmentContentBuilding:
             )
             assert mock_storage.save_attachment.called
 
+    def test_pdf_extraction_failure_formatter_has_no_tool_routing(self) -> None:
+        from anteroom.routers.chat import _format_attachment_extraction_failure
+
+        result = _format_attachment_extraction_failure(
+            "scan.pdf",
+            "application/pdf",
+            ["pypdf not installed - PDF text extraction unavailable"],
+        )
+        assert "PDF text could not be extracted automatically" in result
+        assert "pypdf not installed" in result
+        assert "Uploaded attachments are not workspace file paths" in result
+        assert "Use the appropriate tool" not in result
+        assert "use tools to read this file" not in result
+
     def test_unsupported_binary_file_does_not_crash(self) -> None:
         conv_id = str(uuid.uuid4())
         msg_id = str(uuid.uuid4())

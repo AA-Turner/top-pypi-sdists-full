@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anteroom
-Version: 1.172.0
+Version: 1.173.0
 Summary: Anteroom - your gateway to AI conversation
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
@@ -30,6 +30,7 @@ Requires-Dist: usearch>=2.0
 Requires-Dist: numpy>=1.24.0
 Requires-Dist: urllib3>=2.6.3
 Requires-Dist: pyperclip>=1.8.0
+Requires-Dist: pypdf>=6.10.2
 Requires-Dist: mkdocs<2,>=1.6
 Requires-Dist: mkdocs-material>=9.5
 Requires-Dist: mkdocs-minify-plugin>=0.8
@@ -45,7 +46,6 @@ Provides-Extra: index
 Requires-Dist: tree-sitter>=0.23.0; extra == "index"
 Requires-Dist: tree-sitter-language-pack>=0.2.0; extra == "index"
 Provides-Extra: docs
-Requires-Dist: pypdf>=6.7.4; extra == "docs"
 Requires-Dist: python-docx>=1.0; extra == "docs"
 Provides-Extra: office
 Requires-Dist: python-docx>=1.0; extra == "office"
@@ -295,7 +295,8 @@ mcp_servers:
 Upload documents (PDFs, DOCX, code) via CLI or web UI drag-and-drop. Text is automatically extracted and indexed for semantic search with local vector embeddings &mdash; no external API needed.
 
 ```bash
-pip install anteroom[docs]        # adds PDF/DOCX text extraction
+pip install anteroom              # includes PDF text extraction
+pip install anteroom[docs]        # adds DOCX text extraction
 pip install anteroom[embeddings]  # adds local vector search
 ```
 

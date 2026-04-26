@@ -105,6 +105,8 @@ CommandKind = Literal[
     "cancel_task",
     # Forwarding
     "forward_prompt",
+    # Feedback
+    "submit_feedback",
 ]
 
 CommandArgumentCompletion = Literal["conversation_slug", "path", "directory"]
@@ -282,6 +284,7 @@ COMMAND_DESCRIPTIONS: dict[str, str] = {
     "agents": "List detached agents",
     "quit": "Exit the REPL",
     "exit": "Exit the REPL",
+    "feedback": "Submit feedback or a bug report",
 }
 
 COMMAND_INTENT_LABELS: dict[str, str] = {
@@ -343,6 +346,7 @@ COMMAND_INTENTS: dict[str, str] = {
     "copy": "session",
     "quit": "session",
     "exit": "session",
+    "feedback": "session",
 }
 
 COMMAND_ARGUMENT_HINTS: dict[str, str] = {
@@ -369,6 +373,7 @@ COMMAND_ARGUMENT_HINTS: dict[str, str] = {
     "mission": "<subcommand>",
     "config": "<subcommand>",
     "density": "<mode>",
+    "feedback": "<description> [--include-history]",
 }
 
 COMMAND_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
@@ -380,6 +385,7 @@ COMMAND_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "usage": ("tokens", "cost", "stats"),
     "model": ("picker", "switch"),
     "help": ("commands", "shortcuts"),
+    "feedback": ("bug", "report", "issue", "diagnostic"),
 }
 
 SUBCOMMAND_COMPLETIONS: dict[str, list[str]] = {
@@ -494,6 +500,7 @@ ALL_COMMAND_NAMES: list[str] = [
     "memories",
     "agent",
     "agents",
+    "feedback",
     "quit",
     "exit",
 ]

@@ -255,17 +255,7 @@ def add_statistics(
     if mask.sum() == 0:
         df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=crop, country=country)
     else:
-        # Priority-ordered season names: first match wins.
-        # Season 1 = primary/longest growing season for the country/crop.
-        # Season 2 = secondary/shorter season.
-        PRIMARY_SEASON_NAMES = [
-            "Long", "Gu", "Season A", "First", "1st Season",
-            "Main", "Meher", "Main harvest", "Summer", "Wet",
-        ]
-        SECONDARY_SEASON_NAMES = [
-            "Short", "Deyr", "Season B", "Second", "2nd Season",
-            "Winter", "Dry", "Main-off", "Cold-off",
-        ]
+        from geocif.utils import PRIMARY_SEASON_NAMES, SECONDARY_SEASON_NAMES
 
         # Determine which season_names exist for this country/crop
         country_crop_mask = (df_fewsnet["country"] == country) & (df_fewsnet["product"] == crop)

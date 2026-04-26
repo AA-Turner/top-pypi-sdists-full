@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pettingzoo
-Version: 1.25.0
+Version: 1.26.0
 Summary: Gymnasium for multi-agent reinforcement learning.
 Author-email: Farama Foundation <contact@farama.org>
 License: MIT License
@@ -9,35 +9,35 @@ Project-URL: Repository, https://github.com/Farama-Foundation/PettingZoo
 Project-URL: Documentation, https://pettingzoo.farama.org
 Project-URL: Bug Report, https://github.com/Farama-Foundation/PettingZoo/issues
 Keywords: Reinforcement Learning,game,RL,AI,gymnasium
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.13,>=3.9
+Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.21.0
 Requires-Dist: gymnasium>=1.0.0
 Provides-Extra: atari
 Requires-Dist: multi_agent_ale_py>=0.1.11; extra == "atari"
-Requires-Dist: pygame>=2.3.0; extra == "atari"
+Requires-Dist: pygame-ce>=2.3.0; extra == "atari"
 Provides-Extra: classic
 Requires-Dist: chess>=1.9.4; extra == "classic"
 Requires-Dist: rlcard>=1.0.5; extra == "classic"
-Requires-Dist: pygame>=2.3.0; extra == "classic"
+Requires-Dist: pygame-ce>=2.3.0; extra == "classic"
 Requires-Dist: shimmy[openspiel]>=1.2.0; extra == "classic"
 Provides-Extra: butterfly
-Requires-Dist: pygame>=2.3.0; extra == "butterfly"
+Requires-Dist: pygame-ce>=2.3.0; extra == "butterfly"
 Requires-Dist: pymunk>=6.2.0; extra == "butterfly"
-Provides-Extra: mpe
-Requires-Dist: pygame>=2.3.0; extra == "mpe"
 Provides-Extra: sisl
-Requires-Dist: pygame>=2.3.0; extra == "sisl"
+Requires-Dist: pygame-ce>=2.3.0; extra == "sisl"
 Requires-Dist: pymunk>=6.2.0; extra == "sisl"
 Requires-Dist: box2d-py>=2.3.5; extra == "sisl"
 Requires-Dist: scipy>=1.4.1; extra == "sisl"
@@ -53,7 +53,7 @@ Requires-Dist: pre-commit>=3.5.0; extra == "testing"
 Requires-Dist: pytest-markdown-docs>=0.5.0; extra == "testing"
 Provides-Extra: all
 Requires-Dist: multi_agent_ale_py>=0.1.11; extra == "all"
-Requires-Dist: pygame>=2.3.0; extra == "all"
+Requires-Dist: pygame-ce>=2.3.0; extra == "all"
 Requires-Dist: chess>=1.9.4; extra == "all"
 Requires-Dist: rlcard>=1.0.5; extra == "all"
 Requires-Dist: shimmy[openspiel]>=1.2.0; extra == "all"
@@ -80,8 +80,7 @@ PettingZoo includes the following families of environments:
 * [Atari](https://pettingzoo.farama.org/environments/atari/): Multi-player Atari 2600 games (cooperative, competitive and mixed sum)
 * [Butterfly](https://pettingzoo.farama.org/environments/butterfly): Cooperative graphical games developed by us, requiring a high degree of coordination
 * [Classic](https://pettingzoo.farama.org/environments/classic): Classical games including card games, board games, etc.
-* [MPE](https://pettingzoo.farama.org/environments/mpe): A set of simple nongraphical communication tasks, originally from https://github.com/openai/multiagent-particle-envs
-* [SISL](https://pettingzoo.farama.org/environments/sisl): 3 cooperative environments, originally from https://github.com/sisl/MADRL
+* [SISL](https://pettingzoo.farama.org/environments/sisl): 2 cooperative environments, originally from https://github.com/sisl/MADRL
 
 ## Installation
 
@@ -91,7 +90,7 @@ This does not include dependencies for all families of environments (some enviro
 
 To install the dependencies for one family, use `pip install 'pettingzoo[atari]'`, or use `pip install 'pettingzoo[all]'` to install all dependencies.
 
-We support and maintain PettingZoo for Python 3.9, 3.10, 3.11, and 3.12 on Linux and macOS. We will accept PRs related to Windows, but do not officially support it.
+We support and maintain PettingZoo for Python 3.9, 3.10, 3.11, 3.12, 3.13, and 3.14 on Linux and macOS. We will accept PRs related to Windows, but do not officially support it.
 
 Note: Some Linux distributions may require manual installation of `cmake`, `swig`, or `zlib1g-dev` (e.g., `sudo apt install cmake swig zlib1g-dev`)
 
@@ -154,6 +153,6 @@ To cite this project in publication, please use
 ```
 
 ## Project Maintainers
-- Project Manager: [David Gerard](https://github.com/David-GERARD) - `david.gerard.23@ucl.ac.uk`
+- Project Manager: [Travis Virgil](https://github.com/virgilt) - `travis@farama.org`
 - Maintainer: [Albert Han](https://github.com/yjhan96) - `yjhan96@gmail.com`.
 - Maintenance for this project is also contributed by the broader Farama team: [farama.org/team](https://farama.org/team).

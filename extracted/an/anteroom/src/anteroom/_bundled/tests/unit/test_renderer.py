@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import re
 import sys
 import time
 from unittest.mock import patch
@@ -50,6 +51,7 @@ from anteroom.cli.renderer import (
     render_response_end,
     render_tool_call_end,
     render_tool_call_start,
+    render_update_available,
     render_warning,
     save_turn_history,
     set_retrying,
@@ -107,6 +109,7 @@ def _reset_renderer_state() -> None:
         r._thinking_cancelled = False
         r._thinking_line_visible = False
         r._thinking_phase = ""
+        r._thinking_phase_data = {}
         r._thinking_tokens = 0
         r._streaming_chars = 0
         r._last_chunk_time = 0.0
@@ -131,6 +134,18 @@ def _reset_renderer_state() -> None:
     _restore_defaults()
     yield
     _restore_defaults()
+
+
+def test_render_update_available_escapes_configured_message() -> None:
+    import anteroom.cli.renderer as r
+
+    buf = io.StringIO()
+    r.console = Console(file=buf, force_terminal=False, width=120)
+
+    render_update_available("Install [red]2.0.0[/red] from IT")
+
+    output = buf.getvalue()
+    assert "Install [red]2.0.0[/red] from IT" in output
 
 
 class TestVerbosity:
@@ -1458,6 +1473,7 @@ class TestThinkingPhases:
         import anteroom.cli.renderer as r
 
         r._thinking_phase = ""
+        r._thinking_phase_data = {}
         r._thinking_tokens = 0
         r._streaming_chars = 0
         r._last_chunk_time = 0
@@ -1470,6 +1486,7 @@ class TestThinkingPhases:
         import anteroom.cli.renderer as r
 
         r._thinking_phase = ""
+        r._thinking_phase_data = {}
         r._thinking_tokens = 0
         r._streaming_chars = 0
         r._last_chunk_time = 0
@@ -1492,6 +1509,14 @@ class TestThinkingPhases:
 
         set_thinking_phase("waiting")
         assert r._thinking_phase == "waiting"
+
+    def test_set_thinking_phase_stores_metadata(self) -> None:
+        """set_thinking_phase stores phase metadata for detail labels."""
+        import anteroom.cli.renderer as r
+
+        set_thinking_phase("compacting", {"reason": "message_count", "message_count": 84, "message_threshold": 80})
+        assert r._thinking_phase == "compacting"
+        assert r._thinking_phase_data["reason"] == "message_count"
 
     def test_set_thinking_phase_updates_chunk_time(self) -> None:
         """set_thinking_phase updates _last_chunk_time for stall detection."""
@@ -1641,6 +1666,7 @@ class TestThinkingPhases:
         import anteroom.cli.renderer as r
 
         r._thinking_phase = "streaming"
+        r._thinking_phase_data = {"reason": "message_count"}
         r._thinking_tokens = 100
         r._streaming_chars = 500
         r._last_chunk_time = time.monotonic()
@@ -1650,6 +1676,7 @@ class TestThinkingPhases:
         try:
             start_thinking()
             assert r._thinking_phase == ""
+            assert r._thinking_phase_data == {}
             assert r._thinking_tokens == 0
             assert r._streaming_chars == 0
             assert r._last_chunk_time == 0
@@ -1767,6 +1794,7 @@ class TestPhaseLabels:
         import anteroom.cli.renderer as r
 
         r._thinking_phase = ""
+        r._thinking_phase_data = {}
         r._thinking_tokens = 0
         r._streaming_chars = 0
         r._last_chunk_time = 0
@@ -1849,6 +1877,34 @@ class TestPhaseLabels:
 
         r._thinking_phase = "accepted"
         assert _phase_label() == "Working..."
+
+    def test_phase_label_compacting_message_count(self) -> None:
+        """Compacting label includes the trigger reason."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "compacting"
+        r._thinking_phase_data = {"reason": "message_count", "message_count": 84, "message_threshold": 80}
+        assert _phase_label() == "Compacting conversation history... message threshold 84/80"
+
+    def test_phase_label_compacting_token_threshold(self) -> None:
+        """Token-triggered compaction labels include token estimate and threshold."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "compacting"
+        r._thinking_phase_data = {
+            "reason": "token_threshold",
+            "estimated_tokens": 128_500,
+            "token_threshold": 128_000,
+        }
+        assert _phase_label() == "Compacting conversation history... token threshold 128,500/128,000"
+
+    def test_phase_label_compacting_context_error_recovery(self) -> None:
+        """Reactive full compaction is labeled distinctly from proactive thresholds."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "compacting"
+        r._thinking_phase_data = {"reason": "context_error_recovery"}
+        assert _phase_label() == "Compacting conversation history... context-error recovery"
 
     def test_accepted_label_shows_immediately(self) -> None:
         """_build_thinking_text returns the accepted label before the 2s reveal delay (#1428).
@@ -2870,6 +2926,65 @@ class TestAsyncStopThinking:
         output = buf.getvalue()
         assert "\r\033[2K" in output  # line clear
         assert elapsed >= 2.0
+        r._repl_mode = False
+        r._stdout = None
+
+    def test_stop_thinking_sync_cancel_with_unset_start_returns_zero(self) -> None:
+        """stop_thinking_sync(cancel_msg=...) must not compute elapsed from monotonic zero."""
+        import anteroom.cli.renderer as r
+
+        buf = io.StringIO()
+        r._repl_mode = True
+        r._stdout = buf
+        r._thinking_start = 0.0
+        r._thinking_ticker_task = None
+        r._spinner = None
+
+        elapsed = stop_thinking_sync(cancel_msg="cancelled")
+        output = buf.getvalue()
+        assert elapsed == 0.0
+        assert "cancelled" in output
+        assert "0s" in output
+        assert not re.search(r"\b\d{6,}s\b", output)
+        r._repl_mode = False
+        r._stdout = None
+
+    def test_stop_thinking_sync_cancel_with_future_start_returns_zero(self) -> None:
+        """Clock skew or bad state should not render negative elapsed time."""
+        import anteroom.cli.renderer as r
+
+        buf = io.StringIO()
+        r._repl_mode = True
+        r._stdout = buf
+        r._thinking_start = time.monotonic() + 10.0
+        r._thinking_ticker_task = None
+        r._spinner = None
+
+        elapsed = stop_thinking_sync(cancel_msg="cancelled")
+        output = buf.getvalue()
+        assert elapsed == 0.0
+        assert "cancelled" in output
+        assert "0s" in output
+        assert "-" not in output
+        r._repl_mode = False
+        r._stdout = None
+
+    def test_stop_thinking_sync_cancel_with_valid_start_returns_elapsed(self) -> None:
+        """Valid thinking starts still report real elapsed durations."""
+        import anteroom.cli.renderer as r
+
+        buf = io.StringIO()
+        r._repl_mode = True
+        r._stdout = buf
+        r._thinking_start = time.monotonic() - 4.0
+        r._thinking_ticker_task = None
+        r._spinner = None
+
+        elapsed = stop_thinking_sync(cancel_msg="cancelled")
+        output = buf.getvalue()
+        assert 3.0 <= elapsed <= 5.0
+        assert "cancelled" in output
+        assert "4s" in output or "3s" in output or "5s" in output
         r._repl_mode = False
         r._stdout = None
 

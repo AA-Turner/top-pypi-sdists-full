@@ -157,11 +157,12 @@ class Date(
     ToString,
     _Parse,
 ):
-    MIN: t.ClassVar[Date]
-    MAX: t.ClassVar[Date]
-    ZERO: t.ClassVar[Date]
+    MIN: t.Final[Date]
+    MAX: t.Final[Date]
+    ZERO: t.Final[Date]
+    __match_args__: t.Final[tuple[str, str, str]] = ("year", "month", "day")
 
-    def __init__(self, year: int, month: int, day: int) -> None: ...
+    def __new__(cls, year: int, month: int, day: int) -> t.Self: ...
     def __eq__(self, other: object) -> bool: ...
     def __ne__(self, other: object) -> bool: ...
     def __lt__(self, other: t.Self) -> bool: ...
@@ -362,16 +363,22 @@ class Time(
     ToPy[pydt.time],
     _Parse,
 ):
-    MIN: t.ClassVar[Time]
-    MAX: t.ClassVar[Time]
+    MIN: t.Final[Time]
+    MAX: t.Final[Time]
+    __match_args__: t.Final[tuple[str, str, str, str]] = (
+        "hour",
+        "minute",
+        "second",
+        "subsec_nanosecond",
+    )
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         hour: int = 0,
         minute: int = 0,
         second: int = 0,
         nanosecond: int = 0,
-    ) -> None: ...
+    ) -> t.Self: ...
 
     # =========================================================================
     # STRING
@@ -567,20 +574,29 @@ class DateTime(
     ToPy[pydt.datetime],
     _Parse,
 ):
-    MIN: t.ClassVar[DateTime]
-    MAX: t.ClassVar[DateTime]
-    ZERO: t.ClassVar[DateTime]
+    MIN: t.Final[DateTime]
+    MAX: t.Final[DateTime]
+    ZERO: t.Final[DateTime]
+    __match_args__: t.Final[tuple[str, str, str, str, str, str, str]] = (
+        "year",
+        "month",
+        "day",
+        "hour",
+        "minute",
+        "second",
+        "subsec_nanosecond",
+    )
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         year: int,
         month: int,
         day: int,
         hour: int = 0,
         minute: int = 0,
         second: int = 0,
-        nanosecond: int = 0,
-    ) -> None: ...
+        subsec_nanosecond: int = 0,
+    ) -> t.Self: ...
     def to_string(self) -> str: ...
     def isoformat(self) -> str: ...
 
@@ -806,9 +822,9 @@ class TimeZone(
     ToPy[pydt.tzinfo],
     _Parse,
 ):
-    UTC: t.ClassVar[TimeZone]
+    UTC: t.Final[TimeZone]
 
-    def __init__(self, name: TimezoneName) -> None: ...
+    def __new__(cls, time_zone_name: TimezoneName) -> t.Self: ...
     def __eq__(self, other: object) -> bool: ...
     def __call__(self, *args: t.Any, **kwargs: t.Any) -> t.Self: ...
 
@@ -899,11 +915,12 @@ class SignedDuration(
     ToPy[pydt.timedelta],
     _Parse,
 ):
-    MIN: t.ClassVar[SignedDuration]
-    MAX: t.ClassVar[SignedDuration]
-    ZERO: t.ClassVar[SignedDuration]
+    MIN: t.Final[SignedDuration]
+    MAX: t.Final[SignedDuration]
+    ZERO: t.Final[SignedDuration]
+    __match_args__: t.Final[tuple[str, str]] = ("secs", "nanos")
 
-    def __init__(self, secs: int = 0, nanos: int = 0) -> None: ...
+    def __new__(cls, secs: int = 0, nanos: int = 0) -> t.Self: ...
 
     # =========================================================================
     # OPERATORS/DUNDERS
@@ -1059,8 +1076,9 @@ class TimeSpan(
     FromStr,
     _Parse,
 ):
-    def __init__(
-        self,
+    def __new__(
+        cls,
+        *,
         years: int = 0,
         months: int = 0,
         weeks: int = 0,
@@ -1071,7 +1089,7 @@ class TimeSpan(
         milliseconds: int = 0,
         microseconds: int = 0,
         nanoseconds: int = 0,
-    ) -> None: ...
+    ) -> t.Self: ...
 
     # =========================================================================
     # STRING
@@ -1246,11 +1264,12 @@ class Timestamp(
     A timestamp is always in the Unix timescale with a UTC offset of zero.
     """
 
-    MIN: t.ClassVar[Timestamp]
-    MAX: t.ClassVar[Timestamp]
-    UNIX_EPOCH: t.ClassVar[Timestamp]
+    MIN: t.Final[Timestamp]
+    MAX: t.Final[Timestamp]
+    UNIX_EPOCH: t.Final[Timestamp]
+    __match_args__: t.Final[tuple[str, str]] = ("second", "nanosecond")
 
-    def __init__(self, second: int = 0, nanosecond: int = 0) -> None: ...
+    def __new__(cls, second: int = 0, nanosecond: int = 0) -> t.Self: ...
 
     # =========================================================================
     # CLASS METHODS
@@ -1553,8 +1572,17 @@ class ZonedDateTime(
     _Parse,
     Strftime,
 ):
-    def __init__(
-        self,
+    __match_args__: t.Final[tuple[str, ...]] = (
+        "year",
+        "month",
+        "day",
+        "hour",
+        "minute",
+        "second",
+        "subsec_nanosecond",
+    )
+    def __new__(
+        cls,
         year: int,
         month: int,
         day: int,
@@ -1563,7 +1591,7 @@ class ZonedDateTime(
         second: int = 0,
         nanosecond: int = 0,
         tz: TimezoneName | None = None,
-    ) -> None: ...
+    ) -> t.Self: ...
 
     # =========================================================================
     # PYTHON CONVERSIONS
@@ -1820,11 +1848,11 @@ class ISOWeekDate(
     FromStr,
     _Parse,
 ):
-    MIN: t.ClassVar[ISOWeekDate]
-    MAX: t.ClassVar[ISOWeekDate]
-    ZERO: t.ClassVar[ISOWeekDate]
-
-    def __init__(self, year: int, week: int, weekday: Weekday) -> None: ...
+    MIN: t.Final[ISOWeekDate]
+    MAX: t.Final[ISOWeekDate]
+    ZERO: t.Final[ISOWeekDate]
+    __match_args__: t.Final[tuple[str, str, str]] = ("year", "week", "weekday")
+    def __new__(cls, year: int, week: int, weekday: Weekday) -> t.Self: ...
 
     # =========================================================================
     # OPERATORS/DUNDERS
@@ -1883,17 +1911,17 @@ class Offset(
     FromStr,
     _Parse,
 ):
-    MIN: t.ClassVar[Offset]
-    MAX: t.ClassVar[Offset]
-    UTC: t.ClassVar[Offset]
-    ZERO: t.ClassVar[Offset]
+    MIN: t.Final[Offset]
+    MAX: t.Final[Offset]
+    UTC: t.Final[Offset]
+    ZERO: t.Final[Offset]
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         hours: int = 0,
         minutes: int = 0,
         seconds: int = 0,
-    ) -> None: ...
+    ) -> t.Self: ...
 
     # =========================================================================
     # STRING
@@ -2027,15 +2055,15 @@ _TObj = t.TypeVar("_TObj", Date, DateTime, Time, Timestamp, ZonedDateTime)
 
 @t.type_check_only
 class _Difference(t.Generic[_TObj, _TDict]):
-    def __init__(
-        self,
+    def __new__(
+        cls,
         obj: _TObj,
         *,
         smallest: JiffUnit,
         largest: JiffUnit | None = None,
         mode: JiffRoundMode | None = None,
         increment: int | None = None,
-    ) -> None: ...
+    ) -> t.Self: ...
     def __eq__(self, other: object) -> bool: ...
     @property
     def smallest(self) -> JiffUnit: ...
@@ -2053,57 +2081,57 @@ class _Difference(t.Generic[_TObj, _TDict]):
 
 @t.final
 class DateDifference(_Difference[Date, DateDifferenceTypedDict]):
-    def __init__(
-        self,
-        obj: Date,
+    def __new__(
+        cls,
+        date: Date,
         *,
         smallest: JiffUnit = "day",
         largest: JiffUnit | None = None,
         mode: JiffRoundMode = "trunc",
         increment: int = 1,
-    ) -> None: ...
+    ) -> t.Self: ...
     @property
     def date(self) -> Date: ...
 
 @t.final
 class DateTimeDifference(_Difference[DateTime, DateTimeDifferenceTypedDict]):
-    def __init__(
-        self,
-        obj: DateTime,
+    def __new__(
+        cls,
+        datetime: DateTime,
         *,
         smallest: JiffUnit = "nanosecond",
         largest: JiffUnit | None = None,
         mode: JiffRoundMode = "trunc",
         increment: int = 1,
-    ) -> None: ...
+    ) -> t.Self: ...
     @property
     def datetime(self) -> DateTime: ...
 
 @t.final
 class TimeDifference(_Difference[Time, TimeDifferenceTypedDict]):
-    def __init__(
-        self,
-        obj: Time,
+    def __new__(
+        cls,
+        time: Time,
         *,
         smallest: JiffUnit = "nanosecond",
         largest: JiffUnit | None = None,
         mode: JiffRoundMode = "trunc",
         increment: int = 1,
-    ) -> None: ...
+    ) -> t.Self: ...
     @property
     def time(self) -> Time: ...
 
 @t.final
 class TimestampDifference(_Difference[Timestamp, TimestampDifferenceTypedDict]):
-    def __init__(
-        self,
-        obj: Timestamp,
+    def __new__(
+        cls,
+        timestamp: Timestamp,
         *,
         smallest: JiffUnit = "nanosecond",
         largest: JiffUnit | None = None,
         mode: JiffRoundMode = "trunc",
         increment: int = 1,
-    ) -> None: ...
+    ) -> t.Self: ...
     @property
     def timestamp(self) -> Timestamp: ...
 
@@ -2111,15 +2139,15 @@ class TimestampDifference(_Difference[Timestamp, TimestampDifferenceTypedDict]):
 class ZonedDateTimeDifference(
     _Difference[ZonedDateTime, ZonedDateTimeDifferenceTypedDict]
 ):
-    def __init__(
-        self,
-        obj: ZonedDateTime,
+    def __new__(
+        cls,
+        zoned: ZonedDateTime,
         *,
         smallest: JiffUnit = "nanosecond",
         largest: JiffUnit | None = None,
         mode: JiffRoundMode = "trunc",
         increment: int = 1,
-    ) -> None: ...
+    ) -> t.Self: ...
     @property
     def zoned(self) -> ZonedDateTime: ...
 
@@ -2153,72 +2181,72 @@ class _Round(t.Generic[_TSmallest, _TDict]):
 
 @t.final
 class DateTimeRound(_Round[_DateTimeRoundSmallest, DateTimeRoundTypedDict]):
-    def __init__(
-        self,
+    def __new__(
+        cls,
         smallest: _DateTimeRoundSmallest = "nanosecond",
         *,
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
-    ) -> None: ...
+    ) -> t.Self: ...
     def round(self, ob: DateTime) -> DateTime: ...
 
 @t.final
 class SignedDurationRound(
     _Round[_SignedDurationRoundSmallest, SignedDurationRoundTypedDict]
 ):
-    def __init__(
-        self,
+    def __new__(
+        cls,
         smallest: _SignedDurationRoundSmallest = "nanosecond",
         *,
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
-    ) -> None: ...
+    ) -> t.Self: ...
     def round(self, ob: SignedDuration) -> SignedDuration: ...
 
 @t.final
 class TimeRound(_Round[_TimeRoundSmallest, TimeRoundTypedDict]):
-    def __init__(
-        self,
+    def __new__(
+        cls,
         smallest: _TimeRoundSmallest = "nanosecond",
         *,
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
-    ) -> None: ...
+    ) -> t.Self: ...
     def round(self, ob: Time) -> Time: ...
 
 @t.final
 class TimestampRound(_Round[_TimestampRoundSmallest, TimestampRoundTypedDict]):
-    def __init__(
-        self,
+    def __new__(
+        cls,
         smallest: _TimestampRoundSmallest = "nanosecond",
         *,
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
-    ) -> None: ...
+    ) -> t.Self: ...
     def round(self, ob: Timestamp) -> Timestamp: ...
 
 @t.final
 class ZonedDateTimeRound(
     _Round[_ZonedDateTimeRoundSmallest, ZonedDateTimeRoundTypedDict]
 ):
-    def __init__(
-        self,
+    def __new__(
+        cls,
         smallest: _ZonedDateTimeRoundSmallest = "nanosecond",
         *,
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
-    ) -> None: ...
+    ) -> t.Self: ...
     def round(self, ob: ZonedDateTime) -> ZonedDateTime: ...
 
 @t.final
 class OffsetRound(_Round[_OffsetRoundSmallest, OffsetRoundTypedDict]):
-    def __init__(
-        self,
+    def __new__(
+        cls,
         smallest: _OffsetRoundSmallest = "second",
         *,
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
-    ) -> None: ...
+    ) -> t.Self: ...
     def round(self, ob: Offset) -> Offset: ...
 
 @t.type_check_only
@@ -2274,7 +2302,7 @@ def utcnow() -> ZonedDateTime: ...
 # =============================================================================
 @t.final
 class TimeZoneDatabase:
-    def __init__(self) -> None:
+    def __new__(cls) -> t.Self:
         """Defaults to using the `self.from_env`"""
 
     @t.overload

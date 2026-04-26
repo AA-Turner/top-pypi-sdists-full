@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uhi
-Version: 1.1.0
+Version: 1.1.1
 Summary: Unified Histogram Interface: tools to help library authors work with histograms
 Project-URL: Homepage, https://github.com/Scikit-HEP/uhi
 Project-URL: Repository, https://github.com/Scikit-HEP/uhi

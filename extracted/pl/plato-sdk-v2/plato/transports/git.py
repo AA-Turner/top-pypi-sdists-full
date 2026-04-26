@@ -162,6 +162,39 @@ class GitTransport(Transport):
         if exit_code != 0:
             raise RuntimeError(f"Failed to create workspace path {path}: {stderr}")
 
+    @staticmethod
+    def _apply_bare_unpack_config(bare_dir: Path) -> None:
+        """Force receive-pack to unpack incoming pushes into loose objects.
+
+        Without this, receive-pack uses ``index-pack --fix-thin`` to write
+        the incoming push as a pack inside the ``objects/incoming-XXX/``
+        quarantine directory. When the client sends a thin pack and the
+        server reconstructs missing base objects, the resulting .pack and
+        .idx can disagree on object count — receive-pack then rejects the
+        push with::
+
+            packfile objects/incoming-XXX/...pack claims to have N objects
+            while index indicates M objects
+
+        This is observed on FUSE-backed bares (the bare lives on a
+        plato-fuse mount), where rename/fsync semantics for index-pack's
+        multi-file write are not strictly atomic.
+
+        Setting both ``receive.unpackLimit`` and ``transfer.unpackLimit``
+        to a large value forces receive-pack to invoke ``unpack-objects``
+        instead of ``index-pack``, writing each incoming object as a loose
+        file. Loose objects have no pack/idx coupling, so the mismatch is
+        impossible.
+
+        Applied on every bare init — fresh or restored from checkpoint —
+        so older bares that pre-date this config still get hardened on
+        the next session.
+        """
+        bare_repo = Repo(bare_dir)
+        with bare_repo.config_writer() as config:
+            config.set_value("receive", "unpackLimit", "100000")
+            config.set_value("transfer", "unpackLimit", "100000")
+
     async def _init_bare_repo(self, workspace_path: str, bare_path: str) -> None:
         await self._ensure_git_installed_local()
         workspace_dir = Path(workspace_path)
@@ -176,14 +209,17 @@ class GitTransport(Transport):
             if repo_dir.exists():
                 trust_git_directory(repo_dir)
                 checkout_main_from_bare(bare_repo_path=str(bare_dir), worktree_path=str(repo_dir))
+            # Always re-apply unpack-limit config so bares restored from
+            # older checkpoints (created before this config existed) also
+            # force loose-object storage on incoming pushes. See _apply_bare_unpack_config.
+            self._apply_bare_unpack_config(bare_dir)
             return
 
         shutil.rmtree(bare_dir, ignore_errors=True)
         bare_dir.parent.mkdir(parents=True, exist_ok=True)
         bare_dir.mkdir(parents=True, exist_ok=True)
-        bare_repo = Repo.init(bare_dir, bare=True, initial_branch="main")
-        with bare_repo.config_writer() as config:
-            config.set_value("transfer", "unpackLimit", "99999")
+        Repo.init(bare_dir, bare=True, initial_branch="main")
+        self._apply_bare_unpack_config(bare_dir)
 
         # Seed bare repo with initial commit from repo/ if it has content,
         # otherwise create an empty initial commit.
@@ -419,15 +455,32 @@ class GitTransport(Transport):
 
         if sync_mode != "merge_to_main":
             compare_ref = mount.git_checkout.ref if mount.git_checkout and mount.git_checkout.ref else "origin/main"
-            await self._publish_sync_back_impl(
-                agent_env,
-                hostname,
-                remote,
-                sync_mode,
-                sync_target,
-                sync_exact,
-                compare_ref,
-            )
+            # Serialize publish_ref/push_branch pushes too: concurrent
+            # receive-pack invocations against the same bare repo race the
+            # packfile index even when each push targets a unique hidden
+            # ref, producing "packfile claims to have N objects while index
+            # indicates M" corruption.
+            if self._sync_lock:
+                async with self._sync_lock:
+                    await self._publish_sync_back_impl(
+                        agent_env,
+                        hostname,
+                        remote,
+                        sync_mode,
+                        sync_target,
+                        sync_exact,
+                        compare_ref,
+                    )
+            else:
+                await self._publish_sync_back_impl(
+                    agent_env,
+                    hostname,
+                    remote,
+                    sync_mode,
+                    sync_target,
+                    sync_exact,
+                    compare_ref,
+                )
             return
         if self._sync_lock:
             async with self._sync_lock:

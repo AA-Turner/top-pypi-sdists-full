@@ -14,6 +14,7 @@ from anteroom.cli.repl import (
     _detect_git_branch,
     _estimate_tokens,
     _expand_file_references,
+    _filter_tools_for_inline_pdf_turn,
 )
 from anteroom.services.document_extractor import ExtractionResult
 
@@ -77,6 +78,7 @@ class TestExpandFileReferences:
                 result = _expand_file_references("check @deck.pptx", tmpdir)
                 assert "Binary file" in result
                 assert "deck.pptx" in result
+                assert "use tools to read this file" not in result
 
     def test_unextractable_binary_shows_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -85,6 +87,7 @@ class TestExpandFileReferences:
             result = _expand_file_references("check @archive.zip", tmpdir)
             assert "Binary file" in result
             assert "archive.zip" in result
+            assert "use tools to read this file" not in result
 
     def test_xlsx_binary_uses_extractor(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -108,6 +111,161 @@ class TestExpandFileReferences:
             ):
                 result = _expand_file_references("check @report.pdf", tmpdir)
                 assert "PDF content here" in result
+
+    def test_bare_absolute_pdf_path_uses_extractor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "report.pdf"
+            test_file.write_bytes(b"%PDF-1.4 fake pdf")
+            with patch(
+                "anteroom.services.document_extractor.extract_text",
+                return_value=ExtractionResult(text="Bare PDF content"),
+            ) as mock_extract:
+                result = _expand_file_references(f"{test_file} what's in this pdf", tmpdir)
+                assert "Bare PDF content" in result
+                assert "what's in this pdf" in result
+                assert f'name="{test_file.name}"' in result
+                assert str(test_file) not in result
+                assert 'source="inline_pdf_extraction"' in result
+                assert "no file-reading tool is needed" in result
+                assert "docx" not in result.lower()
+                assert "Use the appropriate tool" not in result
+                mock_extract.assert_called_once()
+
+    def test_bare_quoted_pdf_path_with_spaces_uses_extractor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "ID Card.pdf"
+            test_file.write_bytes(b"%PDF-1.4 fake pdf")
+            with patch(
+                "anteroom.services.document_extractor.extract_text",
+                return_value=ExtractionResult(text="Identity card content"),
+            ):
+                result = _expand_file_references(f'"{test_file}" summarize this', tmpdir)
+                assert "Identity card content" in result
+                assert "summarize this" in result
+                assert f'name="{test_file.name}"' in result
+                assert str(test_file) not in result
+                assert "docx" not in result.lower()
+
+    def test_bare_unquoted_pdf_path_with_spaces_uses_longest_existing_prefix(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "ID Card.pdf"
+            test_file.write_bytes(b"%PDF-1.4 fake pdf")
+            with patch(
+                "anteroom.services.document_extractor.extract_text",
+                return_value=ExtractionResult(text="Unquoted card content"),
+            ):
+                result = _expand_file_references(f"{test_file} what's in this pdf", tmpdir)
+                assert "Unquoted card content" in result
+                assert "what's in this pdf" in result
+                assert f'name="{test_file.name}"' in result
+                assert str(test_file) not in result
+                assert "docx" not in result.lower()
+
+    def test_bare_shell_escaped_pdf_path_with_spaces_uses_extractor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "ID Card.pdf"
+            test_file.write_bytes(b"%PDF-1.4 fake pdf")
+            escaped_path = str(test_file).replace(" ", r"\ ")
+            with patch(
+                "anteroom.services.document_extractor.extract_text",
+                return_value=ExtractionResult(text="Shell escaped card content"),
+            ) as mock_extract:
+                result = _expand_file_references(f"{escaped_path} what's in this pdf", tmpdir)
+                assert "Shell escaped card content" in result
+                assert "what's in this pdf" in result
+                assert f'name="{test_file.name}"' in result
+                assert str(test_file) not in result
+                assert escaped_path not in result
+                assert 'source="inline_pdf_extraction"' in result
+                assert "docx" not in result.lower()
+                mock_extract.assert_called_once()
+
+    def test_bare_pdf_extracted_text_is_not_rescanned_for_file_references(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "report.pdf"
+            test_file.write_bytes(b"%PDF-1.4 fake pdf")
+            secret_file = Path(tmpdir) / "secret.txt"
+            secret_file.write_text("secret contents")
+            with patch(
+                "anteroom.services.document_extractor.extract_text",
+                return_value=ExtractionResult(text="PDF says @secret.txt"),
+            ):
+                result = _expand_file_references(f"{test_file} summarize", tmpdir)
+                assert "PDF says @secret.txt" in result
+                assert "secret contents" not in result
+
+    def test_leading_bare_pdf_probe_does_not_expand_slash_command_file_refs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            notes = Path(tmpdir) / "notes.txt"
+            notes.write_text("notes content")
+            result = _expand_file_references(
+                "/some-skill @notes.txt",
+                tmpdir,
+                leading_bare_pdf_only=True,
+                expand_at_references=False,
+            )
+            assert result == "/some-skill @notes.txt"
+
+    def test_bare_missing_pdf_path_is_left_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_file = Path(tmpdir) / "missing.pdf"
+            with patch("anteroom.services.document_extractor.extract_text") as mock_extract:
+                result = _expand_file_references(f"{missing_file} what's in this pdf", tmpdir)
+                assert result == f"{missing_file} what's in this pdf"
+                mock_extract.assert_not_called()
+
+    def test_bare_blocked_pdf_path_is_left_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("anteroom.services.document_extractor.extract_text") as mock_extract:
+                result = _expand_file_references("/proc/blocked.pdf what's in this pdf", tmpdir)
+                assert result == "/proc/blocked.pdf what's in this pdf"
+                mock_extract.assert_not_called()
+
+    def test_prose_like_pdf_token_is_left_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("anteroom.services.document_extractor.extract_text") as mock_extract:
+                result = _expand_file_references("Please return report.pdf-style notes", tmpdir)
+                assert result == "Please return report.pdf-style notes"
+                mock_extract.assert_not_called()
+
+    def test_pdf_extraction_warning_reports_failure_without_tool_routing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "report.pdf"
+            test_file.write_bytes(b"%PDF-1.4 fake pdf")
+            with patch(
+                "anteroom.services.document_extractor.extract_text",
+                return_value=ExtractionResult(
+                    text=None,
+                    warnings=["pypdf not installed - PDF text extraction unavailable"],
+                ),
+            ):
+                result = _expand_file_references("check @report.pdf", tmpdir)
+                assert "PDF text could not be extracted automatically" in result
+                assert "pypdf not installed" in result
+                assert str(test_file) not in result
+                assert 'name="report.pdf"' in result
+                assert "use tools to read this file" not in result
+                assert "Use the appropriate tool" not in result
+
+    def test_inline_pdf_turn_filters_file_and_delegation_tools(self) -> None:
+        tools = [
+            {"type": "function", "function": {"name": "bash"}},
+            {"type": "function", "function": {"name": "docx"}},
+            {"type": "function", "function": {"name": "glob_files"}},
+            {"type": "function", "function": {"name": "grep"}},
+            {"type": "function", "function": {"name": "pptx"}},
+            {"type": "function", "function": {"name": "read_file"}},
+            {"type": "function", "function": {"name": "run_agent"}},
+            {"type": "function", "function": {"name": "xlsx"}},
+            {"type": "function", "function": {"name": "ask_user"}},
+            {"type": "function", "function": {"name": "save_memory"}},
+        ]
+
+        filtered = _filter_tools_for_inline_pdf_turn(tools)
+        names = {tool["function"]["name"] for tool in filtered or []}
+
+        assert names == {"ask_user", "save_memory"}
+        assert {tool["function"]["name"] for tool in tools} >= {"bash", "run_agent"}
 
 
 class TestEstimateTokens:

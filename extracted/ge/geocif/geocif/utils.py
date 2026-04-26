@@ -11,6 +11,31 @@ from tqdm.rich import tqdm
 import matplotlib.pyplot as plt
 
 
+# Proper display names for ML model identifiers
+MODEL_DISPLAY_NAMES = {
+    "catboost": "CatBoost",
+    "tabpfn": "TabPFN",
+    "tabicl": "TabICL",
+    "xgboost": "XGBoost",
+    "lightgbm": "LightGBM",
+    "linear": "Linear",
+    "lasso": "Lasso",
+    "ridge": "Ridge",
+    "gam": "GAM",
+    "cubist": "Cubist",
+    "analog": "Analog",
+    "median": "Median",
+    "last_year": "Last Year",
+    "merf": "MERF",
+    "desreg": "DesReg",
+}
+
+
+def display_model_name(name: str) -> str:
+    """Return proper display name for a model identifier."""
+    return MODEL_DISPLAY_NAMES.get(name, name)
+
+
 dict_growth_stages = {
     1: "Jan 1",
     2: "Jan 11",
@@ -924,6 +949,93 @@ def detect_seasons_from_calendar(calendar_path, country, crop, max_season=3):
 
     xl.close()
     return found if found else [1]
+
+
+def remove_interior_rings(geom):
+    """Strip interior rings from a polygon geometry.
+
+    After dissolving admin_2 → admin_1, tiny gaps between the original
+    polygons create hundreds of interior rings (holes).  This removes
+    them, keeping only the exterior boundary.
+    """
+    from shapely.geometry import Polygon, MultiPolygon
+
+    if geom is None:
+        return geom
+    if geom.geom_type == "Polygon":
+        return Polygon(geom.exterior)
+    elif geom.geom_type == "MultiPolygon":
+        return MultiPolygon([Polygon(p.exterior) for p in geom.geoms])
+    return geom
+
+
+# Season name priority lists — used by ml/stats.py and fdw_export.py
+# to map CID season numbers (1, 2) to hvstat season_name values.
+PRIMARY_SEASON_NAMES = [
+    "Long", "Gu", "Season A", "First", "1st Season",
+    "Main", "Meher", "Main harvest", "Summer", "Wet",
+]
+SECONDARY_SEASON_NAMES = [
+    "Short", "Deyr", "Season B", "Second", "2nd Season",
+    "Winter", "Dry", "Main-off", "Cold-off",
+]
+
+
+def dissolve_to_admin1(gdf):
+    """Dissolve admin_2 polygons to admin_1 and clean up geometry.
+
+    Merges sub-polygons by (ADM0_NAME, ADM1_NAME) and removes interior
+    rings caused by tiny gaps between original admin_2 boundaries.
+    No-op if ADM2_NAME or ADM1_NAME columns are missing.
+
+    Returns the dissolved GeoDataFrame (or original if no dissolve needed).
+    """
+    if "ADM2_NAME" not in gdf.columns or "ADM1_NAME" not in gdf.columns:
+        return gdf
+    gdf = gdf.dissolve(by=["ADM0_NAME", "ADM1_NAME"], as_index=False)
+    gdf["geometry"] = gdf.geometry.apply(remove_interior_rings)
+    return gdf
+
+
+def display_name(name):
+    """Convert underscore-separated lowercase name to title case display.
+
+    ``"united_states_of_america"`` → ``"United States Of America"``
+    ``"winter_wheat"`` → ``"Winter Wheat"``
+    """
+    return name.title().replace("_", " ") if name else name
+
+
+_MONTH_SHORT_TO_FULL = {
+    "Jan": "January", "Feb": "February", "Mar": "March", "Apr": "April",
+    "May": "May", "Jun": "June", "Jul": "July", "Aug": "August",
+    "Sep": "September", "Oct": "October", "Nov": "November", "Dec": "December",
+}
+
+
+def friendly_stage_label(stage_name):
+    """Convert internal stage names to human-readable labels.
+
+    ``"Mar 1-Mar 31"`` → ``"March"``
+    ``"Apr 1-Mar 31"`` → ``"March - April"``
+    ``"Aug 1-Mar 31"`` → ``"March - August"``
+
+    For ``_r`` methods the first part is the latest month and the second
+    is the earliest (planting), so the display order is reversed to show
+    planting first.
+    """
+    if not stage_name:
+        return stage_name
+    parts = stage_name.split("-")
+    if len(parts) != 2:
+        return stage_name
+    start_month = parts[0].strip().split()[0]
+    end_month = parts[1].strip().split()[0]
+    start_full = _MONTH_SHORT_TO_FULL.get(start_month, start_month)
+    end_full = _MONTH_SHORT_TO_FULL.get(end_month, end_month)
+    if start_month == end_month:
+        return start_full
+    return f"{end_full} - {start_full}"
 
 
 def filter_cid_columns(df, fixed_cols, target, stat_cols):

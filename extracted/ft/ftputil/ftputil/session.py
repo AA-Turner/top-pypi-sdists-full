@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2024, Stefan Schwarzer <sschwarzer@sschwarzer.net>
+# Copyright (C) 2014-2026, Stefan Schwarzer <sschwarzer@sschwarzer.net>
 # and ftputil contributors (see `doc/contributors.txt`)
 # See the file LICENSE for licensing terms.
 
@@ -9,6 +9,7 @@ Session factory factory (the two "factory" are intentional :-) ) for ftputil.
 import ftplib
 
 import ftputil.error
+import ftputil.path_encoding
 import ftputil.tool
 
 
@@ -17,22 +18,25 @@ __all__ = ["session_factory"]
 
 def _maybe_send_opts_utf8_on(session, encoding):
     """
-    If the requested encoding is UTF-8 and the server supports the `UTF8`
-    feature, send "OPTS UTF8 ON".
-
-    See https://datatracker.ietf.org/doc/html/rfc2640.html .
+    If the requested encoding is UTF-8, send "OPTS UTF8 ON".
     """
+    # Don't send a `FEAT` command for checking for UTF-8 support.
+    #
+    # For some FTP servers, `OPTS UTF8 ON` fails, even if " UTF8" is included
+    # in the response from a `FEAT` command. Even _if_ the `FEAT` output didn't
+    # include " UTF8", we wouldn't have a sensible fallback if the user
+    # explicitly said that the server supports and should use UTF-8. In other
+    # words, regardless of what `FEAT` replied our following call of `OPTS UTF8
+    # ON` would be the same.
     if ((encoding is None) and ftputil.path_encoding.RUNNING_UNDER_PY39_AND_UP) or (
         encoding in ["UTF-8", "UTF8", "utf-8", "utf8"]
     ):
-        feat_output = session.sendcmd("FEAT")
-        server_supports_opts_utf8_on = False
-        for line in feat_output.splitlines():
-            # The leading space is important. See RFC 2640.
-            if line.upper().rstrip() == " UTF8":
-                server_supports_opts_utf8_on = True
-        if server_supports_opts_utf8_on:
+        try:
             session.sendcmd("OPTS UTF8 ON")
+        # Catch not only `error_perm` and `error_temp`, but also presumed
+        # protocol errors (from the perspective of the server).
+        except ftplib.Error:
+            pass
 
 
 # In a way, it would be appropriate to call this function
@@ -104,7 +108,7 @@ def session_factory(
             f"but base class is {base_class!r}"
         )
 
-    class Session(base_class):
+    class Session(base_class):  # ty: ignore[unsupported-base]
         """
         Session factory class created by `session_factory`.
         """

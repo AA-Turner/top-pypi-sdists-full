@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from anteroom.cli.repl import _EXIT_COMMANDS, _drain_input_to_msg_queue
+from anteroom.services.document_extractor import ExtractionResult
 
 
 @pytest.fixture
@@ -172,6 +173,93 @@ class TestCommandFiltering:
 
         assert drain_env["msg_queue"].empty()
         assert drain_env["warnings"] == ["/model"]
+
+    @pytest.mark.asyncio
+    async def test_leading_absolute_pdf_path_is_queued_not_treated_as_command(self, drain_env, tmp_path):
+        """A bare absolute PDF path may start with '/', but it is message input."""
+        db = MagicMock()
+        pdf = tmp_path / "ID Card.pdf"
+        pdf.write_bytes(b"%PDF-1.4 fake pdf")
+        drain_env["input_queue"].put_nowait(f"{pdf} what's in this pdf")
+
+        with (
+            patch("anteroom.services.document_extractor.extract_text", return_value=ExtractionResult(text="PDF text")),
+            patch("anteroom.services.storage.create_message") as mock_create,
+        ):
+            await _drain_input_to_msg_queue(
+                drain_env["input_queue"],
+                drain_env["msg_queue"],
+                str(tmp_path),
+                db,
+                "conv-123",
+                drain_env["cancel_event"],
+                drain_env["exit_flag"],
+                warn_callback=drain_env["warn_cb"],
+            )
+
+        assert drain_env["msg_queue"].qsize() == 1
+        msg = drain_env["msg_queue"].get_nowait()
+        assert msg["role"] == "user"
+        assert "PDF text" in msg["content"]
+        assert "what's in this pdf" in msg["content"]
+        assert drain_env["warnings"] == []
+        mock_create.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_slash_command_with_file_reference_is_not_preexpanded_as_message(self, drain_env, tmp_path):
+        """Slash commands keep command handling even when their args contain @file."""
+        db = MagicMock()
+        notes = tmp_path / "notes.txt"
+        notes.write_text("notes content")
+        drain_env["input_queue"].put_nowait("/help @notes.txt")
+
+        with patch("anteroom.services.storage.create_message") as mock_create:
+            await _drain_input_to_msg_queue(
+                drain_env["input_queue"],
+                drain_env["msg_queue"],
+                str(tmp_path),
+                db,
+                "conv-123",
+                drain_env["cancel_event"],
+                drain_env["exit_flag"],
+                warn_callback=drain_env["warn_cb"],
+            )
+
+        assert drain_env["msg_queue"].empty()
+        assert drain_env["warnings"] == ["/help"]
+        mock_create.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_slash_skill_with_file_reference_resolves_before_expansion(self, drain_env, tmp_path):
+        """Skill invocations are resolved before file references in the skill prompt are expanded."""
+        db = MagicMock()
+        notes = tmp_path / "notes.txt"
+        notes.write_text("notes content")
+        skill_registry = MagicMock()
+        skill_registry.resolve_input_with_skill.return_value = (True, "review @notes.txt", None)
+        drain_env["input_queue"].put_nowait("/some-skill @notes.txt")
+
+        with patch("anteroom.services.storage.create_message") as mock_create:
+            await _drain_input_to_msg_queue(
+                drain_env["input_queue"],
+                drain_env["msg_queue"],
+                str(tmp_path),
+                db,
+                "conv-123",
+                drain_env["cancel_event"],
+                drain_env["exit_flag"],
+                warn_callback=drain_env["warn_cb"],
+                skill_registry=skill_registry,
+            )
+
+        assert drain_env["msg_queue"].qsize() == 1
+        msg = drain_env["msg_queue"].get_nowait()
+        assert msg["role"] == "user"
+        assert msg["content"].startswith("review ")
+        assert "notes content" in msg["content"]
+        assert drain_env["warnings"] == []
+        skill_registry.resolve_input_with_skill.assert_called_once_with("/some-skill @notes.txt")
+        mock_create.assert_called_once()
 
 
 # =============================================================================

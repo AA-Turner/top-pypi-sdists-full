@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 
 # CalVer: YY.month.patch, e.g. first release of July 2022 == "22.7.1"
-__version__ = "25.7.1"
+__version__ = "26.4.1"
 
 
 # taken from https://github.com/Zac-HD/shed
@@ -151,7 +151,9 @@ class Plugin:
     ) -> Plugin:
         plugin = Plugin.__new__(cls)
         super(Plugin, plugin).__init__()
-        plugin._tree = ast.parse(source)
+        plugin._tree = ast.parse(
+            source, filename=str(filename) if filename is not None else "<unknown>"
+        )
         plugin.filename = str(filename) if filename else None
         plugin.module = cst_parse_module_native(source)
         return plugin

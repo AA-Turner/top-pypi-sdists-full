@@ -8,6 +8,7 @@ the next prompt accepts input, and queued messages are preserved.
 from __future__ import annotations
 
 import asyncio
+import re
 import sqlite3
 from contextlib import contextmanager
 from io import StringIO
@@ -309,3 +310,41 @@ class TestReplCancelRecovery:
         )
 
         assert exited, "REPL should not hang after agent loop exception"
+
+    async def test_pre_thinking_ack_does_not_render_process_uptime(self) -> None:
+        """Regression for #1563: early cancel ack must not show monotonic uptime.
+
+        The prompt_toolkit keybinding path owns the private ``_cancel_acked``
+        list inside ``_run_repl``, so this focused harness exercises the same
+        renderer sync path used by that keybinding and verifies the REPL
+        cancelled-turn predicate used by the done handler.
+        """
+        from anteroom.cli import renderer
+        from anteroom.cli.repl import _turn_was_cancelled
+
+        await asyncio.sleep(0)
+
+        original_repl = renderer._repl_mode
+        original_footer = renderer._footer_mode
+        original_stdout = renderer._stdout
+        original_start = renderer._thinking_start
+        try:
+            out = StringIO()
+            renderer._repl_mode = True
+            renderer._footer_mode = False
+            renderer._stdout = out
+            renderer._thinking_start = 0.0
+
+            elapsed = renderer.stop_thinking_sync(cancel_msg="cancelled")
+
+            cancel_event = asyncio.Event()
+            cancel_event.set()
+            assert _turn_was_cancelled(False, cancel_event, [True]) is True
+            assert elapsed == 0.0
+            assert "cancelled" in out.getvalue()
+            assert not re.search(r"\b\d{6,}s\b", out.getvalue())
+        finally:
+            renderer._repl_mode = original_repl
+            renderer._footer_mode = original_footer
+            renderer._stdout = original_stdout
+            renderer._thinking_start = original_start

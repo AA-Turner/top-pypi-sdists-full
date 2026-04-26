@@ -1,4 +1,4 @@
-# Copyright (C) 2003-2022, Stefan Schwarzer <sschwarzer@sschwarzer.net>
+# Copyright (C) 2003-2026, Stefan Schwarzer <sschwarzer@sschwarzer.net>
 # and ftputil contributors (see `doc/contributors.txt`)
 # See the file LICENSE for licensing terms.
 
@@ -26,8 +26,6 @@ import ftputil.file_transfer
 import ftputil.path_encoding
 import ftputil.session
 import ftputil.stat_cache
-
-import test
 
 
 def expected_time_shift():
@@ -118,6 +116,7 @@ class RealFTPTest:
         self.host = ftputil.FTPHost(
             *self.login_data, session_factory=DEFAULT_SESSION_FACTORY
         )
+        self.host.set_time_shift(0.0)
         self.cleaner = Cleaner(self.host)
 
     def teardown_method(self, method):
@@ -150,7 +149,7 @@ class TestMkdir(RealFTPTest):
         """
         host = self.host
         dir_name = "_testdir_"
-        file_name = host.path.join(dir_name, "_nonempty_")
+        _file_name = host.path.join(dir_name, "_nonempty_")
         self.cleaner.add_dir(dir_name)
         # Make dir and check if the directory is there.
         host.mkdir(dir_name)
@@ -266,7 +265,6 @@ class TestMkdir(RealFTPTest):
 
 
 class TestRemoval(RealFTPTest):
-
     # Tests for `remove`
 
     def test_remove_existing_file(self):
@@ -600,7 +598,7 @@ class TestRename(RealFTPTest):
         self.cleaner.add_file("_testfile2_")
         # Case 1: Target file doesn't exist yet.
         self.make_remote_file("_testfile1_")
-        file1_stat = host.stat("_testfile1_")
+        _file1_stat = host.stat("_testfile1_")
         host.rename(pathlib.Path("_testfile1_"), "_testfile2_")
         assert not host.path.exists("_testfile1_")
         assert host.path.exists(pathlib.Path("_testfile2_"))
@@ -611,7 +609,7 @@ class TestRename(RealFTPTest):
         with host.open("_testfile1_", "w") as fobj:
             fobj.write("abcdef\n")
         self.make_remote_file("_testfile2_")
-        file1_stat = host.stat("_testfile1_")
+        _file1_stat = host.stat("_testfile1_")
         file2_stat = host.stat("_testfile2_")
         host.rename(pathlib.Path("_testfile1_"), "_testfile2_")
         assert not host.path.exists("_testfile1_")
@@ -637,7 +635,7 @@ class TestRename(RealFTPTest):
         with host.open("_testfile1_", "w") as fobj:
             fobj.write("abcdef\n")
         self.make_remote_file("_testfile2_")
-        file1_stat = host.stat("_testfile1_")
+        _file1_stat = host.stat("_testfile1_")
         file2_stat = host.stat("_testfile2_")
         # Monkey-patch session `rename` call.
         old_rename = host._session.rename
@@ -748,27 +746,31 @@ class TestStat(RealFTPTest):
         entries of the other `FTPHost` instance.
         """
         self.make_remote_file("_testfile_")
-        with ftputil.FTPHost(
-            *self.login_data, session_factory=DEFAULT_SESSION_FACTORY
-        ) as host1:
-            with ftputil.FTPHost(
+        with (
+            ftputil.FTPHost(
                 *self.login_data, session_factory=DEFAULT_SESSION_FACTORY
-            ) as host2:
-                stat_result1 = host1.stat("_testfile_")
-                stat_result2 = host2.stat("_testfile_")
-                assert stat_result1 == stat_result2
-                host2.remove("_testfile_")
-                # Can still get the result via `host1`
-                stat_result1 = host1.stat("_testfile_")
-                assert stat_result1 == stat_result2
-                # Stat'ing on `host2` gives an exception.
-                with pytest.raises(ftputil.error.PermanentError):
-                    host2.stat("_testfile_")
-                # Stat'ing on `host1` after invalidation
-                absolute_path = host1.path.join(host1.getcwd(), "_testfile_")
-                host1.stat_cache.invalidate(absolute_path)
-                with pytest.raises(ftputil.error.PermanentError):
-                    host1.stat("_testfile_")
+            ) as host1,
+            ftputil.FTPHost(
+                *self.login_data, session_factory=DEFAULT_SESSION_FACTORY
+            ) as host2,
+        ):
+            host1.set_time_shift(0.0)
+            host2.set_time_shift(0.0)
+            stat_result1 = host1.stat("_testfile_")
+            stat_result2 = host2.stat("_testfile_")
+            assert stat_result1 == stat_result2
+            host2.remove("_testfile_")
+            # Can still get the result via `host1`
+            stat_result1 = host1.stat("_testfile_")
+            assert stat_result1 == stat_result2
+            # Stat'ing on `host2` gives an exception.
+            with pytest.raises(ftputil.error.PermanentError):
+                host2.stat("_testfile_")
+            # Stat'ing on `host1` after invalidation
+            absolute_path = host1.path.join(host1.getcwd(), "_testfile_")
+            host1.stat_cache.invalidate(absolute_path)
+            with pytest.raises(ftputil.error.PermanentError):
+                host1.stat("_testfile_")
 
     def test_cache_auto_resizing(self):
         """
@@ -777,7 +779,7 @@ class TestStat(RealFTPTest):
         host = self.host
         cache = host.stat_cache._cache
         # Make sure the cache size isn't adjusted towards smaller values.
-        unused_entries = host.listdir("walk_test")
+        _entries = host.listdir("walk_test")
         assert cache.size == ftputil.stat_cache.StatCache._DEFAULT_CACHE_SIZE
         # Make the cache very small initially and see if it gets resized.
         cache.size = 2
@@ -798,7 +800,7 @@ class TestUploadAndDownload(RealFTPTest):
         self.host.synchronize_times()
         assert self.host.time_shift() == EXPECTED_TIME_SHIFT
 
-    @pytest.mark.slow_test
+    @pytest.mark.slow
     def test_upload(self):
         """
         `upload_if_newer` should respect the time difference between client and
@@ -828,7 +830,7 @@ class TestUploadAndDownload(RealFTPTest):
             # Clean up
             os.unlink(local_file)
 
-    @pytest.mark.slow_test
+    @pytest.mark.slow
     def test_download(self):
         """
         `download_if_newer` should respect the time difference between client
@@ -850,7 +852,7 @@ class TestUploadAndDownload(RealFTPTest):
             # "touch" the local file.
             time.sleep(65)
             # Create empty file.
-            with open(local_file, "w") as fobj:
+            with open(local_file, "w") as _fobj:
                 pass
             # Local file is present and newer, so shouldn't download.
             downloaded = host.download_if_newer(remote_file, local_file)
@@ -909,9 +911,9 @@ class TestFTPFiles(RealFTPTest):
         """
         REMOTE_FILE_NAME = "CONTENTS"
         host = self.host
-        with host.open(REMOTE_FILE_NAME, "rb") as file_obj1:
+        with host.open(REMOTE_FILE_NAME, "rb") as _file_obj1:
             # Create empty file and close it.
-            with host.open(REMOTE_FILE_NAME, "rb") as file_obj2:
+            with host.open(REMOTE_FILE_NAME, "rb") as _file_obj2:
                 pass
             # This should re-use the second child because the first isn't
             # closed but the second is.
@@ -928,6 +930,7 @@ class TestFTPFiles(RealFTPTest):
         # Implicitly create child host object.
         with host.open(REMOTE_FILE_NAME, "rb") as file_obj1:
             pass
+
         # Monkey-patch file to simulate an FTP server timeout below.
         def timed_out_pwd():
             raise ftplib.error_temp("simulated timeout")
@@ -951,6 +954,7 @@ class TestFTPFiles(RealFTPTest):
         # Implicitly create child host object.
         with host.open(REMOTE_FILE_NAME, "rb") as file_obj1:
             pass
+
         # Monkey-patch file to simulate an FTP server timeout below.
         def timed_out_pwd():
             raise ftplib.error_reply("delayed 226 reply")
@@ -1048,7 +1052,7 @@ class TestChmod(RealFTPTest):
         host.mkdir("_test dir_")
         self.cleaner.add_dir("_test dir_")
         # Make sure the mode is in the cache.
-        unused_stat_result = host.stat("_test dir_")
+        _stat_result = host.stat("_test dir_")
         # Set/get mode of the directory.
         host.chmod("_test dir_", 0o757)
         self.assert_mode("_test dir_", 0o757)
@@ -1056,13 +1060,12 @@ class TestChmod(RealFTPTest):
         file_name = host.path.join("_test dir_", "_testfile_")
         self.make_remote_file(file_name)
         # Make sure the mode is in the cache.
-        unused_stat_result = host.stat(file_name)
+        _stat_result = host.stat(file_name)
         host.chmod(file_name, 0o646)
         self.assert_mode(file_name, 0o646)
 
 
 class TestRestArgument(RealFTPTest):
-
     TEST_FILE_NAME = "rest_test"
 
     def setup_method(self, method):
@@ -1260,10 +1263,11 @@ class TestOther(RealFTPTest):
             with ftputil.FTPHost(
                 *self.login_data, session_factory=DEFAULT_SESSION_FACTORY
             ) as host:
+                host.set_time_shift(0.0)
                 for _ in range(10):
-                    unused_stat_result = host.stat("CONTENTS")
+                    _stat_result = host.stat("CONTENTS")
                     with host.open("CONTENTS") as fobj:
-                        unused_data = fobj.read()
+                        _data = fobj.read()
 
     def test_garbage_collection(self):
         """

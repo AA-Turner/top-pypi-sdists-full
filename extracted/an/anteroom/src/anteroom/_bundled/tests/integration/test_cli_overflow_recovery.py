@@ -229,3 +229,45 @@ class TestCliOverflowRecovery:
         assert "Trimmed oversized tool outputs" in combined or "Trimmed" in combined, (
             f"Expected microcompact notification in rendered output; got: {combined!r}"
         )
+
+    async def test_cli_compaction_summary_retry_notification_renders(
+        self, tmp_path: Any, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The shared-loop summary prompt-too-long retry notice reaches the CLI."""
+
+        async def fake_agent_loop(**kwargs: Any) -> Any:
+            yield AgentEvent(
+                kind="phase",
+                data={
+                    "phase": "compacting",
+                    "reason": "compaction_prompt_too_long",
+                    "attempt": 2,
+                    "max_attempts": 3,
+                    "dropped_messages": 4,
+                },
+            )
+            yield AgentEvent(
+                kind="token",
+                data={
+                    "content": (
+                        "\n\n*Compaction summary prompt was too long — dropped older safe turns and retried...*\n\n"
+                    )
+                },
+            )
+            yield AgentEvent(kind="token", data={"content": "continuing after summary retry"})
+            yield AgentEvent(kind="done", data={})
+
+        db = _make_db(tmp_path)
+        config = _make_config(tmp_path)
+
+        _, exited = await _run_repl_with_agent_loop_mock(
+            ["trigger summary retry"],
+            config,
+            db,
+            agent_loop_side_effect=fake_agent_loop,
+        )
+
+        assert exited
+        captured = capsys.readouterr()
+        combined = captured.out + captured.err
+        assert "Compaction summary prompt was too long" in combined

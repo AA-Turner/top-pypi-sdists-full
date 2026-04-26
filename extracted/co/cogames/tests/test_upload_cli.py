@@ -162,6 +162,69 @@ def test_upload_with_secret_env_sends_secrets_to_server(
     }
 
 
+def test_upload_no_submit_skips_season_lookup(
+    httpserver: HTTPServer,
+    fake_home: Path,
+    tmp_path: Path,
+) -> None:
+    """Test that --no-submit does not require any season lookup when validation is skipped."""
+    httpserver.expect_request(
+        "/stats/policies/submit/presigned-url",
+        method="POST",
+    ).respond_with_json(
+        {
+            "upload_url": httpserver.url_for("/fake-s3-upload"),
+            "s3_key": "test/policy.zip",
+            "upload_id": _UPLOAD_ID,
+        }
+    )
+    httpserver.expect_request(
+        "/fake-s3-upload",
+        method="PUT",
+    ).respond_with_data("")
+    httpserver.expect_request(
+        "/stats/policies/submit/complete",
+        method="POST",
+    ).respond_with_json(
+        {
+            "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "name": "test-policy",
+            "version": 1,
+        }
+    )
+
+    policy_dir = tmp_path / "my_policy"
+    policy_dir.mkdir()
+    (policy_dir / "policy_spec.json").write_text(json.dumps({"class_path": "my_policies.Agent", "init_kwargs": {}}))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "upload",
+            "--policy",
+            policy_dir.as_uri(),
+            "--name",
+            "test-policy",
+            "--server",
+            httpserver.url_for(""),
+            "--login-server",
+            "http://fake-login-server",
+            "--skip-validation",
+            "--no-submit",
+        ],
+    )
+
+    assert result.exit_code == 0, f"Upload failed:\n{result.output}"
+
+    season_requests = [req for req, _ in httpserver.log if req.path == "/tournament/seasons"]
+    assert not season_requests
+
+    complete_req = next(req for req, _ in httpserver.log if req.path == "/stats/policies/submit/complete")
+    assert "season" not in complete_req.json
+    assert "Upload complete: test-policy:v1" in result.output
+
+
 def test_upload_command_fails_without_auth(
     httpserver: HTTPServer,
     tmp_path: Path,
@@ -877,6 +940,7 @@ def test_upload_resolves_season_and_validates(
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     monkeypatch.setattr("cogames.cli.submit.subprocess.run", fake_subprocess_run)
+    monkeypatch.setattr("cogames.main.has_display", lambda: False)
 
     runner = CliRunner()
     result = runner.invoke(
@@ -964,6 +1028,7 @@ def test_upload_skips_validation_when_no_entry_config(
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     monkeypatch.setattr("cogames.cli.submit.subprocess.run", fake_subprocess_run)
+    monkeypatch.setattr("cogames.main.has_display", lambda: False)
 
     runner = CliRunner()
     result = runner.invoke(

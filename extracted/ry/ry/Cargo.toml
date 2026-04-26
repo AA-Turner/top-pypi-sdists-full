@@ -80,7 +80,7 @@ inherits = "release"
 lto = "fat"
 
 [workspace.package]
-version = "0.0.88"
+version = "0.0.89"
 authors = [
   "jesse k. rubin <jessekrubin@gmail.com>",
   # hopefully you will contribute!
@@ -158,7 +158,7 @@ pyo3-build-config = { version = "0.28.1", default-features = false, features = [
   "resolve-config",
 ] }
 # allocator(s)
-mimalloc = { version = "0.1.48", default-features = false, features = [] }
+mimalloc = { version = "0.1.49", default-features = false, features = [] }
 # future
 tokio-websockets = { version = "0.13.1", features = [] }
 ignore = { version = "0.4.24", default-features = false, features = [] }
@@ -187,12 +187,12 @@ jiff = { version = "0.2.23", default-features = false, features = [
   "default",
   "perf-inline",
 ] }
-jiter = { version = "0.13", default-features = false, features = ["python"] }
+jiter = { version = "0.14", default-features = false, features = ["python"] }
 memchr = { version = "2.7.5", default-features = false, features = [] }
 parking_lot = { version = "0.12.5", default-features = false, features = [] }
 regex = { version = "1.12.2", default-features = false, features = [] }
 reqwest = { version = "0.13.1", default-features = false, features = [] }
-rustls = { version = "0.23.36", default-features = false, features = [] }
+rustls = { version = "0.23.38", default-features = false, features = [] }
 same-file = { version = "1.0.6", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde-transcode = { version = "1.1.1", default-features = false, features = [] }
@@ -204,7 +204,7 @@ shlex = { version = "1.3.0", default-features = false, features = [] }
 size = { version = "0.5.0", default-features = false, features = [] }
 sqlformat = { version = "0.5.0", default-features = false, features = [] }
 thiserror = { version = "2.0.18", default-features = false, features = [] }
-tokio = { version = "1.45.1", default-features = false, features = [
+tokio = { version = "1.52.1", default-features = false, features = [
   "bytes",
   "fs",
   "io-util",
@@ -224,11 +224,11 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
   "serde_json",
 ] }
 twox-hash = { version = "2.1.2", default-features = false, features = [] }
-rand = { version = "0.10.0", default-features = false, features = [] }
+rand = { version = "0.10.1", default-features = false, features = [] }
 ulid = { version = "1.2.1", default-features = false, features = ["std"] }
 unindent = { version = "0.2.4", default-features = false, features = [] }
 url = { version = "2.5.4", default-features = false, features = ["std"] }
-uuid = { version = "1.23.0", default-features = false, features = [] }
+uuid = { version = "1.23.1", default-features = false, features = [] }
 walkdir = { version = "2.5.0", default-features = false, features = [] }
 which = { version = "8.0.2", default-features = false, features = [] }
 zstd = { version = "0.13.3", default-features = false, features = [] }

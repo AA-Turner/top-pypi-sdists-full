@@ -10,8 +10,6 @@ import pytest
 
 import ftputil
 
-import test
-
 
 def email_address():
     """
@@ -55,7 +53,7 @@ def ftp_client_listing(server, directory):
         # Change to this directory before calling "dir".
         commands.insert(1, "cd {}".format(directory))
     input_ = "\n".join(commands)
-    stdout, unused_stderr = ftp_popen.communicate(input_)
+    stdout, _stderr = ftp_popen.communicate(input_)
     # Collect the directory/file names from the listing's text
     names = []
     for line in stdout.strip().split("\n"):
@@ -99,8 +97,7 @@ class TestPublicServers:
         # Posix format
         ("ftp.de.debian.org", "debian"),
         ("ftp.heise.de", "pub"),
-        ("ftp.tu-chemnitz.de", "pub"),
-        ("ftp.uni-erlangen.de", "pub"),
+        ("ftp.tu-ilmenau.de", "pub"),
         # DOS/Microsoft format
         # Do you know any FTP servers that use Microsoft format?
         # `ftp.microsoft.com` doesn't seem to be reachable anymore.
@@ -172,7 +169,7 @@ class TestPublicServers:
         finally:
             host.close()
 
-    @pytest.mark.slow_test
+    @pytest.mark.slow
     def test_servers(self):
         """
         Test all servers in `self.servers`.

@@ -26,8 +26,10 @@ import sqlite3
 
 import pytest
 
+from anteroom.cli.repl import _drain_input_to_msg_queue
 from anteroom.config import MemoryConfig, MemoryPromotionConfig, SafetyConfig, UserIdentity
 from anteroom.db import _SCHEMA, ThreadSafeConnection
+from anteroom.services import storage
 from anteroom.services.memory_service import list_memories
 from anteroom.tools import ToolRegistry, register_default_tools
 from anteroom.tools.tool_context import build_tool_extra_context
@@ -209,6 +211,95 @@ class TestReplPathRoundTrip:
         lineage = (stored[0].get("metadata") or {}).get("lineage") or []
         assert lineage[0]["actor"] == "agent"
         assert lineage[0].get("actor_id") is None
+
+    def test_explicit_memory_utterance_routes_directly_to_save_memory(self, db: ThreadSafeConnection, tmp_path) -> None:
+        cfg = _TestConfig(identity=_identity("repl-user-direct"))
+        cfg.memory = MemoryConfig(promotion=MemoryPromotionConfig(local_auto_approve=True))
+        registry = ToolRegistry()
+        register_default_tools(registry)
+        registry.set_safety_config(SafetyConfig(enabled=True, approval_mode="auto"))
+
+        input_queue: asyncio.Queue[str] = asyncio.Queue()
+        msg_queue: asyncio.Queue[dict] = asyncio.Queue()
+        conversation_id = storage.create_conversation(db, title="Direct memory")["id"]
+        input_queue.put_nowait("save my name Troy Larson as a memorry")
+        cancel_event = asyncio.Event()
+        exit_flag = asyncio.Event()
+
+        asyncio.run(
+            _drain_input_to_msg_queue(
+                input_queue,
+                msg_queue,
+                str(tmp_path),
+                db,
+                conversation_id,
+                cancel_event,
+                exit_flag,
+                identity_kwargs={"user_id": "repl-user-direct", "user_display_name": "Test User"},
+                tool_registry=registry,
+                config=cfg,
+            )
+        )
+
+        assert msg_queue.empty()
+        stored = list_memories(db)
+        assert len(stored) == 1
+        assert stored[0]["content"] == "User's name is Troy Larson."
+        assert stored[0]["metadata"]["memory_status"] == "active"
+        messages = storage.list_messages(db, conversation_id)
+        assistant = [m for m in messages if m["role"] == "assistant"][0]
+        assert "active memory" in assistant["content"]
+        assert "eligible for recall" in assistant["content"]
+        assert "may" not in assistant["content"].lower()
+        assert stored[0]["fqn"] in assistant["content"]
+        meta = assistant["metadata"]["memory_save"]
+        assert meta["memory_status"] == "active"
+        assert meta["recallable"] is True
+        assert meta["review_required"] is False
+        tool_calls = assistant["tool_calls"]
+        assert len(tool_calls) == 1
+        assert tool_calls[0]["tool_name"] == "save_memory"
+        assert tool_calls[0]["output"]["memory_status"] == "active"
+
+    def test_explicit_memory_utterance_candidate_status_is_precise(self, db: ThreadSafeConnection, tmp_path) -> None:
+        cfg = _TestConfig(identity=_identity("repl-user-candidate"))
+        registry = ToolRegistry()
+        register_default_tools(registry)
+        registry.set_safety_config(SafetyConfig(enabled=True, approval_mode="auto"))
+
+        input_queue: asyncio.Queue[str] = asyncio.Queue()
+        msg_queue: asyncio.Queue[dict] = asyncio.Queue()
+        conversation_id = storage.create_conversation(db, title="Candidate memory")["id"]
+        input_queue.put_nowait("save my name Troy Larson as a memorry")
+        cancel_event = asyncio.Event()
+        exit_flag = asyncio.Event()
+
+        asyncio.run(
+            _drain_input_to_msg_queue(
+                input_queue,
+                msg_queue,
+                str(tmp_path),
+                db,
+                conversation_id,
+                cancel_event,
+                exit_flag,
+                identity_kwargs={"user_id": "repl-user-candidate", "user_display_name": "Test User"},
+                tool_registry=registry,
+                config=cfg,
+            )
+        )
+
+        assert msg_queue.empty()
+        messages = storage.list_messages(db, conversation_id)
+        assistant = [m for m in messages if m["role"] == "assistant"][0]
+        assert "memory candidate" in assistant["content"]
+        assert "not active or recallable until approved" in assistant["content"]
+        assert "may" not in assistant["content"].lower()
+        meta = assistant["metadata"]["memory_save"]
+        assert meta["memory_status"] == "candidate"
+        assert meta["recallable"] is False
+        assert meta["review_required"] is True
+        assert assistant["tool_calls"][0]["output"]["memory_status"] == "candidate"
 
 
 # ---------------------------------------------------------------------------

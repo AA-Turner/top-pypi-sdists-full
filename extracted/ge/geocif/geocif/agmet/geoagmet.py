@@ -1,3 +1,15 @@
+"""Agricultural Meteorology (Agmet) Monitoring Runner.
+
+Generates multi-panel time-series plots of climate and vegetation
+indicators per region and district, with crop calendar overlays
+and optional FLDAS forecast dots.
+
+Usage::
+
+    from geocif.agmet import geoagmet
+    geoagmet.run(cfg_geocif)
+"""
+
 import ast
 import os
 import shutil

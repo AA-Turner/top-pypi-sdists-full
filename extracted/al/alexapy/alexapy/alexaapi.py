@@ -1715,9 +1715,13 @@ class AlexaAPI:
         This will search the [last items] activity records and find the latest
         entry where Echo successfully responded.
         """
-        response = await AlexaAPI.get_customer_history_records(
-            login, max_record_size=items
-        )
+        try:
+            response = await AlexaAPI.get_customer_history_records(
+                login, max_record_size=items
+            )
+        except TypeError as e:
+            _LOGGER.debug("Customer history request failed: %s", e)
+            return None
         if response is not None:
             for last_activity in response:
                 summary = ""

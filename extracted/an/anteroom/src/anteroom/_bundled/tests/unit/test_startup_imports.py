@@ -227,10 +227,10 @@ class TestUpdateCheckConfig:
         )
         # Verify the guard appears BEFORE the _check_for_update call
         guard_pos = source.index("config.cli.update_check")
-        call_pos = source.index("_check_for_update(__version__")
+        call_pos = source.index("check_for_update(__version__")
         assert guard_pos < call_pos, (
             f"config.cli.update_check (pos {guard_pos}) appears AFTER "
-            f"_check_for_update call (pos {call_pos}). The guard must come first."
+            f"check_for_update call (pos {call_pos}). The guard must come first."
         )
 
     def test_check_for_update_passes_command_kwarg(self) -> None:
@@ -239,6 +239,12 @@ class TestUpdateCheckConfig:
         assert "command=config.cli.update_check_command" in source, (
             "repl.py does not pass command=config.cli.update_check_command to _check_for_update. See #1384."
         )
+
+    def test_update_check_uses_configured_message(self) -> None:
+        """The startup callback must use config.cli.update_check_message."""
+        source = self._get_repl_source()
+        assert "config.cli.update_check_message" in source
+        assert "format_update_message(" in source
 
     @pytest.mark.asyncio
     async def test_custom_command_returns_version(self) -> None:
@@ -249,7 +255,9 @@ class TestUpdateCheckConfig:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(b"2.0.0\n", b""))
 
-        with patch("anteroom.cli.repl.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)):
+        with patch(
+            "anteroom.services.version_check.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)
+        ):
             from anteroom.cli.repl import _check_for_update
 
             result = await _check_for_update("1.0.0", command="echo 2.0.0")
@@ -265,7 +273,9 @@ class TestUpdateCheckConfig:
         mock_proc.returncode = 1
         mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
 
-        with patch("anteroom.cli.repl.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)):
+        with patch(
+            "anteroom.services.version_check.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)
+        ):
             from anteroom.cli.repl import _check_for_update
 
             result = await _check_for_update("1.0.0", command="false")
@@ -281,7 +291,9 @@ class TestUpdateCheckConfig:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(b"  2.0.0  \n", b""))
 
-        with patch("anteroom.cli.repl.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)):
+        with patch(
+            "anteroom.services.version_check.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)
+        ):
             from anteroom.cli.repl import _check_for_update
 
             result = await _check_for_update("1.0.0", command="echo version")
@@ -297,7 +309,9 @@ class TestUpdateCheckConfig:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(b"anteroom (2.0.0)", b""))
 
-        with patch("anteroom.cli.repl.asyncio.create_subprocess_exec", AsyncMock(return_value=mock_proc)) as mock_exec:
+        with patch(
+            "anteroom.services.version_check.asyncio.create_subprocess_exec", AsyncMock(return_value=mock_proc)
+        ) as mock_exec:
             from anteroom.cli.repl import _check_for_update
 
             result = await _check_for_update("1.0.0")
@@ -318,7 +332,9 @@ class TestUpdateCheckConfig:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(b"1.0.0\n", b""))
 
-        with patch("anteroom.cli.repl.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)):
+        with patch(
+            "anteroom.services.version_check.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)
+        ):
             from anteroom.cli.repl import _check_for_update
 
             result = await _check_for_update("1.0.0", command="echo 1.0.0")

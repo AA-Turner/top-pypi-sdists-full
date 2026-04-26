@@ -37,6 +37,11 @@ class SharedState:
     library: tuple[str, ...] = ()
     typed_calls: dict[str, str] = field(default_factory=dict[str, str])
     variables: dict[str, str] = field(default_factory=dict[str, str])
+    # Local name -> canonical dotted qualname, populated by VisitorImportTracker[_cst].
+    # Helpers consult this so rules can match the canonical qualname regardless of
+    # how a symbol was imported (`import x`, `import x as y`, `from x import y`,
+    # `from x import y as z`).
+    imports: dict[str, str] = field(default_factory=dict[str, str])
 
 
 class __CommonRunner:
@@ -138,7 +143,14 @@ class Flake8AsyncRunner_cst(__CommonRunner):
 
     def run(self) -> Iterable[Error]:
         for v in (*self.utility_visitors, *self.visitors):
-            self.module = cst.MetadataWrapper(self.module).visit(v)
+            # The default deepcopy guards against the same CST node object
+            # appearing at two positions in the tree (metadata is keyed by node
+            # identity). Parser output and the result of a prior .visit() never
+            # share nodes, so the copy is wasted work. This stays safe as long
+            # as no visitor returns a cached CST node from multiple leave_* calls.
+            self.module = cst.MetadataWrapper(self.module, unsafe_skip_copy=True).visit(
+                v
+            )
 
         yield from self.state.problems
 

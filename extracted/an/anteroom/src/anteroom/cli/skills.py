@@ -858,7 +858,8 @@ class SkillRegistry:
                 "name": "invoke_skill",
                 "description": (
                     "Invoke a predefined skill/workflow. Use this when the user's request "
-                    "clearly matches one of the available skills listed in <available_skills>."
+                    "clearly matches one of the available skills listed in <available_skills>. "
+                    "Do not use for explicit memory-save requests; use save_memory instead."
                 ),
                 "parameters": {
                     "type": "object",

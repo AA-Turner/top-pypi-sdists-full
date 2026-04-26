@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: cogames
-Version: 0.25.7
+Version: 0.26.10
 Summary: Multi-agent cooperative games
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: <3.13,>=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mettagrid==0.25.5
-Requires-Dist: softmax-cli==0.25.1
+Requires-Dist: mettagrid==0.26.7
+Requires-Dist: softmax-cli==0.26.4
 Requires-Dist: packaging>=24.0.0
 Requires-Dist: pydantic>=2.11.5
 Requires-Dist: pyyaml>=6.0.2
@@ -26,6 +26,22 @@ Requires-Dist: nbconvert>=7.16.0
 Requires-Dist: jupytext>=1.16.0
 Requires-Dist: ipykernel>=6.29.5
 Requires-Dist: pytest-httpserver>=1.1.0
+Provides-Extra: diplomacog
+Requires-Dist: diplomacog; extra == "diplomacog"
+Provides-Extra: hungercog
+Requires-Dist: hungercog; extra == "hungercog"
+Provides-Extra: overcogged
+Requires-Dist: overcogged; extra == "overcogged"
+Provides-Extra: tribalcog
+Requires-Dist: tribalcog; extra == "tribalcog"
+Provides-Extra: amongcogs
+Requires-Dist: amongcogs; extra == "amongcogs"
+Provides-Extra: werecog
+Requires-Dist: werecog; extra == "werecog"
+Provides-Extra: cogsguard
+Requires-Dist: cogsguard; extra == "cogsguard"
+Provides-Extra: bitworld
+Requires-Dist: bitworld; extra == "bitworld"
 Provides-Extra: neural
 Requires-Dist: pufferlib-core; extra == "neural"
 Requires-Dist: torch; extra == "neural"
