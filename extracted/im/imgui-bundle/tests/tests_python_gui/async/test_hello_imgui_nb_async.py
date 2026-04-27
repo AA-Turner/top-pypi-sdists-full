@@ -152,5 +152,46 @@ async def test_nb_variable_updates():
     assert data["text"] == "Iteration 5", "Text should be 'Iteration 5'"
 
 
+@pytest.mark.asyncio
+async def test_run_async_double_setup_does_not_tear_down_first():
+    """Regression test mirroring the immapp version, but exercising the
+    HelloImGui::ManualRender state machine instead of immapp's.
+
+    Two concurrent hello_imgui.run_async() tasks: the second's setup must
+    raise RuntimeError ("...already initialized...") AND must leave the
+    first task's renderer untouched. Pre-fix, if any state mutation in
+    HelloImGui::ManualRender::SetupFrom* runs before the not-initialized
+    check, the first task's renderer is corrupted (segfault on Linux,
+    silent freeze elsewhere).
+    """
+    gui1_frames = 0
+
+    def gui1():
+        nonlocal gui1_frames
+        gui1_frames += 1
+
+    def gui2():
+        pass  # never reached — setup will throw
+
+    task1 = asyncio.create_task(hello_imgui.run_async(gui1, window_title="HI_GUI1"))
+    await asyncio.sleep(0.5)
+    assert gui1_frames > 0, "GUI 1 should have rendered at least one frame"
+    frames_at_collision = gui1_frames
+
+    task2 = asyncio.create_task(hello_imgui.run_async(gui2, window_title="HI_GUI2"))
+    await asyncio.sleep(0.3)
+    assert task2.done(), "Task 2 should have failed quickly during setup"
+    exc = task2.exception()
+    assert isinstance(exc, RuntimeError), f"Expected RuntimeError, got {exc!r}"
+    assert "already initialized" in str(exc)
+
+    await asyncio.sleep(0.3)
+    assert not task1.done(), f"GUI 1 should still be running, got: {task1.exception() if task1.done() else 'done'}"
+    assert gui1_frames > frames_at_collision, "GUI 1 should keep rendering after the failed task 2"
+
+    hello_imgui.get_runner_params().app_shall_exit = True
+    await task1
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -35,6 +35,7 @@ mod config;
 mod fs;
 mod git;
 mod hook;
+mod hook_entry;
 mod hooks;
 mod http;
 mod install_source;
@@ -376,12 +377,17 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 &store,
                 cli.globals.config,
                 args.repo,
+                args.exclude_repo,
+                args.include_tag,
+                args.exclude_tag,
+                args.repo_include_tag,
+                args.repo_exclude_tag,
                 cli.globals.verbose > 0,
                 args.bleeding_edge,
                 args.freeze,
                 args.jobs,
                 args.dry_run || args.check,
-                args.check,
+                args.exit_code || args.check,
                 args.cooldown_days,
                 printer,
             )

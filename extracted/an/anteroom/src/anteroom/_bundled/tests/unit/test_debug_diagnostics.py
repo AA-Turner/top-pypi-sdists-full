@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from anteroom.services.debug_diagnostics import DebugDiagnosticsCollector
+from anteroom.services.debug_diagnostics import DebugDiagnosticsCollector, sanitize_diagnostic_text
 
 
 class _Clock:
@@ -23,6 +23,9 @@ def test_debug_summary_tracks_phases_tools_usage_and_stop_reason() -> None:
     collector = DebugDiagnosticsCollector(
         provider="openai",
         model="gpt-test",
+        turn_id="cli_abc123",
+        interface="cli",
+        conversation_id="conv-1",
         clock=clock.monotonic,
         wall_clock=clock.wall_clock,
     )
@@ -41,6 +44,11 @@ def test_debug_summary_tracks_phases_tools_usage_and_stop_reason() -> None:
     summary = collector.finish()
 
     assert summary["stop_reason"] == "completed"
+    assert summary["version"] == 2
+    assert summary["turn_id"] == "cli_abc123"
+    assert summary["request_id"] == "cli_abc123"
+    assert summary["interface"] == "cli"
+    assert summary["conversation_id"] == "conv-1"
     assert summary["model"] == {"provider": "openai", "name": "gpt-test"}
     assert summary["usage"]["total_tokens"] == 15
     assert [phase["phase"] for phase in summary["phases"][:3]] == ["connecting", "waiting", "retrying"]
@@ -75,11 +83,96 @@ def test_debug_summary_omits_raw_tokens_tool_arguments_and_outputs() -> None:
 
 def test_debug_summary_tracks_active_tool_on_terminal_error() -> None:
     collector = DebugDiagnosticsCollector()
-    collector.observe("tool_call_start", {"id": "tc-active", "tool_name": "read_file", "arguments": {"path": "a.py"}})
-    collector.observe("error", {"code": "timeout", "message": "stream timed out"})
+    collector.observe(
+        "tool_call_start",
+        {
+            "id": "tc-active",
+            "tool_name": "read_file",
+            "arguments": {"path": "a.py"},
+            "timeout_seconds": 30,
+        },
+    )
+    collector.observe(
+        "error",
+        {
+            "code": "timeout",
+            "message": "stream timed out",
+            "timeout_type": "stream_stall",
+            "elapsed_seconds": 30.4,
+            "timeout_seconds": 30,
+        },
+    )
 
     summary = collector.finish("timeout")
 
     assert summary["stop_reason"] == "timeout"
     assert summary["active_tools"][0]["id"] == "tc-active"
     assert summary["active_tools"][0]["status"] == "running"
+    assert summary["active_tools"][0]["timeout_seconds"] == 30
+    assert summary["errors"][0]["timeout_type"] == "stream_stall"
+    assert summary["errors"][0]["elapsed_seconds"] == 30.4
+
+
+def test_public_diagnostic_sanitizer_redacts_secret_patterns() -> None:
+    rendered = sanitize_diagnostic_text("api_key=supersecret Authorization: Bearer abc123", max_chars=200)
+
+    assert "supersecret" not in rendered
+    assert "Bearer abc123" not in rendered
+    assert "[redacted]" in rendered
+
+
+def test_debug_summary_preserves_richer_compaction_metadata() -> None:
+    collector = DebugDiagnosticsCollector(turn_id="web_1", interface="web")
+
+    collector.observe(
+        "compaction",
+        {
+            "reason": "context_error_recovery",
+            "strategy": "drop_old_turn_groups",
+            "estimated_tokens": 125000,
+            "message_count": 90,
+            "new_message_count": 12,
+            "message_threshold": 80,
+            "token_threshold": 100000,
+            "messages_compacted": 78,
+            "tail_preserved": 10,
+            "dropped_messages": 8,
+            "bytes_saved": 4096,
+            "in_memory_only": True,
+            "no_op": False,
+        },
+    )
+
+    event = collector.finish("completed")["runtime_events"][0]
+
+    assert event["kind"] == "compaction"
+    assert event["strategy"] == "drop_old_turn_groups"
+    assert event["estimated_tokens"] == 125000
+    assert event["message_threshold"] == 80
+    assert event["messages_compacted"] == 78
+    assert event["tail_preserved"] == 10
+    assert event["in_memory_only"] is True
+
+
+def test_debug_snapshot_is_redacted_and_live() -> None:
+    clock = _Clock()
+    collector = DebugDiagnosticsCollector(
+        turn_id="web_live",
+        interface="web",
+        clock=clock.monotonic,
+        wall_clock=clock.wall_clock,
+    )
+    secret = "sk-testsecret1234567890"
+
+    collector.observe("phase", {"phase": "waiting", "timeout_seconds": 10, "timeout_type": "first_token"})
+    collector.observe("tool_call_start", {"id": "tc-1", "tool_name": "bash", "arguments": {"command": secret}})
+
+    snapshot = collector.snapshot()
+    rendered = str(snapshot)
+
+    assert snapshot["turn_id"] == "web_live"
+    assert snapshot["current_phase"]["phase"] == "tool_exec"
+    assert snapshot["current_phase"]["age_seconds"] is not None
+    assert snapshot["active_tools"][0]["argument_shape"] == {"type": "object", "keys": ["command"], "key_count": 1}
+    assert secret not in rendered
+    assert snapshot["redaction"]["raw_messages"] == "omitted"

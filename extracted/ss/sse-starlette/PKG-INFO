@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sse-starlette
-Version: 3.3.4
+Version: 3.4.1
 Summary: SSE plugin for Starlette
 Author-email: sysid <sysid@gmx.de>
 License-Expression: BSD-3-Clause
@@ -24,8 +24,10 @@ Requires-Dist: anyio>=4.7.0
 Provides-Extra: examples
 Requires-Dist: uvicorn>=0.34.0; extra == "examples"
 Requires-Dist: fastapi>=0.115.12; extra == "examples"
-Requires-Dist: sqlalchemy[asyncio]>=2.0.41; extra == "examples"
-Requires-Dist: aiosqlite>=0.21.0; extra == "examples"
+Requires-Dist: pydantic>=2; extra == "examples"
+Provides-Extra: examples-db
+Requires-Dist: sqlalchemy[asyncio]>=2.0.41; extra == "examples-db"
+Requires-Dist: aiosqlite>=0.21.0; extra == "examples-db"
 Provides-Extra: uvicorn
 Requires-Dist: uvicorn>=0.34.0; extra == "uvicorn"
 Provides-Extra: granian
@@ -50,8 +52,11 @@ Production ready Server-Sent Events implementation for Starlette and FastAPI fol
 pip install sse-starlette
 uv add sse-starlette
 
-# To run the examples and demonstrations
+# To run the examples (fastapi, uvicorn, pydantic)
 uv add sse-starlette[examples]
+
+# Example 03 also needs the DB extras (sqlalchemy, aiosqlite)
+uv add sse-starlette[examples,examples-db]
 
 # Recommended ASGI server
 uv add sse-starlette[uvicorn,granian,daphne]
@@ -465,9 +470,15 @@ timeout server 60s
 See examples and demonstrations for implementation patterns. Run tests with:
 
 ```bash
-make test-unit  # Unit tests only
-make test       # All tests including integration
+make test-unit              # Unit tests only (default dev install)
+make test                   # Unit + docker integration tests
+make test-experimentation   # Optional experimentation tests (multi-consumer load tests)
+                            # Requires the `experimentation` dependency group:
+                            #   uv sync --group experimentation
 ```
+
+The `experimentation` group is opt-in (kept out of the default `dev` install) to keep the
+contributor footprint small. See `tests/experimentation/` for the tests it enables.
 
 <!-- Badges -->
 [pypi-image]: https://badge.fury.io/py/sse-starlette.svg

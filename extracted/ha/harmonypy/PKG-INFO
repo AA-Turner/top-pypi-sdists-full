@@ -1,24 +1,33 @@
 Metadata-Version: 2.4
 Name: harmonypy
-Version: 0.2.0
-Summary: A data integration algorithm.
-Project-URL: Homepage, https://github.com/slowkow/harmonypy
-Author-email: Kamil Slowikowski <kslowikowski@gmail.com>, John Arevalo <johnarevalo@gmail.com>
-License-Expression: MIT
-License-File: LICENSE
-Classifier: Development Status :: 3 - Alpha
+Version: 2.0.0
+Summary: Batch correction for single-cell data using the Harmony algorithm with a C++ Armadillo backend.
+Keywords: harmony,batch-correction,integration,single-cell,bioinformatics
+Author-Email: Kamil Slowikowski <kslowikowski@gmail.com>, John Arevalo <johnarevalo@gmail.com>
+License-Expression: GPL-3.0-or-later
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Natural Language :: English
-Classifier: Operating System :: OS Independent
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: C++
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Project-URL: Homepage, https://github.com/slowkow/harmonypy
+Project-URL: Repository, https://github.com/slowkow/harmonypy
+Project-URL: Issues, https://github.com/slowkow/harmonypy/issues
+Project-URL: Changelog, https://github.com/slowkow/harmonypy/blob/master/CHANGELOG.md
 Requires-Python: >=3.9
 Requires-Dist: numpy
-Requires-Dist: pandas
-Requires-Dist: scikit-learn
-Requires-Dist: scipy
-Requires-Dist: torch
+Provides-Extra: test
+Requires-Dist: pandas; extra == "test"
+Requires-Dist: pytest>=8.4.2; extra == "test"
+Requires-Dist: scipy; extra == "test"
 Description-Content-Type: text/markdown
 
 # harmonypy
@@ -33,19 +42,43 @@ Description-Content-Type: text/markdown
 [zb]: https://img.shields.io/badge/DOI-10.5281/zenodo.4531400-blue
 [zen]: https://doi.org/10.5281/zenodo.4531400
 
-**harmonypy** is a Python implementation of the [Harmony] algorithm for integrating multiple high-dimensional datasets.
+**harmonypy** is a Python package for the [Harmony] algorithm for integrating multiple high-dimensional datasets. It uses a C++ backend (Armadillo) for fast linear algebra, matching the [R harmony2 package][Harmony] step-by-step.
 
 <p align="center">
-  <img src="https://i.imgur.com/lqReopf.gif">
+  <img src="https://github.com/user-attachments/assets/018f82a7-ebb2-47a7-a340-dc9427c51b50">
 </p>
 
-This animation shows Harmony aligning three single-cell RNA-seq datasets from different donors. [→ How to make this animation](https://slowkow.com/notes/harmony-animation/). Before Harmony, you can clearly distinguish cells from each of the three donors. After Harmony, the cells from different donors are mixed while preserving the overall shape of the data. This makes it easier to run clustering algorithms to find similar cell types that are present in different batches of data.
+This animation shows Harmony aligning three single-cell RNA-seq datasets from different donors. [→ How to make this animation](https://slowkow.com/notes/harmony-animation/). Before Harmony, you can clearly distinguish cells from each of the three donors. After Harmony, the cells from different donors are mixed while preserving the overall shape of the data.
 
 
 ## Installation
 
+Install from PyPI (pre-built wheels for Linux and macOS):
+
 ```bash
 pip install harmonypy
+```
+
+### Building from source
+
+Building from source requires a C++ compiler, CMake, and a BLAS library:
+
+**macOS** (uses Apple Accelerate, no extra dependencies):
+
+```bash
+pip install .
+```
+
+**Linux** (requires OpenBLAS):
+
+```bash
+# Debian/Ubuntu
+sudo apt install libopenblas-dev cmake
+
+# RHEL/Fedora
+sudo dnf install openblas-devel cmake
+
+pip install .
 ```
 
 
@@ -67,17 +100,63 @@ result = pd.DataFrame(harmony_out.Z_corr, columns=pcs.columns)
 result.to_csv("pbmc_3500_pcs_harmony.tsv", sep="\t", index=False)
 ```
 
+
+## Usage with Scanpy
+
+```python
+import scanpy as sc
+import harmonypy as hm
+
+# Load and preprocess your data
+adata = sc.read_h5ad("my_data.h5ad")
+sc.pp.pca(adata)
+
+# Get PCs from the AnnData object
+pcs = adata.obsm['X_pca']
+print(pcs.shape)  # (n_cells, n_pcs)
+
+# Run Harmony on the PCA embedding
+harmony_out = hm.run_harmony(pcs, adata.obs, "batch")
+
+# Store corrected PCs back in the AnnData object
+adata.obsm['X_pca_harmony'] = harmony_out.Z_corr
+
+# Use harmonized PCs for downstream analysis
+sc.pp.neighbors(adata, use_rep='X_pca_harmony')
+sc.tl.umap(adata)
+sc.tl.leiden(adata)
+```
+
+
+## Parameters
+
+`run_harmony` accepts the same parameters as the R package:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `theta` | 2 | Diversity penalty per batch variable |
+| `sigma` | 0.1 | Kernel bandwidth for soft clustering |
+| `nclust` | min(N/30, 100) | Number of clusters |
+| `max_iter_harmony` | 10 | Maximum Harmony iterations |
+| `max_iter_kmeans` | 4 | K-means iterations per Harmony round |
+| `epsilon_harmony` | 1e-2 | Convergence threshold |
+| `ncores` | 0 | BLAS threads (0 = all cores) |
+| `lamb` | None | Ridge penalty (None = auto-estimate) |
+
+The `ncores` parameter controls BLAS threading (Accelerate on macOS, OpenBLAS on Linux). Default is 0 (use all available cores). Set `ncores=1` for single-threaded execution.
+
+
 ## Performance
 
-Apple M1 Ultra (2022) with PyTorch MPS backend:
+The script in `tests/test_harmony.py` on an Apple M1 (2022) chip reports:
 
 ```
-  Small (3.5k cells x 30 PCs):    3.48s
-  Medium (69k cells x 50 PCs):    9.26s
-  Large (858k cells x 29 PCs):    21.75s
+  Dataset                    Time    RSS delta
+  ---------------------- -------- ------------
+  Small (3.5k cells)        0.23s     45.2 MB
+  Medium (69k cells)        4.76s    262.3 MB
+  Large (858k cells)       29.29s   1969.5 MB
 ```
-
-Note: For small datasets, the NumPy-only version (v0.1.0) may be faster due to GPU overhead.
 
 
 ## Citation
@@ -87,6 +166,10 @@ If you use Harmony in your work, please cite the original paper:
 > Korsunsky, I., Millard, N., Fan, J. et al. **Fast, sensitive and accurate integration of single-cell data with Harmony.** *Nat Methods* 16, 1289–1296 (2019). https://doi.org/10.1038/s41592-019-0619-0
 
 The [Supplementary Information PDF][supp] provides detailed mathematical descriptions and implementation notes.
+
+To learn more about Harmony 2, please see the preprint here:
+
+> Patikas, Nikolaos, Hongcheng Yao, Roopa Madhu, Soumya Raychaudhuri, Martin Hemberg, and Ilya Korsunsky. 2026. **Integration of Large, Complex Single-Cell Datasets with Harmony2.** *bioRxiv*. https://doi.org/10.64898/2026.03.16.711825
 
 [Harmony]: https://github.com/immunogenomics/harmony
 [supp]: https://static-content.springer.com/esm/art%3A10.1038%2Fs41592-019-0619-0/MediaObjects/41592_2019_619_MOESM1_ESM.pdf

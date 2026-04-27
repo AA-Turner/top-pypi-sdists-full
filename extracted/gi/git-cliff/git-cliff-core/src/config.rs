@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::LazyLock;
 use std::{fmt, fs};
 
+use etcetera::{BaseStrategy, choose_base_strategy};
 use glob::Pattern;
 use regex::{Regex, RegexBuilder};
 use secrecy::SecretString;
@@ -9,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::embed::EmbeddedConfig;
 use crate::error::Result;
-use crate::{DEFAULT_CONFIG, command, error};
+use crate::{CONFIG_FILES, DEFAULT_CONFIG, command, error};
 
 /// Default initial tag.
 const DEFAULT_INITIAL_TAG: &str = "0.1.0";
@@ -23,17 +25,15 @@ struct ManifestInfo {
     regex: Regex,
 }
 
-lazy_static::lazy_static! {
-    /// Array containing manifest information for Rust and Python projects.
-    static ref MANIFEST_INFO: Vec<ManifestInfo> = vec![
+/// Array containing manifest information for Rust and Python projects.
+static MANIFEST_INFO: LazyLock<Vec<ManifestInfo>> = LazyLock::new(|| {
+    vec![
         ManifestInfo {
             path: PathBuf::from("Cargo.toml"),
-            regex: RegexBuilder::new(
-                r"^\[(?:workspace|package)\.metadata\.git\-cliff\.",
-            )
-            .multi_line(true)
-            .build()
-            .expect("failed to build regex"),
+            regex: RegexBuilder::new(r"^\[(?:workspace|package)\.metadata\.git\-cliff\.")
+                .multi_line(true)
+                .build()
+                .expect("failed to build regex"),
         },
         ManifestInfo {
             path: PathBuf::from("pyproject.toml"),
@@ -42,9 +42,8 @@ lazy_static::lazy_static! {
                 .build()
                 .expect("failed to build regex"),
         },
-    ];
-
-}
+    ]
+});
 
 /// Configuration values.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,7 +83,13 @@ pub struct ChangelogConfig {
 
 /// Git configuration
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct GitConfig {
+    /// Optional processing order for commit transformation steps.
+    ///
+    /// If unset, the legacy processing behavior is preserved for backwards
+    /// compatibility.
+    pub processing_order: Option<Vec<ProcessingStep>>,
     /// Parse commits according to the conventional commits specification.
     pub conventional_commits: bool,
     /// Require all commits to be conventional.
@@ -142,6 +147,25 @@ pub struct GitConfig {
     /// Exclude unrelated commits with changes at the specified paths.
     #[serde(with = "serde_pattern", default)]
     pub exclude_paths: Vec<Pattern>,
+}
+
+/// Processing steps for commits.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProcessingStep {
+    /// An array of regex based parsers to modify commit messages prior to
+    /// further processing.
+    CommitPreprocessors,
+    /// Split commits on newlines, treating each line as an individual commit.
+    SplitCommits,
+    /// Parse commits according to the conventional commits specification.
+    ConventionalCommits,
+    /// An array of regex based parsers for extracting data from the commit
+    /// message.
+    CommitParsers,
+    /// An array of regex based parsers to extract links from the commit
+    /// message and add them to the commit's context.
+    LinkParsers,
 }
 
 /// Serialize and deserialize implementation for [`glob::Pattern`].
@@ -373,10 +397,10 @@ impl Bump {
     #[must_use]
     pub fn get_initial_tag(&self) -> String {
         if let Some(tag) = self.initial_tag.clone() {
-            log::warn!("No releases found, using initial tag '{tag}' as the next version");
+            tracing::warn!("No releases found, using initial tag '{tag}' as the next version");
             tag
         } else {
-            log::warn!("No releases found, using {DEFAULT_INITIAL_TAG} as the next version");
+            tracing::warn!("No releases found, using {DEFAULT_INITIAL_TAG} as the next version");
             DEFAULT_INITIAL_TAG.into()
         }
     }
@@ -489,41 +513,43 @@ impl Config {
             .try_deserialize()?)
     }
 
-    /// Find a special config path on macOS.
-    ///
-    /// The `dirs` crate ignores the `XDG_CONFIG_HOME` env var on macOS and only considers
-    /// `Library/Application Support` as the config dir, which is primarily used by GUI apps.
-    ///
-    /// This function determines the config path and honors the `XDG_CONFIG_HOME` env var.
-    /// If it is not set, it will fall back to `~/.config`
-    #[cfg(target_os = "macos")]
-    pub fn retrieve_xdg_config_on_macos() -> PathBuf {
-        let config_dir = std::env::var("XDG_CONFIG_HOME").map_or_else(
-            |_| dirs::home_dir().unwrap_or_default().join(".config"),
-            PathBuf::from,
-        );
-        config_dir.join("git-cliff")
-    }
-
     /// Find the path of the config file.
     ///
     /// If the config file is not found in its standard locations, [`None`] is returned.
     #[must_use]
-    pub fn retrieve_config_path() -> Option<PathBuf> {
+    pub fn retrieve_user_config_path() -> Option<PathBuf> {
+        // cannot panic - see https://github.com/lunacookies/etcetera/issues/42
+        let strategy = choose_base_strategy()
+            .expect("cannot determine current OS's default strategy (layout)");
         for supported_path in [
+            strategy.config_dir().join("git-cliff").join(DEFAULT_CONFIG),
+            // paths for backwards compatibility
             #[cfg(target_os = "macos")]
-            Some(Config::retrieve_xdg_config_on_macos().join(DEFAULT_CONFIG)),
-            dirs::config_dir().map(|dir| dir.join("git-cliff").join(DEFAULT_CONFIG)),
+            strategy
+                .home_dir()
+                .to_path_buf()
+                .join("Library/Application Support/git-cliff")
+                .join(DEFAULT_CONFIG),
         ]
         .iter()
-        .filter_map(|v| v.as_ref())
         {
             if supported_path.exists() {
-                log::debug!("Using configuration file from: {supported_path:?}");
+                #[allow(clippy::unnecessary_debug_formatting)]
+                {
+                    tracing::debug!("Using configuration file from: {supported_path:?}");
+                }
                 return Some(supported_path.clone());
             }
         }
         None
+    }
+
+    /// Returns the first valid configuration file found in `dir`.
+    pub fn retrieve_project_config_path(dir: &Path) -> Option<PathBuf> {
+        CONFIG_FILES.iter().find_map(|file| {
+            let path = dir.join(file);
+            if path.is_file() { Some(path) } else { None }
+        })
     }
 }
 
@@ -551,23 +577,25 @@ impl FromStr for Config {
 
 #[cfg(test)]
 mod test {
-    use std::env;
+    use std::{env, fs};
 
     use pretty_assertions::assert_eq;
+    use temp_dir::TempDir;
 
     use super::*;
+
     #[test]
     fn load() -> Result<()> {
+        const FOOTER_VALUE: &str = "test";
+        const TAG_PATTERN_VALUE: &str = ".*[0-9].*";
+        const IGNORE_TAGS_VALUE: &str = "v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+";
+
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .expect("parent directory not found")
             .to_path_buf()
             .join("config")
             .join(crate::DEFAULT_CONFIG);
-
-        const FOOTER_VALUE: &str = "test";
-        const TAG_PATTERN_VALUE: &str = ".*[0-9].*";
-        const IGNORE_TAGS_VALUE: &str = "v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+";
 
         unsafe {
             env::set_var("GIT_CLIFF__CHANGELOG__FOOTER", FOOTER_VALUE);
@@ -605,5 +633,30 @@ mod test {
         assert!(!Remote::new("", "test").is_set());
         assert!(!Remote::new("test", "").is_set());
         assert!(!Remote::new("", "").is_set());
+    }
+
+    #[test]
+    fn find_project_config_file() -> Result<()> {
+        let dir = TempDir::with_prefix("git-cliff-").expect("failed to create temp dir");
+
+        // Check config files in order of priority.
+        // cliff.toml has the highest priority to preserve
+        // Backward compatibility cliff.toml > .cliff.toml > ... > .config/cliff.toml
+        assert_eq!(Config::retrieve_project_config_path(dir.path()), None);
+
+        fs::create_dir(dir.path().join(".config"))?;
+        fs::write(dir.path().join(".config/cliff.toml"), "")?;
+        assert_eq!(
+            Config::retrieve_project_config_path(dir.path()),
+            Some(dir.path().join(".config/cliff.toml")),
+        );
+
+        fs::write(dir.path().join("cliff.toml"), "")?;
+        assert_eq!(
+            Config::retrieve_project_config_path(dir.path()),
+            Some(dir.path().join("cliff.toml")),
+        );
+
+        Ok(())
     }
 }

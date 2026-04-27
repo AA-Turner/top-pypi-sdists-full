@@ -6,7 +6,6 @@
 #include <chrono>
 #include <cmath>
 #include <functional>
-#include <limits>
 #include <span>
 
 #include <Eigen/Core>
@@ -162,7 +161,7 @@ ExitStatus interior_point(
   solve_profilers.emplace_back("  ↳ KKT system solve");
   solve_profilers.emplace_back("  ↳ line search");
   solve_profilers.emplace_back("    ↳ SOC");
-  solve_profilers.emplace_back("  ↳ next iter prep");
+  solve_profilers.emplace_back("  ↳ feas. restoration");
   solve_profilers.emplace_back("  ↳ f(x)");
   solve_profilers.emplace_back("  ↳ ∇f(x)");
   solve_profilers.emplace_back("  ↳ ∇²ₓₓL");
@@ -182,7 +181,7 @@ ExitStatus interior_point(
   auto& kkt_system_solve_prof = solve_profilers[7];
   auto& line_search_prof = solve_profilers[8];
   auto& soc_prof = solve_profilers[9];
-  auto& next_iter_prep_prof = solve_profilers[10];
+  auto& feasibility_restoration_prof = solve_profilers[10];
 
   // Set up profiled matrix callbacks
 #ifndef SLEIPNIR_DISABLE_DIAGNOSTICS
@@ -258,6 +257,15 @@ ExitStatus interior_point(
   slp_assert(c_i.rows() == matrices.num_inequality_constraints);
   slp_assert(A_i.rows() == matrices.num_inequality_constraints);
   slp_assert(A_i.cols() == matrices.num_decision_variables);
+
+  DenseVector trial_x;
+  DenseVector trial_s;
+  DenseVector trial_y;
+  DenseVector trial_z;
+
+  Scalar trial_f;
+  DenseVector trial_c_e;
+  DenseVector trial_c_i;
 
   // Check for overconstrained problem
   if (matrices.num_equality_constraints > matrices.num_decision_variables) {
@@ -338,7 +346,8 @@ ExitStatus interior_point(
   int full_step_rejected_counter = 0;
 
   // Error
-  Scalar E_0 = std::numeric_limits<Scalar>::infinity();
+  Scalar E_0 = kkt_error<Scalar, KKTErrorType::INF_NORM_SCALED>(
+      g, A_e, c_e, A_i, c_i, s, y, z, Scalar(0));
 
   setup_prof.stop();
 
@@ -479,13 +488,22 @@ ExitStatus interior_point(
 
     // Loop until a step is accepted
     while (1) {
-      DenseVector trial_x = x + α * step.p_x;
-      DenseVector trial_y = y + α_z * step.p_y;
-      DenseVector trial_z = z + α_z * step.p_z;
+      trial_x = x + α * step.p_x;
+      if (options.feasible_ipm && c_i.cwiseGreater(Scalar(0)).all()) {
+        // If the inequality constraints are all feasible, prevent them from
+        // becoming infeasible again.
+        //
+        // See equation (19.30) in [1].
+        trial_s = trial_c_i;
+      } else {
+        trial_s = s + α * step.p_s;
+      }
+      trial_y = y + α_z * step.p_y;
+      trial_z = z + α_z * step.p_z;
 
-      Scalar trial_f = matrices.f(trial_x);
-      DenseVector trial_c_e = matrices.c_e(trial_x);
-      DenseVector trial_c_i = matrices.c_i(trial_x);
+      trial_f = matrices.f(trial_x);
+      trial_c_e = matrices.c_e(trial_x);
+      trial_c_i = matrices.c_i(trial_x);
 
       // If f(xₖ + αpₖˣ), cₑ(xₖ + αpₖˣ), or cᵢ(xₖ + αpₖˣ) aren't finite, reduce
       // step size immediately
@@ -499,17 +517,6 @@ ExitStatus interior_point(
           break;
         }
         continue;
-      }
-
-      DenseVector trial_s;
-      if (options.feasible_ipm && c_i.cwiseGreater(Scalar(0)).all()) {
-        // If the inequality constraints are all feasible, prevent them from
-        // becoming infeasible again.
-        //
-        // See equation (19.30) in [1].
-        trial_s = trial_c_i;
-      } else {
-        trial_s = s + α * step.p_s;
       }
 
       // Check whether filter accepts trial iterate
@@ -576,12 +583,12 @@ ExitStatus interior_point(
           compute_step(soc_step);
 
           // αˢᵒᶜ = max(α ∈ (0, 1] : sₖ + αpₖˢ ≥ (1−τⱼ)sₖ)
+          // αₖᶻˢᵒᶜ = max(α ∈ (0, 1] : zₖ + αpₖᶻ ≥ (1−τⱼ)zₖ)
           α_soc = fraction_to_the_boundary_rule<Scalar>(s, soc_step.p_s, τ);
+          α_z_soc = fraction_to_the_boundary_rule<Scalar>(z, soc_step.p_z, τ);
+
           trial_x = x + α_soc * soc_step.p_x;
           trial_s = s + α_soc * soc_step.p_s;
-
-          // αₖᶻ = max(α ∈ (0, 1] : zₖ + αpₖᶻ ≥ (1−τⱼ)zₖ)
-          α_z_soc = fraction_to_the_boundary_rule<Scalar>(z, soc_step.p_z, τ);
           trial_y = y + α_z_soc * soc_step.p_y;
           trial_z = z + α_z_soc * soc_step.p_z;
 
@@ -648,21 +655,19 @@ ExitStatus interior_point(
 
         trial_x = x + α_max * step.p_x;
         trial_s = s + α_max * step.p_s;
-
         trial_y = y + α_z * step.p_y;
         trial_z = z + α_z * step.p_z;
 
+        trial_f = matrices.f(trial_x);
         trial_c_e = matrices.c_e(trial_x);
         trial_c_i = matrices.c_i(trial_x);
 
         Scalar next_kkt_error = kkt_error<Scalar, KKTErrorType::ONE_NORM>(
-            matrices.g(trial_x), matrices.A_e(trial_x), matrices.c_e(trial_x),
+            matrices.g(trial_x), matrices.A_e(trial_x), trial_c_e,
             matrices.A_i(trial_x), trial_c_i, trial_s, trial_y, trial_z, μ);
 
         // If the step using αᵐᵃˣ reduced the KKT error, accept it anyway
         if (next_kkt_error <= Scalar(0.999) * current_kkt_error) {
-          α = α_max;
-
           // Accept step
           break;
         }
@@ -675,6 +680,9 @@ ExitStatus interior_point(
     line_search_profiler.stop();
 
     if (call_feasibility_restoration) {
+      ScopedProfiler feasibility_restoration_profiler{
+          feasibility_restoration_prof};
+
       // If already in feasibility restoration mode, running it again won't help
       if (in_feasibility_restoration) {
         return ExitStatus::FEASIBILITY_RESTORATION_FAILED;
@@ -712,20 +720,21 @@ ExitStatus interior_point(
         // Report failure
         return status;
       }
+
+      f = matrices.f(x);
+      c_e = matrices.c_e(x);
+      c_i = matrices.c_i(x);
     } else {
       // If full step was accepted, reset full-step rejected counter
       if (α == α_max) {
         full_step_rejected_counter = 0;
       }
 
-      // xₖ₊₁ = xₖ + αₖpₖˣ
-      // sₖ₊₁ = sₖ + αₖpₖˢ
-      // yₖ₊₁ = yₖ + αₖᶻpₖʸ
-      // zₖ₊₁ = zₖ + αₖᶻpₖᶻ
-      x += α * step.p_x;
-      s += α * step.p_s;
-      y += α_z * step.p_y;
-      z += α_z * step.p_z;
+      // Update iterates
+      x = trial_x;
+      s = trial_s;
+      y = trial_y;
+      z = trial_z;
 
       // A requirement for the convergence proof is that the primal-dual barrier
       // term Hessian Σₖ₊₁ does not deviate arbitrarily much from the primal
@@ -745,19 +754,17 @@ ExitStatus interior_point(
         z[row] =
             std::clamp(z[row], Scalar(1) / κ_Σ * μ / s[row], κ_Σ * μ / s[row]);
       }
+
+      f = trial_f;
+      c_e = trial_c_e;
+      c_i = trial_c_i;
     }
 
     // Update autodiff for Jacobians and Hessian
-    f = matrices.f(x);
     A_e = matrices.A_e(x);
     A_i = matrices.A_i(x);
     g = matrices.g(x);
     H = matrices.H(x, y, z);
-
-    ScopedProfiler next_iter_prep_profiler{next_iter_prep_prof};
-
-    c_e = matrices.c_e(x);
-    c_i = matrices.c_i(x);
 
     // Update the error
     E_0 = kkt_error<Scalar, KKTErrorType::INF_NORM_SCALED>(
@@ -779,7 +786,6 @@ ExitStatus interior_point(
       }
     }
 
-    next_iter_prep_profiler.stop();
     inner_iter_profiler.stop();
 
     if (options.diagnostics) {

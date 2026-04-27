@@ -496,7 +496,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             self.apply_to_adapter_layers(lambda i, layer: layer.add_fusion_layer(fusion_name))
 
         if isinstance(self, EmbeddingAdaptersMixin):
-            self.loaded_embeddings["default"] = self.get_input_embeddings()
+            try:
+                self.loaded_embeddings["default"] = self.get_input_embeddings()
+            except NotImplementedError:
+                # Audio and vision models may not have token embeddings.
+                # Embedding adapters won't be available, but other adapter
+                # methods (LoRA, bottleneck, etc.) still work.
+                pass
 
         self._add_tied_weights_keys()
 
@@ -510,6 +516,17 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Returns:
             bool: True if the adapter type is supported, False otherwise.
         """
+        # if the model does not support the adapter config, return False
+        if hasattr(self, "not_supported_adapter_configs"):
+            if isinstance(type_or_config, str):
+                if type_or_config in self.not_supported_adapter_configs:
+                    return False
+            else:  # assumes we have an AdapterConfig instance or an AdapterConfig import
+                for k, v in ADAPTER_CONFIG_MAP.items():
+                    if isinstance(type_or_config, type(v)):
+                        if k in self.not_supported_adapter_configs:
+                            return False
+
         if isinstance(type_or_config, AdapterConfig):
             types = AdapterMethod.get_from_config(type_or_config)
         else:

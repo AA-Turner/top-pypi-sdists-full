@@ -1,4 +1,4 @@
-# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2025 Pascal Thomet - https://github.com/pthom/imgui_bundle
+# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
 
 # Notes:
 # - lots of automated tests are performed in the CI pipeline, see .github/workflows/ci_automation_test.yml
@@ -38,7 +38,7 @@ def test_imgui_context_creation():
 def test_pyi_files_syntax() -> None:
     """Test that all .pyi files in the bindings directory have valid Python syntax."""
     import imgui_bundle
-    
+
     root = Path(imgui_bundle.__file__).parent
 
     errors: list[str] = []
@@ -53,7 +53,7 @@ def test_pyi_files_syntax() -> None:
         except Exception as e:
             msg = f"{type(e).__name__} parsing {pyi_file.relative_to(root)}:\n{e}"
             errors.append(msg)
-            
+
 
     # Report all syntax errors found
     if errors:

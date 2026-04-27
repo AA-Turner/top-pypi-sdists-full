@@ -116,6 +116,108 @@ def gather_pooled_inputs(parser):
             for (crop, season, model), clist in groups.items()]
 
 
+def ensure_statistics_files(inputs, logger, parser):
+    """Pre-create statistics files for all unique (country, crop) pairs.
+
+    Must run before the parallel pool so that workers only ever read
+    existing, fully-written files — avoids the race where one worker
+    is mid-write while another tries to read the same file.
+    """
+    project_name = parser.get("DEFAULT", "project_name")
+    seen = set()
+    for item in inputs:
+        country, crop = item[1], item[2]
+        key = (country, crop)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        obj = geocif.Geocif(logger=logger, parser=parser, project_name=project_name)
+        file_path = obj._get_statistics_file_path(country, crop)
+
+        if not file_path.exists() or obj.update_input_file:
+            logger.info(f"Pre-creating statistics file: {country} {crop}")
+            try:
+                obj._create_statistics_file(country, crop, file_path)
+            except FileNotFoundError as e:
+                logger.warning(f"Skipping {country} {crop}: {e}")
+
+
+def ensure_db_tables(inputs, logger, parser):
+    """Pre-create SQLite tables for all unique (country, crop) pairs.
+
+    Must run before the parallel pool so that workers only INSERT/UPDATE
+    into existing tables — avoids concurrent CREATE TABLE races in pangres.
+    """
+    import sqlite3
+
+    project_name = parser.get("DEFAULT", "project_name")
+    obj = geocif.Geocif(logger=logger, parser=parser, project_name=project_name)
+    db_path = obj.db_path
+    target = obj.target
+
+    # Schema mirrors _build_results_dataframe + _add_* methods in Geocif.
+    # All columns are determined by config, not by model output.
+    columns = [
+        ('"Index"', "TEXT NOT NULL PRIMARY KEY"),
+        ('"Experiment_ID"', "TEXT"),
+        ('"Experiment Name"', "TEXT"),
+        ('"Date"', "TEXT"),
+        ('"Time"', "TEXT"),
+        ('"Country"', "TEXT"),
+        ('"Crop"', "TEXT"),
+        ('"Cluster Strategy"', "TEXT"),
+        ('"Frequency"', "TEXT"),
+        ('"Selected Features"', "JSON"),
+        ('"Best Hyperparameters"', "JSON"),
+        ('"Stage_ID"', "TEXT"),
+        ('"Stage Range"', "TEXT"),
+        ('"Stage Name"', "TEXT"),
+        ('"Starting Stage"', "BIGINT"),
+        ('"Ending Stage"', "BIGINT"),
+        ('"Model"', "TEXT"),
+        ('"Region_ID"', "TEXT"),
+        ('"Region"', "TEXT"),
+        ('"Season"', "BIGINT"),
+        ('"Harvest Year"', "TEXT"),
+        ('"Area (ha)"', "FLOAT"),
+        (f'"Observed {target}"', "FLOAT"),
+        (f'"Predicted {target}"', "FLOAT"),
+        ('"APE"', "FLOAT"),
+        (f'"Median {target}"', "FLOAT"),
+        (f'"Median {target} (2018-2022)"', "FLOAT"),
+        (f'"Median {target} (2013-2017)"', "FLOAT"),
+        ('"alpha"', "FLOAT"),
+        ('"lower CI"', "FLOAT"),
+        ('"upper CI"', "FLOAT"),
+        ('"Analogous Year"', "FLOAT"),
+        ('"Analogous Year Yield"', "FLOAT"),
+        ('"Detrended Model Type"', "FLOAT"),
+        ('"Detrended Model"', "FLOAT"),
+        ('"Last Observed Year"', "BIGINT"),
+        (f'"Last Observed {target}"', "FLOAT"),
+    ]
+    col_defs = ", ".join(f"{name} {typ}" for name, typ in columns)
+
+    seen = set()
+    table_names = []
+    for item in inputs:
+        country, crop = item[1], item[2]
+        table_name = f"pooled_{crop}" if isinstance(country, list) else f"{country}_{crop}"
+        if table_name not in seen:
+            seen.add(table_name)
+            table_names.append(table_name)
+
+    con = sqlite3.connect(str(db_path), timeout=120)
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA busy_timeout=120000")
+    for table_name in table_names:
+        con.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" ({col_defs})')
+        logger.info(f"Ensured DB table: {table_name}")
+    con.commit()
+    con.close()
+
+
 def execute_models(inputs, logger, parser, loop_fn=None, desc=None):
     """
     Executes the model either in parallel or serially based on configuration.
@@ -132,6 +234,10 @@ def execute_models(inputs, logger, parser, loop_fn=None, desc=None):
 
     desc = desc or "Executing ML models"
     do_parallel = parser.getboolean("DEFAULT", "do_parallel_ml", fallback=False)
+
+    if do_parallel:
+        ensure_statistics_files(inputs, logger, parser)
+        ensure_db_tables(inputs, logger, parser)
 
     # Add logger and parser to each element in inputs
     inputs = [item + [logger, parser, idx] for idx, item in enumerate(inputs)]

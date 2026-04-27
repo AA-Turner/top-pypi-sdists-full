@@ -352,6 +352,7 @@ const Chat = (() => {
             if (data.phase) safe.phase = data.phase;
             if (data.tool_name) safe.tool_name = data.tool_name;
             if (data.id) safe.id = data.id;
+            if (data.turn_id || data.request_id) safe.request_id = data.turn_id || data.request_id;
             App._debugLog('sse', 'event=' + type, safe);
         }
         switch (type) {
@@ -560,6 +561,8 @@ const Chat = (() => {
             body.appendChild(row);
         };
 
+        addRow('request', summary.turn_id || summary.request_id);
+        addRow('interface', summary.interface);
         addRow('phase', summary.final_phase);
         if (summary.model) {
             addRow('model', [summary.model.provider, summary.model.name].filter(Boolean).join(' / '));
@@ -574,11 +577,30 @@ const Chat = (() => {
         const tools = Array.isArray(summary.tools) ? summary.tools.slice(0, 8) : [];
         if (tools.length > 0) {
             const list = document.createElement('ul');
-            list.className = 'debug-summary-list';
+            list.className = 'debug-summary-list debug-summary-tools';
             tools.forEach(tool => {
                 const item = document.createElement('li');
                 const durationText = Number.isFinite(tool.duration_seconds) ? ` · ${tool.duration_seconds.toFixed(2)}s` : '';
-                item.textContent = `${tool.name || 'tool'} · ${tool.status || 'unknown'}${durationText}`;
+                const timeoutText = Number.isFinite(tool.timeout_seconds) ? ` / ${tool.timeout_seconds.toFixed(0)}s timeout` : '';
+                const argShape = tool.argument_shape && tool.argument_shape.type ? ` · args ${tool.argument_shape.type}` : '';
+                const outShape = tool.output_shape && tool.output_shape.type ? ` · output ${tool.output_shape.type}` : '';
+                const approval = tool.approval_decision ? ` · approval ${tool.approval_decision}` : '';
+                const blocked = tool.hook_blocked ? ' · hook blocked' : '';
+                item.textContent = `${tool.name || 'tool'} · ${tool.status || 'unknown'}${durationText}${timeoutText}${argShape}${outShape}${approval}${blocked}`;
+                list.appendChild(item);
+            });
+            body.appendChild(list);
+        }
+
+        const activeTools = Array.isArray(summary.active_tools) ? summary.active_tools.slice(0, 4) : [];
+        if (activeTools.length > 0) {
+            const list = document.createElement('ul');
+            list.className = 'debug-summary-list debug-summary-active-tools';
+            activeTools.forEach(tool => {
+                const item = document.createElement('li');
+                const durationText = Number.isFinite(tool.duration_seconds) ? ` · ${tool.duration_seconds.toFixed(1)}s` : '';
+                const timeoutText = Number.isFinite(tool.timeout_seconds) ? ` / ${tool.timeout_seconds.toFixed(0)}s timeout` : '';
+                item.textContent = `${tool.name || 'tool'} · running${durationText}${timeoutText}`;
                 list.appendChild(item);
             });
             body.appendChild(list);
@@ -592,6 +614,35 @@ const Chat = (() => {
         const events = Array.isArray(summary.runtime_events) ? summary.runtime_events.slice(0, 6) : [];
         if (events.length > 0) {
             addRow('events', events.map(e => e.kind).filter(Boolean).join(', '));
+        }
+
+        const compactions = []
+            .concat(Array.isArray(summary.phases) ? summary.phases : [])
+            .concat(Array.isArray(summary.runtime_events) ? summary.runtime_events.filter(e => e && e.kind === 'compaction') : [])
+            .filter(e => e && (e.phase === 'compacting' || e.kind === 'compaction'));
+        if (compactions.length > 0) {
+            const compaction = compactions[compactions.length - 1];
+            const parts = [
+                compaction.reason || compaction.strategy,
+                compaction.estimated_tokens !== undefined ? `~${compaction.estimated_tokens} tokens` : '',
+                compaction.message_count !== undefined ? `${compaction.message_count} msgs` : '',
+                compaction.message_threshold !== undefined ? `threshold ${compaction.message_threshold}` : '',
+                compaction.messages_compacted !== undefined ? `compacted ${compaction.messages_compacted}` : '',
+                compaction.tail_preserved !== undefined ? `tail ${compaction.tail_preserved}` : '',
+                compaction.bytes_saved !== undefined ? `saved ${compaction.bytes_saved} bytes` : '',
+            ].filter(Boolean);
+            addRow('compaction', parts.join(', '));
+        }
+
+        const errors = Array.isArray(summary.errors) ? summary.errors : [];
+        if (errors.length > 0) {
+            const error = errors[errors.length - 1];
+            const parts = [
+                error.code || 'error',
+                error.timeout_type,
+                Number.isFinite(error.elapsed_seconds) ? `${error.elapsed_seconds.toFixed(1)}s` : '',
+            ].filter(Boolean);
+            addRow('error', parts.join(', '));
         }
 
         if (summary.redaction) {

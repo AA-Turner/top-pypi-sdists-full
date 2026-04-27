@@ -1,4 +1,4 @@
-# Copyright 2014 - 2025 Avram Lubkin, All Rights Reserved
+# Copyright 2014 - 2026 Avram Lubkin, All Rights Reserved
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -24,12 +24,13 @@ from collections.abc import Iterable
 from pluginlib.exceptions import PluginImportError, EntryPointWarning
 from pluginlib._objects import BlacklistEntry
 from pluginlib._parent import get_plugins
-from pluginlib._util import LOGGER, NoneType, PY_LT_3_10
+from pluginlib._util import LOGGER, NoneType
 
 
-if PY_LT_3_10:  # pragma: no cover
+try:
+    # For Python <3.10 and debugpy
     from importlib_metadata import entry_points, EntryPoint  # pylint: disable=import-error
-else:
+except ImportError:
     from importlib.metadata import entry_points, EntryPoint
 
 

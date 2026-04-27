@@ -135,6 +135,11 @@ class NotifyXMPP(NotifyBase):
     template_args = dict(
         NotifyBase.template_args,
         **{
+            "xmpp": {
+                "name": _("XMPP Server"),
+                "type": "string",
+                "map_to": "xmpp_host",
+            },
             "mode": {
                 "name": _("Secure Mode"),
                 "type": "choice:string",
@@ -173,9 +178,18 @@ class NotifyXMPP(NotifyBase):
         subject: Optional[bool] = None,
         keepalive: Optional[bool] = None,
         name: Optional[str] = None,
+        xmpp_host: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
+
+        # xmpp_host allows the connection host to differ from the JID domain.
+        # Mirrors the smtp= / smtp_host pattern in the email plugin.
+        self.xmpp_host = (
+            xmpp_host.strip()
+            if isinstance(xmpp_host, str) and xmpp_host.strip()
+            else ""
+        )
 
         try:
             self.jid, _ = self.normalize_jid(self.user or "", self.host)
@@ -198,20 +212,22 @@ class NotifyXMPP(NotifyBase):
 
             except ValueError:
                 self.logger.warning(
-                    "Dropped invalid XMPP target (%s).", target)
+                    "Dropped invalid XMPP target (%s).", target
+                )
                 continue
             self.targets.append((mtype, jid))
 
         if isinstance(secure_mode, str) and secure_mode.strip():
             self.secure_mode = secure_mode.strip().lower()
             self.secure_mode = next(
-                (k for k in SECURE_MODES
-                 if k.startswith(self.secure_mode)), None
+                (k for k in SECURE_MODES if k.startswith(self.secure_mode)),
+                None,
             )
             if self.secure_mode not in SECURE_MODES:
                 msg = (
                     "The XMPP secure mode specified "
-                    f"({secure_mode}) is invalid.")
+                    f"({secure_mode}) is invalid."
+                )
                 self.logger.warning(msg)
                 raise TypeError(msg)
 
@@ -225,12 +241,14 @@ class NotifyXMPP(NotifyBase):
         # Prepare our roster check
         self.roster = (
             self.template_args["roster"]["default"]
-            if roster is None else bool(roster)
+            if roster is None
+            else bool(roster)
         )
 
         self.subject = (
             self.template_args["subject"]["default"]
-            if subject is None else bool(subject)
+            if subject is None
+            else bool(subject)
         )
 
         self.keepalive = (
@@ -257,8 +275,7 @@ class NotifyXMPP(NotifyBase):
 
         # MUC nickname: alphanumeric + underscore; falls back to the JID
         # username, then the app_id as a last resort
-        self.name = validate_regex(
-            name, r"^[a-zA-Z0-9_]+$") if name else None
+        self.name = validate_regex(name, r"^[a-zA-Z0-9_]+$") if name else None
         if self.name is None:
             self.name = self.user or self.app_id
 
@@ -280,7 +297,11 @@ class NotifyXMPP(NotifyBase):
         """Return the pieces that uniquely identify this configuration."""
         return (
             self.secure_protocol if self.secure else self.protocol,
-            self.host, self.user, self.password, self.port,
+            self.host,
+            self.xmpp_host,
+            self.user,
+            self.password,
+            self.port,
         )
 
     def url(self, privacy: bool = False, *args: Any, **kwargs: Any) -> str:
@@ -298,6 +319,9 @@ class NotifyXMPP(NotifyBase):
         # (JID user / app_id)
         if self.name != (self.user or self.app_id):
             params["name"] = self.name
+
+        if self.xmpp_host and self.xmpp_host != self.host:
+            params["xmpp"] = self.xmpp_host
 
         # Extend our parameters
         params.update(self.url_parameters(privacy=privacy, *args, **kwargs))
@@ -323,7 +347,8 @@ class NotifyXMPP(NotifyBase):
         # Use %23 for the MUC '#' prefix so it is not misread as a fragment.
         targets = "/".join(
             ("%23" if mode == "groupchat" else "") + self.quote(jid, safe="")
-            for (mode, jid) in self.targets)
+            for (mode, jid) in self.targets
+        )
 
         return "{schema}://{auth}{host}{port}/{targets}?{params}".format(
             schema=schema,
@@ -350,7 +375,7 @@ class NotifyXMPP(NotifyBase):
         config = XMPPConfig(
             jid=self.jid,
             password=self.password or "",
-            host=self.host,
+            host=self.xmpp_host or self.host,
             port=self.port if self.port else default_port,
             secure=self.secure_mode,
             verify_certificate=self.verify_certificate,
@@ -447,7 +472,8 @@ class NotifyXMPP(NotifyBase):
         # Targets from path
         results["targets"] = [
             NotifyXMPP.unquote(t)
-            for t in NotifyXMPP.split_path(results.get("fullpath"))]
+            for t in NotifyXMPP.split_path(results.get("fullpath"))
+        ]
 
         qd = results.get("qsd", {})
 
@@ -471,7 +497,16 @@ class NotifyXMPP(NotifyBase):
             results["keepalive"] = parse_bool(results["qsd"]["keepalive"])
 
         if "name" in results["qsd"] and len(results["qsd"]["name"]):
-            results["name"] = \
-                NotifyXMPP.unquote(results["qsd"]["name"])
+            results["name"] = NotifyXMPP.unquote(results["qsd"]["name"])
+
+        if "xmpp" in results["qsd"] and len(results["qsd"]["xmpp"]):
+            results["xmpp_host"] = NotifyXMPP.unquote(results["qsd"]["xmpp"])
 
         return results
+
+    @staticmethod
+    def runtime_deps():
+        """Return a tuple of top-level Python package names that this plugin
+        imported as optional runtime dependencies.
+        """
+        return ("slixmpp",)

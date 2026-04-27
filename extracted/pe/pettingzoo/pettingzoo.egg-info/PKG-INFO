@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pettingzoo
-Version: 1.26.0
+Version: 1.26.1
 Summary: Gymnasium for multi-agent reinforcement learning.
 Author-email: Farama Foundation <contact@farama.org>
 License: MIT License

@@ -5,7 +5,6 @@
 #include <chrono>
 #include <cmath>
 #include <functional>
-#include <limits>
 #include <span>
 
 #include <Eigen/Core>
@@ -121,7 +120,7 @@ ExitStatus sqp(const SQPMatrixCallbacks<Scalar>& matrix_callbacks,
   solve_profilers.emplace_back("  ↳ KKT system solve");
   solve_profilers.emplace_back("  ↳ line search");
   solve_profilers.emplace_back("    ↳ SOC");
-  solve_profilers.emplace_back("  ↳ next iter prep");
+  solve_profilers.emplace_back("  ↳ feas. restoration");
   solve_profilers.emplace_back("  ↳ f(x)");
   solve_profilers.emplace_back("  ↳ ∇f(x)");
   solve_profilers.emplace_back("  ↳ ∇²ₓₓL");
@@ -139,7 +138,7 @@ ExitStatus sqp(const SQPMatrixCallbacks<Scalar>& matrix_callbacks,
   auto& kkt_system_solve_prof = solve_profilers[7];
   auto& line_search_prof = solve_profilers[8];
   auto& soc_prof = solve_profilers[9];
-  auto& next_iter_prep_prof = solve_profilers[10];
+  auto& feasibility_restoration_prof = solve_profilers[10];
 
   // Set up profiled matrix callbacks
 #ifndef SLEIPNIR_DISABLE_DIAGNOSTICS
@@ -198,6 +197,12 @@ ExitStatus sqp(const SQPMatrixCallbacks<Scalar>& matrix_callbacks,
   slp_assert(A_e.rows() == matrices.num_equality_constraints);
   slp_assert(A_e.cols() == matrices.num_decision_variables);
 
+  DenseVector trial_x;
+  DenseVector trial_y;
+
+  Scalar trial_f;
+  DenseVector trial_c_e;
+
   // Check for overconstrained problem
   if (matrices.num_equality_constraints > matrices.num_decision_variables) {
     if (options.diagnostics) {
@@ -230,7 +235,7 @@ ExitStatus sqp(const SQPMatrixCallbacks<Scalar>& matrix_callbacks,
   int full_step_rejected_counter = 0;
 
   // Error
-  Scalar E_0 = std::numeric_limits<Scalar>::infinity();
+  Scalar E_0 = kkt_error<Scalar, KKTErrorType::INF_NORM_SCALED>(g, A_e, c_e, y);
 
   setup_prof.stop();
 
@@ -331,11 +336,11 @@ ExitStatus sqp(const SQPMatrixCallbacks<Scalar>& matrix_callbacks,
 
     // Loop until a step is accepted
     while (1) {
-      DenseVector trial_x = x + α * step.p_x;
-      DenseVector trial_y = y + α * step.p_y;
+      trial_x = x + α * step.p_x;
+      trial_y = y + α * step.p_y;
 
-      Scalar trial_f = matrices.f(trial_x);
-      DenseVector trial_c_e = matrices.c_e(trial_x);
+      trial_f = matrices.f(trial_x);
+      trial_c_e = matrices.c_e(trial_x);
 
       // If f(xₖ + αpₖˣ) or cₑ(xₖ + αpₖˣ) aren't finite, reduce step size
       // immediately
@@ -469,6 +474,7 @@ ExitStatus sqp(const SQPMatrixCallbacks<Scalar>& matrix_callbacks,
         trial_x = x + α_max * step.p_x;
         trial_y = y + α_max * step.p_y;
 
+        trial_f = matrices.f(trial_x);
         trial_c_e = matrices.c_e(trial_x);
 
         Scalar next_kkt_error = kkt_error<Scalar, KKTErrorType::ONE_NORM>(
@@ -476,8 +482,6 @@ ExitStatus sqp(const SQPMatrixCallbacks<Scalar>& matrix_callbacks,
 
         // If the step using αᵐᵃˣ reduced the KKT error, accept it anyway
         if (next_kkt_error <= Scalar(0.999) * current_kkt_error) {
-          α = α_max;
-
           // Accept step
           break;
         }
@@ -490,6 +494,9 @@ ExitStatus sqp(const SQPMatrixCallbacks<Scalar>& matrix_callbacks,
     line_search_profiler.stop();
 
     if (call_feasibility_restoration) {
+      ScopedProfiler feasibility_restoration_profiler{
+          feasibility_restoration_prof};
+
       FilterEntry initial_entry{matrices.f(x), c_e};
 
       // Feasibility restoration phase
@@ -519,32 +526,31 @@ ExitStatus sqp(const SQPMatrixCallbacks<Scalar>& matrix_callbacks,
         // Report failure
         return status;
       }
+
+      f = matrices.f(x);
+      c_e = matrices.c_e(x);
     } else {
       // If full step was accepted, reset full-step rejected counter
       if (α == α_max) {
         full_step_rejected_counter = 0;
       }
 
-      // xₖ₊₁ = xₖ + αₖpₖˣ
-      // yₖ₊₁ = yₖ + αₖpₖʸ
-      x += α * step.p_x;
-      y += α * step.p_y;
+      // Update iterates
+      x = trial_x;
+      y = trial_y;
+
+      f = trial_f;
+      c_e = trial_c_e;
     }
 
     // Update autodiff for Jacobians and Hessian
-    f = matrices.f(x);
     A_e = matrices.A_e(x);
     g = matrices.g(x);
     H = matrices.H(x, y);
 
-    ScopedProfiler next_iter_prep_profiler{next_iter_prep_prof};
-
-    c_e = matrices.c_e(x);
-
     // Update the error
     E_0 = kkt_error<Scalar, KKTErrorType::INF_NORM_SCALED>(g, A_e, c_e, y);
 
-    next_iter_prep_profiler.stop();
     inner_iter_profiler.stop();
 
     if (options.diagnostics) {

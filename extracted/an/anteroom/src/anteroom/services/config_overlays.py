@@ -112,6 +112,47 @@ class ComplianceError(Exception):
     """Raised when a config rebuild fails compliance validation."""
 
 
+@dataclass(frozen=True)
+class PackOverlayArtifact:
+    """A config overlay artifact with enough identity for provenance output."""
+
+    pack_label: str
+    overlay: dict[str, Any]
+    pack_id: str | None = None
+    artifact_name: str | None = None
+    artifact_fqn: str | None = None
+    artifact_type: str = "config_overlay"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class PackOverlayContribution:
+    """One pack-provided value for a flattened config dot-path."""
+
+    dot_path: str
+    value: Any
+    pack_label: str
+    pack_id: str | None = None
+    artifact_name: str | None = None
+    artifact_fqn: str | None = None
+    artifact_type: str = "config_overlay"
+    priority: int = 50
+    attachment_scope: str | None = None
+    project_path: str | None = None
+    space_id: str | None = None
+    wins_pack_layer: bool = False
+    overridden_by: str | None = None
+
+
+@dataclass(frozen=True)
+class PackOverlayMergeResult:
+    """Merged pack config plus per-value provenance."""
+
+    merged: dict[str, Any]
+    contributions: list[PackOverlayContribution] = field(default_factory=list)
+    conflicts: list[str] = field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Dot-path flattening
 # ---------------------------------------------------------------------------
@@ -200,12 +241,26 @@ def collect_pack_overlays(
     - Uses N+1 queries (2 per pack ID).  Acceptable for the typical case
       of <10 attached packs.  If pack counts grow, batch with IN clause.
     """
+    return [(artifact.pack_label, artifact.overlay) for artifact in collect_pack_overlay_artifacts(db, pack_ids)]
+
+
+def collect_pack_overlay_artifacts(
+    db: ThreadSafeConnection,
+    pack_ids: list[str],
+) -> list[PackOverlayArtifact]:
+    """Load config overlay and policy artifacts with pack/artifact identity.
+
+    This is the provenance-preserving variant of :func:`collect_pack_overlays`.
+    The older function intentionally returns only ``(pack_label, overlay)`` for
+    existing callers that only need the merged pack layer.
+    """
     if not pack_ids:
         return []
 
+    import json
     import sqlite3
 
-    results: list[tuple[str, dict[str, Any]]] = []
+    results: list[PackOverlayArtifact] = []
 
     for pack_id in pack_ids:
         # Get pack info for labelling
@@ -219,7 +274,7 @@ def collect_pack_overlays(
         # Get config_overlay artifacts linked to this pack
         try:
             art_rows = db.execute(
-                "SELECT a.content FROM artifacts a "
+                "SELECT a.id, a.content, a.name, a.fqn, a.metadata FROM artifacts a "
                 "JOIN pack_artifacts pa ON a.id = pa.artifact_id "
                 "WHERE pa.pack_id = ? AND a.type = 'config_overlay'",
                 (pack_id,),
@@ -229,7 +284,7 @@ def collect_pack_overlays(
             continue
 
         for art_row in art_rows:
-            content = art_row[0] if isinstance(art_row, (tuple, list)) else art_row["content"]
+            content = art_row[1] if isinstance(art_row, (tuple, list)) else art_row["content"]
             if not content:
                 continue
             try:
@@ -240,7 +295,27 @@ def collect_pack_overlays(
             if not isinstance(parsed, dict):
                 logger.warning("Config overlay in pack %s is not a dict; skipping", label)
                 continue
-            results.append((label, parsed))
+            name = art_row[2] if isinstance(art_row, (tuple, list)) else art_row["name"]
+            fqn = art_row[3] if isinstance(art_row, (tuple, list)) else art_row["fqn"]
+            meta_raw = art_row[4] if isinstance(art_row, (tuple, list)) else art_row["metadata"]
+            metadata: dict[str, Any] = {}
+            if isinstance(meta_raw, str) and meta_raw:
+                try:
+                    loaded = json.loads(meta_raw)
+                    if isinstance(loaded, dict):
+                        metadata = loaded
+                except json.JSONDecodeError:
+                    logger.warning("Malformed config overlay metadata in pack %s artifact %s", label, fqn)
+            results.append(
+                PackOverlayArtifact(
+                    pack_label=label,
+                    pack_id=pack_id,
+                    overlay=parsed,
+                    artifact_name=str(name) if name else None,
+                    artifact_fqn=str(fqn) if fqn else None,
+                    metadata=metadata,
+                )
+            )
 
         # Also collect policy artifacts (#924). These land in the same
         # overlay stream so the existing merge/priority pipeline handles
@@ -270,7 +345,16 @@ def collect_pack_overlays(
                 # Policy overlays are tagged with a ``:policy:`` suffix on
                 # the label so conflict diagnostics can distinguish them
                 # from ``config_overlay`` artifacts from the same pack.
-                results.append((f"{label}:policy:{name}", parsed))
+                results.append(
+                    PackOverlayArtifact(
+                        pack_label=f"{label}:policy:{name}",
+                        pack_id=pack_id,
+                        overlay=parsed,
+                        artifact_name=str(name) if name else None,
+                        artifact_fqn=f"{label}:policy:{name}",
+                        artifact_type="policy",
+                    )
+                )
 
     return results
 
@@ -332,6 +416,94 @@ def merge_pack_overlays(
     for _label, overlay in sorted_overlays:
         merged = deep_merge(merged, overlay)
     return merged
+
+
+def merge_pack_overlays_with_provenance(
+    overlays: list[tuple[str, dict[str, Any]]] | list[PackOverlayArtifact],
+    priorities: dict[str, int] | None = None,
+    attachment_metadata: dict[str, dict[str, Any]] | None = None,
+) -> PackOverlayMergeResult:
+    """Merge pack overlays and retain per-dot-path pack provenance.
+
+    The merge order matches :func:`merge_pack_overlays`: higher numeric
+    priority is applied first and lower numeric priority wins.  Contributions
+    are recorded for every flattened dot-path so callers can explain which
+    pack won inside the pack layer and which pack values were overridden.
+    """
+    if not overlays:
+        return PackOverlayMergeResult(merged={})
+
+    from .team_config import deep_merge
+
+    artifacts: list[PackOverlayArtifact] = []
+    for item in overlays:
+        if isinstance(item, PackOverlayArtifact):
+            artifacts.append(item)
+        else:
+            label, overlay = item
+            artifacts.append(PackOverlayArtifact(pack_label=label, overlay=overlay))
+
+    def _priority(artifact: PackOverlayArtifact) -> int:
+        if priorities is None:
+            return 50
+        return int(priorities.get(artifact.pack_label, 50))
+
+    sorted_artifacts = artifacts
+    if priorities is not None:
+        sorted_artifacts = sorted(artifacts, key=_priority, reverse=True)
+
+    merged: dict[str, Any] = {}
+    raw_contributions: list[PackOverlayContribution] = []
+    winners: dict[str, PackOverlayContribution] = {}
+    conflicts: list[str] = []
+    seen_by_path_priority: dict[tuple[str, int], PackOverlayContribution] = {}
+
+    for artifact in sorted_artifacts:
+        priority = _priority(artifact)
+        attach = (attachment_metadata or {}).get(artifact.pack_label, {})
+        flat = flatten_to_dot_paths(artifact.overlay)
+        for dot_path, value in flat.items():
+            key = (dot_path, priority)
+            previous_same_priority = seen_by_path_priority.get(key)
+            if previous_same_priority and previous_same_priority.pack_label != artifact.pack_label:
+                conflicts.append(
+                    f"'{dot_path}' is set by both {previous_same_priority.pack_label} "
+                    f"and {artifact.pack_label} at priority {priority}"
+                )
+            contribution = PackOverlayContribution(
+                dot_path=dot_path,
+                value=value,
+                pack_label=artifact.pack_label,
+                pack_id=artifact.pack_id,
+                artifact_name=artifact.artifact_name,
+                artifact_fqn=artifact.artifact_fqn,
+                artifact_type=artifact.artifact_type,
+                priority=priority,
+                attachment_scope=attach.get("scope"),
+                project_path=attach.get("project_path"),
+                space_id=attach.get("space_id"),
+            )
+            raw_contributions.append(contribution)
+            seen_by_path_priority[key] = contribution
+            winners[dot_path] = contribution
+        merged = deep_merge(merged, artifact.overlay)
+
+    final_contributions: list[PackOverlayContribution] = []
+    for contribution in raw_contributions:
+        winner = winners.get(contribution.dot_path)
+        final_contributions.append(
+            dataclasses.replace(
+                contribution,
+                wins_pack_layer=winner == contribution,
+                overridden_by=None if winner == contribution else (winner.pack_label if winner else None),
+            )
+        )
+
+    return PackOverlayMergeResult(
+        merged=merged,
+        contributions=final_contributions,
+        conflicts=sorted(set(conflicts)),
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -1,25 +1,19 @@
 import torch
 
 from transformers.generation import GenerationMixin
-from transformers.models.mbart.modeling_mbart import (
-    MBART_INPUTS_DOCSTRING,
-    MBART_START_DOCSTRING,
-    MBartConfig,
-    MBartModel,
-    MBartPreTrainedModel,
-    shift_tokens_right,
-)
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from transformers.models.mbart.modeling_mbart import MBartConfig, MBartModel, MBartPreTrainedModel, shift_tokens_right
 
 from ...composition import adjust_tensors_for_parallel
 from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    "MBART Model with the option to add multiple flexible prediction heads on top.", MBART_START_DOCSTRING
+@inherit_doc_for_adapter_model(
+    model=MBartModel,
+    custom_intro="""MBART Model with the option to add multiple flexible prediction heads on top.""",
 )
 class MBartAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MBartPreTrainedModel, GenerationMixin
@@ -51,7 +45,7 @@ class MBartAdapterModel(
     def get_decoder(self):
         return self.model.get_decoder()
 
-    @add_start_docstrings_to_model_forward(MBART_INPUTS_DOCSTRING)
+    @inherit_doc_for_function(MBartModel.forward)
     @ForwardContext.wrap
     def forward(
         self,
@@ -101,15 +95,27 @@ class MBartAdapterModel(
             past_key_values=past_key_values,
         )
         # sequence classification based on last token in sequence
-        x = outputs[0]  # last hidden state
-        if input_ids is not None and x.shape[1] == input_ids.shape[1]:
-            eos_mask = input_ids.eq(self.config.eos_token_id)
-            (eos_mask,) = adjust_tensors_for_parallel(x, eos_mask)
-            if len(torch.unique(eos_mask.sum(1))) > 1:
-                raise ValueError("All examples must have the same number of <eos> tokens.")
-            cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
+        # Only extract cls_representation for classification heads to avoid IndexError for other head types
+        from ...heads import ClassificationHead, MultiLabelClassificationHead
+
+        active_head = list(self.heads.keys())[0] if head is None and len(self.heads) > 0 else head
+        needs_cls = active_head and isinstance(
+            self.heads[active_head] if isinstance(active_head, str) and active_head in self.heads else None,
+            (ClassificationHead, MultiLabelClassificationHead),
+        )
+
+        if needs_cls:
+            x = outputs[0]  # last hidden state
+            if input_ids is not None and x.shape[1] == input_ids.shape[1]:
+                eos_mask = input_ids.eq(self.config.eos_token_id)
+                (eos_mask,) = adjust_tensors_for_parallel(x, eos_mask)
+                if len(torch.unique(eos_mask.sum(1))) > 1:
+                    raise ValueError("All examples must have the same number of <eos> tokens.")
+                cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
+            else:
+                cls_representation = x
         else:
-            cls_representation = x
+            cls_representation = None
 
         head_outputs = self.forward_head(
             outputs,

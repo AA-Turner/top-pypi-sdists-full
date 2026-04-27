@@ -12,7 +12,7 @@ use crate::error::{Error, Result};
 ///
 /// [`DEFAULT_CONFIG`]: crate::DEFAULT_CONFIG
 #[derive(Debug, RustEmbed)]
-#[folder = "../config/"]
+#[folder = "config/"]
 pub struct EmbeddedConfig;
 
 impl EmbeddedConfig {
@@ -38,7 +38,7 @@ impl EmbeddedConfig {
 ///
 /// Embeds the files under `/examples/` into the binary.
 #[derive(RustEmbed)]
-#[folder = "../examples/"]
+#[folder = "examples/"]
 pub struct BuiltinConfig;
 
 impl BuiltinConfig {

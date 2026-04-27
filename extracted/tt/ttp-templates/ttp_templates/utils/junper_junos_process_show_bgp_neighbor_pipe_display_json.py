@@ -6,6 +6,7 @@ normalized list of dictionaries suitable for further processing and integrations
 
 Produced with Copilot Assistance.
 """
+
 import json
 from typing import Any, Dict, List, Optional
 
@@ -80,7 +81,9 @@ def _normalize_peer(peer: Dict[str, Any]) -> Dict[str, Any]:
     export_policies = export_policy_str.split() if export_policy_str else []
 
     # Hold time: prefer bgp-option-information holdtime, fall back to active-holdtime
-    hold_time_raw = _get_data(opt_info, "holdtime") or _get_data(peer, "active-holdtime")
+    hold_time_raw = _get_data(opt_info, "holdtime") or _get_data(
+        peer, "active-holdtime"
+    )
     hold_time = int(hold_time_raw) if hold_time_raw is not None else None
 
     keepalive_raw = _get_data(peer, "keepalive-interval")
@@ -113,8 +116,8 @@ def _normalize_peer(peer: Dict[str, Any]) -> Dict[str, Any]:
         "local_address": local_address,
         "local_interface": _get_data(peer, "local-interface-name"),
         "remote_address": remote_address,
-        "local_as": _get_data(peer, "local-as"),
-        "remote_as": _get_data(peer, "peer-as"),
+        "local_as": int(_get_data(peer, "local-as")),
+        "remote_as": int(_get_data(peer, "peer-as")),
         "peer_group": _get_data(peer, "peer-group"),
         "import_policies": import_policies,
         "export_policies": export_policies,

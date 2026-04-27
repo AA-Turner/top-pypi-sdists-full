@@ -263,7 +263,7 @@ class TestInstaller(NgrokTestCase):
         mock_machine.return_value = "arm64"
 
         # WHEN
-        url = installer.get_ngrok_cdn_url("v3")
+        url = installer.get_ngrok_cdn_url("3")
 
         # THEN
         self.assertEqual(PLATFORMS["darwin_x86_64_arm"], url)
@@ -276,7 +276,7 @@ class TestInstaller(NgrokTestCase):
         mock_machine.return_value = "i386"
 
         # WHEN
-        url = installer.get_ngrok_cdn_url("v3")
+        url = installer.get_ngrok_cdn_url("3")
 
         # THEN
         self.assertEqual(PLATFORMS["windows_i386"], url)
@@ -289,7 +289,7 @@ class TestInstaller(NgrokTestCase):
         mock_machine.return_value = "arm aarch64"
 
         # WHEN
-        url = installer.get_ngrok_cdn_url("v3")
+        url = installer.get_ngrok_cdn_url("3")
 
         # THEN
         self.assertEqual(PLATFORMS["linux_x86_64_arm"], url)
@@ -302,7 +302,7 @@ class TestInstaller(NgrokTestCase):
         mock_machine.return_value = "x86_64"
 
         # WHEN
-        url = installer.get_ngrok_cdn_url("v3")
+        url = installer.get_ngrok_cdn_url("3")
 
         # THEN
         self.assertEqual(PLATFORMS["freebsd_x86_64"], url)
@@ -315,7 +315,7 @@ class TestInstaller(NgrokTestCase):
         mock_machine.return_value = "aarch64"
 
         # WHEN
-        url = installer.get_ngrok_cdn_url("v3")
+        url = installer.get_ngrok_cdn_url("3")
 
         # THEN
         self.assertEqual(PLATFORMS["windows_x86_64_arm"], url)
@@ -328,7 +328,7 @@ class TestInstaller(NgrokTestCase):
         mock_machine.return_value = "i386"
 
         # WHEN
-        url = installer.get_ngrok_cdn_url("v3")
+        url = installer.get_ngrok_cdn_url("3")
 
         # THEN
         self.assertEqual(PLATFORMS["windows_i386"], url)

@@ -792,6 +792,34 @@ def _print_upload_destination(console: Console, project_root: Path):
     return has_link, using_env
 
 
+def _selected_main_upload_static_categories(args) -> list[str]:
+    categories = ["dead_code"]
+    if getattr(args, "danger", False):
+        categories.append("danger")
+    if getattr(args, "quality", False):
+        categories.append("quality")
+    if getattr(args, "secrets", False):
+        categories.append("secrets")
+    if getattr(args, "sca", False):
+        categories.append("dependency")
+    return categories
+
+
+def _print_main_upload_manifest(console: Console, args, result) -> None:
+    from skylos.upload_manifest import build_code_scan_manifest, print_upload_manifest
+
+    print_upload_manifest(
+        console,
+        [
+            build_code_scan_manifest(
+                _selected_main_upload_static_categories(args),
+                provenance_attached=bool((result or {}).get("provenance")),
+            )
+        ],
+        auto_upload=not getattr(args, "_explicit_upload_requested", False),
+    )
+
+
 def _render_upload_failure(console: Console, upload_resp: dict[str, object]) -> None:
     code = str(upload_resp.get("code") or "")
     err = str(upload_resp.get("error") or "").strip()
@@ -1967,6 +1995,7 @@ def _run_clean_command(argv):
 
 def run_debt_command(argv):
     from skylos.commands.debt_cmd import run_debt_command as run_debt_command_impl
+    from skylos.api import upload_debt_report
 
     return run_debt_command_impl(
         argv,
@@ -1975,6 +2004,7 @@ def run_debt_command(argv):
         resolve_llm_runtime_func=resolve_llm_runtime,
         parse_exclude_folders_func=parse_exclude_folders,
         load_config_func=load_config,
+        upload_debt_report_func=upload_debt_report,
     )
 
 
@@ -1989,7 +2019,11 @@ def run_defend_command(argv):
 
 
 def run_suite_command(argv):
-    from skylos.api import get_git_root
+    from skylos.api import (
+        get_git_root,
+        upload_debt_report,
+        upload_defense_report,
+    )
     from skylos.commands.suite_cmd import run_suite_command as run_suite_command_impl
 
     return run_suite_command_impl(
@@ -2000,6 +2034,9 @@ def run_suite_command(argv):
         load_config_func=load_config,
         run_analyze_func=run_analyze,
         get_git_root_func=get_git_root,
+        upload_report_func=upload_report,
+        upload_defense_report_func=upload_defense_report,
+        upload_debt_report_func=upload_debt_report,
     )
 
 
@@ -2156,6 +2193,26 @@ def _run_project_command(argv):
     return run_project_command(argv)
 
 
+def _run_sonar_command(argv):
+    from skylos.commands.sonar_cmd import run_sonar_command
+
+    return run_sonar_command(argv, console_factory=Console)
+
+
+def _attach_upload_project_context(result: dict, project_root: pathlib.Path) -> None:
+    try:
+        from skylos.api import get_git_root as _get_git_root
+        from skylos.project_context import project_context_for_upload
+
+        upload_context = project_context_for_upload(project_root, _get_git_root())
+        result["project_root"] = upload_context["project_root"]
+        result.setdefault("analysis_summary", {})["project_root"] = upload_context[
+            "project_root"
+        ]
+    except Exception:
+        pass
+
+
 def _run_removed_city_command(_argv):
     console = Console()
     console.print("[bold red]Error:[/bold red] `skylos city` has been removed.")
@@ -2188,6 +2245,7 @@ EARLY_COMMAND_HANDLERS = {
     "login": "_run_login_command",
     "sync": "_run_sync_command",
     "project": "_run_project_command",
+    "sonar": "_run_sonar_command",
     "city": "_run_removed_city_command",
     "suite": "run_suite_command",
     "discover": "_run_discover_command",
@@ -2219,7 +2277,7 @@ def _rules_validate(console, path_str):
 
 def _build_main_parser():
     parser = argparse.ArgumentParser(
-        description="Find dead code, secrets, and risky flows in Python, TypeScript, and Go",
+        description="Find dead code, secrets, and risky flows in Python, JS/TS, Go, Java, and PHP",
         epilog="""
 Run 'skylos commands' for a full list of all available commands.
 Run 'skylos tour' for a guided walkthrough of capabilities.
@@ -2234,12 +2292,12 @@ Run 'skylos tour' for a guided walkthrough of capabilities.
     parser.add_argument(
         "--upload",
         action="store_true",
-        help="Upload results to skylos.dev dashboard",
+        help="Upload this code scan to Skylos Cloud",
     )
     parser.add_argument(
         "--no-upload",
         action="store_true",
-        help="Skip automatic upload even if connected to Skylos Cloud",
+        help="Skip automatic code-scan upload even if connected to Skylos Cloud",
     )
     parser.add_argument(
         "--verify",
@@ -2550,6 +2608,7 @@ def _build_main_scan_context(args):
         use_defaults=use_defaults,
         include_folders=args.include_folders,
     )
+    _apply_config_driven_analysis_flags(args, project_cfg, console)
 
     return SimpleNamespace(
         project_root=project_root,
@@ -2557,6 +2616,42 @@ def _build_main_scan_context(args):
         console=console,
         final_exclude_folders=final_exclude_folders,
     )
+
+
+def _apply_config_driven_analysis_flags(args, project_cfg, console):
+    security_contracts_configured = bool(project_cfg.get("security_contracts") or [])
+    explicit_category_flags = any(
+        getattr(args, name, False) for name in ("danger", "secrets", "quality")
+    )
+
+    enabled_from_policy = []
+    if not explicit_category_flags:
+        if bool(project_cfg.get("security_enabled", False)) or security_contracts_configured:
+            args.danger = True
+            enabled_from_policy.append("danger")
+        if bool(project_cfg.get("secrets_enabled", False)):
+            args.secrets = True
+            enabled_from_policy.append("secrets")
+        if bool(project_cfg.get("quality_enabled", False)):
+            args.quality = True
+            enabled_from_policy.append("quality")
+
+        if enabled_from_policy and not getattr(args, "json", False):
+            console.print(
+                "[brand]Using synced/local Skylos policy:[/brand] enabling "
+                + ", ".join(enabled_from_policy)
+                + " analysis."
+            )
+        return
+
+    # Security contracts are explicit security policy. If they are configured,
+    # always run danger analysis so the contracts cannot be silently skipped.
+    if not getattr(args, "danger", False) and security_contracts_configured:
+        args.danger = True
+        if not getattr(args, "json", False):
+            console.print(
+                "[brand]Security contracts configured:[/brand] enabling danger analysis automatically."
+            )
 
 
 def _print_main_scan_banner(args, console, final_exclude_folders):
@@ -2735,6 +2830,7 @@ sys.exit(ret)
     changed_files = None
     if getattr(args, "diff_base", None):
         try:
+            os.environ["SKYLOS_DIFF_BASE"] = args.diff_base
             diff_result = subprocess.run(
                 ["git", "diff", "--name-only", f"{args.diff_base}...HEAD"],
                 cwd=project_root,
@@ -3223,7 +3319,20 @@ def main() -> None:
                 import subprocess as _sp
                 from skylos.baseline import filter_new_findings, load_baseline
 
-                source_exts = {".py", ".go", ".ts", ".tsx", ".java"}
+                source_exts = {
+                    ".py",
+                    ".go",
+                    ".ts",
+                    ".tsx",
+                    ".js",
+                    ".jsx",
+                    ".mts",
+                    ".cts",
+                    ".mjs",
+                    ".cjs",
+                    ".java",
+                    ".php",
+                }
                 config_exts = {
                     ".yaml",
                     ".yml",
@@ -4445,6 +4554,7 @@ def main() -> None:
 
     parser = _build_main_parser()
     args = _parse_main_cli_args(parser, sys.argv[1:])
+    args._explicit_upload_requested = bool(getattr(args, "upload", False))
     context = _build_main_scan_context(args)
     project_root = context.project_root
     logger = context.logger
@@ -4639,6 +4749,7 @@ def main() -> None:
                 console.print(f"[warn]Verification failed: {e}[/warn]")
 
         prov_report = None
+        result["provenance"] = None
         _skip_provenance = getattr(args, "no_provenance", False)
         if not _skip_provenance:
             try:
@@ -4688,6 +4799,7 @@ def main() -> None:
                 ai_stats = compute_ai_security_stats(all_annotatable)
                 result["ai_security_stats"] = ai_stats
                 result["provenance_summary"] = prov_report.summary
+                result["provenance"] = prov_report.to_dict()
 
                 result_json = json.dumps(result)
 
@@ -4798,6 +4910,27 @@ def main() -> None:
                 pathlib.Path(args.output).write_text(result_json)
             else:
                 print(result_json)
+
+            if args.upload:
+                _attach_upload_project_context(result, project_root)
+                upload_resp = upload_report(
+                    result,
+                    is_forced=args.force,
+                    strict=args.strict,
+                    quiet=True,
+                )
+                if not upload_resp.get("success"):
+                    raise SystemExit(1)
+
+                passed = upload_resp.get("quality_gate_passed")
+                if passed is None:
+                    passed = (upload_resp.get("quality_gate") or {}).get(
+                        "passed", True
+                    )
+
+                if passed is False and not args.force:
+                    raise SystemExit(1)
+
             return
 
         if args.llm:
@@ -4823,7 +4956,9 @@ def main() -> None:
     if args.gate:
         if not args.json:
             _print_upload_destination(console, project_root)
+            _print_main_upload_manifest(console, args, result)
 
+        _attach_upload_project_context(result, project_root)
         upload_resp = upload_report(result, is_forced=args.force, strict=args.strict)
         if not upload_resp.get("success"):
             _render_upload_failure(console, upload_resp)
@@ -5079,10 +5214,14 @@ def main() -> None:
                 console.print("[dim]Run 'skylos credits' to check your balance.[/dim]")
                 return
 
+        _print_main_upload_manifest(console, args, result)
+        _attach_upload_project_context(result, project_root)
         upload_resp = upload_report(result, is_forced=args.force, strict=args.strict)
 
         if not upload_resp.get("success"):
             _render_upload_failure(console, upload_resp)
+            if getattr(args, "_explicit_upload_requested", False):
+                raise SystemExit(1)
         else:
             passed = upload_resp.get("quality_gate_passed")
             if passed is None:

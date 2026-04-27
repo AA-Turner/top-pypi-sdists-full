@@ -71,6 +71,32 @@ class TestLoadConfig:
         assert config.project.repo_label == "gitlab.internal/platform/gateway"
         assert config.project.issue_tracking.enabled is False
 
+    def test_loads_diagnostics_bundle_limits(self, tmp_path: Path) -> None:
+        cfg_file = _write_config(
+            tmp_path,
+            {
+                "ai": {
+                    "base_url": "https://api.example.com",
+                    "api_key": "sk-test-key",
+                },
+                "diagnostics_bundle": {
+                    "max_files": 3,
+                    "max_entries": 25,
+                    "max_source_bytes": 20_000,
+                    "max_bundle_bytes": 100_000,
+                    "max_time_window_hours": 12,
+                },
+            },
+        )
+
+        config, _ = load_config(cfg_file)
+
+        assert config.diagnostics_bundle.max_files == 3
+        assert config.diagnostics_bundle.max_entries == 25
+        assert config.diagnostics_bundle.max_source_bytes == 20_000
+        assert config.diagnostics_bundle.max_bundle_bytes == 100_000
+        assert config.diagnostics_bundle.max_time_window_hours == 12
+
     def test_raises_when_api_key_missing(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("AI_CHAT_API_KEY", raising=False)
         monkeypatch.delenv("AI_CHAT_API_KEY_COMMAND", raising=False)

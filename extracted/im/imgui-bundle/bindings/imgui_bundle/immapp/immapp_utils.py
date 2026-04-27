@@ -1,4 +1,4 @@
-# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2025 Pascal Thomet - https://github.com/pthom/imgui_bundle
+# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
 from typing import Callable, TypeVar, Any
 
 
@@ -54,7 +54,7 @@ def run_anon_block(function: Callable[[], None]) -> None:
         imgui.end()
 
     """
-    function()  # type: ignore
+    function()
 
 
 # Create type variables for the argument and return types of the function

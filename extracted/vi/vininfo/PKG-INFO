@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vininfo
-Version: 1.9.2
+Version: 1.10.0
 Summary: Extracts useful information from Vehicle Identification Number (VIN)
 Project-URL: Homepage, https://github.com/idlesign/vininfo
 Author-email: Igor Starikov <idlesign@yandex.ru>
@@ -115,3 +115,29 @@ for a brand.
 Details extractors are `VinDetails` subclasses in most cases making use of
 `Detail` descriptors to represent additional information
 (see `details/nissan.py` for example).
+
+### Quickstart
+
+Use [makeapp](https://pypi.org/project/makeapp/) to streamline the development:
+
+```shell
+$ uv tool install makeapp
+# or
+$ uv tool upgrade makeapp
+```
+
+Clone the source code the repository and switch into its directory:
+
+```shell
+# bootstrap the utilities
+$ ma tools
+# initialize the environment
+$ ma up
+```
+
+Check code style and run tests before your pull request:
+
+```shell
+$ ma style
+$ ma tests
+```

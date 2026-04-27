@@ -1053,6 +1053,38 @@ class AuditConfig:
 
 
 @dataclass
+class DiagnosticsBundleConfig:
+    """Local diagnostics bundle export limits."""
+
+    max_files: int = 8
+    max_entries: int = 200
+    max_source_bytes: int = 512_000
+    max_bundle_bytes: int = 2_000_000
+    max_time_window_hours: int = 168
+
+    def __post_init__(self) -> None:
+        self.max_files = max(1, min(50, self.max_files))
+        self.max_entries = max(1, min(5_000, self.max_entries))
+        self.max_source_bytes = max(10_000, min(5_000_000, self.max_source_bytes))
+        self.max_bundle_bytes = max(50_000, min(50_000_000, self.max_bundle_bytes))
+        self.max_time_window_hours = max(1, min(24 * 31, self.max_time_window_hours))
+
+
+@dataclass
+class DiagnosticsConfig:
+    """Redacted diagnostics error log settings."""
+
+    error_log_enabled: bool = True
+    log_path: str = ""  # empty = default to app.data_dir/diagnostics/
+    log_successful_debug_turns: bool = False
+    redact_content: bool = True
+    retention_days: int = 14
+    rotate_size_bytes: int = 1_048_576
+    max_entry_bytes: int = 32_768
+    max_log_dir_bytes: int = 10_485_760
+
+
+@dataclass
 class MemoryPromotionConfig:
     """Governed memory promotion / review pipeline settings (#920).
 
@@ -1728,6 +1760,8 @@ class AppConfig:
     rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
     audit: AuditConfig = field(default_factory=AuditConfig)
+    diagnostics_bundle: DiagnosticsBundleConfig = field(default_factory=DiagnosticsBundleConfig)
+    diagnostics: DiagnosticsConfig = field(default_factory=DiagnosticsConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     compliance: ComplianceConfig = field(default_factory=ComplianceConfig)
     trusted_proxy: TrustedProxyConfig = field(default_factory=TrustedProxyConfig)
@@ -3777,6 +3811,86 @@ def load_config(
         events=audit_events,
     )
 
+    diagnostics_bundle_raw = raw.get("diagnostics_bundle", {})
+    if not isinstance(diagnostics_bundle_raw, dict):
+        diagnostics_bundle_raw = {}
+
+    def _diagnostics_bundle_int(name: str, env_name: str, default: int) -> int:
+        try:
+            return int(diagnostics_bundle_raw.get(name, os.environ.get(env_name, default)))
+        except (ValueError, TypeError):
+            return default
+
+    diagnostics_bundle_config = DiagnosticsBundleConfig(
+        max_files=_diagnostics_bundle_int("max_files", "AI_CHAT_DIAGNOSTICS_BUNDLE_MAX_FILES", 8),
+        max_entries=_diagnostics_bundle_int("max_entries", "AI_CHAT_DIAGNOSTICS_BUNDLE_MAX_ENTRIES", 200),
+        max_source_bytes=_diagnostics_bundle_int(
+            "max_source_bytes",
+            "AI_CHAT_DIAGNOSTICS_BUNDLE_MAX_SOURCE_BYTES",
+            512_000,
+        ),
+        max_bundle_bytes=_diagnostics_bundle_int(
+            "max_bundle_bytes",
+            "AI_CHAT_DIAGNOSTICS_BUNDLE_MAX_BUNDLE_BYTES",
+            2_000_000,
+        ),
+        max_time_window_hours=_diagnostics_bundle_int(
+            "max_time_window_hours",
+            "AI_CHAT_DIAGNOSTICS_BUNDLE_MAX_TIME_WINDOW_HOURS",
+            168,
+        ),
+    )
+
+    # Diagnostics error log config. Separate from audit: redacted, bounded,
+    # failure-only by default, and best-effort.
+    diagnostics_raw = raw.get("diagnostics", {})
+    if not isinstance(diagnostics_raw, dict):
+        diagnostics_raw = {}
+
+    def _diag_bool(key: str, env_key: str, default: bool) -> bool:
+        value = diagnostics_raw.get(key, os.environ.get(env_key, str(default).lower()))
+        return str(value).lower() in ("true", "1", "yes", "on")
+
+    def _diag_int(key: str, env_key: str, default: int, minimum: int, maximum: int) -> int:
+        try:
+            value = int(diagnostics_raw.get(key, os.environ.get(env_key, default)))
+        except (ValueError, TypeError):
+            value = default
+        return max(minimum, min(maximum, value))
+
+    diagnostics_config = DiagnosticsConfig(
+        error_log_enabled=_diag_bool("error_log_enabled", "AI_CHAT_DIAGNOSTICS_ERROR_LOG_ENABLED", True),
+        log_path=str(diagnostics_raw.get("log_path", os.environ.get("AI_CHAT_DIAGNOSTICS_LOG_PATH", ""))),
+        log_successful_debug_turns=_diag_bool(
+            "log_successful_debug_turns",
+            "AI_CHAT_DIAGNOSTICS_LOG_SUCCESSFUL_DEBUG_TURNS",
+            False,
+        ),
+        redact_content=_diag_bool("redact_content", "AI_CHAT_DIAGNOSTICS_REDACT_CONTENT", True),
+        retention_days=_diag_int("retention_days", "AI_CHAT_DIAGNOSTICS_RETENTION_DAYS", 14, 0, 365),
+        rotate_size_bytes=_diag_int(
+            "rotate_size_bytes",
+            "AI_CHAT_DIAGNOSTICS_ROTATE_SIZE_BYTES",
+            1_048_576,
+            65_536,
+            104_857_600,
+        ),
+        max_entry_bytes=_diag_int(
+            "max_entry_bytes",
+            "AI_CHAT_DIAGNOSTICS_MAX_ENTRY_BYTES",
+            32_768,
+            1_024,
+            1_048_576,
+        ),
+        max_log_dir_bytes=_diag_int(
+            "max_log_dir_bytes",
+            "AI_CHAT_DIAGNOSTICS_MAX_LOG_DIR_BYTES",
+            10_485_760,
+            65_536,
+            1_073_741_824,
+        ),
+    )
+
     # Feedback config
     feedback_raw = raw.get("feedback", {})
     if not isinstance(feedback_raw, dict):
@@ -4341,6 +4455,8 @@ def load_config(
             rate_limit=rate_limit_config,
             server=server_config,
             audit=audit_config,
+            diagnostics_bundle=diagnostics_bundle_config,
+            diagnostics=diagnostics_config,
             memory=memory_config,
             compliance=compliance_config,
             trusted_proxy=trusted_proxy_config,

@@ -130,3 +130,17 @@ for _var in FLDAS_VARIABLES:
         _key = f"MEAN_FLDAS_{_var}_LEAD{_lead}"
         dict_fldas[_key] = ["FLDAS", f"Mean FLDAS {_var} (lead {_lead})"]
         fldas_col_map[_key] = f"fldas_{_var.lower()}_lead{_lead}"
+
+# NOAA S2S forecast variables (2 variables × 6 lead times, monthly resolution)
+# Multi-model mean of ECCC, ECMWF, NCEP, UKMO ensembles
+S2S_VARIABLES = ["t2m", "tprate"]
+S2S_LEADS = list(range(1, 7))  # 1-based: [1, 2, 3, 4, 5, 6]
+
+dict_s2s = {}
+s2s_col_map = {}  # index_name → raw column name in merged CSV
+
+for _var in S2S_VARIABLES:
+    for _lead in S2S_LEADS:
+        _key = f"MEAN_S2S_{_var}_LEAD{_lead}"
+        dict_s2s[_key] = ["S2S", f"Mean S2S {_var} (lead {_lead})"]
+        s2s_col_map[_key] = f"s2s_{_var}_lead{_lead}"

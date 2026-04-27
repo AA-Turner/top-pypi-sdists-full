@@ -135,6 +135,8 @@ registry = 8001
 # registry_host = "http://localhost:8001"  # Optional: Full registry URL. Falls back to "http://localhost:{registry}"
 function_call_host = ""  # Optional: URL for E2B to call functions. Falls back to registry_host, then "http://localhost:8001"
 demo = 7860
+# CLI `cuga start` waits for the demo Uvicorn process: max ≈ this × 0.5s between polls (default 360 → ~3 min).
+demo_server_startup_max_retries = 420
 apis_url = 9000
 crm_api = 8007
 saved_flows = 8003

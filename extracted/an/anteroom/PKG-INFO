@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anteroom
-Version: 1.173.0
+Version: 1.174.0
 Summary: Anteroom - your gateway to AI conversation
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
@@ -28,6 +28,7 @@ Requires-Dist: cryptography>=46.0.5
 Requires-Dist: argon2-cffi>=23.1.0
 Requires-Dist: usearch>=2.0
 Requires-Dist: numpy>=1.24.0
+Requires-Dist: fastembed>=0.8.0
 Requires-Dist: urllib3>=2.6.3
 Requires-Dist: pyperclip>=1.8.0
 Requires-Dist: pypdf>=6.10.2
@@ -40,8 +41,8 @@ Requires-Dist: aiohttp>=3.12.14
 Requires-Dist: requests>=2.32.4
 Requires-Dist: filelock>=3.20.3
 Requires-Dist: h2>=4.3.0
+Requires-Dist: pillow>=12.2.0
 Provides-Extra: embeddings
-Requires-Dist: fastembed>=0.4.0; extra == "embeddings"
 Provides-Extra: index
 Requires-Dist: tree-sitter>=0.23.0; extra == "index"
 Requires-Dist: tree-sitter-language-pack>=0.2.0; extra == "index"
@@ -295,9 +296,8 @@ mcp_servers:
 Upload documents (PDFs, DOCX, code) via CLI or web UI drag-and-drop. Text is automatically extracted and indexed for semantic search with local vector embeddings &mdash; no external API needed.
 
 ```bash
-pip install anteroom              # includes PDF text extraction
+pip install anteroom              # includes PDF text extraction and local vector search
 pip install anteroom[docs]        # adds DOCX text extraction
-pip install anteroom[embeddings]  # adds local vector search
 ```
 
 ---
@@ -361,7 +361,7 @@ Built to [OWASP ASVS Level 2](SECURITY.md) standards. Not bolted on &mdash; bake
 - **Token budgets**: Per-request, per-conversation, per-day limits (cost governance at scale)
 - **Sub-agent isolation**: Concurrency, depth, iteration, timeout, and output caps
 - **Team config enforcement**: Lock security settings across the entire organization
-- **Config backup history**: Versioned snapshots of configuration with restore capability (`aroom config history/diff/restore`)
+- **Config transparency**: Explain effective settings, inspect source layers, and restore versioned config snapshots (`aroom config explain/sources/history/diff/restore`)
 - **DLP**: Configurable data loss prevention rules
 
 <br>
@@ -418,7 +418,7 @@ JPMorgan built a private AI gateway for 250,000 employees. Goldman Sachs built o
 | **Audit** | HMAC-SHA256 chained JSONL, daily rotation, content redaction, SIEM integration |
 | **Storage** | SQLite + FTS5 + optional vector search, fully local, optional SQLCipher encryption |
 | **Knowledge** | RAG over sources and conversations, scoped memory recall, cross-encoder reranker, untrusted-content envelopes |
-| **Config** | YAML + env vars, ANTEROOM.md conventions, team enforcement, dynamic API key refresh |
+| **Config** | YAML + env vars, ANTEROOM.md conventions, team enforcement, pack provenance, effective-setting explanations, dynamic API key refresh |
 
 <br>
 

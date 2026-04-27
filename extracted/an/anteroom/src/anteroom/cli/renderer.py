@@ -1902,9 +1902,13 @@ def render_debug_summary(summary: dict[str, Any]) -> None:
     duration_text = f"{duration:.1f}s" if isinstance(duration, int | float) else "?s"
     stop_reason = str(summary.get("stop_reason") or "unknown")
     final_phase = str(summary.get("final_phase") or "unknown")
+    turn_id = str(summary.get("turn_id") or summary.get("request_id") or "")
 
     header = Text()
     header.append("debug", style=accent)
+    if turn_id:
+        header.append(f"  {sep}  ", style=muted)
+        header.append(turn_id, style=muted)
     header.append(f"  {sep}  ", style=muted)
     header.append(duration_text, style=muted)
     header.append(f"  {sep}  ", style=muted)
@@ -1923,6 +1927,8 @@ def render_debug_summary(summary: dict[str, Any]) -> None:
     model_label = " / ".join(str(x) for x in (model.get("provider"), model.get("name")) if x)
     if model_label:
         details.append(f"model {model_label}")
+    if summary.get("interface"):
+        details.append(f"interface {summary.get('interface')}")
     if usage.get("total_tokens") is not None:
         details.append(f"tokens {usage.get('total_tokens')}")
     details.append(f"stream {counters.get('tokens', 0)} chunks/{counters.get('token_chars', 0)} chars")
@@ -1949,11 +1955,65 @@ def render_debug_summary(summary: dict[str, Any]) -> None:
         if tool_bits:
             console.print(Text("  tools " + ", ".join(tool_bits), style=muted))
 
+    active_tools_raw = summary.get("active_tools")
+    active_tools: list[Any] = active_tools_raw if isinstance(active_tools_raw, list) else []
+    if active_tools:
+        active_bits: list[str] = []
+        for tool in active_tools[:4]:
+            if not isinstance(tool, dict):
+                continue
+            name = str(tool.get("name") or "tool")
+            elapsed = tool.get("duration_seconds")
+            timeout = tool.get("timeout_seconds")
+            elapsed_text = f" {elapsed:.1f}s" if isinstance(elapsed, int | float) else ""
+            timeout_text = f"/{timeout:.0f}s" if isinstance(timeout, int | float) else ""
+            active_bits.append(f"{name}:running{elapsed_text}{timeout_text}")
+        if active_bits:
+            console.print(Text("  active " + ", ".join(active_bits), style=muted))
+
+    phases_raw = summary.get("phases")
+    phases: list[Any] = phases_raw if isinstance(phases_raw, list) else []
+    compactions = [p for p in phases if isinstance(p, dict) and p.get("phase") == "compacting"]
     events_raw = summary.get("runtime_events")
     events: list[Any] = events_raw if isinstance(events_raw, list) else []
+    compactions.extend(e for e in events if isinstance(e, dict) and e.get("kind") == "compaction")
+    if compactions:
+        comp = compactions[-1]
+        bits = [
+            str(comp.get("reason") or comp.get("strategy") or "compaction"),
+        ]
+        if comp.get("estimated_tokens") is not None:
+            bits.append(f"~{comp.get('estimated_tokens')} tokens")
+        if comp.get("message_count") is not None:
+            bits.append(f"{comp.get('message_count')} msgs")
+        if comp.get("message_threshold") is not None:
+            bits.append(f"threshold {comp.get('message_threshold')}")
+        if comp.get("messages_compacted") is not None:
+            bits.append(f"compacted {comp.get('messages_compacted')}")
+        if comp.get("tail_preserved") is not None:
+            bits.append(f"tail {comp.get('tail_preserved')}")
+        if comp.get("bytes_saved") is not None:
+            bits.append(f"saved {comp.get('bytes_saved')} bytes")
+        console.print(Text("  compaction " + ", ".join(bits), style=muted))
+
     event_names = [str(e.get("kind")) for e in events[:6] if isinstance(e, dict) and e.get("kind")]
     if event_names:
         console.print(Text("  events " + ", ".join(event_names), style=muted))
+
+    errors_raw = summary.get("errors")
+    errors: list[Any] = errors_raw if isinstance(errors_raw, list) else []
+    if errors:
+        err = errors[-1]
+        if isinstance(err, dict):
+            code = str(err.get("code") or "error")
+            timeout_type = err.get("timeout_type")
+            elapsed = err.get("elapsed_seconds")
+            bits = [code]
+            if timeout_type:
+                bits.append(str(timeout_type))
+            if isinstance(elapsed, int | float):
+                bits.append(f"{elapsed:.1f}s")
+            console.print(Text("  error " + ", ".join(bits), style=muted))
 
 
 # ---------------------------------------------------------------------------

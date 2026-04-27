@@ -786,6 +786,8 @@ class CIDs:
             eo_vars = ["GCVI", "NDVI", "ESI4WK", "H-INDEX", "AEF"]
             if any(c.startswith("fldas_") for c in df_group.columns):
                 eo_vars.append("FLDAS")
+            if any(c.startswith("s2s_") for c in df_group.columns):
+                eo_vars.append("S2S")
             for eo_var in eo_vars:
                 df_eo = self.compute_eo_indices(
                     df_time_period,
@@ -908,6 +910,8 @@ class CIDs:
             dict_eo = di.dict_aef
         elif var == "FLDAS":
             dict_eo = di.dict_fldas
+        elif var == "S2S":
+            dict_eo = di.dict_s2s
         else:
             return pd.DataFrame()  # unknown var
 
@@ -918,6 +922,8 @@ class CIDs:
                 col_name = iname.lower()  # AEF_1 → aef_1
             elif iname in di.fldas_col_map:
                 col_name = di.fldas_col_map[iname]
+            elif iname in di.s2s_col_map:
+                col_name = di.s2s_col_map[iname]
             elif "NDVI" in iname.upper():
                 col_name = "ndvi"
             elif "ESI4WK" in iname.upper():
@@ -960,7 +966,7 @@ class CIDs:
             # mean). Restricting to the latest init row removes both
             # problems: a single value per (stage, lead), with a deterministic
             # target month independent of how much of the season has elapsed.
-            if var == "FLDAS" and "Month" in df_time_period.columns:
+            if var in ("FLDAS", "S2S") and "Month" in df_time_period.columns:
                 if df_time_period.empty:
                     continue
                 # Latest init-month row by absolute time (handles year-wrap

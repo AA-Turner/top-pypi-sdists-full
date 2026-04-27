@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mujoco-warp
-Version: 3.7.0.1
+Version: 3.8.0
 Summary: MuJoCo Warp (MJWarp)
 Author-email: Newton Developers <mujoco@deepmind.com>
 License-Expression: Apache-2.0
@@ -24,7 +24,7 @@ License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: absl-py
 Requires-Dist: etils[epath]
-Requires-Dist: mujoco>=3.6.0
+Requires-Dist: mujoco>=3.8.0
 Requires-Dist: numpy
 Requires-Dist: warp-lang>=1.12
 Provides-Extra: dev
@@ -34,7 +34,7 @@ Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: pygls<2.0.0,>=1.0.0; extra == "dev"
 Requires-Dist: lsprotocol<2024.0.0,>=2023.0.1; extra == "dev"
-Requires-Dist: mujoco>=3.6.0.dev0; extra == "dev"
+Requires-Dist: mujoco>=3.8.0.dev0; extra == "dev"
 Requires-Dist: warp-lang>=1.11.0.dev0; extra == "dev"
 Requires-Dist: mjviser>=0.0.10; extra == "dev"
 Provides-Extra: cpu

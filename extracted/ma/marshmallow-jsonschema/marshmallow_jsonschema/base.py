@@ -56,6 +56,14 @@ try:
 except ImportError:
     ALLOW_NATIVE_ENUM = False
 
+ALLOW_ONEOFSCHEMA: bool
+try:
+    from marshmallow_oneofschema import OneOfSchema
+
+    ALLOW_ONEOFSCHEMA = True
+except ImportError:
+    ALLOW_ONEOFSCHEMA = False
+
 # Backward-compat alias: historically this meant "marshmallow_enum is
 # importable", and external code has checked it as such. Keep it pointed
 # at the third-party flag so the semantic doesn't shift under callers.
@@ -144,6 +152,27 @@ FIELD_VALIDATORS = {
     validate.Range: handle_range,
     validate.Regexp: handle_regexp,
 }
+
+
+def _by_value_enum_strings(enum_cls) -> typing.List[str]:
+    """Return the string values of an enum for use as JSON Schema `enum`
+    when the field is configured to serialize by value.
+
+    Restricted to string-valued enums (the common
+    `class MyEnum(str, Enum): X = "x"` pattern). Mixed or non-string
+    values raise `NotImplementedError` because emitting them would
+    contradict our default `type: "string"` mapping for enum fields.
+    Closes #156.
+    """
+    values = [member.value for member in enum_cls]
+    if not all(isinstance(v, str) for v in values):
+        raise NotImplementedError(
+            "JSON Schema for by-value enums currently requires all values to "
+            "be strings; got types %s. Use a `class MyEnum(str, Enum)` "
+            "pattern, or load by name instead."
+            % sorted({type(v).__name__ for v in values})
+        )
+    return values
 
 
 def _is_json_serializable(value) -> bool:
@@ -265,15 +294,36 @@ class JSONSchema(Schema):
         return properties
 
     def get_required(self, obj) -> typing.Union[typing.List[str], typing.Any]:
-        """Fill out required field."""
+        """Fill out required field.
+
+        Honors `Schema(partial=...)`: when `partial` is `True` no fields
+        are required, when `partial` is a tuple/list the named fields are
+        treated as optional even if declared `required=True`.
+        """
         required = []
+        # `partial` is a Schema instance attribute and only meaningful on
+        # an instance, not a class. `callable(obj)` here means we were
+        # given a Schema class - treat that as no partial.
         if callable(obj):
             field_items_iterable = sorted(obj().fields.items())
+            partial = None
         else:
             field_items_iterable = sorted(obj.fields.items())
+            partial = getattr(obj, "partial", None)
+
         for field_name, field in field_items_iterable:
-            if field.required:
-                required.append(field.data_key or field.name)
+            if not field.required:
+                continue
+            # `partial=True` makes every field optional.
+            if partial is True:
+                continue
+            # `partial=(name1, name2, ...)` makes only the named fields
+            # optional. Match against `field_name` (the attribute name
+            # in the schema), which is what marshmallow's `partial`
+            # itself matches against.
+            if isinstance(partial, (list, tuple)) and field_name in partial:
+                continue
+            required.append(field.data_key or field.name)
 
         return required or missing
 
@@ -324,11 +374,7 @@ class JSONSchema(Schema):
         assert ALLOW_MARSHMALLOW_ENUM and isinstance(field, EnumField)
 
         if field.load_by == LoadDumpOptions.value:
-            # Python allows enum values to be almost anything, so it's easier to just load from the
-            # names of the enum's which will have to be strings.
-            raise NotImplementedError(
-                "Currently do not support JSON schema for enums loaded by value"
-            )
+            return _by_value_enum_strings(field.enum)
 
         return [value.name for value in field.enum]
 
@@ -336,11 +382,7 @@ class JSONSchema(Schema):
         assert ALLOW_NATIVE_ENUM and isinstance(field, NativeEnumField)
 
         if field.by_value:
-            # Python allows enum values to be almost anything, so it's easier to just load from the
-            # names of the enum's which will have to be strings.
-            raise NotImplementedError(
-                "Currently do not support JSON schema for enums loaded by value"
-            )
+            return _by_value_enum_strings(field.enum)
 
         return [value.name for value in field.enum]
 
@@ -410,6 +452,18 @@ class JSONSchema(Schema):
             schema.pop("default", None)
         return self._wrap_allow_none(schema, field)
 
+    def _from_raw_field(self, obj, field):
+        """`fields.Raw` accepts any value with no formatting, so emit a
+        schema with no `type` constraint. Title, default, allow_none,
+        and metadata still apply via the shared attribute pass."""
+        schema: typing.Dict[str, typing.Any] = {}
+        self._apply_custom_field_attributes(schema, field)
+        # Default title to the field name if metadata didn't supply one.
+        # `setdefault` so user-provided metadata.title wins, matching
+        # `_from_python_type`'s precedence.
+        schema.setdefault("title", field.attribute or field.name or "")
+        return self._wrap_allow_none(schema, field)
+
     def _from_pluck_field(self, obj, field):
         """`fields.Pluck(NestedSchema, "x")` extracts a single field from
         a nested schema. We emit the picked field's schema directly,
@@ -468,7 +522,15 @@ class JSONSchema(Schema):
             if issubclass(field.__class__, map_class):
                 return pytype
 
-        raise UnsupportedValueError("unsupported field type %s" % field)
+        raise UnsupportedValueError(
+            "Cannot derive a JSON Schema type for field "
+            "%s (class %s). To support a custom field, either "
+            "subclass an existing marshmallow field type "
+            "(e.g. `class MyField(fields.String): ...`) or add a "
+            "`_jsonschema_type_mapping(self)` method to the field "
+            'returning a JSON Schema dict like `{"type": "string"}`.'
+            % (getattr(field, "name", "<unnamed>"), type(field).__name__)
+        )
 
     def _call_jsonschema_type_mapping(self, obj, field):
         """Invoke the field's ``_jsonschema_type_mapping``, optionally passing
@@ -531,6 +593,15 @@ class JSONSchema(Schema):
                 schema = self._from_constant_field(obj, field)
             elif ALLOW_UNIONS and isinstance(field, Union):
                 schema = self._from_union_schema(obj, field)
+            elif type(field) is fields.Raw:
+                # `fields.Raw` is "any value, no formatting" - emit a
+                # type-less schema so any JSON value validates. The
+                # historical mapping to `type: string` was wrong (it
+                # rejected numbers/objects/etc.); closes #120. Exact
+                # type check (not isinstance) so user subclasses of
+                # Raw with their own intent still go through the
+                # normal `_get_python_type` path.
+                schema = self._from_raw_field(obj, field)
             else:
                 pytype = self._get_python_type(field)
                 schema = self._from_python_type(obj, field, pytype)
@@ -580,31 +651,41 @@ class JSONSchema(Schema):
             name = nested_cls.__name__
             nested_instance = nested
 
-        outer_name = obj.__class__.__name__
-        # If this is not a schema we've seen, and it's not this schema (checking this for recursive schemas),
-        # put it in our list of schema defs
-        if name not in self._nested_schema_classes and name != outer_name:
-            wrapped_nested = self.__class__(
-                nested=True,
-                props_ordered=self.props_ordered,
-                definitions_path=self.definitions_path,
-            )
-            wrapped_dumped = wrapped_nested.dump(nested_instance)
+        # `marshmallow_oneofschema.OneOfSchema` dispatches to one of N
+        # variant schemas at runtime, so a single $ref to the OneOf
+        # class itself wouldn't describe any actual instance. Emit
+        # `oneOf` over the variants instead. The many / allow_none /
+        # metadata wrap below still applies to the resulting schema.
+        if ALLOW_ONEOFSCHEMA and isinstance(nested_instance, OneOfSchema):
+            schema = self._oneof_body(nested_instance)
+        else:
+            outer_name = obj.__class__.__name__
+            # If this is not a schema we've seen, and it's not this schema (checking this for recursive schemas),
+            # put it in our list of schema defs
+            if name not in self._nested_schema_classes and name != outer_name:
+                wrapped_nested = self.__class__(
+                    nested=True,
+                    props_ordered=self.props_ordered,
+                    definitions_path=self.definitions_path,
+                )
+                wrapped_dumped = wrapped_nested.dump(nested_instance)
 
-            wrapped_dumped["additionalProperties"] = _resolve_additional_properties(
-                nested_cls
-            )
-            for meta_key in ("title", "description"):
-                value = _resolve_schema_meta_string(nested_cls, meta_key)
-                if value is not None:
-                    wrapped_dumped[meta_key] = value
+                wrapped_dumped["additionalProperties"] = _resolve_additional_properties(
+                    nested_cls
+                )
+                for meta_key in ("title", "description"):
+                    value = _resolve_schema_meta_string(nested_cls, meta_key)
+                    if value is not None:
+                        wrapped_dumped[meta_key] = value
 
-            self._nested_schema_classes[name] = wrapped_dumped
+                self._nested_schema_classes[name] = wrapped_dumped
 
-            self._nested_schema_classes.update(wrapped_nested._nested_schema_classes)
+                self._nested_schema_classes.update(
+                    wrapped_nested._nested_schema_classes
+                )
 
-        # and the schema is just a reference to the def
-        schema = self._schema_base(name)
+            # and the schema is just a reference to the def
+            schema = self._schema_base(name)
 
         # NOTE: doubled up to maintain backwards compatibility
         metadata = field.metadata.get("metadata", {})
@@ -635,6 +716,108 @@ class JSONSchema(Schema):
             "$ref": "#/{}/{}".format(self.definitions_path, name),
         }
 
+    def _build_oneof_variants(self, oneof_obj):
+        """Build a self-contained schema for each variant of a
+        `OneOfSchema` and return a list suitable for `oneOf`.
+
+        Each returned schema is inlined (not a `$ref`) so it can carry
+        the discriminator field as a `const`. This is what makes the
+        emitted `oneOf` actually validate the wire format that
+        `OneOfSchema` produces - by default `OneOfSchema` strips the
+        discriminator from the variant's own field set and re-injects
+        it at dump time, so a bare `$ref` to the variant's standalone
+        definition would reject the discriminator key under
+        `additionalProperties: false`.
+
+        Any nested-schema definitions discovered while dumping a
+        variant are still propagated into the outer document, so
+        `$ref`s inside the inlined variant resolve correctly.
+        """
+        if not oneof_obj.type_schemas:
+            # `oneOf: []` is invalid per Draft-07 (must have >=1 element).
+            # An empty `type_schemas` is almost certainly a misconfiguration
+            # rather than an intentional "match nothing" schema.
+            raise UnsupportedValueError(
+                "OneOfSchema {!r} has empty `type_schemas`; cannot emit "
+                "`oneOf` with zero variants. Add at least one entry to "
+                "`type_schemas`.".format(oneof_obj.__class__.__name__)
+            )
+        oneof_cls_name = oneof_obj.__class__.__name__
+        in_progress = getattr(self, "_oneof_in_progress", None)
+        if in_progress is None:
+            in_progress = set()
+            self._oneof_in_progress = in_progress
+        if oneof_cls_name in in_progress:
+            # A variant transitively references its own OneOfSchema.
+            # Variants are inlined (no shared definition to $ref back
+            # to), so the natural code path would recurse forever.
+            # Raise a clear error instead of stack-overflowing.
+            raise UnsupportedValueError(
+                "Recursive OneOfSchema {!r} is not supported: a variant "
+                "references the same OneOfSchema, and variants are inlined "
+                "rather than registered as a definition that can be "
+                "$ref'd back to.".format(oneof_cls_name)
+            )
+        in_progress.add(oneof_cls_name)
+        try:
+            return self._build_oneof_variants_unguarded(oneof_obj, in_progress)
+        finally:
+            in_progress.discard(oneof_cls_name)
+
+    def _build_oneof_variants_unguarded(self, oneof_obj, in_progress):
+        type_field = oneof_obj.type_field
+        variants = []
+        for type_value, schema_cls in oneof_obj.type_schemas.items():
+            wrapped_nested = self.__class__(
+                nested=True,
+                props_ordered=self.props_ordered,
+                definitions_path=self.definitions_path,
+            )
+            # Share the recursion guard set so re-entry is detected
+            # across the wrapped instance's own dump pipeline.
+            wrapped_nested._oneof_in_progress = in_progress
+            variant_schema = wrapped_nested.dump(schema_cls())
+            variant_schema["additionalProperties"] = _resolve_additional_properties(
+                schema_cls
+            )
+            for meta_key in ("title", "description"):
+                value = _resolve_schema_meta_string(schema_cls, meta_key)
+                if value is not None:
+                    variant_schema[meta_key] = value
+
+            # Inject the discriminator field as a const-valued property
+            # and add it to required so consumers can rely on it.
+            variant_schema.setdefault("properties", {})
+            if type_field in variant_schema["properties"]:
+                # The variant declares its own field with the same name as
+                # the OneOfSchema discriminator. Silently overwriting would
+                # mask a real schema mismatch (the variant's declared type
+                # might not even be a string), so refuse and force the user
+                # to rename one or the other.
+                raise UnsupportedValueError(
+                    "OneOfSchema variant {!r} (type_value={!r}) declares a "
+                    "field named {!r}, which collides with the OneOfSchema "
+                    "discriminator. Rename the field or change "
+                    "`type_field` on the OneOfSchema.".format(
+                        schema_cls.__name__, type_value, type_field
+                    )
+                )
+            variant_schema["properties"][type_field] = {
+                "type": "string",
+                "const": type_value,
+                "title": type_field,
+            }
+            existing_required = list(variant_schema.get("required", []))
+            if type_field not in existing_required:
+                variant_schema["required"] = sorted(existing_required + [type_field])
+
+            # Carry through any nested definitions discovered inside
+            # the variant - the inlined variant may still reference
+            # them via `$ref`.
+            self._nested_schema_classes.update(wrapped_nested._nested_schema_classes)
+            variants.append(variant_schema)
+        return variants
+
     def dump(self, obj, **kwargs) -> typing.Dict[str, typing.Any]:
         """Render `obj` as a JSON Schema dict.
 
@@ -644,7 +827,39 @@ class JSONSchema(Schema):
         `$ref`).
         """
         self.obj = obj
+        if ALLOW_ONEOFSCHEMA and isinstance(obj, OneOfSchema):
+            return self._dump_oneof_root(obj)
         return super().dump(obj, **kwargs)
+
+    def _oneof_body(self, obj) -> typing.Dict[str, typing.Any]:
+        """The `oneOf` envelope dict for a `OneOfSchema` instance,
+        including the schema-level `Meta.title` / `Meta.description` if
+        set. Used both for top-level dumps and for nested-field dumps so
+        Meta surfaces consistently in both positions."""
+        body: typing.Dict[str, typing.Any] = {"oneOf": self._build_oneof_variants(obj)}
+        for meta_key in ("title", "description"):
+            value = _resolve_schema_meta_string(obj.__class__, meta_key)
+            if value is not None:
+                body[meta_key] = value
+        return body
+
+    def _dump_oneof_root(self, obj) -> typing.Dict[str, typing.Any]:
+        """Top-level dump for a `OneOfSchema` instance. Emits a `oneOf`
+        envelope referencing each registered variant. Honors `many=True`
+        by wrapping in an array."""
+        body = self._oneof_body(obj)
+        if self.nested:
+            return body
+        root: typing.Dict[str, typing.Any] = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            self.definitions_path: self._nested_schema_classes,
+        }
+        if getattr(obj, "many", False):
+            root["type"] = "array"
+            root["items"] = body
+        else:
+            root.update(body)
+        return root
 
     @post_dump
     def wrap(self, data, **_) -> typing.Dict[str, typing.Any]:
@@ -662,9 +877,19 @@ class JSONSchema(Schema):
                 data[meta_key] = value
 
         self._nested_schema_classes[name] = data
-        root = {
+        ref = "#/{path}/{name}".format(path=self.definitions_path, name=name)
+        # `Schema(many=True)` describes a list of objects rather than a
+        # single one; emit Draft-7's array envelope so consumers don't
+        # have to post-process the output. Closes #92.
+        if getattr(self.obj, "many", False):
+            return {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                self.definitions_path: self._nested_schema_classes,
+                "type": "array",
+                "items": {"$ref": ref},
+            }
+        return {
             "$schema": "http://json-schema.org/draft-07/schema#",
             self.definitions_path: self._nested_schema_classes,
-            "$ref": "#/{path}/{name}".format(path=self.definitions_path, name=name),
+            "$ref": ref,
         }
-        return root

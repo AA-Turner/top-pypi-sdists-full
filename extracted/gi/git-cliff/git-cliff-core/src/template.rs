@@ -203,7 +203,7 @@ impl Template {
         for node in ast {
             Self::find_identifiers(node, &mut variables);
         }
-        log::trace!("Template variables for {name}: {variables:?}");
+        tracing::trace!("Template variables for {name}: {variables:?}");
         Ok(variables.into_iter().collect())
     }
 
@@ -278,6 +278,7 @@ mod test {
             repository: Some(String::from("/root/repo")),
             submodule_commits: HashMap::new(),
             statistics: None,
+            bump_type: None,
             #[cfg(feature = "github")]
             github: crate::remote::RemoteReleaseMetadata {
                 contributors: vec![],

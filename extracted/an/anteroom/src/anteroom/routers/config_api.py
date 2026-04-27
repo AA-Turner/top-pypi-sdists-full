@@ -188,22 +188,76 @@ class ConfigFieldResetBody(BaseModel):
 
 
 @router.get("/config/fields")
-async def list_config_fields(request: Request) -> list[dict[str, Any]]:
-    """List all settable config fields with type info."""
-    from ..services.config_editor import list_settable_fields
+async def list_config_fields(
+    request: Request,
+    query: str | None = None,
+    include_current: bool = False,
+    include_sensitive: bool = False,
+) -> list[dict[str, Any]]:
+    """List or search settable config fields with structured help metadata."""
+    from ..services.config_registry import (
+        attach_current_values,
+        list_config_settings,
+        search_config_settings,
+        setting_to_dict,
+    )
 
-    fields = list_settable_fields(include_sensitive=False)
-    return [
-        {
-            "dot_path": f.dot_path,
-            "field_type": f.field_type,
-            "default": f.default,
-            "allowed_values": list(f.allowed_values) if f.allowed_values else None,
-            "min_val": f.min_val,
-            "max_val": f.max_val,
-        }
-        for f in fields
-    ]
+    if query:
+        entries = [r.entry for r in search_config_settings(query, include_sensitive=include_sensitive)]
+    else:
+        entries = list_config_settings(include_sensitive=include_sensitive)
+
+    if not include_current:
+        return [setting_to_dict(entry) for entry in entries]
+
+    source_map, enforced = _build_api_context(request)
+    values = attach_current_values(entries, request.app.state.config, source_map, enforced)
+    return [setting_to_dict(result.entry, current=result.current) for result in values]
+
+
+@router.get("/config/explain/{dot_path:path}")
+async def explain_config_field(dot_path: str, request: Request) -> dict[str, Any]:
+    """Explain one effective config field with source and enforcement context."""
+    from ..services.config_explanation import build_explanation_context, explain_setting
+
+    config = request.app.state.config
+    enforced: list[str] = getattr(request.app.state, "enforced_fields", [])
+    db = getattr(request.app.state, "db", None)
+    active_space = _get_active_space(request)
+    working_dir = _get_working_dir(request)
+
+    try:
+        context = build_explanation_context(
+            config,
+            enforced,
+            db=db,
+            active_space=active_space,
+            working_dir=working_dir,
+        )
+        return explain_setting(dot_path, context).to_dict()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/config/sources")
+async def get_config_sources(request: Request) -> dict[str, Any]:
+    """Return structured config source layers and pack contributions."""
+    from ..services.config_explanation import build_explanation_context, list_sources
+
+    config = request.app.state.config
+    enforced: list[str] = getattr(request.app.state, "enforced_fields", [])
+    db = getattr(request.app.state, "db", None)
+    active_space = _get_active_space(request)
+    working_dir = _get_working_dir(request)
+
+    context = build_explanation_context(
+        config,
+        enforced,
+        db=db,
+        active_space=active_space,
+        working_dir=working_dir,
+    )
+    return list_sources(context)
 
 
 @router.get("/config/fields/{dot_path:path}")

@@ -12,6 +12,7 @@ from typing import Any, Callable, Coroutine
 from ..config import SubagentConfig
 from ..services.agent_loop import AgentEvent, active_skill_policy, run_agent_loop
 from ..services.ai_service import AIService
+from ..services.diagnostic_context import log_debug
 
 logger = logging.getLogger(__name__)
 
@@ -183,14 +184,55 @@ async def handle(
       ``DetachedSubagentManager.start``; later config changes do not affect
       an in-flight run.
     """
+    started_at = time.monotonic()
+    log_debug(
+        logger,
+        "tool.subagent.start",
+        lifecycle="start",
+        phase="tool_exec",
+        tool_name="run_agent",
+        detach=_detach,
+        depth=_depth,
+        prompt_chars=len(prompt or ""),
+        model_override=bool(model),
+    )
     if _ai_service is None:
+        log_debug(
+            logger,
+            "tool.subagent.failure",
+            lifecycle="failure",
+            phase="tool_exec",
+            tool_name="run_agent",
+            status="missing_ai_service",
+            _started_at=started_at,
+        )
         return {"error": "Sub-agent requires AI service context"}
 
     if not prompt or not prompt.strip():
+        log_debug(
+            logger,
+            "tool.subagent.failure",
+            lifecycle="failure",
+            phase="tool_exec",
+            tool_name="run_agent",
+            status="empty_prompt",
+            _started_at=started_at,
+        )
         return {"error": "Prompt must not be empty"}
 
     max_prompt = _config.max_prompt_chars if _config else MAX_PROMPT_CHARS
     if len(prompt) > max_prompt:
+        log_debug(
+            logger,
+            "tool.subagent.failure",
+            lifecycle="failure",
+            phase="tool_exec",
+            tool_name="run_agent",
+            status="prompt_too_large",
+            prompt_chars=len(prompt),
+            max_prompt_chars=max_prompt,
+            _started_at=started_at,
+        )
         return {"error": f"Prompt exceeds maximum length ({max_prompt} characters)"}
 
     # Validate and normalise description
@@ -223,6 +265,15 @@ async def handle(
     # Detached mode (#1314) — launch as background agent and return immediately
     if _detach:
         if _detach_manager is None:
+            log_debug(
+                logger,
+                "tool.subagent.failure",
+                lifecycle="failure",
+                phase="tool_exec",
+                tool_name="run_agent",
+                status="detach_unavailable",
+                _started_at=started_at,
+            )
             return {"error": "Detached subagents are not supported in this context", "exit_code": -1}
         try:
             result = _detach_manager.start(
@@ -246,8 +297,29 @@ async def handle(
             )
             detached_result = dict(result)
             detached_result["_end_turn"] = True
+            log_debug(
+                logger,
+                "tool.subagent.success",
+                lifecycle="success",
+                phase="tool_exec",
+                tool_name="run_agent",
+                status="detached_started",
+                detach=True,
+                run_id=detached_result.get("run_id") or detached_result.get("id"),
+                _started_at=started_at,
+            )
             return detached_result
         except ValueError as exc:
+            log_debug(
+                logger,
+                "tool.subagent.failure",
+                lifecycle="failure",
+                phase="tool_exec",
+                tool_name="run_agent",
+                status="detach_failed",
+                error_class=type(exc).__name__,
+                _started_at=started_at,
+            )
             return {"error": str(exc), "exit_code": -1}
 
     max_depth = _config.max_depth if _config else MAX_SUBAGENT_DEPTH
@@ -263,12 +335,21 @@ async def handle(
 
     acquired = await _limiter.acquire()
     if not acquired:
+        log_debug(
+            logger,
+            "tool.subagent.skip",
+            lifecycle="skip",
+            phase="tool_exec",
+            tool_name="run_agent",
+            reason="limit_reached",
+            _started_at=started_at,
+        )
         return {
             "error": "Sub-agent limit reached for this request. Reuse existing sub-agent results or reduce parallelism."
         }
 
     try:
-        return await _run_subagent(
+        result = await _run_subagent(
             prompt=prompt,
             model=model,
             _ai_service=_ai_service,
@@ -286,6 +367,20 @@ async def handle(
             _audit_writer=_audit_writer,
             _parent_conversation_id=_conversation_id,
         )
+        log_debug(
+            logger,
+            "tool.subagent.success",
+            lifecycle="success",
+            phase="tool_exec",
+            tool_name="run_agent",
+            status="error" if "error" in result else "success",
+            output_chars=len(result.get("output", "")) if isinstance(result.get("output"), str) else 0,
+            tool_call_count=(
+                len(result.get("tool_calls_made", [])) if isinstance(result.get("tool_calls_made"), list) else 0
+            ),
+            _started_at=started_at,
+        )
+        return result
     finally:
         _limiter.release()
 
@@ -534,6 +629,17 @@ async def _run_subagent(
     try:
         await asyncio.wait_for(_run_loop(), timeout=timeout)
     except asyncio.TimeoutError:
+        log_debug(
+            logger,
+            "tool.subagent.timeout",
+            lifecycle="timeout",
+            phase="tool_exec",
+            tool_name="run_agent",
+            agent_id=_agent_id,
+            depth=child_depth,
+            timeout_seconds=timeout,
+            _started_at=start_time,
+        )
         logger.warning("Sub-agent %s timed out after %ds", _agent_id, timeout)
         error_message = f"Sub-agent timed out after {timeout}s"
     except Exception:

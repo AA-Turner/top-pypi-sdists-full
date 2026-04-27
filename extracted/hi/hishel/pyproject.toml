@@ -1,13 +1,7 @@
-[build-system]
-requires = ["hatchling", "hatch-fancy-pypi-readme"]
-build-backend = "hatchling.build"
-
 [project]
 name = "hishel"
-version = "1.1.10"
-dynamic = ["readme"]
+version = "1.2.0"
 description = " Elegant HTTP Caching for Python"
-license = "BSD-3-Clause"
 requires-python = ">=3.10"
 authors = [{ name = "Kar Petrosyan", email = "kar.petrosyanpy@gmail.com" }]
 classifiers = [
@@ -51,25 +45,13 @@ httpx = [
 fastapi = [
     "fastapi>=0.119.1",
 ]
+redis = [
+    "redis>=7.0.0",
+]
 
 [project.urls]
 Homepage = "https://hishel.com"
 Source = "https://github.com/karpetrosyan/hishel"
-
-[tool.hatch.version]
-path = "hishel/__init__.py"
-
-[tool.hatch.build.targets.sdist]
-include = ["/hishel", "/CHANGELOG.md", "/README.md"]
-
-[tool.hatch.metadata.hooks.fancy-pypi-readme]
-content-type = "text/markdown"
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
-path = "README.md"
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
-path = "CHANGELOG.md"
 
 [tool.mypy]
 strict = true
@@ -80,8 +62,8 @@ exclude = ['venv', '.venv']
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
-
 check_untyped_defs = true
+
 [[tool.mypy.overrides]]
 module = ["time_machine.*", "msgpack.*"]
 ignore_missing_imports = true
@@ -89,23 +71,24 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 addopts = ["-rxXs", "--strict-config", "--strict-markers"]
 filterwarnings = []
+pythonpath = ["src"]
 
 [tool.coverage.report]
 exclude_also = ['__repr__', 'raise NotImplementedError()']
 
 [tool.ruff]
 exclude = [
-    "hishel/_sync",
-    "hishel/__init__.py",
+    "src/hishel/_sync",
+    "src/hishel/__init__.py",
     "tests/_sync",
-    "hishel/_core/_sync",
+    "src/hishel/_core/_sync",
     "tests/_core/_sync",
-    "hishel/_sync_cache.py",
+    "src/hishel/_sync_cache.py",
     "tests/test_sync_httpx.py",
-    "hishel/_core/_storages/_sync_sqlite.py",
-    "hishel/_core/_storages/_sync_base.py",
-    "tests/test_sync_httpx.py",
-    "hishel/_sync_httpx.py"
+    "src/hishel/_core/_storages/_sync_sqlite.py",
+    "src/hishel/_core/_storages/_sync_redis.py",
+    "src/hishel/_core/_storages/_sync_base.py",
+    "src/hishel/_sync_httpx.py"
 ]
 line-length = 120
 
@@ -140,5 +123,8 @@ dev = [
     "types-boto3==1.42.39",
     "types-pyyaml==6.0.12.20250915",
     "types-requests>=2.31.0.6",
+    "fakeredis>=2.0",
+    "redis>=7.0.0",
     "zipp>=3.19.1",
+    "types-redis>=4.6.0.20241004",
 ]

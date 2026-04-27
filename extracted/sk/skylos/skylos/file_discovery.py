@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from fnmatch import fnmatchcase
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
@@ -26,6 +27,22 @@ def should_exclude_path(
         exclude_normalized = exclude_folder.replace("\\", "/").rstrip("/")
 
         if "*" in exclude_normalized:
+            patterns = {exclude_normalized}
+            if exclude_normalized.startswith("**/"):
+                patterns.add(exclude_normalized[3:])
+            if exclude_normalized.endswith("/**"):
+                patterns.add(exclude_normalized[:-3])
+            if exclude_normalized.startswith("**/") and exclude_normalized.endswith("/**"):
+                patterns.add(exclude_normalized[3:-3])
+
+            for pattern in patterns:
+                if rel_path_str == pattern or fnmatchcase(rel_path_str, pattern):
+                    return True
+                if pattern.endswith("/**"):
+                    directory = pattern[:-3]
+                    if rel_path_str == directory or rel_path_str.startswith(directory + "/"):
+                        return True
+
             suffix = exclude_normalized.replace("*", "")
             for part in path_parts:
                 if part.endswith(suffix):
@@ -125,7 +142,7 @@ def list_git_visible_files(path: str | Path) -> list[Path] | None:
         rel_path = line.strip()
         if not rel_path:
             continue
-        files.append((root / rel_path).resolve())
+        files.append(root / rel_path)
 
     files.sort()
     return files
@@ -159,18 +176,18 @@ def discover_source_files(
             files = []
             seen = set()
             for file_path in [*git_files, *forced_includes]:
+                if file_path.suffix.lower() not in ext_set:
+                    continue
                 resolved = file_path.resolve()
                 if resolved in seen:
                     continue
                 seen.add(resolved)
-                if file_path.suffix.lower() not in ext_set:
-                    continue
                 if should_include_path(file_path, target, include_folders):
-                    files.append(file_path)
+                    files.append(resolved)
                     continue
                 if should_exclude_path(file_path, target, exclude_folders):
                     continue
-                files.append(file_path)
+                files.append(resolved)
             files.sort()
             return files
 

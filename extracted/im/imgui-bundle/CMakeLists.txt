@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(imgui_bundle VERSION "1.92.601") # Based on ImGui 1.92.6 - Remember to mirror changes to pyproject.toml! Version = ImGui patch × 100 + bundle release
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+    message(FATAL_ERROR "In-source builds are not allowed. Please use a separate build directory, e.g.:\n  mkdir build && cd build && cmake ..")
+endif()
+
+project(imgui_bundle VERSION "1.92.700") # Based on ImGui 1.92.7 - Remember to mirror changes to pyproject.toml! Version = ImGui patch × 100 + bundle release
 
 # imgui_bundle_build_lib contains the main logic to build imgui_bundle
 set(IMGUI_BUNDLE_PATH ${CMAKE_CURRENT_LIST_DIR} CACHE STRING "" FORCE)
@@ -160,11 +164,13 @@ endif()
 #   IMGUI_BUNDLE_WITH_IMPLOT, IMGUI_BUNDLE_WITH_IMPLOT3D,
 #   IMGUI_BUNDLE_WITH_IMGUI_NODE_EDITOR, IMGUI_BUNDLE_WITH_IMGUI_MD,
 #   IMGUI_BUNDLE_WITH_IMFILEDIALOG, IMGUI_BUNDLE_WITH_IMGUI_TEX_INSPECT
-#   IMGUI_BUNDLE_WITH_NANOVG, IMGUI_BUNDLE_WITH_IMGUIZMO
+#   IMGUI_BUNDLE_WITH_NANOVG, IMGUI_BUNDLE_WITH_IMGUIZMO,
+#   IMGUI_BUNDLE_WITH_MICROTEX
 # =============================================================================
 option(IMGUI_BUNDLE_WITH_HELLO_IMGUI "Build with hello_imgui (window management)" ON)
 option(IMGUI_BUNDLE_WITH_IMMAPP "Build with immapp (internal high-level app framework)" ON)
 option(IMGUI_BUNDLE_WITH_IMGUI_MD "Build with imgui_md (markdown renderer)" ON)
+option(IMGUI_BUNDLE_WITH_MICROTEX "Build with MicroTeX (native LaTeX math rendering)" ON)
 option(IMGUI_BUNDLE_WITH_NANOVG "Build with nanovg" ON)
 option(IMGUI_BUNDLE_WITH_IMGUI_TEX_INSPECT "Build with imgui_tex_inspect" ON)
 option(IMGUI_BUNDLE_WITH_IMGUIZMO "Build with ImGuizmo" ON)
@@ -547,5 +553,7 @@ message(STATUS "
     IMGUI_BUNDLE_WITH_IMGUI_MD:            ${IMGUI_BUNDLE_WITH_IMGUI_MD}
     IMGUI_BUNDLE_WITH_IMFILEDIALOG:        ${IMGUI_BUNDLE_WITH_IMFILEDIALOG}
     IMGUI_BUNDLE_WITH_IMGUI_TEX_INSPECT:   ${IMGUI_BUNDLE_WITH_IMGUI_TEX_INSPECT}
+    IMGUI_BUNDLE_WITH_MICROTEX:            ${IMGUI_BUNDLE_WITH_MICROTEX}
+    IMGUI_RICHMD_WITH_DOWNLOAD_IMAGES      ${IMGUI_RICHMD_WITH_DOWNLOAD_IMAGES}
     ===========================================================================
 ")

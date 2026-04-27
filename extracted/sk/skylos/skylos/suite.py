@@ -236,6 +236,17 @@ def run_suite(
         pass
 
     debt_snapshot = build_debt_snapshot(static_result, project_root=target_path)
+    try:
+        from skylos.project_context import project_context_for_upload
+
+        git_root = get_git_root_func() if get_git_root_func else None
+        upload_context = project_context_for_upload(target_path, git_root)
+        static_result["project_root"] = upload_context["project_root"]
+        static_result.setdefault("analysis_summary", {})["project_root"] = (
+            upload_context["project_root"]
+        )
+    except Exception:
+        upload_context = {"project_root": ""}
 
     provenance_section: dict[str, Any] = {
         "enabled": not no_provenance,
@@ -243,6 +254,7 @@ def run_suite(
         "summary": None,
         "ai_security_stats": None,
     }
+    static_result["provenance"] = None
     if not no_provenance:
         try:
             from skylos.file_discovery import find_git_root
@@ -272,6 +284,7 @@ def run_suite(
             ai_stats = compute_ai_security_stats(annotatable)
             static_result["ai_security_stats"] = ai_stats
             static_result["provenance_summary"] = provenance_report.summary
+            static_result["provenance"] = provenance_report.to_dict()
             provenance_section.update(
                 {
                     "available": True,
@@ -324,6 +337,7 @@ def run_suite(
     return {
         "version": "1.0",
         "project": str(target_path),
+        "project_root": upload_context["project_root"],
         "summary": {
             "files_scanned": int(
                 (static_result.get("analysis_summary") or {}).get("total_files") or 0

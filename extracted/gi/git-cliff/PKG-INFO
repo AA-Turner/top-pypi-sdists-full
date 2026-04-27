@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: git-cliff
-Version: 2.12.0
+Version: 2.13.1
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
 Classifier: Programming Language :: Rust

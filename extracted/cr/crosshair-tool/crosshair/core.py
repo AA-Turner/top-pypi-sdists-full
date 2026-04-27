@@ -82,6 +82,7 @@ from crosshair.statespace import (
     StateSpace,
     StateSpaceContext,
     VerificationStatus,
+    assert_no_forks,
     context_statespace,
     optional_context_statespace,
     prefer_true,
@@ -110,6 +111,7 @@ from crosshair.util import (
     NotDeterministic,
     ReferencedIdentifier,
     UnexploredPath,
+    assert_tracing,
     ch_stack,
     debug,
     eval_friendly_repr,
@@ -323,6 +325,25 @@ def python_type(o: object) -> Type:
         return type(o)
 
 
+@assert_tracing(False)
+@assert_no_forks
+def smt_for_unification(value: Any, other_value: Any) -> Optional[z3.ExprRef]:
+    """
+    If `value`'s equality with `other_value` can be reduced to an SMT expression,
+    return it. Otherwise, return None.
+    `other_value` must be deeply concrete.
+    This method must not directly or indirectly cause a path fork.
+    """
+    debug(
+        f"Finding unification expression (type:{name_of_type(type(value))} vs type:{name_of_type(type(other_value))})"
+    )
+    if hasattr(value, "_smt_for_unification"):
+        return value._smt_for_unification(other_value)
+    elif hasattr(other_value, "_smt_for_unification"):
+        return other_value._smt_for_unification(value)
+    return None
+
+
 def class_with_realized_methods(cls: _T) -> _T:
     overrides = {
         method_name: with_realized_args(method)
@@ -520,6 +541,11 @@ def proxy_for_class(typ: Type, varname: str) -> object:
 
 
 def register_patch(entity: Callable, patch_value: Callable):
+    """
+    Intercept a call to `entity` when tracing is enabled; `patch_value` will be called
+    instead.
+    `patch_value` will be called with tracing enabled.
+    """
     if entity in _PATCH_REGISTRATIONS:
         raise CrossHairInternal(f"Doubly registered patch: {entity}")
     _PATCH_REGISTRATIONS[entity] = patch_value
@@ -610,6 +636,9 @@ def register_type(typ: Type, creator: SymbolicCreationCallback) -> None:
       returns a symbolic value. When creating a parameterized type (e.g. List[int]),
       type parameters will be given to `creator` as additional arguments following the
       factory.
+      `creator` will be called with tracing disabled. (unlike register_patch)
+      Note that this is only used when CrossHair generates values; to intercept when
+      user code creates the same type, you must ALSO register_patch the type.
     """
     assert typ is origin_of(
         typ

@@ -13,11 +13,13 @@ import yaml
 
 from anteroom.db import _SCHEMA, ThreadSafeConnection
 from anteroom.services.config_overlays import (
+    PackOverlayArtifact,
     check_enforced_field_violations,
     collect_pack_overlays,
     detect_overlay_conflicts,
     flatten_to_dot_paths,
     merge_pack_overlays,
+    merge_pack_overlays_with_provenance,
     track_config_sources,
 )
 
@@ -194,6 +196,33 @@ class TestMergePackOverlays:
         ]
         result = merge_pack_overlays(overlays)
         assert result == {"ai": {"model": "gpt-4o", "temperature": 0.7}}
+
+    def test_merge_with_provenance_marks_priority_winner(self) -> None:
+        result = merge_pack_overlays_with_provenance(
+            [
+                PackOverlayArtifact("pack-a", {"ai": {"model": "a"}}, pack_id="a-id"),
+                PackOverlayArtifact("pack-b", {"ai": {"model": "b"}}, pack_id="b-id"),
+            ],
+            {"pack-a": 10, "pack-b": 50},
+        )
+
+        assert result.merged["ai"]["model"] == "a"
+        by_pack = {c.pack_label: c for c in result.contributions}
+        assert by_pack["pack-a"].wins_pack_layer is True
+        assert by_pack["pack-b"].wins_pack_layer is False
+        assert by_pack["pack-b"].overridden_by == "pack-a"
+
+    def test_merge_with_provenance_reports_same_priority_conflict(self) -> None:
+        result = merge_pack_overlays_with_provenance(
+            [
+                ("pack-a", {"ai": {"model": "a"}}),
+                ("pack-b", {"ai": {"model": "b"}}),
+            ],
+            {"pack-a": 50, "pack-b": 50},
+        )
+
+        assert result.conflicts
+        assert "ai.model" in result.conflicts[0]
 
 
 # ---------------------------------------------------------------------------

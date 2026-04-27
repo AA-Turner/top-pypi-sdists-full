@@ -139,10 +139,27 @@ _MIGRATION_ATTRS = {
     "operations",
 }
 
+_ALEMBIC_MODULE_ATTRS = {
+    "revision",
+    "down_revision",
+    "branch_labels",
+    "depends_on",
+}
+
 _DJANGO_MODULE_VARS = {
     "urlpatterns",
     "app_name",
     "default_app_config",
+}
+
+_DJANGO_COMMAND_ATTRS = {
+    "help",
+    "missing_args_message",
+    "requires_migrations_checks",
+    "requires_system_checks",
+    "stealth_options",
+    "suppressed_base_arguments",
+    "output_transaction",
 }
 
 _DRF_BACKEND_METHODS = {
@@ -206,6 +223,48 @@ def _class_base_names(simple_name, framework) -> set[str]:
         elif isinstance(base, ast.Attribute):
             base_names.add(base.attr)
     return base_names
+
+
+def _class_declares_attr(def_obj, attr_name: str) -> bool:
+    node = getattr(def_obj, "node", None)
+    if not isinstance(node, ast.ClassDef):
+        return False
+
+    for item in node.body:
+        targets = []
+        if isinstance(item, ast.Assign):
+            targets.extend(item.targets)
+        elif isinstance(item, ast.AnnAssign):
+            targets.append(item.target)
+        else:
+            continue
+
+        for target in targets:
+            if isinstance(target, ast.Name) and target.id == attr_name:
+                return True
+    return False
+
+
+def _name_parent_has_base(def_obj, required_bases, framework) -> bool:
+    parts = str(getattr(def_obj, "name", "")).split(".")
+    if len(parts) < 2:
+        return False
+
+    class_defs = getattr(framework, "class_defs", {})
+    for part in parts[:-1]:
+        cls_node = class_defs.get(part)
+        if cls_node is None:
+            continue
+        for base in getattr(cls_node, "bases", []):
+            base_name = getattr(base, "id", None) or getattr(base, "attr", None)
+            if base_name in required_bases:
+                return True
+    return False
+
+
+def _is_alembic_revision_path(filename: str) -> bool:
+    normalized = filename.replace("\\", "/")
+    return "/versions/" in normalized and normalized.endswith(".py")
 
 
 def _check_inline_ignore(def_obj, visitor):
@@ -320,6 +379,19 @@ def _check_pytest_unittest(def_obj, framework):
     return None
 
 
+def _check_alembic_migration(def_obj):
+    if not _is_alembic_revision_path(str(def_obj.filename)):
+        return None
+
+    if def_obj.type == "function" and def_obj.simple_name in {"upgrade", "downgrade"}:
+        return _suppress(def_obj, "Alembic migration lifecycle function")
+
+    if def_obj.type == "variable" and def_obj.simple_name in _ALEMBIC_MODULE_ATTRS:
+        return _suppress(def_obj, "Alembic revision metadata")
+
+    return None
+
+
 def _check_django_drf_structural(def_obj, framework):
     detected = getattr(framework, "detected_frameworks", set())
     simple_name = def_obj.simple_name
@@ -346,6 +418,10 @@ def _check_django_drf_structural(def_obj, framework):
         if "/migrations/" in fname or "\\migrations\\" in fname:
             return _suppress(def_obj)
 
+    if def_obj.type == "variable" and simple_name in _DJANGO_COMMAND_ATTRS:
+        if _name_parent_has_base(def_obj, DJANGO_COMMAND_BASES, framework):
+            return _suppress(def_obj, "Django management command attribute")
+
     if def_obj.type == "class":
         class_bases = _class_base_names(simple_name, framework)
 
@@ -371,16 +447,14 @@ def _check_django_drf_structural(def_obj, framework):
         if "sqlalchemy" in detected and simple_name in getattr(
             framework, "orm_model_classes", set()
         ):
-            return _suppress(def_obj, "ORM model class")
+            if not _class_declares_attr(def_obj, "__tablename__"):
+                return _suppress(def_obj, "ORM declarative base class")
 
         if "celery" in detected and class_bases.intersection(CELERY_TASK_BASES):
             return _suppress(def_obj, "Celery task class")
 
         if "click" in detected and class_bases.intersection(CLICK_COMMAND_BASES):
             return _suppress(def_obj, "Click command class")
-
-        if simple_name in getattr(framework, "pydantic_models", set()):
-            return _suppress(def_obj, "Pydantic model")
 
     return None
 
@@ -405,6 +479,16 @@ def _check_django_methods(def_obj, framework):
     for methods, bases in _DJANGO_CHECKS:
         if simple_name in methods and has_base_class(def_obj, bases, framework):
             return _suppress(def_obj)
+
+    if def_obj.type == "parameter" and "." in def_obj.name:
+        parts = def_obj.name.split(".")
+        parent_method = parts[-2] if len(parts) >= 2 else ""
+        if parent_method in DJANGO_COMMAND_METHODS and _name_parent_has_base(
+            def_obj,
+            DJANGO_COMMAND_BASES,
+            framework,
+        ):
+            return _suppress(def_obj, "Django management command parameter")
 
     if simple_name.startswith("clean_") and has_base_class(
         def_obj, DJANGO_FORM_BASES, framework
@@ -555,6 +639,9 @@ def _check_abstract_overrides(def_obj, analyzer, framework):
 
     if simple_name in PROTOCOL_METHOD_TO_BASES:
         candidate_bases = PROTOCOL_METHOD_TO_BASES[simple_name]
+        protocol_classes = set(getattr(analyzer, "_global_protocol_classes", set()))
+        protocol_classes.update(getattr(framework, "protocol_classes", set()))
+        candidate_bases = candidate_bases - protocol_classes
         if has_base_class(def_obj, candidate_bases, framework):
             return _suppress(def_obj, "protocol/ABC override", code="protocol_override")
 
@@ -577,8 +664,12 @@ def _check_abstract_overrides(def_obj, analyzer, framework):
                     break
         if class_def and getattr(class_def, "base_classes", None):
             has_external_base = False
+            protocol_classes = set(getattr(analyzer, "_global_protocol_classes", set()))
+            protocol_classes.update(getattr(framework, "protocol_classes", set()))
             for base_name in class_def.base_classes:
                 base_simple = base_name.split(".")[-1]
+                if base_simple in protocol_classes:
+                    continue
                 for dname, dobj in all_defs.items():
                     if (
                         dobj.type == "method"
@@ -681,44 +772,6 @@ def _check_protocol_abc(def_obj, analyzer, framework):
 
     if def_obj.type == "method" and "." in def_obj.name:
         parts = def_obj.name.split(".")
-        protocol_implementers = {
-            **getattr(analyzer, "_global_protocol_implementers", {}),
-            **getattr(framework, "protocol_implementers", {}),
-        }
-        for part in parts[:-1]:
-            if part in protocol_implementers:
-                return _suppress(def_obj, "Protocol implementer method")
-
-    if def_obj.type == "method" and "." in def_obj.name:
-        parts = def_obj.name.split(".")
-        method_name = parts[-1]
-
-        if len(parts) >= 2:
-            class_name = parts[-2]
-        else:
-            class_name = None
-
-        if class_name:
-            protocol_method_names = getattr(
-                analyzer, "_global_protocol_method_names", {}
-            )
-            if protocol_method_names:
-                class_methods = set()
-                for d in analyzer.defs.values():
-                    if d.type == "method" and "." in d.name:
-                        d_parts = d.name.split(".")
-                        if len(d_parts) >= 2 and d_parts[-2] == class_name:
-                            class_methods.add(d_parts[-1])
-                for protocol_class, protocol_methods in protocol_method_names.items():
-                    if protocol_methods and protocol_methods.issubset(class_methods):
-                        if method_name in protocol_methods:
-                            return _suppress(
-                                def_obj,
-                                f"Structural Protocol implementation ({protocol_class})",
-                            )
-
-    if def_obj.type == "method" and "." in def_obj.name:
-        parts = def_obj.name.split(".")
         for part in parts[:-1]:
             if part.endswith("Mixin"):
                 return -60
@@ -770,7 +823,7 @@ def _check_settings_config(def_obj):
 
 def _check_data_model_fields(def_obj, analyzer, framework):
     simple_name = def_obj.simple_name
-    _is_ts = str(def_obj.filename).endswith((".ts", ".tsx"))
+    _is_ts = str(def_obj.filename).endswith((".ts", ".tsx", ".js", ".jsx"))
 
     if def_obj.type == "variable" and simple_name == "_" and not _is_ts:
         return _suppress(def_obj)
@@ -873,7 +926,7 @@ def _check_data_model_fields(def_obj, analyzer, framework):
 
 def _apply_standard_reductions(def_obj, analyzer, visitor, framework, confidence):
     simple_name = def_obj.simple_name
-    _is_ts = str(def_obj.filename).endswith((".ts", ".tsx"))
+    _is_ts = str(def_obj.filename).endswith((".ts", ".tsx", ".js", ".jsx"))
 
     if simple_name.startswith("_") and not simple_name.startswith("__") and not _is_ts:
         confidence -= PENALTIES["private_name"]
@@ -1019,6 +1072,9 @@ def apply_penalties(
         return
 
     if _check_pytest_unittest(def_obj, framework) is True:
+        return
+
+    if _check_alembic_migration(def_obj) is True:
         return
 
     if _check_django_drf_structural(def_obj, framework) is True:

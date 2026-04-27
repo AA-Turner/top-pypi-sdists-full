@@ -24,6 +24,7 @@ if typing.TYPE_CHECKING:
     from .agent_skill_manifest_source import AgentSkillManifestSource
     from .agent_skill_source_blob_storage import AgentSkillSourceBlobStorage
     from .agent_skill_source_inline import AgentSkillSourceInline
+    from .agent_skill_source_local import AgentSkillSourceLocal
     from .agent_skill_version import AgentSkillVersion
     from .agent_source import AgentSource
     from .ai21integrations import Ai21Integrations
@@ -228,10 +229,9 @@ if typing.TYPE_CHECKING:
     from .custom_bearer_auth import CustomBearerAuth
     from .custom_blob_storage import CustomBlobStorage
     from .custom_endpoint import CustomEndpoint
-    from .custom_endpoint_auth_data import CustomEndpointAuthData
     from .custom_endpoint_integrations import CustomEndpointIntegrations
     from .custom_endpoint_provider_account import CustomEndpointProviderAccount
-    from .custom_endpoint_provider_account_auth_data import CustomEndpointProviderAccountAuthData
+    from .custom_endpoint_provider_account_endpoint_type import CustomEndpointProviderAccountEndpointType
     from .custom_framework import CustomFramework
     from .custom_guardrail_config import CustomGuardrailConfig
     from .custom_guardrail_config_auth_data import CustomGuardrailConfigAuthData
@@ -441,6 +441,7 @@ if typing.TYPE_CHECKING:
     from .google_model_armor_key_file_auth import GoogleModelArmorKeyFileAuth
     from .google_model_armor_key_file_auth_key_file_content import GoogleModelArmorKeyFileAuthKeyFileContent
     from .google_vertex_provider_account import GoogleVertexProviderAccount
+    from .google_vertex_provider_account_auth_data import GoogleVertexProviderAccountAuthData
     from .graph import Graph
     from .graph_chart_type import GraphChartType
     from .gray_swan_cygnal_api_key_auth import GraySwanCygnalApiKeyAuth
@@ -999,6 +1000,9 @@ if typing.TYPE_CHECKING:
     from .vertex_key_file_auth import VertexKeyFileAuth
     from .vertex_key_file_auth_key_file_content import VertexKeyFileAuthKeyFileContent
     from .vertex_model import VertexModel
+    from .vertex_region import VertexRegion
+    from .vertex_wif_file_auth import VertexWifFileAuth
+    from .vertex_wif_file_auth_key_file_content import VertexWifFileAuthKeyFileContent
     from .virtual_account import VirtualAccount
     from .virtual_account_manifest import VirtualAccountManifest
     from .virtual_account_owned_by import VirtualAccountOwnedBy
@@ -1006,6 +1010,7 @@ if typing.TYPE_CHECKING:
     from .virtual_mcp_server_manifest import VirtualMcpServerManifest
     from .virtual_mcp_server_source import VirtualMcpServerSource
     from .virtual_model import VirtualModel
+    from .virtual_model_model_type import VirtualModelModelType
     from .virtual_model_provider_account import VirtualModelProviderAccount
     from .volume import Volume
     from .volume_browser import VolumeBrowser
@@ -1052,6 +1057,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AgentSkillManifestSource": ".agent_skill_manifest_source",
     "AgentSkillSourceBlobStorage": ".agent_skill_source_blob_storage",
     "AgentSkillSourceInline": ".agent_skill_source_inline",
+    "AgentSkillSourceLocal": ".agent_skill_source_local",
     "AgentSkillVersion": ".agent_skill_version",
     "AgentSource": ".agent_source",
     "Ai21Integrations": ".ai21integrations",
@@ -1256,10 +1262,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CustomBearerAuth": ".custom_bearer_auth",
     "CustomBlobStorage": ".custom_blob_storage",
     "CustomEndpoint": ".custom_endpoint",
-    "CustomEndpointAuthData": ".custom_endpoint_auth_data",
     "CustomEndpointIntegrations": ".custom_endpoint_integrations",
     "CustomEndpointProviderAccount": ".custom_endpoint_provider_account",
-    "CustomEndpointProviderAccountAuthData": ".custom_endpoint_provider_account_auth_data",
+    "CustomEndpointProviderAccountEndpointType": ".custom_endpoint_provider_account_endpoint_type",
     "CustomFramework": ".custom_framework",
     "CustomGuardrailConfig": ".custom_guardrail_config",
     "CustomGuardrailConfigAuthData": ".custom_guardrail_config_auth_data",
@@ -1457,6 +1462,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GoogleModelArmorKeyFileAuth": ".google_model_armor_key_file_auth",
     "GoogleModelArmorKeyFileAuthKeyFileContent": ".google_model_armor_key_file_auth_key_file_content",
     "GoogleVertexProviderAccount": ".google_vertex_provider_account",
+    "GoogleVertexProviderAccountAuthData": ".google_vertex_provider_account_auth_data",
     "Graph": ".graph",
     "GraphChartType": ".graph_chart_type",
     "GraySwanCygnalApiKeyAuth": ".gray_swan_cygnal_api_key_auth",
@@ -2014,6 +2020,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VertexKeyFileAuth": ".vertex_key_file_auth",
     "VertexKeyFileAuthKeyFileContent": ".vertex_key_file_auth_key_file_content",
     "VertexModel": ".vertex_model",
+    "VertexRegion": ".vertex_region",
+    "VertexWifFileAuth": ".vertex_wif_file_auth",
+    "VertexWifFileAuthKeyFileContent": ".vertex_wif_file_auth_key_file_content",
     "VirtualAccount": ".virtual_account",
     "VirtualAccountManifest": ".virtual_account_manifest",
     "VirtualAccountOwnedBy": ".virtual_account_owned_by",
@@ -2021,6 +2030,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VirtualMcpServerManifest": ".virtual_mcp_server_manifest",
     "VirtualMcpServerSource": ".virtual_mcp_server_source",
     "VirtualModel": ".virtual_model",
+    "VirtualModelModelType": ".virtual_model_model_type",
     "VirtualModelProviderAccount": ".virtual_model_provider_account",
     "Volume": ".volume",
     "VolumeBrowser": ".volume_browser",
@@ -2091,6 +2101,7 @@ __all__ = [
     "AgentSkillManifestSource",
     "AgentSkillSourceBlobStorage",
     "AgentSkillSourceInline",
+    "AgentSkillSourceLocal",
     "AgentSkillVersion",
     "AgentSource",
     "Ai21Integrations",
@@ -2295,10 +2306,9 @@ __all__ = [
     "CustomBearerAuth",
     "CustomBlobStorage",
     "CustomEndpoint",
-    "CustomEndpointAuthData",
     "CustomEndpointIntegrations",
     "CustomEndpointProviderAccount",
-    "CustomEndpointProviderAccountAuthData",
+    "CustomEndpointProviderAccountEndpointType",
     "CustomFramework",
     "CustomGuardrailConfig",
     "CustomGuardrailConfigAuthData",
@@ -2496,6 +2506,7 @@ __all__ = [
     "GoogleModelArmorKeyFileAuth",
     "GoogleModelArmorKeyFileAuthKeyFileContent",
     "GoogleVertexProviderAccount",
+    "GoogleVertexProviderAccountAuthData",
     "Graph",
     "GraphChartType",
     "GraySwanCygnalApiKeyAuth",
@@ -3053,6 +3064,9 @@ __all__ = [
     "VertexKeyFileAuth",
     "VertexKeyFileAuthKeyFileContent",
     "VertexModel",
+    "VertexRegion",
+    "VertexWifFileAuth",
+    "VertexWifFileAuthKeyFileContent",
     "VirtualAccount",
     "VirtualAccountManifest",
     "VirtualAccountOwnedBy",
@@ -3060,6 +3074,7 @@ __all__ = [
     "VirtualMcpServerManifest",
     "VirtualMcpServerSource",
     "VirtualModel",
+    "VirtualModelModelType",
     "VirtualModelProviderAccount",
     "Volume",
     "VolumeBrowser",

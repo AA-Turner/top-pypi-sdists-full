@@ -187,8 +187,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.embedding_worker = None
     embedding_service = create_embedding_service(config)
     if embedding_service:
-        # Auto-detect: probe the endpoint once before committing to the worker
-        if config.embeddings.enabled is None:
+        # Auto-detect API endpoints eagerly; local models load lazily on first use.
+        if config.embeddings.enabled is None and config.embeddings.provider != "local":
             probe_ok = await embedding_service.probe()
             if not probe_ok:
                 logger.info("Embedding endpoint unavailable; semantic search disabled. Configure in config.yaml")
@@ -215,7 +215,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     reranker_service = create_reranker_service(config)
     if reranker_service:
-        if config.reranker.enabled is None:
+        if config.reranker.enabled is None and config.reranker.provider != "local":
             probe_ok = await reranker_service.probe()
             if not probe_ok:
                 logger.info("Reranker model unavailable; reranking disabled")
@@ -947,6 +947,16 @@ def create_app(config: AppConfig | None = None, enforced_fields: list[str] | Non
     app.state.rate_limit_config = config.rate_limit
     app.state.enforced_fields = enforced_fields
     app.state.debug_diagnostics_enabled = False
+    app.state.feedback_turn_diagnostics = OrderedDict()
+    app.state.feedback_turn_diagnostics_max = 100
+
+    from .services.diagnostics_log import create_diagnostics_log_writer
+
+    app.state.diagnostics_log_writer = create_diagnostics_log_writer(config)
+    if app.state.diagnostics_log_writer.enabled:
+        logger.info("Diagnostics error log enabled: %s", app.state.diagnostics_log_writer.active_path)
+    elif app.state.diagnostics_log_writer.disabled_reason:
+        logger.info("Diagnostics error log disabled: %s", app.state.diagnostics_log_writer.disabled_reason)
 
     # Construct DLP scanner once at startup (compiled regexes reused across requests)
     app.state.dlp_scanner = None

@@ -21,6 +21,18 @@ logger = logging.getLogger(__name__)
 
 _CANON_PRED = "Predicted Yield (tn per ha)"
 
+_SOURCE_NAME_VERSION = {
+    "EWCM": "Harvest Stat v1.0",
+    "AMIS": "AMIS v1.0",
+}
+
+
+def _get_source_name_version(parser, country):
+    """Resolve source_name_version from the country's category config."""
+    country_key = country.lower().replace(" ", "_")
+    category = parser.get(country_key, "category", fallback="AMIS")
+    return _SOURCE_NAME_VERSION.get(category, _SOURCE_NAME_VERSION["AMIS"])
+
 
 def _resolve_pred_col(table_cols):
     """Find the DB's Predicted-yield column (prefix ``Predicted `` + ``Yield``).
@@ -249,7 +261,7 @@ def export_forecast(
     db_path=None,
     forecast_year=None,
     forecast_issue_date=None,
-    source_name_version="FDW",
+    source_name_version=None,
     group="NASA Harvest",
     dir_out=None,
     experiment_name=None,
@@ -262,7 +274,8 @@ def export_forecast(
         db_path: Path to SQLite database. If None, uses default from config.
         forecast_year: Year to export. Defaults to current year.
         forecast_issue_date: YYYY-MM-DD string. Defaults to today.
-        source_name_version: Value for source_name_version column.
+        source_name_version: Value for source_name_version column. If None,
+            resolved per-country from config category (EWCM/AMIS).
         group: Research group name.
         dir_out: Output directory. Defaults to ml/analysis/{today}/fdw/.
         experiment_name: Experiment name to query (e.g. "outlook"). If None,
@@ -323,6 +336,7 @@ def export_forecast(
     for country_crop, config in dict_config.items():
         crop = config["crops"]
         country = country_crop.replace(f"_{crop}", "")
+        snv = source_name_version or _get_source_name_version(parser, country)
 
         for model in config["models"]:
             logger.info(f"FDW export: {country} {crop} {model}")
@@ -421,7 +435,7 @@ def export_forecast(
 
                 fdw_row = {
                     "source_id": row.get("ADM_ID", ""),
-                    "source_name_version": source_name_version,
+                    "source_name_version": snv,
                     "admin_0": adm0,
                     "admin_1": adm1,
                     "admin_2": adm2,
@@ -479,7 +493,7 @@ def export_national_forecast(
     db_path=None,
     forecast_year=None,
     forecast_issue_date=None,
-    source_name_version="FDW",
+    source_name_version=None,
     group="NASA Harvest",
     dir_out=None,
     experiment_name=None,
@@ -528,6 +542,8 @@ def export_national_forecast(
 
     for country_crop, config in dict_config.items():
         crop = config["crops"]
+        country = country_crop.replace(f"_{crop}", "")
+        snv = source_name_version or _get_source_name_version(parser, country)
 
         # Query area weights from CID indices CSVs
         df_area = _query_area_weights(parser, crop)
@@ -602,7 +618,7 @@ def export_national_forecast(
                         season_name = hvstat_country["season_name"].iloc[0]
 
                 fdw_row = {
-                    "source_name_version": source_name_version,
+                    "source_name_version": snv,
                     "admin_0": country_name.title().replace("_", " "),
                     "planted_year": _compute_planted_year(harvest_year, planting_month, harvest_month),
                     "harvest_year": harvest_year,
@@ -636,7 +652,7 @@ def export_national_forecast(
 
 def export_historical(
     parser,
-    source_name_version="geocif",
+    source_name_version=None,
     dir_out=None,
 ):
     """Export historical yield data as FDW Template 2 CSV.
@@ -671,6 +687,7 @@ def export_historical(
     for country in countries:
         country_lower = country.lower().replace("_", " ")
         country_title = country.replace("_", " ").title()
+        snv = source_name_version or _get_source_name_version(parser, country)
         crops = ast.literal_eval(parser.get(country, "crops"))
 
         # Get per-country hvstat file
@@ -717,7 +734,7 @@ def export_historical(
 
                 fdw_row = {
                     "source_id": source_id,
-                    "source_name_version": source_name_version,
+                    "source_name_version": snv,
                     "admin_0": country_title,
                     "admin_1": adm1,
                     "admin_2": adm2,
@@ -760,7 +777,7 @@ def export_accuracy(
     db_path=None,
     forecast_year=None,
     forecast_issue_date=None,
-    source_name_version="geocif",
+    source_name_version=None,
     group="UMD-Harvest",
     dir_out=None,
     experiment_name=None,
@@ -817,6 +834,7 @@ def export_accuracy(
     for country in countries:
         country_lower = country.lower().replace("_", " ")
         country_title = country.replace("_", " ").title()
+        snv = source_name_version or _get_source_name_version(parser, country)
         crops = ast.literal_eval(parser.get(country, "crops"))
         models = ast.literal_eval(parser.get(country, "models"))
         admin_level = country_admin_levels.get(country_lower, "admin_1")
@@ -903,7 +921,7 @@ def export_accuracy(
 
                     fdw_row = {
                         "source_id": source_id,
-                        "source_name_version": source_name_version,
+                        "source_name_version": snv,
                         "admin_0": country_title,
                         "admin_1": adm1,
                         "admin_2": adm2,

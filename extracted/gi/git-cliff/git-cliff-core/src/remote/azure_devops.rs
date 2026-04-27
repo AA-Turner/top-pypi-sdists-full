@@ -3,15 +3,9 @@ use futures::{Stream, StreamExt, stream};
 use reqwest_middleware::ClientWithMiddleware;
 use serde::{Deserialize, Serialize};
 
-use super::*;
+use super::{Debug, MAX_PAGE_SIZE, RemoteClient, RemoteCommit, RemotePullRequest};
 use crate::config::Remote;
-use crate::error::*;
-
-/// Log message to show while fetching data from Azure DevOps.
-pub const START_FETCHING_MSG: &str = "Retrieving data from Azure DevOps...";
-
-/// Log message to show when done fetching from Azure DevOps.
-pub const FINISHED_FETCHING_MSG: &str = "Done fetching Azure DevOps data.";
+use crate::error::{Error, Result};
 
 /// Template variables related to this remote.
 pub(crate) const TEMPLATE_VARIABLES: &[&str] = &[
@@ -188,7 +182,7 @@ impl RemoteClient for AzureDevOpsClient {
 impl AzureDevOpsClient {
     /// Constructs the URL for Azure DevOps commits API.
     fn commits_url(api_url: &str, remote: &Remote, ref_name: Option<&str>, page: i32) -> String {
-        let skip = page * MAX_PAGE_SIZE as i32;
+        let skip = page * MAX_PAGE_SIZE;
         let mut url = format!(
             "{}/{}/_apis/git/repositories/{}/commits?api-version=7.1&$top={}&$skip={}",
             api_url,
@@ -210,7 +204,7 @@ impl AzureDevOpsClient {
 
     /// Constructs the URL for Azure DevOps pull requests API.
     fn pull_requests_url(api_url: &str, remote: &Remote, page: i32) -> String {
-        let skip = page * MAX_PAGE_SIZE as i32;
+        let skip = page * MAX_PAGE_SIZE;
         format!(
             "{}/{}/_apis/git/repositories/{}/pullrequests?api-version=7.1&searchCriteria.\
              status=completed&$top={}&$skip={}",
@@ -225,23 +219,27 @@ impl AzureDevOpsClient {
     /// Fetches the complete list of commits.
     /// This is inefficient for large repositories; consider using
     /// `get_commit_stream` instead.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub async fn get_commits(&self, ref_name: Option<&str>) -> Result<Vec<Box<dyn RemoteCommit>>> {
         use futures::TryStreamExt;
+        crate::set_progress_message!("Fetching all commits from Azure DevOps");
         self.get_commit_stream(ref_name).try_collect().await
     }
 
     /// Fetches the complete list of pull requests.
     /// This is inefficient for large repositories; consider using
     /// `get_pull_request_stream` instead.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub async fn get_pull_requests(&self) -> Result<Vec<Box<dyn RemotePullRequest>>> {
         use futures::TryStreamExt;
+        crate::set_progress_message!("Fetching all pull requests from Azure DevOps");
         self.get_pull_request_stream().try_collect().await
     }
 
-    fn get_commit_stream<'a>(
-        &'a self,
+    fn get_commit_stream(
+        &self,
         ref_name: Option<&str>,
-    ) -> impl Stream<Item = Result<Box<dyn RemoteCommit>>> + 'a {
+    ) -> impl Stream<Item = Result<Box<dyn RemoteCommit>>> + '_ {
         let ref_name = ref_name.map(ToString::to_string);
         async_stream! {
             let page_stream = stream::iter(0..)
@@ -276,9 +274,9 @@ impl AzureDevOpsClient {
         }
     }
 
-    fn get_pull_request_stream<'a>(
-        &'a self,
-    ) -> impl Stream<Item = Result<Box<dyn RemotePullRequest>>> + 'a {
+    fn get_pull_request_stream(
+        &self,
+    ) -> impl Stream<Item = Result<Box<dyn RemotePullRequest>>> + '_ {
         async_stream! {
             let page_stream = stream::iter(0..)
                 .map(|page| async move {

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import concurrent.futures
+import io
 import logging
 import re
 import subprocess
 import threading
 import time
+import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -42,6 +44,7 @@ _PYTHON_EXTS = {".py", ".pyi"}
 _TS_EXTS = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 _GO_EXTS = {".go"}
 _JAVA_EXTS = {".java"}
+_PHP_EXTS = {".php"}
 _RUST_EXTS = {".rs"}
 
 _ALL_SOURCE_GLOBS = [
@@ -55,6 +58,7 @@ _ALL_SOURCE_GLOBS = [
     "*.cjs",
     "*.go",
     "*.java",
+    "*.php",
     "*.rs",
     "*.rst",
     "*.md",
@@ -71,8 +75,34 @@ _LANG_GLOBS: dict[str, list[str]] = {
     "typescript": ["*.ts", "*.tsx", "*.js", "*.jsx", "*.mjs", "*.cjs"],
     "go": ["*.go"],
     "java": ["*.java"],
+    "php": ["*.php"],
     "rust": ["*.rs"],
 }
+
+_IGNORED_GREP_PATH_PARTS = (
+    "/.git/",
+    "/.mypy_cache/",
+    "/.pytest_cache/",
+    "/.ruff_cache/",
+    "/.skylos/",
+    "/.venv/",
+    "/venv/",
+    "/__pycache__/",
+    "/node_modules/",
+    ".egg-info",
+)
+_GREP_EXCLUDE_DIRS = (
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".skylos",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "node_modules",
+    "*.egg-info",
+)
 
 
 def detect_language(file_path: str) -> str:
@@ -85,6 +115,8 @@ def detect_language(file_path: str) -> str:
         return "go"
     if ext in _JAVA_EXTS:
         return "java"
+    if ext in _PHP_EXTS:
+        return "php"
     if ext in _RUST_EXTS:
         return "rust"
     return "python"
@@ -106,7 +138,8 @@ def _cached_group_results(
     finding_file = finding.get("file", "")
     content_hash = _fch(finding_file) if finding_file else ""
     cache_key = (
-        f"group:{group_name}:{simple_name}:{finding.get('full_name', '')}:"
+        f"{_GREP_VERIFY_CACHE_VERSION}:group:{group_name}:"
+        f"{simple_name}:{finding.get('full_name', '')}:"
         f"{finding.get('type', '')}:{content_hash}"
     )
     cached = cache.get(cache_key)
@@ -158,14 +191,21 @@ def _run_grep(
     includes = []
     for g in include_globs:
         includes.extend(["--include", g])
+    excludes = []
+    for d in _GREP_EXCLUDE_DIRS:
+        excludes.extend(["--exclude-dir", d])
 
     try:
-        cmd = ["grep", *grep_flags, *includes, pattern, project_root]
+        cmd = ["grep", *grep_flags, *includes, *excludes, pattern, project_root]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         lines = result.stdout.strip().splitlines()
-        return [l for l in lines if "__pycache__" not in l and ".egg-info" not in l][
-            :max_results
-        ]
+        filtered = []
+        for line in lines:
+            normalized = line.replace("\\", "/")
+            if any(part in normalized for part in _IGNORED_GREP_PATH_PARTS):
+                continue
+            filtered.append(line)
+        return filtered[:max_results]
     except Exception as e:
         logger.debug("grep failed for pattern %r: %s", pattern, e)
         return []
@@ -239,6 +279,17 @@ def module_candidates(file_path: str, project_root: str | Path) -> list[str]:
                 parts = parts[len(prefix_parts) :]
                 break
         return [".".join(parts)] if parts else []
+
+    elif lang == "php":
+        if not rel.endswith(".php"):
+            return []
+        stem = rel[:-4]
+        parts = [p for p in stem.split("/") if p]
+        if not parts:
+            return []
+        if parts[0] in {"src", "app", "lib"} and len(parts) > 1:
+            parts = parts[1:]
+        return list(dict.fromkeys(["/".join(parts), ".".join(parts)]))
 
     elif lang == "rust":
         if not rel.endswith(".rs"):
@@ -316,6 +367,17 @@ def is_definition_line(grep_line: str, finding: dict) -> bool:
         f"private void {simple_name}",
         f"public void {simple_name}",
         f"protected void {simple_name}",
+        # PHP
+        f"function {simple_name}",
+        f"class {simple_name}",
+        f"interface {simple_name}",
+        f"trait {simple_name}",
+        f"private function {simple_name}",
+        f"public function {simple_name}",
+        f"protected function {simple_name}",
+        f"private ${simple_name}",
+        f"public ${simple_name}",
+        f"protected ${simple_name}",
         # Rust
         f"fn {simple_name}",
         f"pub fn {simple_name}",
@@ -364,6 +426,39 @@ def is_substring_match(grep_line: str, simple_name: str) -> bool:
     return True
 
 
+def _grep_line_path(grep_line: str) -> str:
+    parts = grep_line.split(":", 2)
+    if len(parts) >= 2 and parts[1].strip().isdigit():
+        return parts[0]
+    return ""
+
+
+def _grep_line_content(grep_line: str) -> str:
+    parts = grep_line.split(":", 2)
+    if len(parts) >= 3 and parts[1].strip().isdigit():
+        return parts[2]
+    return grep_line
+
+
+def _python_line_has_name_token(grep_line: str, simple_name: str) -> bool:
+    content = _grep_line_content(grep_line)
+    try:
+        tokens = tokenize.generate_tokens(io.StringIO(content).readline)
+        return any(
+            token.type == tokenize.NAME and token.string == simple_name
+            for token in tokens
+        )
+    except tokenize.TokenError:
+        return bool(re.search(rf"\b{re.escape(simple_name)}\b", content))
+
+
+def _is_python_source_reference(grep_line: str, simple_name: str) -> bool:
+    path = _grep_line_path(grep_line)
+    if path and Path(path).suffix.lower() not in _PYTHON_EXTS:
+        return False
+    return _python_line_has_name_token(grep_line, simple_name)
+
+
 def _deduplicate_grep_results(
     results: dict[str, list[str]],
 ) -> dict[str, list[str]]:
@@ -403,6 +498,7 @@ _STRONG_ALIVE_STRATEGIES = {
 
 _MAX_RESULTS_PER_STRATEGY = 5
 _DEFAULT_GREP_WORKERS = 4
+_GREP_VERIFY_CACHE_VERSION = "v3"
 
 
 def _deterministic_suppress_ts(finding: dict) -> bool:
@@ -446,8 +542,21 @@ def _deterministic_suppress_java(finding: dict) -> bool:
     return False
 
 
-def _deterministic_suppress_rust(finding: dict) -> bool:
+def _deterministic_suppress_php(finding: dict) -> bool:
     simple_name = finding.get("simple_name", finding.get("name", ""))
+    file_path = str(finding.get("file", "")).lower()
+
+    if simple_name in {"__construct", "__destruct", "__invoke", "__toString"}:
+        return True
+
+    if "/tests/" in file_path or file_path.endswith("test.php"):
+        if simple_name.startswith("test") or simple_name in {"setUp", "tearDown"}:
+            return True
+
+    return False
+
+
+def _deterministic_suppress_rust(finding: dict) -> bool:
     decorators = finding.get("decorators", [])
 
     if isinstance(decorators, list):
@@ -472,6 +581,8 @@ def _deterministic_suppress_multilang(finding: dict) -> bool:
         return _deterministic_suppress_go(finding)
     elif lang == "java":
         return _deterministic_suppress_java(finding)
+    elif lang == "php":
+        return _deterministic_suppress_php(finding)
     elif lang == "rust":
         return _deterministic_suppress_rust(finding)
     return False
@@ -890,18 +1001,28 @@ def multi_strategy_search(
         return False
 
     boundary_pattern = rf"\b{simple_name}\b"
-    refs = _run_grep(
-        boundary_pattern, project_root, use_regex=True, max_results=max_per_strategy * 2
-    )
-    if refs:
-        refs = [r for r in refs if not is_substring_match(r, simple_name)]
-        _defs, usages = filter_grep_results(refs, finding)
-        if usages:
-            results["references"] = usages[:max_per_strategy]
-        elif _defs:
-            results["references_definition_only"] = [
-                "(only the definition itself found, no usages)"
+    if kind != "import":
+        refs = _run_grep(
+            boundary_pattern,
+            project_root,
+            use_regex=True,
+            include_globs=["*.py", "*.pyi"],
+            max_results=max_per_strategy * 2,
+        )
+        if refs:
+            refs = [
+                r
+                for r in refs
+                if not is_substring_match(r, simple_name)
+                and _is_python_source_reference(r, simple_name)
             ]
+            _defs, usages = filter_grep_results(refs, finding)
+            if usages:
+                results["references"] = usages[:max_per_strategy]
+            elif _defs:
+                results["references_definition_only"] = [
+                    "(only the definition itself found, no usages)"
+                ]
 
     if _should_early_exit():
         return _deduplicate_grep_results(results)
@@ -919,7 +1040,7 @@ def multi_strategy_search(
                 results["qualified_references"] = usages[:max_per_strategy]
 
     if kind in ("method", "function"):
-        call_pattern = rf"\.{simple_name}\s*\("
+        call_pattern = rf"\.{re.escape(simple_name)}[[:space:]]*\("
         call_refs = _run_grep(
             call_pattern,
             project_root,
@@ -932,27 +1053,29 @@ def multi_strategy_search(
             if usages:
                 results["method_calls"] = usages[:max_per_strategy]
 
-    import_pattern = rf"import.*\b{simple_name}\b"
-    import_refs = _run_grep(
-        import_pattern,
-        project_root,
-        use_regex=True,
-        include_globs=["*.py"],
-        max_results=max_per_strategy,
-    )
-    if import_refs:
-        _defs, usages = filter_grep_results(import_refs, finding)
-        if usages:
-            results["imports"] = usages[:max_per_strategy]
+    if kind != "import":
+        import_pattern = rf"import.*\b{simple_name}\b"
+        import_refs = _run_grep(
+            import_pattern,
+            project_root,
+            use_regex=True,
+            include_globs=["*.py"],
+            max_results=max_per_strategy,
+        )
+        if import_refs:
+            _defs, usages = filter_grep_results(import_refs, finding)
+            if usages:
+                results["imports"] = usages[:max_per_strategy]
 
     if _should_early_exit():
         return _deduplicate_grep_results(results)
 
+    quote_chars = "\"'"
     dispatch_patterns = [
-        rf'(?:getattr|setattr|hasattr|delattr)\s*\([^,]+,\s*["\x27]{re.escape(simple_name)}["\x27]',
-        rf'\[["\x27]{re.escape(simple_name)}["\x27]\]',
-        rf'\.\w+\(\s*["\x27]{re.escape(simple_name)}["\x27]',
-        rf'["\x27]{re.escape(simple_name)}["\x27]\s*:\s*\w+\(',
+        rf"(getattr|setattr|hasattr|delattr)[[:space:]]*\([^,]+,[[:space:]]*[{quote_chars}]{re.escape(simple_name)}[{quote_chars}]",
+        rf"\[[{quote_chars}]{re.escape(simple_name)}[{quote_chars}]\]",
+        rf"\.[[:alnum:]_]+[[:space:]]*\([[:space:]]*[{quote_chars}]{re.escape(simple_name)}[{quote_chars}]",
+        rf"[{quote_chars}]{re.escape(simple_name)}[{quote_chars}][[:space:]]*:[[:space:]]*[[:alnum:]_]+[[:space:]]*\(",
     ]
     for dp in dispatch_patterns:
         dp_refs = _run_grep(
@@ -1092,7 +1215,9 @@ def multi_strategy_search(
         if callback_refs:
             results["callback_registrations"] = callback_refs[:max_per_strategy]
 
-        _parse_int = lambda v: int(v) if isinstance(v, (int, float)) else 0
+        def _parse_int(value):
+            return int(value) if isinstance(value, (int, float)) else 0
+
         signature_pattern = rf"def\s+{re.escape(owner_simple_name)}\s*\([^)]*\b{re.escape(simple_name)}\b"
         signature_refs = _run_grep(
             signature_pattern,

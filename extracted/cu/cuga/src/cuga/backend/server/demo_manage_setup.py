@@ -683,7 +683,7 @@ def seed_demo_knowledge_oobe_pdf_if_needed(demo_port: int, agent_id: str = "cuga
     k_docs = f"{base}{KNOWLEDGE_HTTP_PREFIX}/documents"
     ready = False
     failed = False
-    for _ in range(240):
+    for _ in range(720):
         try:
             with httpx.Client(timeout=5.0, verify=False) as client:
                 r = client.get(

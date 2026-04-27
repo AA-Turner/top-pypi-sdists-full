@@ -1,4 +1,4 @@
-// Part of ImGui Bundle - MIT License - Copyright (c) 2022-2024 Pascal Thomet - https://github.com/pthom/imgui_bundle
+// Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
 #include "hello_imgui/hello_imgui.h"
 #include "hello_imgui/icons_font_awesome_4.h"
 #include "imspinner/imspinner.h"
@@ -475,7 +475,7 @@ void DemoCoolBar()
         float w         = ImGui::GetCoolBarItemWidth();
 
         // Display transparent image and check if clicked
-        HelloImGui::ImageFromAsset("images/bear_transparent.png", ImVec2(w, w));
+        HelloImGui::ImageFromAsset("images/world.png", ImVec2(w, w));
         bool clicked = ImGui::IsItemHovered() && ImGui::IsMouseClicked(0);
 
         // Optional: add a label on the image
@@ -495,9 +495,10 @@ void DemoCoolBar()
         ImCoolBar provides a dock-like Cool bar for Dear ImGui
     )");
 
-    ImGui::ImCoolBarConfig coolBarConfig;
-    coolBarConfig.anchor = ImVec2(0.5f, 0.07f); // position in the window (ratio of window size)
-    if (ImGui::BeginCoolBar("##CoolBarMain", ImCoolBarFlags_Horizontal, coolBarConfig))
+    ImGui::ImCoolBarSettings coolBarSettings;
+    coolBarSettings.anchor = ImVec2(0.5f, 0.07f); // position in the window (ratio of window size)
+    coolBarSettings.mode = ImCoolBarFlags_Horizontal;
+    if (ImGui::BeginCoolBar("##CoolBarMain", coolBarSettings))
     {
         for (const std::string& label: buttonLabels)
         {

@@ -6,10 +6,15 @@
 // 2. Click through each image in the inspector at various zoom levels
 // 3. After migration, run the same program and compare visually
 #ifdef IMGUI_BUNDLE_WITH_IMMVISION
+
 #ifdef IMMVISION_HAS_OPENCV
+//#define USE_OPENCV_HERE   // Commented out: makes the build complex for no real value
+#endif
+#ifdef USE_OPENCV_HERE
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #endif
+
 #include "immvision/immvision.h"
 #include "immapp/immapp.h"
 #include "demo_utils/api_demos.h"
@@ -68,7 +73,7 @@ void ImmVisionMakeTestSuite()
     {
         ImmVision::Inspector_AddImage(house, "house_rgb_u8", zoomKey);
 
-#ifdef IMMVISION_HAS_OPENCV
+#ifdef USE_OPENCV_HERE
         cv::Mat gray;
         cv::cvtColor(house.to_cv_mat(), gray, cv::COLOR_RGB2GRAY);
         ImmVision::Inspector_AddImage(gray, "house_gray_u8", zoomKey);
@@ -118,7 +123,7 @@ void ImmVisionMakeTestSuite()
                 sobelMag = sobelMag / maxVal;
             ImmVision::Inspector_AddImage(sobelMag, "house_sobel_f32", zoomKey);
         }
-#endif // IMMVISION_HAS_OPENCV
+#endif // USE_OPENCV_HERE
     }
 
     ImmVision::ImageBuffer bear = ImmVision::ImRead(assetsDir + "bear_transparent.png");

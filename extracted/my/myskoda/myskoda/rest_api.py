@@ -31,10 +31,14 @@ from myskoda.anonymize import (
     anonymize_url,
     anonymize_user,
     anonymize_vehicle_connection_status,
+    anonymize_vehicle_equipment,
+    anonymize_vehicle_info,
+    anonymize_vehicle_renders,
+    anonymize_widget,
 )
 
 from .auth.authorization import Authorization
-from .const import BASE_URL_SKODA, REQUEST_TIMEOUT_IN_SECONDS
+from .const import BASE_URL_SKODA, MYSKODA_APP_VERSION, REQUEST_TIMEOUT_IN_SECONDS
 from .models.air_conditioning import (
     AirConditioning,
     AirConditioningAtUnlock,
@@ -62,6 +66,8 @@ from .models.status import Status
 from .models.trip_statistics import SingleTrips, TripStatistics
 from .models.user import User
 from .models.vehicle_connection_status import VehicleConnectionStatus
+from .models.vehicle_info import VehicleEquipment, VehicleInfo, VehicleRenders
+from .models.widget import WidgetResponse
 from .utils import to_iso8601
 
 _LOGGER = logging.getLogger(__name__)
@@ -115,6 +121,10 @@ class RestApi:
         except ClientResponseError as err:  # pragma: no cover
             _LOGGER.exception("Invalid status for %s request to %s: %d", method, url, err.status)
             raise
+
+    async def raw_request(self, url: str, method: str, json: dict | None = None) -> str:
+        """Send an authenticated request to the given API path."""
+        return await self._make_request(url=url, method=method, json=json)
 
     async def _make_get_request[T](self, url: str) -> str:
         return await self._make_request(url=url, method="GET")
@@ -352,6 +362,76 @@ class RestApi:
         url = anonymize_url(url) if anonymize else url
         return GetEndpointResult(url=url, raw=raw, result=result)
 
+    async def get_vehicle_info(
+        self, vin: str, anonymize: bool = False
+    ) -> GetEndpointResult[VehicleInfo]:
+        """Retrieve vehicle info for the specified vehicle."""
+        url = f"/v1/vehicle-information/{vin}"
+        raw = self.process_json(
+            data=await self._make_get_request(url),
+            anonymize=anonymize,
+            anonymization_fn=anonymize_vehicle_info,
+        )
+        result = self._deserialize(raw, VehicleInfo.from_json)
+        url = anonymize_url(url) if anonymize else url
+        return GetEndpointResult(url=url, raw=raw, result=result)
+
+    async def get_software_update_status(
+        self, vin: str, anonymize: bool = False
+    ) -> GetEndpointResult[SoftwareUpdateStatus]:
+        """Retrieve software update status."""
+        url = f"/v1/vehicle-information/{vin}/software-version/update-status"
+        raw = self.process_json(
+            data=await self._make_get_request(url),
+            anonymize=anonymize,
+            anonymization_fn=anonymize_software_update_status,
+        )
+        result = self._deserialize(raw, SoftwareUpdateStatus.from_json)
+        url = anonymize_url(url) if anonymize else url
+        return GetEndpointResult(url=url, raw=raw, result=result)
+
+    async def get_vehicle_renders(
+        self, vin: str, anonymize: bool = False
+    ) -> GetEndpointResult[VehicleRenders]:
+        """Retrieve vehicle renders for the specified vehicle."""
+        url = f"/v1/vehicle-information/{vin}/renders"
+        raw = self.process_json(
+            data=await self._make_get_request(url),
+            anonymize=anonymize,
+            anonymization_fn=anonymize_vehicle_renders,
+        )
+        result = self._deserialize(raw, VehicleRenders.from_json)
+        url = anonymize_url(url) if anonymize else url
+        return GetEndpointResult(url=url, raw=raw, result=result)
+
+    async def get_vehicle_equipment(
+        self, vin: str, anonymize: bool = False
+    ) -> GetEndpointResult[VehicleEquipment]:
+        """Retrieve vehicle equipment information for the specified vehicle."""
+        url = f"/v1/vehicle-information/{vin}/equipment"
+        raw = self.process_json(
+            data=await self._make_get_request(url),
+            anonymize=anonymize,
+            anonymization_fn=anonymize_vehicle_equipment,
+        )
+        result = self._deserialize(raw, VehicleEquipment.from_json)
+        url = anonymize_url(url) if anonymize else url
+        return GetEndpointResult(url=url, raw=raw, result=result)
+
+    async def get_widget(
+        self, vin: str, anonymize: bool = False
+    ) -> GetEndpointResult[WidgetResponse]:
+        """Retrieve widget information for the specified vehicle."""
+        url = f"/v2/widgets/vehicle-status/{vin}"
+        raw = self.process_json(
+            data=await self._make_get_request(url),
+            anonymize=anonymize,
+            anonymization_fn=anonymize_widget,
+        )
+        result = self._deserialize(raw, WidgetResponse.from_json)
+        url = anonymize_url(url) if anonymize else url
+        return GetEndpointResult(url=url, raw=raw, result=result)
+
     async def get_user(self, anonymize: bool = False) -> GetEndpointResult[User]:
         """Retrieve user information about logged in user."""
         url = "/v1/users"
@@ -426,20 +506,6 @@ class RestApi:
             anonymization_fn=anonymize_vehicle_connection_status,
         )
         result = self._deserialize(raw, VehicleConnectionStatus.from_json)
-        url = anonymize_url(url) if anonymize else url
-        return GetEndpointResult(url=url, raw=raw, result=result)
-
-    async def get_software_update_status(
-        self, vin: str, anonymize: bool = False
-    ) -> GetEndpointResult[SoftwareUpdateStatus]:
-        """Retrieve software update status."""
-        url = f"/v1/vehicle-information/{vin}/software-version/update-status"
-        raw = self.process_json(
-            data=await self._make_get_request(url),
-            anonymize=anonymize,
-            anonymization_fn=anonymize_software_update_status,
-        )
-        result = self._deserialize(raw, SoftwareUpdateStatus.from_json)
         url = anonymize_url(url) if anonymize else url
         return GetEndpointResult(url=url, raw=raw, result=result)
 
@@ -781,3 +847,17 @@ class RestApi:
             if end:
                 url += f"&to={to_iso8601(end)}"
         return url
+
+    async def register_fcm_token(self, fcm_token: str) -> None:
+        """Register an FCM (Firebase Cloud Messaging) token with the notification backend.
+
+        This enables authentication with the MQTT Broker.
+        """
+        await self._make_put_request(
+            url=f"/v1/notifications-subscriptions/{fcm_token}",
+            json={
+                "devicePlatform": "ANDROID",
+                "appVersion": MYSKODA_APP_VERSION,
+                "language": "en",
+            },
+        )

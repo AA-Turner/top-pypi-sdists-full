@@ -6,7 +6,7 @@ from rigour.territories.territory import get_index
 from rigour.territories.lookup import lookup_territory
 from rigour.territories.lookup import _get_identifier_map, _get_territory_names
 from rigour.text.scripts import can_latinize_cp
-from rigour.names import normalize_name
+from rigour.names.tokenize import normalize_name
 from rigour.names.prefix import (
     _person_prefix_regex,
     _org_prefix_regex,

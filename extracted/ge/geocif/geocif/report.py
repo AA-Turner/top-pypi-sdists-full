@@ -542,9 +542,10 @@ def generate_report(
                 ("rmse", "RMSE comparison"),
                 ("r2", "R² comparison"),
             ]:
-                by_region = list(country_dir.glob(f"{metric}_by_region_*.png"))
-                if by_region:
-                    _add_image(by_region[0], caption=f"{caption} by region")
+                if metric != "r2":
+                    by_region = list(country_dir.glob(f"{metric}_by_region_*.png"))
+                    if by_region:
+                        _add_image(by_region[0], caption=f"{caption} by region")
 
                 by_year = list(country_dir.glob(f"{metric}_by_year_*.png"))
                 if by_year:

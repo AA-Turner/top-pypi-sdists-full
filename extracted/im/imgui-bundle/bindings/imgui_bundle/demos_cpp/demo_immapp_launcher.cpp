@@ -1,4 +1,4 @@
-// Part of ImGui Bundle - MIT License - Copyright (c) 2022-2024 Pascal Thomet - https://github.com/pthom/imgui_bundle
+// Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
 #include "immapp/immapp.h"
 #include "demo_utils/demo_app_table.h"
 #include "demo_utils/api_demos.h"
@@ -10,8 +10,7 @@ const std::string DOC = R"(
 
 This section presents various demo applications that illustrate how to use Dear ImGui Bundle for various use cases. Click on the "View Code" buttons to view the apps' code, and click on "Run" to run them. Scroll with the mouse wheel in the table below for more demos.
 
-Note: [Hello ImGui](https://pthom.github.io/hello_imgui) is a library based on ImGui that enables to easily create applications with ImGui.
-[ImApp](https://github.com/pthom/imgui_bundle/blob/main/external/immapp/immapp/runner.h) ("Immediate App") is a thin extension of HelloImGui that enables to easily use addons that require additional setup at startup.
+> **Note:**  Hello ImGui and ImmApp handle window creation, rendering, and app lifecycle - see [Documentation](https://imgui-bundle.pages.dev/doc/core-libs/hello-imgui-immapp/)
 )";
 
 
@@ -29,9 +28,13 @@ std::function<void()> makeGui()
         DemoApp{
             "demo_powersave", "How to have smooth animations, and how spare the CPU when idling"
         },
-        DemoApp{"demo_testengine", "How to use ImGui Test Engine to test and automate your application"},
         DemoApp{"demo_python_context_manager",
                 "How to use a python context manager for `imgui.begin()`, `imgui.end()`, etc."},
+        DemoApp{"demo_testengine", "How to use ImGui Test Engine to test and automate your application"},
+        DemoApp{
+            "demo_testapp",
+            "use `immapp.testing` to drive an app and capture screenshots, then exit"
+        },
         DemoApp{"demo_run_async", "(Python) How to enable parallel Python execution with GUI rendering with optimal performance"},
         DemoApp{"demo_command_palette", "a Sublime Text or VSCode style command palette in ImGui"},
         DemoApp{"demo_parametric_curve","Illustration of the Immediate GUI paradigm, with a simple parametric curve"},

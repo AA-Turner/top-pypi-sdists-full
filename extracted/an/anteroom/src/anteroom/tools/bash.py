@@ -6,8 +6,10 @@ import asyncio
 import logging
 import os
 import sys
+import time
 from typing import TYPE_CHECKING, Any
 
+from ..services.diagnostic_context import log_debug
 from .security import (
     check_blocked_path,
     check_custom_patterns,
@@ -163,18 +165,47 @@ async def handle(
     _force_cancel_event: Any = None,
     **_: Any,
 ) -> dict[str, Any]:
+    started_at = time.monotonic()
     # Null byte check runs unconditionally — never bypassable.
     if "\x00" in command:
+        log_debug(
+            logger,
+            "tool.bash.failure",
+            lifecycle="failure",
+            phase="tool_exec",
+            tool_name="bash",
+            status="invalid_input",
+            error_class="ValueError",
+            _started_at=started_at,
+        )
         return {"error": "Command contains null bytes", "exit_code": -1}
     if not _bypass_hard_block:
         command, error = sanitize_command(command)
         if error:
+            log_debug(
+                logger,
+                "tool.bash.failure",
+                lifecycle="failure",
+                phase="tool_exec",
+                tool_name="bash",
+                status="sanitized_block",
+                _started_at=started_at,
+            )
             return {"error": error, "exit_code": -1}
 
     # Apply sandbox restrictions (runs even when hard-block is bypassed)
     if _sandbox_config is not None:
         sandbox_error = _check_sandbox(command, _sandbox_config)
         if sandbox_error:
+            log_debug(
+                logger,
+                "tool.bash.failure",
+                lifecycle="failure",
+                phase="tool_exec",
+                tool_name="bash",
+                status="sandbox_blocked",
+                _started_at=started_at,
+            )
             security_logger.warning("Sandbox blocked: %s — %s", sandbox_error, command[:100])
             return {"error": sandbox_error, "exit_code": -1}
         max_timeout = _sandbox_config.timeout
@@ -184,6 +215,16 @@ async def handle(
         max_output = _MAX_OUTPUT
 
     timeout = min(max(1, timeout), max_timeout)
+    log_debug(
+        logger,
+        "tool.bash.start",
+        lifecycle="start",
+        phase="tool_exec",
+        tool_name="bash",
+        background=_background,
+        timeout_seconds=timeout,
+        working_dir_set=bool(_working_dir),
+    )
 
     # Log command if configured
     if _sandbox_config is not None and _sandbox_config.log_all_commands:
@@ -200,6 +241,15 @@ async def handle(
     # foreground path in every respect except output collection.
     if _background:
         if _bg_manager is None:
+            log_debug(
+                logger,
+                "tool.bash.failure",
+                lifecycle="failure",
+                phase="tool_exec",
+                tool_name="bash",
+                status="background_unavailable",
+                _started_at=started_at,
+            )
             return {"error": "Background execution not available in this context", "exit_code": -1}
         try:
             task = _bg_manager.start_task(
@@ -213,8 +263,28 @@ async def handle(
             )
             task_result = dict(task)
             task_result["_end_turn"] = True
+            log_debug(
+                logger,
+                "tool.bash.success",
+                lifecycle="success",
+                phase="tool_exec",
+                tool_name="bash",
+                status="background_started",
+                background=True,
+                _started_at=started_at,
+            )
             return task_result
         except ValueError as exc:
+            log_debug(
+                logger,
+                "tool.bash.failure",
+                lifecycle="failure",
+                phase="tool_exec",
+                tool_name="bash",
+                status="background_failed",
+                error_class=type(exc).__name__,
+                _started_at=started_at,
+            )
             return {"error": str(exc), "exit_code": -1}
 
     # Set up OS-level sandbox (Win32 Job Object) if configured
@@ -255,6 +325,15 @@ async def handle(
             if comm_task in done:
                 stdout, stderr = comm_task.result()
             elif cancel_wait is not None and cancel_wait in done:
+                log_debug(
+                    logger,
+                    "tool.bash.cleanup",
+                    lifecycle="cleanup",
+                    phase="tool_exec",
+                    tool_name="bash",
+                    status="cancelled",
+                    _started_at=started_at,
+                )
                 # Soft cancel: SIGTERM, then race grace period against force-cancel
                 proc.terminate()
                 grace_task = asyncio.create_task(proc.communicate())
@@ -281,6 +360,15 @@ async def handle(
                 return {"stdout": "", "stderr": "", "exit_code": -1, "cancelled": True}
             else:
                 # Timeout
+                log_debug(
+                    logger,
+                    "tool.bash.timeout",
+                    lifecycle="timeout",
+                    phase="tool_exec",
+                    tool_name="bash",
+                    timeout_seconds=timeout,
+                    _started_at=started_at,
+                )
                 if job_handle is not None:
                     from .sandbox_win32 import terminate_job
 
@@ -302,12 +390,33 @@ async def handle(
         if len(stderr_str) > max_output:
             stderr_str = stderr_str[:max_output] + "\n... (truncated)"
 
-        return {
+        result = {
             "stdout": stdout_str,
             "stderr": stderr_str,
             "exit_code": proc.returncode or 0,
         }
+        log_debug(
+            logger,
+            "tool.bash.success",
+            lifecycle="success",
+            phase="tool_exec",
+            tool_name="bash",
+            exit_code=result["exit_code"],
+            stdout_chars=len(stdout_str),
+            stderr_chars=len(stderr_str),
+            _started_at=started_at,
+        )
+        return result
     except OSError as e:
+        log_debug(
+            logger,
+            "tool.bash.failure",
+            lifecycle="failure",
+            phase="tool_exec",
+            tool_name="bash",
+            error_class=type(e).__name__,
+            _started_at=started_at,
+        )
         return {"error": str(e), "exit_code": -1}
     finally:
         if tmp_script is not None:

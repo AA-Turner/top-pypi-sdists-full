@@ -106,33 +106,47 @@ async def test_nb_stop():
 
 
 @pytest.mark.asyncio
-async def test_nb_auto_stop_existing():
+async def nb_auto_stop_existing():
     """Test that starting a new GUI auto-stops the existing one."""
-    gui1_active = {"value": True}
-    gui2_active = {"value": True}
+    sleep_after_start = 0.25  # time needed for the app to start and display its first frames
+
+    gui2_active = True
+    where_am_i  = ""
 
     def gui1():
-        if not gui1_active["value"]:
-            hello_imgui.get_runner_params().app_shall_exit = True
+        nonlocal where_am_i
+        where_am_i = "gui1"
+        imgui.text("GUI 1")
+        imgui.text(f"Counter: {imgui.get_frame_count()} fps:{imgui.get_io().framerate}")
 
     def gui2():
-        if not gui2_active["value"]:
+        nonlocal gui2_active
+        nonlocal where_am_i
+        where_am_i = "gui2"
+        imgui.text("GUI 2")
+        imgui.text(f"Counter: {imgui.get_frame_count()} fps:{imgui.get_io().framerate}")
+        if not gui2_active:
             hello_imgui.get_runner_params().app_shall_exit = True
 
     # Start first GUI
     immapp.nb.start(gui1, window_title="GUI 1")
     assert immapp.nb.is_running(), "GUI 1 should be running"
-    await asyncio.sleep(0.3)
+    await asyncio.sleep(sleep_after_start)  # The app takes a while to start
+    assert where_am_i == "gui1"
+    await asyncio.sleep(0.1)
 
     # Start second GUI - should auto-stop first
     immapp.nb.start(gui2, window_title="GUI 2")
-    await asyncio.sleep(0.3)
+    await asyncio.sleep(sleep_after_start)
+    assert where_am_i == "gui2"
+    await asyncio.sleep(0.1)
 
     assert immapp.nb.is_running(), "GUI 2 should be running"
 
     # Clean up
-    gui2_active["value"] = False
-    await asyncio.sleep(0.2)
+    gui2_active = False
+    await asyncio.sleep(0.1)
+    assert not immapp.nb.is_running(), "GUI 2 should be stopped"
 
 
 @pytest.mark.asyncio
@@ -181,6 +195,59 @@ async def test_nb_variable_updates():
     # Verify final state
     assert data["counter"] == 5, "Counter should be 5"
     assert data["text"] == "Iteration 5", "Text should be 'Iteration 5'"
+
+
+@pytest.mark.asyncio
+async def test_run_async_double_setup_does_not_tear_down_first():
+    """Regression test: a second concurrent run_async() must NOT corrupt the
+    first runner.
+
+    Bypasses nb.start() (which has its own auto-drain) to exercise the raw
+    run_async() path. A second run_async() launched while the first is alive
+    will hit `IM_ASSERT(...SetupFromXXX cannot be called while already
+    initialized...)` inside `setup_from_gui_function`, which throws a
+    RuntimeError. The bug: run_async()'s `finally: manual_render.tear_down()`
+    then runs and tears down the GLOBAL renderer — which still belongs to the
+    first task — causing a SIGSEGV on the first task's next render().
+
+    The fix: setup must live OUTSIDE the try/finally that owns tear_down,
+    so a setup that never took ownership cannot tear down state it doesn't
+    own.
+    """
+    gui1_frames = 0
+
+    def gui1():
+        nonlocal gui1_frames
+        gui1_frames += 1
+
+    def gui2():
+        pass  # never reached — setup will throw
+
+    # Start GUI 1 directly via run_async (bypass nb.start auto-stop)
+    task1 = asyncio.create_task(immapp.run_async(gui1, window_title="GUI1"))
+    await asyncio.sleep(0.5)  # let it set up and render a few frames
+    assert gui1_frames > 0, "GUI 1 should have rendered at least one frame"
+    frames_at_collision = gui1_frames
+
+    # Launch a second run_async while the first is still alive.
+    # It MUST raise RuntimeError on setup, and MUST NOT tear down GUI 1.
+    task2 = asyncio.create_task(immapp.run_async(gui2, window_title="GUI2"))
+    await asyncio.sleep(0.3)
+    assert task2.done(), "Task 2 should have failed quickly during setup"
+    exc = task2.exception()
+    assert isinstance(exc, RuntimeError), f"Expected RuntimeError, got {exc!r}"
+    assert "already initialized" in str(exc)
+
+    # GUI 1 must still be alive AND still rendering. Pre-fix this is where
+    # the process either segfaults or task1 silently dies because its renderer
+    # was torn down underneath it.
+    await asyncio.sleep(0.3)
+    assert not task1.done(), f"GUI 1 should still be running, got: {task1.exception() if task1.done() else 'done'}"
+    assert gui1_frames > frames_at_collision, "GUI 1 should keep rendering after the failed task 2"
+
+    # Clean shutdown of GUI 1
+    hello_imgui.get_runner_params().app_shall_exit = True
+    await task1
 
 
 if __name__ == "__main__":

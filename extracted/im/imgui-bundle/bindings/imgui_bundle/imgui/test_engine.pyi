@@ -26,6 +26,7 @@ from imgui_bundle import imgui as imgui
 from imgui_bundle.imgui import (
     WindowFlags,
     TableFlags,
+    InputTextFlags,
     PopupFlags,
     ImVec2Like,
     ImVec2,
@@ -43,6 +44,7 @@ from imgui_bundle.imgui import (
     ImVector_int,
     ImVector_Window_ptr,
     ImVector_char,
+    TextBuffer,
 )
 from imgui_bundle.imgui.internal import (
     ItemStatusFlags,
@@ -53,7 +55,6 @@ from imgui_bundle.imgui.internal import (
     Context,
     ItemFlags,
     LastItemData,
-    TextBuffer,
     TabBar,
     InputSource,
 )
@@ -67,6 +68,7 @@ TestCheckFlags = int
 TestFlags = int
 TestOpFlags = int
 TestLogFlags = int
+CaptureFlags = int
 
 TestVerboseLevel_Warning = TestVerboseLevel.warning  # noqa
 TestVerboseLevel_Info = TestVerboseLevel.info  # noqa
@@ -74,15 +76,14 @@ TestOpFlags_None = TestOpFlags_.none  # noqa
 TestRunFlags_None = TestRunFlags_.none  # noqa
 TestRunSpeed_Fast = TestRunSpeed.fast  # noqa
 TestFlags_None = TestFlags_.none  # noqa
-Dir_None = Dir_.none  # noqa
 TestActiveFunc_None = TestActiveFunc.none  # noqa
 TestGroup_Unknown = TestGroup.unknown  # noqa
 TestStatus_Unknown = TestStatus.unknown  # noqa
 TestStatus_Success = TestStatus.success  # noqa
 InputSource_Mouse = InputSource.mouse  # noqa
 
-Function_TestRunner = Callable[[TestContext], None]
-Function_TestGui = Callable[[imgui.test_engine.TestContext], None]
+Function_TestRunner = Callable[[TestContext], None] | None
+Function_TestGui = Callable[[imgui.test_engine.TestContext], None] | None
 
 Str30 = str
 Str256 = str
@@ -519,9 +520,9 @@ class TestEngineIO:
 
     # Options: Functions
     # void*                                       SrcFileOpenUserData = nullptr;    /* original C++ signature */
-    src_file_open_user_data: Any = None  # (Optional) User data for SrcFileOpenFunc
+    src_file_open_user_data: Optional[Any] = None  # (Optional) User data for SrcFileOpenFunc
     # void*                                       ScreenCaptureUserData = nullptr;    /* original C++ signature */
-    screen_capture_user_data: Any = None  # (Optional) User data for ScreenCaptureFunc
+    screen_capture_user_data: Optional[Any] = None  # (Optional) User data for ScreenCaptureFunc
 
     # Options: Main
     # bool                        ConfigSavedSettings = true;    /* original C++ signature */
@@ -561,7 +562,7 @@ class TestEngineIO:
     # bool                        ConfigLogToDebugger = false;    /* original C++ signature */
     config_log_to_debugger: bool = False  # Output log entries to Debugger (in addition to Test Engine UI)
     # void*                       ConfigLogToFuncUserData = NULL;    /* original C++ signature */
-    config_log_to_func_user_data: Any = None
+    config_log_to_func_user_data: Optional[Any] = None
 
     # Options: Speed of user simulation
     # float                       MouseSpeed = 600.0f;    /* original C++ signature */
@@ -673,7 +674,7 @@ class TestItemInfo:
     # ImGuiID                     ID = 0;    /* original C++ signature */
     id_: ID = 0  # Item ID
     # ImGuiWindow*                Window = nullptr;    /* original C++ signature */
-    window: Window = None  # Item Window
+    window: Optional[Window] = None  # Item Window
     # int                         TimestampMain;    /* original C++ signature */
     timestamp_main: int  # Timestamp of main result (all fields)
     # int                         TimestampStatus;    /* original C++ signature */
@@ -751,7 +752,7 @@ class TestLogLineInfo:
     # int                             LineOffset;    /* original C++ signature */
     line_offset: int
     # ImGuiTestLogLineInfo(ImGuiTestVerboseLevel Level = ImGuiTestVerboseLevel(), int LineOffset = int());    /* original C++ signature */
-    def __init__(self, level: TestVerboseLevel = TestVerboseLevel(), line_offset: int = int()) -> None:
+    def __init__(self, level: TestVerboseLevel = TestVerboseLevel.warning, line_offset: int = int()) -> None:
         """Auto-generated default constructor with named params"""
         pass
 
@@ -862,7 +863,7 @@ class Test:
         None  # Teardown driving function, executed after TestFunc _regardless_ of TestFunc failing.
     )
     # void*                           UserData = nullptr;    /* original C++ signature */
-    user_data: Any = (
+    user_data: Optional[Any] = (
         None  # General purpose user data (if assigning capturing lambdas on GuiFunc/TestFunc you may not need to use this)
     )
     # ImVector<ImGuiTestRunTask>    Dependencies;                   // Registered via AddDependencyTest(), ran automatically before our test. This is a simpler wrapper to calling ctx->RunChildTest()
@@ -886,7 +887,7 @@ class Test:
     # size_t                          VarsSize = 0;    /* original C++ signature */
     vars_size: int = 0
     # void*                           VarsPostConstructorUserFn = nullptr;    /* original C++ signature */
-    vars_post_constructor_user_fn: Any = None
+    vars_post_constructor_user_fn: Optional[Any] = None
 
     # ImGuiTest() {}    /* original C++ signature */
     def __init__(self) -> None:
@@ -897,7 +898,7 @@ class TestRunTask:
     """Stored in test queue"""
 
     # ImGuiTest*          Test = nullptr;    /* original C++ signature */
-    test: Test = None
+    test: Optional[Test] = None
     # ImGuiTestRunFlags   RunFlags = ImGuiTestRunFlags_None;    /* original C++ signature */
     run_flags: TestRunFlags = TestRunFlags_None
     # ImGuiTestRunTask(ImGuiTestRunFlags RunFlags = ImGuiTestRunFlags_None);    /* original C++ signature */
@@ -1238,17 +1239,17 @@ class TestContext:
     # ImGuiTestGenericVars    GenericVars;    /* original C++ signature */
     generic_vars: TestGenericVars  # Generic variables holder for convenience.
     # void*                   UserVars = nullptr;    /* original C++ signature */
-    user_vars: Any = None  # Access using ctx->GetVars<Type>(). Setup with test->SetVarsDataType<>().
+    user_vars: Optional[Any] = None  # Access using ctx->GetVars<Type>(). Setup with test->SetVarsDataType<>().
 
     # Public fields
     # ImGuiContext*           UiContext = nullptr;    /* original C++ signature */
-    ui_context: Context = None  # UI context
+    ui_context: Optional[Context] = None  # UI context
     # ImGuiTestEngineIO*      EngineIO = nullptr;    /* original C++ signature */
-    engine_io: TestEngineIO = None  # Test Engine IO/settings
+    engine_io: Optional[TestEngineIO] = None  # Test Engine IO/settings
     # ImGuiTest*              Test = nullptr;    /* original C++ signature */
-    test: Test = None  # Test currently running
+    test: Optional[Test] = None  # Test currently running
     # ImGuiTestOutput*        TestOutput = nullptr;    /* original C++ signature */
-    test_output: TestOutput = None  # Test output (generally == &Test->Output while executing TestFunc)
+    test_output: Optional[TestOutput] = None  # Test output (generally == &Test->Output while executing TestFunc)
     # ImGuiTestOpFlags        OpFlags = ImGuiTestOpFlags_None;    /* original C++ signature */
     op_flags: TestOpFlags = (
         TestOpFlags_None  # Flags affecting all operation (supported: ImGuiTestOpFlags_NoAutoUncollapse)
@@ -1271,9 +1272,9 @@ class TestContext:
     # -------------------------------------------------------------------------
 
     # ImGuiTestEngine*        Engine = nullptr;    /* original C++ signature */
-    engine: TestEngine = None
+    engine: Optional[TestEngine] = None
     # ImGuiTestInputs*        Inputs = nullptr;    /* original C++ signature */
-    inputs: TestInputs = None
+    inputs: Optional[TestInputs] = None
     # ImGuiTestRunFlags       RunFlags = ImGuiTestRunFlags_None;    /* original C++ signature */
     run_flags: TestRunFlags = TestRunFlags_None
     # ImGuiTestActiveFunc     ActiveFunc = ImGuiTestActiveFunc_None;    /* original C++ signature */
@@ -1582,6 +1583,21 @@ class TestContext:
         Set capture file format (otherwise for video this default to EngineIO->VideoCaptureExtension)
         """
         pass
+    #                                                                     #ifdef IMGUI_BUNDLE_PYTHON_API
+    #
+    # void        CaptureSetFilename(const char* filename);    /* original C++ signature */
+    def capture_set_filename(self, filename: str) -> None:
+        """[ADAPT_IMGUI_BUNDLE]
+         Route the next CaptureScreenshot*/CaptureBeginVideo to this path on disk.
+         Without this, the engine auto-names the file (output/<TestName>_NNNN.png)
+         and there is no way to pick the output path from Python, since
+         CaptureArgs->InOutputFile is a fixed-size char buffer not exposed by
+         litgen.
+        (private API)
+        """
+        pass
+    #                                                                     #endif
+    #
     # bool        CaptureAddWindow(ImGuiTestRef ref);                                     /* original C++ signature */
     def capture_add_window(self, ref: Union[TestRef, str]) -> bool:
         """(private API)
@@ -2259,9 +2275,9 @@ class TestGatherTask:
 
     # Output/Temp
     # ImGuiTestItemList*      OutList = nullptr;    /* original C++ signature */
-    out_list: TestItemList = None
+    out_list: Optional[TestItemList] = None
     # ImGuiTestItemInfo*      LastItemInfo = nullptr;    /* original C++ signature */
-    last_item_info: TestItemInfo = None
+    last_item_info: Optional[TestItemInfo] = None
 
     # void Clear() { memset(this, 0, sizeof(*this)); }    /* original C++ signature */
     def clear(self) -> None:
@@ -2285,11 +2301,13 @@ class TestFindByLabelTask:
     # int                     InSuffixDepth = 0;    /* original C++ signature */
     in_suffix_depth: int = 0  # Number of labels in a path, after unknown base ID (for "hello/**/foo/bar" it would be 2)
     # const char*             InSuffix = nullptr;    /* original C++ signature */
-    in_suffix: str = (
+    in_suffix: Optional[str] = (
         None  # A label string which appears on ID stack after unknown base ID (for "hello/**/foo/bar" it would be "foo/bar") # (const)
     )
     # const char*             InSuffixLastItem = nullptr;    /* original C++ signature */
-    in_suffix_last_item: str = None  # A last label string (for "hello/**/foo/bar" it would be "bar") # (const)
+    in_suffix_last_item: Optional[str] = (
+        None  # A last label string (for "hello/**/foo/bar" it would be "bar") # (const)
+    )
     # ImGuiID                 InSuffixLastItemHash = 0;    /* original C++ signature */
     in_suffix_last_item_hash: ID = 0
     # ImGuiItemStatusFlags    InFilterItemStatusFlags = 0;    /* original C++ signature */
@@ -2475,9 +2493,9 @@ class TestEngine:
     # ImGuiTestEngineIO           IO;    /* original C++ signature */
     io: TestEngineIO
     # ImGuiContext*               UiContextTarget = nullptr;    /* original C++ signature */
-    ui_context_target: Context = None  # imgui context for testing
+    ui_context_target: Optional[Context] = None  # imgui context for testing
     # ImGuiContext*               UiContextActive = nullptr;    /* original C++ signature */
-    ui_context_active: Context = None  # imgui context for testing == UiContextTarget or None
+    ui_context_active: Optional[Context] = None  # imgui context for testing == UiContextTarget or None
 
     # bool                        Started = false;    /* original C++ signature */
     started: bool = False
@@ -2494,7 +2512,7 @@ class TestEngine:
         -1.0
     )  # Inject custom delta time into imgui context to simulate clock passing faster than wall clock time.
     # ImGuiTestContext*           TestContext = nullptr;    /* original C++ signature */
-    test_context: TestContext = None  # Running test context
+    test_context: Optional[TestContext] = None  # Running test context
     # bool                        TestsSourceLinesDirty = false;    /* original C++ signature */
     tests_source_lines_dirty: bool = False
     # ImGuiTestGatherTask         GatherTask;    /* original C++ signature */
@@ -2512,9 +2530,9 @@ class TestEngine:
     # bool                        Abort = false;    /* original C++ signature */
     abort: bool = False
     # ImGuiTest*                  UiSelectAndScrollToTest = nullptr;    /* original C++ signature */
-    ui_select_and_scroll_to_test: Test = None
+    ui_select_and_scroll_to_test: Optional[Test] = None
     # ImGuiTest*                  UiSelectedTest = nullptr;    /* original C++ signature */
-    ui_selected_test: Test = None
+    ui_selected_test: Optional[Test] = None
     # bool                        UiMetricsOpen = false;    /* original C++ signature */
     ui_metrics_open: bool = False
     # bool                        UiDebugLogOpen = false;    /* original C++ signature */
@@ -2652,5 +2670,131 @@ def open_source_file(engine: TestEngine, source_filename: str, source_line_no: i
     pass
 
 ####################    </generated_from:imgui_te_ui.h>    ####################
+
+####################    <generated_from:imgui_capture_tool.h>    ####################
+# dear imgui test engine
+# (screen/video capture tool)
+# This is usable as a standalone applet or controlled by the test engine.
+
+# This file is governed by the "Dear ImGui Test Engine License".
+# Details of the license are provided in the LICENSE.txt file in the same directory.
+
+# Need "imgui_te_engine.h" included for ImFuncPtr
+
+# -----------------------------------------------------------------------------
+# Forward declarations
+# -----------------------------------------------------------------------------
+
+# Our types
+
+# External types
+
+# -----------------------------------------------------------------------------
+
+class CaptureFlags_(enum.IntFlag):
+    # ImGuiCaptureFlags_None                      = 0,    /* original C++ signature */
+    none = enum.auto()  # (= 0)
+    # ImGuiCaptureFlags_StitchAll                 = 1 << 0,       /* original C++ signature */
+    stitch_all = (
+        enum.auto()
+    )  # (= 1 << 0)  # Capture entire window scroll area (by scrolling and taking multiple screenshot). Only works for a single window.
+    # ImGuiCaptureFlags_IncludeOtherWindows       = 1 << 1,       /* original C++ signature */
+    include_other_windows = (
+        enum.auto()
+    )  # (= 1 << 1)  # Disable hiding other windows (when CaptureAddWindow has been called by default other windows are hidden)
+    # ImGuiCaptureFlags_IncludePopups             = 1 << 2,       /* original C++ signature */
+    include_popups = (
+        enum.auto()
+    )  # (= 1 << 2)  # Expand capture area to automatically include visible popups (Unused if ImGuiCaptureFlags_IncludeOtherWindows is set)
+    # ImGuiCaptureFlags_HideMouseCursor           = 1 << 3,       /* original C++ signature */
+    hide_mouse_cursor = enum.auto()  # (= 1 << 3)  # Hide render software mouse cursor during capture.
+    # ImGuiCaptureFlags_Instant                   = 1 << 4,       /* original C++ signature */
+    instant = (
+        enum.auto()
+    )  # (= 1 << 4)  # Perform capture on very same frame. Only works when capturing a rectangular region. Unsupported features: content stitching, window hiding, window relocation.
+    # ImGuiCaptureFlags_NoSave                    = 1 << 5        /* original C++ signature */
+    no_save = enum.auto()  # (= 1 << 5)  # Do not save output image.
+
+class CaptureArgs:
+    """Defines input and output arguments for capture process.
+    When capturing from tests you can usually use the ImGuiTestContext::CaptureXXX() helpers functions.
+    """
+
+    # [Input]
+    # ImGuiCaptureFlags       InFlags = 0;    /* original C++ signature */
+    in_flags: CaptureFlags = 0  # Flags for customizing behavior of screenshot tool.
+    # ImVector<ImGuiWindow*>  InCaptureWindows;    /* original C++ signature */
+    in_capture_windows: ImVector_Window_ptr  # Windows to capture. All other windows will be hidden. May be used with InCaptureRect to capture only some windows in specified rect.
+    # ImRect                  InCaptureRect;    /* original C++ signature */
+    in_capture_rect: ImRect  # Screen rect to capture. Does not include padding.
+    # float                   InPadding = 16.0f;    /* original C++ signature */
+    in_padding: float = (
+        16.0  # Extra padding at the edges of the screenshot. Ensure that there is available space around capture rect horizontally, also vertically if ImGuiCaptureFlags_StitchAll is not used.
+    )
+    # int                     InRecordFPSTarget = 30;    /* original C++ signature */
+    in_record_fps_target: int = 30  # FPS target for recording videos.
+    # int                     InSizeAlign = 0;    /* original C++ signature */
+    in_size_align: int = (
+        0  # Resolution alignment (0 = auto, 1 = no alignment, >= 2 = align width/height to be multiple of given value)
+    )
+
+    # [Output]
+    # ImVec2                  OutImageSize;    /* original C++ signature */
+    out_image_size: ImVec2  # Produced image size.
+    # ImGuiCaptureArgs(ImGuiCaptureFlags InFlags = 0, ImVector<ImGuiWindow*> InCaptureWindows = ImVector<ImGuiWindow*>(), ImRect InCaptureRect = ImRect(), float InPadding = 16.0f, int InRecordFPSTarget = 30, int InSizeAlign = 0, ImVec2 OutImageSize = ImVec2());    /* original C++ signature */
+    def __init__(
+        self,
+        in_flags: CaptureFlags = 0,
+        in_capture_windows: Optional[ImVector_Window] = None,
+        in_capture_rect: Optional[ImRect] = None,
+        in_padding: float = 16.0,
+        in_record_fps_target: int = 30,
+        in_size_align: int = 0,
+        out_image_size: Optional[ImVec2Like] = None,
+    ) -> None:
+        """Auto-generated default constructor with named params
+
+
+        Python bindings defaults:
+            If any of the params below is None, then its default value below will be used:
+                * InCaptureWindows: ImVector_Window_ptr()
+                * InCaptureRect: ImRect()
+                * OutImageSize: ImVec2()
+        """
+        pass
+
+class CaptureStatus(enum.IntFlag):
+    # ImGuiCaptureStatus_InProgress,    /* original C++ signature */
+    in_progress = enum.auto()  # (= 0)
+    # ImGuiCaptureStatus_Done,    /* original C++ signature */
+    done = enum.auto()  # (= 1)
+    # ImGuiCaptureStatus_Error    /* original C++ signature */
+    # }
+    error = enum.auto()  # (= 2)
+
+class CaptureWindowData:
+    # ImGuiWindow*            Window;    /* original C++ signature */
+    window: Window
+    # ImRect                  BackupRect;    /* original C++ signature */
+    backup_rect: ImRect
+    # ImVec2                  PosDuringCapture;    /* original C++ signature */
+    pos_during_capture: ImVec2
+    # ImGuiCaptureWindowData(ImRect BackupRect = ImRect(), ImVec2 PosDuringCapture = ImVec2());    /* original C++ signature */
+    def __init__(self, backup_rect: Optional[ImRect] = None, pos_during_capture: Optional[ImVec2Like] = None) -> None:
+        """Auto-generated default constructor with named params
+
+
+        Python bindings defaults:
+            If any of the params below is None, then its default value below will be used:
+                * BackupRect: ImRect()
+                * PosDuringCapture: ImVec2()
+        """
+        pass
+
+# -----------------------------------------------------------------------------
+# ImGuiCaptureToolUI
+# -----------------------------------------------------------------------------
+
+####################    </generated_from:imgui_capture_tool.h>    ####################
 
 # </litgen_stub> // Autogenerated code end!

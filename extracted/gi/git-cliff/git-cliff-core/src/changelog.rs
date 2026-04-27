@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::commit::Commit;
-use crate::config::{Config, GitConfig};
-use crate::error::{Error, Result};
+use crate::config::Config;
+use crate::error::Result;
+use crate::process::CommitProcessor;
 use crate::release::{Release, Releases};
 #[cfg(feature = "azure_devops")]
 use crate::remote::azure_devops::AzureDevOpsClient;
@@ -90,136 +90,28 @@ impl<'a> Changelog<'a> {
         Ok(())
     }
 
-    /// Processes a single commit and returns/logs the result.
-    fn process_commit(
-        commit: &Commit<'a>,
-        git_config: &GitConfig,
-        summary: &mut Summary,
-    ) -> Option<Commit<'a>> {
-        match commit.process(git_config) {
-            Ok(commit) => {
-                summary.record_ok();
-                Some(commit)
-            }
-            Err(e) => {
-                summary.record_err(&e);
-                let short_id = commit.id.chars().take(7).collect::<String>();
-                let summary = commit.message.lines().next().unwrap_or_default().trim();
-                log::trace!("{short_id} - {e} ({summary})");
-                None
-            }
-        }
-    }
-
-    /// Checks the commits and returns an error if any unconventional commits
-    /// are found.
-    fn check_conventional_commits(commits: &Vec<Commit<'a>>) -> Result<()> {
-        log::debug!("Verifying that all commits are conventional");
-        let mut unconventional_count = 0;
-        commits.iter().for_each(|commit| {
-            if commit.conv.is_none() {
-                log::error!(
-                    "Commit {id} is not conventional:\n{message}",
-                    id = &commit.id[..7],
-                    message = commit
-                        .message
-                        .lines()
-                        .map(|line| { format!("    | {}", line.trim()) })
-                        .collect::<Vec<String>>()
-                        .join("\n")
-                );
-                unconventional_count += 1;
-            }
-        });
-
-        if unconventional_count > 0 {
-            return Err(Error::UnconventionalCommitsError(unconventional_count));
-        }
-
-        Ok(())
-    }
-
-    /// Checks the commits and returns an error if any commits are not matched
-    /// by any commit parser.
-    fn check_unmatched_commits(commits: &Vec<Commit<'a>>) -> Result<()> {
-        log::debug!("Verifying that no commits are unmatched by commit parsers");
-        let mut unmatched_count = 0;
-        commits.iter().for_each(|commit| {
-            let is_unmatched = commit.group.is_none();
-            if is_unmatched {
-                log::error!(
-                    "Commit {id} was not matched by any commit parser:\n{message}",
-                    id = &commit.id[..7],
-                    message = commit
-                        .message
-                        .lines()
-                        .map(|line| { format!("    | {}", line.trim()) })
-                        .collect::<Vec<String>>()
-                        .join("\n")
-                );
-                unmatched_count += 1;
-            }
-        });
-
-        if unmatched_count > 0 {
-            return Err(Error::UnmatchedCommitsError(unmatched_count));
-        }
-
-        Ok(())
-    }
-
-    fn process_commit_list(
-        commits: &mut Vec<Commit<'a>>,
-        git_config: &GitConfig,
-        summary: &mut Summary,
-    ) -> Result<()> {
-        let mut processed = Vec::new();
-        for commit in commits.iter() {
-            if let Some(commit) = Self::process_commit(commit, git_config, summary) {
-                if git_config.split_commits {
-                    for line in commit.message.lines() {
-                        let mut c = commit.clone();
-                        c.message = line.to_string();
-                        c.links.clear();
-                        if c.message.is_empty() {
-                            continue;
-                        }
-                        if let Some(c) = Self::process_commit(&c, git_config, summary) {
-                            processed.push(c);
-                        }
-                    }
-                } else {
-                    processed.push(commit);
-                }
-            }
-        }
-        *commits = processed;
-
-        if git_config.require_conventional {
-            Self::check_conventional_commits(commits)?;
-        }
-
-        if git_config.fail_on_unmatched_commit {
-            Self::check_unmatched_commits(commits)?;
-        }
-
-        Ok(())
-    }
-
     /// Processes the commits and omits the ones that doesn't match the
     /// criteria set by configuration file.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(releases = self.releases.len())
+        )
+    )]
     fn process_commits(&mut self) -> Result<()> {
-        log::debug!("Processing the commits");
+        crate::set_progress_message!("Processing commits for the changelog");
+        tracing::debug!("Processing the commits");
 
         let mut summary = Summary::default();
-        for release in self.releases.iter_mut() {
-            Self::process_commit_list(&mut release.commits, &self.config.git, &mut summary)?;
+        for release in &mut self.releases {
+            CommitProcessor::new(&self.config.git, &mut summary).run(&mut release.commits)?;
             for submodule_commits in release.submodule_commits.values_mut() {
-                Self::process_commit_list(submodule_commits, &self.config.git, &mut summary)?;
+                CommitProcessor::new(&self.config.git, &mut summary).run(submodule_commits)?;
             }
         }
 
-        log::debug!(
+        tracing::debug!(
             "Processed {} commit(s) in total (`split_commits` option may cause duplicates)",
             summary.processed
         );
@@ -231,9 +123,9 @@ impl<'a> Changelog<'a> {
                 "{count} commit(s) were skipped due to {kind}(s) (run with `-vv` for details)",
             );
             if kind.should_warn() {
-                log::warn!("{message}");
+                tracing::warn!("{message}");
             } else {
-                log::debug!("{message}");
+                tracing::debug!("{message}");
             }
         }
 
@@ -241,8 +133,16 @@ impl<'a> Changelog<'a> {
     }
 
     /// Processes the releases and filters them out based on the configuration.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(releases = self.releases.len())
+        )
+    )]
     fn process_releases(&mut self) {
-        log::debug!("Processing {} release(s)", self.releases.len());
+        crate::set_progress_message!("Processing releases for the changelog");
+        tracing::debug!("Processing {} release(s)", self.releases.len());
         let skip_regex = self.config.git.skip_tags.as_ref();
         let mut skipped_tags = Vec::new();
         self.releases = self
@@ -254,13 +154,13 @@ impl<'a> Changelog<'a> {
                 if let Some(version) = &release.version {
                     if skip_regex.is_some_and(|r| r.is_match(version)) {
                         skipped_tags.push(version.clone());
-                        log::debug!("Skipping release: {version}");
+                        tracing::debug!("Skipping release: {version}");
                         return false;
                     }
                 }
                 if release.commits.is_empty() {
                     if let Some(version) = release.version.clone() {
-                        log::debug!("Release doesn't have any commits: {version}");
+                        tracing::debug!("Release doesn't have any commits: {version}");
                     }
                     match &release.previous {
                         Some(prev_release) if prev_release.commits.is_empty() => {
@@ -306,8 +206,10 @@ impl<'a> Changelog<'a> {
     /// If no GitHub related variable is used in the template then this function
     /// returns empty vectors.
     #[cfg(feature = "github")]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn get_github_metadata(&self, ref_name: Option<&str>) -> Result<crate::remote::RemoteMetadata> {
         use crate::remote::github;
+        crate::set_progress_message!("Fetching GitHub metadata for the changelog");
         if self.config.remote.github.is_custom ||
             self.body_template
                 .contains_variable(github::TEMPLATE_VARIABLES) ||
@@ -316,12 +218,7 @@ impl<'a> Changelog<'a> {
                 .is_some_and(|v| v.contains_variable(github::TEMPLATE_VARIABLES))
         {
             let github_client = GitHubClient::try_from(self.config.remote.github.clone())?;
-            log::info!(
-                "{} ({})",
-                github::START_FETCHING_MSG,
-                self.config.remote.github
-            );
-            let data = tokio::runtime::Builder::new_multi_thread()
+            tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()?
                 .block_on(async {
@@ -329,12 +226,10 @@ impl<'a> Changelog<'a> {
                         github_client.get_commits(ref_name),
                         github_client.get_pull_requests(),
                     )?;
-                    log::debug!("Number of GitHub commits: {}", commits.len());
-                    log::debug!("Number of GitHub pull requests: {}", pull_requests.len());
+                    tracing::debug!("Number of GitHub commits: {}", commits.len());
+                    tracing::debug!("Number of GitHub pull requests: {}", pull_requests.len());
                     Ok((commits, pull_requests))
-                });
-            log::info!("{}", github::FINISHED_FETCHING_MSG);
-            data
+                })
         } else {
             Ok((vec![], vec![]))
         }
@@ -356,8 +251,10 @@ impl<'a> Changelog<'a> {
     /// If no GitLab related variable is used in the template then this function
     /// returns empty vectors.
     #[cfg(feature = "gitlab")]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn get_gitlab_metadata(&self, ref_name: Option<&str>) -> Result<crate::remote::RemoteMetadata> {
         use crate::remote::gitlab;
+        crate::set_progress_message!("Fetching GitLab metadata for the changelog");
         if self.config.remote.gitlab.is_custom ||
             self.body_template
                 .contains_variable(gitlab::TEMPLATE_VARIABLES) ||
@@ -366,12 +263,7 @@ impl<'a> Changelog<'a> {
                 .is_some_and(|v| v.contains_variable(gitlab::TEMPLATE_VARIABLES))
         {
             let gitlab_client = GitLabClient::try_from(self.config.remote.gitlab.clone())?;
-            log::info!(
-                "{} ({})",
-                gitlab::START_FETCHING_MSG,
-                self.config.remote.gitlab
-            );
-            let data = tokio::runtime::Builder::new_multi_thread()
+            tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()?
                 .block_on(async {
@@ -379,21 +271,24 @@ impl<'a> Changelog<'a> {
                     let project_id = match tokio::join!(gitlab_client.get_project()) {
                         (Ok(project),) => project.id,
                         (Err(err),) => {
-                            log::error!("Failed to lookup project: {err}");
+                            tracing::error!("Failed to lookup project: {err}");
                             return Err(err);
                         }
                     };
                     let (commits, merge_requests) = tokio::try_join!(
                         // Send id to these functions
-                        gitlab_client.get_commits(project_id, ref_name),
-                        gitlab_client.get_pull_requests(project_id),
+                        gitlab_client.get_commits(
+                            project_id.expect("Project id is required for git-cliff semantics"),
+                            ref_name
+                        ),
+                        gitlab_client.get_pull_requests(
+                            project_id.expect("Project id is required for git-cliff semantics")
+                        ),
                     )?;
-                    log::debug!("Number of GitLab commits: {}", commits.len());
-                    log::debug!("Number of GitLab merge requests: {}", merge_requests.len());
+                    tracing::debug!("Number of GitLab commits: {}", commits.len());
+                    tracing::debug!("Number of GitLab merge requests: {}", merge_requests.len());
                     Ok((commits, merge_requests))
-                });
-            log::info!("{}", gitlab::FINISHED_FETCHING_MSG);
-            data
+                })
         } else {
             Ok((vec![], vec![]))
         }
@@ -413,8 +308,10 @@ impl<'a> Changelog<'a> {
     /// If no Gitea related variable is used in the template then this function
     /// returns empty vectors.
     #[cfg(feature = "gitea")]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn get_gitea_metadata(&self, ref_name: Option<&str>) -> Result<crate::remote::RemoteMetadata> {
         use crate::remote::gitea;
+        crate::set_progress_message!("Fetching Gitea metadata for the changelog");
         if self.config.remote.gitea.is_custom ||
             self.body_template
                 .contains_variable(gitea::TEMPLATE_VARIABLES) ||
@@ -423,12 +320,7 @@ impl<'a> Changelog<'a> {
                 .is_some_and(|v| v.contains_variable(gitea::TEMPLATE_VARIABLES))
         {
             let gitea_client = GiteaClient::try_from(self.config.remote.gitea.clone())?;
-            log::info!(
-                "{} ({})",
-                gitea::START_FETCHING_MSG,
-                self.config.remote.gitea
-            );
-            let data = tokio::runtime::Builder::new_multi_thread()
+            tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()?
                 .block_on(async {
@@ -436,12 +328,10 @@ impl<'a> Changelog<'a> {
                         gitea_client.get_commits(ref_name),
                         gitea_client.get_pull_requests(),
                     )?;
-                    log::debug!("Number of Gitea commits: {}", commits.len());
-                    log::debug!("Number of Gitea pull requests: {}", pull_requests.len());
+                    tracing::debug!("Number of Gitea commits: {}", commits.len());
+                    tracing::debug!("Number of Gitea pull requests: {}", pull_requests.len());
                     Ok((commits, pull_requests))
-                });
-            log::info!("{}", gitea::FINISHED_FETCHING_MSG);
-            data
+                })
         } else {
             Ok((vec![], vec![]))
         }
@@ -463,11 +353,13 @@ impl<'a> Changelog<'a> {
     /// If no bitbucket related variable is used in the template then this
     /// function returns empty vectors.
     #[cfg(feature = "bitbucket")]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn get_bitbucket_metadata(
         &self,
         ref_name: Option<&str>,
     ) -> Result<crate::remote::RemoteMetadata> {
         use crate::remote::bitbucket;
+        crate::set_progress_message!("Fetching Bitbucket metadata for the changelog");
         if self.config.remote.bitbucket.is_custom ||
             self.body_template
                 .contains_variable(bitbucket::TEMPLATE_VARIABLES) ||
@@ -476,12 +368,7 @@ impl<'a> Changelog<'a> {
                 .is_some_and(|v| v.contains_variable(bitbucket::TEMPLATE_VARIABLES))
         {
             let bitbucket_client = BitbucketClient::try_from(self.config.remote.bitbucket.clone())?;
-            log::info!(
-                "{} ({})",
-                bitbucket::START_FETCHING_MSG,
-                self.config.remote.bitbucket
-            );
-            let data = tokio::runtime::Builder::new_multi_thread()
+            tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()?
                 .block_on(async {
@@ -489,12 +376,10 @@ impl<'a> Changelog<'a> {
                         bitbucket_client.get_commits(ref_name),
                         bitbucket_client.get_pull_requests()
                     )?;
-                    log::debug!("Number of Bitbucket commits: {}", commits.len());
-                    log::debug!("Number of Bitbucket pull requests: {}", pull_requests.len());
+                    tracing::debug!("Number of Bitbucket commits: {}", commits.len());
+                    tracing::debug!("Number of Bitbucket pull requests: {}", pull_requests.len());
                     Ok((commits, pull_requests))
-                });
-            log::info!("{}", bitbucket::FINISHED_FETCHING_MSG);
-            data
+                })
         } else {
             Ok((vec![], vec![]))
         }
@@ -514,11 +399,13 @@ impl<'a> Changelog<'a> {
     /// If no Azure DevOps related variable is used in the template then this
     /// function returns empty vectors.
     #[cfg(feature = "azure_devops")]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn get_azure_devops_metadata(
         &self,
         ref_name: Option<&str>,
     ) -> Result<crate::remote::RemoteMetadata> {
         use crate::remote::azure_devops;
+        crate::set_progress_message!("Fetching Azure DevOps metadata for the changelog");
         if self.config.remote.azure_devops.is_custom ||
             self.body_template
                 .contains_variable(azure_devops::TEMPLATE_VARIABLES) ||
@@ -528,12 +415,7 @@ impl<'a> Changelog<'a> {
         {
             let azure_devops_client =
                 AzureDevOpsClient::try_from(self.config.remote.azure_devops.clone())?;
-            log::info!(
-                "{} ({})",
-                azure_devops::START_FETCHING_MSG,
-                self.config.remote.azure_devops
-            );
-            let data = tokio::runtime::Builder::new_multi_thread()
+            tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()?
                 .block_on(async {
@@ -541,15 +423,13 @@ impl<'a> Changelog<'a> {
                         azure_devops_client.get_commits(ref_name),
                         azure_devops_client.get_pull_requests()
                     )?;
-                    log::debug!("Number of Azure DevOps commits: {}", commits.len());
-                    log::debug!(
+                    tracing::debug!("Number of Azure DevOps commits: {}", commits.len());
+                    tracing::debug!(
                         "Number of Azure DevOps pull requests: {}",
                         pull_requests.len()
                     );
                     Ok((commits, pull_requests))
-                });
-            log::info!("{}", azure_devops::FINISHED_FETCHING_MSG);
-            data
+                })
         } else {
             Ok((vec![], vec![]))
         }
@@ -566,8 +446,38 @@ impl<'a> Changelog<'a> {
 
     /// Adds remote data (e.g. GitHub commits) to the releases.
     #[allow(unused_variables)]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn add_remote_data(&mut self, range: Option<&str>) -> Result<()> {
-        log::debug!("Adding remote data");
+        let mut remotes: Vec<String> = Vec::new();
+        #[cfg(feature = "github")]
+        if self.config.remote.github.is_set() {
+            remotes.push(self.config.remote.github.to_string());
+        }
+        #[cfg(feature = "gitlab")]
+        if self.config.remote.gitlab.is_set() {
+            remotes.push(self.config.remote.gitlab.to_string());
+        }
+        #[cfg(feature = "gitea")]
+        if self.config.remote.gitea.is_set() {
+            remotes.push(self.config.remote.gitea.to_string());
+        }
+        #[cfg(feature = "bitbucket")]
+        if self.config.remote.bitbucket.is_set() {
+            remotes.push(self.config.remote.bitbucket.to_string());
+        }
+        #[cfg(feature = "azure_devops")]
+        if self.config.remote.azure_devops.is_set() {
+            remotes.push(self.config.remote.azure_devops.to_string());
+        }
+        if remotes.is_empty() {
+            crate::set_progress_message!("Adding remote data to the changelog");
+        } else {
+            crate::set_progress_message!(
+                "Adding remote data to the changelog ({})",
+                remotes.join(", ")
+            );
+        }
+        tracing::debug!("Adding remote data");
 
         // Determine the ref at which to fetch remote commits, based on the commit
         // range
@@ -636,28 +546,32 @@ impl<'a> Changelog<'a> {
     }
 
     /// Increments the version for the unreleased changes based on semver.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn bump_version(&mut self) -> Result<Option<String>> {
+        crate::set_progress_message!("Bumping the version for unreleased changes");
         if let Some(ref mut last_release) = self.releases.iter_mut().next() {
             if last_release.version.is_none() {
-                let next_version =
-                    last_release.calculate_next_version_with_config(&self.config.bump)?;
-                log::debug!("Bumping the version to {next_version}");
-                last_release.version = Some(next_version.clone());
+                let next = last_release.calculate_next_version_with_config(&self.config.bump)?;
+                tracing::debug!("Bumping the version to {}", next.version);
+                last_release.bump_type = next.bump_type;
+                last_release.version = Some(next.version.clone());
                 last_release.timestamp = Some(
                     SystemTime::now()
                         .duration_since(UNIX_EPOCH)?
                         .as_secs()
                         .try_into()?,
                 );
-                return Ok(Some(next_version));
+                return Ok(Some(next.version));
             }
         }
         Ok(None)
     }
 
     /// Generates the changelog and writes it to the given output.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn generate<W: Write + ?Sized>(&self, out: &mut W) -> Result<()> {
-        log::debug!("Generating changelog");
+        crate::set_progress_message!("Generating and writing the changelog");
+        tracing::debug!("Generating changelog");
         let postprocessors = self.config.changelog.postprocessors.clone();
 
         if let Some(header_template) = &self.header_template {
@@ -719,8 +633,10 @@ impl<'a> Changelog<'a> {
     }
 
     /// Generates a changelog and prepends it to the given changelog.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn prepend<W: Write + ?Sized>(&self, mut changelog: String, out: &mut W) -> Result<()> {
-        log::debug!("Generating changelog and prepending");
+        crate::set_progress_message!("Generating and prepending the changelog");
+        tracing::debug!("Generating changelog and prepending");
         if let Some(header) = &self.config.changelog.header {
             changelog = changelog.replacen(header, "", 1);
         }
@@ -730,7 +646,9 @@ impl<'a> Changelog<'a> {
     }
 
     /// Prints the changelog context to the given output.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn write_context<W: Write + ?Sized>(&self, out: &mut W) -> Result<()> {
+        crate::set_progress_message!("Writing the changelog context as JSON");
         let output = Releases {
             releases: &self.releases,
         }
@@ -750,7 +668,7 @@ fn get_body_template(config: &Config, trim: bool) -> Result<Template> {
         "commit.azure_devops",
     ];
     if template.contains_variable(&deprecated_vars) {
-        log::warn!(
+        tracing::warn!(
             "Variables {deprecated_vars:?} are deprecated and will be removed in the future. Use \
              `commit.remote` instead."
         );
@@ -766,9 +684,10 @@ mod test {
     use regex::Regex;
 
     use super::*;
-    use crate::commit::Signature;
+    use crate::commit::{Commit, Signature};
     use crate::config::{
-        Bump, ChangelogConfig, CommitParser, LinkParser, Remote, RemoteConfig, TextProcessor,
+        Bump, ChangelogConfig, CommitParser, GitConfig, LinkParser, Remote, RemoteConfig,
+        TextProcessor,
     };
 
     fn get_test_data() -> (Config, Vec<Release<'static>>) {
@@ -814,6 +733,7 @@ mod test {
                 output: None,
             },
             git: GitConfig {
+                processing_order: None,
                 conventional_commits: true,
                 require_conventional: false,
                 filter_unconventional: false,
@@ -1188,6 +1108,7 @@ mod test {
                 ),
             ])]),
             statistics: None,
+            bump_type: None,
             #[cfg(feature = "github")]
             github: crate::remote::RemoteReleaseMetadata {
                 contributors: vec![],
@@ -1309,6 +1230,7 @@ mod test {
                     )]),
                 ]),
                 statistics: None,
+                bump_type: None,
                 #[cfg(feature = "github")]
                 github: crate::remote::RemoteReleaseMetadata {
                     contributors: vec![],

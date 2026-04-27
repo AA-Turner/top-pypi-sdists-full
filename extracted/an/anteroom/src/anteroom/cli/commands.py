@@ -1205,7 +1205,7 @@ def _dispatch_config(parsed: ParsedSlashCommand) -> CommandResult:
     parts = parsed.arg.split(maxsplit=1) if parsed.arg else []
     subcommand = parts[0].lower() if parts else ""
 
-    if subcommand in {"list", "get", "set", "reset"}:
+    if subcommand in {"list", "get", "explain", "sources", "set", "reset", "help", "search"}:
         arg = parts[1].strip() if len(parts) == 2 else ""
         return CommandResult(
             kind="show_config",
@@ -1476,7 +1476,7 @@ def build_help_markdown() -> str:
         "- `/mcp` shows MCP status; `/mcp status <name>` and\n"
         "  `/mcp connect|disconnect|reconnect <name>` manage a server\n"
         "- `/plan on|off|status` controls planning mode; inline `/plan <prompt>` remains CLI/Textual-local\n"
-        "- `/config` opens the interactive config editor; `/config get|set|reset` for power users\n"
+        "- `/config` opens config help; `/config get|explain|sources|help|search|set|reset` for power users\n"
         "- `/upload <path>` uploads a local file (CLI/Textual only)\n"
         "- `/reprocess [all|<id>]` reprocesses sources (CLI/Textual only)\n"
         "- `/verbose` cycles tool detail level (CLI/Textual only)\n"

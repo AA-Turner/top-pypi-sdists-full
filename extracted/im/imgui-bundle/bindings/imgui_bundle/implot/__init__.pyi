@@ -23,8 +23,8 @@ from imgui_bundle.imgui import (
     ImU32,
     DragDropFlags,
     ImDrawList,
-    Cond_,
     ImTextureRef,
+    WindowFlags,
 )
 
 ImGui_Context = imgui.internal.Context
@@ -127,11 +127,6 @@ version: str
 #
 VoidPtr = Any
 ImTextureID = VoidPtr
-
-Cond_None = Cond_.none
-Cond_Always = Cond_.always
-Cond_Once = imgui.Cond_.once
-
 Bin_Sturges = Bin_.sturges
 
 Marker_None = Marker_.none
@@ -163,7 +158,7 @@ ItemFlags_None = ItemFlags_.none
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# ImPlot v0.18 WIP
+# ImPlot v1.0
 
 # Table of Contents:
 #
@@ -251,34 +246,50 @@ class Prop_(enum.IntFlag):
     line_color = (
         enum.auto()
     )  # (= 0)  # line color (applies to lines, bar edges); IMPLOT_AUTO_COL will use next Colormap color or current item color
+    # ImPlotProp_LineColors,          /* original C++ signature */
+    line_colors = enum.auto()  # (= 1)  # array of colors for each line; if None, use LineColor for all lines
     # ImPlotProp_LineWeight,          /* original C++ signature */
-    line_weight = enum.auto()  # (= 1)  # line weight in pixels (applies to lines, bar edges, marker edges)
+    line_weight = enum.auto()  # (= 2)  # line weight in pixels (applies to lines, bar edges, marker edges)
     # ImPlotProp_FillColor,           /* original C++ signature */
     fill_color = (
         enum.auto()
-    )  # (= 2)  # fill color (applies to shaded regions, bar faces); IMPLOT_AUTO_COL will use next Colormap color or current item color
+    )  # (= 3)  # fill color (applies to shaded regions, bar faces); IMPLOT_AUTO_COL will use next Colormap color or current item color
+    # ImPlotProp_FillColors,          /* original C++ signature */
+    fill_colors = enum.auto()  # (= 4)  # array of colors for each fill; if None, use FillColor for all fills
     # ImPlotProp_FillAlpha,           /* original C++ signature */
-    fill_alpha = enum.auto()  # (= 3)  # alpha multiplier (applies to FillColor and MarkerFillColor)
+    fill_alpha = (
+        enum.auto()
+    )  # (= 5)  # alpha multiplier (applies to FillColor, FillColors, MarkerFillColor, and MarkerFillColors)
     # ImPlotProp_Marker,              /* original C++ signature */
-    marker = enum.auto()  # (= 4)  # marker type; specify ImPlotMarker_Auto to use the next unused marker
+    marker = enum.auto()  # (= 6)  # marker type; specify ImPlotMarker_Auto to use the next unused marker
     # ImPlotProp_MarkerSize,          /* original C++ signature */
-    marker_size = enum.auto()  # (= 5)  # size of markers (radius) *in pixels*
+    marker_size = enum.auto()  # (= 7)  # size of markers (radius) *in pixels*
+    # ImPlotProp_MarkerSizes,         /* original C++ signature */
+    marker_sizes = enum.auto()  # (= 8)  # array of sizes for each marker; if None, use MarkerSize for all markers
     # ImPlotProp_MarkerLineColor,     /* original C++ signature */
-    marker_line_color = enum.auto()  # (= 6)  # marker edge color; IMPLOT_AUTO_COL will use LineColor
+    marker_line_color = enum.auto()  # (= 9)  # marker edge color; IMPLOT_AUTO_COL will use LineColor
+    # ImPlotProp_MarkerLineColors,     /* original C++ signature */
+    marker_line_colors = (
+        enum.auto()
+    )  # (= 10)  # array of colors for each marker edge; if None, use MarkerLineColor for all markers
     # ImPlotProp_MarkerFillColor,     /* original C++ signature */
-    marker_fill_color = enum.auto()  # (= 7)  # marker face color; IMPLOT_AUTO_COL will use LineColor
+    marker_fill_color = enum.auto()  # (= 11)  # marker face color; IMPLOT_AUTO_COL will use LineColor
+    # ImPlotProp_MarkerFillColors,     /* original C++ signature */
+    marker_fill_colors = (
+        enum.auto()
+    )  # (= 12)  # array of colors for each marker face; if None, use MarkerFillColor for all markers
     # ImPlotProp_Size,                /* original C++ signature */
-    size = enum.auto()  # (= 8)  # size of error bar whiskers (width or height), and digital bars (height) *in pixels*
+    size = enum.auto()  # (= 13)  # size of error bar whiskers (width or height), and digital bars (height) *in pixels*
     # ImPlotProp_Offset,              /* original C++ signature */
-    offset = enum.auto()  # (= 9)  # data index offset
+    offset = enum.auto()  # (= 14)  # data index offset
     # ImPlotProp_Stride,              /* original C++ signature */
     stride = (
         enum.auto()
-    )  # (= 10)  # data stride in bytes; IMPLOT_AUTO will result in sizeof(T) where T is the type passed to PlotX
+    )  # (= 15)  # data stride in bytes; IMPLOT_AUTO will result in sizeof(T) where T is the type passed to PlotX
     # ImPlotProp_Flags                /* original C++ signature */
     flags = (
         enum.auto()
-    )  # (= 11)  # optional item flags; can be composed from common ImPlotItemFlags and/or specialized ImPlotXFlags
+    )  # (= 16)  # optional item flags; can be composed from common ImPlotItemFlags and/or specialized ImPlotXFlags
 
 class Flags_(enum.IntFlag):
     """Options for plots (see BeginPlot)."""
@@ -526,6 +537,14 @@ class BubblesFlags_(enum.IntFlag):
     # ImPlotBubblesFlags_None = 0,     /* original C++ signature */
     none = enum.auto()  # (= 0)  # default
 
+class PolygonFlags_(enum.IntFlag):
+    """Flags for PlotPolygon. Used by setting ImPlotSpec::Flags."""
+
+    # ImPlotPolygonFlags_None     = 0,           /* original C++ signature */
+    none = enum.auto()  # (= 0)  # default (closed, convex polygon)
+    # ImPlotPolygonFlags_Concave  = 1 << 10,     /* original C++ signature */
+    concave = enum.auto()  # (= 1 << 10)  # use concave polygon filling (slower but supports concave shapes)
+
 class StairsFlags_(enum.IntFlag):
     """Flags for PlotStairs. Used by setting ImPlotSpec::Flags."""
 
@@ -591,18 +610,20 @@ class InfLinesFlags_(enum.IntFlag):
 class PieChartFlags_(enum.IntFlag):
     """Flags for PlotPieChart. Used by setting ImPlotSpec::Flags."""
 
-    # ImPlotPieChartFlags_None         = 0,           /* original C++ signature */
+    # ImPlotPieChartFlags_None          = 0,           /* original C++ signature */
     none = enum.auto()  # (= 0)  # default
-    # ImPlotPieChartFlags_Normalize    = 1 << 10,     /* original C++ signature */
+    # ImPlotPieChartFlags_Normalize     = 1 << 10,     /* original C++ signature */
     normalize = (
         enum.auto()
     )  # (= 1 << 10)  # force normalization of pie chart values (i.e. always make a full circle if sum < 0)
-    # ImPlotPieChartFlags_IgnoreHidden = 1 << 11,     /* original C++ signature */
+    # ImPlotPieChartFlags_IgnoreHidden  = 1 << 11,     /* original C++ signature */
     ignore_hidden = (
         enum.auto()
     )  # (= 1 << 11)  # ignore hidden slices when drawing the pie chart (as if they were not there)
-    # ImPlotPieChartFlags_Exploding    = 1 << 12      /* original C++ signature */
-    exploding = enum.auto()  # (= 1 << 12)  # Explode legend-hovered slice
+    # ImPlotPieChartFlags_Exploding     = 1 << 12,     /* original C++ signature */
+    exploding = enum.auto()  # (= 1 << 12)  # explode legend-hovered slice
+    # ImPlotPieChartFlags_NoSliceBorder = 1 << 13      /* original C++ signature */
+    no_slice_border = enum.auto()  # (= 1 << 13)  # do not draw slice borders
 
 class HeatmapFlags_(enum.IntFlag):
     """Flags for PlotHeatmap. Used by setting ImPlotSpec::Flags."""
@@ -909,7 +930,9 @@ class Spec:
         IMPLOT_AUTO_COL  # fill color (applies to shaded regions, bar faces); IMPLOT_AUTO_COL will use next Colormap color or current item color
     )
     # float           FillAlpha       = 1.0f;    /* original C++ signature */
-    fill_alpha: float = 1.0  # alpha multiplier (applies to FillColor and MarkerFillColor)
+    fill_alpha: float = (
+        1.0  # alpha multiplier (applies to FillColor, FillColors, MarkerFillColor, and MarkerFillColors)
+    )
     # ImPlotMarker    Marker          = ImPlotMarker_None;    /* original C++ signature */
     marker: Marker = Marker_None  # marker type; specify ImPlotMarker_Auto to use the next unused marker
     # float           MarkerSize      = 4;    /* original C++ signature */
@@ -959,6 +982,21 @@ class Spec:
                 * MarkerFillColor: IMPLOT_AUTO_COL
         """
         pass
+    line_colors: Optional[np.ndarray] = (
+        None  # array of colors (np.uint32) for each line. Must have the same length as the data arrays. If None, use LineColor for all lines.
+    )
+    fill_colors: Optional[np.ndarray] = (
+        None  # array of colors (np.uint32) for each fill. Must have the same length as the data arrays. If None, use FillColor for all fills.
+    )
+    marker_line_colors: Optional[np.ndarray] = (
+        None  # array of colors (np.uint32) for each marker edge. Must have the same length as the data arrays. If None, use MarkerLineColor for all markers.
+    )
+    marker_fill_colors: Optional[np.ndarray] = (
+        None  # array of colors (np.uint32) for each marker face. Must have the same length as the data arrays. If None, use MarkerFillColor for all markers.
+    )
+    marker_sizes: Optional[np.ndarray] = (
+        None  # array of sizes (np.float32) for each marker. Must have the same length as the data arrays. If None, use MarkerSize for all markers.
+    )
 
 class Point:
     # double x,     /* original C++ signature */
@@ -978,11 +1016,6 @@ class Point:
     def __init__(self, p: ImVec2Like) -> None:
         pass
     # IMPLOT_API double& operator[] (size_t idx)             { IM_ASSERT(idx == 0 || idx == 1); return ((double*)(void*)(char*)this)[idx]; }    /* original C++ signature */
-    @overload
-    def __getitem__(self, idx: int) -> float:
-        pass
-    # IMPLOT_API double  operator[] (size_t idx) const       { IM_ASSERT(idx == 0 || idx == 1); return ((const double*)(const void*)(const char*)this)[idx]; }    /* original C++ signature */
-    @overload
     def __getitem__(self, idx: int) -> float:
         pass
 
@@ -1398,13 +1431,11 @@ def setup_axis_links(axis: ImAxis, link_min: BoxedValue, link_max: BoxedValue) -
 # #endif
 #
 # IMPLOT_API void SetupAxisFormat(ImAxis axis, const char* fmt);    /* original C++ signature */
-@overload
 def setup_axis_format(axis: ImAxis, fmt: str) -> None:
     """Sets the format of numeric axis labels via formatter specifier (default="%g"). Formatted values will be double (i.e. use %f)."""
     pass
 
 # IMPLOT_API void SetupAxisScale(ImAxis axis, ImPlotScale scale);    /* original C++ signature */
-@overload
 def setup_axis_scale(axis: ImAxis, scale: Scale) -> None:
     """Sets an axis' scale using built-in options."""
     pass
@@ -1628,6 +1659,16 @@ def plot_bubbles(label_id: str, xs: np.ndarray, ys: np.ndarray, szs: np.ndarray,
     """
     pass
 
+# IMPLOT_TMP void PlotPolygon(const char* label_id, const T* xs, const T* ys, int count, const ImPlotSpec& spec=ImPlotSpec());    /* original C++ signature */
+def plot_polygon(label_id: str, xs: np.ndarray, ys: np.ndarray, spec: Optional[Spec] = None) -> None:
+    """Plots a polygon. Points are specified in counter-clockwise order. If concave, make sure to set the Concave flag.
+
+
+    Python bindings defaults:
+        If spec is None, then its default value will be: Spec()
+    """
+    pass
+
 # Plots a a stairstep graph. The y value is continued constantly to the right from every x position, i.e. the interval [x[i], x[i+1]) has the value y[i]
 # IMPLOT_TMP void PlotStairs(const char* label_id, const T* values, int count, double xscale=1, double xstart=0, const ImPlotSpec& spec=ImPlotSpec());    /* original C++ signature */
 @overload
@@ -1769,7 +1810,6 @@ def plot_inf_lines(label_id: str, values: np.ndarray, spec: Optional[Spec] = Non
 
 # Plots a pie chart. Center and radius are in plot units. #label_fmt can be set to None for no labels.
 # IMPLOT_TMP void PlotPieChart(const char* const label_ids[], const T* values, int count, double x, double y, double radius, const char* label_fmt="%.1f", double angle0=90, const ImPlotSpec& spec=ImPlotSpec());    /* original C++ signature */
-@overload
 def plot_pie_chart(
     label_ids: List[str],
     values: np.ndarray,
@@ -2273,16 +2313,16 @@ def pop_style_color(count: int = 1) -> None:
     """Undo temporary style color modification(s). Undo multiple pushes at once by increasing count."""
     pass
 
-# IMPLOT_API void PushStyleVar(ImPlotStyleVar idx, float val);    /* original C++ signature */
-@overload
-def push_style_var(idx: StyleVar, val: float) -> None:
-    """Temporarily modify a style variable of float type. Don't forget to call PopStyleVar!"""
-    pass
-
 # IMPLOT_API void PushStyleVar(ImPlotStyleVar idx, int val);    /* original C++ signature */
 @overload
 def push_style_var(idx: StyleVar, val: int) -> None:
     """Temporarily modify a style variable of int type. Don't forget to call PopStyleVar!"""
+    pass
+
+# IMPLOT_API void PushStyleVar(ImPlotStyleVar idx, float val);    /* original C++ signature */
+@overload
+def push_style_var(idx: StyleVar, val: float) -> None:
+    """Temporarily modify a style variable of float type. Don't forget to call PopStyleVar!"""
     pass
 
 # IMPLOT_API void PushStyleVar(ImPlotStyleVar idx, const ImVec2& val);    /* original C++ signature */
@@ -2615,7 +2655,7 @@ def setup_axis_ticks(
     n_ticks: int,
     labels: List[str] | None = None,
     keep_default: bool = False,
-):
+) -> None:
     pass
 
 # Sets an axis' ticks and optionally the labels for the next plot. To keep the default ticks, set #keep_default=true.
@@ -2626,7 +2666,7 @@ def setup_axis_ticks(
     values: List[float],
     labels: List[str] | None = None,
     keep_default: bool = False,
-):
+) -> None:
     pass
 
 # Plots a 2D heatmap chart. Values are expected to be in row-major order by default. Leave #scale_min and scale_max both at 0 for automatic color scaling, or set them to a predefined range. #label_fmt can be set to NULL for no labels.
@@ -2640,7 +2680,7 @@ def plot_heatmap(
     bounds_min: Point = Point(0, 0),
     bounds_max: Point = Point(1, 1),
     spec: Spec = Spec(),
-):
+) -> None:
     pass
 
 # ============================================================================

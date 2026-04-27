@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from collections import OrderedDict
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -10,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from anteroom.routers.chat import _stream_chat_events
+from anteroom.services.diagnostics_log import should_log_summary
 
 
 class _FakeCliConfig:
@@ -24,7 +26,23 @@ def _event(kind: str, data: dict[str, Any]) -> SimpleNamespace:
     return SimpleNamespace(kind=kind, data=data)
 
 
-def _make_context(*, debug: bool) -> MagicMock:
+class _FakeDiagnosticsWriter:
+    def __init__(self) -> None:
+        self.entries: list[dict[str, Any]] = []
+
+    def write_summary(self, summary: dict[str, Any], **metadata: Any) -> SimpleNamespace:
+        if not should_log_summary(summary):
+            return SimpleNamespace(written=False, path=None)
+        self.entries.append({"summary": summary, "metadata": metadata})
+        return SimpleNamespace(written=True, path=None)
+
+
+class _FailingDiagnosticsWriter:
+    def write_summary(self, summary: dict[str, Any], **metadata: Any) -> SimpleNamespace:
+        raise OSError("disk full")
+
+
+def _make_context(*, debug: bool, diagnostics_writer: Any | None = None) -> MagicMock:
     ctx = MagicMock()
     ctx.ai_service = MagicMock()
     ctx.ai_service.config.provider = "openai"
@@ -61,8 +79,11 @@ def _make_context(*, debug: bool) -> MagicMock:
     ctx.request.app.state.config.safety.output_filter = None
     ctx.request.app.state.config.memory = None
     ctx.request.app.state.audit_writer = None
+    ctx.request.app.state.diagnostics_log_writer = diagnostics_writer
     ctx.request.app.state.dlp_scanner = None
     ctx.request.app.state.injection_detector = None
+    ctx.request.app.state.feedback_turn_diagnostics = OrderedDict()
+    ctx.request.app.state.feedback_turn_diagnostics_max = 100
     ctx.canvas_needs_approval = False
     ctx.token_throttle_interval = 999
     ctx.last_token_broadcast = 0.0
@@ -75,6 +96,7 @@ def _make_context(*, debug: bool) -> MagicMock:
     }
     ctx.user_msg = None
     ctx.debug_diagnostics = debug
+    ctx.turn_id = None
     ctx.recalled_memories = []
     return ctx
 
@@ -110,8 +132,9 @@ async def test_debug_summary_sse_is_absent_by_default() -> None:
 
 @pytest.mark.asyncio
 async def test_debug_summary_sse_is_gated_and_precedes_done() -> None:
+    ctx = _make_context(debug=True)
     result = await _collect(
-        _make_context(debug=True),
+        ctx,
         [
             _event("phase", {"phase": "waiting"}),
             _event("tool_call_start", {"id": "tc-1", "tool_name": "bash", "arguments": {"command": "secret"}}),
@@ -135,9 +158,80 @@ async def test_debug_summary_sse_is_gated_and_precedes_done() -> None:
 
     payload = json.loads(next(ev["data"] for ev in result if ev.get("event") == "debug_summary"))
     assert payload["stop_reason"] == "completed"
+    assert payload["version"] == 2
+    assert payload["turn_id"].startswith("web_")
+    assert payload["request_id"] == payload["turn_id"]
+    assert payload["interface"] == "web"
+    assert payload["conversation_id"] == ctx.conversation_id
     assert payload["tools"][0]["name"] == "bash"
     rendered = json.dumps(payload)
     assert "secret" not in rendered
     assert "error_preview" not in rendered
     assert "raw_tool_arguments" in rendered
     assert "raw_tool_output" in rendered
+
+
+@pytest.mark.asyncio
+async def test_debug_summary_is_cached_for_feedback_bundle() -> None:
+    ctx = _make_context(debug=True)
+    result = await _collect(
+        ctx,
+        [_event("phase", {"phase": "waiting"}), _event("assistant_message", {"content": "done"}), _event("done", {})],
+    )
+
+    assert "debug_summary" in [ev.get("event") for ev in result]
+    cache = ctx.request.app.state.feedback_turn_diagnostics
+    assert ctx.conversation_id in cache
+    assert cache[ctx.conversation_id]["stop_reason"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_debug_summary_cache_evicts_oldest_conversation() -> None:
+    ctx = _make_context(debug=True)
+    ctx.request.app.state.feedback_turn_diagnostics_max = 1
+    ctx.request.app.state.feedback_turn_diagnostics["old-conv"] = {"stop_reason": "old"}
+
+    await _collect(
+        ctx,
+        [_event("phase", {"phase": "waiting"}), _event("assistant_message", {"content": "done"}), _event("done", {})],
+    )
+
+    cache = ctx.request.app.state.feedback_turn_diagnostics
+    assert list(cache.keys()) == [ctx.conversation_id]
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_error_log_writes_failure_summaries_only() -> None:
+    writer = _FakeDiagnosticsWriter()
+
+    await _collect(
+        _make_context(debug=True, diagnostics_writer=writer),
+        [_event("assistant_message", {"content": "done"}), _event("done", {"stop_reason": "completed"})],
+    )
+    assert writer.entries == []
+
+    result = await _collect(
+        _make_context(debug=True, diagnostics_writer=writer),
+        [
+            _event("phase", {"phase": "waiting"}),
+            _event("error", {"code": "provider_timeout", "message": "stream timed out"}),
+        ],
+    )
+
+    event_names = [ev.get("event") for ev in result]
+    assert "debug_summary" in event_names
+    assert len(writer.entries) == 1
+    assert writer.entries[0]["metadata"]["interface"] == "web"
+    assert writer.entries[0]["summary"]["stop_reason"] == "provider_timeout"
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_error_log_failure_never_breaks_stream() -> None:
+    result = await _collect(
+        _make_context(debug=True, diagnostics_writer=_FailingDiagnosticsWriter()),
+        [_event("error", {"code": "internal_error", "message": "boom"})],
+    )
+
+    event_names = [ev.get("event") for ev in result]
+    assert "debug_summary" in event_names
+    assert "error" in event_names

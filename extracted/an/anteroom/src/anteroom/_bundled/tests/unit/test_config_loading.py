@@ -42,6 +42,87 @@ def _minimal(tmp_path: Path, extra: dict | None = None) -> Path:
     return _write_config(tmp_path, data)
 
 
+class TestDiagnosticsConfig:
+    def test_diagnostics_defaults(self, tmp_path: Path) -> None:
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+
+        assert config.diagnostics.error_log_enabled is True
+        assert config.diagnostics.log_path == ""
+        assert config.diagnostics.log_successful_debug_turns is False
+        assert config.diagnostics.redact_content is True
+        assert config.diagnostics.retention_days == 14
+        assert config.diagnostics.max_entry_bytes == 32_768
+
+    def test_diagnostics_yaml_values_are_loaded(self, tmp_path: Path) -> None:
+        cfg = _minimal(
+            tmp_path,
+            {
+                "diagnostics": {
+                    "error_log_enabled": False,
+                    "log_path": "/tmp/anteroom-diagnostics",
+                    "log_successful_debug_turns": True,
+                    "redact_content": False,
+                    "retention_days": 30,
+                    "rotate_size_bytes": 2_000_000,
+                    "max_entry_bytes": 64_000,
+                    "max_log_dir_bytes": 20_000_000,
+                }
+            },
+        )
+        config, _ = load_config(cfg)
+
+        assert config.diagnostics.error_log_enabled is False
+        assert config.diagnostics.log_path == "/tmp/anteroom-diagnostics"
+        assert config.diagnostics.log_successful_debug_turns is True
+        assert config.diagnostics.redact_content is False
+        assert config.diagnostics.retention_days == 30
+        assert config.diagnostics.rotate_size_bytes == 2_000_000
+        assert config.diagnostics.max_entry_bytes == 64_000
+        assert config.diagnostics.max_log_dir_bytes == 20_000_000
+
+    def test_diagnostics_env_values_are_loaded(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_DIAGNOSTICS_ERROR_LOG_ENABLED", "false")
+        monkeypatch.setenv("AI_CHAT_DIAGNOSTICS_LOG_PATH", "/tmp/diag-env")
+        monkeypatch.setenv("AI_CHAT_DIAGNOSTICS_LOG_SUCCESSFUL_DEBUG_TURNS", "true")
+        monkeypatch.setenv("AI_CHAT_DIAGNOSTICS_REDACT_CONTENT", "false")
+        monkeypatch.setenv("AI_CHAT_DIAGNOSTICS_RETENTION_DAYS", "21")
+        monkeypatch.setenv("AI_CHAT_DIAGNOSTICS_ROTATE_SIZE_BYTES", "3000000")
+        monkeypatch.setenv("AI_CHAT_DIAGNOSTICS_MAX_ENTRY_BYTES", "65000")
+        monkeypatch.setenv("AI_CHAT_DIAGNOSTICS_MAX_LOG_DIR_BYTES", "30000000")
+        cfg = _minimal(tmp_path)
+
+        config, _ = load_config(cfg)
+
+        assert config.diagnostics.error_log_enabled is False
+        assert config.diagnostics.log_path == "/tmp/diag-env"
+        assert config.diagnostics.log_successful_debug_turns is True
+        assert config.diagnostics.redact_content is False
+        assert config.diagnostics.retention_days == 21
+        assert config.diagnostics.rotate_size_bytes == 3_000_000
+        assert config.diagnostics.max_entry_bytes == 65_000
+        assert config.diagnostics.max_log_dir_bytes == 30_000_000
+
+    def test_diagnostics_invalid_values_fall_back_and_clamp(self, tmp_path: Path) -> None:
+        cfg = _minimal(
+            tmp_path,
+            {
+                "diagnostics": {
+                    "retention_days": "bad",
+                    "rotate_size_bytes": 1,
+                    "max_entry_bytes": 1,
+                    "max_log_dir_bytes": 1,
+                }
+            },
+        )
+        config, _ = load_config(cfg)
+
+        assert config.diagnostics.retention_days == 14
+        assert config.diagnostics.rotate_size_bytes == 65_536
+        assert config.diagnostics.max_entry_bytes == 1_024
+        assert config.diagnostics.max_log_dir_bytes == 65_536
+
+
 # ---------------------------------------------------------------------------
 # build_runtime_context (lines 44-118)
 # ---------------------------------------------------------------------------

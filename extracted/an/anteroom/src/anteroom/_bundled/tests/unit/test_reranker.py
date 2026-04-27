@@ -82,7 +82,16 @@ class TestLocalRerankerService:
 
         svc = LocalRerankerService()
         with patch.dict("sys.modules", {"fastembed": None}):
-            with pytest.raises(EmbeddingPermanentError, match="fastembed is not installed"):
+            with pytest.raises(EmbeddingPermanentError, match="pip install --upgrade anteroom"):
+                svc._ensure_model()
+
+    def test_ensure_model_missing_cross_encoder(self) -> None:
+        from anteroom.services.embeddings import EmbeddingPermanentError
+
+        svc = LocalRerankerService()
+        mock_fastembed = MagicMock(spec=[])
+        with patch.dict("sys.modules", {"fastembed": mock_fastembed}):
+            with pytest.raises(EmbeddingPermanentError, match="does not provide TextCrossEncoder"):
                 svc._ensure_model()
 
     def test_ensure_model_network_error(self) -> None:
@@ -196,11 +205,13 @@ class TestCreateRerankerService:
         config = self._make_config(enabled=None)
         svc = create_reranker_service(config)
         assert isinstance(svc, LocalRerankerService)
+        assert svc._local_files_only is True
 
     def test_explicit_enabled_creates_service(self) -> None:
         config = self._make_config(enabled=True)
         svc = create_reranker_service(config)
         assert isinstance(svc, LocalRerankerService)
+        assert svc._local_files_only is False
 
     def test_unsupported_provider_returns_none(self) -> None:
         config = self._make_config(enabled=True, provider="api")

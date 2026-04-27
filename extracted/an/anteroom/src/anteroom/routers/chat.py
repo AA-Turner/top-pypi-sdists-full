@@ -38,6 +38,8 @@ from ..services.async_tasks import silence_task
 from ..services.compaction import runtime_messages_from_stored_rows
 from ..services.context_trust import trusted_section_marker, untrusted_section_marker, wrap_untrusted
 from ..services.debug_diagnostics import DebugDiagnosticsCollector
+from ..services.diagnostic_context import log_debug, new_turn_id, reset_diagnostic_context, set_diagnostic_context
+from ..services.diagnostics_state import diagnostics_state
 from ..services.memory_intent import ExplicitMemoryIntent, detect_explicit_memory_intent
 from ..services.memory_save_status import format_memory_save_result
 from ..services.space_storage import get_space_local_dirs
@@ -1440,6 +1442,8 @@ class StreamContext:
     prompt_meta: dict[str, Any] = field(default_factory=dict)
     user_msg: dict[str, Any] | None = None
     debug_diagnostics: bool = False
+    turn_id: str = ""
+    request_id: str = ""
     # Structured RecalledMemory list captured pre-turn (#1454). The chat
     # router needs the full ``content`` field for auto-propose dedupe;
     # ``prompt_meta["memory_recall_items"]`` only carries summary dicts.
@@ -1454,7 +1458,13 @@ def _debug_diagnostics_requested(request: Any) -> bool:
     if not bool(getattr(request.app.state, "debug_diagnostics_enabled", False)):
         return False
     debug_header = request.headers.get("x-anteroom-debug", "")
-    return debug_header.lower() in {"1", "true", "yes", "on"}
+    if debug_header.lower() in {"1", "true", "yes", "on"}:
+        return True
+    return str(request.query_params.get("debug", "")).lower() in {"1", "true", "yes", "on"}
+
+
+def _new_turn_id(prefix: str = "turn") -> str:
+    return f"{prefix}_{uuid_mod.uuid4().hex[:16]}"
 
 
 async def _poll_disconnect(
@@ -1811,6 +1821,25 @@ async def _stream_explicit_memory_save(
 async def _stream_chat_events(ctx: StreamContext) -> Any:
     """Async generator that yields SSE events for the chat stream."""
 
+    _ctx_turn_id = ctx.turn_id if isinstance(ctx.turn_id, str) and ctx.turn_id else None
+    _current_turn_id = _ctx_turn_id or _new_turn_id("web")
+    _ctx_request_id = ctx.request_id if isinstance(ctx.request_id, str) and ctx.request_id else None
+    _diag_token = set_diagnostic_context(
+        interface="web",
+        conversation_id=ctx.conversation_id,
+        turn_id=_current_turn_id,
+        request_id=_ctx_request_id or _current_turn_id,
+    )
+    stream_started_at = time_mod.monotonic()
+    log_debug(
+        logger,
+        "chat.stream.start",
+        lifecycle="start",
+        phase="stream",
+        plan_mode=ctx.plan_mode,
+        prompt_sources=len(ctx.source_ids) if hasattr(ctx, "source_ids") else None,
+        debug_diagnostics=ctx.debug_diagnostics,
+    )
     current_assistant_msg = None
     _pending_tool_inputs: dict[str, Any] = {}
     _current_group_iteration: int | None = None
@@ -1829,9 +1858,18 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
         if not ctx.debug_diagnostics:
             return None
         ai_cfg = getattr(ctx.ai_service, "config", None)
+        logger.debug(
+            "debug diagnostics start turn_id=%s interface=web conversation_id=%s",
+            _current_turn_id,
+            ctx.conversation_id,
+        )
         return DebugDiagnosticsCollector(
             provider=getattr(ai_cfg, "provider", None),
             model=getattr(ai_cfg, "model", None),
+            turn_id=_current_turn_id,
+            request_id=_ctx_request_id or _current_turn_id,
+            interface="web",
+            conversation_id=ctx.conversation_id,
         )
 
     _debug_collector = _new_debug_collector()
@@ -1841,7 +1879,34 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
         if _debug_collector is None or _debug_summary_sent:
             return None
         _debug_summary_sent = True
-        return {"event": "debug_summary", "data": json.dumps(_debug_collector.finish(stop_reason))}
+        summary = _debug_collector.finish(stop_reason)
+        try:
+            state = getattr(getattr(ctx.request, "app", None), "state", None) if ctx.request is not None else None
+            cache = getattr(state, "feedback_turn_diagnostics", None)
+            if cache is not None and ctx.conversation_id:
+                cache[ctx.conversation_id] = summary
+                if hasattr(cache, "move_to_end"):
+                    cache.move_to_end(ctx.conversation_id)
+                max_items = int(getattr(state, "feedback_turn_diagnostics_max", 100) or 100)
+                while len(cache) > max_items:
+                    cache.popitem(last=False)
+        except Exception:
+            logger.debug("feedback: failed to cache turn diagnostics", exc_info=True)
+        try:
+            writer = getattr(getattr(getattr(ctx.request, "app", None), "state", None), "diagnostics_log_writer", None)
+            if writer is not None:
+                writer.write_summary(
+                    summary,
+                    interface="web",
+                    conversation_id=ctx.conversation_id,
+                    request_id=summary.get("request_id") or "",
+                    turn_id=summary.get("turn_id") or "",
+                )
+        except Exception:
+            logger.debug("diagnostics error log write skipped", exc_info=True)
+        diagnostics_state.finish(summary.get("turn_id"), summary)
+        logger.debug("debug diagnostics finish turn_id=%s stop_reason=%s", summary.get("turn_id"), stop_reason)
+        return {"event": "debug_summary", "data": json.dumps(summary)}
 
     # Spawn background disconnect poller so stale streams are cancelled promptly
     _disconnect_task: asyncio.Task[None] | None = None
@@ -2007,6 +2072,7 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
             data = agent_event.data
             if _debug_collector is not None:
                 _debug_collector.observe(kind, data)
+                diagnostics_state.update(_current_turn_id, _debug_collector.snapshot())
 
             if kind == "usage":
                 _pending_usage = data
@@ -2542,14 +2608,24 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                     yield _debug_event
                 yield {"event": "done", "data": json.dumps(_done_payload)}
                 _debug_summary_sent = False
+                _current_turn_id = _new_turn_id("web")
                 _debug_collector = _new_debug_collector()
 
     except Exception:
+        log_debug(
+            logger,
+            "chat.stream.failure",
+            lifecycle="failure",
+            phase="stream",
+            error_class="Exception",
+            _started_at=stream_started_at,
+        )
         logger.exception("Chat stream error")
         if _debug_event := _finish_debug_summary("internal_error"):
             yield _debug_event
         yield {"event": "error", "data": json.dumps(build_user_error("An internal error occurred"))}
     finally:
+        diagnostics_state.clear(_current_turn_id)
         if _disconnect_task is not None and not _disconnect_task.done():
             _disconnect_task.cancel()
             try:
@@ -2571,6 +2647,15 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
         # Clean up per-conversation lock if no other stream is active
         if ctx.conversation_id not in _active_streams:
             _stream_locks.pop(ctx.conversation_id, None)
+        log_debug(
+            logger,
+            "chat.stream.cleanup",
+            lifecycle="cleanup",
+            phase="stream",
+            queue_depth=queue.qsize() if queue else 0,
+            _started_at=stream_started_at,
+        )
+        reset_diagnostic_context(_diag_token)
 
 
 async def _parse_chat_request(request: Request) -> ChatRequestContext:
@@ -2697,6 +2782,23 @@ async def chat(conversation_id: str, request: Request) -> Any:
     source_tag = req_ctx.source_tag
     source_group_id = req_ctx.source_group_id
     files = req_ctx.files
+    request_id = request.headers.get("x-request-id") or new_turn_id("req")
+    turn_id = new_turn_id("web")
+
+    log_debug(
+        logger,
+        "chat.request.start",
+        lifecycle="start",
+        phase="accept",
+        interface="web",
+        conversation_id=conversation_id,
+        turn_id=turn_id,
+        request_id=request_id,
+        regenerate=regenerate,
+        plan_mode=plan_mode,
+        file_count=len(files),
+        source_count=len(source_ids),
+    )
 
     if not regenerate and not message_text.strip():
         raise HTTPException(status_code=400, detail="Message content cannot be empty")
@@ -2856,10 +2958,23 @@ async def chat(conversation_id: str, request: Request) -> Any:
                 is_stale = True
 
             if is_stale:
+                log_debug(
+                    logger,
+                    "chat.stream.cleanup",
+                    lifecycle="cleanup",
+                    phase="accept",
+                    interface="web",
+                    conversation_id=conversation_id,
+                    turn_id=turn_id,
+                    request_id=request_id,
+                    reason="stale_stream",
+                    stream_age_seconds=round(stream_age, 3),
+                )
                 logger.info("Cleaning up stale stream for conversation %s (age=%.0fs)", conversation_id, stream_age)
                 old_cancel = stream_info.get("cancel_event")
                 if old_cancel:
                     old_cancel.set()
+                diagnostics_state.clear(stream_info.get("turn_id"))
                 _active_streams.pop(conversation_id, None)
                 # Fall through to create a new stream
             else:
@@ -2871,6 +2986,18 @@ async def chat(conversation_id: str, request: Request) -> Any:
                     queue = asyncio.Queue()
                     _message_queues[conversation_id] = queue
                 await queue.put({"role": "user", "content": message_text})
+                log_debug(
+                    logger,
+                    "chat.request.skip",
+                    lifecycle="skip",
+                    phase="queue",
+                    interface="web",
+                    conversation_id=conversation_id,
+                    turn_id=turn_id,
+                    request_id=request_id,
+                    reason="active_stream",
+                    queue_depth=queue.qsize(),
+                )
                 return JSONResponse({"status": "queued", "position": queue.qsize(), "queue_depth": queue.qsize()})
 
     if regenerate:
@@ -3037,9 +3164,23 @@ async def chat(conversation_id: str, request: Request) -> Any:
         _active_streams[conversation_id] = {
             "started_at": time_mod.monotonic(),
             "cancel_event": cancel_event,
+            "request": request,
+            "turn_id": turn_id,
         }
         if conversation_id not in _message_queues:
             _message_queues[conversation_id] = asyncio.Queue()
+        log_debug(
+            logger,
+            "chat.request.success",
+            lifecycle="success",
+            phase="accept",
+            interface="web",
+            conversation_id=conversation_id,
+            turn_id=turn_id,
+            request_id=request_id,
+            status="stream_registered",
+            queue_depth=_message_queues[conversation_id].qsize(),
+        )
 
     # Resolve model override: conversation model > space model > global default
     model_override = conv.get("model") or None
@@ -3312,6 +3453,8 @@ async def chat(conversation_id: str, request: Request) -> Any:
         prompt_meta=prompt_meta,
         user_msg=user_msg,
         debug_diagnostics=debug_diagnostics,
+        turn_id=turn_id,
+        request_id=request_id,
         recalled_memories=recalled_memories,
     )
 
@@ -3354,6 +3497,7 @@ async def stream_status(conversation_id: str, request: Request) -> Any:
         cancel_ev = stream_info.get("cancel_event")
         if cancel_ev:
             cancel_ev.set()
+        diagnostics_state.clear(stream_info.get("turn_id"))
         _active_streams.pop(conversation_id, None)
         return {"active": False}
     # Check if the originating SSE request is still connected.  If it
@@ -3369,9 +3513,15 @@ async def stream_status(conversation_id: str, request: Request) -> Any:
             cancel_ev = stream_info.get("cancel_event")
             if cancel_ev:
                 cancel_ev.set()
+            diagnostics_state.clear(stream_info.get("turn_id"))
             _active_streams.pop(conversation_id, None)
             return {"active": False}
-    return {"active": True, "age_seconds": round(age)}
+    payload: dict[str, Any] = {"active": True, "age_seconds": round(age)}
+    if _debug_diagnostics_requested(request):
+        snapshot = diagnostics_state.get_active_for_conversation(conversation_id)
+        if snapshot is not None:
+            payload["debug"] = snapshot
+    return payload
 
 
 @router.get("/attachments/{attachment_id}")

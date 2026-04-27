@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: marshmallow-jsonschema
-Version: 0.15.0
+Version: 0.16.0
 Summary: JSON Schema Draft v7 (http://json-schema.org/) formatting with marshmallow
 Home-page: https://github.com/fuhrysteve/marshmallow-jsonschema
 Author: Stephen Fuhry
@@ -24,6 +24,8 @@ Provides-Extra: enum
 Requires-Dist: marshmallow-enum; extra == "enum"
 Provides-Extra: union
 Requires-Dist: marshmallow-union; extra == "union"
+Provides-Extra: oneofschema
+Requires-Dist: marshmallow-oneofschema; extra == "oneofschema"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -40,7 +42,7 @@ Dynamic: summary
 
 # marshmallow-jsonschema: JSON Schema formatting with marshmallow
 
-![Build Status](https://github.com/fuhrysteve/marshmallow-jsonschema/workflows/build/badge.svg)
+[![Build Status](https://github.com/fuhrysteve/marshmallow-jsonschema/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/fuhrysteve/marshmallow-jsonschema/actions/workflows/build.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/python/black)
 
 `marshmallow-jsonschema` translates [marshmallow](https://marshmallow.readthedocs.io/)
@@ -162,6 +164,27 @@ Yields:
 `fields.Nested("Self")` and `fields.Nested(lambda: SomeSchema())` are
 both supported for recursive references.
 
+### Top-level array (`many=True`)
+
+Passing `many=True` to a schema describes a list of objects rather
+than a single one; the dumped JSON Schema reflects that with an array
+envelope:
+
+```python
+JSONSchema().dump(UserSchema(many=True))
+```
+
+Yields:
+
+```json
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {"UserSchema": { ... }},
+    "type": "array",
+    "items": {"$ref": "#/definitions/UserSchema"}
+}
+```
+
 ### Flask + JSON Schema form rendering
 
 A complete runnable Flask example lives at
@@ -214,6 +237,24 @@ out of the box and emits the enum-member names. The third-party
 [marshmallow-enum](https://pypi.org/project/marshmallow-enum/)
 `EnumField` is also supported when installed; native Enum is preferred
 when both are present.
+
+`by_value=True` enums are supported when every member's value is a
+string — the common pattern for serialising enums as their string
+value in the wire format:
+
+```python
+class Status(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+
+class S(Schema):
+    status = fields.Enum(Status, by_value=True)
+# {"status": {"enum": ["active", "inactive"], "type": "string"}}
+```
+
+Mixed-type or non-string enum values still raise
+`NotImplementedError` — use the `class MyEnum(str, Enum)` pattern, or
+load by name instead.
 
 ## Advanced usage
 
@@ -274,6 +315,56 @@ For wrapper-style custom fields that need to re-enter the dumping
 machinery (e.g. to emit a `$ref` to a recursive schema), declare
 `_jsonschema_type_mapping(self, json_schema, obj)` with the two extra
 parameters and the `JSONSchema` instance + obj will be passed in.
+
+### Polymorphic schemas (`marshmallow-oneofschema`)
+
+When the optional [`marshmallow-oneofschema`](https://github.com/marshmallow-code/marshmallow-oneofschema)
+package is installed, dumping a `OneOfSchema` produces a JSON Schema
+`oneOf` over each variant — with the discriminator field pinned to its
+constant value:
+
+```python
+from marshmallow import Schema, fields
+from marshmallow_oneofschema import OneOfSchema
+from marshmallow_jsonschema import JSONSchema
+
+class TriangleSchema(Schema):
+    base = fields.Float(required=True)
+    height = fields.Float(required=True)
+
+class CircleSchema(Schema):
+    radius = fields.Float(required=True)
+
+class ShapeSchema(OneOfSchema):
+    type_schemas = {"triangle": TriangleSchema, "circle": CircleSchema}
+
+JSONSchema().dump(ShapeSchema())
+```
+
+Yields (abbreviated):
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "base": {"type": "number", "...": "..."},
+        "height": {"type": "number", "...": "..."},
+        "type": {"const": "triangle", "type": "string"}
+      },
+      "required": ["base", "height", "type"]
+    },
+    { "...circle variant...": "..." }
+  ]
+}
+```
+
+Variants are inlined (not `$ref`) so the schema actually validates the
+wire format `OneOfSchema` produces. Custom `type_field` (default
+`"type"`) is honored. Install with `pip install marshmallow-jsonschema[oneofschema]`.
 
 ### React-JSONSchema-Form Extension
 

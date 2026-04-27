@@ -116,6 +116,10 @@ class TestConfigList:
         # Should NOT show ai fields
         assert "ai.model" not in output
 
+    def test_list_searches_plain_language(self) -> None:
+        output = _capture_config_command("/config list local embeddings")
+        assert "embeddings" in output.lower()
+
     def test_list_shows_field_count(self) -> None:
         output = _capture_config_command("/config list")
         assert "fields" in output
@@ -158,6 +162,25 @@ class TestConfigGet:
     def test_get_sensitive_embeddings_key_blocked(self) -> None:
         output = _capture_config_command("/config get embeddings.api_key")
         assert "sensitive" in output.lower()
+
+
+# ---------------------------------------------------------------------------
+# /config explain
+# ---------------------------------------------------------------------------
+
+
+class TestConfigExplain:
+    def test_explain_shows_effective_source_and_type(self) -> None:
+        output = _capture_config_command("/config explain ai.model")
+        assert "ai.model" in output
+        assert "Effective:" in output
+        assert "Source:" in output
+        assert "Type:" in output
+
+    def test_explain_sensitive_field_redacts_value(self) -> None:
+        output = _capture_config_command("/config explain ai.api_key")
+        assert "***" in output
+        assert "sk-test" not in output
 
 
 # ---------------------------------------------------------------------------
@@ -247,9 +270,15 @@ class TestConfigReset:
 
 
 class TestConfigHelp:
+    def test_help_searches_registry(self) -> None:
+        output = _capture_config_command("/config help approval")
+        assert "safety.approval_mode" in output
+        assert "approval" in output.lower()
+
     def test_bare_config_shows_help(self) -> None:
         output = _capture_config_command("/config")
         assert "list" in output
+        assert "help" in output
         assert "get" in output
         assert "set" in output
         assert "reset" in output

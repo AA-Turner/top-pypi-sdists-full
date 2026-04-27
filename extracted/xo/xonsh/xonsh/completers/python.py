@@ -250,6 +250,15 @@ def _complete_python(prefix, context: PythonContext):
         if ctx is not None:
             rtn |= {"@" + s for s in ctx if filt(s, dp)}
         rtn |= {"@" + s for s in dir(builtins) if filt(s, dp)}
+    if not prefix:
+        # Bare Tab on an empty prefix is the noisiest case: every
+        # builtin (dunders included) and every ``XONSH_TOKENS`` entry
+        # (shell syntax like ``!(``/``@(``/``$(``, plus operators and
+        # keywords) match. Drop them so the menu shows only useful
+        # candidates. Anything the user has actually typed bypasses
+        # this branch — ``filt`` already restricts to that prefix.
+        tokens = set(XONSH_TOKENS)
+        rtn = {s for s in rtn if not str(s).startswith("_") and s not in tokens}
     return rtn
 
 
@@ -294,7 +303,10 @@ def attr_complete(prefix, ctx, filter_func):
     expr = xt.subexpr_from_unbalanced(expr, "(", ")")
     expr = xt.subexpr_from_unbalanced(expr, "[", "]")
     expr = xt.subexpr_from_unbalanced(expr, "{", "}")
-    if expr.startswith("@") and len(expr) > 1:
+    if expr.startswith("@."):
+        # @.sub -> __xonsh__.interface.sub
+        expr = "__xonsh__.interface" + expr[1:]
+    elif expr.startswith("@") and len(expr) > 1:
         expr = expr[1:]
     val, _ctx = _safe_eval(expr, ctx)
     if val is None and _ctx is None:

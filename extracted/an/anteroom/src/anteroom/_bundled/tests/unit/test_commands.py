@@ -1055,7 +1055,7 @@ class TestConfigCommand:
         assert result.kind == "show_config"
         assert result.config_subcommand is None
 
-    @pytest.mark.parametrize("sub", ["list", "get", "set", "reset"])
+    @pytest.mark.parametrize("sub", ["list", "get", "set", "reset", "help", "search"])
     def test_config_subcommands(self, sub: str) -> None:
         result = _exec(f"/config {sub} some.field")
         assert result is not None

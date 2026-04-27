@@ -232,7 +232,7 @@ class LocalEmbeddingService:
             from fastembed import TextEmbedding
         except ImportError:
             raise EmbeddingPermanentError(
-                "fastembed is not installed. Install it with: pip install anteroom[embeddings]"
+                "fastembed is not installed. Reinstall or upgrade Anteroom: pip install --upgrade anteroom"
             )
         # Disable xet downloader to prevent writes to HF_HOME (#865)
         os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
@@ -320,10 +320,10 @@ _VALID_PROVIDERS = {"local", "api"}
 def create_embedding_service(config: AppConfig) -> EmbeddingService | LocalEmbeddingService | None:
     """Factory: create an embedding service from app config. Returns None if disabled.
 
-    When ``enabled`` is ``None`` (auto-detect), the service is still created so
-    callers can probe it; the caller is responsible for calling ``probe()`` to
-    decide whether to use it.  When ``enabled`` is ``False``, returns ``None``
-    immediately.
+    When ``enabled`` is ``None`` (auto-detect), the service is still created.
+    API providers should be probed before use; local providers are expected to
+    load lazily on first dense retrieval. When ``enabled`` is ``False``, returns
+    ``None`` immediately.
     """
     if config.embeddings.enabled is False:
         return None

@@ -163,17 +163,6 @@ def get_adapter_config_hash(config, length=16, ignore_params=[]):
     return h.hexdigest()[:length]
 
 
-def inherit_doc(cls):
-    for name, func in vars(cls).items():
-        if isinstance(func, Callable) and not func.__doc__:
-            for parent in cls.__bases__:
-                parfunc = getattr(parent, name, None)
-                if parfunc and getattr(parfunc, "__doc__", None):
-                    func.__doc__ = parfunc.__doc__
-                    break
-    return cls
-
-
 def multigetattr(o: object, name: str, default=None) -> Optional[object]:
     if not name:
         return default
@@ -416,6 +405,54 @@ def get_from_cache(
     return cache_path
 
 
+# Safe extraction utils copied from https://github.com/keras-team/keras/blob/47d1cba8ece3cd0776d95e8007dbd0ad5a8c641a/keras/src/utils/file_utils.py#L43-L87.
+
+
+def resolve_path(path):
+    return os.path.realpath(os.path.abspath(path))
+
+
+def is_path_in_dir(path, base_dir):
+    return resolve_path(os.path.join(base_dir, path)).startswith(base_dir)
+
+
+def is_link_in_dir(info, base):
+    tip = resolve_path(os.path.join(base, os.path.dirname(info.name)))
+    return is_path_in_dir(info.linkname, base_dir=tip)
+
+
+def filter_safe_zipinfos(members):
+    base_dir = resolve_path(".")
+    for finfo in members:
+        valid_path = False
+        if is_path_in_dir(finfo.filename, base_dir):
+            valid_path = True
+            yield finfo
+        if not valid_path:
+            logger.warning(
+                "Skipping invalid path during archive extraction: " f"'{finfo.filename}'.",
+                stacklevel=2,
+            )
+
+
+def filter_safe_tarinfos(members):
+    base_dir = resolve_path(".")
+    for finfo in members:
+        valid_path = False
+        if finfo.issym() or finfo.islnk():
+            if is_link_in_dir(finfo, base_dir):
+                valid_path = True
+                yield finfo
+        elif is_path_in_dir(finfo.name, base_dir):
+            valid_path = True
+            yield finfo
+        if not valid_path:
+            logger.warning(
+                "Skipping invalid path during archive extraction: " f"'{finfo.name}'.",
+                stacklevel=2,
+            )
+
+
 def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, force_extract=False, **kwargs):
     """
     This method downloads a file and caches it.
@@ -462,15 +499,15 @@ def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, fo
         if is_zipfile(output_path):
             with ZipFile(output_path, "r") as zip_file:
                 # we want to extract all files into a flat folder structure (i.e. no subfolders)
-                for file in zip_file.namelist():
+                for finfo in filter_safe_zipinfos(zip_file.infolist()):
                     # check if we have a valid file
-                    if basename(file):
-                        file_data = zip_file.read(file)
-                        with open(join(output_path_extracted, basename(file)), "wb") as f:
+                    if basename(finfo.filename):
+                        file_data = zip_file.read(finfo.filename)
+                        with open(join(output_path_extracted, basename(finfo.filename)), "wb") as f:
                             f.write(file_data)
         elif tarfile.is_tarfile(output_path):
             tar_file = tarfile.open(output_path)
-            tar_file.extractall(output_path_extracted)
+            tar_file.extractall(output_path_extracted, members=filter_safe_tarinfos(tar_file))
             tar_file.close()
         else:
             raise EnvironmentError("Archive format of {} could not be identified".format(output_path))
@@ -884,3 +921,56 @@ def patch_forward(module: torch.nn.Module):
     # The `add_hook_to_module()` method is e.g. used for `device_map="auto"` in the `PreTrainedModel.from_pretrained()` method.
     if hasattr(module, "_old_forward"):
         module._old_forward = module.__class__.forward.__get__(module, module.__class__)
+
+
+# ######################################### DOCSTRINGS FUNCTIONS ##########################################
+def inherit_doc(cls):
+    for name, func in vars(cls).items():
+        if isinstance(func, Callable) and not func.__doc__:
+            for parent in cls.__bases__:
+                parfunc = getattr(parent, name, None)
+                if parfunc and getattr(parfunc, "__doc__", None):
+                    func.__doc__ = parfunc.__doc__
+                    break
+    return cls
+
+
+def inherit_doc_for_function(source_func):
+    """
+    Decorator factory that returns a decorator to update the __doc__ attribute of the target function with the __doc__ attribute of the source_func.
+    """
+
+    def actual_decorator(target_func):
+        if callable(source_func) and hasattr(source_func, "__doc__") and source_func.__doc__ is not None:
+            source_doc = source_func.__doc__
+            target_func.__doc__ = source_doc
+        else:
+            raise ValueError(f"Source function {source_func} has no __doc__ attribute. This should not happen.")
+
+        return target_func
+
+    return actual_decorator
+
+
+def inherit_doc_for_adapter_model(model, custom_intro: str = None, **kwargs):
+    """
+    Decorator for XAdapterModel classes to set their docstring based on an original model's docstring, prefixed with a custom introduction.
+    """
+
+    def actual_decorator(target_class):
+        if custom_intro is not None and custom_intro != "":
+            intro_text = custom_intro + " Docstring of the original model:"
+            intro_text = inspect.cleandoc(intro_text) + "\n\n"
+        else:
+            intro_text = ""
+
+        base_doc_text = ""
+        if hasattr(model, "__doc__") and model.__doc__:
+            base_doc_text = inspect.cleandoc(model.__doc__)
+        else:
+            raise ValueError(f"Model {model} has no __doc__ attribute. This should not happen.")
+
+        target_class.__doc__ = intro_text + base_doc_text
+        return target_class
+
+    return actual_decorator

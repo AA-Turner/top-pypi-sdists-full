@@ -129,7 +129,7 @@ const STYLES: Styles = Styles::styled()
 #[command(
     name = "prek",
     long_version = crate::version::version(),
-    about = "A Git hook manager written in Rust, designed as a drop-in alternative to pre-commit."
+    about = "A fast Git hook manager written in Rust, designed as a drop-in alternative to pre-commit, reimagined."
 )]
 #[command(
     propagate_version = true,
@@ -710,12 +710,45 @@ pub(crate) struct AutoUpdateArgs {
     #[arg(long)]
     pub(crate) freeze: bool,
     /// Only update this repository. This option may be specified multiple times.
-    #[arg(long)]
+    #[arg(long, value_name = "REPO", conflicts_with = "exclude_repo")]
     pub(crate) repo: Vec<String>,
+    /// Do not update this repository. This option may be specified multiple times.
+    #[arg(long, value_name = "REPO")]
+    pub(crate) exclude_repo: Vec<String>,
+    /// Only consider tags matching this glob pattern. This option may be specified multiple times.
+    ///
+    /// For example, use `--include-tag 'v*'` to only consider version tags and ignore tags such as `nightly`.
+    #[arg(long, value_name = "PATTERN", conflicts_with = "bleeding_edge")]
+    pub(crate) include_tag: Vec<String>,
+    /// Ignore tags matching this glob pattern. This option may be specified multiple times.
+    ///
+    /// For example, use `--exclude-tag nightly` to skip a moving tag, or
+    /// `--exclude-tag '*-{alpha,beta,rc}*'` to skip common prerelease tags.
+    #[arg(long, value_name = "PATTERN", conflicts_with = "bleeding_edge")]
+    pub(crate) exclude_tag: Vec<String>,
+    /// Only consider tags matching this glob pattern for a repository (`<repo>=<pattern>`).
+    /// This option may be specified multiple times.
+    ///
+    /// When set for a repository, this overrides any global `--include-tag` filters for that repository.
+    ///
+    /// For example, use `--repo-include-tag https://github.com/example/repo=v*` to only consider version tags for one repository.
+    #[arg(long, value_name = "REPO=PATTERN", conflicts_with = "bleeding_edge")]
+    pub(crate) repo_include_tag: Vec<String>,
+    /// Ignore tags matching this glob pattern for a repository (`<repo>=<pattern>`).
+    /// This option may be specified multiple times.
+    ///
+    /// Repo-specific exclude filters are added to global `--exclude-tag` filters; matching either filter excludes the tag for that repository.
+    ///
+    /// For example, use `--repo-exclude-tag https://github.com/example/repo=nightly` or `--repo-exclude-tag https://github.com/example/repo=*-rc*` to skip nightly or prerelease tags for one repository.
+    #[arg(long, value_name = "REPO=PATTERN", conflicts_with = "bleeding_edge")]
+    pub(crate) repo_exclude_tag: Vec<String>,
     /// Do not write changes to the config file, only display what would be changed.
     #[arg(long)]
     pub(crate) dry_run: bool,
-    /// Alias of `--dry-run` that exits with status 1 if updates would be made.
+    /// Exit with status 1 if updates are available.
+    #[arg(long)]
+    pub(crate) exit_code: bool,
+    /// Alias of `--dry-run --exit-code`.
     #[arg(long)]
     pub(crate) check: bool,
     /// Number of threads to use.
@@ -770,7 +803,7 @@ pub(crate) struct HookImplArgs {
     #[arg(long)]
     pub(crate) hook_type: HookType,
     #[arg(long)]
-    pub(crate) hook_dir: PathBuf,
+    pub(crate) hook_dir: Option<PathBuf>,
     #[arg(long)]
     pub(crate) skip_on_missing_config: bool,
     /// The prek version that installs the hook.
@@ -1193,8 +1226,11 @@ mod _gen {
         };
 
         let reference_string = generate(Cli::command());
-        let filename = "cli.md";
-        let reference_path = PathBuf::from(ROOT_DIR).join("docs").join(filename);
+        let filename = "reference/cli.md";
+        let reference_path = PathBuf::from(ROOT_DIR)
+            .join("docs")
+            .join("reference")
+            .join("cli.md");
 
         match mode {
             Mode::DryRun => {

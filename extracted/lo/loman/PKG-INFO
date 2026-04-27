@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: loman
-Version: 0.5.5
+Version: 0.6.0
 Summary: Loman tracks state of computations, and the dependencies between them, allowing full and partial recalculations.
 Project-URL: Homepage, https://github.com/janusassetallocation/loman
 Author-email: Ed Parcell <edparcell@gmail.com>

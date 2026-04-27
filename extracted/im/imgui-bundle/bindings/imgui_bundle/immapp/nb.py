@@ -1,4 +1,4 @@
-# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2025 Pascal Thomet - https://github.com/pthom/imgui_bundle
+# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
 """
 Notebook-specific API for immapp - simplified async GUI execution in Jupyter notebooks.
 
@@ -11,11 +11,9 @@ This module provides convenient functions for running ImGui apps in Jupyter note
 import asyncio
 from typing import Optional
 
-# from imgui_bundle._imgui_bundle.immapp_cpp import AddOnsParams  # type: ignore
-from imgui_bundle._imgui_bundle.hello_imgui import (  # type: ignore
-    RunnerParams,
-    SimpleRunnerParams,
-)
+# from imgui_bundle.immapp import AddOnsParams
+from imgui_bundle.hello_imgui import RunnerParams, SimpleRunnerParams
+
 
 
 # Global state for tracking the current async GUI task
@@ -129,19 +127,21 @@ def start(*args, **kwargs) -> asyncio.Task:
     """
     global _current_task
 
-    # Check if a GUI is already running and stop it
-    if is_running():
-        print("Warning: A GUI is already running. Stopping it first...")
-        stop()
-        # Give it a moment to clean up
-        import time
-        time.sleep(0.2)
-
     # Import here to avoid circular imports
-    from imgui_bundle import immapp
+    from imgui_bundle import hello_imgui, immapp
     from imgui_bundle.immapp.immapp_notebook import _make_gui_with_light_theme
 
-    # Determine which signature is being used and apply defaults
+    # Capture the previous task (if any) and signal it to exit. We do NOT
+    # block here: actually waiting for it to finish must happen on the event
+    # loop, inside the new task — otherwise we'd freeze the loop and the
+    # previous task could never reach its tear_down().
+    previous_task: Optional[asyncio.Task] = None
+    if is_running():
+        print("Warning: A GUI is already running. Stopping it first...")
+        hello_imgui.get_runner_params().app_shall_exit = True
+        previous_task = _current_task
+
+    # Determine which signature is being used and build the run_async coroutine
     if len(args) >= 1:
         first_arg = args[0]
 
@@ -161,10 +161,7 @@ def start(*args, **kwargs) -> asyncio.Task:
                 original_gui = runner_params.callbacks.show_gui
                 runner_params.callbacks.show_gui = _make_gui_with_light_theme(original_gui)
 
-            # Create the task
-            _current_task = asyncio.create_task(
-                immapp.run_async(runner_params, addons_params)
-            )
+            run_coro_factory = lambda: immapp.run_async(runner_params, addons_params)  # noqa: E731
 
         # Case 2: SimpleRunnerParams
         elif isinstance(first_arg, SimpleRunnerParams):
@@ -182,10 +179,7 @@ def start(*args, **kwargs) -> asyncio.Task:
                 original_gui = simple_params.gui_function
                 simple_params.gui_function = _make_gui_with_light_theme(original_gui)
 
-            # Create the task
-            _current_task = asyncio.create_task(
-                immapp.run_async(simple_params, addons_params)
-            )
+            run_coro_factory = lambda: immapp.run_async(simple_params, addons_params)  # noqa: E731
 
         # Case 3: GUI function with keyword arguments
         elif callable(first_arg):
@@ -198,13 +192,20 @@ def start(*args, **kwargs) -> asyncio.Task:
             if "window_size_auto" not in kwargs and "window_size" not in kwargs:
                 kwargs["window_size_auto"] = True
 
-            # Create the task
-            _current_task = asyncio.create_task(
-                immapp.run_async(gui_with_theme, *args[1:], **kwargs)
-            )
+            extra_args = args[1:]
+            run_coro_factory = lambda: immapp.run_async(gui_with_theme, *extra_args, **kwargs)  # noqa: E731
         else:
             raise TypeError(f"First argument must be RunnerParams, SimpleRunnerParams, or a callable GUI function, got {type(first_arg)}")
     else:
         raise TypeError("start() requires at least one argument")
 
+    async def _drain_then_run():
+        if previous_task is not None:
+            try:
+                await previous_task
+            except Exception:
+                pass  # Don't let a previous failure mask the new launch
+        await run_coro_factory()
+
+    _current_task = asyncio.create_task(_drain_then_run())
     return _current_task

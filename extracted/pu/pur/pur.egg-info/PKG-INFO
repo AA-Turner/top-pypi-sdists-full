@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pur
-Version: 7.3.3
+Version: 7.4.0
 Summary: Update packages in a requirements.txt file to latest versions.
 Home-page: https://github.com/alanhamlett/pip-update-requirements
 Author: Alan Hamlett
@@ -20,12 +20,24 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Build Tools
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 License-File: AUTHORS
 Requires-Dist: click>=8.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: summary
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/alanhamlett/pip-update-requirements/tests.yml?branch=master)](https://github.com/alanhamlett/pip-update-requirements/actions)
 [![Coverage](https://codecov.io/gh/alanhamlett/pip-update-requirements/branch/master/graph/badge.svg?token=Ob1I7eMhiS)](https://codecov.io/gh/alanhamlett/pip-update-requirements)
@@ -116,6 +128,11 @@ You can also use Pur directly from Python:
                              packages to be updated to pre-release versions. By
                              default packages are only updated to stable
                              versions.
+    --cooldown-days INTEGER  Minimum number of days since release before a new
+                             version is considered for updating. Versions
+                             released more recently than this threshold are
+                             ignored, helping avoid recently published versions
+                             that may contain critical bugs.
     -z, --nonzero-exit-code  Exit with status 1 when some packages were updated,
                              0 when no packages updated, or a number greater
                              than 1 when there was an error. By default, exit

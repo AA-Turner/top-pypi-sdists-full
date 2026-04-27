@@ -1,4 +1,4 @@
-# Copyright 2020-2025 The AdapterHub Team. All rights reserved.
+# Copyright 2020-2026 The AdapterHub Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ _deps = [
     "beautifulsoup4",
     "black~=24.4.0",
     "dataclasses",
-    "datasets!=2.5.0",
+    "datasets!=2.5.0,<4.0.0",
     "dill<0.3.5",
     "docutils==0.16.0",
     "evaluate>=0.2.0",
@@ -61,7 +61,7 @@ _deps = [
     "timeout-decorator",
     "torch",
     "torchvision",
-    "transformers~=4.51.3",
+    "transformers~=4.57.6",
 ]
 
 
@@ -149,7 +149,7 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="1.2.0",
+    version="1.3.0",
     author="The AdapterHub team and community contributors",
     author_email="calpt@mail.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",

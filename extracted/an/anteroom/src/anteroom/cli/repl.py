@@ -37,6 +37,7 @@ from ..services.context_trust import (
     untrusted_section_marker,
     wrap_untrusted,
 )
+from ..services.diagnostic_context import log_debug, new_turn_id, reset_diagnostic_context, set_diagnostic_context
 from ..services.memory_intent import detect_explicit_memory_intent
 from ..services.memory_save_status import format_memory_save_result
 from ..services.storage import get_run_label
@@ -1901,7 +1902,6 @@ def _handle_config_command(
         check_write_allowed,
         collect_env_overrides,
         get_field,
-        list_settable_fields,
         reset_personal_field,
         reset_project_field,
         reset_space_field,
@@ -1910,6 +1910,14 @@ def _handle_config_command(
         write_project_field,
         write_space_field,
     )
+    from ..services.config_explanation import (
+        build_explanation_context,
+        explain_setting,
+        format_explanation,
+        format_write_plan,
+        plan_set,
+    )
+    from ..services.config_registry import attach_current_values, list_config_settings, search_config_settings
 
     parts = user_input.split()
     sub = parts[1] if len(parts) > 1 else ""
@@ -1986,44 +1994,85 @@ def _handle_config_command(
         color = _LAYER_COLORS.get(layer, "white")
         return f"[{color}]{layer}[/{color}]"
 
+    def _build_explanation_context() -> Any:
+        source_map, enforced = _build_context()
+        return build_explanation_context(
+            config,
+            enforced,
+            db=db,
+            active_space=active_space,
+            working_dir=working_dir,
+        )
+
     # ── /config list ──
     if sub == "list":
-        fields = list_settable_fields()
         source_map, enforced = _build_context()
-        filter_text = parts[2].lower() if len(parts) > 2 else ""
+        filter_text = " ".join(parts[2:]).lower() if len(parts) > 2 else ""
+        if filter_text:
+            entries = [r.entry for r in search_config_settings(filter_text)]
+        else:
+            entries = list_config_settings()
+        values = attach_current_values(entries, config, source_map, enforced)
 
         table = Table(show_header=True, header_style="bold", padding=(0, 1))
-        table.add_column("Field", style="bold")
+        table.add_column("Field", style="bold", no_wrap=True)
         table.add_column("Type", style="dim")
         table.add_column("Value")
         table.add_column("Source")
-
-        from dataclasses import asdict
-
-        from ..services.config_overlays import flatten_to_dot_paths
-
-        flat = flatten_to_dot_paths(asdict(config))
+        table.add_column("Help", style="dim")
 
         count = 0
-        for fi in fields:
-            if filter_text and filter_text not in fi.dot_path:
-                continue
-            val = flat.get(fi.dot_path, "")
-            src = source_map.get(fi.dot_path, "default")
-            if fi.dot_path in enforced:
+        for result in values:
+            entry = result.entry
+            current = result.current
+            val = "" if current is None else current.effective_value
+            src = "" if current is None else current.source_layer
+            if current is not None and current.is_enforced:
                 src = "team (enforced)"
             # Truncate long values
             val_str = str(val) if val is not None else ""
             if len(val_str) > 50:
                 val_str = val_str[:47] + "..."
-            table.add_row(fi.dot_path, fi.field_type, val_str, _styled_layer(src))
+            table.add_row(entry.dot_path, entry.field_type, val_str, _styled_layer(src), entry.description)
             count += 1
 
         renderer.console.print()
         renderer.console.print(table)
         filter_msg = ' matching "%s"' % filter_text if filter_text else ""
         renderer.console.print(f"\n  [{MUTED}]{count} fields{filter_msg}[/{MUTED}]")
-        renderer.console.print(f"  [{CHROME}]Usage: /config get <field> for details[/{CHROME}]\n")
+        renderer.console.print(f"  [{CHROME}]Usage: /config help <topic> or /config get <field>[/{CHROME}]\n")
+        return
+
+    # ── /config help/search <topic> ──
+    if sub in {"help", "search"}:
+        if len(parts) < 3:
+            renderer.console.print(f"  [{CHROME}]Usage: /config {sub} <field-or-topic>[/{CHROME}]\n")
+            return
+        query = " ".join(parts[2:])
+        source_map, enforced = _build_context()
+        entries = [r.entry for r in search_config_settings(query, limit=10)]
+        values = attach_current_values(entries, config, source_map, enforced)
+
+        table = Table(show_header=True, header_style="bold", padding=(0, 1))
+        table.add_column("Field", style="bold", no_wrap=True)
+        table.add_column("Value")
+        table.add_column("Source")
+        table.add_column("Help", style="dim")
+        table.add_column("Allowed", style="dim")
+
+        for search_result in values:
+            entry = search_result.entry
+            current = search_result.current
+            value = "" if current is None else str(current.effective_value)
+            if len(value) > 50:
+                value = value[:47] + "..."
+            source = "" if current is None else current.source_layer
+            allowed_values = ", ".join(entry.allowed_values or ())
+            table.add_row(entry.dot_path, value, _styled_layer(source), entry.description, allowed_values)
+
+        renderer.console.print()
+        renderer.console.print(table)
+        renderer.console.print(f'\n  [{MUTED}]{len(values)} settings matching "{query}"[/{MUTED}]\n')
         return
 
     # ── /config get <field> ──
@@ -2039,19 +2088,19 @@ def _handle_config_command(
         source_map, enforced = _build_context()
 
         try:
-            result = get_field(config, dot_path, source_map, enforced)
+            field_value = get_field(config, dot_path, source_map, enforced)
         except ValueError as e:
             renderer.render_error(str(e))
             return
 
         renderer.console.print()
         renderer.console.print(f"  [bold]{dot_path}[/bold]")
-        renderer.console.print(f"  Value:   {result.effective_value!r}")
-        renderer.console.print(f"  Source:  {_styled_layer(result.source_layer)}")
-        if result.is_enforced:
+        renderer.console.print(f"  Value:   {field_value.effective_value!r}")
+        renderer.console.print(f"  Source:  {_styled_layer(field_value.source_layer)}")
+        if field_value.is_enforced:
             renderer.console.print("  [bold red]Enforced by team config — cannot be changed[/bold red]")
-        if result.field_info:
-            fi = result.field_info
+        if field_value.field_info:
+            fi = field_value.field_info
             renderer.console.print(f"  Type:    {fi.field_type}")
             if fi.default is not None:
                 renderer.console.print(f"  Default: {fi.default!r}")
@@ -2059,6 +2108,24 @@ def _handle_config_command(
                 renderer.console.print(f"  Allowed: {', '.join(fi.allowed_values)}")
             if fi.min_val is not None or fi.max_val is not None:
                 renderer.console.print(f"  Range:   {fi.min_val} .. {fi.max_val}")
+        renderer.console.print()
+        return
+
+    # ── /config explain <field> ──
+    if sub == "explain":
+        if len(parts) < 3:
+            renderer.console.print(f"  [{CHROME}]Usage: /config explain <dot.path>[/{CHROME}]\n")
+            return
+
+        dot_path = parts[2]
+        try:
+            explanation = explain_setting(dot_path, _build_explanation_context())
+        except ValueError as e:
+            renderer.render_error(str(e))
+            return
+
+        renderer.console.print()
+        renderer.console.print(format_explanation(explanation))
         renderer.console.print()
         return
 
@@ -2101,8 +2168,8 @@ def _handle_config_command(
 
         # Check write guards (sensitive fields blocked)
         _, enforced = _build_context()
-        allowed, reason = check_write_allowed(dot_path, enforced)
-        if not allowed:
+        write_allowed, reason = check_write_allowed(dot_path, enforced)
+        if not write_allowed:
             renderer.render_error(reason or "Write not allowed")
             return
 
@@ -2111,6 +2178,11 @@ def _handle_config_command(
         if errors:
             for err in errors:
                 renderer.render_error(err)
+            return
+
+        write_plan = plan_set(dot_path, parsed, _build_explanation_context(), scope=scope)
+        if not write_plan.would_be_effective:
+            renderer.render_error(format_write_plan(write_plan))
             return
 
         # Write to the appropriate scope
@@ -2200,7 +2272,9 @@ def _handle_config_command(
     # ── /config (no subcommand or unknown) ──
     renderer.console.print(f"\n  [{CHROME}]Config commands:[/{CHROME}]")
     renderer.console.print("    [bold]/config list[/bold] [filter]     — list all fields (optionally filtered)")
+    renderer.console.print("    [bold]/config help[/bold] <topic>      — search settings with plain-language help")
     renderer.console.print("    [bold]/config get[/bold]  <field>      — show field details and source")
+    renderer.console.print("    [bold]/config explain[/bold] <field>   — explain value, provenance, and guidance")
     renderer.console.print("    [bold]/config set[/bold]  <field> <val> [--scope personal|space|project]")
     renderer.console.print("    [bold]/config reset[/bold] <field>     [--scope personal|space|project]")
     renderer.console.print()
@@ -4340,6 +4414,24 @@ async def _run_one_shot(
 
     storage.create_message(db, conv["id"], "user", expanded, **id_kw)
     messages.append({"role": "user", "content": expanded})
+    turn_id = new_turn_id("cli")
+    request_id = new_turn_id("req")
+    _diag_token = set_diagnostic_context(
+        interface="cli",
+        conversation_id=conv["id"],
+        turn_id=turn_id,
+        request_id=request_id,
+    )
+    _turn_started_at = time.monotonic()
+    log_debug(
+        logger,
+        "cli.turn.start",
+        lifecycle="start",
+        phase="turn",
+        one_shot=True,
+        message_chars=len(expanded),
+        resume=bool(resume_conversation_id),
+    )
 
     cancel_event = asyncio.Event()
     if cancel_event_ref is not None:
@@ -4365,21 +4457,39 @@ async def _run_one_shot(
 
     _debug_collector = None
     _debug_summary_rendered = False
+    _diagnostics_writer = None
     if logging.getLogger().isEnabledFor(logging.DEBUG):
         from ..services.debug_diagnostics import DebugDiagnosticsCollector
+        from ..services.diagnostics_log import create_diagnostics_log_writer
 
         _ai_cfg = getattr(ai_service, "config", None)
+        logging.getLogger(__name__).debug("debug diagnostics start turn_id=%s interface=cli", turn_id)
         _debug_collector = DebugDiagnosticsCollector(
             provider=getattr(_ai_cfg, "provider", None),
             model=getattr(_ai_cfg, "model", None),
+            turn_id=turn_id,
+            request_id=request_id,
+            interface="cli",
+            conversation_id=conv["id"],
         )
+        _diagnostics_writer = create_diagnostics_log_writer(config)
 
     def _render_cli_debug_summary(stop_reason: str) -> None:
         nonlocal _debug_summary_rendered
         if _debug_collector is None or _debug_summary_rendered:
             return
         _debug_summary_rendered = True
-        renderer.render_debug_summary(_debug_collector.finish(stop_reason))
+        summary = _debug_collector.finish(stop_reason)
+        logging.getLogger(__name__).debug(
+            "debug diagnostics finish turn_id=%s stop_reason=%s",
+            summary.get("turn_id"),
+            stop_reason,
+        )
+        renderer.render_debug_summary(summary)
+        if _diagnostics_writer is not None:
+            result = _diagnostics_writer.write_summary(summary, interface="cli", conversation_id=conv["id"])
+            if result.written and result.path:
+                renderer.console.print(f"[dim]Diagnostics error log: {result.path}[/dim]")
 
     try:
         while True:
@@ -4569,6 +4679,16 @@ async def _run_one_shot(
             thinking = False
         renderer.render_response_end()
     finally:
+        log_debug(
+            logger,
+            "cli.turn.cleanup",
+            lifecycle="cleanup",
+            phase="turn",
+            one_shot=True,
+            cancelled=cancel_event.is_set(),
+            _started_at=_turn_started_at,
+        )
+        reset_diagnostic_context(_diag_token)
         cancel_event.set()
         escape_task.cancel()
         _remove_signal_handler(loop, signal.SIGINT)
@@ -4706,6 +4826,30 @@ async def _run_repl(
                 _resolved_vec_manager[0] = None
         _vec_resolved[0] = True
         return _resolved_vec_manager[0]
+
+    def _vec_index_count(index: Any | None) -> int:
+        if index is None:
+            return 0
+        try:
+            return int(index.count())
+        except Exception:
+            logger.debug("Vector index count check failed", exc_info=True)
+            return 0
+
+    def _rag_has_dense_targets(rag_config: Any, manager: Any | None) -> bool:
+        if manager is None:
+            return False
+        if (
+            getattr(rag_config, "include_conversations", False)
+            and _vec_index_count(getattr(manager, "messages", None)) > 0
+        ):
+            return True
+        if (
+            getattr(rag_config, "include_sources", False)
+            and _vec_index_count(getattr(manager, "source_chunks", None)) > 0
+        ):
+            return True
+        return False
 
     id_kw = _identity_kwargs(config)
 
@@ -5006,6 +5150,7 @@ async def _run_repl(
     current_model = config.ai.model
     _pending_resume_info = False
     ai_messages: list[dict[str, Any]] = []
+    feedback_turn_diagnostics: dict[str, dict[str, Any]] = {}
 
     if resume_conversation_id:
         conv_data = storage.get_conversation(db, resume_conversation_id)
@@ -5355,7 +5500,7 @@ async def _run_repl(
         _rag_service_checked: list[bool] = [False]
 
         async def _get_rag_embedding_service() -> Any:
-            """Lazily create embedding service for RAG retrieval, with auto-detect probe."""
+            """Lazily create the embedding service for RAG retrieval."""
             if _rag_service_checked[0]:
                 return _rag_embedding_service[0]
             _rag_service_checked[0] = True
@@ -5363,7 +5508,7 @@ async def _run_repl(
                 from ..services.embeddings import create_embedding_service
 
                 svc = create_embedding_service(config)
-                if svc and config.embeddings.enabled is None:
+                if svc and config.embeddings.enabled is None and config.embeddings.provider != "local":
                     probe_ok = await svc.probe()
                     if not probe_ok:
                         logger.info("Embedding endpoint unavailable; semantic search disabled")
@@ -5396,7 +5541,7 @@ async def _run_repl(
         _reranker_checked: list[bool] = [False]
 
         async def _get_rag_reranker_service() -> Any:
-            """Lazily create reranker service for RAG reranking, with auto-detect probe."""
+            """Lazily create the reranker service for RAG reranking."""
             if _reranker_checked[0]:
                 return _rag_reranker_service[0]
             _reranker_checked[0] = True
@@ -5404,7 +5549,7 @@ async def _run_repl(
                 from ..services.reranker import create_reranker_service
 
                 svc = create_reranker_service(config)
-                if svc and config.reranker.enabled is None:
+                if svc and config.reranker.enabled is None and config.reranker.provider != "local":
                     probe_ok = await svc.probe()
                     if not probe_ok:
                         logger.info("Reranker model unavailable; reranking disabled")
@@ -7995,16 +8140,21 @@ async def _run_repl(
                         from .feedback_cli import handle_feedback_command
 
                         fb_messages: list[dict[str, Any]] | None = ai_messages if include_history else None
+                        fb_conv_id = conv.get("id")
                         fb_msg = await handle_feedback_command(
                             fb_description,
                             include_history,
                             config,
                             db,
-                            conversation_id=conv.get("id"),
+                            conversation_id=fb_conv_id,
                             conversation_messages=fb_messages,
                             active_space=_active_space[0],
                             tool_registry=tool_registry,
                             mcp_manager=mcp_manager,
+                            project_path=str(working_dir) if working_dir else None,
+                            turn_diagnostics=feedback_turn_diagnostics.get(fb_conv_id)
+                            if isinstance(fb_conv_id, str)
+                            else None,
                         )
                         # Copy local file path to clipboard when available
                         if "Bundle saved to:" in fb_msg:
@@ -8139,6 +8289,25 @@ async def _run_repl(
             # Store user message
             storage.create_message(db, conv["id"], "user", expanded, **id_kw)
             ai_messages.append({"role": "user", "content": expanded})
+            turn_id = new_turn_id("cli")
+            request_id = new_turn_id("req")
+            _diag_token = set_diagnostic_context(
+                interface="cli",
+                conversation_id=conv["id"],
+                turn_id=turn_id,
+                request_id=request_id,
+            )
+            _turn_started_at = time.monotonic()
+            log_debug(
+                logger,
+                "cli.turn.start",
+                lifecycle="start",
+                phase="turn",
+                one_shot=False,
+                message_chars=len(expanded),
+                plan_mode=_plan_active[0],
+                queue_depth=input_queue.qsize(),
+            )
 
             # Breathing room after user prompt echo
             renderer.render_newline()
@@ -8153,10 +8322,14 @@ async def _run_repl(
                     # so we never send outdated context if this turn's retrieval fails.
                     extra_system_prompt = strip_rag_context(extra_system_prompt)
 
-                    _rag_emb = await _get_rag_embedding_service()
                     _rag_mode = getattr(config.rag, "retrieval_mode", "dense")
+                    _rag_uses_dense = _rag_mode in ("dense", "hybrid")
                     _rag_uses_keyword = _rag_mode in ("keyword", "hybrid")
-                    if _rag_emb or _rag_uses_keyword:
+                    _rag_vm = await _get_vec_manager()
+                    _rag_emb = None
+                    if _rag_uses_dense and _rag_has_dense_targets(config.rag, _rag_vm):
+                        _rag_emb = await _get_rag_embedding_service()
+                    if _rag_emb or _rag_uses_keyword or (_rag_uses_dense and _rag_vm is not None):
                         _rag_reranker = await _get_rag_reranker_service()
                         _rag_chunks, _rag_reason = await retrieve_context(
                             query=expanded,
@@ -8165,18 +8338,48 @@ async def _run_repl(
                             config=config.rag,
                             current_conversation_id=conv["id"],
                             space_id=conv.get("space_id"),
-                            vec_manager=await _get_vec_manager(),
+                            vec_manager=_rag_vm,
                             reranker_service=_rag_reranker,
                             reranker_config=config.reranker,
                         )
                         if _rag_chunks:
                             extra_system_prompt += format_rag_context(_rag_chunks)
                             renderer.render_rag_status("ok", chunk_count=len(_rag_chunks))
+                            log_debug(
+                                logger,
+                                "cli.rag.success",
+                                lifecycle="success",
+                                phase="rag",
+                                chunk_count=len(_rag_chunks),
+                                retrieval_mode=_rag_mode,
+                            )
                         else:
                             renderer.render_rag_status("no_results", reason=_rag_reason)
+                            log_debug(
+                                logger,
+                                "cli.rag.skip",
+                                lifecycle="skip",
+                                phase="rag",
+                                reason=_rag_reason,
+                                retrieval_mode=_rag_mode,
+                            )
                     else:
                         renderer.render_rag_status("no_vec_support")
+                        log_debug(
+                            logger,
+                            "cli.rag.skip",
+                            lifecycle="skip",
+                            phase="rag",
+                            reason="no_vec_support",
+                        )
                 except Exception:
+                    log_debug(
+                        logger,
+                        "cli.rag.failure",
+                        lifecycle="failure",
+                        phase="rag",
+                        error_class="Exception",
+                    )
                     logger.debug("RAG retrieval failed in CLI", exc_info=True)
                     renderer.render_rag_status("failed")
 
@@ -8193,7 +8396,10 @@ async def _run_repl(
                     # Strip stale memory context before fresh retrieval.
                     extra_system_prompt = strip_memory_context(extra_system_prompt)
 
-                    _mr_emb = await _get_rag_embedding_service()
+                    _mr_vm = await _get_vec_manager()
+                    _mr_emb = None
+                    if _vec_index_count(getattr(_mr_vm, "memories", None) if _mr_vm else None) > 0:
+                        _mr_emb = await _get_rag_embedding_service()
                     _project_ns: str | None = None
                     _mr_space_type: str | None = None
                     _space_id_for_conv = conv.get("space_id")
@@ -8214,19 +8420,40 @@ async def _run_repl(
                         db=db,
                         embedding_service=_mr_emb,
                         config=_mr_config,
-                        vec_manager=await _get_vec_manager(),
+                        vec_manager=_mr_vm,
                         space_type=_mr_space_type,
                         project_namespace=_project_ns,
                     )
                     if _mr_memories:
                         extra_system_prompt += format_memory_context(_mr_memories)
                         renderer.render_memory_recall_status("ok", count=len(_mr_memories))
+                        log_debug(
+                            logger,
+                            "cli.memory_recall.success",
+                            lifecycle="success",
+                            phase="memory_recall",
+                            memory_count=len(_mr_memories),
+                        )
                     else:
                         if _mr_reason == "no_vec_support":
                             renderer.render_memory_recall_status("no_vec_support")
                         else:
                             renderer.render_memory_recall_status("no_results", reason=_mr_reason)
+                        log_debug(
+                            logger,
+                            "cli.memory_recall.skip",
+                            lifecycle="skip",
+                            phase="memory_recall",
+                            reason=_mr_reason,
+                        )
                 except Exception:
+                    log_debug(
+                        logger,
+                        "cli.memory_recall.failure",
+                        lifecycle="failure",
+                        phase="memory_recall",
+                        error_class="Exception",
+                    )
                     logger.debug("Memory recall failed in CLI", exc_info=True)
                     renderer.render_memory_recall_status("failed")
 
@@ -8309,20 +8536,44 @@ async def _run_repl(
                     from ..services.debug_diagnostics import DebugDiagnosticsCollector
 
                     _ai_cfg = getattr(ai_service, "config", None)
+                    logging.getLogger(__name__).debug(
+                        "debug diagnostics start turn_id=%s interface=cli",
+                        turn_id,
+                    )
                     return DebugDiagnosticsCollector(
                         provider=getattr(_ai_cfg, "provider", None),
                         model=getattr(_ai_cfg, "model", None),
+                        turn_id=turn_id,
+                        request_id=request_id,
+                        interface="cli",
+                        conversation_id=conv["id"],
                     )
 
                 _debug_collector = _new_cli_debug_collector()
                 _debug_summary_rendered = False
+                _diagnostics_writer = None
+                if logging.getLogger().isEnabledFor(logging.DEBUG):
+                    from ..services.diagnostics_log import create_diagnostics_log_writer
+
+                    _diagnostics_writer = create_diagnostics_log_writer(config)
 
                 def _render_cli_debug_summary(stop_reason: str) -> None:
                     nonlocal _debug_summary_rendered
                     if _debug_collector is None or _debug_summary_rendered:
                         return
                     _debug_summary_rendered = True
-                    renderer.render_debug_summary(_debug_collector.finish(stop_reason))
+                    summary = _debug_collector.finish(stop_reason)
+                    feedback_turn_diagnostics[conv["id"]] = summary
+                    logging.getLogger(__name__).debug(
+                        "debug diagnostics finish turn_id=%s stop_reason=%s",
+                        summary.get("turn_id"),
+                        stop_reason,
+                    )
+                    renderer.render_debug_summary(summary)
+                    if _diagnostics_writer is not None:
+                        result = _diagnostics_writer.write_summary(summary, interface="cli", conversation_id=conv["id"])
+                        if result.written and result.path:
+                            renderer.console.print(f"[dim]Diagnostics error log: {result.path}[/dim]")
 
                 active_skill_policy.set(_direct_skill_policy)
                 while True:
@@ -8854,6 +9105,17 @@ async def _run_repl(
                 if thinking:
                     renderer.stop_thinking_sync()
                     thinking = False
+                log_debug(
+                    logger,
+                    "cli.turn.cleanup",
+                    lifecycle="cleanup",
+                    phase="turn",
+                    one_shot=False,
+                    cancelled=cancel_event.is_set(),
+                    queue_depth=msg_queue.qsize(),
+                    _started_at=_turn_started_at,
+                )
+                reset_diagnostic_context(_diag_token)
                 # Ensure skill policy is cleared even on exceptions/cancellation
                 try:
                     from ..services.agent_loop import active_skill_policy as _asp

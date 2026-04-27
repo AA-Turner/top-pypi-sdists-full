@@ -510,6 +510,8 @@ class _ModelCost:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     reasoning_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
 
 
 @dataclass
@@ -529,6 +531,8 @@ def record_step_cost(
     prompt_tokens: int,
     completion_tokens: int,
     reasoning_tokens: int = 0,
+    cache_read_tokens: int = 0,
+    cache_write_tokens: int = 0,
     model: str | None = None,
 ) -> None:
     """Record an LLM step's cost/tokens into the current accumulator, keyed by model.
@@ -546,6 +550,8 @@ def record_step_cost(
     bucket.prompt_tokens += int(prompt_tokens or 0)
     bucket.completion_tokens += int(completion_tokens or 0)
     bucket.reasoning_tokens += int(reasoning_tokens or 0)
+    bucket.cache_read_tokens += int(cache_read_tokens or 0)
+    bucket.cache_write_tokens += int(cache_write_tokens or 0)
 
 
 @contextmanager
@@ -566,6 +572,10 @@ def aggregate_step_costs(
 
     `name`/`version` are propagated as the agent name/version on each
     child span, with the model appended to disambiguate (e.g. `world:gpt-4`).
+
+    Cache token totals (`cache_read_tokens`, `cache_write_tokens`) are also
+    aggregated and emitted on the per-model child span so the trajectory
+    viewer can show real cache hit rates.
     """
     accumulator = _CostAccumulator()
     token = _current_cost_accumulator.set(accumulator)
@@ -592,6 +602,10 @@ def aggregate_step_costs(
                     cost_span.set_attribute("atif.agent.completion_tokens", bucket.completion_tokens)
                 if bucket.reasoning_tokens > 0:
                     cost_span.set_attribute("atif.agent.reasoning_tokens", bucket.reasoning_tokens)
+                if bucket.cache_read_tokens > 0:
+                    cost_span.set_attribute("atif.agent.cache_read_tokens", bucket.cache_read_tokens)
+                if bucket.cache_write_tokens > 0:
+                    cost_span.set_attribute("atif.agent.cache_write_tokens", bucket.cache_write_tokens)
 
 
 @contextmanager

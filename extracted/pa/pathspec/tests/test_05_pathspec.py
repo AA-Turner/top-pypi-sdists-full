@@ -593,7 +593,7 @@ class PathSpecTest(unittest.TestCase):
 		], backend='simple')
 		self.assertNotEqual(first_spec, second_spec)
 
-	def test_03_add(self):
+	def test_03_add_1_simple(self):
 		"""
 		Test spec addition using :data:`+` operator.
 		"""
@@ -624,7 +624,38 @@ class PathSpecTest(unittest.TestCase):
 			'test.txt',
 		}, debug)
 
-	def test_03_iadd(self):
+	def test_03_add_2_mixed(self):
+		"""
+		Test spec addition using :data:`+` operator with mixed sequence types.
+		"""
+		first_spec = PathSpec(tuple(map(GitIgnoreBasicPattern, [
+			'test.png',
+			'test.txt',
+		])), backend='simple')
+		second_spec = PathSpec(list(map(GitIgnoreBasicPattern, [
+			'test.html',
+			'test.jpg',
+		])), backend='simple')
+		combined_spec = first_spec + second_spec
+		files = {
+			'test.html',
+			'test.jpg',
+			'test.png',
+			'test.txt',
+		}
+
+		results = list(combined_spec.check_files(files))
+		includes = get_includes(results)
+		debug = debug_results(combined_spec, results)
+
+		self.assertEqual(includes, {
+			'test.html',
+			'test.jpg',
+			'test.png',
+			'test.txt',
+		}, debug)
+
+	def test_03_iadd_1_simple(self):
 		"""
 		Test spec addition using :data:`+=` operator.
 		"""
@@ -636,6 +667,36 @@ class PathSpecTest(unittest.TestCase):
 			'test.html',
 			'test.jpg',
 		], backend='simple')
+		files = {
+			'test.html',
+			'test.jpg',
+			'test.png',
+			'test.txt',
+		}
+
+		results = list(spec.check_files(files))
+		includes = get_includes(results)
+		debug = debug_results(spec, results)
+
+		self.assertEqual(includes, {
+			'test.html',
+			'test.jpg',
+			'test.png',
+			'test.txt',
+		}, debug)
+
+	def test_03_iadd_2_mixed(self):
+		"""
+		Test spec addition using :data:`+=` operator with mixed sequence types.
+		"""
+		spec = PathSpec(tuple(map(GitIgnoreBasicPattern, [
+			'test.png',
+			'test.txt',
+		])), backend='simple')
+		spec += PathSpec(list(map(GitIgnoreBasicPattern, [
+			'test.html',
+			'test.jpg',
+		])), backend='simple')
 		files = {
 			'test.html',
 			'test.jpg',

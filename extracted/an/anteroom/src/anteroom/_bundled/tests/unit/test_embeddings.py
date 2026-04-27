@@ -500,7 +500,7 @@ class TestLocalEmbeddingService:
         service = LocalEmbeddingService()
         with patch.dict("sys.modules", {"fastembed": None}):
             with patch("builtins.__import__", side_effect=ImportError("No module named 'fastembed'")):
-                with pytest.raises(EmbeddingPermanentError, match="fastembed is not installed"):
+                with pytest.raises(EmbeddingPermanentError, match="pip install --upgrade anteroom"):
                     await service.embed("hello")
 
     @pytest.mark.asyncio

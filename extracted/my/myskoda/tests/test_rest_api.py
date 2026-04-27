@@ -2,19 +2,27 @@
 
 import json
 import re
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from aiohttp import ClientResponseError
 from aioresponses import aioresponses
 
+from myskoda.anonymize import FORMATTED_ADDRESS, LICENSE_PLATE, LOCATION, VEHICLE_NAME
 from myskoda.models.common import OpenState
 from myskoda.models.departure import DepartureInfo
 from myskoda.models.driving_score import DrivingScoreResult
 from myskoda.models.status import DoorWindowState
 from myskoda.models.trip_statistics import VehicleType
+from myskoda.models.widget import (
+    ParkingPositionInMotion,
+    ParkingPositionParked,
+    ParkingPositionState,
+)
 from myskoda.myskoda import MySkoda
+from myskoda.rest_api import RestApi
 from myskoda.utils import to_iso8601
 
 FIXTURES_DIR = Path(__file__).parent.joinpath("fixtures")
@@ -492,6 +500,7 @@ def load_software_updates() -> list[str]:
     software_updates = []
     for path in [
         "enyaq/software-version.json",
+        "enyaq/software-version-no-update.json",
     ]:
         with FIXTURES_DIR.joinpath(path).open() as file:
             software_updates.append(file.read())
@@ -514,10 +523,11 @@ async def test_software_updates(
         get_software_version_result = await myskoda.get_software_update_status(target_vin)
 
         assert get_software_version_result.status == software_updates_json["status"]
-        assert (
-            get_software_version_result.release_notes_url
-            == software_updates_json["releaseNotesUrl"]
-        )
+        if "releaseNotesUrl" in software_updates_json:
+            assert (
+                get_software_version_result.release_notes_url
+                == software_updates_json["releaseNotesUrl"]
+            )
         assert (
             get_software_version_result.current_software_version
             == software_updates_json["currentSoftwareVersion"]
@@ -586,3 +596,324 @@ def assert_driving_score_result(
     assert driving_score_result.average_consumption == driving_score_json["averageConsumption"]
     assert driving_score_result.main_bonus == driving_score_json["mainBonus"]
     assert driving_score_result.mastered == driving_score_json["mastered"]
+
+
+@pytest.fixture(name="vehicle_information")
+def load_vehicle_information() -> list[str]:
+    """Load vehicle information fixture."""
+    vehicle_information = []
+    for path in [
+        "superb/vehicle-info-iV.json",
+    ]:
+        with FIXTURES_DIR.joinpath(path).open() as file:
+            vehicle_information.append(file.read())
+    return vehicle_information
+
+
+@pytest.mark.asyncio
+async def test_vehicle_info(
+    vehicle_information: list[str], myskoda: MySkoda, responses: aioresponses
+) -> None:
+    """Example unit test for RestAPI.vehicle_info(). Needs more work."""
+    for vehicle_information_input in vehicle_information:
+        vehicle_information_json = json.loads(vehicle_information_input)
+
+        target_vin = "TMBJM0CKV1N12345"
+        responses.get(
+            url=f"https://mysmob.api.connect.skoda-auto.cz/api/v1/vehicle-information/{target_vin}",
+            body=vehicle_information_input,
+        )
+        get_vehicle_info_result = await myskoda.get_vehicle_info(target_vin)
+
+        # Add assertions for vehicle info result
+        assert get_vehicle_info_result.device_platform == vehicle_information_json["devicePlatform"]
+        assert get_vehicle_info_result.renders == vehicle_information_json["renders"]
+        vehicle_specification = get_vehicle_info_result.vehicle_specification
+        vehicle_specification_json = vehicle_information_json["vehicleSpecification"]
+        assert vehicle_specification.title == vehicle_specification_json["title"]
+        assert vehicle_specification.manufacturing_date == date.fromisoformat(
+            vehicle_specification_json["manufacturingDate"]
+        )
+        assert vehicle_specification.model == vehicle_specification_json["model"]
+        assert vehicle_specification.model_year == vehicle_specification_json["modelYear"]
+        assert vehicle_specification.body == vehicle_specification_json["body"]
+        assert vehicle_specification.trim_level == vehicle_specification_json["trimLevel"]
+        assert vehicle_specification.system_code == vehicle_specification_json["systemCode"]
+        assert vehicle_specification.system_model_id == vehicle_specification_json["systemModelId"]
+        engine = vehicle_specification.engine
+        engine_json = vehicle_specification_json["engine"]
+        assert engine.capacity_in_liters == engine_json["capacityInLiters"]
+        assert engine.type == engine_json["type"]
+        assert engine.power == engine_json["powerInKW"]
+        gearbox = vehicle_specification.gearbox
+        gearbox_json = vehicle_specification_json["gearbox"]
+        assert gearbox is not None
+        assert gearbox.type == gearbox_json["type"]
+
+        composite_renders = get_vehicle_info_result.composite_renders
+        composite_renders_json = vehicle_information_json["compositeRenders"]
+        assert len(composite_renders) == len(composite_renders_json)
+        for i in range(len(composite_renders)):
+            assert composite_renders[i].view_type == composite_renders_json[i]["viewType"]
+            layers = composite_renders[i].layers
+            layers_json = composite_renders_json[i]["layers"]
+            assert len(layers) == len(layers_json)
+            for j in range(len(layers)):
+                assert layers[j].order == layers_json[j]["order"]
+                assert layers[j].type == layers_json[j]["type"]
+                assert layers[j].url == layers_json[j]["url"]
+                assert layers[j].view_point == layers_json[j]["viewPoint"]
+
+
+@pytest.fixture(name="vehicle_equipment")
+def load_vehicle_equipment() -> list[str]:
+    """Load vehicle equipment fixture."""
+    vehicle_equipment = []
+    for path in [
+        "superb/vehicle-equipment-iV.json",
+    ]:
+        with FIXTURES_DIR.joinpath(path).open() as file:
+            vehicle_equipment.append(file.read())
+    return vehicle_equipment
+
+
+@pytest.mark.asyncio
+async def test_vehicle_equipment(
+    vehicle_equipment: list[str], myskoda: MySkoda, responses: aioresponses
+) -> None:
+    """Example unit test for RestAPI.vehicle_info(). Needs more work."""
+    for vehicle_equipment_input in vehicle_equipment:
+        vehicle_equipment_json = json.loads(vehicle_equipment_input)
+
+        target_vin = "TMBJM0CKV1N12345"
+        responses.get(
+            url=f"https://mysmob.api.connect.skoda-auto.cz/api/v1/vehicle-information/{target_vin}/equipment",
+            body=vehicle_equipment_input,
+        )
+        get_vehicle_equipment_result = (await myskoda.get_vehicle_equipment(target_vin)).equipment
+        get_vehicle_equipment_result_json = vehicle_equipment_json["equipment"]
+
+        # Add assertions for vehicle equipment result
+
+        assert len(get_vehicle_equipment_result) == len(get_vehicle_equipment_result_json)
+        for i in range(len(get_vehicle_equipment_result)):
+            equipment = get_vehicle_equipment_result[i]
+            equipment_json = get_vehicle_equipment_result_json[i]
+
+            assert equipment.name == equipment_json["name"]
+            assert equipment.description == equipment_json["description"]
+            assert equipment.video_url == equipment_json["videoUrl"]
+            assert equipment.video_thumbnail_url == equipment_json["videoThumbnailUrl"]
+
+
+@pytest.fixture(name="vehicle_renders")
+def load_vehicle_renders() -> list[str]:
+    """Load vehicle renders fixture."""
+    vehicle_renders = []
+    for path in [
+        "superb/vehicle-renders-iV.json",
+    ]:
+        with FIXTURES_DIR.joinpath(path).open() as file:
+            vehicle_renders.append(file.read())
+    return vehicle_renders
+
+
+@pytest.mark.asyncio
+async def test_vehicle_renders(
+    vehicle_renders: list[str], myskoda: MySkoda, responses: aioresponses
+) -> None:
+    """Example unit test for RestAPI.vehicle_info(). Needs more work."""
+    for vehicle_renders_input in vehicle_renders:
+        vehicle_renders_json = json.loads(vehicle_renders_input)
+
+        target_vin = "TMBJM0CKV1N12345"
+        responses.get(
+            url=f"https://mysmob.api.connect.skoda-auto.cz/api/v1/vehicle-information/{target_vin}/renders",
+            body=vehicle_renders_input,
+        )
+        get_vehicle_renders_result = (
+            await myskoda.get_vehicle_renders(target_vin)
+        ).composite_renders
+        get_vehicle_renders_result_json = vehicle_renders_json["compositeRenders"]
+
+        # Add assertions for vehicle renders result
+
+        assert len(get_vehicle_renders_result) == len(get_vehicle_renders_result_json)
+        for i in range(len(get_vehicle_renders_result)):
+            render = get_vehicle_renders_result[i]
+            render_json = get_vehicle_renders_result_json[i]
+
+            assert render.view_type == render_json["viewType"]
+            for j in range(len(render.layers)):
+                layer = render.layers[j]
+                layer_json = render_json["layers"][j]
+                assert layer.order == layer_json["order"]
+                assert layer.type == layer_json["type"]
+                assert layer.url == layer_json["url"]
+                assert layer.view_point == layer_json["viewPoint"]
+
+
+BASE_URL = "https://mysmob.api.connect.skoda-auto.cz/api"
+HTTP_NOT_FOUND = 404
+
+
+@pytest.mark.asyncio
+async def test_raw_request_get(api: RestApi, responses: aioresponses) -> None:
+    """raw_request GET returns the response body as a string."""
+    body = '{"key": "value"}'
+    responses.get(url=f"{BASE_URL}/v1/some/path", body=body)
+
+    result = await api.raw_request(url="/v1/some/path", method="GET")
+
+    assert result == body
+
+
+@pytest.mark.asyncio
+async def test_raw_request_post_with_body(api: RestApi, responses: aioresponses) -> None:
+    """raw_request POST sends JSON body and returns the response body."""
+    response_body = '{"status": "ok"}'
+    responses.post(url=f"{BASE_URL}/v1/some/path", body=response_body)
+
+    result = await api.raw_request(url="/v1/some/path", method="POST", json={"chargingCurrent": 20})
+
+    assert result == response_body
+
+
+@pytest.mark.asyncio
+async def test_raw_request_empty_response(api: RestApi, responses: aioresponses) -> None:
+    """raw_request returns an empty string when the response body is empty."""
+    responses.post(url=f"{BASE_URL}/v1/some/path", body="")
+
+    result = await api.raw_request(url="/v1/some/path", method="POST")
+
+    assert result == ""
+
+
+@pytest.mark.asyncio
+async def test_raw_request_http_error(api: RestApi, responses: aioresponses) -> None:
+    """raw_request raises ClientResponseError on HTTP error responses."""
+    responses.get(url=f"{BASE_URL}/v1/some/path", status=HTTP_NOT_FOUND)
+
+    with pytest.raises(ClientResponseError) as exc_info:
+        await api.raw_request(url="/v1/some/path", method="GET")
+
+    assert exc_info.value.status == HTTP_NOT_FOUND
+
+
+@pytest.fixture(name="widgets")
+def load_widgets() -> list[tuple[ParkingPositionState, bool, str]]:
+    """Load vehicle widgets fixture."""
+    widgets = []
+    for path in [
+        (ParkingPositionState.PARKED, False, "other/widget-parked.json"),
+        (ParkingPositionState.IN_MOTION, False, "other/widget-inmotion.json"),
+        (ParkingPositionState.PARKED, True, "other/widget-parked.json"),
+        (ParkingPositionState.IN_MOTION, True, "other/widget-inmotion.json"),
+    ]:
+        with FIXTURES_DIR.joinpath(path[2]).open() as file:
+            widgets.append((path[0], path[1], file.read()))
+    return widgets
+
+
+@pytest.mark.asyncio
+async def test_widgets(
+    widgets: list[tuple[ParkingPositionState, bool, str]], myskoda: MySkoda, responses: aioresponses
+) -> None:
+    """Example unit test for RestAPI.widgets(). Needs more work."""
+    for widgets_input in widgets:
+        widgets_json = json.loads(widgets_input[2])
+        parking_position_state = widgets_input[0]
+        anonymized = widgets_input[1]
+
+        target_vin = "TMBJM0CKV1N12345"
+        responses.get(
+            url=f"https://mysmob.api.connect.skoda-auto.cz/api/v2/widgets/vehicle-status/{target_vin}",
+            body=widgets_input[2],
+        )
+        get_widgets_result = await myskoda.get_widget(target_vin, anonymize=anonymized)
+
+        # Add assertions for widget result
+
+        assert get_widgets_result is not None
+        assert get_widgets_result.vehicle is not None
+        if anonymized:
+            assert get_widgets_result.vehicle.license_plate == LICENSE_PLATE
+            assert get_widgets_result.vehicle.name == VEHICLE_NAME
+            assert "W211" not in get_widgets_result.vehicle.render_url
+        else:
+            assert get_widgets_result.vehicle.name == widgets_json["vehicle"]["name"]
+            assert (
+                get_widgets_result.vehicle.license_plate == widgets_json["vehicle"]["licensePlate"]
+            )
+            assert get_widgets_result.vehicle.render_url == widgets_json["vehicle"]["renderUrl"]
+
+        assert get_widgets_result.vehicle_status is not None
+        if parking_position_state == ParkingPositionState.PARKED:
+            assert (
+                get_widgets_result.vehicle_status.doors_locked
+                == widgets_json["vehicleStatus"]["doorsLocked"]
+            )
+        else:
+            assert get_widgets_result.vehicle_status.doors_locked is None
+
+        assert (
+            get_widgets_result.vehicle_status.driving_range_in_km
+            == widgets_json["vehicleStatus"]["drivingRangeInKm"]
+        )
+        assert get_widgets_result.parking_position is not None
+        assert get_widgets_result.parking_position.state == widgets_json["parkingPosition"]["state"]
+        if parking_position_state == ParkingPositionState.PARKED:
+            assert isinstance(get_widgets_result.parking_position, ParkingPositionParked)
+            parking_position: ParkingPositionParked = get_widgets_result.parking_position
+            if anonymized:
+                assert "50.123456" not in parking_position.maps.light_map_url
+                assert "20.123456" not in parking_position.maps.light_map_url
+                assert parking_position.gps_coordinates.latitude == LOCATION["latitude"]
+                assert parking_position.gps_coordinates.longitude == LOCATION["longitude"]
+                assert parking_position.formatted_address == FORMATTED_ADDRESS
+            else:
+                assert (
+                    parking_position.maps.light_map_url
+                    == widgets_json["parkingPosition"]["maps"]["lightMapUrl"]
+                )
+                assert (
+                    get_widgets_result.parking_position.gps_coordinates.latitude
+                    == widgets_json["parkingPosition"]["gpsCoordinates"]["latitude"]
+                )
+                assert (
+                    get_widgets_result.parking_position.gps_coordinates.longitude
+                    == widgets_json["parkingPosition"]["gpsCoordinates"]["longitude"]
+                )
+                assert (
+                    get_widgets_result.parking_position.formatted_address
+                    == widgets_json["parkingPosition"]["formattedAddress"]
+                )
+            assert get_widgets_result.charging_status is not None
+            assert (
+                get_widgets_result.charging_status.remaining_time_to_fully_charged_in_minutes
+                == widgets_json["chargingStatus"]["remainingTimeToFullyChargedInMinutes"]
+            )
+            assert (
+                get_widgets_result.charging_status.state_of_charge_in_percent
+                == widgets_json["chargingStatus"]["stateOfChargeInPercent"]
+            )
+        else:
+            assert isinstance(get_widgets_result.parking_position, ParkingPositionInMotion)
+
+
+@pytest.mark.asyncio
+async def test_register_fcm_token_sends_expected_request(
+    api: RestApi, responses: aioresponses
+) -> None:
+    responses.put(
+        "https://mysmob.api.connect.skoda-auto.cz/api/v1/notifications-subscriptions/fcm-token"
+    )
+
+    await api.register_fcm_token(fcm_token="fcm-token")  # noqa: S106
+
+    [(request_call,)] = responses.requests.values()
+    assert request_call.kwargs["json"] == {
+        "devicePlatform": "ANDROID",
+        "appVersion": "8.11.0",
+        "language": "en",
+    }

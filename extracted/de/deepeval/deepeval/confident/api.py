@@ -131,7 +131,6 @@ class Endpoints(Enum):
 
     TEST_RUN_ENDPOINT = "/v1/test-run"
     EXPERIMENT_ENDPOINT = "/v1/experiment"
-    METRIC_DATA_ENDPOINT = "/v1/metric-data"
     TRACES_ENDPOINT = "/v1/traces"
     ANNOTATIONS_ENDPOINT = "/v1/annotations"
     PROMPTS_VERSION_ID_ENDPOINT = "/v1/prompts/:alias/versions/:version"
@@ -142,7 +141,6 @@ class Endpoints(Enum):
     PROMPTS_COMMIT_HASH_ENDPOINT = "/v1/prompts/:alias/commits/:hash"
     PROMPTS_BRANCHES_ENDPOINT = "/v1/prompts/:alias/branches"
     PROMPTS_BRANCH_ENDPOINT = "/v1/prompts/:alias/branches/:name"
-    SIMULATE_ENDPOINT = "/v1/simulate"
     EVALUATE_ENDPOINT = "/v1/evaluate"
 
     EVALUATE_THREAD_ENDPOINT = "/v1/evaluate/threads/:threadId"

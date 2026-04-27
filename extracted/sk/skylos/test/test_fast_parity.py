@@ -48,7 +48,9 @@ def _run_dead_code_parity_scans_in_subprocess(target: Path) -> tuple[dict, dict]
         if cache_dir.exists():
             shutil.rmtree(cache_dir)
 
-        result_fast = json.loads(Skylos().analyze(target, exclude_folders=exclude))
+        result_fast = json.loads(
+            Skylos().analyze(target, exclude_folders=exclude, grep_verify=False)
+        )
 
         if cache_dir.exists():
             shutil.rmtree(cache_dir)
@@ -64,7 +66,9 @@ def _run_dead_code_parity_scans_in_subprocess(target: Path) -> tuple[dict, dict]
         import skylos.circular_deps as circ_mod
         circ_mod._fast_find_cycles = None
 
-        result_py = json.loads(Skylos().analyze(target, exclude_folders=exclude))
+        result_py = json.loads(
+            Skylos().analyze(target, exclude_folders=exclude, grep_verify=False)
+        )
         print(json.dumps({"fast": result_fast, "python": result_py}))
         """
     )
@@ -515,9 +519,12 @@ class Helper:
 
     def _helper(self):
         return 1
+
+
+HELPER = Helper()
 """,
-            encoding="utf-8",
-        )
+                encoding="utf-8",
+            )
 
         result_rust, result_py = _run_dead_code_parity_scans_in_subprocess(tmp_path)
 

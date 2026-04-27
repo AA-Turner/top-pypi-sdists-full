@@ -2,7 +2,7 @@
 
 Discovers project config files using walk-up from cwd, similar to
 team config and ANTEROOM.md.  Project config is a YAML file that
-overlays on top of the merged team+personal config.
+overlays on top of the merged team, pack, personal, and space config.
 
 Discovery order at each directory level:
   .anteroom/config.yaml > .claude/config.yaml > .parlor/config.yaml
@@ -30,6 +30,14 @@ _PROJECT_CONFIG_FILENAMES = (
 )
 
 
+def _is_personal_config(path: Path) -> bool:
+    """Return True when *path* is the user's personal config file."""
+    try:
+        return path.resolve() == (Path.home() / ".anteroom" / "config.yaml").resolve()
+    except OSError:
+        return False
+
+
 def discover_project_config(
     start: str | Path | None = None,
 ) -> Path | None:
@@ -37,7 +45,10 @@ def discover_project_config(
 
     Returns the resolved Path if found, else None.
     """
-    return walk_up_for_file(_PROJECT_CONFIG_FILENAMES, start)
+    path = walk_up_for_file(_PROJECT_CONFIG_FILENAMES, start)
+    if path and _is_personal_config(path):
+        return None
+    return path
 
 
 def load_project_config(

@@ -1,13 +1,10 @@
-# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2025 Pascal Thomet - https://github.com/pthom/imgui_bundle
+# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
 """Async support for ImGui Bundle - enables non-blocking GUI execution."""
 import asyncio
-from typing import Optional, Callable, Tuple, overload
+from typing import Any, Optional, Callable, Tuple, overload
 
-from imgui_bundle._imgui_bundle.immapp_cpp import AddOnsParams  # type: ignore
-from imgui_bundle._imgui_bundle.hello_imgui import (  # type: ignore
-    RunnerParams,
-    SimpleRunnerParams,
-)
+from imgui_bundle.immapp import AddOnsParams
+from imgui_bundle.hello_imgui import RunnerParams, SimpleRunnerParams
 
 
 @overload
@@ -50,17 +47,19 @@ async def run_async(
     window_size: Optional[Tuple[int, int]] = None,
     fps_idle: float = 10.0,
     top_most: bool = False,
+    ini_disable: bool = False,
     with_implot: bool = False,
     with_implot3d: bool = False,
     with_markdown: bool = False,
     with_node_editor: bool = False,
     with_tex_inspect: bool = False,
+    with_latex: bool = False,
 ) -> None:
     """Run an application asynchronously using a simple GUI function and parameters."""
     ...
 
 
-async def run_async(*args, **kwargs) -> None:
+async def run_async(*args: Any, **kwargs: Any) -> None:
     """Run an ImGui application asynchronously in a non-blocking way.
 
     This function provides async/await support for ImGui Bundle applications.
@@ -74,10 +73,8 @@ async def run_async(*args, **kwargs) -> None:
     For Jupyter notebook usage, see immapp.nb.start() for a more convenient API.
     """
     # Import here to avoid issues at module load time
-    from imgui_bundle import _imgui_bundle
     from imgui_bundle import hello_imgui
-
-    manual_render = _imgui_bundle.immapp_cpp.manual_render
+    from imgui_bundle.immapp import manual_render
 
     # Determine which setup method to use based on arguments
     if len(args) >= 1:
@@ -109,11 +106,17 @@ async def run_async(*args, **kwargs) -> None:
             window_size = kwargs.get("window_size", None)
             fps_idle = kwargs.get("fps_idle", 10.0)
             top_most = kwargs.get("top_most", False)
+            ini_disable = kwargs.get("ini_disable", False)
             with_implot = kwargs.get("with_implot", False)
             with_implot3d = kwargs.get("with_implot3d", False)
             with_markdown = kwargs.get("with_markdown", False)
             with_node_editor = kwargs.get("with_node_editor", False)
             with_tex_inspect = kwargs.get("with_tex_inspect", False)
+            with_latex = kwargs.get("with_latex", False)
+
+            # with_latex implies with_markdown
+            if with_latex:
+                with_markdown = True
 
             manual_render.setup_from_gui_function(
                 gui_function,
@@ -123,11 +126,13 @@ async def run_async(*args, **kwargs) -> None:
                 window_size=window_size,
                 fps_idle=fps_idle,
                 top_most=top_most,
+                ini_disable=ini_disable,
                 with_implot=with_implot,
                 with_implot3d=with_implot3d,
                 with_markdown=with_markdown,
                 with_node_editor=with_node_editor,
                 with_tex_inspect=with_tex_inspect,
+                with_latex=with_latex,
             )
         else:
             raise TypeError(f"First argument must be RunnerParams, SimpleRunnerParams, or a callable GUI function, got {type(first_arg)}")
@@ -135,18 +140,23 @@ async def run_async(*args, **kwargs) -> None:
         raise TypeError("run_async() requires at least one argument")
 
     # Configure FPS settings for optimal async performance
-    # This ensures C++ code returns early to Python instead of sleeping,
-    # allowing maximum parallelism between GUI rendering and Python code execution
+    # EarlyReturn mode ensures C++ code never blocks: it returns immediately
+    # and tells Python how long to wait (see _priv_idle_frame_wait_duration_for_python_async_io)
     params = hello_imgui.get_runner_params()
-    params.fps_idling.fps_idling_mode = hello_imgui.FpsIdlingMode.early_return  # Use early return mode
-    params.fps_idling.vsync_to_monitor = False  # Disable vsync which is implemented via sleep
-    params.fps_idling.fps_max = 60.0  # Limit to 60 FPS (otherwise we may run at 500+ FPS on fast machines)
+    params.fps_idling.fps_idling_mode = hello_imgui.FpsIdlingMode.early_return
+    params.fps_idling.vsync_to_monitor = False  # vsync is implemented via sleep in the backend
+    if params.fps_idling.fps_max <= 0.0:
+        params.fps_idling.fps_max = 60.0  # default cap to avoid 1000+ FPS spins
 
     # Async render loop
     try:
         while not hello_imgui.get_runner_params().app_shall_exit:
             manual_render.render()
-            await asyncio.sleep(0)  # Yield control to the event loop
+            wait_time = hello_imgui._priv_idle_frame_wait_duration_for_python_async_io()  # type: ignore
+            if wait_time > 0.0:
+                await asyncio.sleep(wait_time)
+            else:
+                await asyncio.sleep(0)
     finally:
         # Ensure cleanup happens even if an exception occurs
         manual_render.tear_down()

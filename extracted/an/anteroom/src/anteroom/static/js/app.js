@@ -640,9 +640,16 @@ const App = (() => {
 
     async function _checkStreamStatus(conversationId) {
         try {
-            const status = await api(`/api/conversations/${conversationId}/stream-status`);
+            const statusPath = _debugMode
+                ? `/api/conversations/${conversationId}/stream-status?debug=1`
+                : `/api/conversations/${conversationId}/stream-status`;
+            const status = await api(statusPath);
             if (status.active) {
-                _debugLog('stream_status', 'Active stream detected, age=' + (status.age_seconds || 0) + 's');
+                const requestId = status.debug && (status.debug.turn_id || status.debug.request_id);
+                _debugLog(
+                    'stream_status',
+                    'Active stream detected, age=' + (status.age_seconds || 0) + 's' + (requestId ? ', request=' + requestId : '')
+                );
                 Chat.setStreaming(true);
                 Chat.showThinkingFromEvent();
             }

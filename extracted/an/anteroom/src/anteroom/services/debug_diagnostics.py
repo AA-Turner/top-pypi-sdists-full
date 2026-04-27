@@ -19,12 +19,27 @@ _MAX_EVENTS = 30
 _MAX_TOOLS = 50
 _MAX_RETRIES = 20
 _MAX_PHASES = 40
+_SNAPSHOT_EVENTS = 10
 _CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 _SECRET_PATTERNS = (
     re.compile(r"sk-[A-Za-z0-9_\-]{12,}"),
     re.compile(r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*['\"]?[^'\"\s,;}]+"),
     re.compile(r"(?i)(authorization\s*:\s*bearer\s+)[A-Za-z0-9._\-]+"),
 )
+
+
+def should_log_summary(summary: dict[str, Any], *, log_successful_debug_turns: bool = False) -> bool:
+    """Return true when a terminal redacted summary should be persisted."""
+    from .diagnostics_log import should_log_summary as _should_log_summary
+
+    return _should_log_summary(summary, log_successful_debug_turns=log_successful_debug_turns)
+
+
+def normalize_summary_for_log(summary: dict[str, Any]) -> dict[str, Any]:
+    """Return a conservative redacted copy suitable for diagnostics persistence."""
+    from .diagnostics_log import normalize_summary_for_log as _normalize_summary_for_log
+
+    return _normalize_summary_for_log(summary)
 
 
 def _round_seconds(value: float | int | None) -> float | None:
@@ -40,7 +55,8 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
-def _sanitize_text(value: Any, *, max_chars: int = _MAX_TEXT) -> str:
+def sanitize_diagnostic_text(value: Any, *, max_chars: int = _MAX_TEXT) -> str:
+    """Return short single-line diagnostic text with obvious secrets removed."""
     text = str(value or "")
     text = _CONTROL_RE.sub(" ", text)
     for pattern in _SECRET_PATTERNS:
@@ -49,6 +65,10 @@ def _sanitize_text(value: Any, *, max_chars: int = _MAX_TEXT) -> str:
     if len(text) > max_chars:
         text = text[: max_chars - 1] + "..."
     return text
+
+
+def _sanitize_text(value: Any, *, max_chars: int = _MAX_TEXT) -> str:
+    return sanitize_diagnostic_text(value, max_chars=max_chars)
 
 
 def _safe_str_list(value: Any, *, max_items: int = 8) -> list[str]:
@@ -62,6 +82,21 @@ def _safe_str_list(value: Any, *, max_items: int = 8) -> list[str]:
         if len(result) >= max_items:
             break
     return result
+
+
+def _safe_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def _safe_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _argument_shape(arguments: Any) -> dict[str, Any]:
@@ -115,6 +150,10 @@ class _ToolRecord:
     output_shape: dict[str, Any] | None = None
     approval_decision: str | None = None
     hook_blocked: bool = False
+    iteration: int | None = None
+    timeout_seconds: float | None = None
+    first_response_elapsed_seconds: float | None = None
+    execution_elapsed_seconds: float | None = None
 
 
 class DebugDiagnosticsCollector:
@@ -125,6 +164,10 @@ class DebugDiagnosticsCollector:
         *,
         provider: str | None = None,
         model: str | None = None,
+        turn_id: str | None = None,
+        request_id: str | None = None,
+        interface: str | None = None,
+        conversation_id: str | None = None,
         clock: Callable[[], float] | None = None,
         wall_clock: Callable[[], str] | None = None,
     ) -> None:
@@ -134,6 +177,10 @@ class DebugDiagnosticsCollector:
         self._started_at = self._wall_clock()
         self._provider = provider or ""
         self._model = model or ""
+        self._turn_id = _sanitize_text(turn_id, max_chars=120) if turn_id else None
+        self._request_id = _sanitize_text(request_id, max_chars=120) if request_id else None
+        self._interface = _sanitize_text(interface, max_chars=40) if interface else None
+        self._conversation_id = _sanitize_text(conversation_id, max_chars=120) if conversation_id else None
         self._phases: list[_PhaseRecord] = []
         self._current_phase: _PhaseRecord | None = None
         self._tools: dict[str, _ToolRecord] = {}
@@ -205,16 +252,25 @@ class DebugDiagnosticsCollector:
                 self._stop_reason = kind
         elif kind == "error":
             self._stop_reason = _sanitize_text(data.get("code") or "error", max_chars=80)
-            self._errors.append(
-                {
-                    "code": _sanitize_text(data.get("code") or "", max_chars=80),
-                    "message": _sanitize_text(
-                        data.get("display_message") or data.get("message") or "error",
-                        max_chars=160,
-                    ),
-                    "retryable": bool(data.get("retryable", False)),
-                }
-            )
+            error = {
+                "code": _sanitize_text(data.get("code") or "", max_chars=80),
+                "message": _sanitize_text(
+                    data.get("display_message") or data.get("message") or "error",
+                    max_chars=160,
+                ),
+                "retryable": bool(data.get("retryable", False)),
+            }
+            for key in ("elapsed_seconds", "timeout_seconds"):
+                if key in data:
+                    error[key] = _round_seconds(data.get(key))
+            for key in ("timeout_type", "error_type", "provider", "model", "iteration"):
+                if key in data:
+                    value = (
+                        _safe_int(data.get(key)) if key == "iteration" else _sanitize_text(data.get(key), max_chars=120)
+                    )
+                    if value is not None and value != "":
+                        error[key] = value
+            self._errors.append(error)
         elif kind == "done":
             if self._stop_reason == "running":
                 self._stop_reason = _sanitize_text(data.get("stop_reason") or "completed", max_chars=80)
@@ -234,7 +290,17 @@ class DebugDiagnosticsCollector:
             self._stop_reason = _sanitize_text(stop_reason, max_chars=80)
 
         return {
-            "version": 1,
+            "version": 2,
+            "turn_id": self._turn_id,
+            "request_id": self._request_id or self._turn_id,
+            "interface": self._interface,
+            "conversation_id": self._conversation_id,
+            "correlation": {
+                "turn_id": self._turn_id,
+                "request_id": self._request_id or self._turn_id,
+                "interface": self._interface,
+                "conversation_id": self._conversation_id,
+            },
             "started_at": self._started_at,
             "ended_at": self._ended_at,
             "total_duration_seconds": _round_seconds(self._end - self._start),
@@ -263,6 +329,53 @@ class DebugDiagnosticsCollector:
             "counters": dict(self._counters),
             "redaction": {
                 "raw_tokens": "omitted",
+                "raw_prompts": "omitted",
+                "raw_tool_arguments": "omitted",
+                "raw_tool_output": "omitted",
+                "raw_messages": "omitted",
+            },
+        }
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return a redacted live snapshot without finalizing the turn."""
+        now = self._clock()
+        current_phase = None
+        if self._current_phase is not None:
+            current_phase = {
+                "phase": self._current_phase.phase,
+                "age_seconds": _round_seconds(now - self._current_phase.started_at),
+                **self._current_phase.data,
+            }
+        return {
+            "version": 2,
+            "turn_id": self._turn_id,
+            "request_id": self._request_id or self._turn_id,
+            "interface": self._interface,
+            "conversation_id": self._conversation_id,
+            "correlation": {
+                "turn_id": self._turn_id,
+                "request_id": self._request_id or self._turn_id,
+                "interface": self._interface,
+                "conversation_id": self._conversation_id,
+            },
+            "started_at": self._started_at,
+            "age_seconds": _round_seconds(now - self._start),
+            "stop_reason": self._stop_reason,
+            "current_phase": current_phase,
+            "model": {
+                "provider": self._provider or None,
+                "name": self._usage.get("model") or self._model or None,
+            },
+            "active_tools": [
+                self._serialize_tool(tool, now=now) for tool in self._tools.values() if tool.status == "running"
+            ][:8],
+            "recent_events": self._runtime_events[-_SNAPSHOT_EVENTS:],
+            "retries": self._retries[-5:],
+            "errors": self._errors[-3:],
+            "counters": dict(self._counters),
+            "redaction": {
+                "raw_tokens": "omitted",
+                "raw_prompts": "omitted",
                 "raw_tool_arguments": "omitted",
                 "raw_tool_output": "omitted",
                 "raw_messages": "omitted",
@@ -281,19 +394,56 @@ class DebugDiagnosticsCollector:
         for key in (
             "attempt",
             "max_attempts",
+            "iteration",
             "elapsed_seconds",
             "connect_elapsed_seconds",
             "first_response_elapsed_seconds",
             "timeout_seconds",
+            "execution_elapsed_seconds",
             "tool_count",
+            "estimated_tokens",
+            "message_tokens",
+            "system_prompt_tokens",
+            "tool_schema_tokens",
+            "token_threshold",
+            "message_count",
+            "message_threshold",
+            "new_message_count",
+            "messages_compacted",
+            "tail_preserved",
+            "dropped_messages",
+            "dropped_groups",
+            "attempts",
+            "retries",
+            "modified_count",
+            "bytes_saved",
+            "keep_recent_groups",
+            "compact_chars",
+            "preserve_tail",
+            "summary_retry_drop_groups",
         ):
             if key in data:
                 value = _round_seconds(data.get(key)) if key.endswith("seconds") else data.get(key)
                 payload[key] = value
         if "reason" in data:
             payload["reason"] = _sanitize_text(data.get("reason"), max_chars=120)
+        if "strategy" in data:
+            payload["strategy"] = _sanitize_text(data.get("strategy"), max_chars=120)
+        if "timeout_type" in data:
+            payload["timeout_type"] = _sanitize_text(data.get("timeout_type"), max_chars=80)
+        if "provider" in data:
+            payload["provider"] = _sanitize_text(data.get("provider"), max_chars=80)
+        if "model" in data:
+            payload["model"] = _sanitize_text(data.get("model"), max_chars=120)
+        if "reasons" in data:
+            payload["reasons"] = _safe_str_list(data.get("reasons"))
         if "tool_names" in data:
             payload["tool_names"] = _safe_str_list(data.get("tool_names"))
+        for key in ("in_memory_only", "no_op", "cancelled", "stale_eviction"):
+            if key in data:
+                value = _safe_bool(data.get(key))
+                if value is not None:
+                    payload[key] = value
         return payload
 
     def _start_tool(self, data: dict[str, Any], now: float) -> None:
@@ -303,6 +453,9 @@ class DebugDiagnosticsCollector:
             name=_sanitize_text(data.get("tool_name") or "tool", max_chars=120),
             started_at=now,
             argument_shape=_argument_shape(data.get("arguments")),
+            iteration=_safe_int(data.get("iteration")),
+            timeout_seconds=_round_seconds(data.get("timeout_seconds")),
+            first_response_elapsed_seconds=_round_seconds(data.get("first_response_elapsed_seconds")),
         )
         self._tools[tool_id] = record
         self._tool_order.append(tool_id)
@@ -322,6 +475,10 @@ class DebugDiagnosticsCollector:
             self._tool_order.append(record.id)
         record.status = _sanitize_text(data.get("status") or "unknown", max_chars=80)
         record.duration_seconds = max(0.0, now - record.started_at)
+        if "execution_elapsed_seconds" in data:
+            record.execution_elapsed_seconds = _round_seconds(data.get("execution_elapsed_seconds"))
+        if "timeout_seconds" in data:
+            record.timeout_seconds = _round_seconds(data.get("timeout_seconds"))
         output = data.get("output")
         record.output_shape = _output_shape(output)
         if isinstance(output, dict):
@@ -339,6 +496,13 @@ class DebugDiagnosticsCollector:
         }
         if "elapsed_seconds" in data:
             retry["elapsed_seconds"] = _round_seconds(data.get("elapsed_seconds"))
+        if "timeout_seconds" in data:
+            retry["timeout_seconds"] = _round_seconds(data.get("timeout_seconds"))
+        for key in ("timeout_type", "error_type", "provider", "model"):
+            if key in data:
+                value = _sanitize_text(data.get(key), max_chars=120)
+                if value:
+                    retry[key] = value
         if len(self._retries) < _MAX_RETRIES:
             self._retries.append(retry)
 
@@ -358,7 +522,13 @@ class DebugDiagnosticsCollector:
                 "action": _sanitize_text(data.get("action"), max_chars=40),
             }
         if kind == "budget_warning":
-            return {"message": _sanitize_text(data.get("message"), max_chars=160)}
+            return {
+                "message": _sanitize_text(data.get("message"), max_chars=160),
+                "label": _sanitize_text(data.get("label"), max_chars=80),
+                "used": data.get("used"),
+                "limit": data.get("limit"),
+                "percent": data.get("percent"),
+            }
         if kind == "workflow_pause":
             return {
                 "tool_call_id": _sanitize_text(data.get("tool_call_id"), max_chars=120),
@@ -368,23 +538,40 @@ class DebugDiagnosticsCollector:
         if kind == "auto_plan_suggest":
             return {"tool_calls": data.get("tool_calls")}
         if kind == "compaction":
-            return {
-                "reason": _sanitize_text(data.get("reason"), max_chars=120),
-                "estimated_tokens": data.get("estimated_tokens"),
-                "message_count": data.get("message_count"),
-            }
+            payload = self._phase_payload(data)
+            if "new_message_count" in data and "message_count" in data:
+                try:
+                    payload["messages_compacted"] = max(0, int(data["message_count"]) - int(data["new_message_count"]))
+                except (TypeError, ValueError):
+                    pass
+            return payload
         if kind == "cancelled":
-            return {"reason": _sanitize_text(data.get("reason"), max_chars=120)}
+            payload = {"reason": _sanitize_text(data.get("reason"), max_chars=120)}
+            for key in ("elapsed_seconds", "iteration"):
+                if key in data:
+                    payload[key] = _round_seconds(data.get(key)) if key.endswith("seconds") else data.get(key)
+            return payload
         return {}
 
-    def _serialize_tool(self, tool: _ToolRecord) -> dict[str, Any]:
+    def _serialize_tool(self, tool: _ToolRecord, *, now: float | None = None) -> dict[str, Any]:
+        duration = tool.duration_seconds
+        if duration is None and now is not None:
+            duration = max(0.0, now - tool.started_at)
         payload = {
             "id": tool.id,
             "name": tool.name,
             "status": tool.status,
-            "duration_seconds": _round_seconds(tool.duration_seconds),
+            "duration_seconds": _round_seconds(duration),
             "argument_shape": tool.argument_shape,
         }
+        if tool.iteration is not None:
+            payload["iteration"] = tool.iteration
+        if tool.timeout_seconds is not None:
+            payload["timeout_seconds"] = _round_seconds(tool.timeout_seconds)
+        if tool.first_response_elapsed_seconds is not None:
+            payload["first_response_elapsed_seconds"] = _round_seconds(tool.first_response_elapsed_seconds)
+        if tool.execution_elapsed_seconds is not None:
+            payload["execution_elapsed_seconds"] = _round_seconds(tool.execution_elapsed_seconds)
         if tool.output_shape is not None:
             payload["output_shape"] = tool.output_shape
         if tool.approval_decision:

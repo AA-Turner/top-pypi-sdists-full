@@ -15,7 +15,9 @@ from anteroom.routers.config_api import (
     _get_active_space,
     _get_working_dir,
     _persist_config,
+    explain_config_field,
     get_config_field,
+    get_config_sources,
     list_config_fields,
     reset_config_field,
     set_config_field,
@@ -250,18 +252,79 @@ class TestListConfigFields:
     @pytest.mark.asyncio
     async def test_returns_field_list(self) -> None:
         request = _make_request()
-        mock_field = MagicMock()
-        mock_field.dot_path = "ai.model"
-        mock_field.field_type = "str"
-        mock_field.default = "gpt-4o-mini"
-        mock_field.allowed_values = None
-        mock_field.min_val = None
-        mock_field.max_val = None
+        result = await list_config_fields(request)
+        paths = [item["dot_path"] for item in result]
+        assert "ai.model" in paths
 
-        with patch("anteroom.services.config_editor.list_settable_fields", return_value=[mock_field]):
-            result = await list_config_fields(request)
-        assert len(result) == 1
-        assert result[0]["dot_path"] == "ai.model"
+    @pytest.mark.asyncio
+    async def test_query_filters_registry_results(self) -> None:
+        request = _make_request()
+        result = await list_config_fields(request, query="approval")
+        paths = [item["dot_path"] for item in result]
+        assert "safety.approval_mode" in paths
+
+    @pytest.mark.asyncio
+    async def test_include_current_redacts_sensitive_values(self) -> None:
+        request = _make_request()
+        request.app.state.config = {"ai": {"api_key": "secret"}}
+
+        with patch("anteroom.routers.config_api._build_api_context", return_value=({}, [])):
+            result = await list_config_fields(request, query="ai.api_key", include_current=True, include_sensitive=True)
+
+        assert result[0]["sensitive"] is True
+        assert result[0]["current"]["effective_value"] == "***"
+
+
+# ---------------------------------------------------------------------------
+# config explanation endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestConfigExplanationEndpoints:
+    @pytest.mark.asyncio
+    async def test_explain_config_field_returns_redacted_payload(self) -> None:
+        request = _make_request()
+        mock_explanation = MagicMock()
+        mock_explanation.to_dict.return_value = {
+            "dot_path": "ai.api_key",
+            "effective_value": "***",
+            "is_sensitive": True,
+        }
+
+        with (
+            patch("anteroom.services.config_explanation.build_explanation_context", return_value=MagicMock()),
+            patch("anteroom.services.config_explanation.explain_setting", return_value=mock_explanation),
+        ):
+            result = await explain_config_field("ai.api_key", request)
+
+        assert result["effective_value"] == "***"
+        assert result["is_sensitive"] is True
+
+    @pytest.mark.asyncio
+    async def test_explain_config_field_invalid_path_returns_400(self) -> None:
+        request = _make_request()
+
+        with (
+            patch("anteroom.services.config_explanation.build_explanation_context", return_value=MagicMock()),
+            patch("anteroom.services.config_explanation.explain_setting", side_effect=ValueError("bad path")),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await explain_config_field("", request)
+
+        assert exc_info.value.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_get_config_sources_returns_structured_sources(self) -> None:
+        request = _make_request(enforced_fields=["ai.model"])
+        payload = {"layers": [], "enforced_fields": ["ai.model"], "pack_contributions": []}
+
+        with (
+            patch("anteroom.services.config_explanation.build_explanation_context", return_value=MagicMock()),
+            patch("anteroom.services.config_explanation.list_sources", return_value=payload),
+        ):
+            result = await get_config_sources(request)
+
+        assert result["enforced_fields"] == ["ai.model"]
 
 
 # ---------------------------------------------------------------------------

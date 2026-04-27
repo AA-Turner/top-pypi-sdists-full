@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import sqlite3
+import uuid
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -9,10 +13,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from anteroom.services.feedback import (
+    _apply_bundle_size_limit,
     _dispatch_command_reporter,
     _dispatch_webhook_reporter,
     collect_bundle,
     redact_history,
+    sanitize_turn_diagnostics,
     submit_feedback,
 )
 
@@ -136,6 +142,29 @@ class TestCollectBundle:
         api_key_value = bundle.get("config", {}).get("ai", {}).get("api_key", "")
         assert api_key_value == "****"
 
+    def test_space_manifest_omits_local_paths_and_instruction_text(self) -> None:
+        config = _make_config()
+        bundle = collect_bundle(
+            config,
+            "test",
+            active_space={
+                "id": "space-1",
+                "name": "Main",
+                "source_file": "/private/source-secret.yaml",
+                "instructions": "internal prompt text",
+            },
+        )
+
+        rendered = json.dumps(bundle["spaces"])
+        assert bundle["spaces"]["active"] == {
+            "id": "space-1",
+            "name": "Main",
+            "pack_count": 0,
+            "source_count": 0,
+        }
+        assert "/private/source-secret.yaml" not in rendered
+        assert "internal prompt text" not in rendered
+
     def test_truncates_to_max_bundle_bytes(self) -> None:
         config = _make_config(max_bundle_bytes=500)
         large_messages = [{"role": "user", "content": "x" * 500} for _ in range(20)]
@@ -148,6 +177,163 @@ class TestCollectBundle:
         bundle = collect_bundle(config, "test", conversation_messages=messages, max_bundle_bytes=100)
         assert "conversation_history" not in bundle
         assert bundle["history_included"] is False
+
+    def test_turn_diagnostics_are_allowlisted_and_redacted(self) -> None:
+        config = _make_config()
+        bundle = collect_bundle(
+            config,
+            "test",
+            turn_diagnostics={
+                "stop_reason": "completed",
+                "raw_prompt": "do not send this",
+                "model": {"provider": "openai", "name": "gpt-test", "api_key": "sk-123456789012SECRET"},
+                "tools": [
+                    {
+                        "name": "bash",
+                        "status": "success",
+                        "argument_shape": {"type": "object", "keys": ["command"]},
+                        "raw_arguments": {"command": "cat secret.txt"},
+                    }
+                ],
+                "errors": [{"code": "api_key=supersecret", "message": "Authorization: Bearer abc123"}],
+            },
+        )
+
+        rendered = json.dumps(bundle)
+        assert bundle["bundle_manifest"]["turn_diagnostics_included"] is True
+        assert "raw_prompt" not in rendered
+        assert "raw_arguments" not in rendered
+        assert "supersecret" not in rendered
+        assert "Bearer abc123" not in rendered
+        assert "[redacted]" in rendered
+
+    def test_sanitize_turn_diagnostics_handles_malformed_values_and_limits_lists(self) -> None:
+        summary = {
+            "unknown": "drop me",
+            "tools": [{"name": f"tool-{i}", "raw_arguments": "drop me"} for i in range(60)],
+            "usage": {"total_tokens": 10, "secret": "drop me"},
+            "runtime_events": [{"kind": "error", "message": "api_key=supersecret"}],
+        }
+
+        sanitized = sanitize_turn_diagnostics(summary)
+
+        assert sanitized is not None
+        assert "unknown" not in sanitized
+        assert len(sanitized["tools"]) == 50
+        assert "raw_arguments" not in sanitized["tools"][0]
+        assert sanitized["usage"] == {"total_tokens": 10}
+        assert "supersecret" not in json.dumps(sanitized)
+        assert sanitize_turn_diagnostics(None) is None
+
+    def test_pack_artifact_attachment_manifests_exclude_content_values_and_paths(self, tmp_path: Any) -> None:
+        from anteroom.db import init_db
+        from anteroom.services.artifact_storage import create_artifact
+
+        db = init_db(tmp_path / "test.db")
+        now = "2026-04-26T00:00:00Z"
+        try:
+            db.execute(
+                "INSERT INTO packs (id, name, namespace, version, description, source_path, installed_at, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                ("pack-1", "diagnostics", "team", "1.2.3", "desc", "/private/pack-secret", now, now),
+            )
+            skill = create_artifact(
+                db,
+                "@team/skill/helper",
+                "skill",
+                "team",
+                "helper",
+                "artifact-secret-content",
+                metadata={"safe_key": "metadata-secret-value"},
+            )
+            overlay = create_artifact(
+                db,
+                "@team/config_overlay/defaults",
+                "config_overlay",
+                "team",
+                "defaults",
+                "ai:\n  api_key: overlay-secret-value\n  request_timeout: 30\n",
+            )
+            db.execute("INSERT INTO pack_artifacts (pack_id, artifact_id) VALUES (?, ?)", ("pack-1", skill["id"]))
+            db.execute("INSERT INTO pack_artifacts (pack_id, artifact_id) VALUES (?, ?)", ("pack-1", overlay["id"]))
+            db.execute(
+                "INSERT INTO pack_attachments (id, pack_id, project_path, space_id, scope, priority, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                ("att-1", "pack-1", None, None, "global", 20, now),
+            )
+            db.execute(
+                "INSERT INTO pack_attachments (id, pack_id, project_path, space_id, scope, priority, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                ("att-2", "pack-1", str(tmp_path), None, "project", 10, now),
+            )
+            db.execute(
+                "INSERT INTO conversations (id, title, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                ("conv-1", "Feedback", "chat", now, now),
+            )
+            db.execute(
+                "INSERT INTO messages (id, conversation_id, role, content, created_at, position)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                ("msg-1", "conv-1", "user", "hello", now, 1),
+            )
+            db.execute(
+                "INSERT INTO attachments (id, message_id, filename, mime_type, size_bytes, storage_path)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                ("upload-1", "msg-1", "file-secret.pdf", "application/pdf", 1234, "attachments/secret/file.pdf"),
+            )
+            db.commit()
+
+            bundle = collect_bundle(
+                _make_config(),
+                "test",
+                db=db,
+                conversation_id="conv-1",
+                project_path=str(tmp_path / "child"),
+                max_bundle_bytes=1_000_000,
+            )
+        finally:
+            db.close()
+
+        assert bundle["packs"]["active_count"] == 1
+        assert len(bundle["packs"]["active"][0]["attachments"]) == 2
+        assert bundle["artifacts"]["active_count"] == 1
+        assert bundle["artifacts"]["config_overlay_count"] == 1
+        assert bundle["artifacts"]["config_overlays"][0]["keys"] == ["ai.api_key", "ai.request_timeout"]
+        assert bundle["attachments"]["count"] == 1
+        assert bundle["attachments"]["recent"] == [{"mime_type": "application/pdf", "size_bytes": 1234}]
+
+        rendered = json.dumps(bundle)
+        assert "artifact-secret-content" not in rendered
+        assert "metadata-secret-value" not in rendered
+        assert "/private/pack-secret" not in rendered
+        assert "file-secret.pdf" not in rendered
+        assert "attachments/secret/file.pdf" not in rendered
+        assert "overlay-secret-value" not in rendered
+        assert "content_hash" not in rendered
+
+    def test_bundle_size_limit_drops_detail_sections_and_refreshes_manifest(self) -> None:
+        bundle: dict[str, Any] = {
+            "schema_version": "1",
+            "history_included": True,
+            "conversation_history": [{"role": "user", "content": "x" * 200}],
+            "turn_diagnostics": {"runtime_events": [{"message": "x" * 200}]},
+            "artifacts": {"active_count": 1, "config_overlay_count": 0, "active": [{"fqn": "x" * 200}]},
+            "packs": {"active_count": 1, "installed_count": 1, "active": [{"name": "x" * 200}]},
+            "attachments": {"count": 1, "recent": [{"mime_type": "text/plain", "size_bytes": 1}]},
+            "spaces": {"active": {"name": "Main"}},
+            "tools": {"available": ["bash"]},
+            "bundle_manifest": {},
+        }
+
+        _apply_bundle_size_limit(bundle, 700)
+
+        assert bundle["history_included"] is False
+        assert "conversation_history" not in bundle
+        assert "turn_diagnostics" not in bundle
+        assert bundle["artifacts"]["active"] == []
+        assert bundle["packs"]["active"] == []
+        assert bundle["attachments"]["recent"] == []
+        assert bundle["bundle_manifest"]["turn_diagnostics_included"] is False
+        assert "bundle_manifest" not in bundle["bundle_manifest"]["sections"]
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +361,13 @@ class TestRedactHistory:
         result = redact_history(msgs, max_messages=10)
         assert len(result[0]["content"]) <= 520
         assert "(truncated)" in result[0]["content"]
+
+    def test_sanitizes_secret_patterns_in_content(self) -> None:
+        msgs = [{"role": "user", "content": "api_key=supersecret Authorization: Bearer abc123"}]
+        result = redact_history(msgs, max_messages=10)
+        assert "supersecret" not in result[0]["content"]
+        assert "Bearer abc123" not in result[0]["content"]
+        assert "[redacted]" in result[0]["content"]
 
 
 # ---------------------------------------------------------------------------
@@ -292,6 +485,54 @@ class TestSubmitFeedback:
         # DB row updated to sent
         update_calls = [str(c) for c in db.execute.call_args_list]
         assert any("sent" in c for c in update_calls)
+
+    @pytest.mark.asyncio
+    async def test_no_reporter_rows_are_committed(self, tmp_path: Any) -> None:
+        from anteroom.db import init_db
+
+        db_path = tmp_path / "test.db"
+        db = init_db(db_path)
+        config = _make_config()
+        config.app.data_dir = str(tmp_path)
+        try:
+            result = await submit_feedback("test bug", config, db)
+
+            with sqlite3.connect(db_path) as other:
+                row = other.execute("SELECT status, description FROM feedback_reports").fetchone()
+        finally:
+            db.close()
+
+        assert result["status"] == "saved_locally"
+        assert row == ("sent", "test bug")
+
+    @pytest.mark.asyncio
+    async def test_no_reporter_local_files_are_unique_with_same_timestamp(self, tmp_path: Any) -> None:
+        class FixedDatetime(datetime):
+            @classmethod
+            def now(cls, tz: Any = None) -> datetime:
+                return cls(2026, 4, 26, 12, 0, 0, tzinfo=tz or timezone.utc)
+
+        config = _make_config()
+        config.app.data_dir = str(tmp_path)
+        db = _make_db()
+
+        with (
+            patch("anteroom.services.feedback.datetime", FixedDatetime),
+            patch(
+                "anteroom.services.feedback.uuid.uuid4",
+                side_effect=[
+                    uuid.UUID("00000000-0000-0000-0000-000000000001"),
+                    uuid.UUID("00000000-0000-0000-0000-000000000002"),
+                ],
+            ),
+        ):
+            first = await submit_feedback("first bug", config, db)
+            second = await submit_feedback("second bug", config, db)
+
+        assert first["path"] != second["path"]
+        assert first["path"].endswith("feedback-20260426T120000Z-00000000-0000-0000-0000-000000000001.json")
+        assert second["path"].endswith("feedback-20260426T120000Z-00000000-0000-0000-0000-000000000002.json")
+        assert len(list(tmp_path.glob("feedback-*.json"))) == 2
 
     @pytest.mark.asyncio
     async def test_empty_description_returns_failed(self, tmp_path: Any) -> None:

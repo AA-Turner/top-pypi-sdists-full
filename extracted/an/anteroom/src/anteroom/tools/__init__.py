@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Callable, Coroutine
 
 from ..config import SafetyConfig
+from ..services.diagnostic_context import log_debug, shape_metadata
 from ..services.rule_enforcer import RuleEnforcer
 from ..services.tool_rate_limit import ToolRateLimiter
 from .safety import SafetyVerdict, check_bash_command, check_bypass_immune_path, check_write_path
@@ -323,8 +325,26 @@ class ToolRegistry:
         _extra_env: dict[str, str] | None = None,
         _extra_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        started_at = time.monotonic()
+        log_debug(
+            logger,
+            "tool.dispatch.start",
+            lifecycle="start",
+            phase="tool_exec",
+            tool_name=name,
+            argument_shape=lambda: shape_metadata(arguments),
+        )
         handler = self._handlers.get(name)
         if not handler:
+            log_debug(
+                logger,
+                "tool.dispatch.failure",
+                lifecycle="failure",
+                phase="tool_exec",
+                tool_name=name,
+                error_class="ValueError",
+                _started_at=started_at,
+            )
             raise ValueError(f"Unknown built-in tool: {name}")
 
         verdict = self.check_safety(name, arguments, rule_enforcer_override=rule_enforcer_override)
@@ -333,6 +353,16 @@ class ToolRegistry:
 
         # Static hard deny blocks immediately — hooks cannot override this.
         if verdict and verdict.hard_denied:
+            log_debug(
+                logger,
+                "tool.dispatch.failure",
+                lifecycle="failure",
+                phase="tool_exec",
+                tool_name=name,
+                status="hard_denied",
+                approval_decision="hard_denied",
+                _started_at=started_at,
+            )
             logger.warning("Tool hard-denied by config: %s — %s", name, verdict.reason)
             return {
                 "error": verdict.reason,
@@ -368,6 +398,16 @@ class ToolRegistry:
             )
             _hook_bucket = _classify_hook(_pre_decision)
             if _hook_bucket == "deny":
+                log_debug(
+                    logger,
+                    "tool.dispatch.failure",
+                    lifecycle="failure",
+                    phase="tool_exec",
+                    tool_name=name,
+                    status="hook_denied",
+                    approval_decision="hook_denied",
+                    _started_at=started_at,
+                )
                 return {
                     "error": _pre_decision.message or f"Tool '{name}' blocked by hook",
                     "hook_blocked": True,
@@ -406,6 +446,16 @@ class ToolRegistry:
                 except Exception:
                     logger.warning("Failed to emit hook.approval_resolved for hook %r", _pre_decision.hook_id)
                 if not _hook_approved:
+                    log_debug(
+                        logger,
+                        "tool.dispatch.failure",
+                        lifecycle="failure",
+                        phase="tool_exec",
+                        tool_name=name,
+                        status="hook_escalated_denied",
+                        approval_decision="hook_escalated_denied",
+                        _started_at=started_at,
+                    )
                     return {
                         "error": "Operation denied by user",
                         "exit_code": -1,
@@ -423,6 +473,16 @@ class ToolRegistry:
                     logger.info("Hard-block safety net (no approval channel): %s", verdict.hard_block_description)
                 else:
                     logger.warning("Safety gate blocked (no approval channel): %s", verdict.reason)
+                log_debug(
+                    logger,
+                    "tool.dispatch.failure",
+                    lifecycle="failure",
+                    phase="tool_exec",
+                    tool_name=name,
+                    status="approval_unavailable",
+                    approval_decision="denied",
+                    _started_at=started_at,
+                )
                 return {
                     "error": "Operation blocked: no approval channel available",
                     "safety_blocked": True,
@@ -430,6 +490,16 @@ class ToolRegistry:
                 }
             confirmed = await callback(verdict)
             if not confirmed:
+                log_debug(
+                    logger,
+                    "tool.dispatch.failure",
+                    lifecycle="failure",
+                    phase="tool_exec",
+                    tool_name=name,
+                    status="denied",
+                    approval_decision="denied",
+                    _started_at=started_at,
+                )
                 return {"error": "Operation denied by user", "exit_code": -1, "_approval_decision": "denied"}
             if approval_decision == "auto":
                 approval_decision = "allowed_once"
@@ -441,6 +511,16 @@ class ToolRegistry:
             rl_verdict = self._rate_limiter.check(name)
             if rl_verdict and rl_verdict.exceeded:
                 if self._rate_limiter.config.action == "block":
+                    log_debug(
+                        logger,
+                        "tool.dispatch.failure",
+                        lifecycle="failure",
+                        phase="tool_exec",
+                        tool_name=name,
+                        status="rate_limited",
+                        approval_decision="rate_limited",
+                        _started_at=started_at,
+                    )
                     logger.warning("Tool rate-limited: %s — %s", name, rl_verdict.reason)
                     return {
                         "error": rl_verdict.reason,
@@ -489,7 +569,19 @@ class ToolRegistry:
             extra_kwargs["_background"] = arguments.pop("background")
         if name == "run_agent" and "detach" in arguments:
             extra_kwargs["_detach"] = arguments.pop("detach")
-        result = await handler(**arguments, **extra_kwargs)
+        try:
+            result = await handler(**arguments, **extra_kwargs)
+        except Exception as exc:
+            log_debug(
+                logger,
+                "tool.dispatch.failure",
+                lifecycle="failure",
+                phase="tool_exec",
+                tool_name=name,
+                error_class=type(exc).__name__,
+                _started_at=started_at,
+            )
+            raise
 
         # Post-tool hooks: may observe output and deny continuation (#1271).
         if _hooks_config is not None and _hooks_config.post_tool:
@@ -508,6 +600,17 @@ class ToolRegistry:
                 ),
             )
             if _post_decision.outcome == "deny":
+                log_debug(
+                    logger,
+                    "tool.dispatch.failure",
+                    lifecycle="failure",
+                    phase="tool_exec",
+                    tool_name=name,
+                    status="post_hook_denied",
+                    approval_decision="post_hook_denied",
+                    output_shape=lambda: shape_metadata(result),
+                    _started_at=started_at,
+                )
                 return {
                     "error": _post_decision.message or f"Tool '{name}' output blocked by hook",
                     "hook_blocked": True,
@@ -523,6 +626,17 @@ class ToolRegistry:
         if self._rate_limiter:
             self._rate_limiter.record_call(success="error" not in result)
 
+        log_debug(
+            logger,
+            "tool.dispatch.success",
+            lifecycle="success",
+            phase="tool_exec",
+            tool_name=name,
+            status="error" if "error" in result else "success",
+            approval_decision=result.get("_approval_decision"),
+            output_shape=lambda: shape_metadata(result),
+            _started_at=started_at,
+        )
         return result
 
     def list_tools(self) -> list[str]:

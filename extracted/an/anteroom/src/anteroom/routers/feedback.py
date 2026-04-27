@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["feedback"])
 
 
+def _is_json_content_type(content_type: str) -> bool:
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    return media_type == "application/json"
+
+
 class FeedbackRequest(BaseModel):
     description: str = Field(..., min_length=1, max_length=4096)
     include_history: bool = False
@@ -49,7 +54,7 @@ def _public_feedback_result(result: dict[str, Any]) -> dict[str, Any]:
 @router.post("/feedback")
 async def submit_feedback_endpoint(body: FeedbackRequest, request: Request) -> dict[str, Any]:
     ct = request.headers.get("content-type", "")
-    if not ct.startswith("application/json"):
+    if not _is_json_content_type(ct):
         raise HTTPException(status_code=415, detail="Content-Type must be application/json")
 
     config = request.app.state.config
@@ -69,13 +74,20 @@ async def submit_feedback_endpoint(body: FeedbackRequest, request: Request) -> d
 
     active_space: dict[str, Any] | None = None
     space_id = body.space_id
-    if not space_id and conversation:
-        space_id = conversation.get("space_id")
+    conversation_space_id = conversation.get("space_id") if conversation else None
+    if space_id and conversation_space_id and space_id != conversation_space_id:
+        raise HTTPException(status_code=400, detail="space_id does not match conversation")
+    if not space_id and conversation_space_id:
+        space_id = conversation_space_id
+    project_path: str | None = None
     if space_id:
         try:
-            from ..services.space_storage import get_space
+            from ..services.space_storage import get_space, get_space_local_dirs
 
             active_space = get_space(db, space_id)
+            local_dirs = get_space_local_dirs(db, space_id)
+            if local_dirs:
+                project_path = local_dirs[0]
         except Exception:
             pass
 
@@ -95,14 +107,23 @@ async def submit_feedback_endpoint(body: FeedbackRequest, request: Request) -> d
 
     from ..services.feedback import submit_feedback
 
+    turn_diagnostics = None
+    if body.conversation_id:
+        cache = getattr(request.app.state, "feedback_turn_diagnostics", {})
+        turn_diagnostics = cache.get(body.conversation_id) if hasattr(cache, "get") else None
+
     result = await submit_feedback(
         body.description,
         config,
         db,
         conversation_id=body.conversation_id,
+        interface="web",
+        space_id=space_id,
+        project_path=project_path,
         conversation_messages=conversation_messages,
         active_space=active_space,
         tool_registry=tool_registry,
         mcp_manager=mcp_manager,
+        turn_diagnostics=turn_diagnostics,
     )
     return _public_feedback_result(result)

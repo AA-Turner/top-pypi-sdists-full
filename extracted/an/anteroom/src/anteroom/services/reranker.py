@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from importlib import import_module
 from typing import Any
 
 from ..config import AppConfig
@@ -36,10 +37,16 @@ class LocalRerankerService:
         if self._cross_encoder is not None:
             return self._cross_encoder
         try:
-            from fastembed import TextCrossEncoder
+            fastembed = import_module("fastembed")
+            text_cross_encoder = getattr(fastembed, "TextCrossEncoder")
         except ImportError:
             raise EmbeddingPermanentError(
-                "fastembed is not installed. Install it with: pip install anteroom[embeddings]"
+                "fastembed is not installed. Reinstall or upgrade Anteroom: pip install --upgrade anteroom"
+            )
+        except AttributeError:
+            raise EmbeddingPermanentError(
+                "fastembed is installed but does not provide TextCrossEncoder. "
+                "Reinstall or upgrade Anteroom: pip install --upgrade anteroom"
             )
         # Disable xet downloader to prevent writes to HF_HOME (#865)
         os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
@@ -50,7 +57,7 @@ class LocalRerankerService:
                 kwargs["cache_dir"] = self._cache_dir
             if self._local_files_only:
                 kwargs["local_files_only"] = True
-            self._cross_encoder = TextCrossEncoder(**kwargs)
+            self._cross_encoder = text_cross_encoder(**kwargs)
         except Exception as e:
             error_str = str(e).lower()
             if any(hint in error_str for hint in ("connection", "timeout", "resolve", "ssl", "network", "urlopen")):
@@ -106,8 +113,9 @@ class LocalRerankerService:
 def create_reranker_service(config: AppConfig) -> LocalRerankerService | None:
     """Factory: create a reranker service from app config. Returns None if disabled.
 
-    When ``enabled`` is ``None`` (auto-detect), the service is still created so
-    callers can probe it. When ``enabled`` is ``False``, returns ``None``.
+    When ``enabled`` is ``None`` (auto-detect), the service is still created.
+    API providers should be probed before use; local providers are expected to
+    load lazily on first rerank. When ``enabled`` is ``False``, returns ``None``.
     """
     if config.reranker.enabled is False:
         return None
@@ -119,8 +127,9 @@ def create_reranker_service(config: AppConfig) -> LocalRerankerService | None:
 
     explicit_cache = config.reranker.cache_dir
     cache_dir = explicit_cache or str(config.app.data_dir / "models")
+    auto_detect = config.reranker.enabled is None
     return LocalRerankerService(
         model_name=config.reranker.model,
         cache_dir=cache_dir,
-        local_files_only=bool(explicit_cache),
+        local_files_only=auto_detect or bool(explicit_cache),
     )

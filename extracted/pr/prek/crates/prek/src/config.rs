@@ -36,7 +36,11 @@ impl GlobPatterns {
         Ok(Self { patterns, set })
     }
 
-    fn is_match(&self, value: &str) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.patterns.is_empty()
+    }
+
+    pub(crate) fn is_match(&self, value: &str) -> bool {
         self.set.is_match(Path::new(value))
     }
 }
@@ -528,6 +532,19 @@ impl<'de> Deserialize<'de> for PassFilenames {
     }
 }
 
+/// A predefined shell adapter used to run hook entries as shell source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", schemars(rename_all = "lowercase"))]
+pub(crate) enum Shell {
+    Sh,
+    Bash,
+    Pwsh,
+    Powershell,
+    Cmd,
+}
+
 /// Common hook options.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -571,6 +588,8 @@ pub(crate) struct HookOptions {
     pub language_version: Option<String>,
     /// Write the output of the hook to a file when the hook fails or verbose is enabled.
     pub log_file: Option<String>,
+    /// Run the hook entry through a predefined shell adapter.
+    pub shell: Option<Shell>,
     /// This hook will execute using a single process instead of in parallel.
     /// Default is false.
     pub require_serial: Option<bool>,
@@ -616,6 +635,7 @@ impl HookOptions {
             description,
             language_version,
             log_file,
+            shell,
             require_serial,
             stages,
             verbose,
@@ -853,6 +873,22 @@ pub(crate) struct RemoteRepo {
     _unused_keys: BTreeMap<String, serde_json::Value>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct RemoteRepoKey<'a> {
+    repo: &'a str,
+    rev: &'a str,
+}
+
+impl<'a> RemoteRepoKey<'a> {
+    pub(crate) fn repo(self) -> &'a str {
+        self.repo
+    }
+
+    pub(crate) fn rev(self) -> &'a str {
+        self.rev
+    }
+}
+
 impl RemoteRepo {
     pub fn new(repo: String, rev: String, hooks: Vec<RemoteHook>) -> Self {
         Self {
@@ -862,20 +898,12 @@ impl RemoteRepo {
             _unused_keys: BTreeMap::new(),
         }
     }
-}
 
-impl PartialEq for RemoteRepo {
-    fn eq(&self, other: &Self) -> bool {
-        self.repo == other.repo && self.rev == other.rev
-    }
-}
-
-impl Eq for RemoteRepo {}
-
-impl std::hash::Hash for RemoteRepo {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.repo.hash(state);
-        self.rev.hash(state);
+    pub fn key(&self) -> RemoteRepoKey<'_> {
+        RemoteRepoKey {
+            repo: &self.repo,
+            rev: &self.rev,
+        }
     }
 }
 

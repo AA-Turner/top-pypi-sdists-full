@@ -134,6 +134,12 @@ class AddOnsParams:
     # If True, then iam_update_begin_frame() and iam_clip_update() will be called automatically at each frame
     with_im_anim: bool = False
 
+    # Set withLatex=True to enable native LaTeX math rendering in markdown
+    # (via MicroTeX). Implies withMarkdown=True. The $...$ and $$...$$
+    # syntaxes will be parsed as inline / display math formulas.
+    # Requires building with IMGUI_BUNDLE_WITH_MICROTEX=ON (default when FreeType is available).
+    with_latex: bool = False
+
     # #ifdef IMGUI_BUNDLE_WITH_IMGUI_NODE_EDITOR
     #
     # You can tweak NodeEditorConfig (but this is optional)
@@ -158,6 +164,7 @@ class AddOnsParams:
         with_node_editor: bool = False,
         with_tex_inspect: bool = False,
         with_im_anim: bool = False,
+        with_latex: bool = False,
         with_node_editor_config: Optional[NodeEditorConfig] = None,
         update_node_editor_colors_from_imgui_colors: bool = True,
         with_markdown_options: Optional[ImGuiMd.MarkdownOptions] = None,
@@ -200,12 +207,14 @@ def run(
     window_size: Optional[ScreenSize] = None,
     fps_idle: float = 10.0,
     top_most: bool = False,
+    ini_disable: bool = False,
     with_implot: bool = False,
     with_implot3d: bool = False,
     with_markdown: bool = False,
     with_node_editor: bool = False,
     with_tex_inspect: bool = False,
     with_im_anim: bool = False,
+    with_latex: bool = False,
     with_node_editor_config: Optional[NodeEditorConfig] = None,
     with_markdown_options: Optional[ImGuiMd.MarkdownOptions] = None,
 ) -> None:
@@ -228,6 +237,7 @@ def run(
          - `with_implot`: if True, then a context for implot will be created/destroyed automatically
          - `with_markdown` / `with_markdown_options`: if specified, then  the markdown context will be initialized
            (i.e. required fonts will be loaded)
+         - `with_latex`: if True, enable native LaTeX math rendering in markdown (implies with_markdown)
          - `with_node_editor` / `with_node_editor_config`: if specified, then a context for imgui_node_editor
            will be created automatically.
 
@@ -245,11 +255,13 @@ def run_with_markdown(
     window_size: Optional[ScreenSize] = None,
     fps_idle: float = 10.0,
     top_most: bool = False,
+    ini_disable: bool = False,
     with_implot: bool = False,
     with_implot3d: bool = False,
     with_node_editor: bool = False,
     with_tex_inspect: bool = False,
     with_im_anim: bool = False,
+    with_latex: bool = False,
     with_node_editor_config: Optional[NodeEditorConfig] = None,
     with_markdown_options: Optional[ImGuiMd.MarkdownOptions] = None,
 ) -> None:
@@ -380,11 +392,13 @@ class manual_render:  # Proxy class that introduces typings for the *submodule* 
         window_size: Optional[ScreenSize] = None,
         fps_idle: float = 10.0,
         top_most: bool = False,
+        ini_disable: bool = False,
         with_implot: bool = False,
         with_implot3d: bool = False,
         with_markdown: bool = False,
         with_node_editor: bool = False,
         with_tex_inspect: bool = False,
+        with_latex: bool = False,
         with_node_editor_config: Optional[NodeEditorConfig] = None,
         with_markdown_options: Optional[ImGuiMd.MarkdownOptions] = None,
     ) -> None:
@@ -463,10 +477,9 @@ class snippets:  # Proxy class that introduces typings for the *submodule* snipp
         python = enum.auto()  # (= 7)
 
     class SnippetTheme(enum.IntEnum):
-        dark = enum.auto()  # (= 0)
-        light = enum.auto()  # (= 1)
-        retro_blue = enum.auto()  # (= 2)
-        mariana = enum.auto()  # (= 3)
+        auto = enum.auto()  # (= 0)  # Automatic based on bg color
+        dark = enum.auto()  # (= 1)
+        light = enum.auto()  # (= 2)
 
     @staticmethod
     def default_snippet_language() -> SnippetLanguage:
@@ -475,8 +488,8 @@ class snippets:  # Proxy class that introduces typings for the *submodule* snipp
 
     class SnippetData:
         code: str = ""
-        language: SnippetLanguage = DefaultSnippetLanguage()
-        palette: SnippetTheme = SnippetTheme.dark
+        language: snippets.SnippetLanguage = snippets.default_snippet_language()
+        palette: snippets.SnippetTheme = snippets.SnippetTheme.auto
 
         show_copy_button: bool = (
             True  # Displayed on top of the editor (Top Right corner)
@@ -504,8 +517,8 @@ class snippets:  # Proxy class that introduces typings for the *submodule* snipp
         def __init__(
             self,
             code: str = "",
-            language: SnippetLanguage = DefaultSnippetLanguage(),
-            palette: SnippetTheme = SnippetTheme.dark,
+            language: snippets.SnippetLanguage = snippets.default_snippet_language(),
+            palette: snippets.SnippetTheme = snippets.SnippetTheme.auto,
             show_copy_button: bool = True,
             show_cursor_position: bool = True,
             displayed_filename: str = "",

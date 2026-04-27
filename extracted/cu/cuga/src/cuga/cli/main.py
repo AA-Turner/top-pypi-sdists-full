@@ -53,14 +53,18 @@ def _demo_port() -> int:
 
 
 def _make_app_manager() -> AppManager:
+    sp = settings.server_ports
     return AppManager(
         process_registry=direct_processes,
         run_service=lambda n, c, e: run_direct_service(n, c, env_vars=e),
         kill_ports=kill_processes_by_port,
         kill_process=kill_process_tree,
         wait_tcp=lambda p, lbl, r, i: wait_for_tcp_port(p, lbl, max_retries=r, retry_interval=i),
-        wait_http=lambda p, name: wait_for_server(
-            p, name, max_retries=240, https=_demo_uses_ssl() and p == _demo_port()
+        wait_http=lambda p, n: wait_for_server(
+            p,
+            n,
+            max_retries=int(sp.demo_server_startup_max_retries) if p == _demo_port() else 240,
+            https=_demo_uses_ssl() and p == _demo_port(),
         ),
     )
 

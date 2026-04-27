@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
+#type: ignore
 from __future__ import absolute_import
-import warnings
 
 from imgui_bundle import imgui
 

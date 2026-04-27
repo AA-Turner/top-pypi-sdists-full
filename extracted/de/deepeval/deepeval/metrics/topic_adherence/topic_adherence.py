@@ -20,7 +20,6 @@ from deepeval.metrics.topic_adherence.schema import (
     QAPair,
     TopicAdherenceReason,
 )
-from deepeval.metrics.api import metric_data_manager
 
 
 class TopicAdherenceMetric(BaseConversationalMetric):
@@ -135,11 +134,6 @@ class TopicAdherenceMetric(BaseConversationalMetric):
                     ],
                 )
 
-                if _log_metric_to_confident:
-                    metric_data_manager.post_metric_if_enabled(
-                        self, test_case=test_case
-                    )
-
                 return self.score
 
     async def a_measure(
@@ -213,11 +207,6 @@ class TopicAdherenceMetric(BaseConversationalMetric):
                     f"Final Reason: {self.reason}",
                 ],
             )
-
-            if _log_metric_to_confident:
-                metric_data_manager.post_metric_if_enabled(
-                    self, test_case=test_case
-                )
 
             return self.score
 

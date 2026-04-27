@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from ..db import ThreadSafeConnection
     from .workflow_runners import RunnerRegistry, RunnerResult, TranscriptCallback
 
+from .diagnostic_context import log_debug
 from .failure_triage import extract_failure_triage
 
 logger = logging.getLogger(__name__)
@@ -1491,12 +1492,32 @@ class WorkflowEngine:
                     )
                 )
             except Exception:
+                log_debug(
+                    logger,
+                    "workflow.event.failure",
+                    lifecycle="failure",
+                    phase="audit",
+                    run_id=run_id,
+                    workflow_event=event_type,
+                    step_id=step_id,
+                    error_class="Exception",
+                )
                 logger.warning("Audit emission error for workflow event", exc_info=True)
 
         if self._progress_callback is not None:
             try:
                 self._progress_callback(event_type, step_id, payload or {})
             except Exception:
+                log_debug(
+                    logger,
+                    "workflow.event.failure",
+                    lifecycle="failure",
+                    phase="progress_callback",
+                    run_id=run_id,
+                    workflow_event=event_type,
+                    step_id=step_id,
+                    error_class="Exception",
+                )
                 logger.warning("Progress callback error", exc_info=True)
 
     async def _publish_event(
@@ -1517,6 +1538,15 @@ class WorkflowEngine:
             try:
                 await self._event_bus.publish(f"workflow:{run_id}", event_data)
             except Exception:
+                log_debug(
+                    logger,
+                    "workflow.event.failure",
+                    lifecycle="failure",
+                    phase="event_bus",
+                    run_id=run_id,
+                    workflow_event=event_type,
+                    error_class="Exception",
+                )
                 logger.warning("Failed to publish event to bus", exc_info=True)
 
         if definition and definition.notifications:
@@ -1792,6 +1822,18 @@ class WorkflowEngine:
             conversation_id=conversation_id,
         )
         resolved_params = run.get("params") or {}
+        run_started_at = time.monotonic()
+        log_debug(
+            logger,
+            "workflow.run.start",
+            lifecycle="start",
+            phase="workflow_run",
+            run_id=run["id"],
+            workflow_id=definition.id,
+            target_kind=target_kind,
+            conversation_id=conversation_id,
+            step_count=len(definition.steps),
+        )
 
         # Acquire concurrency lock (reclaim stale if contended, then retry once)
         if not ws.acquire_lock(
@@ -1808,6 +1850,16 @@ class WorkflowEngine:
                 target_ref=target_ref,
                 run_id=run["id"],
             ):
+                log_debug(
+                    logger,
+                    "workflow.run.skip",
+                    lifecycle="skip",
+                    phase="workflow_run",
+                    run_id=run["id"],
+                    workflow_id=definition.id,
+                    reason="target_locked",
+                    _started_at=run_started_at,
+                )
                 ws.update_workflow_run(self._db, run["id"], status="failed", stop_reason="target_locked")
                 raise RuntimeError(f"Target {target_kind}:{target_ref} is already locked by another run")
 
@@ -1843,6 +1895,16 @@ class WorkflowEngine:
                 budget_start_time=time.monotonic(),
             )
         except Exception:
+            log_debug(
+                logger,
+                "workflow.run.failure",
+                lifecycle="failure",
+                phase="workflow_run",
+                run_id=run["id"],
+                workflow_id=definition.id,
+                error_class="Exception",
+                _started_at=run_started_at,
+            )
             logger.exception("Workflow run %s failed with exception", run["id"])
             run = _require_run_row(
                 ws.update_workflow_run(self._db, run["id"], status="failed", stop_reason="unhandled_exception"),
@@ -1861,6 +1923,17 @@ class WorkflowEngine:
                 pass
             ws.release_lock(self._db, run_id=run["id"])
             await self._drain_hooks()
+            log_debug(
+                logger,
+                "workflow.run.cleanup",
+                lifecycle="cleanup",
+                phase="workflow_run",
+                run_id=run["id"],
+                workflow_id=definition.id,
+                status=run.get("status"),
+                stop_reason=run.get("stop_reason"),
+                _started_at=run_started_at,
+            )
 
         return run
 

@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Any, Awaitable, TypeVar, cast
 from rich.console import Console
 from rich.table import Table
 
+from ..services.diagnostic_context import log_debug
+
 if TYPE_CHECKING:
     from ..config import AppConfig
 
@@ -1233,11 +1235,36 @@ def _handle_execute_pending(config: AppConfig, db: Any, args: argparse.Namespace
 
     engine.set_progress_callback(_on_progress)
     try:
+        log_debug(
+            logger,
+            "workflow_cli.execute_pending.start",
+            lifecycle="start",
+            phase="workflow_cli",
+            run_id=run_id,
+            workflow_id=run.get("workflow_id"),
+        )
         print(f"Background workflow run {run_id}", flush=True)
         asyncio.run(engine.execute_pending_run(run_id, definition))
     except Exception:
+        log_debug(
+            logger,
+            "workflow_cli.execute_pending.failure",
+            lifecycle="failure",
+            phase="workflow_cli",
+            run_id=run_id,
+            workflow_id=run.get("workflow_id"),
+            error_class="Exception",
+        )
         logger.exception("Detached workflow execution failed for %s", run_id)
     finally:
+        log_debug(
+            logger,
+            "workflow_cli.execute_pending.cleanup",
+            lifecycle="cleanup",
+            phase="workflow_cli",
+            run_id=run_id,
+            workflow_id=run.get("workflow_id"),
+        )
         _cleanup_event_bus(event_bus)
 
 

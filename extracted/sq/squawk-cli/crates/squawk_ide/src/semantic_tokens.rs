@@ -6,7 +6,8 @@ use squawk_syntax::{
 };
 
 use crate::db::{File, parse};
-use crate::goto_definition::{LocationKind, goto_definition};
+use crate::goto_definition::goto_definition;
+use crate::location::LocationKind;
 
 fn highlight_param_mode(out: &mut SemanticTokenBuilder, mode: ast::ParamMode) {
     match mode {
@@ -173,6 +174,7 @@ pub enum SemanticTokenType {
     Type,
     Parameter,
     PositionalParam,
+    PropertyGraph,
     Table,
     Schema,
 }
@@ -188,6 +190,7 @@ impl TryFrom<LocationKind> for SemanticTokenType {
             LocationKind::Column => Ok(SemanticTokenType::Column),
             LocationKind::NamedArgParameter => Ok(SemanticTokenType::Parameter),
             LocationKind::Schema => Ok(SemanticTokenType::Schema),
+            LocationKind::PropertyGraph => Ok(SemanticTokenType::PropertyGraph),
             LocationKind::Sequence | LocationKind::Table | LocationKind::View => {
                 Ok(SemanticTokenType::Table)
             }
@@ -203,7 +206,6 @@ impl TryFrom<LocationKind> for SemanticTokenType {
             | LocationKind::Index
             | LocationKind::Policy
             | LocationKind::PreparedStatement
-            | LocationKind::PropertyGraph
             | LocationKind::Role
             | LocationKind::Server
             | LocationKind::Tablespace
@@ -817,6 +819,18 @@ select * from t;
         ), @r#"
         "t" @ 6..7: Table
         "t" @ 40..41: Table
+        "#);
+    }
+
+    #[test]
+    fn create_property_graph() {
+        assert_snapshot!(semantic_tokens(
+            "
+create property graph foo
+  vertex tables (bar key (a) no properties);
+",
+        ), @r#"
+        "foo" @ 23..26: PropertyGraph
         "#);
     }
 

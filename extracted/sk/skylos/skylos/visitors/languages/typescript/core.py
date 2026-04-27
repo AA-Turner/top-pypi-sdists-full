@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import glob
+import os
+from pathlib import Path
+
 from tree_sitter import Language, Parser, Query, QueryCursor
 import tree_sitter_typescript as tsts
 from skylos.visitor import Definition
@@ -32,8 +36,22 @@ _LIFECYCLE_METHODS: set[str] = {
     "ngAfterViewInit",
 }
 
+_ROUTE_ATTACHMENT_METHODS: set[str] = {
+    "all",
+    "delete",
+    "get",
+    "head",
+    "options",
+    "patch",
+    "post",
+    "put",
+    "route",
+    "use",
+}
+
 _QUERY_CACHE: dict[tuple[int, str], Query] = {}
 _PARSER_CACHE: dict[int, Parser] = {}
+_JSX_EXTENSIONS = {".tsx", ".jsx", ".js"}
 
 _DEFS_PATTERN = """
 (function_declaration name: (identifier) @func_def)
@@ -91,6 +109,11 @@ _IMPORTS_PATTERN = """
 (import_clause (namespace_import (identifier) @import_name))
 """
 
+_RAW_IMPORT_FILE_EXTENSIONS = frozenset(
+    {".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"}
+)
+_DYNAMIC_GLOB_METHODS = frozenset({"glob", "globEager"})
+
 
 def _get_query(lang: Language, key: str, pattern: str) -> Query | None:
     cache_key = (id(lang), key)
@@ -117,7 +140,10 @@ class TypeScriptCore:
         self.refs: list[tuple[str, str]] = []
         self.imports: list[dict[str, str | int]] = []
 
-        if str(file_path).endswith(".tsx") and TSX_LANG:
+        self._suffix = Path(str(file_path)).suffix.lower()
+        self._uses_jsx_parser = self._suffix in _JSX_EXTENSIONS
+
+        if self._uses_jsx_parser and TSX_LANG:
             self.lang: Language | None = TSX_LANG
         else:
             self.lang = TS_LANG
@@ -183,7 +209,7 @@ class TypeScriptCore:
         for k, v in ts_only.items():
             self._defs_captures.setdefault(k, []).extend(v)
         self._refs_captures = self._run_batch("refs", _REFS_PATTERN)
-        if str(self.file_path).endswith(".tsx"):
+        if self._uses_jsx_parser:
             jsx_refs = self._run_batch("refs_jsx", _REFS_JSX_PATTERN)
             for k, v in jsx_refs.items():
                 self._refs_captures.setdefault(k, []).extend(v)
@@ -298,7 +324,105 @@ class TypeScriptCore:
 
         d = Definition(name, type_name, self.file_path, line)
         d.is_exported = is_exported
+        if (
+            type_name == "function"
+            and d.is_exported
+            and self._is_route_attachment_function(node)
+        ):
+            d.references = max(d.references, 1)
+            d.framework_signals.append("route attachment export")
         self.defs.append(d)
+
+    def _is_route_attachment_function(self, name_node) -> bool:
+        parameters, body = self._function_signature_and_body(name_node)
+        if parameters is None or body is None:
+            return False
+
+        param_names = self._collect_parameter_names(parameters)
+        if not param_names:
+            return False
+
+        for call_node in self._iter_nodes(body):
+            if call_node.type != "call_expression":
+                continue
+            function_node = call_node.child_by_field_name("function")
+            if function_node is None or function_node.type != "member_expression":
+                continue
+            object_node = function_node.child_by_field_name("object")
+            property_node = function_node.child_by_field_name("property")
+            if object_node is None or property_node is None:
+                continue
+            if self._get_text(object_node) not in param_names:
+                continue
+            if self._looks_like_route_registration_call(call_node, property_node):
+                return True
+
+        return False
+
+    def _function_signature_and_body(self, name_node):
+        declaration = name_node.parent
+        while declaration:
+            if declaration.type == "function_declaration":
+                return (
+                    declaration.child_by_field_name("parameters"),
+                    declaration.child_by_field_name("body"),
+                )
+            if declaration.type == "variable_declarator":
+                value_node = declaration.child_by_field_name("value")
+                if value_node and value_node.type == "arrow_function":
+                    parameters = value_node.child_by_field_name("parameters")
+                    body = value_node.child_by_field_name("body")
+                    if parameters is None:
+                        for child in value_node.named_children:
+                            if child is body:
+                                break
+                            if child.type in {
+                                "identifier",
+                                "required_parameter",
+                                "formal_parameters",
+                            }:
+                                parameters = child
+                                break
+                    return parameters, body
+                return None, None
+            if declaration.type in {"program", "class_declaration", "method_definition"}:
+                return None, None
+            declaration = declaration.parent
+        return None, None
+
+    def _looks_like_route_registration_call(self, call_node, property_node) -> bool:
+        method_name = self._get_text(property_node)
+        if method_name not in _ROUTE_ATTACHMENT_METHODS:
+            return False
+
+        arguments = call_node.child_by_field_name("arguments")
+        if arguments is None:
+            return False
+        args = list(arguments.named_children)
+        if not args:
+            return False
+
+        first_arg = args[0]
+        if first_arg.type == "string":
+            route = self._string_literal_value(first_arg) or ""
+            return route.startswith("/")
+
+        first_name = self._get_text(first_arg).lower()
+        if first_name in {"path", "route", "routepath", "url", "pattern"}:
+            return len(args) >= 2
+
+        return False
+
+    def _collect_parameter_names(self, parameters_node) -> set[str]:
+        names: set[str] = set()
+        stack = [parameters_node]
+        while stack:
+            node = stack.pop()
+            if node.type == "identifier":
+                names.add(self._get_text(node))
+                continue
+            stack.extend(node.named_children)
+        return names
 
     def _is_top_level(self, node) -> bool:
         current = node.parent
@@ -342,6 +466,7 @@ class TypeScriptCore:
 
     def _scan_raw_imports(self) -> None:
         self.raw_imports: list[dict] = []
+        self._raw_import_seen: set[tuple[str, int, bool]] = set()
         c = self._defs_captures
 
         for src_node in c.get("import_src", []):
@@ -369,6 +494,8 @@ class TypeScriptCore:
                         "line": src_node.start_point[0] + 1,
                     }
                 )
+
+        self._scan_dynamic_raw_imports()
 
     def _extract_import_names_from_stmt(self, import_stmt) -> list[str]:
         names = []
@@ -415,6 +542,139 @@ class TypeScriptCore:
                 else:
                     names.append("*")
         return names if names else ["*"]
+
+    def _iter_nodes(self, root_node):
+        stack = [root_node]
+        while stack:
+            node = stack.pop()
+            yield node
+            stack.extend(reversed(node.children))
+
+    def _string_literal_value(self, node) -> str | None:
+        if node is None or node.type != "string":
+            return None
+        return self._get_text(node).strip("'\"")
+
+    def _append_raw_import(
+        self, source_path: str, line: int, consume_all_exports: bool = False
+    ) -> None:
+        key = (source_path, line, consume_all_exports)
+        if key in self._raw_import_seen:
+            return
+        self._raw_import_seen.add(key)
+        self.raw_imports.append(
+            {
+                "source": source_path,
+                "names": ["*"],
+                "line": line,
+                "consume_all_exports": consume_all_exports,
+            }
+        )
+
+    def _relative_source_for_match(self, matched_path: str) -> str:
+        relative = os.path.relpath(matched_path, os.path.dirname(self.file_path))
+        normalized = relative.replace(os.sep, "/")
+        if normalized.startswith("."):
+            return normalized
+        return f"./{normalized}"
+
+    def _string_sources_from_node(self, node) -> list[str]:
+        if node is None:
+            return []
+        if node.type == "string":
+            value = self._string_literal_value(node)
+            return [value] if value else []
+        if node.type == "array":
+            sources: list[str] = []
+            for child in node.named_children:
+                value = self._string_literal_value(child)
+                if value:
+                    sources.append(value)
+            return sources
+        return []
+
+    def _glob_import_sources(self, node) -> list[str]:
+        matches: list[str] = []
+        for pattern in self._string_sources_from_node(node):
+            if not pattern:
+                continue
+            if os.path.isabs(pattern):
+                full_pattern = pattern
+            else:
+                full_pattern = os.path.join(os.path.dirname(self.file_path), pattern)
+            for matched in glob.glob(full_pattern, recursive=True):
+                if not os.path.isfile(matched):
+                    continue
+                if Path(matched).suffix.lower() not in _RAW_IMPORT_FILE_EXTENSIONS:
+                    continue
+                matches.append(
+                    self._relative_source_for_match(os.path.realpath(matched))
+                )
+        return matches
+
+    def _scan_dynamic_raw_imports(self) -> None:
+        if not self.root_node:
+            return
+
+        for node in self._iter_nodes(self.root_node):
+            if node.type != "call_expression":
+                continue
+
+            function_node = node.child_by_field_name("function")
+            arguments_node = node.child_by_field_name("arguments")
+            if function_node is None or arguments_node is None:
+                continue
+            if not arguments_node.named_children:
+                continue
+
+            first_arg = arguments_node.named_children[0]
+            line = node.start_point[0] + 1
+
+            if function_node.type == "import":
+                for source_path in self._string_sources_from_node(first_arg):
+                    self._append_raw_import(
+                        source_path, line, consume_all_exports=True
+                    )
+                continue
+
+            if function_node.type != "member_expression":
+                continue
+
+            object_node = function_node.child_by_field_name("object")
+            property_node = function_node.child_by_field_name("property")
+            if object_node is None or property_node is None:
+                continue
+
+            property_name = self._get_text(property_node)
+
+            if (
+                object_node.type == "identifier"
+                and self._get_text(object_node) == "require"
+                and property_name == "resolve"
+            ):
+                for source_path in self._string_sources_from_node(first_arg):
+                    self._append_raw_import(
+                        source_path, line, consume_all_exports=True
+                    )
+                continue
+
+            if object_node.type != "meta_property":
+                continue
+            if self._get_text(object_node) != "import.meta":
+                continue
+
+            if property_name == "resolve":
+                for source_path in self._string_sources_from_node(first_arg):
+                    self._append_raw_import(
+                        source_path, line, consume_all_exports=True
+                    )
+                continue
+
+            if property_name in _DYNAMIC_GLOB_METHODS:
+                for source_path in self._glob_import_sources(first_arg):
+                    self._append_raw_import(
+                        source_path, line, consume_all_exports=True
+                    )
 
     def _build_call_graph(self) -> None:
         self.call_pairs: list[tuple[str, str]] = []

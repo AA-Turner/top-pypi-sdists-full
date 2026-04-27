@@ -54,17 +54,55 @@ def _qualified_name_from_call(node):
     return None
 
 
-def _is_interpolated_string(node):
+def _is_static_string_expr(node: ast.AST) -> bool:
+    if isinstance(node, ast.Constant):
+        return isinstance(node.value, str)
+
     if isinstance(node, ast.JoinedStr):
+        for value in node.values:
+            if isinstance(value, ast.Constant):
+                continue
+            if isinstance(value, ast.FormattedValue) and isinstance(
+                value.value, ast.Constant
+            ):
+                continue
+            return False
         return True
-    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Mod)):
-        return True
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return _is_static_string_expr(node.left) and _is_static_string_expr(node.right)
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
+        if not _is_static_string_expr(node.left):
+            return False
+        right = node.right
+        if isinstance(right, ast.Tuple):
+            return all(_is_static_string_expr(elt) for elt in right.elts)
+        return _is_static_string_expr(right)
+
     if (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "format"
     ):
-        return True
+        return _is_static_string_expr(node.func.value) and all(
+            _is_static_string_expr(arg) for arg in node.args
+        ) and all(_is_static_string_expr(k.value) for k in node.keywords)
+
+    return False
+
+
+def _is_interpolated_string(node):
+    if isinstance(node, ast.JoinedStr):
+        return not _is_static_string_expr(node)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Mod)):
+        return not _is_static_string_expr(node)
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "format"
+    ):
+        return not _is_static_string_expr(node)
     return False
 
 
@@ -156,6 +194,34 @@ class _SQLFlowChecker(TaintVisitor):
         super().__init__(file_path, findings)
         self.passthrough_functions: set[str] = set()
         self.db_names: set[str] = set()
+        self.static_string_stack: list[set[str]] = [set()]
+
+    def _push(self):
+        super()._push()
+        self.static_string_stack.append(set())
+
+    def _pop(self):
+        if len(self.static_string_stack) > 1:
+            self.static_string_stack.pop()
+        super()._pop()
+
+    def _set_static_string(self, name: str, is_static: bool) -> None:
+        if not self.static_string_stack:
+            self.static_string_stack.append(set())
+        if is_static:
+            self.static_string_stack[-1].add(name)
+        else:
+            self.static_string_stack[-1].discard(name)
+
+    def _is_static_string_name(self, name: str) -> bool:
+        return any(name in scope for scope in reversed(self.static_string_stack))
+
+    def _is_static_query_expr(self, node: ast.AST) -> bool:
+        if _is_static_string_expr(node):
+            return True
+        if isinstance(node, ast.Name):
+            return self._is_static_string_name(node.id)
+        return False
 
     def visit_Import(self, node):
         for alias in node.names:
@@ -189,9 +255,7 @@ class _SQLFlowChecker(TaintVisitor):
 
         return False
 
-    def visit_FunctionDef(self, node):
-        self._push()
-
+    def _record_passthrough_function(self, node):
         param_names = {a.arg for a in node.args.args}
         for statement in node.body:
             if isinstance(statement, ast.Return) and statement.value is not None:
@@ -199,21 +263,28 @@ class _SQLFlowChecker(TaintVisitor):
                     self.passthrough_functions.add(_func_name(node))
                     break
 
-        self.generic_visit(node)
-        self._pop()
+    def visit_FunctionDef(self, node):
+        self._record_passthrough_function(node)
+        super().visit_FunctionDef(node)
 
     def visit_AsyncFunctionDef(self, node):
-        self._push()
+        self._record_passthrough_function(node)
+        super().visit_AsyncFunctionDef(node)
 
-        param_names = {a.arg for a in node.args.args}
-        for statement in node.body:
-            if isinstance(statement, ast.Return) and statement.value is not None:
-                if _is_passthrough_return(statement.value, param_names):
-                    self.passthrough_functions.add(_func_name(node))
-                    break
+    def visit_Assign(self, node):
+        is_static = self._is_static_query_expr(node.value)
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                self._set_static_string(target.id, is_static)
+        super().visit_Assign(node)
 
-        self.generic_visit(node)
-        self._pop()
+    def visit_AnnAssign(self, node):
+        if node.value and isinstance(node.target, ast.Name):
+            self._set_static_string(
+                node.target.id,
+                self._is_static_query_expr(node.value),
+            )
+        super().visit_AnnAssign(node)
 
     def visit_Call(self, node):
         qual_name = _qualified_name_from_call(node)
@@ -242,9 +313,7 @@ class _SQLFlowChecker(TaintVisitor):
                         }
                     )
                 else:
-                    is_literal = isinstance(query_expr, ast.Constant) and isinstance(
-                        query_expr.value, str
-                    )
+                    is_literal = self._is_static_query_expr(query_expr)
                     if not is_literal and not is_parameterized_query(node, query_expr):
                         self.findings.append(
                             {

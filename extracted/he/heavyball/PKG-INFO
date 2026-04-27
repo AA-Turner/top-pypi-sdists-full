@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: heavyball
-Version: 3.0.0
+Version: 3.1.0
 Summary: Compile-first PyTorch optimizer library - AdamW, Muon, SOAP/Shampoo, PSGD, Schedule-Free, and 30+ more with torch.compile fusion and composable features
 Author-email: HeavyBall Authors <github.heavyball@nestler.sh>
 Project-URL: Homepage, https://github.com/HomebrewML/HeavyBall

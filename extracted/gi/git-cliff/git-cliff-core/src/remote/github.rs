@@ -3,15 +3,9 @@ use futures::{Stream, StreamExt, stream};
 use reqwest_middleware::ClientWithMiddleware;
 use serde::{Deserialize, Serialize};
 
-use super::*;
+use super::{Debug, MAX_PAGE_SIZE, RemoteClient, RemoteCommit, RemotePullRequest};
 use crate::config::Remote;
-use crate::error::*;
-
-/// Log message to show while fetching data from GitHub.
-pub const START_FETCHING_MSG: &str = "Retrieving data from GitHub...";
-
-/// Log message to show when done fetching from GitHub.
-pub const FINISHED_FETCHING_MSG: &str = "Done fetching GitHub data.";
+use crate::error::{Error, Result};
 
 /// Template variables related to this remote.
 pub(crate) const TEMPLATE_VARIABLES: &[&str] = &["github", "commit.github", "commit.remote"];
@@ -162,23 +156,27 @@ impl GitHubClient {
     /// Fetches the complete list of commits.
     /// This is inefficient for large repositories; consider using
     /// `get_commit_stream` instead.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub async fn get_commits(&self, ref_name: Option<&str>) -> Result<Vec<Box<dyn RemoteCommit>>> {
         use futures::TryStreamExt;
+        crate::set_progress_message!("Fetching all commits from GitHub");
         self.get_commit_stream(ref_name).try_collect().await
     }
 
     /// Fetches the complete list of pull requests.
     /// This is inefficient for large repositories; consider using
     /// `get_pull_request_stream` instead.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub async fn get_pull_requests(&self) -> Result<Vec<Box<dyn RemotePullRequest>>> {
         use futures::TryStreamExt;
+        crate::set_progress_message!("Fetching all pull requests from GitHub");
         self.get_pull_request_stream().try_collect().await
     }
 
-    fn get_commit_stream<'a>(
-        &'a self,
+    fn get_commit_stream(
+        &self,
         ref_name: Option<&str>,
-    ) -> impl Stream<Item = Result<Box<dyn RemoteCommit>>> + 'a {
+    ) -> impl Stream<Item = Result<Box<dyn RemoteCommit>>> + '_ {
         let ref_name = ref_name.map(ToString::to_string);
         async_stream! {
             let page_stream = stream::iter(0..)
@@ -213,9 +211,9 @@ impl GitHubClient {
         }
     }
 
-    fn get_pull_request_stream<'a>(
-        &'a self,
-    ) -> impl Stream<Item = Result<Box<dyn RemotePullRequest>>> + 'a {
+    fn get_pull_request_stream(
+        &self,
+    ) -> impl Stream<Item = Result<Box<dyn RemotePullRequest>>> + '_ {
         async_stream! {
             let page_stream = stream::iter(0..)
                 .map(|page| async move {

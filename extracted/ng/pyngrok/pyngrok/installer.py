@@ -42,7 +42,7 @@ PLATFORMS = {
     "freebsd_i386_arm": CDN_URL_PREFIX + "ngrok-v3-stable-freebsd-arm.tgz"
 }
 UNIX_BINARIES = ["darwin", "linux", "freebsd"]
-SUPPORTED_NGROK_VERSIONS = ["v3"]
+SUPPORTED_NGROK_VERSIONS = ["3"]
 DEFAULT_DOWNLOAD_TIMEOUT = 6
 DEFAULT_RETRY_COUNT = 0
 
@@ -132,6 +132,9 @@ def get_ngrok_cdn_url(ngrok_version: Optional[str]) -> str:
     :param ngrok_version: The major version of ``ngrok`` to be installed.
     :return: The ``ngrok`` CDN URL.
     """
+    if ngrok_version:
+        ngrok_version = ngrok_version.removeprefix("v")
+
     plat = "{system}_{arch}".format(system=get_system(), arch=get_arch())
 
     logger.debug(f"Platform to download: {plat}")
@@ -146,7 +149,7 @@ def get_ngrok_cdn_url(ngrok_version: Optional[str]) -> str:
 
 
 def install_ngrok(ngrok_path: str,
-                  ngrok_version: Optional[str] = "v3",
+                  ngrok_version: Optional[str] = "3",
                   **kwargs: Any) -> None:
     """
     Download and install the latest ``ngrok`` for the current system, overwriting any existing contents
@@ -158,6 +161,9 @@ def install_ngrok(ngrok_path: str,
     :raises: :class:`~pyngrok.exception.PyngrokError`: When the ``ngrok_version`` is not supported.
     :raises: :class:`~pyngrok.exception.PyngrokNgrokInstallError`: When an error occurs installing ``ngrok``.
     """
+    if ngrok_version:
+        ngrok_version = ngrok_version.removeprefix("v")
+
     logger.debug(
         "Installing ngrok {ngrok_version} to "
         "{ngrok_path}{optional_overwrite} ...".format(ngrok_version=ngrok_version,
@@ -210,7 +216,7 @@ def _install_ngrok_archive(ngrok_path: str,
 
 def get_ngrok_config(config_path: str,
                      use_cache: bool = True,
-                     ngrok_version: Optional[str] = "v3",
+                     ngrok_version: Optional[str] = "3",
                      config_version: Optional[str] = "2") -> Dict[str, Any]:
     """
     Get the ``ngrok`` config from the given path.
@@ -221,6 +227,9 @@ def get_ngrok_config(config_path: str,
     :param config_version: The ``ngrok`` config version.
     :return: The ``ngrok`` config.
     """
+    if ngrok_version:
+        ngrok_version = ngrok_version.removeprefix("v")
+
     with config_file_lock:
         if config_path not in _config_cache or not use_cache:
             with open(config_path, "r") as config_file:
@@ -243,6 +252,9 @@ def get_default_config(ngrok_version: Optional[str],
     :return: The default config.
     :raises: :class:`~pyngrok.exception.PyngrokError`: When the ``ngrok_version`` is not supported.
     """
+    if ngrok_version:
+        ngrok_version = ngrok_version.removeprefix("v")
+
     if ngrok_version not in SUPPORTED_NGROK_VERSIONS:
         raise PyngrokError(f"\"ngrok_version\" must be a supported version: {SUPPORTED_NGROK_VERSIONS}")
 
@@ -254,7 +266,7 @@ def get_default_config(ngrok_version: Optional[str],
 
 def install_default_config(config_path: str,
                            data: Optional[Dict[str, Any]] = None,
-                           ngrok_version: Optional[str] = "v3",
+                           ngrok_version: Optional[str] = "3",
                            config_version: Optional[str] = "2") -> None:
     """
     Install the given data to the ``ngrok`` config. If a config is not already present for the given path, create one.
@@ -265,6 +277,9 @@ def install_default_config(config_path: str,
     :param ngrok_version: The major version of ``ngrok`` installed.
     :param config_version: The ``ngrok`` config version.
     """
+    if ngrok_version:
+        ngrok_version = ngrok_version.removeprefix("v")
+
     with config_file_lock:
         if data is None:
             data = {}

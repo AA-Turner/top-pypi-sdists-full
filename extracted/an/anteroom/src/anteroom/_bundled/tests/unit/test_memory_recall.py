@@ -73,6 +73,12 @@ def _make_vec_manager(*, has_memories: bool = True) -> MagicMock:
     return vm
 
 
+def _make_empty_vec_manager() -> MagicMock:
+    vm = _make_vec_manager()
+    vm.memories.count.return_value = 0
+    return vm
+
+
 @pytest.fixture()
 def real_db() -> ThreadSafeConnection:
     conn = sqlite3.connect(":memory:", check_same_thread=False)
@@ -180,6 +186,21 @@ class TestRetrieveMemories:
         )
         assert memories == []
         assert reason == "Embedding service unavailable"
+
+    @pytest.mark.asyncio
+    async def test_empty_memory_index_skips_embedding(self) -> None:
+        emb = AsyncMock()
+        emb.embed = AsyncMock(return_value=_fake_embedding())
+        memories, reason = await retrieve_memories(
+            query="this is a long enough query",
+            db=MagicMock(),
+            embedding_service=emb,
+            config=_make_config(),
+            vec_manager=_make_empty_vec_manager(),
+        )
+        assert memories == []
+        assert reason == "no_embeddings_yet"
+        emb.embed.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_embedding_failure_graceful(self) -> None:

@@ -71,6 +71,7 @@ from crosshair.core import (
     realize,
     register_patch,
     register_type,
+    smt_for_unification,
     with_checked_self,
     with_realized_args,
     with_symbolic_self,
@@ -322,6 +323,10 @@ class SymbolicValue(CrossHairValue):
     def __ch_pytype__(self):
         return self.python_type
 
+    def _smt_for_unification(self, other_value: Any):
+        """See :func:`~crosshair.core.smt_for_unification`"""
+        return None
+
     def _unary_op(self, op):
         with NoTracing():
             return self.__class__(op(self.var), self.python_type)
@@ -373,6 +378,15 @@ class AtomicSymbolicValue(SymbolicValue):
             except TypeError:
                 return None
             return cls._coerce_to_smt_sort(converted)
+        return None
+
+    def _smt_for_unification(self, other_value: Any):
+        """See :func:`~crosshair.core.smt_for_unification`"""
+        if isinstance(other_value, self.__class__):
+            return self.var == other_value.var
+        coerced = type(self)._coerce_to_smt_sort(other_value)
+        if coerced is not None:
+            return self.var == coerced
         return None
 
     def __eq__(self, other):
@@ -1802,6 +1816,26 @@ class SymbolicDict(SymbolicDictOrSet, collections.abc.Mapping):
             z3.Const(varname + "_len" + space.uniq(), _SMT_INT_SORT),
         )
 
+    def _smt_for_unification(self, other_dict: Any) -> Optional[z3.ExprRef]:
+        """See :func:`~crosshair.core.smt_for_unification`"""
+        if isinstance(other_dict, CrossHairValue):
+            return None
+        otherlen = len(other_dict)
+        assert isinstance(otherlen, int)
+        comparison_smt_array = self.empty
+        ch_key_type, ch_val_type = self.ch_key_type, self.ch_val_type
+        if ch_key_type is None or ch_val_type is None:
+            return None
+        for other_key, other_value in other_dict.items():
+            other_key_smt = ch_key_type._coerce_to_smt_sort(other_key)
+            other_value_smt = ch_val_type._coerce_to_smt_sort(other_value)
+            comparison_smt_array = z3.Store(
+                comparison_smt_array,
+                other_key_smt,
+                self.val_constructor(other_value_smt),
+            )
+        return z3.And(self._len() == otherlen, comparison_smt_array == self._arr())
+
     def __eq__(self, other):
         (self_arr, self_len) = self.var
         has_heapref = is_heapref_sort(self.var[0].sort().domain()) or is_heapref_sort(
@@ -1944,6 +1978,20 @@ class SymbolicFrozenSet(SymbolicDictOrSet, FrozenSetBase):
 
     def __ch_realize__(self):
         return python_type(self)(map(realize, self))
+
+    def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
+        """See :func:`~crosshair.core.smt_for_unification`"""
+        if isinstance(other_value, CrossHairValue):
+            return None
+        otherlen = len(other_value)
+        assert isinstance(otherlen, int)
+        comparison_smt_array = self.empty
+        for other_item in other_value:
+            if self.ch_key_type is None:
+                return None
+            other_item_smt = self.ch_key_type._coerce_to_smt_sort(other_item)
+            comparison_smt_array = z3.Store(comparison_smt_array, other_item_smt, True)
+        return z3.And(self._len() == otherlen, comparison_smt_array == self._arr())
 
     def __repr__(self):
         if self:
@@ -2233,6 +2281,25 @@ class SymbolicArrayBasedUniformTuple(SymbolicSequence):
     def _len(self):
         return self.var[1]
 
+    def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
+        """See :func:`~crosshair.core.smt_for_unification`"""
+        if isinstance(other_value, CrossHairValue):
+            return None
+        otherlen = len(other_value)
+        assert isinstance(otherlen, int)
+        requirements = [self._len() == otherlen]
+        if otherlen == 0:
+            return requirements[0]
+        arr = self._arr()
+        if self.ch_item_type is None:
+            return None
+        for idx, other_item in enumerate(other_value):
+            other_item_smt = self.ch_item_type._coerce_to_smt_sort(other_item)
+            requirements.append(z3.Select(arr, idx) == other_item_smt)
+        if None in requirements:
+            return None
+        return z3.And(*requirements)
+
     def __len__(self):
         return self._len_int
 
@@ -2483,6 +2550,10 @@ class SymbolicList(
 
     def __ch_realize__(self):
         return list(i for i in self)
+
+    def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
+        """See :func:`~crosshair.core.smt_for_unification`"""
+        return smt_for_unification(self.inner, other_value)
 
     def _spawn(self, items: Sequence) -> "ShellMutableSequence":
         return SymbolicList(items)
@@ -2839,6 +2910,7 @@ class SymbolicBoundedIntTuple(collections.abc.Sequence):
         self._varname = varname
         self._len = SymbolicBoundedInt(varname + "len", int, 0, None)
         self._created_vars: List[SymbolicInt] = []
+        self._new_var_queue: List[SymbolicInt] = []
 
     def __ch_deep_realize__(self, memo):
         # Right now, SymbolicBoundedIntTuple falls short of being a CrossHairValue,
@@ -2847,15 +2919,52 @@ class SymbolicBoundedIntTuple(collections.abc.Sequence):
         self._create_up_to(concrete_size)
         return tuple(realize(v) for v in self._created_vars[:concrete_size])
 
+    def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
+        """See :func:`~crosshair.core.smt_for_unification`"""
+        if isinstance(other_value, CrossHairValue):
+            return None
+        otherlen = len(other_value)
+        assert isinstance(otherlen, int)
+        requirements = [self._len.var == otherlen]
+        if otherlen == 0:
+            return requirements[0]
+
+        for my_value, other_value in zip(
+            self._get_smt_component_prefix(otherlen), other_value
+        ):
+            other_value_smt = SymbolicInt._coerce_to_smt_sort(other_value)
+            requirements.append(my_value.var == other_value_smt)
+        if None in requirements:
+            return None
+        return z3.And(*requirements)
+
+    @assert_tracing(False)
     def _create_up_to(self, size: int) -> None:
+        new_var_queue = self._new_var_queue
+        num_to_add = size - len(self._created_vars)
+        if len(new_var_queue) < num_to_add:
+            self._queue_up_to(size)
+        self._new_var_queue = new_var_queue[num_to_add:]
+        self._created_vars.extend(new_var_queue[:num_to_add])
+
+    def _get_smt_component_prefix(self, num_components: int) -> List[z3.ExprRef]:
+        if num_components < len(self._created_vars):
+            return self._created_vars[:num_components]
+        else:
+            self._queue_up_to(num_components)
+            num_from_queue = num_components - len(self._created_vars)
+            return self._created_vars + self._new_var_queue[:num_from_queue]
+
+    def _queue_up_to(self, size: int) -> None:
         space = context_statespace()
-        created_vars = self._created_vars
+        new_var_queue = self._new_var_queue
+        starting_idx = len(self._created_vars) + len(new_var_queue)
+        num_to_add = size - starting_idx
         ranges = self._ranges
-        for idx in range(len(created_vars), size):
-            assert idx == len(created_vars)
-            varname = self._varname + "@" + str(idx)
+        for idx in range(num_to_add):
+            varname = self._varname + "@" + str(starting_idx + idx)
             if len(ranges) <= 1:
-                created_vars.append(SymbolicBoundedInt(varname, int, *ranges[0]))
+                new_var_queue.append(SymbolicBoundedInt(varname, int, *ranges[0]))
             else:
                 smtval = z3.Int(varname)
                 constraints = [
@@ -2865,7 +2974,7 @@ class SymbolicBoundedIntTuple(collections.abc.Sequence):
                 space.add(z3Or(*constraints))
                 global_min = min(start for start, _ in ranges)
                 global_max = max(end for _, end in ranges)
-                created_vars.append(
+                new_var_queue.append(
                     SymbolicBoundedInt(smtval, int, global_min, global_max)
                 )
             if idx % 1_000 == 999:
@@ -2883,12 +2992,12 @@ class SymbolicBoundedIntTuple(collections.abc.Sequence):
         if not is_iterable(other):
             return False
         otherlen = len(other)
-        if len(self) != otherlen:
-            return False
         with NoTracing():
-            self._create_up_to(realize(otherlen))
-            constraints = []
-            for int1, int2 in zip(self._created_vars, tracing_iter(other)):
+            otherlen = realize(otherlen)
+            constraints = [self._len.var == otherlen]
+            for int1, int2 in zip(
+                self._get_smt_component_prefix(otherlen), tracing_iter(other)
+            ):
                 smtint2 = force_to_smt_sort(int2, SymbolicInt)
                 constraints.append(int1.var == smtint2)
             return SymbolicBool(z3.And(*constraints))
@@ -2931,12 +3040,18 @@ class SymbolicBoundedIntTuple(collections.abc.Sequence):
                 start, stop, step = realize(start), realize(stop), realize(step)
                 mylen = self._len
                 if (
-                    stop
-                    and stop > 0
-                    and space.smt_fork(z3Ge(mylen.var, z3IntVal(stop)))
+                    # Can we use a prefix of my created vars?:
+                    (stop is not None and stop > 0)  # a useful stop is given
+                    and (
+                        start is None or 0 <= start
+                    )  # start is not negative (handling this would require realizing my length)
+                    and space.smt_fork(
+                        z3Ge(mylen.var, z3IntVal(stop))
+                    )  # stop doesn't exceed mny length
                 ):
                     self._create_up_to(stop)
                 elif (
+                    # Is it ok to return a (lazy) suffix of myself?:
                     stop is None
                     and step is None
                     and (
@@ -2949,7 +3064,13 @@ class SymbolicBoundedIntTuple(collections.abc.Sequence):
                 ):
                     return SliceView(self, start, mylen)
                 else:
-                    self._create_up_to(realize(mylen))
+                    # fallback: realize my exact length
+                    actual_len = realize(mylen)
+                    self._create_up_to(actual_len)
+                    if len(self._created_vars) > actual_len:
+                        raise CrossHairInternal(
+                            f"SymbolicBoundedIntTuple._created_vars exceeded actual length: {len(self._created_vars)} > {actual_len}"
+                        )
                 return self._created_vars[start:stop:step]
             else:
                 argument = realize(argument)
@@ -3690,6 +3811,12 @@ class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
     def _ch_create_from_literal(cls, val: object) -> Optional[CrossHairValue]:
         if isinstance(val, str):
             return LazyIntSymbolicStr(list(map(ord, val)))
+        return None
+
+    def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
+        """See :func:`~crosshair.core.smt_for_unification`"""
+        if isinstance(other_value, str):
+            return smt_for_unification(self._codepoints, list(map(ord, other_value)))
         return None
 
     def __hash__(self):

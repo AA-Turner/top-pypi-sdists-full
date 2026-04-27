@@ -86,115 +86,20 @@ def list_settable_fields(*, include_sensitive: bool = False) -> list[ConfigField
 
     Excludes sensitive fields (API keys, crypto) by default.
     """
-    from .config_validator import _ENUM_FIELDS, _FLOAT_FIELDS, _INT_FIELDS, _KNOWN_KEYS
+    from .config_validator import iter_known_config_fields
 
-    # Build a map of (section.key) -> ConfigFieldInfo
-    fields: dict[str, ConfigFieldInfo] = {}
-
-    # Gather all known keys as string fields first
-    for section_path, keys in _KNOWN_KEYS.items():
-        for key in sorted(keys):
-            dot_path = f"{section_path}.{key}"
-            if not include_sensitive and dot_path in _SENSITIVE_FIELDS:
-                continue
-            fields[dot_path] = ConfigFieldInfo(dot_path=dot_path, field_type="str")
-
-    # Override with typed info for int fields
-    for section_path, key, lo, hi, default in _INT_FIELDS:
-        dot_path = f"{section_path}.{key}"
-        if not include_sensitive and dot_path in _SENSITIVE_FIELDS:
-            continue
-        fields[dot_path] = ConfigFieldInfo(
-            dot_path=dot_path,
-            field_type="int",
-            default=default,
-            min_val=lo,
-            max_val=hi,
+    return [
+        ConfigFieldInfo(
+            dot_path=f.dot_path,
+            field_type=f.field_type,
+            default=f.default,
+            allowed_values=f.allowed_values,
+            min_val=f.min_val,
+            max_val=f.max_val,
         )
-
-    # Override with typed info for float fields
-    for section_path, key, flo, fhi, fdefault in _FLOAT_FIELDS:
-        dot_path = f"{section_path}.{key}"
-        if not include_sensitive and dot_path in _SENSITIVE_FIELDS:
-            continue
-        fields[dot_path] = ConfigFieldInfo(
-            dot_path=dot_path,
-            field_type="float",
-            default=fdefault,
-            min_val=flo,
-            max_val=fhi,
-        )
-
-    # Override with typed info for enum fields
-    for section_path, key, allowed in _ENUM_FIELDS:
-        dot_path = f"{section_path}.{key}"
-        if not include_sensitive and dot_path in _SENSITIVE_FIELDS:
-            continue
-        fields[dot_path] = ConfigFieldInfo(
-            dot_path=dot_path,
-            field_type="enum",
-            allowed_values=tuple(sorted(allowed)),
-        )
-
-    # Identify bool fields from the validator's inline list
-    bool_field_paths = [
-        ("ai", "verify_ssl"),
-        ("ai", "block_localhost_api"),
-        ("app", "tls"),
-        ("cli", "builtin_tools"),
-        ("cli", "tool_dedup"),
-        ("cli.planning", "enabled"),
-        ("embeddings", "enabled"),
-        ("safety", "enabled"),
-        ("safety", "read_only"),
-        ("proxy", "enabled"),
-        ("storage", "purge_attachments"),
-        ("storage", "purge_embeddings"),
-        ("storage", "encrypt_at_rest"),
-        ("safety.prompt_injection", "enabled"),
-        ("safety.prompt_injection", "detect_encoding_attacks"),
-        ("safety.prompt_injection", "detect_instruction_override"),
-        ("safety.prompt_injection", "log_detections"),
-        ("safety.dlp", "enabled"),
-        ("safety.dlp", "scan_output"),
-        ("safety.dlp", "scan_input"),
-        ("safety.dlp", "log_detections"),
-        ("safety.output_filter", "enabled"),
-        ("safety.output_filter", "system_prompt_leak_detection"),
-        ("safety.output_filter", "log_detections"),
-        ("rag", "enabled"),
-        ("rag", "show_status"),
-        ("rag", "include_sources"),
-        ("rag", "include_conversations"),
-        ("rag", "exclude_current"),
-        ("reranker", "enabled"),
-        ("codebase_index", "enabled"),
-        ("session", "log_session_events"),
-        ("audit", "enabled"),
-        ("audit", "redact_content"),
+        for f in iter_known_config_fields()
+        if include_sensitive or f.dot_path not in _SENSITIVE_FIELDS
     ]
-    for section_path, key in bool_field_paths:
-        dot_path = f"{section_path}.{key}"
-        if dot_path in fields:
-            fields[dot_path] = ConfigFieldInfo(dot_path=dot_path, field_type="bool")
-
-    # Identify list fields
-    list_field_paths = [
-        ("safety", "custom_patterns"),
-        ("safety", "sensitive_paths"),
-        ("safety", "allowed_tools"),
-        ("safety", "denied_tools"),
-        ("proxy", "allowed_origins"),
-        ("ai", "allowed_domains"),
-        ("ai", "allowed_models"),
-        ("session", "allowed_ips"),
-    ]
-    for section_path, key in list_field_paths:
-        dot_path = f"{section_path}.{key}"
-        if dot_path in fields:
-            fields[dot_path] = ConfigFieldInfo(dot_path=dot_path, field_type="list")
-
-    return sorted(fields.values(), key=lambda f: f.dot_path)
 
 
 # ---------------------------------------------------------------------------

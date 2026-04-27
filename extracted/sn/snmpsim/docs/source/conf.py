@@ -58,7 +58,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "SNMP Simulator"
-copyright = "2010-2019, Ilya Etingof. © Copyright 2022-2025, LeXtudio Inc."
+copyright = "2010-2019, Ilya Etingof. © Copyright 2022-2026, LeXtudio Inc."
 author = "LeXtudio Inc. <support@lextudio.com>"
 
 # The version info for the project you're documenting, acts as replacement for
@@ -66,7 +66,7 @@ author = "LeXtudio Inc. <support@lextudio.com>"
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-release = "1.2.1"
+release = "1.2.2"
 # The short X.Y version.
 version = ".".join(release.split(".")[:2])
 
@@ -102,6 +102,7 @@ html_theme = "furo"
 # documentation.
 #
 html_theme_options = {
+    "announcement": 'Try <strong>SNMP Studio</strong>: <a href="https://www.sharpsnmp.com/#section-studio" target="_blank">Explore SNMP Studio</a>.',
     "source_repository": "https://github.com/lextudio/snmpsim",
     "source_branch": "main",
     "source_directory": "docs/source/",

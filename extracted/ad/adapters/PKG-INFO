@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: adapters
-Version: 1.2.0
+Version: 1.3.0
 Summary: A Unified Library for Parameter-Efficient and Modular Transfer Learning
 Home-page: https://github.com/adapter-hub/adapters
 Author: The AdapterHub team and community contributors
@@ -22,7 +22,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: transformers~=4.51.3
+Requires-Dist: transformers~=4.57.6
 Requires-Dist: packaging
 Provides-Extra: sklearn
 Requires-Dist: scikit-learn; extra == "sklearn"
@@ -41,7 +41,7 @@ Requires-Dist: pytest-xdist; extra == "testing"
 Requires-Dist: timeout-decorator; extra == "testing"
 Requires-Dist: parameterized; extra == "testing"
 Requires-Dist: psutil; extra == "testing"
-Requires-Dist: datasets!=2.5.0; extra == "testing"
+Requires-Dist: datasets!=2.5.0,<4.0.0; extra == "testing"
 Requires-Dist: dill<0.3.5; extra == "testing"
 Requires-Dist: evaluate>=0.2.0; extra == "testing"
 Requires-Dist: pytest-timeout; extra == "testing"
@@ -58,7 +58,7 @@ Requires-Dist: accelerate>=0.26.0; extra == "testing"
 Requires-Dist: torchvision; extra == "testing"
 Provides-Extra: quality
 Requires-Dist: black~=24.4.0; extra == "quality"
-Requires-Dist: datasets!=2.5.0; extra == "quality"
+Requires-Dist: datasets!=2.5.0,<4.0.0; extra == "quality"
 Requires-Dist: isort>=5.5.4; extra == "quality"
 Requires-Dist: flake8>=3.8.3; extra == "quality"
 Requires-Dist: GitPython<3.1.19; extra == "quality"
@@ -81,7 +81,7 @@ Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: timeout-decorator; extra == "dev"
 Requires-Dist: parameterized; extra == "dev"
 Requires-Dist: psutil; extra == "dev"
-Requires-Dist: datasets!=2.5.0; extra == "dev"
+Requires-Dist: datasets!=2.5.0,<4.0.0; extra == "dev"
 Requires-Dist: dill<0.3.5; extra == "dev"
 Requires-Dist: evaluate>=0.2.0; extra == "dev"
 Requires-Dist: pytest-timeout; extra == "dev"
@@ -101,7 +101,7 @@ Requires-Dist: accelerate>=0.26.0; extra == "dev"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "dev"
 Requires-Dist: protobuf; extra == "dev"
 Requires-Dist: black~=24.4.0; extra == "dev"
-Requires-Dist: datasets!=2.5.0; extra == "dev"
+Requires-Dist: datasets!=2.5.0,<4.0.0; extra == "dev"
 Requires-Dist: isort>=5.5.4; extra == "dev"
 Requires-Dist: flake8>=3.8.3; extra == "dev"
 Requires-Dist: GitPython<3.1.19; extra == "dev"
@@ -279,6 +279,7 @@ Currently, adapters integrates all architectures and methods listed below:
 | MTL-LoRA | [Yang et al., 2024](https://arxiv.org/pdf/2410.09437) | [Docs](https://docs.adapterhub.ml/multi_task_methods.html#mtl-lora) |
 | (IA)^3 | [Liu et al. (2022)](https://arxiv.org/pdf/2205.05638.pdf) | [Docs](https://docs.adapterhub.ml/methods.html#ia-3) |
 | Vera | [Kopiczko et al., 2024](https://arxiv.org/pdf/2310.11454) | [Docs](https://docs.adapterhub.ml/methods.html#vera)
+| DoRA | [Liu et al., 2024](https://arxiv.org/pdf/2402.09353) | [Docs](https://docs.adapterhub.ml/methods.html#dora)
 | UniPELT | [Mao et al. (2022)](https://arxiv.org/pdf/2110.07577.pdf) | [Docs](https://docs.adapterhub.ml/method_combinations.html#unipelt) |
 | Prompt Tuning | [Lester et al. (2021)](https://aclanthology.org/2021.emnlp-main.243/) | [Docs](https://docs.adapterhub.ml/methods.html#prompt-tuning) |
 | QLoRA | [Dettmers et al. (2023)](https://arxiv.org/pdf/2305.14314.pdf) | [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/QLoRA_Llama_Finetuning.ipynb) |

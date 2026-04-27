@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wemake-python-styleguide
-Version: 1.6.1
+Version: 1.6.2
 Summary: The strictest and most opinionated python linter ever
 License: MIT
 License-File: LICENSE
@@ -69,6 +69,10 @@ You will also need to create a `setup.cfg` file with the [configuration](https:/
 We highly recommend to also use:
 
 - [ondivi](https://wemake-python-styleguide.rtfd.io/en/latest/pages/usage/integrations/ondivi.html) for easy integration into a **legacy** codebase
+
+Additional contexts for LLMs:
+- https://wemake-python-styleguide.readthedocs.io/llms.txt
+- https://wemake-python-styleguide.readthedocs.io/llms-full.txt
 
 
 ## Running

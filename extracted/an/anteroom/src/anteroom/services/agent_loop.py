@@ -17,7 +17,7 @@ from .compaction import (
     PROACTIVE_COMPACTION_MSG_THRESHOLD,
     PROACTIVE_COMPACTION_TOKEN_THRESHOLD,
     CompactionResult,
-    collapse_old_tool_results,
+    collapse_old_tool_results_details,
     drop_old_turn_groups,
     logical_tail_boundary,
 )
@@ -25,9 +25,15 @@ from .compaction import (
     compact_messages as _shared_compact_messages,
 )
 from .context_trust import wrap_untrusted
+from .diagnostic_context import log_debug
 from .microcompact import microcompact as _microcompact
 from .token_budget import BudgetCheckResult, check_all_budgets
-from .token_estimator import RequestTokenBreakdown, estimate_request_tokens, request_breakdown_to_metadata
+from .token_estimator import (
+    RequestTokenBreakdown,
+    count_message_tokens,
+    estimate_request_tokens,
+    request_breakdown_to_metadata,
+)
 from .tool_result_compact import compact_tool_output
 
 logger = logging.getLogger(__name__)
@@ -686,6 +692,7 @@ async def run_agent_loop(
                         **phase_data,
                         "new_message_count": len(messages),
                         "in_memory_only": True,
+                        "no_op": False,
                     },
                 )
                 _loop_request_breakdown = estimate_request_tokens(
@@ -761,6 +768,11 @@ async def run_agent_loop(
                         "attempts": _compact_result.attempts,
                         "retries": _compact_result.retries,
                         "dropped_messages": _compact_result.reduced_message_count,
+                        "messages_compacted": max(0, _compact_result.original_count - len(messages)),
+                        "tail_preserved": max(0, len(messages) - 1),
+                        "preserve_tail": compact_preserve_tail,
+                        "in_memory_only": False,
+                        "no_op": False,
                     },
                 )
             elif _compact_result.failure_code:
@@ -812,7 +824,15 @@ async def run_agent_loop(
         _ai_call_start = time.monotonic()
         _first_token_logged = False
         _first_response_elapsed: float | None = None
-        logger.debug("agent_loop ai_call_start iteration=%d", iteration)
+        log_debug(
+            logger,
+            "agent_loop.ai_call.start",
+            lifecycle="start",
+            phase="ai_call",
+            iteration=iteration,
+            message_count=len(messages),
+            tool_count=len(tools_openai or []),
+        )
         async for event in ai_service.stream_chat(
             messages,
             tools=tools_openai,
@@ -821,11 +841,14 @@ async def run_agent_loop(
         ):
             etype = event["event"]
             if not _first_token_logged and etype in ("token", "tool_call"):
-                logger.debug(
-                    "agent_loop first_response iteration=%d type=%s elapsed=%.2fs",
-                    iteration,
-                    etype,
-                    time.monotonic() - _ai_call_start,
+                log_debug(
+                    logger,
+                    "agent_loop.ai_call.success",
+                    lifecycle="success",
+                    phase="first_response",
+                    iteration=iteration,
+                    response_type=etype,
+                    _started_at=_ai_call_start,
                 )
                 _first_response_elapsed = time.monotonic() - _ai_call_start
                 _first_token_logged = True
@@ -886,6 +909,7 @@ async def run_agent_loop(
                         "arguments": event["data"]["arguments"],
                         "iteration": iteration,
                         "first_response_elapsed_seconds": _first_response_elapsed,
+                        "timeout_seconds": _DEFAULT_TOOL_TIMEOUT,
                     },
                 )
             elif etype == "tool_call_args_delta":
@@ -938,8 +962,25 @@ async def run_agent_loop(
             # conversation is preserved as much as possible — full LLM
             # compaction is the last resort.
 
+            _recovery_message_count = len(messages)
+            _recovery_tokens = count_message_tokens(messages)
+
             # Strategy 1: truncate oversized tool outputs (existing).
             if _truncate_large_tool_outputs(messages, max_chars=tool_output_max_chars):
+                yield AgentEvent(
+                    kind="compaction",
+                    data={
+                        "reason": "context_error_recovery",
+                        "strategy": "truncate_large_tool_outputs",
+                        "message_count": _recovery_message_count,
+                        "new_message_count": len(messages),
+                        "estimated_tokens": _recovery_tokens,
+                        "attempts": context_recovery_attempts,
+                        "max_attempts": max_context_recoveries,
+                        "in_memory_only": True,
+                        "no_op": False,
+                    },
+                )
                 yield AgentEvent(
                     kind="token",
                     data={
@@ -954,7 +995,26 @@ async def run_agent_loop(
             # Strategy 2 (#1415): collapse all historical tool results to
             # a compact form regardless of current size.  Turn-group aware
             # — never splits an assistant+tool_calls from its tool results.
-            if collapse_old_tool_results(messages, keep_recent_groups=2, compact_chars=200):
+            _collapse_result = collapse_old_tool_results_details(messages, keep_recent_groups=2, compact_chars=200)
+            if _collapse_result.success:
+                yield AgentEvent(
+                    kind="compaction",
+                    data={
+                        "reason": "context_error_recovery",
+                        "strategy": "collapse_historical_tool_results",
+                        "message_count": _recovery_message_count,
+                        "new_message_count": len(messages),
+                        "estimated_tokens": _recovery_tokens,
+                        "attempts": context_recovery_attempts,
+                        "max_attempts": max_context_recoveries,
+                        "modified_count": _collapse_result.modified_count,
+                        "bytes_saved": _collapse_result.bytes_saved,
+                        "keep_recent_groups": _collapse_result.keep_recent_groups,
+                        "compact_chars": _collapse_result.compact_chars,
+                        "in_memory_only": True,
+                        "no_op": False,
+                    },
+                )
                 yield AgentEvent(
                     kind="token",
                     data={
@@ -967,7 +1027,24 @@ async def run_agent_loop(
             # deterministic summary (no LLM call).  Produces the same
             # message shape as compact_messages() so downstream consumers
             # (#1414 rehydration, transcript renderers) treat it uniformly.
+            _before_drop_count = len(messages)
             if drop_old_turn_groups(messages, keep_recent_groups=4):
+                yield AgentEvent(
+                    kind="compaction",
+                    data={
+                        "reason": "context_error_recovery",
+                        "strategy": "drop_old_turn_groups",
+                        "message_count": _before_drop_count,
+                        "new_message_count": len(messages),
+                        "estimated_tokens": _recovery_tokens,
+                        "attempts": context_recovery_attempts,
+                        "max_attempts": max_context_recoveries,
+                        "messages_compacted": max(0, _before_drop_count - len(messages)),
+                        "tail_preserved": max(0, len(messages) - 1),
+                        "in_memory_only": True,
+                        "no_op": False,
+                    },
+                )
                 yield AgentEvent(
                     kind="token",
                     data={
@@ -983,6 +1060,11 @@ async def run_agent_loop(
                     "phase": "compacting",
                     "reason": "context_error_recovery",
                     "reasons": ["context_error_recovery"],
+                    "strategy": "llm_summary",
+                    "attempts": context_recovery_attempts,
+                    "max_attempts": max_context_recoveries,
+                    "message_count": len(messages),
+                    "estimated_tokens": count_message_tokens(messages),
                 },
             )
             yield AgentEvent(
@@ -1023,6 +1105,24 @@ async def run_agent_loop(
                     },
                 )
             if _compact_result.success:
+                yield AgentEvent(
+                    kind="compaction",
+                    data={
+                        "reason": "context_error_recovery",
+                        "strategy": "llm_summary",
+                        "estimated_tokens": _compact_result.original_tokens,
+                        "message_count": _compact_result.original_count,
+                        "new_message_count": len(messages),
+                        "attempts": _compact_result.attempts,
+                        "retries": _compact_result.retries,
+                        "dropped_messages": _compact_result.reduced_message_count,
+                        "messages_compacted": max(0, _compact_result.original_count - len(messages)),
+                        "tail_preserved": max(0, len(messages) - 1),
+                        "preserve_tail": compact_preserve_tail,
+                        "in_memory_only": False,
+                        "no_op": False,
+                    },
+                )
                 continue
 
             # Cancel fired during Strategy 4's LLM summary (#1266 senior
@@ -1165,12 +1265,15 @@ async def run_agent_loop(
                 )
 
         # Save assistant message with tool calls into message history
-        logger.debug(
-            "agent_loop ai_stream_done iteration=%d tool_calls=%d content_len=%d elapsed=%.2fs",
-            iteration,
-            len(tool_calls_pending),
-            len(assistant_content),
-            time.monotonic() - _ai_call_start,
+        log_debug(
+            logger,
+            "agent_loop.ai_stream.success",
+            lifecycle="success",
+            phase="ai_stream",
+            iteration=iteration,
+            tool_calls=len(tool_calls_pending),
+            assistant_chars=len(assistant_content),
+            _started_at=_ai_call_start,
         )
         yield AgentEvent(kind="assistant_message", data={"content": assistant_content, "iteration": iteration})
         messages.append(
@@ -1208,11 +1311,14 @@ async def run_agent_loop(
 
         # Execute tool calls in parallel
         _tools_start = time.monotonic()
-        logger.debug(
-            "agent_loop tool_exec_start iteration=%d count=%d tools=%s",
-            iteration,
-            len(tool_calls_pending),
-            tool_names,
+        log_debug(
+            logger,
+            "agent_loop.tool_exec.start",
+            lifecycle="start",
+            phase="tool_exec",
+            iteration=iteration,
+            tool_count=len(tool_calls_pending),
+            tool_names=tool_names,
         )
         _end_turn_requested = False  # (#1311) background task turn-yield
         if cancel_event and cancel_event.is_set():
@@ -1227,6 +1333,7 @@ async def run_agent_loop(
                         "status": "cancelled",
                         "iteration": iteration,
                         "execution_elapsed_seconds": time.monotonic() - _tools_start,
+                        "timeout_seconds": _DEFAULT_TOOL_TIMEOUT,
                     },
                 )
                 messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(cancelled_result)})
@@ -1266,6 +1373,7 @@ async def run_agent_loop(
                         "status": tool_status,
                         "iteration": iteration,
                         "execution_elapsed_seconds": time.monotonic() - _tools_start,
+                        "timeout_seconds": _DEFAULT_TOOL_TIMEOUT,
                     },
                 )
                 internal_keys = {
@@ -1321,11 +1429,15 @@ async def run_agent_loop(
                 )
             total_tool_calls += len(tool_calls_pending)
             consecutive_text_only = 0
-            logger.debug(
-                "agent_loop tool_exec_done iteration=%d count=%d elapsed=%.2fs (serialized)",
-                iteration,
-                len(tool_calls_pending),
-                time.monotonic() - _tools_start,
+            log_debug(
+                logger,
+                "agent_loop.tool_exec.success",
+                lifecycle="success",
+                phase="tool_exec",
+                iteration=iteration,
+                tool_count=len(tool_calls_pending),
+                execution_mode="serialized",
+                _started_at=_tools_start,
             )
         else:
             # Parallel tool execution (default — existing behavior, untouched)
@@ -1341,6 +1453,7 @@ async def run_agent_loop(
                         "status": tool_status,
                         "iteration": iteration,
                         "execution_elapsed_seconds": time.monotonic() - _tools_start,
+                        "timeout_seconds": _DEFAULT_TOOL_TIMEOUT,
                     },
                 )
                 # Strip internal metadata before sending to the LLM
@@ -1405,11 +1518,15 @@ async def run_agent_loop(
                 )
             total_tool_calls += len(tool_calls_pending)
             consecutive_text_only = 0
-            logger.debug(
-                "agent_loop tool_exec_done iteration=%d count=%d elapsed=%.2fs",
-                iteration,
-                len(tool_calls_pending),
-                time.monotonic() - _tools_start,
+            log_debug(
+                logger,
+                "agent_loop.tool_exec.success",
+                lifecycle="success",
+                phase="tool_exec",
+                iteration=iteration,
+                tool_count=len(tool_calls_pending),
+                execution_mode="parallel",
+                _started_at=_tools_start,
             )
 
         if cancel_event and cancel_event.is_set():
@@ -1420,7 +1537,14 @@ async def run_agent_loop(
         # _end_turn, emit done and break to the queue checkpoint instead
         # of calling the LLM again.
         if _end_turn_requested:
-            logger.debug("_end_turn requested — yielding turn to queue checkpoint")
+            log_debug(
+                logger,
+                "agent_loop.queue.skip",
+                lifecycle="skip",
+                phase="queue_checkpoint",
+                reason="yielded_to_queue",
+                iteration=iteration,
+            )
             active_skill_policy.set(None)
             yield AgentEvent(kind="done", data={"stop_reason": "yielded_to_queue", "iteration": iteration})
             if message_queue is not None:

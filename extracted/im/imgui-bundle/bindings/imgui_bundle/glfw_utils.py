@@ -1,4 +1,4 @@
-# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2025 Pascal Thomet - https://github.com/pthom/imgui_bundle
+# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
 from typing import cast
 
 try:
@@ -12,7 +12,7 @@ try:
         import ctypes
         from imgui_bundle import hello_imgui
 
-        window_address = hello_imgui.get_glfw_window_address()  # type: ignore
+        window_address = hello_imgui.get_glfw_window_address()
         window_pointer = ctypes.cast(window_address, ctypes.POINTER(glfw._GLFWwindow))
         return cast(glfw._GLFWwindow, window_pointer)
 

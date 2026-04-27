@@ -471,6 +471,298 @@ fn auto_update_specific_repos() -> Result<()> {
 }
 
 #[test]
+fn auto_update_exclude_repo_skips_fetching_repo() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let repo_path = create_local_git_repo(&context, "included-repo", &["v1.0.0", "v1.1.0"])?;
+    let missing_repo_path = context
+        .home_dir()
+        .child("test-repos/missing-repo")
+        .to_string_lossy()
+        .to_string();
+
+    context.write_pre_commit_config(&indoc::formatdoc! {r"
+        repos:
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: test-hook
+          - repo: {}
+            rev: v9.9.9
+            hooks:
+              - id: another-hook
+    ", repo_path, missing_repo_path});
+
+    context.git_add(".");
+
+    let filters = context.filters();
+
+    cmd_snapshot!(filters.clone(), context.auto_update().arg("--exclude-repo").arg(&missing_repo_path).arg("--cooldown-days").arg("0"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    [HOME]/test-repos/included-repo
+      updating rev `v1.0.0` -> `v1.1.0`
+
+    ----- stderr -----
+    ");
+
+    insta::with_settings!(
+        { filters => filters.clone() },
+        {
+            assert_snapshot!(context.read(PRE_COMMIT_CONFIG_YAML), @"
+            repos:
+              - repo: [HOME]/test-repos/included-repo
+                rev: v1.1.0
+                hooks:
+                  - id: test-hook
+              - repo: [HOME]/test-repos/missing-repo
+                rev: v9.9.9
+                hooks:
+                  - id: another-hook
+            ");
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn auto_update_tag_filters_include_then_exclude() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let repo_path = create_local_git_repo(
+        &context,
+        "tag-filter-repo",
+        &["v1.0.0", "v1.1.0", "v2.0.0", "nightly"],
+    )?;
+
+    context.write_pre_commit_config(&indoc::formatdoc! {r"
+        repos:
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: test-hook
+    ", repo_path});
+
+    context.git_add(".");
+
+    let filters = context.filters();
+
+    cmd_snapshot!(filters.clone(), context.auto_update()
+        .arg("--include-tag").arg("v1.*")
+        .arg("--include-tag").arg("v2.*")
+        .arg("--exclude-tag").arg("v2.*")
+        .arg("--cooldown-days").arg("0"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    [HOME]/test-repos/tag-filter-repo
+      updating rev `v1.0.0` -> `v1.1.0`
+
+    ----- stderr -----
+    ");
+
+    insta::with_settings!(
+        { filters => filters.clone() },
+        {
+            assert_snapshot!(context.read(PRE_COMMIT_CONFIG_YAML), @"
+            repos:
+              - repo: [HOME]/test-repos/tag-filter-repo
+                rev: v1.1.0
+                hooks:
+                  - id: test-hook
+            ");
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn auto_update_repo_include_tag_is_repo_specific() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let repo1_path = create_local_git_repo(
+        &context,
+        "repo-include-tag-1",
+        &["v1.0.0", "v1.1.0", "v2.0.0"],
+    )?;
+    let repo2_path = create_local_git_repo(
+        &context,
+        "repo-include-tag-2",
+        &["v1.0.0", "v1.1.0", "v2.0.0"],
+    )?;
+
+    context.write_pre_commit_config(&indoc::formatdoc! {r"
+        repos:
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: test-hook
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: test-hook
+    ", repo1_path, repo2_path});
+
+    context.git_add(".");
+
+    let filters = context.filters();
+    let repo1_filter = format!("{repo1_path}=v1.*");
+
+    cmd_snapshot!(filters.clone(), context.auto_update()
+        .arg("--jobs").arg("1")
+        .arg("--repo-include-tag").arg(repo1_filter)
+        .arg("--cooldown-days").arg("0"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    [HOME]/test-repos/repo-include-tag-1
+      updating rev `v1.0.0` -> `v1.1.0`
+
+    [HOME]/test-repos/repo-include-tag-2
+      updating rev `v1.0.0` -> `v2.0.0`
+
+    ----- stderr -----
+    ");
+
+    insta::with_settings!(
+        { filters => filters.clone() },
+        {
+            assert_snapshot!(context.read(PRE_COMMIT_CONFIG_YAML), @"
+            repos:
+              - repo: [HOME]/test-repos/repo-include-tag-1
+                rev: v1.1.0
+                hooks:
+                  - id: test-hook
+              - repo: [HOME]/test-repos/repo-include-tag-2
+                rev: v2.0.0
+                hooks:
+                  - id: test-hook
+            ");
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn auto_update_repo_include_tag_overrides_global_include_tag() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let repo_path = create_local_git_repo(
+        &context,
+        "repo-include-tag-intersection",
+        &["v1.0.0", "v1.1.0", "v2.1.0"],
+    )?;
+
+    context.write_pre_commit_config(&indoc::formatdoc! {r"
+        repos:
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: test-hook
+    ", repo_path});
+
+    context.git_add(".");
+
+    let filters = context.filters();
+    let repo_filter = format!("{repo_path}=v*.1.0");
+
+    cmd_snapshot!(filters.clone(), context.auto_update()
+        .arg("--include-tag").arg("v1.*")
+        .arg("--repo-include-tag").arg(repo_filter)
+        .arg("--cooldown-days").arg("0"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    [HOME]/test-repos/repo-include-tag-intersection
+      updating rev `v1.0.0` -> `v2.1.0`
+
+    ----- stderr -----
+    ");
+
+    insta::with_settings!(
+        { filters => filters.clone() },
+        {
+            assert_snapshot!(context.read(PRE_COMMIT_CONFIG_YAML), @"
+            repos:
+              - repo: [HOME]/test-repos/repo-include-tag-intersection
+                rev: v2.1.0
+                hooks:
+                  - id: test-hook
+            ");
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn auto_update_repo_exclude_tag_can_leave_repo_unchanged() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let repo1_path = create_local_git_repo(&context, "repo-exclude-tag-1", &["v1.0.0", "v2.0.0"])?;
+    let repo2_path = create_local_git_repo(&context, "repo-exclude-tag-2", &["v1.0.0", "v2.0.0"])?;
+
+    context.write_pre_commit_config(&indoc::formatdoc! {r"
+        repos:
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: test-hook
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: test-hook
+    ", repo1_path, repo2_path});
+
+    context.git_add(".");
+
+    let filters = context.filters();
+    let repo1_filter = format!("{repo1_path}=v2.*");
+
+    cmd_snapshot!(filters.clone(), context.auto_update()
+        .arg("--jobs").arg("1")
+        .arg("--include-tag").arg("v2.*")
+        .arg("--repo-exclude-tag").arg(repo1_filter)
+        .arg("--cooldown-days").arg("0"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    [HOME]/test-repos/repo-exclude-tag-2
+      updating rev `v1.0.0` -> `v2.0.0`
+
+    ----- stderr -----
+    ");
+
+    insta::with_settings!(
+        { filters => filters.clone() },
+        {
+            assert_snapshot!(context.read(PRE_COMMIT_CONFIG_YAML), @"
+            repos:
+              - repo: [HOME]/test-repos/repo-exclude-tag-1
+                rev: v1.0.0
+                hooks:
+                  - id: test-hook
+              - repo: [HOME]/test-repos/repo-exclude-tag-2
+                rev: v2.0.0
+                hooks:
+                  - id: test-hook
+            ");
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
 fn auto_update_bleeding_edge() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
@@ -1773,6 +2065,148 @@ fn auto_update_check() -> Result<()> {
             repos:
               - repo: [HOME]/test-repos/check-test-repo
                 rev: v1.0.0
+                hooks:
+                  - id: test-hook
+            ");
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn auto_update_dry_run_exit_code() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let repo_path = create_local_git_repo(
+        &context,
+        "dry-run-exit-code-test-repo",
+        &["v1.0.0", "v1.1.0", "v2.0.0"],
+    )?;
+
+    context.write_pre_commit_config(&indoc::formatdoc! {r"
+        repos:
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: test-hook
+    ", repo_path});
+    context.git_add(".");
+
+    let filters = context.filters();
+
+    cmd_snapshot!(filters.clone(), context.auto_update().arg("--dry-run").arg("--exit-code").arg("--cooldown-days").arg("0"), @"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    [HOME]/test-repos/dry-run-exit-code-test-repo
+      would update rev `v1.0.0` -> `v2.0.0`
+
+    ----- stderr -----
+    ");
+
+    insta::with_settings!(
+        { filters => filters.clone() },
+        {
+            assert_snapshot!(context.read(PRE_COMMIT_CONFIG_YAML), @"
+            repos:
+              - repo: [HOME]/test-repos/dry-run-exit-code-test-repo
+                rev: v1.0.0
+                hooks:
+                  - id: test-hook
+            ");
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn auto_update_exit_code_updates_config() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let repo_path = create_local_git_repo(
+        &context,
+        "exit-code-test-repo",
+        &["v1.0.0", "v1.1.0", "v2.0.0"],
+    )?;
+
+    context.write_pre_commit_config(&indoc::formatdoc! {r"
+        repos:
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: test-hook
+    ", repo_path});
+    context.git_add(".");
+
+    let filters = context.filters();
+
+    cmd_snapshot!(filters.clone(), context.auto_update().arg("--exit-code").arg("--cooldown-days").arg("0"), @"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    [HOME]/test-repos/exit-code-test-repo
+      updating rev `v1.0.0` -> `v2.0.0`
+
+    ----- stderr -----
+    ");
+
+    insta::with_settings!(
+        { filters => filters.clone() },
+        {
+            assert_snapshot!(context.read(PRE_COMMIT_CONFIG_YAML), @"
+            repos:
+              - repo: [HOME]/test-repos/exit-code-test-repo
+                rev: v2.0.0
+                hooks:
+                  - id: test-hook
+            ");
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn auto_update_exit_code_succeeds_when_up_to_date() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let repo_path = create_local_git_repo(
+        &context,
+        "exit-code-up-to-date-test-repo",
+        &["v1.0.0", "v2.0.0"],
+    )?;
+
+    context.write_pre_commit_config(&indoc::formatdoc! {r"
+        repos:
+          - repo: {}
+            rev: v2.0.0
+            hooks:
+              - id: test-hook
+    ", repo_path});
+    context.git_add(".");
+
+    let filters = context.filters();
+
+    cmd_snapshot!(filters.clone(), context.auto_update().arg("--exit-code").arg("--cooldown-days").arg("0"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    ");
+
+    insta::with_settings!(
+        { filters => filters.clone() },
+        {
+            assert_snapshot!(context.read(PRE_COMMIT_CONFIG_YAML), @"
+            repos:
+              - repo: [HOME]/test-repos/exit-code-up-to-date-test-repo
+                rev: v2.0.0
                 hooks:
                   - id: test-hook
             ");

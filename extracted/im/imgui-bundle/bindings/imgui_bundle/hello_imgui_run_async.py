@@ -1,12 +1,9 @@
-# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2025 Pascal Thomet - https://github.com/pthom/imgui_bundle
+# Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
 """Async support for HelloImGui - enables non-blocking GUI execution."""
 import asyncio
-from typing import Optional, Callable, Tuple, overload
+from typing import Any, Optional, Callable, Tuple, overload
 
-from imgui_bundle._imgui_bundle.hello_imgui import (  # type: ignore
-    RunnerParams,
-    SimpleRunnerParams,
-)
+from imgui_bundle.hello_imgui import RunnerParams, SimpleRunnerParams
 
 
 @overload
@@ -52,7 +49,7 @@ async def run_async(
     ...
 
 
-async def run_async(*args, **kwargs) -> None:
+async def run_async(*args: Any, **kwargs: Any) -> None:
     """Run a HelloImGui application asynchronously in a non-blocking way.
 
     This function provides async/await support for HelloImGui applications.
@@ -110,18 +107,23 @@ async def run_async(*args, **kwargs) -> None:
         raise TypeError("run_async() requires at least one argument")
 
     # Configure FPS settings for optimal async performance
-    # This ensures C++ code returns early to Python instead of sleeping,
-    # allowing maximum parallelism between GUI rendering and Python code execution
+    # EarlyReturn mode ensures C++ code never blocks: it returns immediately
+    # and tells Python how long to wait (see _priv_idle_frame_wait_duration_for_python_async_io)
     params = hello_imgui.get_runner_params()
-    params.fps_idling.fps_idling_mode = hello_imgui.FpsIdlingMode.early_return  # Use early return mode
-    params.fps_idling.vsync_to_monitor = False  # Disable vsync which is implemented via sleep
-    params.fps_idling.fps_max = 60.0  # Limit to 60 FPS (otherwise we may run at 500+ FPS on fast machines)
+    params.fps_idling.fps_idling_mode = hello_imgui.FpsIdlingMode.early_return
+    params.fps_idling.vsync_to_monitor = False  # vsync is implemented via sleep in the backend
+    if params.fps_idling.fps_max <= 0.0:
+        params.fps_idling.fps_max = 60.0  # default cap to avoid 1000+ FPS spins
 
     # Async render loop
     try:
         while not hello_imgui.get_runner_params().app_shall_exit:
             manual_render.render()
-            await asyncio.sleep(0)  # Yield control to the event loop
+            wait_time = hello_imgui._priv_idle_frame_wait_duration_for_python_async_io()  # type: ignore
+            if wait_time > 0.0:
+                await asyncio.sleep(wait_time)
+            else:
+                await asyncio.sleep(0)
     finally:
         # Ensure cleanup happens even if an exception occurs
         manual_render.tear_down()

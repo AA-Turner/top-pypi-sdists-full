@@ -31,11 +31,13 @@ def run(
     window_size: Optional[tuple[int, int]] = None,
     fps_idle: float = 10.0,
     top_most: bool = False,
+    ini_disable: bool = False,
     with_implot: bool = False,
     with_implot3d: bool = False,
     with_markdown: bool = False,
     with_node_editor: bool = False,
     with_tex_inspect: bool = False,
+    with_latex: bool = False,
 ) -> None: ...
 
 # start() - Non-blocking async mode
@@ -43,13 +45,13 @@ def run(
 def start(
     runner_params: RunnerParams,
     addons_params: Optional[AddOnsParams] = None
-) -> asyncio.Task: ...
+) -> asyncio.Task[None]: ...
 
 @overload
 def start(
     simple_params: SimpleRunnerParams,
     addons_params: Optional[AddOnsParams] = None
-) -> asyncio.Task: ...
+) -> asyncio.Task[None]: ...
 
 @overload
 def start(
@@ -61,12 +63,14 @@ def start(
     window_size: Optional[tuple[int, int]] = None,
     fps_idle: float = 10.0,
     top_most: bool = True,
+    ini_disable: bool = False,
     with_implot: bool = False,
     with_implot3d: bool = False,
     with_markdown: bool = False,
     with_node_editor: bool = False,
     with_tex_inspect: bool = False,
-) -> asyncio.Task: ...
+    with_latex: bool = False,
+) -> asyncio.Task[None]: ...
 
 # stop() and is_running()
 def stop() -> None: ...

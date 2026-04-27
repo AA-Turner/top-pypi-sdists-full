@@ -490,6 +490,282 @@ def _run_config_view(team_config_path: Path | None = None, *, with_sources: bool
     console.print(table)
 
 
+def _open_config_explanation_db(config: AppConfig) -> Any | None:
+    """Open the configured DB for config explanation, if it exists."""
+    db_path = config.app.data_dir / "chat.db"
+    if not db_path.exists():
+        return None
+    try:
+        from .db import get_db
+
+        return get_db(db_path)
+    except Exception:
+        logging.getLogger(__name__).debug("Failed to open DB for config explanation", exc_info=True)
+        return None
+
+
+def _run_config_explain(
+    dot_path: str,
+    *,
+    team_config_path: Path | None = None,
+    output_format: str = "text",
+) -> None:
+    """Explain an effective config setting."""
+    from rich.console import Console
+
+    from .services.config_explanation import build_explanation_context, explain_setting, format_explanation
+
+    _config_path, config, enforced_fields = _load_config_or_exit(
+        team_config_path,
+        interactive=False,
+        project_path=str(Path.cwd()),
+    )
+    db = _open_config_explanation_db(config)
+    context = build_explanation_context(config, enforced_fields, db=db, working_dir=str(Path.cwd()))
+    try:
+        explanation = explain_setting(dot_path, context)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(2)
+
+    if output_format == "json":
+        print(json.dumps(explanation.to_dict(), indent=2, sort_keys=True, default=str))
+        return
+
+    Console().print(format_explanation(explanation))
+
+
+def _run_config_sources(
+    *,
+    team_config_path: Path | None = None,
+    output_format: str = "text",
+) -> None:
+    """Show contributing config sources."""
+    from rich.console import Console
+    from rich.table import Table
+
+    from .services.config_explanation import build_explanation_context, list_sources
+
+    _config_path, config, enforced_fields = _load_config_or_exit(
+        team_config_path,
+        interactive=False,
+        project_path=str(Path.cwd()),
+    )
+    db = _open_config_explanation_db(config)
+    context = build_explanation_context(config, enforced_fields, db=db, working_dir=str(Path.cwd()))
+    sources = list_sources(context)
+
+    if output_format == "json":
+        print(json.dumps(sources, indent=2, sort_keys=True, default=str))
+        return
+
+    console = Console()
+    table = Table(title="Configuration Sources")
+    table.add_column("Layer")
+    table.add_column("Fields", justify="right")
+    for layer in sources["layers"]:
+        table.add_row(layer["layer"], str(layer["field_count"]))
+    console.print(table)
+    if sources["enforced_fields"]:
+        console.print("Team enforced: " + ", ".join(sources["enforced_fields"]))
+    if sources["pack_contributions"]:
+        console.print(f"Pack contributions: {len(sources['pack_contributions'])}")
+
+
+def _run_config_tree(
+    team_config_path: Path | None = None,
+    *,
+    json_output: bool = False,
+    include_keys: bool = False,
+) -> None:
+    """Show config layers, instructions, rules, skills, MCP servers, tools, and required keys."""
+    from rich.console import Console
+    from rich.markup import escape
+    from rich.tree import Tree
+
+    from .services.config_explanation import build_explanation_context
+    from .services.config_hierarchy import build_config_hierarchy, hierarchy_to_dict
+
+    _config_path, config, enforced_fields = _load_config_or_exit(
+        team_config_path,
+        interactive=False,
+        project_path=str(Path.cwd()),
+    )
+    db = _open_config_explanation_db(config)
+    context = build_explanation_context(config, enforced_fields, db=db, working_dir=str(Path.cwd()))
+    hierarchy = build_config_hierarchy(context=context, include_keys=include_keys)
+
+    if json_output:
+        print(json.dumps(hierarchy_to_dict(hierarchy), indent=2, sort_keys=True, default=str))
+        return
+
+    tree = Tree("Configuration Hierarchy")
+    layers_node = tree.add(f"layers ({hierarchy.final_key_count} effective keys)")
+    for layer in hierarchy.layers:
+        status = "active" if layer.active else "empty"
+        source = f" ({escape(layer.source)})" if layer.source else ""
+        label = (
+            f"{layer.precedence}. {layer.name}: {status}, {layer.key_count} keys, "
+            f"{layer.winning_key_count} winning{source}"
+        )
+        layer_node = layers_node.add(label)
+        if include_keys:
+            for key in layer.keys:
+                layer_node.add(key)
+
+    settings_node = tree.add(f"key settings ({len(hierarchy.key_settings)})")
+    for item in hierarchy.key_settings:
+        detail = f": {escape(item.detail)}" if item.detail else ""
+        source = f" ({escape(item.source)})" if item.source else ""
+        settings_node.add(f"{item.name}{detail}{source}")
+
+    if hierarchy.enforced_fields:
+        enforced_node = tree.add(f"enforced fields ({len(hierarchy.enforced_fields)})")
+        for field_name in hierarchy.enforced_fields:
+            enforced_node.add(field_name)
+
+    required_node = tree.add(f"required keys ({len(hierarchy.required_fields)})")
+    for item in hierarchy.required_fields:
+        detail = f": {escape(item.detail)}" if item.detail else ""
+        source = f" ({escape(item.source)})" if item.source else ""
+        required_node.add(f"{item.name}{detail}{source}")
+
+    refs_node = tree.add(f"instructions and rules ({len(hierarchy.references)})")
+    for item in hierarchy.references:
+        detail = f" ({escape(item.detail)})" if item.detail else ""
+        source = f" ({escape(item.source)})" if item.source else ""
+        refs_node.add(f"{item.kind}: {escape(item.name)}{detail}{source}")
+
+    skills_node = tree.add(f"skills ({len(hierarchy.skills)})")
+    for item in hierarchy.skills:
+        detail = f" ({escape(item.detail)})" if item.detail else ""
+        source = f" ({escape(item.source)})" if item.source else ""
+        skills_node.add(f"{escape(item.name)}{detail}{source}")
+
+    mcp_node = tree.add(f"MCP servers ({len(hierarchy.mcp_servers)})")
+    for item in hierarchy.mcp_servers:
+        detail = f" ({escape(item.detail)})" if item.detail else ""
+        source = f" ({escape(item.source)})" if item.source else ""
+        mcp_node.add(f"{escape(item.name)}{detail}{source}")
+
+    tools_node = tree.add(f"tools ({len(hierarchy.tools)})")
+    for item in hierarchy.tools:
+        detail = f": {escape(item.detail)}" if item.detail else ""
+        source = f" ({escape(item.source)})" if item.source else ""
+        tools_node.add(f"{escape(item.name)}{detail}{source}")
+
+    Console().print(tree)
+
+
+def _build_cli_config_registry_context(
+    team_config_path: Path | None = None,
+) -> tuple[AppConfig, dict[str, str], list[str]]:
+    """Load config plus source context for registry-backed config commands."""
+    config_path, config, enforced_fields = _load_config_or_exit(
+        team_config_path,
+        interactive=False,
+        project_path=str(Path.cwd()),
+    )
+
+    from .services.config_editor import _read_yaml, build_full_source_map, collect_env_overrides
+    from .services.team_config import discover_team_config, load_team_config
+
+    team_raw: dict[str, Any] = {}
+    team_path = discover_team_config(
+        cli_path=team_config_path,
+        env_path=os.environ.get("AI_CHAT_TEAM_CONFIG"),
+    )
+    if team_path:
+        try:
+            team_raw, enforced_fields = load_team_config(team_path, interactive=False)
+        except Exception:
+            pass
+
+    pack_raw = _collect_pack_overlay(project_path=str(Path.cwd())) or {}
+    personal_raw = _read_yaml(config_path)
+
+    project_raw: dict[str, Any] = {}
+    try:
+        from .services.project_config import discover_project_config
+
+        proj_path = discover_project_config(Path.cwd())
+        if proj_path:
+            project_raw = _read_yaml(proj_path)
+            project_raw.pop("required", None)
+    except Exception:
+        pass
+
+    source_map = build_full_source_map(
+        team_raw=team_raw,
+        pack_raw=pack_raw,
+        personal_raw=personal_raw,
+        project_raw=project_raw,
+        env_overrides=collect_env_overrides(),
+    )
+    return config, source_map, enforced_fields
+
+
+def _print_config_registry_results(results: list[Any], *, title: str) -> None:
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    table = Table(title=title, show_lines=False)
+    table.add_column("Field", style="cyan", no_wrap=True)
+    table.add_column("Value", style="white")
+    table.add_column("Source", style="green")
+    table.add_column("Help", style="dim")
+
+    for result in results:
+        entry = result.entry
+        current = result.current
+        value = "" if current is None else str(current.effective_value)
+        if len(value) > 50:
+            value = value[:47] + "..."
+        source = "" if current is None else current.source_layer
+        if current is not None and current.is_enforced:
+            source = "team (enforced)"
+        table.add_row(entry.dot_path, value, source, entry.description)
+
+    console.print(table)
+
+
+def _run_config_search(query: str, team_config_path: Path | None = None, *, json_output: bool = False) -> None:
+    """Search config settings and show effective values/source layers."""
+    from .services.config_registry import attach_current_values, search_config_settings, setting_to_dict
+
+    config, source_map, enforced = _build_cli_config_registry_context(team_config_path)
+    entries = [r.entry for r in search_config_settings(query, limit=25)]
+    results = attach_current_values(entries, config, source_map, enforced)
+
+    if json_output:
+        print(json.dumps([setting_to_dict(r.entry, current=r.current) for r in results], indent=2, sort_keys=True))
+        return
+
+    _print_config_registry_results(results, title=f"Config settings matching: {query}")
+
+
+def _run_config_help(topic: str, team_config_path: Path | None = None, *, json_output: bool = False) -> None:
+    """Show focused help for a config setting or topic."""
+    from .services.config_registry import (
+        attach_current_values,
+        get_config_setting,
+        search_config_settings,
+        setting_to_dict,
+    )
+
+    config, source_map, enforced = _build_cli_config_registry_context(team_config_path)
+    exact = get_config_setting(topic)
+    entries = [exact] if exact else [r.entry for r in search_config_settings(topic, limit=10)]
+    results = attach_current_values([e for e in entries if e is not None], config, source_map, enforced)
+
+    if json_output:
+        print(json.dumps([setting_to_dict(r.entry, current=r.current) for r in results], indent=2, sort_keys=True))
+        return
+
+    _print_config_registry_results(results, title=f"Config help: {topic}")
+
+
 async def _validate_ai_connection(config: AppConfig) -> None:
     from .services.ai_service import create_ai_service
     from .services.token_provider import TokenProviderError
@@ -516,7 +792,7 @@ async def _validate_ai_connection(config: AppConfig) -> None:
 def _check_knowledge_deps() -> None:
     """Check availability of knowledge pipeline dependencies."""
     deps = [
-        ("fastembed", "Local embeddings (default)", "pip install fastembed"),
+        ("fastembed", "Local embeddings (default)", "pip install --upgrade anteroom"),
         ("pypdf", "PDF text extraction (default)", "pip install --upgrade anteroom"),
         ("docx", "DOCX text extraction", "pip install anteroom[office]"),
         ("pptx", "PPTX text extraction", "pip install anteroom[office]"),
@@ -2654,6 +2930,17 @@ def main() -> None:
     config_subparsers.add_parser("validate", help="Check compliance rules without starting the app")
     view_parser = config_subparsers.add_parser("view", help="Display current configuration")
     view_parser.add_argument("--with-sources", action="store_true", help="Show which layer set each value")
+    tree_parser = config_subparsers.add_parser("tree", help="Visualize config layers and related runtime inputs")
+    tree_parser.add_argument("--json", action="store_true", dest="json_output", help="Output structured JSON")
+    tree_parser.add_argument("--keys", action="store_true", dest="include_keys", help="Include dot-path keys per layer")
+    show_parser = config_subparsers.add_parser("show", help="Alias for 'config tree'")
+    show_parser.add_argument("--json", action="store_true", dest="json_output", help="Output structured JSON")
+    show_parser.add_argument("--keys", action="store_true", dest="include_keys", help="Include dot-path keys per layer")
+    explain_parser = config_subparsers.add_parser("explain", help="Explain an effective config setting")
+    explain_parser.add_argument("dot_path", help="Config field path, e.g. ai.model")
+    explain_parser.add_argument("--format", choices=("text", "json"), default="text", help="Output format")
+    sources_parser = config_subparsers.add_parser("sources", help="Show config source layers")
+    sources_parser.add_argument("--format", choices=("text", "json"), default="text", help="Output format")
     history_parser = config_subparsers.add_parser("history", help="Show versioned backup history for config.yaml")
     history_parser.add_argument("--limit", type=int, default=20, help="Maximum number of entries to show (default: 20)")
     diff_parser = config_subparsers.add_parser("diff", help="Diff a backup version against the current config")
@@ -2661,6 +2948,12 @@ def main() -> None:
     restore_parser = config_subparsers.add_parser("restore", help="Restore config.yaml from a backup version")
     restore_parser.add_argument("version_id", help="Version ID from 'aroom config history'")
     restore_parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
+    search_parser = config_subparsers.add_parser("search", help="Search config settings by topic")
+    search_parser.add_argument("query", nargs="+", help="Search terms, e.g. approval or local embeddings")
+    search_parser.add_argument("--json", action="store_true", dest="json_output", help="Output structured JSON")
+    help_parser = config_subparsers.add_parser("help", help="Show contextual help for a config field or topic")
+    help_parser.add_argument("topic", nargs="+", help="Field or topic, e.g. safety.approval_mode")
+    help_parser.add_argument("--json", action="store_true", dest="json_output", help="Output structured JSON")
 
     # `aroom chat` subcommand
     chat_parser = subparsers.add_parser("chat", help="Interactive CLI chat mode")
@@ -3447,6 +3740,29 @@ def main() -> None:
             tc_path = Path(tc_arg) if tc_arg else None
             _run_config_view(team_config_path=tc_path, with_sources=getattr(args, "with_sources", False))
             return
+        if getattr(args, "config_command", None) in ("tree", "show"):
+            tc_arg = getattr(args, "team_config", None)
+            tc_path = Path(tc_arg) if tc_arg else None
+            _run_config_tree(
+                team_config_path=tc_path,
+                json_output=getattr(args, "json_output", False),
+                include_keys=getattr(args, "include_keys", False),
+            )
+            return
+        if getattr(args, "config_command", None) == "explain":
+            tc_arg = getattr(args, "team_config", None)
+            tc_path = Path(tc_arg) if tc_arg else None
+            _run_config_explain(
+                args.dot_path,
+                team_config_path=tc_path,
+                output_format=getattr(args, "format", "text"),
+            )
+            return
+        if getattr(args, "config_command", None) == "sources":
+            tc_arg = getattr(args, "team_config", None)
+            tc_path = Path(tc_arg) if tc_arg else None
+            _run_config_sources(team_config_path=tc_path, output_format=getattr(args, "format", "text"))
+            return
         if getattr(args, "config_command", None) == "history":
             _run_config_history(limit=getattr(args, "limit", 20))
             return
@@ -3455,6 +3771,24 @@ def main() -> None:
             return
         if getattr(args, "config_command", None) == "restore":
             _run_config_restore(args.version_id, yes=getattr(args, "yes", False))
+            return
+        if getattr(args, "config_command", None) == "search":
+            tc_arg = getattr(args, "team_config", None)
+            tc_path = Path(tc_arg) if tc_arg else None
+            _run_config_search(
+                " ".join(getattr(args, "query", [])),
+                tc_path,
+                json_output=getattr(args, "json_output", False),
+            )
+            return
+        if getattr(args, "config_command", None) == "help":
+            tc_arg = getattr(args, "team_config", None)
+            tc_path = Path(tc_arg) if tc_arg else None
+            _run_config_help(
+                " ".join(getattr(args, "topic", [])),
+                tc_path,
+                json_output=getattr(args, "json_output", False),
+            )
             return
         from .cli.setup import run_config_editor
 

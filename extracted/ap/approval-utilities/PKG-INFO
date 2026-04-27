@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: approval_utilities
-Version: 18.0.0
+Version: 18.0.1
 Summary: Utilities for your production code that work well with approvaltests
 Home-page: https://github.com/approvals/ApprovalTests.Python
 Author: ApprovalTests Contributors
 Author-email: llewellyn.falco@gmail.com
+License: Apache-2.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
@@ -26,6 +26,7 @@ Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: home-page
+Dynamic: license
 Dynamic: license-file
 Dynamic: requires-python
 Dynamic: summary

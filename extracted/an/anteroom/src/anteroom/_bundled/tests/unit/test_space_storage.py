@@ -191,6 +191,42 @@ class TestDiscoverSpaceFile:
         f.write_text("name: my-project\n")
         assert discover_space_file(str(tmp_path)) == f
 
+    def test_skips_config_yaml(self, tmp_path: Path) -> None:
+        d = tmp_path / ".anteroom"
+        d.mkdir()
+        (d / "config.yaml").write_text("ai:\n  model: test\n")
+        assert discover_space_file(str(tmp_path)) is None
+
+    def test_skips_yaml_without_name(self, tmp_path: Path) -> None:
+        d = tmp_path / ".anteroom"
+        d.mkdir()
+        (d / "settings.yaml").write_text("instructions: Be helpful\n")
+        assert discover_space_file(str(tmp_path)) is None
+
+    def test_skips_yaml_with_blank_name(self, tmp_path: Path) -> None:
+        d = tmp_path / ".anteroom"
+        d.mkdir()
+        (d / "settings.yaml").write_text("name: '   '\n")
+        assert discover_space_file(str(tmp_path)) is None
+
+    def test_skips_invalid_yaml(self, tmp_path: Path) -> None:
+        d = tmp_path / ".anteroom"
+        d.mkdir()
+        (d / "settings.yaml").write_text("name: [unterminated\n")
+        assert discover_space_file(str(tmp_path)) is None
+
+    def test_skips_non_utf8_yaml(self, tmp_path: Path) -> None:
+        d = tmp_path / ".anteroom"
+        d.mkdir()
+        (d / "settings.yaml").write_bytes(b"\xff\xfe\x00\x00")
+        assert discover_space_file(str(tmp_path)) is None
+
+    def test_skips_oversized_yaml(self, tmp_path: Path) -> None:
+        d = tmp_path / ".anteroom"
+        d.mkdir()
+        (d / "settings.yaml").write_text("name: oversized\n" + ("x" * (256 * 1024)))
+        assert discover_space_file(str(tmp_path)) is None
+
     def test_walks_up(self, tmp_path: Path) -> None:
         d = tmp_path / ".anteroom"
         d.mkdir()

@@ -1,6 +1,6 @@
 [project]
 name = "pysmi"
-version = "1.6.3"
+version = "2.0.0"
 description = "A pure-Python implementation of SNMP/SMI MIB parsing and conversion library."
 authors = [
     {name = "Ilya Etingof", email = "etingof@gmail.com"},
@@ -8,7 +8,7 @@ authors = [
 ]
 license = "BSD-2-Clause"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -22,8 +22,8 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "ply>=3.11",
     "Jinja2>=3.1.3",
+    "lark>=1.1.9",
     "requests>=2.26.0",
 ]
 

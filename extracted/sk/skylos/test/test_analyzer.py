@@ -10,7 +10,7 @@ from skylos.visitors.test_aware import TestAwareVisitor
 from skylos.visitors.framework_aware import FrameworkAwareVisitor
 from skylos.penalties import apply_penalties
 
-from skylos.analyzer import Skylos, proc_file, analyze
+from skylos.analyzer import Skylos, proc_file, analyze, _resolve_analysis_root
 
 
 @pytest.fixture
@@ -191,7 +191,22 @@ class TestSkylos:
         files, root = skylos._get_python_files("/project")
 
         mock_discover.assert_called_once_with(
-            mock_dir, {".py", ".go", ".ts", ".tsx", ".java"}, exclude_folders=None
+            mock_dir,
+            {
+                ".py",
+                ".go",
+                ".ts",
+                ".tsx",
+                ".js",
+                ".jsx",
+                ".mts",
+                ".cts",
+                ".mjs",
+                ".cjs",
+                ".java",
+                ".php",
+            },
+            exclude_folders=None,
         )
         assert files == mock_files
         assert root == mock_dir
@@ -221,6 +236,29 @@ class TestSkylos:
 
         assert root == project.resolve()
         assert files == [keep_file.resolve()]
+
+    def test_get_python_files_fast_discovery_honors_nested_excludes(
+        self, skylos, tmp_path, monkeypatch
+    ):
+        project = tmp_path / "proj"
+        legacy_dir = project / "src" / "legacy"
+        modern_dir = project / "src" / "modern"
+        legacy_dir.mkdir(parents=True)
+        modern_dir.mkdir(parents=True)
+        legacy_file = legacy_dir / "old.py"
+        legacy_file.write_text("def old_dead():\n    pass\n", encoding="utf-8")
+        keep_file = modern_dir / "keep.py"
+        keep_file.write_text("def keep():\n    return 1\n", encoding="utf-8")
+
+        def fake_fast_discover(root, extensions, excludes):
+            return [str(legacy_file), str(keep_file)]
+
+        monkeypatch.setattr("skylos.analyzer._fast_discover", fake_fast_discover)
+
+        files, root = skylos._get_python_files(project, exclude_folders=["src/legacy"])
+
+        assert root == project.resolve()
+        assert files == [keep_file]
 
     def test_mark_exports_in_init(self, skylos):
         mock_def1 = Mock()
@@ -440,6 +478,131 @@ class TestAnalyze:
             "Python files" in call.args[0] for call in mock_log_info.call_args_list
         )
 
+    @patch("skylos.analyzer.logger.info")
+    def test_analyze_mixed_languages_includes_javascript_in_summary(
+        self, mock_log_info
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "main.py").write_text(
+                "def hello():\n    return 1\n", encoding="utf-8"
+            )
+            (root / "app.mjs").write_text(
+                "export function runUnsafe(input) {\n"
+                "  eval(input);\n"
+                "}\n"
+                "runUnsafe('hi');\n",
+                encoding="utf-8",
+            )
+
+            result_json = analyze(str(root), conf=0)
+
+        result = json.loads(result_json)
+
+        assert result["analysis_summary"]["total_files"] == 2
+        assert result["analysis_summary"]["languages"] == {
+            "JavaScript": 1,
+            "Python": 1,
+        }
+        mock_log_info.assert_any_call("Analyzing 2 files...")
+
+    @patch("skylos.analyzer.logger.info")
+    def test_analyze_mixed_languages_includes_php_in_summary(self, mock_log_info):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "main.py").write_text(
+                "def hello():\n    return 1\n", encoding="utf-8"
+            )
+            (root / "index.php").write_text(
+                "<?php\nfunction helper($x) { return trim($x); }\nhelper('hi');\n",
+                encoding="utf-8",
+            )
+
+            result_json = analyze(str(root), conf=0)
+
+        result = json.loads(result_json)
+
+        assert result["analysis_summary"]["total_files"] == 2
+        assert result["analysis_summary"]["languages"] == {
+            "PHP": 1,
+            "Python": 1,
+        }
+        mock_log_info.assert_any_call("Analyzing 2 files...")
+
+    @patch("skylos.analyzer.scan_typescript_file")
+    def test_proc_file_dispatches_js_to_typescript_scanner(self, mock_scan):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
+            f.write("export function run() { return 1; }\n")
+            f.flush()
+
+            mock_scan.return_value = tuple(range(13))
+
+            try:
+                result = proc_file(f.name, "test_module")
+            finally:
+                Path(f.name).unlink()
+
+        mock_scan.assert_called_once()
+        assert result == tuple(range(13))
+
+    def test_analyze_quality_includes_architecture_findings(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "abstract_mod.py").write_text(
+                "from abc import ABC\n"
+                "import concrete_mod\n"
+                "class Base(ABC):\n"
+                "    pass\n"
+                "class Base2(ABC):\n"
+                "    pass\n",
+                encoding="utf-8",
+            )
+            (root / "concrete_mod.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+            result_json = analyze(str(root), enable_quality=True, grep_verify=False)
+
+        result = json.loads(result_json)
+        assert result.get("architecture_metrics")
+        assert any(
+            f.get("rule_id") in {"SKY-Q802", "SKY-Q803", "SKY-Q804"}
+            for f in result.get("quality", [])
+        )
+        assert result["analysis_summary"]["quality_count"] == len(
+            result.get("quality", [])
+        )
+
+    @patch("skylos.analyzer.scan_typescript_file")
+    def test_proc_file_dispatches_mjs_to_typescript_scanner(self, mock_scan):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".mjs", delete=False) as f:
+            f.write("export function run() { return 1; }\n")
+            f.flush()
+
+            mock_scan.return_value = tuple(range(13))
+
+            try:
+                result = proc_file(f.name, "test_module")
+            finally:
+                Path(f.name).unlink()
+
+        mock_scan.assert_called_once()
+        assert result == tuple(range(13))
+
+    @patch("skylos.analyzer.scan_php_file")
+    def test_proc_file_dispatches_php_to_php_scanner(self, mock_scan):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".php", delete=False) as f:
+            f.write("<?php function run() { return 1; }\n")
+            f.flush()
+
+            mock_scan.return_value = tuple(range(13))
+
+            try:
+                result = proc_file(f.name, "test_module")
+            finally:
+                Path(f.name).unlink()
+
+        mock_scan.assert_called_once()
+        assert result == tuple(range(13))
+
     def test_analyze_empty_directory(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             result_json = analyze(temp_dir, conf=60)
@@ -565,6 +728,7 @@ class TestClass:
                         used_attr_names,
                         used_attr_context,
                         source_lines,
+                        *_extra,
                     ) = proc_file(f.name, "test_module")
 
                     mock_visitor_class.assert_called_once_with("test_module", f.name)
@@ -611,6 +775,7 @@ class TestClass:
                     used_attr_names,
                     used_attr_context,
                     source_lines,
+                    *_extra,
                 ) = proc_file(f.name, "test_module")
 
                 assert defs == []
@@ -679,6 +844,7 @@ class TestClass:
                         used_attr_names,
                         used_attr_context,
                         source_lines,
+                        *_extra,
                     ) = proc_file((f.name, "test_module"))
 
                     mock_visitor_class.assert_called_once_with("test_module", f.name)
@@ -1046,6 +1212,9 @@ class Helper:
 
     def _helper(self):
         return 1
+
+
+HELPER = Helper()
 """
         )
 
@@ -1056,6 +1225,396 @@ class Helper:
 
         assert "Helper.run" in unreachable
         assert "Helper._helper" in unreachable
+
+    def test_analyze_keeps_method_refs_receiver_specific(self, tmp_path):
+        src = tmp_path / "plugins.py"
+        src.write_text(
+            """
+class LivePlugin:
+    def process(self, event):
+        return event["id"]
+
+    def cleanup(self):
+        return "unused"
+
+
+class RemovedPlugin:
+    def process(self, event):
+        return event["legacy"]
+
+
+LIVE_PLUGIN = LivePlugin()
+BOOTSTRAP_RESULT = LIVE_PLUGIN.process({"id": "boot"})
+""",
+            encoding="utf-8",
+        )
+
+        result_json = analyze(str(tmp_path), conf=0, grep_verify=False)
+        result = json.loads(result_json)
+
+        unreachable = {item["name"] for item in result["unused_functions"]}
+        unreachable_classes = {item["name"] for item in result["unused_classes"]}
+
+        assert "LivePlugin.process" not in unreachable
+        assert "LivePlugin.cleanup" in unreachable
+        assert "RemovedPlugin" in unreachable_classes
+        assert "RemovedPlugin.process" not in unreachable
+
+    def test_analyze_protocol_methods_only_live_for_reachable_implementers(
+        self, tmp_path
+    ):
+        src = tmp_path / "service.py"
+        src.write_text(
+            """
+from typing import Protocol
+
+
+class Handler(Protocol):
+    def handle(self, payload: str) -> str:
+        ...
+
+
+class EmailHandler:
+    def handle(self, payload: str) -> str:
+        return payload.upper()
+
+
+def dispatch(handler: Handler) -> str:
+    return handler.handle("welcome")
+
+
+LIVE_RESULT = dispatch(EmailHandler())
+
+
+class LegacyHandler:
+    def handle(self, payload: str) -> str:
+        return payload.lower()
+
+
+def unused_factory():
+    return LegacyHandler()
+""",
+            encoding="utf-8",
+        )
+
+        result_json = analyze(str(tmp_path), conf=0, grep_verify=False)
+        result = json.loads(result_json)
+
+        unreachable = {item["name"] for item in result["unused_functions"]}
+        unreachable_classes = {item["name"] for item in result["unused_classes"]}
+
+        assert "EmailHandler.handle" not in unreachable
+        assert "LegacyHandler" in unreachable_classes
+        assert "LegacyHandler.handle" not in unreachable
+
+    def test_analyze_bound_dispatch_receiver_refs_stay_callsite_specific(
+        self, tmp_path
+    ):
+        src = tmp_path / "service.py"
+        src.write_text(
+            """
+from typing import Protocol
+
+
+class Handler(Protocol):
+    def handle(self, payload: str) -> str:
+        ...
+
+
+class EmailHandler:
+    def handle(self, payload: str) -> str:
+        return payload.upper()
+
+
+class LegacyHandler:
+    def handle(self, payload: str) -> str:
+        return payload.lower()
+
+
+class Processor:
+    def dispatch(self, handler: Handler) -> str:
+        return handler.handle("welcome")
+
+
+PROCESSOR = Processor()
+LIVE_RESULT = PROCESSOR.dispatch(EmailHandler())
+email = EmailHandler()
+LIVE_RESULT_2 = PROCESSOR.dispatch(email)
+LIVE_RESULT_3 = PROCESSOR.dispatch(handler=EmailHandler())
+LEGACY_REGISTRY = {"legacy": LegacyHandler}
+
+
+def stale_path():
+    return PROCESSOR.dispatch(LegacyHandler())
+""",
+            encoding="utf-8",
+        )
+
+        result_json = analyze(str(tmp_path), conf=0, grep_verify=False)
+        result = json.loads(result_json)
+
+        unreachable = {item["name"] for item in result["unused_functions"]}
+        unreachable_classes = {item["name"] for item in result["unused_classes"]}
+
+        assert "EmailHandler.handle" not in unreachable
+        assert "LegacyHandler" not in unreachable_classes
+        assert "LegacyHandler.handle" in unreachable
+        assert "stale_path" in unreachable
+
+    def test_analyze_explicit_protocol_implementer_method_can_be_dead(
+        self, tmp_path
+    ):
+        src = tmp_path / "service.py"
+        src.write_text(
+            """
+from typing import Protocol
+
+
+class Handler(Protocol):
+    def handle(self, payload: str) -> str:
+        ...
+
+
+class LegacyHandler(Handler):
+    def handle(self, payload: str) -> str:
+        return payload.lower()
+
+
+LEGACY_REGISTRY = {"legacy": LegacyHandler}
+""",
+            encoding="utf-8",
+        )
+
+        result_json = analyze(str(tmp_path), conf=0, grep_verify=False)
+        result = json.loads(result_json)
+
+        unreachable = {item["name"] for item in result["unused_functions"]}
+        unreachable_classes = {item["name"] for item in result["unused_classes"]}
+
+        assert "LegacyHandler" not in unreachable_classes
+        assert "LegacyHandler.handle" in unreachable
+
+    def test_analyze_dead_class_suppresses_owned_method_duplicates(self, tmp_path):
+        src = tmp_path / "service.py"
+        src.write_text(
+            """
+class Dead:
+    def a(self):
+        return 1
+
+    def b(self):
+        return 2
+""",
+            encoding="utf-8",
+        )
+
+        result_json = analyze(str(tmp_path), conf=0, grep_verify=False)
+        result = json.loads(result_json)
+
+        unreachable = {item["name"] for item in result["unused_functions"]}
+        unreachable_classes = {item["name"] for item in result["unused_classes"]}
+
+        assert "Dead" in unreachable_classes
+        assert "Dead.a" not in unreachable
+        assert "Dead.b" not in unreachable
+
+    def test_analyze_js_package_route_attachment_export_is_live(self, tmp_path):
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (tmp_path / "package.json").write_text(
+            '{"name":"app","type":"module","main":"src/app.js"}',
+            encoding="utf-8",
+        )
+        (src_dir / "app.js").write_text(
+            """
+const routes = new Map();
+
+function register(path, handler) {
+  routes.set(path, handler);
+}
+
+export function healthHandler(req, res) {
+  res.end("ok");
+}
+
+register("/health", healthHandler);
+
+export function attachRoutes(server) {
+  for (const [path, handler] of routes) {
+    server.get(path, handler);
+  }
+}
+
+export function orphanHandler(req, res) {
+  res.end("orphan");
+}
+""",
+            encoding="utf-8",
+        )
+
+        result_json = analyze(str(src_dir), conf=0, grep_verify=False)
+        result = json.loads(result_json)
+
+        unreachable = {item["name"] for item in result["unused_functions"]}
+        unused_files = {Path(item["file"]).name for item in result["unused_files"]}
+
+        assert "attachRoutes" not in unreachable
+        assert "orphanHandler" in unreachable
+        assert "app.js" not in unused_files
+
+    def test_analyze_js_route_attachment_uses_route_shape_not_name_tokens(
+        self, tmp_path
+    ):
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (tmp_path / "package.json").write_text(
+            '{"name":"app","type":"module","main":"src/app.js"}',
+            encoding="utf-8",
+        )
+        (src_dir / "app.js").write_text(
+            """
+export function healthHandler(req, res) {
+  res.end("ok");
+}
+
+export function configure(api) {
+  api.get("/health", healthHandler);
+}
+
+export const attachRoutes = (server) => {
+  server.post("/orders", healthHandler);
+};
+
+export function applyConfig(config) {
+  const key = "theme";
+  return config.get(key, defaultHandler);
+}
+
+function defaultHandler() {
+  return "light";
+}
+""",
+            encoding="utf-8",
+        )
+
+        result_json = analyze(str(src_dir), conf=0, grep_verify=False)
+        result = json.loads(result_json)
+
+        unreachable = {item["name"] for item in result["unused_functions"]}
+
+        assert "configure" not in unreachable
+        assert "attachRoutes" not in unreachable
+        assert "applyConfig" in unreachable
+
+    def test_analyze_java_public_static_helper_not_auto_exported(self, tmp_path):
+        (tmp_path / "App.java").write_text(
+            """
+public class App {
+    public static void main(String[] args) {
+        LiveJob job = new LiveJob();
+        System.out.println(job.run());
+    }
+
+    public static String staleFormat(String value) {
+        return value.trim().toLowerCase();
+    }
+}
+
+class LiveJob {
+    String run() {
+        return "ok";
+    }
+}
+""",
+            encoding="utf-8",
+        )
+
+        result_json = analyze(str(tmp_path), conf=0, grep_verify=False)
+        result = json.loads(result_json)
+
+        unreachable = {item["name"] for item in result["unused_functions"]}
+
+        assert "App.staleFormat" in unreachable
+
+    def test_analyze_java_library_public_method_stays_exported(self, tmp_path):
+        (tmp_path / "Api.java").write_text(
+            """
+public class Api {
+    public static void main(String[] args) {
+        System.out.println("demo");
+    }
+
+    public String main() {
+        return "not an entrypoint";
+    }
+
+    public String publicEndpoint(String value) {
+        return value.trim();
+    }
+
+    private String privateHelper(String value) {
+        return value.toLowerCase();
+    }
+}
+""",
+            encoding="utf-8",
+        )
+
+        result_json = analyze(str(tmp_path), conf=0, grep_verify=False)
+        result = json.loads(result_json)
+
+        unreachable = {item["name"] for item in result["unused_functions"]}
+
+        assert "Api.publicEndpoint" not in unreachable
+        assert "Api.privateHelper" in unreachable
+
+    def test_analyze_typescript_transitive_dead_uses_file_scoped_callers(
+        self, tmp_path
+    ):
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (tmp_path / "package.json").write_text(
+            '{"name":"app","type":"module","main":"src/live.ts"}',
+            encoding="utf-8",
+        )
+        (src_dir / "live.ts").write_text(
+            """
+function helper() {
+  return 1;
+}
+
+export function foo() {
+  return helper();
+}
+
+foo();
+""",
+            encoding="utf-8",
+        )
+        (src_dir / "dead.ts").write_text(
+            """
+function helper() {
+  return 2;
+}
+
+function foo() {
+  return helper();
+}
+""",
+            encoding="utf-8",
+        )
+
+        result_json = analyze(str(tmp_path), conf=0, grep_verify=False)
+        result = json.loads(result_json)
+
+        unused_by_file = {
+            (Path(item["file"]).name, item["name"])
+            for item in result["unused_functions"]
+        }
+
+        assert ("live.ts", "helper") not in unused_by_file
+        assert ("dead.ts", "helper") in unused_by_file
+        assert ("dead.ts", "foo") in unused_by_file
 
     def test_analyze_single_file_skips_project_unused_dependency_rule(self, tmp_path):
         (tmp_path / "pyproject.toml").write_text(
@@ -1226,6 +1785,18 @@ def test_changed_files_scans_dotenv_for_secrets(tmp_path):
 
 
 class TestRepoPhantomReferences:
+    def test_resolve_analysis_root_ignores_home_git_root_without_project_marker(
+        self, tmp_path, monkeypatch
+    ):
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
+        case_root = tmp_path / "benchmarks" / "case"
+        case_root.mkdir(parents=True)
+
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+
+        assert _resolve_analysis_root(case_root) == case_root
+
     def test_analyze_flags_imported_local_module_member_call(self, tmp_path):
         (tmp_path / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
         pkg = tmp_path / "app"

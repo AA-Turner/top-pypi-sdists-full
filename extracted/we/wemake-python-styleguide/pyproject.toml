@@ -4,7 +4,7 @@ requires = [ "poetry-core>=2.2" ]
 
 [tool.poetry]
 name = "wemake-python-styleguide"
-version = "1.6.1"
+version = "1.6.2"
 description = "The strictest and most opinionated python linter ever"
 license = "MIT"
 requires-poetry = ">=2.3"
@@ -82,6 +82,7 @@ optional = true
 sphinx = "^8.1"
 sphinx-autodoc-typehints = "^3.0"
 sphinxcontrib-mermaid = "^1.0"
+sphinx-llms-txt = "^0.7"
 furo = "^2025.12"
 added-value = "^0.24"
 tomli = "^2.0"
@@ -272,6 +273,31 @@ disallow_any_explicit = false
 module = "wemake_python_styleguide.compat.packaging"
 # We allow unused `ignore` comments, because we cannot sync it between versions:
 warn_unused_ignores = false
+
+[tool.codespell]
+# codespell configuration: https://github.com/codespell-project/codespell
+skip = [
+  "__pycache__",
+  "_build",
+  ".mypy_cache",
+  "*.lock",
+  "tests/whitelist.txt",
+]
+ignore-words-list = [
+  "NotIn",
+]
+
+
+[tool.typos.files]
+# typos configuration: https://github.com/crate-ci/typos/
+extend-exclude = [
+  "__pycache__",
+  "_build",
+  ".mypy_cache",
+  "*.lock",
+  "tests/whitelist.txt",
+]
+
 
 [tool.poetry.scripts]
 wps = "wemake_python_styleguide.cli.cli_app:main"

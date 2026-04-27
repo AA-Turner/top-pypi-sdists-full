@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: imgui-bundle
-Version: 1.92.601
+Version: 1.92.700
 Summary: Dear ImGui Bundle: From expressive code to powerful GUIs in no time. A fast, feature-rich, cross-platform toolkit for C++ and Python.
 Author-Email: Pascal Thomet <pthomet@gmail.com>
 Classifier: Development Status :: 5 - Production/Stable
@@ -9,15 +9,15 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Typing :: Typed
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Project-URL: Homepage, https://pthom.github.io/imgui_bundle/
-Project-URL: Documentation, https://pthom.github.io/imgui_bundle/
+Project-URL: Homepage, https://imgui-bundle.pages.dev/
+Project-URL: Documentation, https://imgui-bundle.pages.dev/
 Project-URL: Repository, https://github.com/pthom/imgui_bundle
 Project-URL: Issues, https://github.com/pthom/imgui_bundle/issues
 Project-URL: Changelog, https://github.com/pthom/imgui_bundle/blob/main/CHANGELOG.md
 Requires-Python: >=3.10
-Requires-Dist: numpy
 Provides-Extra: matplotlib
 Requires-Dist: matplotlib; extra == "matplotlib"
+Requires-Dist: numpy; extra == "matplotlib"
 Provides-Extra: imgproc
 Requires-Dist: pillow; extra == "imgproc"
 Requires-Dist: opencv-python; extra == "imgproc"
@@ -42,11 +42,20 @@ Requires-Dist: glfw; extra == "all-backends"
 Requires-Dist: PySDL2; extra == "all-backends"
 Requires-Dist: PySDL3; extra == "all-backends"
 Requires-Dist: wgpu; extra == "all-backends"
+Requires-Dist: rendercanvas; extra == "all-backends"
 Requires-Dist: pyglet; extra == "all-backends"
+Requires-Dist: pygame; extra == "all-backends"
 Provides-Extra: full
-Requires-Dist: matplotlib; extra == "full"
+Requires-Dist: numpy; extra == "full"
+Requires-Dist: pydantic>=2.0.0; extra == "full"
 Requires-Dist: pillow; extra == "full"
 Requires-Dist: opencv-python; extra == "full"
+Requires-Dist: jupyterlab; extra == "full"
+Requires-Dist: notebook; extra == "full"
+Requires-Dist: matplotlib; extra == "full"
+Requires-Dist: fiatlight; extra == "full"
+Requires-Dist: pandas; extra == "full"
+Requires-Dist: pandas-stubs; extra == "full"
 Requires-Dist: PyOpenGL; extra == "full"
 Requires-Dist: glfw; extra == "full"
 Requires-Dist: PySDL2; extra == "full"
@@ -54,20 +63,13 @@ Requires-Dist: PySDL3; extra == "full"
 Requires-Dist: wgpu; extra == "full"
 Requires-Dist: rendercanvas; extra == "full"
 Requires-Dist: pyglet; extra == "full"
-Requires-Dist: pydantic>=2.0.0; extra == "full"
+Requires-Dist: pygame; extra == "full"
 Requires-Dist: PyGLM; extra == "full"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: mypy; extra == "test"
 Description-Content-Type: text/markdown
-
-<a href="https://traineq.org/imgui_bundle_explorer">
-<img src="https://raw.githubusercontent.com/pthom/imgui_bundle/refs/heads/main/bindings/imgui_bundle/demos_assets/images/badge_interactive_explorer.png" alt="interactive manual" height="25"/>
-</a>
-&nbsp;
-<a href="https://pthom.github.io/imgui_bundle/">
-<img src="https://raw.githubusercontent.com/pthom/imgui_bundle/refs/heads/main/bindings/imgui_bundle/demos_assets/images/badge_view_docs.png" alt="view docs" height="25"/>
-</a>
 
 # Dear ImGui Bundle
 
@@ -95,38 +97,10 @@ Dear ImGui Bundle is a collection of libraries around [Dear ImGui](https://githu
 
 ***
 
-## Documentation and interactive explorer
+## Links:
 
-### Documentation site
-
-Click the image below to visit the documentation site:
-
-<a href="https://pthom.github.io/imgui_bundle/">
-<img src="https://raw.githubusercontent.com/pthom/imgui_bundle/refs/heads/main/bindings/imgui_bundle/demos_assets/images/badge_view_docs.png" alt="view docs" height="25"/>
-</a>
-
-This site contains the full documentation for Dear ImGui Bundle, including install instructions, conceptual introductions, step‑by‑step tutorials, deployment recipes, etc. It is a companion to "Dear ImGui Bundle Explorer", an Explorer below.
-
-### Interactive manual & demo
-
-Click the image below to launch the interactive manual in your web browser:
-
-<a href="https://traineq.org/imgui_bundle_explorer">
-<img src="https://raw.githubusercontent.com/pthom/imgui_bundle/refs/heads/main/bindings/imgui_bundle/demos_assets/images/badge_interactive_explorer.png" alt="interactive manual" height="25"/>
-</a>
-
-The interactive manual showcases almost every part of the bundle with runnable examples. You can:
-- Explore core Dear ImGui widgets.
-- Try plotting, node editors, image viewers, test engine, and more.
-- Inspect and copy the C++ and Python source code for each demo.
-
-> “The interactive manual is intended to be your live reference: browse widgets, run demos, and copy code snippets directly into your own projects.”
-
-
-### Online playground (Pyodide):
-Run and edit Python ImGui Bundle apps directly in your browser:
-- No installation.
-- Type code on the left, see the interactive GUI on the right.
-- Great for experimentation, teaching, and sharing small examples.
-
-Open the [playground](https://traineq.org/imgui_bundle_online/projects/imgui_bundle_playground/).
+* [Documentation site](https://imgui-bundle.pages.dev/): Full documentation for Dear ImGui Bundle.
+* [Dear ImGui Bundle Explorer](https://imgui-bundle.pages.dev/explorer/): interactive reference manual - browse demos, see the code, try the widgets. All 23 libraries demonstrated with browsable C++ and Python source.
+* [Online Python Playground](https://imgui-bundle.pages.dev/playground/): live Python sandbox with ready-to-run demos - edit code, see results instantly. No installation needed.
+* [Discord](https://discord.gg/xkzpKMeYN3): join the community for questions, showcase, and discussion
+* [GitHub](https://github.com/pthom/imgui_bundle): source code, issues, discussions

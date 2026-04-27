@@ -7,8 +7,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+import yaml
+
 if TYPE_CHECKING:
     from ..db import ThreadSafeConnection
+
+_MAX_DISCOVERABLE_SPACE_YAML_SIZE = 256 * 1024
 
 
 def _uuid() -> str:
@@ -213,12 +217,28 @@ def get_space_local_dirs(db: ThreadSafeConnection, space_id: str) -> list[str]:
     return [r["local_path"] if hasattr(r, "keys") else r[0] for r in rows]
 
 
+def _is_discoverable_space_yaml(path: Path) -> bool:
+    """Return True when a non-canonical YAML file looks like a space file."""
+    if path.name.endswith(".local.yaml") or path.name == "config.yaml":
+        return False
+    try:
+        if path.stat().st_size > _MAX_DISCOVERABLE_SPACE_YAML_SIZE:
+            return False
+        raw = yaml.safe_load(path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError):
+        return False
+    except yaml.YAMLError:
+        return False
+    return isinstance(raw, dict) and isinstance(raw.get("name"), str) and bool(raw["name"].strip())
+
+
 def discover_space_file(cwd: str) -> Path | None:
     """Walk up from *cwd* looking for a space YAML file in parent directories.
 
     Checks ``.anteroom/``, ``.claude/``, and ``.parlor/`` at each level.
     Prefers ``space.yaml`` over other ``*.yaml`` files.  Skips ``.local.yaml``
-    files (machine-specific overrides).
+    files (machine-specific overrides), app ``config.yaml`` files, and YAML
+    files that do not have a ``name`` field.
 
     Returns the first matching path, or ``None``.
     """
@@ -233,9 +253,8 @@ def discover_space_file(cwd: str) -> Path | None:
             if canonical.is_file():
                 return canonical
             for p in sorted(candidate_dir.glob("*.yaml")):
-                if p.name.endswith(".local.yaml"):
-                    continue
-                return p
+                if _is_discoverable_space_yaml(p):
+                    return p
         parent = current.parent
         if parent == current:
             break

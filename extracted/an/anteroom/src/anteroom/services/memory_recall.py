@@ -204,6 +204,16 @@ def visible_namespaces(
     return namespaces
 
 
+def _index_count(index: Any | None) -> int:
+    if index is None:
+        return 0
+    try:
+        return int(index.count())
+    except Exception:
+        logger.debug("Memory recall: failed to inspect vector index count", exc_info=True)
+        return 0
+
+
 async def retrieve_memories(
     query: str,
     db: Any,
@@ -237,6 +247,9 @@ async def retrieve_memories(
 
     if not vec_manager or not getattr(vec_manager, "memories", None):
         return _return_with_fallback("no_vec_support")
+
+    if _index_count(getattr(vec_manager, "memories", None)) == 0:
+        return _return_with_fallback("no_embeddings_yet")
 
     if embedding_service is None:
         return _return_with_fallback("Embedding service unavailable")

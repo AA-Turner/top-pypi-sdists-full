@@ -376,6 +376,67 @@ class TestMainFunction:
                 "Error during analysis: Analysis failed"
             )
 
+    def test_main_auto_enables_danger_for_security_contracts(self, mock_skylos_result):
+        test_args = ["cli.py", "test_path", "--json", "--no-provenance"]
+
+        with (
+            patch("sys.argv", test_args),
+            patch("skylos.cli.run_analyze") as mock_analyze,
+            patch("builtins.print"),
+            patch("skylos.cli.setup_logger") as mock_setup_logger,
+            patch("skylos.cli.load_config") as mock_load_config,
+            patch("skylos.cli.Progress") as mock_progress,
+        ):
+            mock_logger = Mock()
+            mock_logger.console = Mock()
+            mock_setup_logger.return_value = mock_logger
+            mock_load_config.return_value = {
+                "exclude": [],
+                "security_contracts": [
+                    {
+                        "framework": "fastapi",
+                        "file": "app/api/routes.py",
+                        "handler": "list_users",
+                        "guards": ["require_admin"],
+                    }
+                ],
+            }
+            mock_progress.return_value.__enter__.return_value = Mock(add_task=Mock())
+            mock_analyze.return_value = json.dumps(mock_skylos_result)
+
+            main()
+
+            assert mock_analyze.call_args.kwargs["enable_danger"] is True
+
+    def test_main_uses_policy_enabled_categories_when_no_flags(self, mock_skylos_result):
+        test_args = ["cli.py", "test_path", "--json", "--no-provenance"]
+
+        with (
+            patch("sys.argv", test_args),
+            patch("skylos.cli.run_analyze") as mock_analyze,
+            patch("builtins.print"),
+            patch("skylos.cli.setup_logger") as mock_setup_logger,
+            patch("skylos.cli.load_config") as mock_load_config,
+            patch("skylos.cli.Progress") as mock_progress,
+        ):
+            mock_logger = Mock()
+            mock_logger.console = Mock()
+            mock_setup_logger.return_value = mock_logger
+            mock_load_config.return_value = {
+                "exclude": [],
+                "security_enabled": True,
+                "secrets_enabled": True,
+                "quality_enabled": True,
+            }
+            mock_progress.return_value.__enter__.return_value = Mock(add_task=Mock())
+            mock_analyze.return_value = json.dumps(mock_skylos_result)
+
+            main()
+
+            assert mock_analyze.call_args.kwargs["enable_danger"] is True
+            assert mock_analyze.call_args.kwargs["enable_secrets"] is True
+            assert mock_analyze.call_args.kwargs["enable_quality"] is True
+
 
 def _progress_ctx():
     cm = Mock()
@@ -722,6 +783,61 @@ def test_main_upload_gate_failed_exits_when_not_forced(monkeypatch):
             cli.main()
 
         assert e.value.code == 1
+
+
+def test_main_json_upload_calls_upload_report_quiet(monkeypatch):
+    result = {
+        "analysis_summary": {"total_files": 1},
+        "unused_functions": [],
+        "unused_imports": [],
+        "unused_variables": [],
+        "unused_classes": [],
+        "unused_parameters": [],
+        "danger": [],
+        "quality": [],
+        "secrets": [],
+    }
+
+    monkeypatch.setattr(cli.sys, "argv", ["skylos", ".", "--json", "--upload"])
+
+    fake_logger = Mock()
+    fake_logger.console = Mock()
+
+    with (
+        patch("skylos.cli.setup_logger", return_value=fake_logger),
+        patch("skylos.cli.Progress", return_value=_progress_ctx()),
+        patch("skylos.cli.run_analyze", return_value=json.dumps(result)),
+        patch(
+            "skylos.cli.upload_report",
+            return_value={"success": True, "quality_gate_passed": True},
+        ) as mock_upload,
+        patch("builtins.print") as mock_print,
+    ):
+        cli.main()
+
+    mock_upload.assert_called_once()
+    upload_result = mock_upload.call_args.args[0]
+    assert upload_result["project_root"] == ""
+    assert upload_result["analysis_summary"] == {
+        "total_files": 1,
+        "project_root": "",
+    }
+    assert upload_result["danger"] == []
+    assert upload_result["quality"] == []
+    assert upload_result["secrets"] == []
+    assert "provenance_summary" in upload_result
+    assert mock_upload.call_args.kwargs == {
+        "is_forced": False,
+        "strict": False,
+        "quiet": True,
+    }
+    mock_print.assert_called_once()
+    printed_payload = json.loads(mock_print.call_args.args[0])
+    assert printed_payload["analysis_summary"] == {"total_files": 1}
+    assert printed_payload["danger"] == []
+    assert printed_payload["quality"] == []
+    assert printed_payload["secrets"] == []
+    assert "provenance_summary" in printed_payload
 
 
 def test_main_upload_gate_failed_does_not_exit_when_forced(monkeypatch):

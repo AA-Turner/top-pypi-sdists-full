@@ -61,6 +61,33 @@ def test_get_token_env_wins(isolated_creds, monkeypatch):
     assert syncmod.get_token() == "ENV_TOKEN"
 
 
+def test_get_token_prefers_github_oidc_before_saved_token(isolated_creds, monkeypatch):
+    _, creds_file = isolated_creds
+    creds_file.parent.mkdir(parents=True, exist_ok=True)
+    creds_file.write_text(json.dumps({"token": "FILE_TOKEN"}))
+    monkeypatch.setattr(syncmod, "_try_ci_oidc_token", lambda: "oidc:JWT")
+
+    assert syncmod.get_token() == "oidc:JWT"
+
+
+def test_api_get_sends_oidc_auth_headers(monkeypatch):
+    captured = {}
+
+    def fake_get(url, headers=None, timeout=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["timeout"] = timeout
+        return FakeResponse(payload={"ok": True})
+
+    monkeypatch.setattr(syncmod.requests, "get", fake_get)
+
+    assert syncmod.api_get("/api/sync/whoami", "oidc:JWT") == {"ok": True}
+    assert captured["headers"] == {
+        "Authorization": "Bearer JWT",
+        "X-Skylos-Auth": "oidc",
+    }
+
+
 def test_get_token_from_global_creds_file(isolated_creds):
     _, creds_file = isolated_creds
     creds_file.parent.mkdir(parents=True, exist_ok=True)
@@ -97,6 +124,38 @@ def test_save_token_writes_file(isolated_creds):
     if os.name != "nt":
         assert (creds_file.stat().st_mode & 0o777) == 0o600
         assert (creds_file.parent.stat().st_mode & 0o777) == 0o700
+
+
+def test_get_token_uses_repo_subpath_link(isolated_creds, monkeypatch, tmp_path):
+    _, creds_file = isolated_creds
+    repo = tmp_path / "repo"
+    api_dir = repo / "apps" / "api"
+    web_dir = repo / "apps" / "web"
+    api_dir.mkdir(parents=True)
+    web_dir.mkdir(parents=True)
+
+    syncmod._write_link(
+        repo,
+        "proj-api",
+        project_name="API",
+        repo_subpath="apps/api",
+    )
+    syncmod._write_link(
+        repo,
+        "proj-web",
+        project_name="Web",
+        repo_subpath="apps/web",
+    )
+    syncmod.save_token("TOK_API", project_id="proj-api", repo_subpath="apps/api")
+    syncmod.save_token("TOK_WEB", project_id="proj-web", repo_subpath="apps/web")
+
+    monkeypatch.setattr(syncmod, "_find_repo_root", lambda: repo)
+
+    monkeypatch.chdir(api_dir)
+    assert syncmod.get_token() == "TOK_API"
+
+    monkeypatch.chdir(web_dir)
+    assert syncmod.get_token() == "TOK_WEB"
 
 
 def test_clear_token(isolated_creds):
@@ -369,7 +428,20 @@ def test_cmd_pull_writes_config_and_suppressions(
         if endpoint == "/api/sync/whoami":
             return {"project": {"name": "Proj"}}
         if endpoint == "/api/sync/config":
-            return {"config": {"complexity": 12, "nesting": 4}}
+            return {
+                "config": {
+                    "complexity_threshold": 12,
+                    "nesting_threshold": 4,
+                    "security_contracts": [
+                        {
+                            "framework": "fastapi",
+                            "file": "app/api/routes.py",
+                            "handler": "list_users",
+                            "guards": ["require_admin"],
+                        }
+                    ],
+                }
+            }
         if endpoint == "/api/sync/suppressions":
             return {"suppressions": [{"rule_id": "SKY-D212"}], "count": 1}
         raise AssertionError(f"Unexpected endpoint {endpoint}")
@@ -391,8 +463,10 @@ def test_cmd_pull_writes_config_and_suppressions(
     assert supp_path.exists()
 
     config_text = config_path.read_text()
-    assert "complexity" in config_text
-    assert "nesting" in config_text
+    assert "complexity_threshold" in config_text
+    assert "nesting_threshold" in config_text
+    assert "security_contracts" in config_text
+    assert "list_users" in config_text
 
     supp = json.loads(supp_path.read_text())
     assert isinstance(supp, list)
@@ -585,6 +659,42 @@ def test_cmd_setup_accepts_project_project_id(monkeypatch, tmp_path, capsys):
     assert saved["project_id"] == "proj_legacy"
 
 
+def test_cmd_setup_writes_workflow_that_syncs_cloud_policy(
+    monkeypatch, tmp_path, capsys
+):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".git").mkdir()
+
+    monkeypatch.setattr(
+        syncmod,
+        "api_get",
+        lambda endpoint, token: {
+            "/api/sync/whoami": {
+                "project": {"id": "proj_123", "name": "Proj"},
+                "organization": {"name": "Org"},
+                "plan": "pro",
+            }
+        }[endpoint],
+    )
+    monkeypatch.setattr(syncmod, "_write_link", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        syncmod, "save_token", lambda *args, **kwargs: str(tmp_path / "creds.json")
+    )
+
+    answers = iter(["n", "n", "y"])
+    monkeypatch.setattr(builtins, "input", lambda _prompt="": next(answers))
+
+    syncmod.cmd_setup("TOK")
+
+    workflow = (tmp_path / ".github" / "workflows" / "skylos.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "Pull Skylos Cloud Policy" in workflow
+    assert "skylos sync pull" in workflow
+    assert "id-token: write" in workflow
+    assert "SKYLOS_TOKEN" not in workflow
+
+
 def test_cmd_upgrade_installs_parity_only_pre_push_hook(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".git").mkdir()
@@ -602,3 +712,10 @@ def test_cmd_upgrade_installs_parity_only_pre_push_hook(monkeypatch, tmp_path, c
     assert "skylos ." not in hook
     assert "Rust/Python parity check" in hook
     assert "test/test_fast_parity.py" in hook
+    workflow = (tmp_path / ".github" / "workflows" / "skylos.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "Pull Skylos Cloud Policy" in workflow
+    assert "skylos sync pull" in workflow
+    assert "id-token: write" in workflow
+    assert "SKYLOS_TOKEN" not in workflow

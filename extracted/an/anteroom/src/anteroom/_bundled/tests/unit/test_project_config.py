@@ -78,6 +78,41 @@ class TestDiscoverProjectConfig:
             result = discover_project_config(str(child))
             assert result == cfg
 
+    def test_does_not_return_personal_config_from_home(self, tmp_path: Path) -> None:
+        home = tmp_path / "home"
+        cfg = home / ".anteroom" / "config.yaml"
+        cfg.parent.mkdir(parents=True)
+        cfg.write_text("ai:\n  model: personal\n")
+
+        with patch("pathlib.Path.home", return_value=home.resolve()):
+            assert discover_project_config(home) is None
+
+    def test_does_not_return_personal_config_when_walking_up_to_home(self, tmp_path: Path) -> None:
+        home = tmp_path / "home"
+        cfg = home / ".anteroom" / "config.yaml"
+        cfg.parent.mkdir(parents=True)
+        cfg.write_text("ai:\n  model: personal\n")
+        child = home / "src" / "module"
+        child.mkdir(parents=True)
+
+        with patch("pathlib.Path.home", return_value=home.resolve()):
+            assert discover_project_config(child) is None
+
+    def test_project_config_below_home_still_wins(self, tmp_path: Path) -> None:
+        home = tmp_path / "home"
+        personal = home / ".anteroom" / "config.yaml"
+        personal.parent.mkdir(parents=True)
+        personal.write_text("ai:\n  model: personal\n")
+        project = home / "project"
+        cfg = project / ".anteroom" / "config.yaml"
+        cfg.parent.mkdir(parents=True)
+        cfg.write_text("ai:\n  model: project\n")
+        child = project / "src"
+        child.mkdir()
+
+        with patch("pathlib.Path.home", return_value=home.resolve()):
+            assert discover_project_config(child) == cfg.resolve()
+
     def test_returns_none_when_not_found(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             result = discover_project_config(tmpdir)

@@ -55,7 +55,7 @@ void DemoAssets(AppState& appState)
     ImVec2 imageSize = HelloImGui::EmToVec2(3.f, 3.f);
     HelloImGui::ImageFromAsset("images/world.png", imageSize);
 
-    ImGuiMd::Render("**Read the [documentation about assets](https://pthom.github.io/imgui_bundle/quickstart.html#quickstart_about_assets)**");
+    ImGuiMd::Render("**Read the [documentation about assets](https://imgui-bundle.pages.dev/quickstart.html#quickstart_about_assets)**");
 
     ShowDoc("AssetsDoc");
 }
@@ -227,7 +227,7 @@ std::string GetDoc(const std::string& whichDoc)
             {
                 "PlotDoc",
                 R"(
-                By using ImPlot, you can display lots of different plots. See [online demo](https://traineq.org/implot_demo/src/implot_demo.html) which demonstrates lots of plot types (LinePlot, ScatterPlot, Histogram, Error Bars, Heatmaps, etc.)
+                By using ImPlot, you can display lots of different plots. See [online demo](https://pthom.github.io/imgui_explorer/?lib=implot) which demonstrates lots of plot types (LinePlot, ScatterPlot, Histogram, Error Bars, Heatmaps, etc.)
 
                 Note: in order to use ImPlot, you need to "activate" this add-on, like this:
 

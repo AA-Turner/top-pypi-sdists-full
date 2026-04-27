@@ -17,12 +17,13 @@ Usage:
 """
 from __future__ import annotations
 
+import inspect
 import re
 import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from .core import GTag
+from .core import GTag, State
 
 logger = logging.getLogger("htag")
 
@@ -73,13 +74,18 @@ class Router(GTag):
 
     Route parameters (e.g. `:id` in `/tasks/:id`) are passed as keyword
     arguments to the page component's init().
+
+    The `path` attribute is a reactive `State("")` holding the current route.
+    Use it in lambdas to style active navigation links::
+
+        Tag.a("Home", _href="#/", _class=lambda: "active" if router.path == "/" else "")
     """
 
     tag: str = "div"
 
     def init(self, **kwargs: Any) -> None:
         self._routes: list[_Route] = []
-        self._current_path: str = ""
+        self.path: State = State("")
         self._not_found_component: type[GTag] | None = None
 
     def add_route(self, path: str, component: type[GTag]) -> None:
@@ -102,16 +108,12 @@ class Router(GTag):
         # We use a name that htag_event will match
         self["oninit_route"] = self._on_init_route
         
-        # Ask the browser for the current hash after a small delay to ensure
-        # the client-side bridge is fully ready.
+        # Ask the browser for the current hash to resolve the initial route.
+        # The JS round-trip is the single source of truth — no server-side
+        # fallback to avoid double-rendering when the hash is not "/".
         self.call_js(
             f"setTimeout(() => htag_event('{self.id}', 'init_route', {{hash: window.location.hash}}), 50)"
         )
-        
-        # Immediate fallback to root if nothing is displayed yet
-        if not self.childs and self._routes:
-             # Try to match "/" immediately if available
-             self._navigate_to("/")
 
     def _on_init_route(self, event: Any) -> None:
         """Handle the initial hash value sent from the browser."""
@@ -141,8 +143,8 @@ class Router(GTag):
 
     def _navigate_to(self, path: str) -> None:
         """Match a path against registered routes and swap the view."""
-        logger.debug("Router: navigating to '%s' (current='%s')", path, self._current_path)
-        if path == self._current_path and self._current_path != "":
+        logger.debug("Router: navigating to '%s' (current='%s')", path, self.path)
+        if path == self.path and self.path != "":
             return  # Already on this page
 
         for route in self._routes:
@@ -151,13 +153,13 @@ class Router(GTag):
                 params = match.groupdict()
                 logger.info("Router match: %s → %s(%s)", path, route.component.__name__, params)
                 self._swap(route.component, params)
-                self._current_path = path
+                self.path.value = path
                 return
 
         # No match → 404
         logger.warning("Router: no route matched for '%s'", path)
         self._swap_not_found(path)
-        self._current_path = path
+        self.path.value = path
 
     def _swap(self, component_class: type[GTag], params: dict[str, str]) -> None:
         """Replace the current view with a new component instance."""
@@ -171,11 +173,10 @@ class Router(GTag):
         """Show 404 content."""
         self.clear()
         if self._not_found_component:
-            try:
-                # Try to pass the path to the custom 404 component
+            sig = inspect.signature(self._not_found_component.init)
+            if "path" in sig.parameters:
                 view = self._not_found_component(path=path)
-            except TypeError:
-                # Fallback to no-arg instantiation if it fails
+            else:
                 view = self._not_found_component()
             self.add(view)
         else:

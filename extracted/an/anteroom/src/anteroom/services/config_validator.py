@@ -58,6 +58,18 @@ class ValidationResult:
         return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class KnownConfigField:
+    """Public schema metadata for a known config setting."""
+
+    dot_path: str
+    field_type: str
+    default: Any = None
+    allowed_values: tuple[str, ...] | None = None
+    min_val: int | float | None = None
+    max_val: int | float | None = None
+
+
 # Schema definition: maps dot-paths to their expected types and constraints.
 # Each entry is (type, min, max, allowed_values, required).
 # None means "no constraint" for that field.
@@ -505,6 +517,105 @@ _ENUM_FIELDS: list[tuple[str, str, set[str]]] = [
     ("embeddings", "provider", {"local", "api"}),
     ("storage", "encryption_kdf", {"hkdf-sha256"}),
 ]
+
+_BOOL_FIELD_PATHS: tuple[tuple[str, str], ...] = (
+    ("ai", "verify_ssl"),
+    ("ai", "block_localhost_api"),
+    ("app", "tls"),
+    ("cli", "builtin_tools"),
+    ("cli", "tool_dedup"),
+    ("cli.planning", "enabled"),
+    ("embeddings", "enabled"),
+    ("safety", "enabled"),
+    ("safety", "read_only"),
+    ("proxy", "enabled"),
+    ("storage", "purge_attachments"),
+    ("storage", "purge_embeddings"),
+    ("storage", "encrypt_at_rest"),
+    ("safety.prompt_injection", "enabled"),
+    ("safety.prompt_injection", "detect_encoding_attacks"),
+    ("safety.prompt_injection", "detect_instruction_override"),
+    ("safety.prompt_injection", "log_detections"),
+    ("safety.dlp", "enabled"),
+    ("safety.dlp", "scan_output"),
+    ("safety.dlp", "scan_input"),
+    ("safety.dlp", "log_detections"),
+    ("safety.output_filter", "enabled"),
+    ("safety.output_filter", "system_prompt_leak_detection"),
+    ("safety.output_filter", "log_detections"),
+    ("rag", "enabled"),
+    ("rag", "show_status"),
+    ("rag", "include_sources"),
+    ("rag", "include_conversations"),
+    ("rag", "exclude_current"),
+    ("reranker", "enabled"),
+    ("codebase_index", "enabled"),
+    ("session", "log_session_events"),
+    ("audit", "enabled"),
+    ("audit", "redact_content"),
+)
+
+_LIST_FIELD_PATHS: tuple[tuple[str, str], ...] = (
+    ("safety", "custom_patterns"),
+    ("safety", "sensitive_paths"),
+    ("safety", "allowed_tools"),
+    ("safety", "denied_tools"),
+    ("proxy", "allowed_origins"),
+    ("ai", "allowed_domains"),
+    ("ai", "allowed_models"),
+    ("session", "allowed_ips"),
+)
+
+
+def iter_known_config_fields() -> list[KnownConfigField]:
+    """Return public schema metadata for config fields understood by validation."""
+    fields: dict[str, KnownConfigField] = {}
+
+    for section_path, keys in _KNOWN_KEYS.items():
+        for key in sorted(keys):
+            dot_path = f"{section_path}.{key}"
+            fields[dot_path] = KnownConfigField(dot_path=dot_path, field_type="str")
+
+    for section_path, key, lo, hi, default in _INT_FIELDS:
+        dot_path = f"{section_path}.{key}"
+        fields[dot_path] = KnownConfigField(
+            dot_path=dot_path,
+            field_type="int",
+            default=default,
+            min_val=lo,
+            max_val=hi,
+        )
+
+    for section_path, key, flo, fhi, fdefault in _FLOAT_FIELDS:
+        dot_path = f"{section_path}.{key}"
+        fields[dot_path] = KnownConfigField(
+            dot_path=dot_path,
+            field_type="float",
+            default=fdefault,
+            min_val=flo,
+            max_val=fhi,
+        )
+
+    for section_path, key, allowed in _ENUM_FIELDS:
+        dot_path = f"{section_path}.{key}"
+        fields[dot_path] = KnownConfigField(
+            dot_path=dot_path,
+            field_type="enum",
+            allowed_values=tuple(sorted(allowed)),
+        )
+
+    for section_path, key in _BOOL_FIELD_PATHS:
+        dot_path = f"{section_path}.{key}"
+        if dot_path in fields:
+            fields[dot_path] = KnownConfigField(dot_path=dot_path, field_type="bool")
+
+    for section_path, key in _LIST_FIELD_PATHS:
+        dot_path = f"{section_path}.{key}"
+        if dot_path in fields:
+            fields[dot_path] = KnownConfigField(dot_path=dot_path, field_type="list")
+
+    return sorted(fields.values(), key=lambda f: f.dot_path)
+
 
 # MCP server known keys
 _MCP_SERVER_KEYS = {

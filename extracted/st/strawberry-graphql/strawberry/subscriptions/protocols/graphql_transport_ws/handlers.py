@@ -93,8 +93,14 @@ class BaseGraphQLTransportWSHandler(Generic[Context, RootValue]):
             with suppress(asyncio.CancelledError):
                 await self.connection_init_timeout_task
 
+        tasks = [op.task for op in self.operations.values() if op.task]
         for operation_id in list(self.operations.keys()):
             await self.cleanup_operation(operation_id)
+        # Let cancelled tasks finish their finally blocks before shutdown returns.
+        # Per-task suppress survives parent cancellation; asyncio.gather would not.
+        for task in tasks:
+            with suppress(Exception, asyncio.CancelledError):
+                await task
 
     def on_request_accepted(self) -> None:
         # handle_request should call this once it has sent the

@@ -1300,7 +1300,7 @@ def test_url_assembly():
             **utils.parse.parse_url(url, verify_host=False)
         )
         == "schema://hostname:10/a%20space/file.php?"
-        "arg=a%2Bspace&arg2=a+space&arg3=a+space"
+        "arg=a%2Bspace&arg2=a%20space&arg3=a%20space"
     )
 
     # encode=True should only be used if you're passing in un-assembled
@@ -1310,7 +1310,7 @@ def test_url_assembly():
             **utils.parse.parse_url(url, verify_host=False), encode=True
         )
         == "schema://hostname:10/a%2520space/file.php?"
-        "arg=a%2Bspace&arg2=a+space&arg3=a+space"
+        "arg=a%2Bspace&arg2=a%20space&arg3=a%20space"
     )
 
     # But the following utilizes the encode=True and produces the
@@ -1328,7 +1328,7 @@ def test_url_assembly():
     assert (
         utils.parse.url_assembly(**content, encode=True)
         == "schema://hostname/a%20space/file.php?"
-        "arg=a%2Bspace&arg2=a+space&arg3=a+space"
+        "arg=a%2Bspace&arg2=a%20space&arg3=a%20space"
     )
 
 
@@ -1666,6 +1666,67 @@ def test_is_email():
     assert results["user"] == "a-z0-9_!#$%&*/=?%`{|}~^.-"
 
 
+def test_is_domain_service_target():
+    """
+    API: is_domain_service_target() function
+
+    """
+    # Invalid information
+    assert utils.parse.is_domain_service_target(None) is False
+    assert utils.parse.is_domain_service_target(42) is False
+    assert utils.parse.is_domain_service_target(object) is False
+    assert utils.parse.is_domain_service_target("") is False
+    assert utils.parse.is_domain_service_target("+()") is False
+    assert utils.parse.is_domain_service_target("+") is False
+
+    # Valid entries
+    result = utils.parse.is_domain_service_target("service")
+    assert isinstance(result, dict)
+    assert result["service"] == "service"
+    # Default domain
+    assert result["domain"] == "notify"
+    assert isinstance(result["targets"], list)
+    assert len(result["targets"]) == 0
+
+    result = utils.parse.is_domain_service_target("domain.service")
+    assert isinstance(result, dict)
+    assert result["service"] == "service"
+    assert result["domain"] == "domain"
+    assert isinstance(result["targets"], list)
+    assert len(result["targets"]) == 0
+
+    result = utils.parse.is_domain_service_target("domain.service:target")
+    assert isinstance(result, dict)
+    assert result["service"] == "service"
+    assert result["domain"] == "domain"
+    assert isinstance(result["targets"], list)
+    assert len(result["targets"]) == 1
+    assert result["targets"][0] == "target"
+
+    result = utils.parse.is_domain_service_target("domain.service:t1,t2,t3")
+    assert isinstance(result, dict)
+    assert result["service"] == "service"
+    assert result["domain"] == "domain"
+    assert isinstance(result["targets"], list)
+    assert len(result["targets"]) == 3
+    assert "t1" in result["targets"]
+    assert "t2" in result["targets"]
+    assert "t3" in result["targets"]
+
+    result = utils.parse.is_domain_service_target(
+        "service:t1,t2,t3", domain="new_default"
+    )
+    assert isinstance(result, dict)
+    assert result["service"] == "service"
+    # Default domain
+    assert result["domain"] == "new_default"
+    assert isinstance(result["targets"], list)
+    assert len(result["targets"]) == 3
+    assert "t1" in result["targets"]
+    assert "t2" in result["targets"]
+    assert "t3" in result["targets"]
+
+
 def test_is_call_sign_no():
     """
     API: is_call_sign() function
@@ -1892,6 +1953,61 @@ def test_parse_call_sign():
     assert len(results) == 2
     assert "AA0A" in results
     assert "A0AF-12" in results
+
+
+def test_parse_domain_service_targets():
+    """utils: parse_domain_service_targets() testing"""
+
+    results = utils.parse.parse_domain_service_targets("")
+    assert isinstance(results, list)
+    assert len(results) == 0
+
+    results = utils.parse.parse_domain_service_targets("service1 service2")
+    assert isinstance(results, list)
+    assert len(results) == 2
+    assert "service1" in results
+    assert "service2" in results
+
+    results = utils.parse.parse_domain_service_targets(
+        "service1:target1,target2"
+    )
+    assert isinstance(results, list)
+    assert len(results) == 1
+    assert "service1:target1,target2" in results
+
+    results = utils.parse.parse_domain_service_targets(
+        "service1:target1,target2 service2 domain.service3"
+    )
+    assert isinstance(results, list)
+    assert len(results) == 3
+    assert "service1:target1,target2" in results
+    assert "service2" in results
+    assert "domain.service3" in results
+
+    # Support a comma in the space between entries
+    results = utils.parse.parse_domain_service_targets(
+        "service1:target1,target2, service2 ,domain.service3,    ,  , service4"
+    )
+    assert isinstance(results, list)
+    assert len(results) == 4
+    assert "service1:target1,target2" in results
+    assert "service2" in results
+    assert "domain.service3" in results
+    assert "service4" in results
+
+    results = utils.parse.parse_domain_service_targets(
+        "service:target1,target2"
+    )
+    assert isinstance(results, list)
+    assert len(results) == 1
+    assert "service:target1,target2" in results
+
+    # Handle unparseables
+    results = utils.parse.parse_domain_service_targets(
+        ": %invalid ^entries%", store_unparseable=False
+    )
+    assert isinstance(results, list)
+    assert len(results) == 0
 
 
 def test_parse_phone_no():
@@ -2280,19 +2396,21 @@ def test_parse_list():
         ".mkv,.avi,.divx,.xvid,.mov,.wmv,.mp4,.mpg,.mpeg,.vob,.iso"
     )
 
-    assert results == sorted([
-        ".divx",
-        ".iso",
-        ".mkv",
-        ".mov",
-        ".mpg",
-        ".avi",
-        ".mpeg",
-        ".vob",
-        ".xvid",
-        ".wmv",
-        ".mp4",
-    ])
+    assert results == sorted(
+        [
+            ".divx",
+            ".iso",
+            ".mkv",
+            ".mov",
+            ".mpg",
+            ".avi",
+            ".mpeg",
+            ".vob",
+            ".xvid",
+            ".wmv",
+            ".mp4",
+        ]
+    )
 
     class StrangeObject:
         def __str__(self):
@@ -2314,19 +2432,21 @@ def test_parse_list():
         StrangeObject(),
     )
 
-    assert results == sorted([
-        ".divx",
-        ".iso",
-        ".mkv",
-        ".mov",
-        ".mpg",
-        ".avi",
-        ".mpeg",
-        ".vob",
-        ".xvid",
-        ".wmv",
-        ".mp4",
-    ])
+    assert results == sorted(
+        [
+            ".divx",
+            ".iso",
+            ".mkv",
+            ".mov",
+            ".mpg",
+            ".avi",
+            ".mpeg",
+            ".vob",
+            ".xvid",
+            ".wmv",
+            ".mp4",
+        ]
+    )
 
     # Garbage in is removed
     assert utils.parse.parse_list(object(), 42, None) == []
@@ -2350,19 +2470,21 @@ def test_parse_list():
         ".mov,.wmv,.mp4,.mpg",
     )
 
-    assert results == sorted([
-        ".divx",
-        ".wmv",
-        ".iso",
-        ".mkv",
-        ".mov",
-        ".mpg",
-        ".avi",
-        ".vob",
-        ".xvid",
-        ".mpeg",
-        ".mp4",
-    ])
+    assert results == sorted(
+        [
+            ".divx",
+            ".wmv",
+            ".iso",
+            ".mkv",
+            ".mov",
+            ".mpg",
+            ".avi",
+            ".vob",
+            ".xvid",
+            ".mpeg",
+            ".mp4",
+        ]
+    )
 
 
 def test_import_module(tmpdir):
@@ -2370,11 +2492,13 @@ def test_import_module(tmpdir):
     # Prepare ourselves a file to work with
     bad_file_base = tmpdir.mkdir("a")
     bad_file = bad_file_base.join("README.md")
-    bad_file.write(cleandoc("""
+    bad_file.write(
+        cleandoc("""
     I'm a README file, not a Python one.
 
     I can't be loaded
-    """))
+    """)
+    )
     assert utils.module.import_module(str(bad_file), "invalidfile1") is None
     assert (
         utils.module.import_module(str(bad_file_base), "invalidfile2") is None
@@ -2398,18 +2522,22 @@ def test_module_detection(tmpdir):
     # Prepare ourselves a file to work with
     notify_hook_a_base = tmpdir.mkdir("a")
     notify_hook_a = notify_hook_a_base.join("hook.py")
-    notify_hook_a.write(cleandoc("""
+    notify_hook_a.write(
+        cleandoc("""
     from apprise.decorators import notify
 
     @notify(on="clihook")
     def mywrapper(body, title, notify_type, *args, **kwargs):
         pass
-    """))
+    """)
+    )
 
     notify_ignore = notify_hook_a_base.join("README.md")
-    notify_ignore.write(cleandoc("""
+    notify_ignore.write(
+        cleandoc("""
     We're not a .py file, so this file gets gracefully skipped
-    """))
+    """)
+    )
 
     # Not previously loaded
     assert "clihook" not in N_MGR
@@ -2439,14 +2567,16 @@ def test_module_detection(tmpdir):
     # Hidden files are ignored
     notify_hook_b_base = tmpdir.mkdir("b")
     notify_hook_b = notify_hook_b_base.join(".hook.py")
-    notify_hook_b.write(cleandoc("""
+    notify_hook_b.write(
+        cleandoc("""
     from apprise.decorators import notify
 
     # this is in a hidden file so it will not load
     @notify(on="hidden")
     def mywrapper(body, title, notify_type, *args, **kwargs):
         pass
-    """))
+    """)
+    )
 
     assert "hidden" not in N_MGR
 
@@ -2482,7 +2612,8 @@ def test_module_detection(tmpdir):
     def create_hook(tdir, cache=True, on="valid1"):
         """Just a temporary hook creation tool for writing a working notify
         hook."""
-        tdir.write(cleandoc(f"""
+        tdir.write(
+            cleandoc(f"""
         from apprise.decorators import notify
 
         # this is a good hook but burried in hidden directory which won't
@@ -2490,7 +2621,8 @@ def test_module_detection(tmpdir):
         @notify(on="{on}")
         def mywrapper(body, title, notify_type, *args, **kwargs):
             pass
-        """))
+        """)
+        )
 
         N_MGR.module_detection([str(tdir)], cache=cache)
 
@@ -2527,9 +2659,11 @@ def test_module_detection(tmpdir):
     assert len(N_MGR._custom_module_map) == 1
 
     # If you update the module (corrupting it in the process and reload)
-    notify_hook_c.write(cleandoc("""
+    notify_hook_c.write(
+        cleandoc("""
     raise ValueError
-    """))
+    """)
+    )
 
     # Force no cache to cause the file to be replaced
     N_MGR.module_detection([str(notify_hook_c_base)], cache=False)
@@ -2581,7 +2715,8 @@ def test_module_detection(tmpdir):
     notify_hook_d.write("")
     notify_hook_e_base = notify_hook_c_base.mkdir(".ignore")
     notify_hook_e = notify_hook_e_base.join("__init__.py")
-    notify_hook_e.write(cleandoc("""
+    notify_hook_e.write(
+        cleandoc("""
     from apprise.decorators import notify
 
     # this is a good hook but burried in hidden directory which won't
@@ -2589,7 +2724,8 @@ def test_module_detection(tmpdir):
     @notify(on="valid2")
     def mywrapper(body, title, notify_type, *args, **kwargs):
         pass
-    """))
+    """)
+    )
 
     # Try to load our base directory again; this time we search by the
     # directory; the only edge case we're testing here is it will not
@@ -2661,7 +2797,8 @@ def test_module_detection(tmpdir):
     assert "valid3" not in N_MGR
     notify_hook_f_base = tmpdir.mkdir("f")
     notify_hook_f = notify_hook_f_base.join("invalid.py")
-    notify_hook_f.write(cleandoc("""
+    notify_hook_f.write(
+        cleandoc("""
     from apprise.decorators import notify
 
     # A very invalid hook type... on should not be None
@@ -2685,7 +2822,8 @@ def test_module_detection(tmpdir):
     def mywrapper(body, title, notify_type, *args, **kwargs):
         pass
 
-    """))
+    """)
+    )
 
     N_MGR.module_detection([str(notify_hook_f)])
 
@@ -3190,9 +3328,7 @@ def test_dir_size(tmpdir):
     assert size == 0
     assert len(errors) == 0
 
-    size, errors = utils.disk.dir_size(
-        "invalid-directory", missing_okay=False
-    )
+    size, errors = utils.disk.dir_size("invalid-directory", missing_okay=False)
     assert size == 0
     assert len(errors) == 1
     assert "invalid-directory" in errors
@@ -3300,8 +3436,10 @@ def test_time_zoneinfo():
         assert utils.time.zoneinfo("Cordoba") is None
         # the utils helper should still resolve this abbreviated (and
         #  lowercase) form
-        assert utils.time.zoneinfo("argentina/cordoba").key == \
-            "America/Argentina/Cordoba"
+        assert (
+            utils.time.zoneinfo("argentina/cordoba").key
+            == "America/Argentina/Cordoba"
+        )
 
     # Too ambiguous
     assert utils.time.zoneinfo("Argentina") is None

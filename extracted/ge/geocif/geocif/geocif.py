@@ -221,6 +221,7 @@ class Geocif:
             **di.dict_hindex,
             **di.dict_aef,
             **di.dict_fldas,
+            **di.dict_s2s,
         }
         
         self.combined_keys = list(self.combined_dict.keys())

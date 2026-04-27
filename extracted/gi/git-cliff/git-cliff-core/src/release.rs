@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use next_version::{NextVersion, VersionUpdater};
+use next_version::{NextVersion as NextVersionTrait, VersionUpdater};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
@@ -47,6 +47,9 @@ pub struct Release<'a> {
     pub statistics: Option<Statistics>,
     /// Arbitrary data to be used with the `--from-context` CLI option.
     pub extra: Option<Value>,
+    /// The type of version bump that was applied.
+    #[serde(rename = "bump_type")]
+    pub bump_type: Option<BumpType>,
     /// Contributors.
     #[cfg(feature = "github")]
     pub github: RemoteReleaseMetadata,
@@ -85,7 +88,18 @@ impl Release<'_> {
     ///
     /// It uses the default bump version configuration to calculate the next
     /// version.
-    pub fn calculate_next_version(&self) -> Result<String> {
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(
+                version = self.version.as_deref().unwrap_or("unreleased"),
+                commits = self.commits.len()
+            )
+        )
+    )]
+    pub fn calculate_next_version(&self) -> Result<NextVersion> {
+        crate::set_progress_message!("Calculating the next version from commits");
         self.calculate_next_version_with_config(&Bump::default())
     }
 
@@ -104,7 +118,20 @@ impl Release<'_> {
     ///
     /// It uses the given bump version configuration to calculate the next
     /// version.
-    pub(super) fn calculate_next_version_with_config(&self, config: &Bump) -> Result<String> {
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(
+                version = self.version.as_deref().unwrap_or("unreleased"),
+                commits = self.commits.len()
+            )
+        )
+    )]
+    pub(super) fn calculate_next_version_with_config(&self, config: &Bump) -> Result<NextVersion> {
+        crate::set_progress_message!(
+            "Calculating the next version from commits with custom bump rules"
+        );
         match self
             .previous
             .as_ref()
@@ -146,31 +173,63 @@ impl Release<'_> {
                     next_version = next_version
                         .with_custom_minor_increment_regex(custom_minor_increment_regex)?;
                 }
-                let next_version = if let Some(bump_type) = &config.bump_type {
-                    match bump_type {
-                        BumpType::Major => semver?.increment_major().to_string(),
-                        BumpType::Minor => semver?.increment_minor().to_string(),
-                        BumpType::Patch => semver?.increment_patch().to_string(),
-                    }
-                } else {
-                    next_version
-                        .increment(
-                            &semver?,
+                let old_semver = semver?;
+                let (next_version, determined_bump_type) =
+                    if let Some(bump_type) = &config.bump_type {
+                        let v = match bump_type {
+                            BumpType::Major => old_semver.increment_major().to_string(),
+                            BumpType::Minor => old_semver.increment_minor().to_string(),
+                            BumpType::Patch => old_semver.increment_patch().to_string(),
+                        };
+                        (v, Some(*bump_type))
+                    } else {
+                        let new_semver = next_version.increment(
+                            &old_semver,
                             self.commits
                                 .iter()
                                 .map(|commit| commit.message.trim_end().to_string())
                                 .collect::<Vec<String>>(),
-                        )
-                        .to_string()
-                };
-                if let Some(prefix) = prefix {
-                    Ok(format!("{prefix}{next_version}"))
+                        );
+                        let bump_type = determine_bump_type(&old_semver, &new_semver);
+                        (new_semver.to_string(), bump_type)
+                    };
+                let version = if let Some(prefix) = prefix {
+                    format!("{prefix}{next_version}")
                 } else {
-                    Ok(next_version)
-                }
+                    next_version
+                };
+                Ok(NextVersion {
+                    version,
+                    bump_type: determined_bump_type,
+                })
             }
-            None => Ok(config.get_initial_tag()),
+            None => Ok(NextVersion {
+                version: config.get_initial_tag(),
+                bump_type: None,
+            }),
         }
+    }
+}
+
+/// Representation of a calculated next version.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NextVersion {
+    /// Version string.
+    pub version: String,
+    /// Type of version bump that was applied.
+    pub bump_type: Option<BumpType>,
+}
+
+/// Determines the bump type by comparing two semver versions.
+fn determine_bump_type(old: &Version, new: &Version) -> Option<BumpType> {
+    if new.major != old.major {
+        Some(BumpType::Major)
+    } else if new.minor != old.minor {
+        Some(BumpType::Minor)
+    } else if new.patch != old.patch {
+        Some(BumpType::Patch)
+    } else {
+        None
     }
 }
 
@@ -202,7 +261,7 @@ mod test {
                 extra: None,
                 commits: commits
                     .iter()
-                    .map(|v| Commit::from(v.to_string()))
+                    .map(|v| Commit::from((*v).to_string()))
                     .collect(),
                 commit_range: None,
                 commit_id: None,
@@ -214,6 +273,7 @@ mod test {
                 repository: Some(String::from("/root/repo")),
                 submodule_commits: HashMap::new(),
                 statistics: None,
+                bump_type: None,
                 #[cfg(feature = "github")]
                 github: crate::remote::RemoteReleaseMetadata {
                     contributors: vec![],
@@ -284,9 +344,11 @@ mod test {
             .iter(),
         ) {
             let release = build_release(version, commits);
-            let next_version = release.calculate_next_version()?;
+            let next_version = release.calculate_next_version()?.version;
             assert_eq!(expected_version, &next_version);
-            let next_version = release.calculate_next_version_with_config(&Bump::default())?;
+            let next_version = release
+                .calculate_next_version_with_config(&Bump::default())?
+                .version;
             assert_eq!(expected_version, &next_version);
         }
 
@@ -302,14 +364,16 @@ mod test {
             .iter(),
         ) {
             let release = build_release(version, commits);
-            let next_version = release.calculate_next_version_with_config(&Bump {
-                features_always_bump_minor: Some(false),
-                breaking_always_bump_major: Some(false),
-                initial_tag: None,
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-                bump_type: None,
-            })?;
+            let next_version = release
+                .calculate_next_version_with_config(&Bump {
+                    features_always_bump_minor: Some(false),
+                    breaking_always_bump_major: Some(false),
+                    initial_tag: None,
+                    custom_major_increment_regex: None,
+                    custom_minor_increment_regex: None,
+                    bump_type: None,
+                })?
+                .version;
             assert_eq!(expected_version, &next_version);
         }
 
@@ -325,14 +389,16 @@ mod test {
             .iter(),
         ) {
             let release = build_release(version, commits);
-            let next_version = release.calculate_next_version_with_config(&Bump {
-                features_always_bump_minor: Some(true),
-                breaking_always_bump_major: Some(false),
-                initial_tag: None,
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-                bump_type: None,
-            })?;
+            let next_version = release
+                .calculate_next_version_with_config(&Bump {
+                    features_always_bump_minor: Some(true),
+                    breaking_always_bump_major: Some(false),
+                    initial_tag: None,
+                    custom_major_increment_regex: None,
+                    custom_minor_increment_regex: None,
+                    bump_type: None,
+                })?
+                .version;
             assert_eq!(expected_version, &next_version);
         }
 
@@ -348,14 +414,16 @@ mod test {
             .iter(),
         ) {
             let release = build_release(version, commits);
-            let next_version = release.calculate_next_version_with_config(&Bump {
-                features_always_bump_minor: Some(false),
-                breaking_always_bump_major: Some(true),
-                initial_tag: None,
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-                bump_type: None,
-            })?;
+            let next_version = release
+                .calculate_next_version_with_config(&Bump {
+                    features_always_bump_minor: Some(false),
+                    breaking_always_bump_major: Some(true),
+                    initial_tag: None,
+                    custom_major_increment_regex: None,
+                    custom_minor_increment_regex: None,
+                    bump_type: None,
+                })?
+                .version;
             assert_eq!(expected_version, &next_version);
         }
 
@@ -366,27 +434,78 @@ mod test {
             })),
             ..Default::default()
         };
-        assert_eq!("0.1.0", empty_release.calculate_next_version()?);
+        let result = empty_release.calculate_next_version()?;
+        assert_eq!("0.1.0", result.version);
+        assert_eq!(None, result.bump_type);
         for (features_always_bump_minor, breaking_always_bump_major) in
             [(true, true), (true, false), (false, true), (false, false)]
         {
-            assert_eq!(
-                "0.1.0",
-                empty_release.calculate_next_version_with_config(&Bump {
-                    features_always_bump_minor: Some(features_always_bump_minor),
-                    breaking_always_bump_major: Some(breaking_always_bump_major),
-                    initial_tag: None,
-                    custom_major_increment_regex: None,
-                    custom_minor_increment_regex: None,
-                    bump_type: None,
-                })?
-            );
+            let result = empty_release.calculate_next_version_with_config(&Bump {
+                features_always_bump_minor: Some(features_always_bump_minor),
+                breaking_always_bump_major: Some(breaking_always_bump_major),
+                initial_tag: None,
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
+                bump_type: None,
+            })?;
+            assert_eq!("0.1.0", result.version);
+            assert_eq!(None, result.bump_type);
         }
         Ok(())
     }
 
     #[test]
-    fn with_statistics() -> Result<()> {
+    fn bump_version_type() -> Result<()> {
+        fn build_release<'a>(version: &str, commits: &'a [&str]) -> Release<'a> {
+            Release {
+                version: None,
+                commits: commits
+                    .iter()
+                    .map(|v| Commit::from((*v).to_string()))
+                    .collect(),
+                previous: Some(Box::new(Release {
+                    version: Some(String::from(version)),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }
+        }
+
+        let release = build_release("1.0.0", &["fix: something"]);
+        let result = release.calculate_next_version()?;
+        assert_eq!(Some(BumpType::Patch), result.bump_type);
+
+        let release = build_release("1.0.0", &["feat: add xyz"]);
+        let result = release.calculate_next_version()?;
+        assert_eq!(Some(BumpType::Minor), result.bump_type);
+
+        let release = build_release("1.0.0", &["feat!: breaking change"]);
+        let result = release.calculate_next_version()?;
+        assert_eq!(Some(BumpType::Major), result.bump_type);
+
+        let release = build_release("1.0.0", &["fix: something"]);
+        let result = release.calculate_next_version_with_config(&Bump {
+            bump_type: Some(BumpType::Minor),
+            ..Default::default()
+        })?;
+        assert_eq!("1.1.0", result.version);
+        assert_eq!(Some(BumpType::Minor), result.bump_type);
+
+        let release = Release {
+            previous: Some(Box::new(Release {
+                version: None,
+                ..Default::default()
+            })),
+            ..Default::default()
+        };
+        let result = release.calculate_next_version()?;
+        assert_eq!(None, result.bump_type);
+
+        Ok(())
+    }
+
+    #[test]
+    fn with_statistics() {
         let release = Release {
             commits: vec![],
             timestamp: Some(1_649_373_910),
@@ -401,8 +520,6 @@ mod test {
         assert!(release.statistics.is_none());
         let release = release.with_statistics();
         assert!(release.statistics.is_some());
-
-        Ok(())
     }
 
     #[cfg(feature = "github")]
@@ -447,6 +564,7 @@ mod test {
             repository: Some(String::from("/root/repo")),
             submodule_commits: HashMap::new(),
             statistics: None,
+            bump_type: None,
             github: RemoteReleaseMetadata {
                 contributors: vec![],
             },
@@ -816,6 +934,7 @@ mod test {
             repository: Some(String::from("/root/repo")),
             submodule_commits: HashMap::new(),
             statistics: None,
+            bump_type: None,
             #[cfg(feature = "github")]
             github: RemoteReleaseMetadata {
                 contributors: vec![],
@@ -840,148 +959,148 @@ mod test {
         release.update_gitlab_metadata(
             vec![
                 GitLabCommit {
-                    id: String::from("1d244937ee6ceb8e0314a4a201ba93a7a61f2071"),
-                    author_name: String::from("orhun"),
-                    short_id: String::new(),
-                    title: String::new(),
-                    author_email: String::new(),
-                    authored_date: String::new(),
-                    committer_name: String::new(),
-                    committer_email: String::new(),
-                    committed_date: String::new(),
-                    created_at: String::new(),
-                    message: String::new(),
+                    id: Some(String::from("1d244937ee6ceb8e0314a4a201ba93a7a61f2071")),
+                    author_name: Some(String::from("orhun")),
+                    short_id: Some(String::new()),
+                    title: Some(String::new()),
+                    author_email: Some(String::new()),
+                    authored_date: Some(String::new()),
+                    committer_name: Some(String::new()),
+                    committer_email: Some(String::new()),
+                    committed_date: Some(String::new()),
+                    created_at: Some(String::new()),
+                    message: Some(String::new()),
                     parent_ids: vec![],
-                    web_url: String::new(),
+                    web_url: Some(String::new()),
                 },
                 GitLabCommit {
-                    id: String::from("21f6aa587fcb772de13f2fde0e92697c51f84162"),
-                    author_name: String::from("orhun"),
-                    short_id: String::new(),
-                    title: String::new(),
-                    author_email: String::new(),
-                    authored_date: String::new(),
-                    committer_name: String::new(),
-                    committer_email: String::new(),
-                    committed_date: String::new(),
-                    created_at: String::new(),
-                    message: String::new(),
+                    id: Some(String::from("21f6aa587fcb772de13f2fde0e92697c51f84162")),
+                    author_name: Some(String::from("orhun")),
+                    short_id: Some(String::new()),
+                    title: Some(String::new()),
+                    author_email: Some(String::new()),
+                    authored_date: Some(String::new()),
+                    committer_name: Some(String::new()),
+                    committer_email: Some(String::new()),
+                    committed_date: Some(String::new()),
+                    created_at: Some(String::new()),
+                    message: Some(String::new()),
                     parent_ids: vec![],
-                    web_url: String::new(),
+                    web_url: Some(String::new()),
                 },
                 GitLabCommit {
-                    id: String::from("35d8c6b6329ecbcf131d7df02f93c3bbc5ba5973"),
-                    author_name: String::from("nuhro"),
-                    short_id: String::new(),
-                    title: String::new(),
-                    author_email: String::new(),
-                    authored_date: String::new(),
-                    committer_name: String::new(),
-                    committer_email: String::new(),
-                    committed_date: String::new(),
-                    created_at: String::new(),
-                    message: String::new(),
+                    id: Some(String::from("35d8c6b6329ecbcf131d7df02f93c3bbc5ba5973")),
+                    author_name: Some(String::from("nuhro")),
+                    short_id: Some(String::new()),
+                    title: Some(String::new()),
+                    author_email: Some(String::new()),
+                    authored_date: Some(String::new()),
+                    committer_name: Some(String::new()),
+                    committer_email: Some(String::new()),
+                    committed_date: Some(String::new()),
+                    created_at: Some(String::new()),
+                    message: Some(String::new()),
                     parent_ids: vec![],
-                    web_url: String::new(),
+                    web_url: Some(String::new()),
                 },
                 GitLabCommit {
-                    id: String::from("4d3ffe4753b923f4d7807c490e650e6624a12074"),
-                    author_name: String::from("awesome_contributor"),
-                    short_id: String::new(),
-                    title: String::new(),
-                    author_email: String::new(),
-                    authored_date: String::new(),
-                    committer_name: String::new(),
-                    committer_email: String::new(),
-                    committed_date: String::new(),
-                    created_at: String::new(),
-                    message: String::new(),
+                    id: Some(String::from("4d3ffe4753b923f4d7807c490e650e6624a12074")),
+                    author_name: Some(String::from("awesome_contributor")),
+                    short_id: Some(String::new()),
+                    title: Some(String::new()),
+                    author_email: Some(String::new()),
+                    authored_date: Some(String::new()),
+                    committer_name: Some(String::new()),
+                    committer_email: Some(String::new()),
+                    committed_date: Some(String::new()),
+                    created_at: Some(String::new()),
+                    message: Some(String::new()),
                     parent_ids: vec![],
-                    web_url: String::new(),
+                    web_url: Some(String::new()),
                 },
                 GitLabCommit {
-                    id: String::from("5a55e92e5a62dc5bf9872ffb2566959fad98bd05"),
-                    author_name: String::from("orhun"),
-                    short_id: String::new(),
-                    title: String::new(),
-                    author_email: String::new(),
-                    authored_date: String::new(),
-                    committer_name: String::new(),
-                    committer_email: String::new(),
-                    committed_date: String::new(),
-                    created_at: String::new(),
-                    message: String::new(),
+                    id: Some(String::from("5a55e92e5a62dc5bf9872ffb2566959fad98bd05")),
+                    author_name: Some(String::from("orhun")),
+                    short_id: Some(String::new()),
+                    title: Some(String::new()),
+                    author_email: Some(String::new()),
+                    authored_date: Some(String::new()),
+                    committer_name: Some(String::new()),
+                    committer_email: Some(String::new()),
+                    committed_date: Some(String::new()),
+                    created_at: Some(String::new()),
+                    message: Some(String::new()),
                     parent_ids: vec![],
-                    web_url: String::new(),
+                    web_url: Some(String::new()),
                 },
                 GitLabCommit {
-                    id: String::from("6c34967147560ea09658776d4901709139b4ad66"),
-                    author_name: String::from("someone"),
-                    short_id: String::new(),
-                    title: String::new(),
-                    author_email: String::new(),
-                    authored_date: String::new(),
-                    committer_name: String::new(),
-                    committer_email: String::new(),
-                    committed_date: String::new(),
-                    created_at: String::new(),
-                    message: String::new(),
+                    id: Some(String::from("6c34967147560ea09658776d4901709139b4ad66")),
+                    author_name: Some(String::from("someone")),
+                    short_id: Some(String::new()),
+                    title: Some(String::new()),
+                    author_email: Some(String::new()),
+                    authored_date: Some(String::new()),
+                    committer_name: Some(String::new()),
+                    committer_email: Some(String::new()),
+                    committed_date: Some(String::new()),
+                    created_at: Some(String::new()),
+                    message: Some(String::new()),
                     parent_ids: vec![],
-                    web_url: String::new(),
+                    web_url: Some(String::new()),
                 },
                 GitLabCommit {
-                    id: String::from("0c34967147560e809658776d4901709139b4ad68"),
-                    author_name: String::from("idk"),
-                    short_id: String::new(),
-                    title: String::new(),
-                    author_email: String::new(),
-                    authored_date: String::new(),
-                    committer_name: String::new(),
-                    committer_email: String::new(),
-                    committed_date: String::new(),
-                    created_at: String::new(),
-                    message: String::new(),
+                    id: Some(String::from("0c34967147560e809658776d4901709139b4ad68")),
+                    author_name: Some(String::from("idk")),
+                    short_id: Some(String::new()),
+                    title: Some(String::new()),
+                    author_email: Some(String::new()),
+                    authored_date: Some(String::new()),
+                    committer_name: Some(String::new()),
+                    committer_email: Some(String::new()),
+                    committed_date: Some(String::new()),
+                    created_at: Some(String::new()),
+                    message: Some(String::new()),
                     parent_ids: vec![],
-                    web_url: String::new(),
+                    web_url: Some(String::new()),
                 },
                 GitLabCommit {
-                    id: String::from("kk34967147560e809658776d4901709139b4ad68"),
-                    author_name: String::from("orhun"),
-                    short_id: String::new(),
-                    title: String::new(),
-                    author_email: String::new(),
-                    authored_date: String::new(),
-                    committer_name: String::new(),
-                    committer_email: String::new(),
-                    committed_date: String::new(),
-                    created_at: String::new(),
-                    message: String::new(),
+                    id: Some(String::from("kk34967147560e809658776d4901709139b4ad68")),
+                    author_name: Some(String::from("orhun")),
+                    short_id: Some(String::new()),
+                    title: Some(String::new()),
+                    author_email: Some(String::new()),
+                    authored_date: Some(String::new()),
+                    committer_name: Some(String::new()),
+                    committer_email: Some(String::new()),
+                    committed_date: Some(String::new()),
+                    created_at: Some(String::new()),
+                    message: Some(String::new()),
                     parent_ids: vec![],
-                    web_url: String::new(),
+                    web_url: Some(String::new()),
                 },
             ]
             .into_iter()
             .map(|v| Box::new(v) as Box<dyn RemoteCommit>)
             .collect(),
             vec![Box::new(GitLabMergeRequest {
-                title: String::from("1"),
+                title: Some(String::from("1")),
                 merge_commit_sha: Some(String::from("1d244937ee6ceb8e0314a4a201ba93a7a61f2071")),
-                id: 1,
-                iid: 1,
-                project_id: 1,
-                description: String::new(),
-                state: String::new(),
-                created_at: String::new(),
-                author: GitLabUser {
-                    id: 1,
-                    name: String::from("42"),
-                    username: String::from("42"),
-                    state: String::from("42"),
+                id: Some(1),
+                iid: Some(1),
+                project_id: Some(1),
+                description: Some(String::new()),
+                state: Some(String::new()),
+                created_at: Some(String::new()),
+                author: Some(GitLabUser {
+                    id: Some(1),
+                    name: Some(String::from("42")),
+                    username: Some(String::from("42")),
+                    state: Some(String::from("42")),
                     avatar_url: None,
-                    web_url: String::from("42"),
-                },
-                sha: String::from("1d244937ee6ceb8e0314a4a201ba93a7a61f2071"),
-                web_url: String::new(),
+                    web_url: Some(String::from("42")),
+                }),
+                sha: Some(String::from("1d244937ee6ceb8e0314a4a201ba93a7a61f2071")),
+                web_url: Some(String::new()),
                 squash_commit_sha: None,
                 labels: vec![String::from("rust")],
             })],
@@ -1188,6 +1307,7 @@ mod test {
             repository: Some(String::from("/root/repo")),
             submodule_commits: HashMap::new(),
             statistics: None,
+            bump_type: None,
             #[cfg(feature = "github")]
             github: RemoteReleaseMetadata {
                 contributors: vec![],
@@ -1533,6 +1653,7 @@ mod test {
             repository: Some(String::from("/root/repo")),
             submodule_commits: HashMap::new(),
             statistics: None,
+            bump_type: None,
             #[cfg(feature = "github")]
             github: RemoteReleaseMetadata {
                 contributors: vec![],
@@ -1831,6 +1952,7 @@ mod test {
             repository: Some(String::from("/root/repo")),
             submodule_commits: HashMap::new(),
             statistics: None,
+            bump_type: None,
             #[cfg(feature = "github")]
             github: RemoteReleaseMetadata {
                 contributors: vec![],

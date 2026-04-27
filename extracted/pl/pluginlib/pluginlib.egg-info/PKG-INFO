@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pluginlib
-Version: 0.10.0
+Version: 0.11.0
 Summary: A framework for creating and importing plugins
 Home-page: https://github.com/Rockhopper-Technologies/pluginlib
 Author: Avram Lubkin
@@ -23,6 +23,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -55,10 +57,6 @@ Dynamic: summary
 .. |gh_actions| image:: https://img.shields.io/github/actions/workflow/status/Rockhopper-Technologies/pluginlib/tests.yml?event=push&logo=github-actions&style=plastic
     :target: https://github.com/Rockhopper-Technologies/pluginlib/actions/workflows/tests.yml
     :alt: GitHub Actions Status
-
-.. |travis| image:: https://img.shields.io/travis/com/Rockhopper-Technologies/pluginlib.svg?style=plastic&logo=travis
-    :target: https://travis-ci.com/Rockhopper-Technologies/pluginlib
-    :alt: Travis-CI Build Status
 
 .. |codecov| image:: https://img.shields.io/codecov/c/github/Rockhopper-Technologies/pluginlib.svg?style=plastic&logo=codecov
     :target: https://codecov.io/gh/Rockhopper-Technologies/pluginlib

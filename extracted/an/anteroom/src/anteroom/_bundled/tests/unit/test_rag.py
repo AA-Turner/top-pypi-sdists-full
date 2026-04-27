@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from anteroom.config import RagConfig
+from anteroom.config import RagConfig, RerankerConfig
 from anteroom.services.rag import (
     RetrievedChunk,
     _rrf_merge_messages,
@@ -33,6 +33,13 @@ def _make_config(**overrides: object) -> RagConfig:
 
 def _fake_embedding() -> list[float]:
     return [0.1] * 384
+
+
+def _make_vec_manager(*, messages: int = 1, source_chunks: int = 1) -> MagicMock:
+    manager = MagicMock()
+    manager.messages.count.return_value = messages
+    manager.source_chunks.count.return_value = source_chunks
+    return manager
 
 
 class TestRetrieveContext:
@@ -256,6 +263,45 @@ class TestRetrieveContext:
         assert len(chunks) == 1
         mock_storage.search_similar_messages.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_reranker_failure_caps_unranked_candidates(self) -> None:
+        embedding_service = AsyncMock()
+        embedding_service.embed = AsyncMock(return_value=_fake_embedding())
+        reranker_service = AsyncMock()
+        reranker_service.rerank = AsyncMock(side_effect=RuntimeError("model unavailable"))
+        db = MagicMock()
+        config = _make_config(max_chunks=10, include_sources=False)
+        reranker_config = RerankerConfig(enabled=None, top_k=5, candidate_multiplier=3)
+
+        msg_results = [
+            {
+                "message_id": f"m{i}",
+                "conversation_id": f"c{i}",
+                "content": f"candidate {i}",
+                "role": "user",
+                "distance": i / 100,
+            }
+            for i in range(30)
+        ]
+
+        with patch("anteroom.services.rag.storage") as mock_storage:
+            mock_storage.search_similar_messages = MagicMock(return_value=msg_results)
+            mock_storage.get_conversation = MagicMock(return_value={"title": "Conv"})
+
+            chunks, reason = await retrieve_context(
+                "test query text here",
+                db,
+                embedding_service,
+                config,
+                reranker_service=reranker_service,
+                reranker_config=reranker_config,
+            )
+
+        assert reason is None
+        assert [chunk.content for chunk in chunks] == [f"candidate {i}" for i in range(10)]
+        mock_storage.search_similar_messages.assert_called_once()
+        assert mock_storage.search_similar_messages.call_args.kwargs["limit"] == 30
+
 
 class TestRetrieveContextReason:
     """Tests for the reason string returned by retrieve_context()."""
@@ -280,6 +326,56 @@ class TestRetrieveContextReason:
         chunks, reason = await retrieve_context("test query text here", MagicMock(), None, config)
         assert chunks == []
         assert reason == "Embedding service unavailable"
+
+    @pytest.mark.asyncio
+    async def test_no_dense_vectors_skips_embedding(self) -> None:
+        config = _make_config(retrieval_mode="dense")
+        embedding_service = AsyncMock()
+        embedding_service.embed = AsyncMock(return_value=_fake_embedding())
+        chunks, reason = await retrieve_context(
+            "test query text here",
+            MagicMock(),
+            embedding_service,
+            config,
+            vec_manager=_make_vec_manager(messages=0, source_chunks=0),
+        )
+        assert chunks == []
+        assert reason == "No embeddings yet"
+        embedding_service.embed.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_hybrid_no_dense_vectors_uses_keyword_only(self) -> None:
+        db = MagicMock()
+        config = _make_config(retrieval_mode="hybrid")
+        embedding_service = AsyncMock()
+        embedding_service.embed = AsyncMock(return_value=_fake_embedding())
+        kw_msg = [
+            {
+                "message_id": "m1",
+                "conversation_id": "c1",
+                "content": "keyword fallback",
+                "role": "user",
+                "distance": 0.0,
+                "fts_rank": -5.0,
+            },
+        ]
+
+        with patch("anteroom.services.rag.storage") as mock_storage:
+            mock_storage.search_keyword_messages = MagicMock(return_value=kw_msg)
+            mock_storage.search_keyword_source_chunks = MagicMock(return_value=[])
+            mock_storage.get_conversation = MagicMock(return_value={"title": "Conv"})
+
+            chunks, reason = await retrieve_context(
+                "test query text here",
+                db,
+                embedding_service,
+                config,
+                vec_manager=_make_vec_manager(messages=0, source_chunks=0),
+            )
+
+        assert reason is None
+        assert [chunk.content for chunk in chunks] == ["keyword fallback"]
+        embedding_service.embed.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_success_returns_none_reason(self) -> None:

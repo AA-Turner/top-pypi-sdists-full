@@ -118,6 +118,22 @@ class TestRunInit:
 
 
 class TestKnowledgeDependencyCheck:
+    def test_fastembed_dependency_hint_uses_default_install_guidance(self, capsys: pytest.CaptureFixture[str]) -> None:
+        from anteroom.__main__ import _check_knowledge_deps
+
+        def fake_import(name: str, *args, **kwargs):
+            if name == "fastembed":
+                raise ImportError("missing fastembed")
+            return MagicMock()
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            _check_knowledge_deps()
+
+        captured = capsys.readouterr()
+        assert "Local embeddings" in captured.out
+        assert "pip install --upgrade anteroom" in captured.out
+        assert " ".join(("pip", "install", "fastembed")) not in captured.out
+
     def test_pdf_dependency_hint_uses_default_install_guidance(self, capsys: pytest.CaptureFixture[str]) -> None:
         from anteroom.__main__ import _check_knowledge_deps
 
@@ -235,6 +251,31 @@ class TestRunConfig:
 
         mock_validate.assert_called_once()
 
+    def test_main_config_explain_dispatches(self) -> None:
+        from anteroom.__main__ import main
+
+        with (
+            patch("anteroom.__main__._run_config_explain") as mock_explain,
+            patch("sys.argv", ["aroom", "config", "explain", "ai.model", "--format", "json"]),
+        ):
+            main()
+
+        mock_explain.assert_called_once()
+        assert mock_explain.call_args.args == ("ai.model",)
+        assert mock_explain.call_args.kwargs["output_format"] == "json"
+
+    def test_main_config_sources_dispatches(self) -> None:
+        from anteroom.__main__ import main
+
+        with (
+            patch("anteroom.__main__._run_config_sources") as mock_sources,
+            patch("sys.argv", ["aroom", "config", "sources", "--format", "json"]),
+        ):
+            main()
+
+        mock_sources.assert_called_once()
+        assert mock_sources.call_args.kwargs["output_format"] == "json"
+
     def test_main_config_no_subcommand_opens_editor(self) -> None:
         from anteroom.__main__ import main
 
@@ -245,6 +286,112 @@ class TestRunConfig:
             main()
 
         mock_editor.assert_called_once()
+
+    def test_main_config_tree_dispatches(self) -> None:
+        from anteroom.__main__ import main
+
+        with (
+            patch("anteroom.__main__._run_config_tree") as mock_tree,
+            patch("sys.argv", ["aroom", "config", "tree", "--json", "--keys"]),
+        ):
+            main()
+
+        mock_tree.assert_called_once_with(team_config_path=None, json_output=True, include_keys=True)
+
+    def test_main_config_show_dispatches_tree_alias(self) -> None:
+        from anteroom.__main__ import main
+
+        with (
+            patch("anteroom.__main__._run_config_tree") as mock_tree,
+            patch("sys.argv", ["aroom", "config", "show"]),
+        ):
+            main()
+
+        mock_tree.assert_called_once_with(team_config_path=None, json_output=False, include_keys=False)
+
+    def test_run_config_tree_renders_required_sections(self, capsys: pytest.CaptureFixture[str]) -> None:
+        from dataclasses import dataclass, field
+
+        from anteroom.__main__ import _run_config_tree
+        from anteroom.services.config_explanation import ConfigExplanationContext
+
+        @dataclass
+        class _Refs:
+            instructions: list[str] = field(default_factory=lambda: ["ANTEROOM.md"])
+            rules: list[str] = field(default_factory=lambda: ["rules/security.md"])
+            skills: list[str] = field(default_factory=list)
+
+        @dataclass
+        class _Cli:
+            builtin_tools: bool = True
+            max_tool_iterations: int = 50
+
+        @dataclass
+        class _Safety:
+            approval_mode: str = "ask_for_writes"
+            read_only: bool = False
+            allowed_tools: list[str] = field(default_factory=lambda: ["read_file"])
+            denied_tools: list[str] = field(default_factory=list)
+
+        @dataclass
+        class _McpServer:
+            name: str = "filesystem"
+            transport: str = "stdio"
+            enabled: bool = True
+
+        @dataclass
+        class _Config:
+            ai: dict[str, str] = field(default_factory=lambda: {"model": "gpt-4o", "base_url": "http://localhost"})
+            references: _Refs = field(default_factory=_Refs)
+            cli: _Cli = field(default_factory=_Cli)
+            safety: _Safety = field(default_factory=_Safety)
+            mcp_servers: list[_McpServer] = field(default_factory=lambda: [_McpServer()])
+
+        config = _Config()
+        context = ConfigExplanationContext(
+            config=config,
+            layer_raws={"project": {"required": [{"path": "ai.base_url", "description": "provider URL"}]}},
+            source_map={"ai.model": "personal", "ai.base_url": "project"},
+            enforced_fields=[],
+            working_dir="/tmp/project",
+        )
+
+        with (
+            patch("anteroom.__main__._load_config_or_exit", return_value=(Path("/tmp/config.yaml"), config, [])),
+            patch("anteroom.__main__._open_config_explanation_db", return_value=None),
+            patch("anteroom.services.config_explanation.build_explanation_context", return_value=context),
+        ):
+            _run_config_tree()
+
+        output = capsys.readouterr().out
+        assert "key settings" in output
+        assert "required keys" in output
+        assert "instructions and rules" in output
+        assert "skills" in output
+        assert "MCP servers" in output
+        assert "approval_mode" in output
+
+    def test_main_config_search_dispatches(self) -> None:
+        from anteroom.__main__ import main
+
+        with (
+            patch("anteroom.__main__._run_config_search") as mock_search,
+            patch("sys.argv", ["aroom", "config", "search", "approval", "--json"]),
+        ):
+            main()
+
+        mock_search.assert_called_once_with("approval", None, json_output=True)
+
+    def test_main_config_help_dispatches(self) -> None:
+        from anteroom.__main__ import main
+
+        with (
+            patch("anteroom.__main__._run_config_help") as mock_help,
+            patch("sys.argv", ["aroom", "config", "help", "safety.approval_mode"]),
+        ):
+            main()
+
+        mock_help.assert_called_once_with("safety.approval_mode", None, json_output=False)
 
     def test_run_config_validate_exits_0_when_compliant(self, tmp_path: Path) -> None:
         from anteroom.__main__ import _run_config_validate

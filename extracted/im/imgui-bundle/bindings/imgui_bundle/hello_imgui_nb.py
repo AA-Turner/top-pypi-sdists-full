@@ -120,49 +120,37 @@ def start(*args, **kwargs) -> asyncio.Task:
     """
     global _current_task
 
-    # Check if a GUI is already running
-    if is_running():
-        print("Warning: A GUI is already running. Stopping it first...")
-        stop()
-        # Give it time to stop
-        import time
-        time.sleep(0.2)
-
     # Import here to avoid circular imports
     from imgui_bundle import hello_imgui
     RunnerParams = hello_imgui.RunnerParams  # type: ignore
     SimpleRunnerParams = hello_imgui.SimpleRunnerParams  # type: ignore
 
-    # Determine which signature is being used and apply defaults
+    # Capture the previous task (if any) and signal it to exit. We do NOT
+    # block here: actually waiting for it to finish must happen on the event
+    # loop, inside the new task — otherwise we'd freeze the loop and the
+    # previous task could never reach its tear_down().
+    previous_task: Optional[asyncio.Task] = None
+    if is_running():
+        print("Warning: A GUI is already running. Stopping it first...")
+        try:
+            hello_imgui.get_runner_params().app_shall_exit = True
+        except Exception:
+            pass
+        previous_task = _current_task
+
+    # Determine which signature is being used and build the run_async coroutine
     if len(args) >= 1:
         first_arg = args[0]
 
         # Case 1: RunnerParams
         if isinstance(first_arg, RunnerParams):
             runner_params = first_arg
-
-            # Apply notebook-friendly defaults
-            # Note: RunnerParams doesn't have simple properties, need to access nested structures
-            # if not runner_params.app_window_params.window_geometry.size_auto:
-            #     runner_params.app_window_params.window_geometry.size_auto = True
-
-            # Create the task
-            _current_task = asyncio.create_task(
-                hello_imgui.run_async(runner_params)
-            )
+            run_coro_factory = lambda: hello_imgui.run_async(runner_params)  # noqa: E731
 
         # Case 2: SimpleRunnerParams
         elif isinstance(first_arg, SimpleRunnerParams):
             simple_params = first_arg
-
-            # Apply notebook-friendly defaults
-            # if not simple_params.window_size_auto:
-            #     simple_params.window_size_auto = True
-
-            # Create the task
-            _current_task = asyncio.create_task(
-                hello_imgui.run_async(simple_params)
-            )
+            run_coro_factory = lambda: hello_imgui.run_async(simple_params)  # noqa: E731
 
         # Case 3: GUI function with keyword arguments
         elif callable(first_arg):
@@ -172,13 +160,20 @@ def start(*args, **kwargs) -> asyncio.Task:
             if "window_size_auto" not in kwargs and "window_size" not in kwargs:
                 kwargs["window_size_auto"] = True
 
-            # Create the task
-            _current_task = asyncio.create_task(
-                hello_imgui.run_async(gui_function, *args[1:], **kwargs)
-            )
+            extra_args = args[1:]
+            run_coro_factory = lambda: hello_imgui.run_async(gui_function, *extra_args, **kwargs)  # noqa: E731
         else:
             raise TypeError(f"First argument must be RunnerParams, SimpleRunnerParams, or a callable GUI function, got {type(first_arg)}")
     else:
         raise TypeError("start() requires at least one argument")
 
+    async def _drain_then_run():
+        if previous_task is not None:
+            try:
+                await previous_task
+            except Exception:
+                pass  # Don't let a previous failure mask the new launch
+        await run_coro_factory()
+
+    _current_task = asyncio.create_task(_drain_then_run())
     return _current_task

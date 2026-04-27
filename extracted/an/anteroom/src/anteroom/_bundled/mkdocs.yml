@@ -252,6 +252,7 @@ nav:
   - Develop:
     - advanced/architecture.md
     - advanced/testing.md
+    - advanced/logging.md
     - advanced/developer-workflow.md
     - advanced/local-docs.md
     - advanced/workflows.md

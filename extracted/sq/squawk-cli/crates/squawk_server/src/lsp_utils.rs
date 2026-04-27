@@ -8,7 +8,6 @@ use lsp_types::{
     CodeAction, CodeActionKind, FoldingRange, FoldingRangeKind as LspFoldingRangeKind, Location,
     SemanticToken, Url, WorkspaceEdit,
 };
-use squawk_ide::builtins::{builtins_line_index, builtins_url};
 use squawk_ide::code_actions::ActionKind;
 use squawk_ide::db::line_index;
 use squawk_ide::folding_ranges::{Fold, FoldKind};
@@ -214,20 +213,13 @@ pub(crate) fn apply_incremental_changes(
 
 pub(crate) fn to_location(
     snapshot: &Snapshot,
-    uri: &Url,
-    loc: squawk_ide::goto_definition::Location,
+    loc: squawk_ide::location::Location,
 ) -> Option<Location> {
     let db = snapshot.db();
-    let file = snapshot.file(uri).unwrap();
-    let uri = match loc.file {
-        squawk_ide::goto_definition::FileId::Current => uri.clone(),
-        squawk_ide::goto_definition::FileId::Builtins => builtins_url(db)?,
-    };
-    let line_index = match loc.file {
-        squawk_ide::goto_definition::FileId::Current => &line_index(db, file),
-        squawk_ide::goto_definition::FileId::Builtins => &builtins_line_index(db),
-    };
-    let range = range(line_index, loc.range);
+    let uri = snapshot.uri(loc.file)?;
+
+    let line_index = line_index(db, loc.file);
+    let range = range(&line_index, loc.range);
     Some(Location { uri, range })
 }
 
@@ -320,7 +312,9 @@ fn to_token_type(ty: SemanticTokenType) -> lsp_types::SemanticTokenType {
             lsp_types::SemanticTokenType::PARAMETER
         }
         SemanticTokenType::Column => lsp_types::SemanticTokenType::VARIABLE,
-        SemanticTokenType::Table => lsp_types::SemanticTokenType::STRUCT,
+        SemanticTokenType::PropertyGraph | SemanticTokenType::Table => {
+            lsp_types::SemanticTokenType::STRUCT
+        }
         SemanticTokenType::Schema => lsp_types::SemanticTokenType::NAMESPACE,
     }
 }

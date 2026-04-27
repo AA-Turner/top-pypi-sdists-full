@@ -29,6 +29,26 @@ class RetrievedChunk:
     conversation_type: str | None = None  # "chat", "note", or "document"
 
 
+def _index_count(index: Any | None) -> int:
+    if index is None:
+        return 0
+    try:
+        return int(index.count())
+    except Exception:
+        logger.debug("RAG: failed to inspect vector index count", exc_info=True)
+        return 0
+
+
+def _has_dense_targets(config: RagConfig, vec_manager: Any | None) -> bool:
+    if vec_manager is None:
+        return True
+    if config.include_conversations and _index_count(getattr(vec_manager, "messages", None)) > 0:
+        return True
+    if config.include_sources and _index_count(getattr(vec_manager, "source_chunks", None)) > 0:
+        return True
+    return False
+
+
 async def retrieve_context(
     query: str,
     db: Any,
@@ -71,7 +91,11 @@ async def retrieve_context(
     # Dense retrieval requires an embedding service; keyword-only does not.
     embedding: list[float] | None = None
     if use_dense:
-        if not embedding_service:
+        if not _has_dense_targets(config, vec_manager):
+            if not use_keyword:
+                return [], "No embeddings yet"
+            use_dense = False
+        elif not embedding_service:
             if not use_keyword:
                 return [], "Embedding service unavailable"
             use_dense = False
@@ -218,7 +242,7 @@ async def retrieve_context(
             score_threshold=reranker_config.score_threshold,
             candidate_multiplier=reranker_config.candidate_multiplier,
         )
-        chunks = await _rerank_chunks(query, chunks, reranker_service, capped_config)
+        chunks = await _rerank_chunks(query, chunks, reranker_service, capped_config, fallback_limit=config.max_chunks)
 
     # Trim to token budget (chars/4 estimate)
     max_chars = config.max_tokens * 4
@@ -325,14 +349,17 @@ async def _rerank_chunks(
     chunks: list[RetrievedChunk],
     reranker_service: Any,
     reranker_config: RerankerConfig,
+    *,
+    fallback_limit: int | None = None,
 ) -> list[RetrievedChunk]:
     """Re-score chunks with a cross-encoder and return the top results."""
+    unranked_limit = fallback_limit if fallback_limit is not None else reranker_config.top_k
     documents = [c.content for c in chunks]
     try:
         scored = await reranker_service.rerank(query, documents, top_k=reranker_config.top_k)
     except Exception:
-        logger.debug("RAG: reranking failed, returning unranked results", exc_info=True)
-        return chunks
+        logger.debug("RAG: reranking failed, returning capped unranked results", exc_info=True)
+        return chunks[:unranked_limit]
 
     result: list[RetrievedChunk] = []
     for idx, score in scored:
@@ -358,7 +385,7 @@ async def _rerank_chunks(
     # Hard cap: never return more than top_k, even if the reranker ignores the limit
     if result:
         return result[: reranker_config.top_k]
-    return chunks
+    return chunks[:unranked_limit]
 
 
 def _deduplicate(chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:

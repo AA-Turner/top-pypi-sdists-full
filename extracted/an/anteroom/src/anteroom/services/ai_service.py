@@ -12,6 +12,7 @@ from typing import Any, AsyncGenerator
 
 from ..config import AIConfig
 from .async_tasks import cancel_task
+from .diagnostic_context import log_debug
 from .egress_allowlist import check_egress_allowed
 from .error_sanitizer import sanitize_provider_error
 from .provider_messages import strip_local_message_fields
@@ -330,12 +331,18 @@ class AIService:
 
             try:
                 _attempt_start = time.monotonic()
-                logger.debug(
-                    "ai_service connect attempt=%d/%d model=%s messages=%d",
-                    attempt + 1,
-                    max_attempts,
-                    self.config.model,
-                    len(full_messages),
+                log_debug(
+                    logger,
+                    "ai_service.connect.start",
+                    lifecycle="start",
+                    phase="connecting",
+                    attempt=attempt + 1,
+                    max_attempts=max_attempts,
+                    provider=self.config.provider,
+                    model=self.config.model,
+                    message_count=len(full_messages),
+                    tool_count=len(tools or []),
+                    timeout_seconds=float(self.config.request_timeout),
                 )
                 yield {
                     "event": "phase",
@@ -346,6 +353,7 @@ class AIService:
                         "model": self.config.model,
                         "provider": self.config.provider,
                         "timeout_seconds": float(self.config.request_timeout),
+                        "timeout_type": "request",
                     },
                 }
 
@@ -378,6 +386,17 @@ class AIService:
                     # Hard timeout exceeded — create() never returned
                     await cancel_task(create_task)
                     await cancel_task(cancel_wait)
+                    log_debug(
+                        logger,
+                        "ai_service.connect.timeout",
+                        lifecycle="timeout",
+                        phase="connecting",
+                        attempt=attempt + 1,
+                        max_attempts=max_attempts,
+                        timeout_type="request",
+                        timeout_seconds=float(self.config.request_timeout),
+                        _started_at=_attempt_start,
+                    )
                     logger.warning(
                         "API create() timed out after %ds (attempt %d/%d)",
                         self.config.request_timeout,
@@ -389,6 +408,14 @@ class AIService:
                 if cancel_wait and cancel_wait in done:
                     # User pressed Escape during connecting — clean exit
                     await cancel_task(create_task)
+                    log_debug(
+                        logger,
+                        "ai_service.connect.cleanup",
+                        lifecycle="cleanup",
+                        phase="connecting",
+                        reason="cancelled",
+                        attempt=attempt + 1,
+                    )
                     logger.info("Cancelled during connecting phase")
                     return
 
@@ -396,10 +423,14 @@ class AIService:
                 await cancel_task(cancel_wait)
 
                 stream = create_task.result()
-                logger.debug(
-                    "ai_service connected attempt=%d elapsed=%.2fs",
-                    attempt + 1,
-                    time.monotonic() - _attempt_start,
+                log_debug(
+                    logger,
+                    "ai_service.connect.success",
+                    lifecycle="success",
+                    phase="connecting",
+                    attempt=attempt + 1,
+                    max_attempts=max_attempts,
+                    _started_at=_attempt_start,
                 )
                 _connect_elapsed = time.monotonic() - _attempt_start
                 yield {
@@ -413,6 +444,7 @@ class AIService:
                         "elapsed_seconds": _connect_elapsed,
                         "connect_elapsed_seconds": _connect_elapsed,
                         "timeout_seconds": float(self.config.first_token_timeout),
+                        "timeout_type": "first_token",
                     },
                 }
 
@@ -444,6 +476,17 @@ class AIService:
                     # First-token timeout
                     await cancel_task(first_token_task)
                     await cancel_task(ft_cancel_wait)
+                    log_debug(
+                        logger,
+                        "ai_service.first_token.timeout",
+                        lifecycle="timeout",
+                        phase="waiting",
+                        attempt=attempt + 1,
+                        max_attempts=max_attempts,
+                        timeout_type="first_token",
+                        timeout_seconds=float(self.config.first_token_timeout),
+                        _started_at=_attempt_start,
+                    )
                     logger.warning(
                         "No first token within %ds (attempt %d/%d)",
                         self.config.first_token_timeout,
@@ -497,10 +540,14 @@ class AIService:
                         pass
                     raise
 
-                logger.debug(
-                    "ai_service first_token attempt=%d elapsed=%.2fs",
-                    attempt + 1,
-                    time.monotonic() - _attempt_start,
+                log_debug(
+                    logger,
+                    "ai_service.first_token.success",
+                    lifecycle="success",
+                    phase="waiting",
+                    attempt=attempt + 1,
+                    max_attempts=max_attempts,
+                    _started_at=_attempt_start,
                 )
                 # --- Stream with full request_timeout (first chunk already received) ---
                 current_tool_calls: dict[int, dict[str, Any]] = {}
@@ -587,10 +634,14 @@ class AIService:
                             return
 
                         if choice.finish_reason == "stop":
-                            logger.debug(
-                                "ai_service stream_done attempt=%d elapsed=%.2fs",
-                                attempt + 1,
-                                time.monotonic() - _attempt_start,
+                            log_debug(
+                                logger,
+                                "ai_service.stream.success",
+                                lifecycle="success",
+                                phase="streaming",
+                                attempt=attempt + 1,
+                                max_attempts=max_attempts,
+                                _started_at=_attempt_start,
                             )
                             if not usage_data:
                                 usage_data = self._estimate_fallback_usage(
@@ -710,6 +761,17 @@ class AIService:
                 if e.status_code >= 500:
                     # Server errors (500, 502, 503, etc.) are transient — retry
                     last_transient_error = e
+                    log_debug(
+                        logger,
+                        "ai_service.provider.retry",
+                        lifecycle="retry" if attempt < max_attempts - 1 else "failure",
+                        phase="provider",
+                        attempt=attempt + 1,
+                        max_attempts=max_attempts,
+                        status_code=e.status_code,
+                        error_class=type(e).__name__,
+                        _started_at=_attempt_start,
+                    )
                     logger.warning("API server error %d (attempt %d/%d)", e.status_code, attempt + 1, max_attempts)
                     self._build_client()
                     if attempt < max_attempts - 1:
@@ -723,6 +785,8 @@ class AIService:
                                 "reason": "transient_error",
                                 "elapsed_seconds": time.monotonic() - _attempt_start,
                                 "error_type": type(e).__name__,
+                                "provider": self.config.provider,
+                                "model": self.config.model,
                             },
                         }
                         if cancel_event:
@@ -761,7 +825,15 @@ class AIService:
                     return
             except _StreamTimeoutError:
                 stream_elapsed = time.monotonic() - _attempt_start
-                logger.debug("Stream timed out mid-response after first token (%.0fs)", stream_elapsed)
+                log_debug(
+                    logger,
+                    "ai_service.stream.timeout",
+                    lifecycle="timeout",
+                    phase="streaming",
+                    timeout_type="stream_stall",
+                    elapsed_ms=round(stream_elapsed * 1000, 1),
+                    error_class="_StreamTimeoutError",
+                )
                 self._build_client()
                 if cancel_event and cancel_event.is_set():
                     return  # user cancelled — don't emit retryable error
@@ -778,6 +850,8 @@ class AIService:
                         "elapsed_seconds": stream_elapsed,
                         "timeout_seconds": float(self.config.chunk_stall_timeout),
                         "timeout_type": "stream_stall",
+                        "provider": self.config.provider,
+                        "model": self.config.model,
                     }
                 )
                 yield {"event": "error", "data": _error_payload}
@@ -785,9 +859,35 @@ class AIService:
             except (APITimeoutError, APIConnectionError, _FirstTokenTimeoutError) as e:
                 last_transient_error = e
                 self._build_client()
+                _timeout_type = (
+                    "api_timeout"
+                    if isinstance(e, APITimeoutError)
+                    else "connection"
+                    if isinstance(e, APIConnectionError)
+                    else "first_token"
+                )
+                _timeout_seconds = (
+                    float(self.config.request_timeout)
+                    if isinstance(e, APITimeoutError)
+                    else float(self.config.connect_timeout)
+                    if isinstance(e, APIConnectionError)
+                    else float(self.config.first_token_timeout)
+                )
 
                 if attempt < max_attempts - 1:
                     delay = self.config.retry_backoff_base * (2**attempt)
+                    log_debug(
+                        logger,
+                        "ai_service.transient.retry",
+                        lifecycle="retry",
+                        phase="provider",
+                        attempt=attempt + 1,
+                        next_attempt=attempt + 2,
+                        max_attempts=max_attempts,
+                        retry_delay_seconds=delay,
+                        error_class=type(e).__name__,
+                        _started_at=_attempt_start,
+                    )
                     logger.warning(
                         "Transient error (attempt %d/%d): %s. Retrying in %.1fs...",
                         attempt + 1,
@@ -804,6 +904,10 @@ class AIService:
                             "reason": "transient_error",
                             "elapsed_seconds": time.monotonic() - _attempt_start,
                             "error_type": type(e).__name__,
+                            "timeout_seconds": _timeout_seconds,
+                            "timeout_type": _timeout_type,
+                            "provider": self.config.provider,
+                            "model": self.config.model,
                         },
                     }
                     # Sleep with cancel awareness
@@ -853,39 +957,36 @@ class AIService:
 
         # All retries exhausted — yield appropriate error for the last transient error
         if isinstance(last_transient_error, APITimeoutError):
-            yield {
-                "event": "error",
-                "data": build_user_error(
-                    f"Request timed out ({max_attempts} attempts).",
-                    code="timeout",
-                    retryable=True,
-                    provider=self.config.provider,
-                    model=self.config.model,
-                ),
-            }
+            payload = build_user_error(
+                f"Request timed out ({max_attempts} attempts).",
+                code="timeout",
+                retryable=True,
+                provider=self.config.provider,
+                model=self.config.model,
+            )
+            payload.update({"timeout_seconds": float(self.config.request_timeout), "timeout_type": "api_timeout"})
+            yield {"event": "error", "data": payload}
         elif isinstance(last_transient_error, _FirstTokenTimeoutError):
-            yield {
-                "event": "error",
-                "data": build_user_error(
-                    f"No response from API ({max_attempts} attempts).",
-                    code="timeout",
-                    retryable=True,
-                    provider=self.config.provider,
-                    model=self.config.model,
-                ),
-            }
+            payload = build_user_error(
+                f"No response from API ({max_attempts} attempts).",
+                code="timeout",
+                retryable=True,
+                provider=self.config.provider,
+                model=self.config.model,
+            )
+            payload.update({"timeout_seconds": float(self.config.first_token_timeout), "timeout_type": "first_token"})
+            yield {"event": "error", "data": payload}
         elif isinstance(last_transient_error, APIConnectionError):
-            yield {
-                "event": "error",
-                "data": build_user_error(
-                    f"Cannot connect to API ({max_attempts} attempts).",
-                    code="connection_error",
-                    retryable=True,
-                    provider=self.config.provider,
-                    model=self.config.model,
-                    base_url=self.config.base_url,
-                ),
-            }
+            payload = build_user_error(
+                f"Cannot connect to API ({max_attempts} attempts).",
+                code="connection_error",
+                retryable=True,
+                provider=self.config.provider,
+                model=self.config.model,
+                base_url=self.config.base_url,
+            )
+            payload.update({"timeout_seconds": float(self.config.connect_timeout), "timeout_type": "connection"})
+            yield {"event": "error", "data": payload}
         elif isinstance(last_transient_error, APIStatusError):
             if _is_html_error(last_transient_error):
                 msg = (
