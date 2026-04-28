@@ -19,7 +19,7 @@ from rapidata.api_client.api.external_audience_api import ExternalAudienceApi
 from rapidata.api_client.api.feedback_api import FeedbackApi
 from rapidata.api_client.api.flow_api import FlowApi
 from rapidata.api_client.api.flow_item_api import FlowItemApi
-from rapidata.api_client.api.grouped_ranking_workflow_api import GroupedRankingWorkflowApi
+from rapidata.api_client.api.grouped_ranking_api import GroupedRankingApi
 from rapidata.api_client.api.identity_api import IdentityApi
 from rapidata.api_client.api.job_api import JobApi
 from rapidata.api_client.api.leaderboard_api import LeaderboardApi
@@ -37,6 +37,7 @@ from rapidata.api_client.api.rapidata_identity_api_api import RapidataIdentityAP
 from rapidata.api_client.api.sample_api import SampleApi
 from rapidata.api_client.api.simple_workflow_api import SimpleWorkflowApi
 from rapidata.api_client.api.survey_api import SurveyApi
+from rapidata.api_client.api.translation_api import TranslationApi
 from rapidata.api_client.api.user_rapid_api import UserRapidApi
 from rapidata.api_client.api.validation_feedback_api import ValidationFeedbackApi
 from rapidata.api_client.api.validation_set_api import ValidationSetApi

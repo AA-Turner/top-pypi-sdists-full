@@ -27,8 +27,11 @@ use pyrefly_graph::index::Idx;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_types::heap::TypeHeap;
+use pyrefly_types::quantified::AnchorIndex;
 use pyrefly_types::quantified::Quantified;
+use pyrefly_types::quantified::QuantifiedIdentity;
 use pyrefly_types::quantified::QuantifiedKind;
+use pyrefly_types::quantified::QuantifiedOrigin;
 use pyrefly_types::type_alias::TypeAlias;
 use pyrefly_types::type_alias::TypeAliasData;
 use pyrefly_types::type_var::PreInferenceVariance;
@@ -1762,19 +1765,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_or_create_jaxtyping_dim(&self, name: Name, kind: QuantifiedKind) -> Quantified {
         let mut dims = self.jaxtyping_dims.borrow_mut();
         dims.entry(name.clone())
-            .or_insert_with(|| match kind {
-                QuantifiedKind::TypeVar => Quantified::type_var(
-                    name,
-                    self.uniques.fresh(),
-                    None,
-                    Restriction::Unrestricted,
-                    PreInferenceVariance::Invariant,
-                ),
-                QuantifiedKind::TypeVarTuple => {
-                    Quantified::type_var_tuple(name, self.uniques.fresh(), None)
-                }
-                QuantifiedKind::ParamSpec => {
-                    unreachable!("jaxtyping dimensions cannot be ParamSpec")
+            .or_insert_with(|| {
+                // Jaxtyping dims have no real source location. Use a hash of the name
+                // as ordinal to distinguish different dims in the same module.
+                // The slot discriminates from other synthetic quantifieds at the same anchor.
+                let ordinal = {
+                    let mut h = std::collections::hash_map::DefaultHasher::new();
+                    name.hash(&mut h);
+                    h.finish() as u32
+                };
+                let identity = QuantifiedIdentity::new(
+                    self.module().name(),
+                    AnchorIndex::new(TextRange::default(), ordinal),
+                    QuantifiedOrigin::SyntheticCallableResidual,
+                );
+                match kind {
+                    QuantifiedKind::TypeVar => Quantified::type_var(
+                        name,
+                        identity,
+                        None,
+                        Restriction::Unrestricted,
+                        PreInferenceVariance::Invariant,
+                    ),
+                    QuantifiedKind::TypeVarTuple => {
+                        Quantified::type_var_tuple(name, identity, None)
+                    }
+                    QuantifiedKind::ParamSpec => {
+                        unreachable!("jaxtyping dimensions cannot be ParamSpec")
+                    }
                 }
             })
             .clone()
@@ -2114,7 +2132,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // mutates solver state (force_var) and must happen during computation,
             // not at batch commit.
             let answer = if let Some(var) = self.stack().get_iteration_placeholder(&current) {
-                self.finalize_recursive_answer::<K>(idx, var, raw_answer, &local_errors)
+                self.finalize_recursive_answer::<K>(var, raw_answer)
             } else {
                 raw_answer
             };
@@ -2271,7 +2289,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // solver, so a subsequent deep-force correctly resolves it. Reversing
         // the order would leave the placeholder Var unresolved during forcing.
         let answer = if let Some(var) = self.stack().get_iteration_placeholder(&current) {
-            self.finalize_recursive_answer::<K>(idx, var, raw_answer, &local_errors)
+            self.finalize_recursive_answer::<K>(var, raw_answer)
         } else {
             raw_answer
         };
@@ -2736,17 +2754,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ///   placeholder used by some kinds of bindings that aren't Types) in this step.
     fn finalize_recursive_answer<K: Solve<Ans>>(
         &self,
-        idx: Idx<K>,
         var: Var,
         answer: Arc<K::Answer>,
-        errors: &ErrorCollector,
     ) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
-        let range = K::range_with(idx, self.bindings());
-        let final_answer = K::record_recursive(self, range, answer, var, errors);
+        let final_answer = K::record_recursive(self, answer, var);
         if var != Var::ZERO {
             self.solver().force_var(var);
         }
@@ -2977,15 +2992,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver().recurse(var, self.recurser)
     }
 
-    pub fn record_recursive(
-        &self,
-        loc: TextRange,
-        ty: Type,
-        recursive: Var,
-        errors: &ErrorCollector,
-    ) -> Type {
-        self.solver()
-            .record_recursive::<Ans>(recursive, ty, self.type_order(), errors, loc)
+    pub fn record_recursive(&self, ty: Type, recursive: Var) -> Type {
+        self.solver().record_recursive(recursive, ty)
     }
 
     /// Check if `got` matches `want`, returning `want` if the check fails.

@@ -32,9 +32,16 @@ class FileSystemService:
 
     @staticmethod
     def _is_git_available() -> bool:
-        """Check if git is available and we're in a git repository."""
+        """Return True only if `Settings.root_path` is itself a git repository."""
         git_repo = FileSystemService._get_git_repository()
-        return git_repo.is_git_repository()
+        if not git_repo.is_git_repository():
+            return False
+
+        toplevel = git_repo.find_git_root()
+        if toplevel is None:
+            return False
+
+        return toplevel == Path(Settings.root_path).resolve()
 
     @staticmethod
     def _check_gitignore_modified():

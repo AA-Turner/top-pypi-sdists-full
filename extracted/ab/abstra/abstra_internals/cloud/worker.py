@@ -1,15 +1,29 @@
-from abstra_internals.controllers.execution.consumer import ConsumerController
-from abstra_internals.controllers.main import MainController
-from abstra_internals.environment import DEFAULT_PORT, RABBITMQ_CONNECTION_URI
-from abstra_internals.logger import AbstraLogger
-from abstra_internals.repositories.consumer import (
+import os
+
+from abstra_internals.cloud.tracing import init_tracing
+
+# Must run before pika/requests are imported/used so instrumentation can patch them.
+# Every `from abstra_internals…` import below carries `# noqa: E402` because of this —
+# ruff flags them as "module-level import not at top of file" otherwise.
+init_tracing(service_name="abstra-worker")
+
+from abstra_internals.controllers.execution.consumer import (  # noqa: E402
+    ConsumerController,
+)
+from abstra_internals.controllers.main import MainController  # noqa: E402
+from abstra_internals.environment import (  # noqa: E402
+    DEFAULT_PORT,
+    RABBITMQ_CONNECTION_URI,
+)
+from abstra_internals.logger import AbstraLogger  # noqa: E402
+from abstra_internals.repositories.consumer import (  # noqa: E402
     ProductionControlConsumer,
     RabbitConsumer,
 )
-from abstra_internals.repositories.factory import build_prod_repositories
-from abstra_internals.settings import SettingsController
-from abstra_internals.signals import SignalHandlers
-from abstra_internals.utils.packages import get_local_package_version
+from abstra_internals.repositories.factory import build_prod_repositories  # noqa: E402
+from abstra_internals.settings import SettingsController  # noqa: E402
+from abstra_internals.signals import SignalHandlers  # noqa: E402
+from abstra_internals.utils.packages import get_local_package_version  # noqa: E402
 
 
 def run():
@@ -18,7 +32,7 @@ def run():
     AbstraLogger.warning(
         f"[abstra-worker] Running abstra version {get_local_package_version()}"
     )
-    SettingsController.set_root_path(".")
+    SettingsController.set_root_path(os.getenv("ABSTRA_PROJECT_PATH", "."))
     SettingsController.set_server_port(DEFAULT_PORT)
 
     if not RABBITMQ_CONNECTION_URI:

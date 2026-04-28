@@ -46,7 +46,6 @@ use crate::solver::solver::Subset;
 use crate::solver::solver::SubsetCacheEntry;
 use crate::solver::solver::SubsetError;
 use crate::solver::solver::TypedDictSubsetError;
-use crate::solver::solver::VarSnapshot;
 use crate::types::callable::Function;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
@@ -135,9 +134,6 @@ fn any<T>(
 enum SubsetWithSnapshotResult {
     /// `is_subset_eq` call was successful.
     Ok,
-    /// `is_subset_eq` call was successful aside from instantiation errors.
-    /// Holds a snapshot of the vars with the instantiation errors.
-    InstantiationErrors(VarSnapshot),
     /// `is_subset_eq` call failed.
     Err(SubsetError),
 }
@@ -950,6 +946,39 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         got: &TypedDict,
         want: &TypedDict,
     ) -> Result<(), SubsetError> {
+        let cacheable = Self::typed_dict_is_cacheable(got) && Self::typed_dict_is_cacheable(want);
+        if cacheable && let Some(result) = self.solver.check_typed_dict_cache(got, want) {
+            return result;
+        }
+        // Save coinductive state so we can detect if any coinductive assumptions
+        // were used during field comparisons (e.g., a field with a protocol type
+        // that recursively references this TypedDict).
+        let prev_coinductive = self.coinductive_assumptions_used;
+        self.coinductive_assumptions_used = false;
+        let res = self.is_subset_typed_dict_inner(got, want);
+        let used_coinductive = self.coinductive_assumptions_used;
+        if cacheable && !used_coinductive {
+            self.solver
+                .store_typed_dict_cache(got.clone(), want.clone(), res.clone());
+        }
+        self.coinductive_assumptions_used = prev_coinductive || used_coinductive;
+        res
+    }
+
+    /// Only cache non-generic class-based TypedDicts. Generic TypedDicts could
+    /// contain Vars whose meaning depends on the subset context.
+    fn typed_dict_is_cacheable(td: &TypedDict) -> bool {
+        match td {
+            TypedDict::TypedDict(inner) => inner.targs().is_empty(),
+            TypedDict::Anonymous(_) => false,
+        }
+    }
+
+    fn is_subset_typed_dict_inner(
+        &mut self,
+        got: &TypedDict,
+        want: &TypedDict,
+    ) -> Result<(), SubsetError> {
         let got_name = got.name();
         let want_name = want.name();
         let (got_fields, want_fields) = {
@@ -1284,9 +1313,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         let snapshot = self.solver.snapshot_vars(vars);
         let res = match (f(self), self.solver.has_new_instantiation_errors(&snapshot)) {
             (Ok(()), false) => SubsetWithSnapshotResult::Ok,
-            (Ok(()), true) => {
-                SubsetWithSnapshotResult::InstantiationErrors(self.solver.snapshot_vars(vars))
-            }
+            (Ok(()), true) => SubsetWithSnapshotResult::Err(SubsetError::Other),
             (Err(e), _) => SubsetWithSnapshotResult::Err(e),
         };
         if !res.is_ok() {
@@ -1511,7 +1538,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     .into_iter()
                     .partition(|(u, _)| matches!(u, Type::Var(_)));
                 let ordered_us = nonvars.into_iter().chain(wrapped_vars).chain(bare_vars);
-                let mut res_with_instantiation_errors = None;
                 let mut error = None;
                 let l_vs = l.collect_maybe_placeholder_vars();
                 // Take the first successful match.
@@ -1519,11 +1545,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     let all_vs = l_vs.iter().copied().chain(vs).collect::<Vec<_>>();
                     match self.with_snapshot(&all_vs, |me| me.is_subset_eq(l, u)) {
                         SubsetWithSnapshotResult::Ok => return Ok(()),
-                        SubsetWithSnapshotResult::InstantiationErrors(snapshot) => {
-                            if res_with_instantiation_errors.is_none() {
-                                res_with_instantiation_errors = Some(snapshot);
-                            }
-                        }
                         SubsetWithSnapshotResult::Err(e) => {
                             if error.is_none() {
                                 error = Some(e);
@@ -1531,13 +1552,14 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         }
                     }
                 }
-                if let Some(snapshot) = res_with_instantiation_errors {
-                    // If there was no fully successful match, take the first match that was
-                    // successful aside from instantiation errors. This ensures that we get
-                    // specific [bad-specialization] errors when the only issue is a violation of a
-                    // type variable's upper bound, rather than generic "not assignable" errors.
-                    self.solver.restore_vars(snapshot);
-                    Ok(())
+                if let Type::Type(box Type::Union(box Union { members, .. })) = l {
+                    // type[A | B] <: X | Y: distribute into type[A] <: X | Y and
+                    // type[B] <: X | Y. This fires as a fallback after per-member matching
+                    // fails, because type[A | B] isn't a subtype of any single X or Y,
+                    // but each distributed type[A] and type[B] may match a member.
+                    all(members.iter(), |m| {
+                        self.is_subset_eq(&Type::type_of(m.clone()), want)
+                    })
                 } else {
                     Err(error.unwrap_or(SubsetError::Other))
                 }

@@ -27,9 +27,11 @@
 
 #include <Python.h>
 #include <ctype.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
-#define VERSION "3.8.0"
+#define VERSION "4.0.0"
 
 #if PY_VERSION_HEX < 0x030900A4 && !defined(Py_SET_SIZE)
 static inline void _Py_SET_SIZE(PyVarObject *ob, Py_ssize_t size)
@@ -37,13 +39,9 @@ static inline void _Py_SET_SIZE(PyVarObject *ob, Py_ssize_t size)
 #define Py_SET_SIZE(ob, size) _Py_SET_SIZE((PyVarObject*)(ob), size)
 #endif
 
-#if PY_VERSION_HEX >= 0x03080000 && PY_VERSION_HEX < 0x03090000
-#define PyObject_Vectorcall _PyObject_Vectorcall
-#endif
-
 #define XFREE(o) do { if ((o) != NULL) free(o); } while (0)
 
-#define DELTA 0x9e3779b9
+#define DELTA 0x9e3779b9U
 #define MX (((z>>5^y<<2) + (y>>3^z<<4)) ^ ((sum^y) + (key[(p&3)^e] ^ z)))
 
 typedef struct xxtea_mod_state {
@@ -51,9 +49,9 @@ typedef struct xxtea_mod_state {
     PyObject *binascii_unhexlify;
 } xxtea_mod_state;
 
-static void btea(unsigned int *v, int n, unsigned int const key[4], unsigned int rounds)
+static void btea(uint32_t *v, int n, uint32_t const key[4], unsigned int rounds)
 {
-    unsigned int y, z, sum;
+    uint32_t y, z, sum;
     unsigned p, e;
 
     if (n > 1) {          /* Coding Part */
@@ -65,7 +63,7 @@ static void btea(unsigned int *v, int n, unsigned int const key[4], unsigned int
             sum += DELTA;
             e = (sum >> 2) & 3;
 
-            for (p = 0; p < n - 1; p++) {
+            for (p = 0; p < (unsigned)(n - 1); p++) {
                 y = v[p + 1];
                 z = v[p] += MX;
             }
@@ -78,13 +76,13 @@ static void btea(unsigned int *v, int n, unsigned int const key[4], unsigned int
     else if (n < -1) {    /* Decoding Part */
         n = -n;
         rounds = rounds == 0 ? 6 + 52 / n: rounds;
-        sum = rounds * DELTA;
+        sum = (uint32_t)(rounds * DELTA);
         y = v[0];
 
         do {
             e = (sum >> 2) & 3;
 
-            for (p = n - 1; p > 0; p--) {
+            for (p = (unsigned)(n - 1); p > 0; p--) {
                 z = v[p - 1];
                 y = v[p] -= MX;
             }
@@ -97,16 +95,30 @@ static void btea(unsigned int *v, int n, unsigned int const key[4], unsigned int
     }
 }
 
-static int bytes2longs(const char *in, int inlen, unsigned int *out, int padding)
+static Py_ssize_t bytes2longs(const char *in, Py_ssize_t inlen, uint32_t *out, int padding)
 {
-    int i, pad;
+    Py_ssize_t i;
+    int pad;
     const unsigned char *s;
 
     s = (const unsigned char *)in;
 
-    /* (i & 3) << 3 -> [0, 8, 16, 24] */
-    for (i = 0; i < inlen;  i++) {
-        out[i >> 2] |= s[i] << ((i & 3) << 3);
+    /* Fast path: process 4 bytes at a time */
+    Py_ssize_t nwords = inlen >> 2;
+    for (i = 0; i < nwords; i++) {
+#if PY_LITTLE_ENDIAN
+        memcpy(&out[i], s + 4 * i, 4);
+#else
+        const unsigned char *p = s + 4 * i;
+        out[i] = (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+                 ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+#endif
+    }
+
+    /* Handle remaining 0-3 bytes */
+    i = nwords << 2;
+    for (; i < inlen; i++) {
+        out[i >> 2] |= (uint32_t)s[i] << ((i & 3) << 3);
     }
 
     /* PKCS#7 padding */
@@ -114,8 +126,8 @@ static int bytes2longs(const char *in, int inlen, unsigned int *out, int padding
         pad = 4 - (inlen & 3);
         /* make sure length of out >= 2 */
         pad = (inlen < 4) ? pad + 4 : pad;
-        for (i = inlen; i < inlen + pad; i++) {
-            out[i >> 2] |= pad << ((i & 3) << 3);
+        for (; i < inlen + pad; i++) {
+            out[i >> 2] |= (uint32_t)pad << ((i & 3) << 3);
         }
     }
 
@@ -125,18 +137,23 @@ static int bytes2longs(const char *in, int inlen, unsigned int *out, int padding
     return ((i - 1) >> 2) + 1;
 }
 
-static int longs2bytes(unsigned int *in, int inlen, char *out, int padding)
+static Py_ssize_t longs2bytes(uint32_t *in, Py_ssize_t inlen, char *out, int padding)
 {
-    int i, outlen, pad;
+    Py_ssize_t i, outlen;
+    int pad;
     unsigned char *s;
 
     s = (unsigned char *)out;
 
     for (i = 0; i < inlen; i++) {
-        s[4 * i] = in[i] & 0xFF;
-        s[4 * i + 1] = (in[i] >> 8) & 0xFF;
-        s[4 * i + 2] = (in[i] >> 16) & 0xFF;
-        s[4 * i + 3] = (in[i] >> 24) & 0xFF;
+#if PY_LITTLE_ENDIAN
+        memcpy(s + 4 * i, &in[i], 4);
+#else
+        s[4 * i] = (unsigned char)(in[i] & 0xFF);
+        s[4 * i + 1] = (unsigned char)((in[i] >> 8) & 0xFF);
+        s[4 * i + 2] = (unsigned char)((in[i] >> 16) & 0xFF);
+        s[4 * i + 3] = (unsigned char)((in[i] >> 24) & 0xFF);
+#endif
     }
 
     outlen = inlen * 4;
@@ -172,178 +189,219 @@ static int longs2bytes(unsigned int *in, int inlen, char *out, int padding)
  * Module Functions ***********************************************************
  ****************************************************************************/
 
-static char *keywords[] = {"data", "key", "padding", "rounds", NULL};
-
-
-PyDoc_STRVAR(
-    xxtea_encrypt_doc,
-    "encrypt (data, key, padding=True, rounds=0)\n\n"
-    "Encrypt `data` with a 16-byte `key`, return binary bytes.");
-
-static PyObject *xxtea_encrypt(PyObject *self, PyObject *args, PyObject *kwargs)
+/*
+ * Parse all arguments in a single pass.  Returns 0 on success, -1 on error.
+ */
+static int
+_parse_args(PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames,
+            PyObject **data_obj, PyObject **key_obj,
+            int *padding, unsigned int *rounds)
 {
-    int alen, dlen, klen, padding;
+    int data_set = 0, key_set = 0, padding_set = 0, rounds_set = 0;
+
+    *data_obj = *key_obj = NULL;
+    *padding = 1;
+    *rounds = 0;
+
+    /* Positional: data, key */
+    if (nargs > 0) { *data_obj = args[0]; data_set = 1; }
+    if (nargs > 1) { *key_obj  = args[1]; key_set  = 1; }
+
+    if (nargs > 4) {
+        PyErr_SetString(PyExc_TypeError,
+            "function takes at most 4 positional arguments");
+        return -1;
+    }
+
+    /* Keyword loop */
+    if (kwnames != NULL) {
+        Py_ssize_t nkwargs = PyTuple_GET_SIZE(kwnames);
+        for (Py_ssize_t i = 0; i < nkwargs; i++) {
+            PyObject *name = PyTuple_GET_ITEM(kwnames, i);
+            PyObject *value = args[nargs + i];
+
+            if (PyUnicode_CompareWithASCIIString(name, "data") == 0) {
+                if (data_set) { PyErr_SetString(PyExc_TypeError,
+                    "argument 'data' given both as positional and keyword");
+                    return -1; }
+                *data_obj = value;
+                data_set = 1;
+            }
+            else if (PyUnicode_CompareWithASCIIString(name, "key") == 0) {
+                if (key_set) { PyErr_SetString(PyExc_TypeError,
+                    "argument 'key' given both as positional and keyword");
+                    return -1; }
+                *key_obj = value;
+                key_set = 1;
+            }
+            else if (PyUnicode_CompareWithASCIIString(name, "padding") == 0) {
+                if (nargs > 2) { PyErr_SetString(PyExc_TypeError,
+                    "argument 'padding' given both as positional and keyword");
+                    return -1; }
+                int res = PyObject_IsTrue(value);
+                if (res < 0) return -1;
+                *padding = res;
+                padding_set = 1;
+            }
+            else if (PyUnicode_CompareWithASCIIString(name, "rounds") == 0) {
+                if (nargs > 3) { PyErr_SetString(PyExc_TypeError,
+                    "argument 'rounds' given both as positional and keyword");
+                    return -1; }
+                unsigned long val = PyLong_AsUnsignedLong(value);
+                if (val == (unsigned long)-1 && PyErr_Occurred())
+                    return -1;
+                if (val > UINT_MAX) {
+                    PyErr_SetString(PyExc_OverflowError,
+                        "rounds value too large");
+                    return -1;
+                }
+                *rounds = (unsigned int)val;
+                rounds_set = 1;
+            }
+            else {
+                PyErr_Format(PyExc_TypeError,
+                    "'%U' is an invalid keyword argument", name);
+                return -1;
+            }
+        }
+    }
+
+    /* Positional: padding, rounds (only if not set via keyword) */
+    if (nargs > 2 && !padding_set) {
+        int res = PyObject_IsTrue(args[2]);
+        if (res < 0) return -1;
+        *padding = res;
+    }
+    if (nargs > 3 && !rounds_set) {
+        unsigned long val = PyLong_AsUnsignedLong(args[3]);
+        if (val == (unsigned long)-1 && PyErr_Occurred())
+            return -1;
+        if (val > UINT_MAX) {
+            PyErr_SetString(PyExc_OverflowError, "rounds value too large");
+            return -1;
+        }
+        *rounds = (unsigned int)val;
+    }
+
+    if (!*data_obj || !*key_obj) {
+        PyErr_Format(PyExc_TypeError,
+            "function missing required arguments: 'data' and 'key'");
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * Internal encrypt implementation — takes raw buffers, returns PyBytes or NULL.
+ */
+static inline PyObject *
+_encrypt_impl(const char *data_buf, Py_ssize_t data_len,
+              const char *key_buf, int padding, unsigned int rounds)
+{
+    Py_ssize_t alen;
     PyObject *retval;
     char *retbuf;
-    unsigned int *d, k[4], rounds;
-    Py_buffer data, key;
+    uint32_t *d, k[4];
 
     d = NULL;
-    retval = NULL;
     k[0] = k[1] = k[2] = k[3] = 0;
-    padding = 1;
-    rounds = 0;
-    data.buf = data.obj = key.buf = key.obj = NULL;
+    retval = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s*s*|iI", keywords, &data, &key, &padding, &rounds)) {
+    if (!padding && (data_len < 8 || (data_len & 3) != 0)) {
+        PyErr_SetString(PyExc_ValueError,
+            "Data length must be a multiple of 4 bytes and must not be less than 8 bytes");
         return NULL;
     }
-    padding = padding != 0 ? 1 : 0;
-    dlen = data.len;
-    klen = key.len;
 
-
-    if (klen != 16) {
-        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
-        goto cleanup;
+    alen = data_len < 4 ? 2 : (data_len >> 2) + padding;
+    if (alen > INT_MAX) {
+        PyErr_SetString(PyExc_OverflowError, "data too large");
+        return NULL;
     }
-
-    if (!padding && (dlen < 8 || (dlen & 3) != 0)) {
-        PyErr_SetString(PyExc_ValueError, "Data length must be a multiple of 4 bytes and must not be less than 8 bytes");
-        goto cleanup;
-    }
-
-    alen = dlen < 4 ? 2 : (dlen >> 2) + padding;
-    d = (unsigned int *)calloc(alen, sizeof(unsigned int));
+    d = (uint32_t *)calloc((size_t)alen, sizeof(uint32_t));
 
     if (d == NULL) {
-        PyErr_NoMemory();
-        goto cleanup;
+        return PyErr_NoMemory();
     }
 
     Py_BEGIN_ALLOW_THREADS
-    bytes2longs(data.buf, dlen, d, padding);
-    bytes2longs(key.buf, klen, k, 0);
-    btea(d, alen, k, rounds);
+    bytes2longs(data_buf, data_len, d, padding);
+    bytes2longs(key_buf, 16, k, 0);
+    btea(d, (int)alen, k, rounds);
     Py_END_ALLOW_THREADS
 
-    PyBuffer_Release(&data);
-    PyBuffer_Release(&key);
-
-    retval = PyBytes_FromStringAndSize(NULL, (alen << 2));
+    retval = PyBytes_FromStringAndSize(NULL, alen << 2);
 
     if (!retval) {
-        goto cleanup;
+        free(d);
+        return NULL;
     }
 
     retbuf = PyBytes_AsString(retval);
     longs2bytes(d, alen, retbuf, 0);
 
     free(d);
-
-    return retval;
-
-cleanup:
-    XFREE(d);
-    Py_XDECREF(retval);
-    PyBuffer_Release(&data);
-    PyBuffer_Release(&key);
-    return NULL;
-}
-
-PyDoc_STRVAR(
-    xxtea_encrypt_hex_doc,
-    "encrypt_hex (data, key, padding=True, rounds=0)\n\n"
-    "Encrypt `data` with a 16-byte `key`, return hex encoded bytes.");
-
-static PyObject *xxtea_encrypt_hex(PyObject *self, PyObject *args, PyObject *kwargs)
-{
-    PyObject *retval, *tmp;
-    xxtea_mod_state *module_state;
-    retval = tmp = NULL;
-
-    if (!(tmp = xxtea_encrypt(self, args, kwargs))) {
-        return NULL;
-    }
-
-    module_state = (xxtea_mod_state*)PyModule_GetState(self);
-    PyObject *args_[1] = { tmp };
-    retval = PyObject_Vectorcall(module_state->binascii_hexlify, args_, 1, NULL);
-    Py_DECREF(tmp);
-
     return retval;
 }
 
-PyDoc_STRVAR(
-    xxtea_decrypt_doc,
-    "decrypt (data, key, padding=True, rounds=0)\n\n"
-    "Decrypt `data` with a 16-byte `key`, return original bytes.");
-
-static PyObject *xxtea_decrypt(PyObject *self, PyObject *args, PyObject *kwargs)
+/*
+ * Internal decrypt implementation — takes raw buffers, returns PyBytes or NULL.
+ */
+static inline PyObject *
+_decrypt_impl(const char *data_buf, Py_ssize_t data_len,
+              const char *key_buf, int padding, unsigned int rounds)
 {
-    int alen, dlen, klen, rc, padding;
+    Py_ssize_t alen, rc;
     PyObject *retval;
     char *retbuf;
-    unsigned int *d, k[4], rounds;
-    Py_buffer data, key;
+    uint32_t *d, k[4];
 
     d = NULL;
-    retval = NULL;
     k[0] = k[1] = k[2] = k[3] = 0;
-    padding = 1;
-    rounds = 0;
-    data.buf = data.obj = key.buf = key.obj = NULL;
+    retval = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s*s*|iI", keywords, &data, &key, &padding, &rounds)) {
+    if (!padding && (data_len < 8 || (data_len & 3))) {
+        PyErr_SetString(PyExc_ValueError,
+            "Data length must be a multiple of 4 bytes and must not be less than 8 bytes");
         return NULL;
     }
-    padding = padding != 0 ? 1 : 0;
-    dlen = data.len;
-    klen = key.len;
 
-
-    if (klen != 16) {
-        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
-        goto cleanup;
-    }
-
-    if (!padding && (dlen < 8 || dlen & 3)) {
-        PyErr_SetString(PyExc_ValueError, "Data length must be a multiple of 4 bytes and must not be less than 8 bytes");
-        goto cleanup;
-    }
-
-    retval = PyBytes_FromStringAndSize(NULL, dlen);
+    retval = PyBytes_FromStringAndSize(NULL, data_len);
 
     if (!retval) {
-        goto cleanup;
+        return NULL;
     }
 
     retbuf = PyBytes_AsString(retval);
 
     /* not divided by 4, or length < 8 */
-    if (dlen & 3 || dlen < 8) {
-        PyErr_SetString(PyExc_ValueError, "Invalid data, data length is not a multiple of 4, or less than 8.");
-        goto cleanup;
+    if (data_len & 3 || data_len < 8) {
+        PyErr_SetString(PyExc_ValueError,
+            "Invalid data, data length is not a multiple of 4, or less than 8.");
+        Py_DECREF(retval);
+        return NULL;
     }
 
-    alen = dlen / 4;
-    d = (unsigned int *)calloc(alen, sizeof(unsigned int));
+    alen = data_len / 4;
+    if (alen > INT_MAX) {
+        PyErr_SetString(PyExc_OverflowError, "data too large");
+        Py_DECREF(retval);
+        return NULL;
+    }
+    d = (uint32_t *)calloc((size_t)alen, sizeof(uint32_t));
 
     if (d == NULL) {
-        PyErr_NoMemory();
-        goto cleanup;
-
+        Py_DECREF(retval);
+        return PyErr_NoMemory();
     }
 
     Py_BEGIN_ALLOW_THREADS
-    bytes2longs(data.buf, dlen, d, 0);
-    bytes2longs(key.buf, klen, k, 0);
-    btea(d, -alen, k, rounds);
+    bytes2longs(data_buf, data_len, d, 0);
+    bytes2longs(key_buf, 16, k, 0);
+    btea(d, -(int)alen, k, rounds);
     rc = longs2bytes(d, alen, retbuf, padding);
     Py_END_ALLOW_THREADS
-
-    PyBuffer_Release(&data);
-    PyBuffer_Release(&key);
 
     if (padding) {
         if (rc >= 0) {
@@ -352,56 +410,182 @@ static PyObject *xxtea_decrypt(PyObject *self, PyObject *args, PyObject *kwargs)
         }
         else {
             /* Illegal PKCS#7 padding */
-            PyErr_SetString(PyExc_ValueError, "Invalid data, illegal PKCS#7 padding. Could be using a wrong key.");
-            goto cleanup;
+            PyErr_SetString(PyExc_ValueError,
+                "Invalid data, illegal PKCS#7 padding. Could be using a wrong key.");
+            Py_DECREF(retval);
+            retval = NULL;
         }
     }
 
     free(d);
-
     return retval;
+}
 
-cleanup:
-    XFREE(d);
-    Py_XDECREF(retval);
+
+PyDoc_STRVAR(
+    xxtea_encrypt_doc,
+    "encrypt (data, key, padding=True, rounds=0)\n\n"
+    "Encrypt `data` with a 16-byte `key`, return binary bytes.");
+
+static PyObject *
+xxtea_encrypt(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    Py_buffer data = {NULL}, key = {NULL};
+    PyObject *data_obj, *key_obj, *retval;
+    int padding;
+    unsigned int rounds;
+
+    if (_parse_args(args, nargs, kwnames, &data_obj, &key_obj, &padding, &rounds) < 0)
+        return NULL;
+
+    if (PyObject_GetBuffer(data_obj, &data, PyBUF_SIMPLE) < 0)
+        return NULL;
+    if (PyObject_GetBuffer(key_obj, &key, PyBUF_SIMPLE) < 0) {
+        PyBuffer_Release(&data);
+        return NULL;
+    }
+
+    if (key.len != 16) {
+        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
+        PyBuffer_Release(&data);
+        PyBuffer_Release(&key);
+        return NULL;
+    }
+
+    retval = _encrypt_impl(data.buf, data.len, key.buf, padding, rounds);
     PyBuffer_Release(&data);
     PyBuffer_Release(&key);
-    return NULL;
+    return retval;
 }
+
+
+PyDoc_STRVAR(
+    xxtea_encrypt_hex_doc,
+    "encrypt_hex (data, key, padding=True, rounds=0)\n\n"
+    "Encrypt `data` with a 16-byte `key`, return hex encoded bytes.");
+
+static PyObject *
+xxtea_encrypt_hex(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    Py_buffer data = {NULL}, key = {NULL};
+    PyObject *data_obj, *key_obj, *tmp, *retval;
+    int padding;
+    unsigned int rounds;
+
+    if (_parse_args(args, nargs, kwnames, &data_obj, &key_obj, &padding, &rounds) < 0)
+        return NULL;
+
+    if (PyObject_GetBuffer(data_obj, &data, PyBUF_SIMPLE) < 0)
+        return NULL;
+    if (PyObject_GetBuffer(key_obj, &key, PyBUF_SIMPLE) < 0) {
+        PyBuffer_Release(&data);
+        return NULL;
+    }
+
+    if (key.len != 16) {
+        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
+        PyBuffer_Release(&data);
+        PyBuffer_Release(&key);
+        return NULL;
+    }
+
+    tmp = _encrypt_impl(data.buf, data.len, key.buf, padding, rounds);
+    PyBuffer_Release(&data);
+    PyBuffer_Release(&key);
+
+    if (!tmp)
+        return NULL;
+
+    retval = PyObject_CallOneArg(
+        ((xxtea_mod_state*)PyModule_GetState(self))->binascii_hexlify, tmp);
+    Py_DECREF(tmp);
+    return retval;
+}
+
+
+PyDoc_STRVAR(
+    xxtea_decrypt_doc,
+    "decrypt (data, key, padding=True, rounds=0)\n\n"
+    "Decrypt `data` with a 16-byte `key`, return original bytes.");
+
+static PyObject *
+xxtea_decrypt(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    Py_buffer data = {NULL}, key = {NULL};
+    PyObject *data_obj, *key_obj, *retval;
+    int padding;
+    unsigned int rounds;
+
+    if (_parse_args(args, nargs, kwnames, &data_obj, &key_obj, &padding, &rounds) < 0)
+        return NULL;
+
+    if (PyObject_GetBuffer(data_obj, &data, PyBUF_SIMPLE) < 0)
+        return NULL;
+    if (PyObject_GetBuffer(key_obj, &key, PyBUF_SIMPLE) < 0) {
+        PyBuffer_Release(&data);
+        return NULL;
+    }
+
+    if (key.len != 16) {
+        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
+        PyBuffer_Release(&data);
+        PyBuffer_Release(&key);
+        return NULL;
+    }
+
+    retval = _decrypt_impl(data.buf, data.len, key.buf, padding, rounds);
+    PyBuffer_Release(&data);
+    PyBuffer_Release(&key);
+    return retval;
+}
+
 
 PyDoc_STRVAR(
     xxtea_decrypt_hex_doc,
     "decrypt_hex (data, key, padding = True)\n\n"
     "Decrypt hex encoded `data` with a 16-byte `key`, return original bytes.");
 
-static PyObject *xxtea_decrypt_hex(PyObject *self, PyObject *args, PyObject *kwargs)
+static PyObject *
+xxtea_decrypt_hex(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
-    PyObject *data, *key, *padding, *rounds, *retval, *tmp;
-    xxtea_mod_state *module_state;
+    Py_buffer data = {NULL}, key = {NULL};
+    PyObject *data_obj, *key_obj, *tmp = NULL, *retval = NULL;
+    int padding;
+    unsigned int rounds;
 
-    data = key = retval = tmp = NULL;
-    padding = Py_BuildValue("i", 1);
-    rounds = Py_BuildValue("I", 0);
+    if (_parse_args(args, nargs, kwnames, &data_obj, &key_obj, &padding, &rounds) < 0)
+        return NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "SS|OO", keywords, &data, &key, &padding, &rounds)) {
-        goto cleanup;
+    /* Unhexlify hex string to bytes */
+    if (!(tmp = PyObject_CallOneArg(
+            ((xxtea_mod_state*)PyModule_GetState(self))->binascii_unhexlify,
+            data_obj)))
+        return NULL;
+
+    /* Get buffers from unhexlified data and key */
+    if (PyObject_GetBuffer(tmp, &data, PyBUF_SIMPLE) < 0) {
+        Py_DECREF(tmp);
+        return NULL;
+    }
+    if (PyObject_GetBuffer(key_obj, &key, PyBUF_SIMPLE) < 0) {
+        PyBuffer_Release(&data);
+        Py_DECREF(tmp);
+        return NULL;
     }
 
-    module_state = (xxtea_mod_state*)PyModule_GetState(self);
-    PyObject *args_[1] = {data};
-    if (!(tmp = PyObject_Vectorcall(module_state->binascii_unhexlify, args_, 1, NULL))) {
-        goto cleanup;
+    if (key.len != 16) {
+        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
+        PyBuffer_Release(&data);
+        PyBuffer_Release(&key);
+        Py_DECREF(tmp);
+        return NULL;
     }
 
-    retval = PyObject_CallMethod(self, "decrypt", "(OOOO)", tmp, key, padding, rounds, NULL);
+    retval = _decrypt_impl(data.buf, data.len, key.buf, padding, rounds);
+    PyBuffer_Release(&data);
+    PyBuffer_Release(&key);
     Py_DECREF(tmp);
-
     return retval;
-
-cleanup:
-    Py_DECREF(padding);
-    Py_DECREF(rounds);
-    return NULL;
 }
 
 /*****************************************************************************
@@ -451,10 +635,10 @@ static int _exec(PyObject *module)
 }
 
 static PyMethodDef methods[] = {
-    {"encrypt", (PyCFunction)xxtea_encrypt, METH_VARARGS | METH_KEYWORDS, xxtea_encrypt_doc},
-    {"decrypt", (PyCFunction)xxtea_decrypt, METH_VARARGS | METH_KEYWORDS, xxtea_decrypt_doc},
-    {"encrypt_hex", (PyCFunction)xxtea_encrypt_hex, METH_VARARGS | METH_KEYWORDS, xxtea_encrypt_hex_doc},
-    {"decrypt_hex", (PyCFunction)xxtea_decrypt_hex, METH_VARARGS | METH_KEYWORDS, xxtea_decrypt_hex_doc},
+    {"encrypt", (PyCFunction)xxtea_encrypt, METH_FASTCALL | METH_KEYWORDS, xxtea_encrypt_doc},
+    {"decrypt", (PyCFunction)xxtea_decrypt, METH_FASTCALL | METH_KEYWORDS, xxtea_decrypt_doc},
+    {"encrypt_hex", (PyCFunction)xxtea_encrypt_hex, METH_FASTCALL | METH_KEYWORDS, xxtea_encrypt_hex_doc},
+    {"decrypt_hex", (PyCFunction)xxtea_decrypt_hex, METH_FASTCALL | METH_KEYWORDS, xxtea_decrypt_hex_doc},
     {NULL, NULL, 0, NULL}
 };
 

@@ -10552,6 +10552,87 @@ ingest_api_AuthenticationVisitor.__qualname__ = "AuthenticationVisitor"
 ingest_api_AuthenticationVisitor.__module__ = "nominal_api.ingest_api"
 
 
+class ingest_api_AvroNumericTimestampType(ConjureUnionType):
+    """Describes how the numeric `timestamps` column in an Avro Stream file should be interpreted.
+The Avro schema models `timestamps` as an array of longs, so only numeric timestamp variants
+are supported (no ISO-8601 / custom string formats).
+    """
+    _epoch: Optional["ingest_api_EpochTimestamp"] = None
+    _relative: Optional["ingest_api_RelativeTimestamp"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'epoch': ConjureFieldDefinition('epoch', ingest_api_EpochTimestamp),
+            'relative': ConjureFieldDefinition('relative', ingest_api_RelativeTimestamp)
+        }
+
+    def __init__(
+            self,
+            epoch: Optional["ingest_api_EpochTimestamp"] = None,
+            relative: Optional["ingest_api_RelativeTimestamp"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (epoch is not None) + (relative is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if epoch is not None:
+                self._epoch = epoch
+                self._type = 'epoch'
+            if relative is not None:
+                self._relative = relative
+                self._type = 'relative'
+
+        elif type_of_union == 'epoch':
+            if epoch is None:
+                raise ValueError('a union value must not be None')
+            self._epoch = epoch
+            self._type = 'epoch'
+        elif type_of_union == 'relative':
+            if relative is None:
+                raise ValueError('a union value must not be None')
+            self._relative = relative
+            self._type = 'relative'
+
+    @builtins.property
+    def epoch(self) -> Optional["ingest_api_EpochTimestamp"]:
+        return self._epoch
+
+    @builtins.property
+    def relative(self) -> Optional["ingest_api_RelativeTimestamp"]:
+        return self._relative
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, ingest_api_AvroNumericTimestampTypeVisitor):
+            raise ValueError('{} is not an instance of ingest_api_AvroNumericTimestampTypeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'epoch' and self.epoch is not None:
+            return visitor._epoch(self.epoch)
+        if self._type == 'relative' and self.relative is not None:
+            return visitor._relative(self.relative)
+
+
+ingest_api_AvroNumericTimestampType.__name__ = "AvroNumericTimestampType"
+ingest_api_AvroNumericTimestampType.__qualname__ = "AvroNumericTimestampType"
+ingest_api_AvroNumericTimestampType.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_AvroNumericTimestampTypeVisitor:
+
+    @abstractmethod
+    def _epoch(self, epoch: "ingest_api_EpochTimestamp") -> Any:
+        pass
+
+    @abstractmethod
+    def _relative(self, relative: "ingest_api_RelativeTimestamp") -> Any:
+        pass
+
+
+ingest_api_AvroNumericTimestampTypeVisitor.__name__ = "AvroNumericTimestampTypeVisitor"
+ingest_api_AvroNumericTimestampTypeVisitor.__qualname__ = "AvroNumericTimestampTypeVisitor"
+ingest_api_AvroNumericTimestampTypeVisitor.__module__ = "nominal_api.ingest_api"
+
+
 class ingest_api_AvroStreamOpts(ConjureBeanType):
     """Options for ingesting Avro data with the following schema. This is a "stream-like" file format to support
 use cases where a columnar/tabular format does not make sense. This closely matches Nominal's streaming
@@ -10572,7 +10653,7 @@ If this schema is not used, will result in a failed ingestion.
         {
             "name": "timestamps",
             "type": {"type": "array", "items": "long"},
-            "doc": "Array of Unix timestamps in nanoseconds",
+            "doc": "Array of numeric timestamps; see timestampType for interpretation",
         },
         {
             "name": "values",
@@ -10593,14 +10674,16 @@ If this schema is not used, will result in a failed ingestion.
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'source': ConjureFieldDefinition('source', ingest_api_IngestSource),
-            'target': ConjureFieldDefinition('target', ingest_api_DatasetIngestTarget)
+            'target': ConjureFieldDefinition('target', ingest_api_DatasetIngestTarget),
+            'timestamp_type': ConjureFieldDefinition('timestampType', OptionalTypeWrapper[ingest_api_AvroNumericTimestampType])
         }
 
-    __slots__: List[str] = ['_source', '_target']
+    __slots__: List[str] = ['_source', '_target', '_timestamp_type']
 
-    def __init__(self, source: "ingest_api_IngestSource", target: "ingest_api_DatasetIngestTarget") -> None:
+    def __init__(self, source: "ingest_api_IngestSource", target: "ingest_api_DatasetIngestTarget", timestamp_type: Optional["ingest_api_AvroNumericTimestampType"] = None) -> None:
         self._source = source
         self._target = target
+        self._timestamp_type = timestamp_type
 
     @builtins.property
     def source(self) -> "ingest_api_IngestSource":
@@ -10609,6 +10692,13 @@ If this schema is not used, will result in a failed ingestion.
     @builtins.property
     def target(self) -> "ingest_api_DatasetIngestTarget":
         return self._target
+
+    @builtins.property
+    def timestamp_type(self) -> Optional["ingest_api_AvroNumericTimestampType"]:
+        """How to interpret the numeric values in the `timestamps` array. Defaults to epoch-nanoseconds
+when omitted, matching the original contract of this API.
+        """
+        return self._timestamp_type
 
 
 ingest_api_AvroStreamOpts.__name__ = "AvroStreamOpts"
@@ -12221,19 +12311,25 @@ class ingest_api_IngestJob(ConjureBeanType):
             'status': ConjureFieldDefinition('status', ingest_api_IngestJobStatus),
             'origin_files': ConjureFieldDefinition('originFiles', OptionalTypeWrapper[List[str]]),
             'created_by': ConjureFieldDefinition('createdBy', str),
+            'created_by_rid': ConjureFieldDefinition('createdByRid', OptionalTypeWrapper[scout_rids_api_UserRid]),
             'org_uuid': ConjureFieldDefinition('orgUuid', str),
-            'ingest_type': ConjureFieldDefinition('ingestType', ingest_api_IngestType)
+            'ingest_type': ConjureFieldDefinition('ingestType', ingest_api_IngestType),
+            'dataset_rid': ConjureFieldDefinition('datasetRid', OptionalTypeWrapper[api_rids_DatasetRid]),
+            'created_at': ConjureFieldDefinition('createdAt', OptionalTypeWrapper[str])
         }
 
-    __slots__: List[str] = ['_ingest_job_rid', '_status', '_origin_files', '_created_by', '_org_uuid', '_ingest_type']
+    __slots__: List[str] = ['_ingest_job_rid', '_status', '_origin_files', '_created_by', '_created_by_rid', '_org_uuid', '_ingest_type', '_dataset_rid', '_created_at']
 
-    def __init__(self, created_by: str, ingest_job_rid: str, ingest_type: "ingest_api_IngestType", org_uuid: str, status: "ingest_api_IngestJobStatus", origin_files: Optional[List[str]] = None) -> None:
+    def __init__(self, created_by: str, ingest_job_rid: str, ingest_type: "ingest_api_IngestType", org_uuid: str, status: "ingest_api_IngestJobStatus", created_at: Optional[str] = None, created_by_rid: Optional[str] = None, dataset_rid: Optional[str] = None, origin_files: Optional[List[str]] = None) -> None:
         self._ingest_job_rid = ingest_job_rid
         self._status = status
         self._origin_files = origin_files
         self._created_by = created_by
+        self._created_by_rid = created_by_rid
         self._org_uuid = org_uuid
         self._ingest_type = ingest_type
+        self._dataset_rid = dataset_rid
+        self._created_at = created_at
 
     @builtins.property
     def ingest_job_rid(self) -> str:
@@ -12252,12 +12348,24 @@ class ingest_api_IngestJob(ConjureBeanType):
         return self._created_by
 
     @builtins.property
+    def created_by_rid(self) -> Optional[str]:
+        return self._created_by_rid
+
+    @builtins.property
     def org_uuid(self) -> str:
         return self._org_uuid
 
     @builtins.property
     def ingest_type(self) -> "ingest_api_IngestType":
         return self._ingest_type
+
+    @builtins.property
+    def dataset_rid(self) -> Optional[str]:
+        return self._dataset_rid
+
+    @builtins.property
+    def created_at(self) -> Optional[str]:
+        return self._created_at
 
 
 ingest_api_IngestJob.__name__ = "IngestJob"
@@ -13701,20 +13809,26 @@ class ingest_api_InternalIngestJob(ConjureBeanType):
             'ingest_job_request': ConjureFieldDefinition('ingestJobRequest', ingest_api_IngestJobRequest),
             'origin_files': ConjureFieldDefinition('originFiles', OptionalTypeWrapper[List[str]]),
             'created_by': ConjureFieldDefinition('createdBy', str),
+            'created_by_rid': ConjureFieldDefinition('createdByRid', OptionalTypeWrapper[scout_rids_api_UserRid]),
             'org_uuid': ConjureFieldDefinition('orgUuid', str),
-            'ingest_type': ConjureFieldDefinition('ingestType', ingest_api_IngestType)
+            'ingest_type': ConjureFieldDefinition('ingestType', ingest_api_IngestType),
+            'dataset_rid': ConjureFieldDefinition('datasetRid', OptionalTypeWrapper[api_rids_DatasetRid]),
+            'created_at': ConjureFieldDefinition('createdAt', OptionalTypeWrapper[str])
         }
 
-    __slots__: List[str] = ['_ingest_job_rid', '_status', '_ingest_job_request', '_origin_files', '_created_by', '_org_uuid', '_ingest_type']
+    __slots__: List[str] = ['_ingest_job_rid', '_status', '_ingest_job_request', '_origin_files', '_created_by', '_created_by_rid', '_org_uuid', '_ingest_type', '_dataset_rid', '_created_at']
 
-    def __init__(self, created_by: str, ingest_job_request: "ingest_api_IngestJobRequest", ingest_job_rid: str, ingest_type: "ingest_api_IngestType", org_uuid: str, status: "ingest_api_IngestJobStatus", origin_files: Optional[List[str]] = None) -> None:
+    def __init__(self, created_by: str, ingest_job_request: "ingest_api_IngestJobRequest", ingest_job_rid: str, ingest_type: "ingest_api_IngestType", org_uuid: str, status: "ingest_api_IngestJobStatus", created_at: Optional[str] = None, created_by_rid: Optional[str] = None, dataset_rid: Optional[str] = None, origin_files: Optional[List[str]] = None) -> None:
         self._ingest_job_rid = ingest_job_rid
         self._status = status
         self._ingest_job_request = ingest_job_request
         self._origin_files = origin_files
         self._created_by = created_by
+        self._created_by_rid = created_by_rid
         self._org_uuid = org_uuid
         self._ingest_type = ingest_type
+        self._dataset_rid = dataset_rid
+        self._created_at = created_at
 
     @builtins.property
     def ingest_job_rid(self) -> str:
@@ -13737,12 +13851,24 @@ class ingest_api_InternalIngestJob(ConjureBeanType):
         return self._created_by
 
     @builtins.property
+    def created_by_rid(self) -> Optional[str]:
+        return self._created_by_rid
+
+    @builtins.property
     def org_uuid(self) -> str:
         return self._org_uuid
 
     @builtins.property
     def ingest_type(self) -> "ingest_api_IngestType":
         return self._ingest_type
+
+    @builtins.property
+    def dataset_rid(self) -> Optional[str]:
+        return self._dataset_rid
+
+    @builtins.property
+    def created_at(self) -> Optional[str]:
+        return self._created_at
 
 
 ingest_api_InternalIngestJob.__name__ = "InternalIngestJob"

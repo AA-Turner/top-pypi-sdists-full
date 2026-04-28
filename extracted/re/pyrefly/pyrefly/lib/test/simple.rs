@@ -1075,13 +1075,12 @@ assert_type(type(x6), type[dict])
 );
 
 testcase!(
-    bug = "type(x) where x: int | str should be equivalent to type[int | str]",
     test_builtins_type_constructor_union,
     r#"
 from typing import assert_type
 def f(x: int | str) -> None:
-    assert_type(type(x), type[int] | type[str])  # E: assert_type(type[int] | type[str], type[int | str]) failed
-    assert_type(type(x), type[int | str])  # E: assert_type(type[int] | type[str], type[int | str]) failed
+    assert_type(type(x), type[int] | type[str])
+    assert_type(type(x), type[int | str])
 "#,
 );
 
@@ -1151,6 +1150,18 @@ def test(x: list[int], y: list[str]):
     assert_type([*x, "test"], list[int | str])
     assert_type([*x, *y], list[int | str])
     [*1]  # E: Expected an iterable
+"#,
+);
+
+testcase!(
+    test_unpack_map_in_list_literal,
+    r#"
+from typing import assert_type
+def test(cs: list[str], n: int):
+    assert_type(
+        ",".join([*("=" + c for c in cs), *map(str, range(n))]),
+        str,
+    )
 "#,
 );
 
@@ -1855,6 +1866,20 @@ async def bar():
     await foo()  # ok
     x = foo()  # ok
     not_async()  # ok
+"#,
+);
+
+testcase!(
+    test_unused_coroutine_after_await,
+    r#"
+from typing import Any, Coroutine
+async def inner() -> int:
+    return 1
+class Engine:
+    async def call_flow_fn(self) -> Coroutine[Any, Any, int]:
+        return inner()
+async def run(engine: Engine) -> None:
+    await engine.call_flow_fn()  # E: Result of `await` is itself a coroutine that is silently discarded. Either `await` it again or pass it to a consumer, or if the `Coroutine[...]` return annotation was a mistake, simplify it to the inner type (e.g. `int` instead of `Coroutine[Any, Any, int]`).
 "#,
 );
 

@@ -15,7 +15,7 @@ uv publish
 
 # Publish experiment templates to Chronos (only changed templates)
 # Use CHANGED_FILES from CI detect-changes (git diff HEAD~1 is unreliable after version-bump commits)
-CHANGED=$(echo "$CHANGED_FILES" | grep "^python-sdk/plato/cli/templates/" || true)
+CHANGED=$(echo "$CHANGED_FILES" | grep "^python-sdk/templates/" || true)
 # Anchor patterns to the end of the path so a longer filename doesn't trigger a
 # shorter filename's publish (e.g. datagen-unified-launch.json must not also
 # trigger the datagen-launch block).

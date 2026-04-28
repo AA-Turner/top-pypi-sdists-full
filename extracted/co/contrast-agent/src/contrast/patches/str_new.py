@@ -1,6 +1,5 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-import sys
 
 from contrast.agent import scope
 from contrast.agent.assess.policy import string_propagation
@@ -86,8 +85,7 @@ def _is_immutable(cls) -> bool:
     if flags is None:
         return False
 
-    if sys.version_info >= (3, 10):
-        return bool(flags & c_ext.Py_TPFLAGS_IMMUTABLETYPE)
+    return bool(flags & c_ext.Py_TPFLAGS_IMMUTABLETYPE)
     return not (flags & c_ext.Py_TPFLAGS_HEAPTYPE)
 
 

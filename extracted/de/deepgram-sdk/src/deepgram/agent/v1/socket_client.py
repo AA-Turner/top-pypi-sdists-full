@@ -3,9 +3,7 @@
 import json
 import logging
 import typing
-from json.decoder import JSONDecodeError
 
-import websockets
 import websockets.sync.connection as websockets_sync_connection
 from ...core.events import EventEmitterMixin, EventType
 from ...core.unchecked_base_model import construct_type
@@ -15,6 +13,7 @@ from .types.agent_v1agent_thinking import AgentV1AgentThinking
 from .types.agent_v1conversation_text import AgentV1ConversationText
 from .types.agent_v1error import AgentV1Error
 from .types.agent_v1function_call_request import AgentV1FunctionCallRequest
+from .types.agent_v1history import AgentV1History
 from .types.agent_v1inject_agent_message import AgentV1InjectAgentMessage
 from .types.agent_v1inject_user_message import AgentV1InjectUserMessage
 from .types.agent_v1injection_refused import AgentV1InjectionRefused
@@ -25,8 +24,10 @@ from .types.agent_v1send_function_call_response import AgentV1SendFunctionCallRe
 from .types.agent_v1settings import AgentV1Settings
 from .types.agent_v1settings_applied import AgentV1SettingsApplied
 from .types.agent_v1speak_updated import AgentV1SpeakUpdated
+from .types.agent_v1think_updated import AgentV1ThinkUpdated
 from .types.agent_v1update_prompt import AgentV1UpdatePrompt
 from .types.agent_v1update_speak import AgentV1UpdateSpeak
+from .types.agent_v1update_think import AgentV1UpdateThink
 from .types.agent_v1user_started_speaking import AgentV1UserStartedSpeaking
 from .types.agent_v1warning import AgentV1Warning
 from .types.agent_v1welcome import AgentV1Welcome
@@ -57,10 +58,13 @@ def _sanitize_numeric_types(obj: typing.Any) -> typing.Any:
     elif isinstance(obj, float) and obj.is_integer():
         return int(obj)
     return obj
+
+
 V1SocketClientResponse = typing.Union[
     AgentV1ReceiveFunctionCallResponse,
     AgentV1PromptUpdated,
     AgentV1SpeakUpdated,
+    AgentV1ThinkUpdated,
     AgentV1InjectionRefused,
     AgentV1Welcome,
     AgentV1SettingsApplied,
@@ -72,6 +76,7 @@ V1SocketClientResponse = typing.Union[
     AgentV1AgentAudioDone,
     AgentV1Error,
     AgentV1Warning,
+    AgentV1History,
     bytes,
 ]
 
@@ -170,6 +175,13 @@ class AsyncV1SocketClient(EventEmitterMixin):
         """
         Send a message to the websocket connection.
         The message will be sent as a AgentV1UpdatePrompt.
+        """
+        await self._send_model(message)
+
+    async def send_update_think(self, message: AgentV1UpdateThink) -> None:
+        """
+        Send a message to the websocket connection.
+        The message will be sent as a AgentV1UpdateThink.
         """
         await self._send_model(message)
 
@@ -303,6 +315,13 @@ class V1SocketClient(EventEmitterMixin):
         """
         Send a message to the websocket connection.
         The message will be sent as a AgentV1UpdatePrompt.
+        """
+        self._send_model(message)
+
+    def send_update_think(self, message: AgentV1UpdateThink) -> None:
+        """
+        Send a message to the websocket connection.
+        The message will be sent as a AgentV1UpdateThink.
         """
         self._send_model(message)
 

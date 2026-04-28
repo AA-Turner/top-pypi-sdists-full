@@ -79,6 +79,8 @@ from .type_defs import (
     GenerateMacResponseTypeDef,
     GenerateRandomRequestTypeDef,
     GenerateRandomResponseTypeDef,
+    GetKeyLastUsageRequestTypeDef,
+    GetKeyLastUsageResponseTypeDef,
     GetKeyPolicyRequestTypeDef,
     GetKeyPolicyResponseTypeDef,
     GetKeyRotationStatusRequestTypeDef,
@@ -478,6 +480,18 @@ class KMSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/generate_random.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kms/client/#generate_random)
+        """
+
+    def get_key_last_usage(
+        self, **kwargs: Unpack[GetKeyLastUsageRequestTypeDef]
+    ) -> GetKeyLastUsageResponseTypeDef:
+        """
+        Returns usage information about the last successful cryptographic operation
+        performed with a specified KMS key, including the operation type, timestamp,
+        and associated CloudTrail event ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/get_key_last_usage.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kms/client/#get_key_last_usage)
         """
 
     def get_key_policy(

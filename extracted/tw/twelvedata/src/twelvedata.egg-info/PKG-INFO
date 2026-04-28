@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: twelvedata
-Version: 1.3.0
+Version: 1.4.0
 Summary: Python client for Twelve Data
 Home-page: https://github.com/twelvedata/twelvedata-python
 Author: Twelve Data
@@ -204,12 +204,14 @@ With batch requests up to 120 symbols might be returned per single API call. The
 ```python
 # 1. Pass instruments symbols as a string delimited by comma (,)
 ts = td.time_series(
-    symbol="V, RY, AUD/CAD, BTC/USD:Huobi"
+    symbol="V, RY, AUD/CAD, BTC/USD",
+    interval="1day",
 )
 
 # 2. Pass as a list of symbols 
 ts = td.time_series(
-    symbol=["V", "RY", "AUD/CAD", "BTC/USD:Huobi"]
+    symbol=["V", "RY", "AUD/CAD", "BTC/USD"],
+    interval="1day",
 )
 ```
 

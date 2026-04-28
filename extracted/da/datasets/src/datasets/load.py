@@ -669,7 +669,7 @@ class HubDatasetModuleFactory(_DatasetModuleFactory):
             ]
             default_config_name = None
         builder_kwargs = {
-            "base_path": hf_dataset_url(self.name, "", revision=self.commit_hash).rstrip("/"),
+            "base_path": base_path,
             "repo_id": self.name,
             "dataset_name": camelcase_to_snakecase(Path(self.name).name),
         }
@@ -1717,7 +1717,7 @@ def load_dataset(
     keep_in_memory = (
         keep_in_memory if keep_in_memory is not None else is_small_dataset(builder_instance.info.dataset_size)
     )
-    ds = builder_instance.as_dataset(split=split, verification_mode=verification_mode, in_memory=keep_in_memory)
+    ds = builder_instance.as_dataset(split=split, in_memory=keep_in_memory)
 
     return ds
 

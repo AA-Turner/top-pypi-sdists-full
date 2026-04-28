@@ -488,8 +488,12 @@ def get_sparsity_and_variance_metrics(
         flattened_sae_out = einops.rearrange(sae_out, "b ctx d -> (b ctx) d")
 
         # TODO: Clean this up.
-        # apply mask
-        masked_sae_feature_activations = sae_feature_activations * mask.unsqueeze(-1)
+        # apply mask. mask is built from batch_tokens on the LLM device, but
+        # sae_feature_activations live on the SAE device (post sae.encode), so
+        # mirror the per-use .to() pattern used for flattened_mask below.
+        masked_sae_feature_activations = sae_feature_activations * mask.unsqueeze(
+            -1
+        ).to(sae_feature_activations.device)
         flattened_sae_input = flattened_sae_input[
             flattened_mask.to(flattened_sae_input.device)
         ]
@@ -572,7 +576,9 @@ def get_sparsity_and_variance_metrics(
             total_feature_prompts += (sae_feature_activations_bool.sum(dim=1) > 0).sum(
                 dim=0
             )
-            total_tokens += mask.sum()
+            # total_tokens is divided by total_feature_acts (on sae.device)
+            # below, so accumulate on the SAE device.
+            total_tokens += mask.sum().to(sae.device)
 
     # Aggregate scalar metrics
     metrics: dict[str, float] = {}
@@ -628,6 +634,10 @@ def get_recons_loss(
         )
     else:
         mask = torch.ones_like(batch_tokens, dtype=torch.bool)
+    # The replacement hook moves activations to sae.device for the SAE forward
+    # pass; mask is consumed alongside those activations in torch.where, so it
+    # must live on the same device.
+    mask = mask.to(sae.device)
 
     metrics = {}
 

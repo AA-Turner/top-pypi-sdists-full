@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reflex
-Version: 0.9.0
+Version: 0.9.1
 Summary: Web apps in pure Python.
 Project-URL: homepage, https://reflex.dev
 Project-URL: repository, https://github.com/reflex-dev/reflex
@@ -28,21 +28,21 @@ Requires-Dist: psutil<8.0,>=7.0.0; sys_platform == 'win32'
 Requires-Dist: python-multipart<1.0,>=0.0.20
 Requires-Dist: python-socketio<6.0,>=5.12.0
 Requires-Dist: redis<8.0,>=5.2.1
-Requires-Dist: reflex-base
-Requires-Dist: reflex-components-code
-Requires-Dist: reflex-components-core
-Requires-Dist: reflex-components-dataeditor
-Requires-Dist: reflex-components-gridjs
-Requires-Dist: reflex-components-lucide
-Requires-Dist: reflex-components-markdown
-Requires-Dist: reflex-components-moment
-Requires-Dist: reflex-components-plotly
-Requires-Dist: reflex-components-radix
-Requires-Dist: reflex-components-react-player
-Requires-Dist: reflex-components-recharts
-Requires-Dist: reflex-components-sonner
-Requires-Dist: reflex-hosting-cli>=0.1.61
-Requires-Dist: rich<15,>=13
+Requires-Dist: reflex-base==0.9.1
+Requires-Dist: reflex-components-code>=0.9.0
+Requires-Dist: reflex-components-core>=0.9.0
+Requires-Dist: reflex-components-dataeditor>=0.9.0
+Requires-Dist: reflex-components-gridjs>=0.9.0
+Requires-Dist: reflex-components-lucide>=0.9.0
+Requires-Dist: reflex-components-markdown>=0.9.0
+Requires-Dist: reflex-components-moment>=0.9.0
+Requires-Dist: reflex-components-plotly>=0.9.0
+Requires-Dist: reflex-components-radix>=0.9.0
+Requires-Dist: reflex-components-react-player>=0.9.0
+Requires-Dist: reflex-components-recharts>=0.9.0
+Requires-Dist: reflex-components-sonner>=0.9.0
+Requires-Dist: reflex-hosting-cli
+Requires-Dist: rich<16,>=13
 Requires-Dist: starlette>=0.47.0
 Requires-Dist: typing-extensions>=4.13.0
 Requires-Dist: wrapt<3.0,>=1.17.0
@@ -71,10 +71,6 @@ Description-Content-Type: text/markdown
 [![Twitter](https://img.shields.io/twitter/follow/getreflex)](https://x.com/getreflex)
 
 </div>
-
----
-
-[English](https://github.com/reflex-dev/reflex/blob/main/README.md) | [简体中文](https://github.com/reflex-dev/reflex/blob/main/docs/zh/zh_cn/README.md) | [繁體中文](https://github.com/reflex-dev/reflex/blob/main/docs/zh/zh_tw/README.md) | [Türkçe](https://github.com/reflex-dev/reflex/blob/main/docs/tr/README.md) | [हिंदी](https://github.com/reflex-dev/reflex/blob/main/docs/in/README.md) | [Português (Brasil)](https://github.com/reflex-dev/reflex/blob/main/docs/pt/pt_br/README.md) | [Italiano](https://github.com/reflex-dev/reflex/blob/main/docs/it/README.md) | [Español](https://github.com/reflex-dev/reflex/blob/main/docs/es/README.md) | [한국어](https://github.com/reflex-dev/reflex/blob/main/docs/kr/README.md) | [日本語](https://github.com/reflex-dev/reflex/blob/main/docs/ja/README.md) | [Deutsch](https://github.com/reflex-dev/reflex/blob/main/docs/de/README.md) | [Persian (پارسی)](https://github.com/reflex-dev/reflex/blob/main/docs/pe/README.md) | [Tiếng Việt](https://github.com/reflex-dev/reflex/blob/main/docs/vi/README.md)
 
 ---
 

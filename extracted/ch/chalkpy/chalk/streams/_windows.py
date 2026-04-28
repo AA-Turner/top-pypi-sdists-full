@@ -87,6 +87,10 @@ def get_name_with_duration(name_or_fqn: str, duration: Union[str, int, timedelta
 
     if duration_secs >= CHALK_MAX_TIMEDELTA.total_seconds():
         return f"{unversioned_fqn}__all__" + ("" if version is None else f"@{version}")
+    if duration_secs < 0:
+        # Use "neg" prefix instead of "-" so the FQN is safe for storage systems
+        # (e.g. BigQuery/Snowflake) that don't allow "-" in column names.
+        return f"{unversioned_fqn}__neg{-duration_secs}__" + ("" if version is None else f"@{version}")
     return f"{unversioned_fqn}__{duration_secs}__" + ("" if version is None else f"@{version}")
 
 
@@ -183,7 +187,7 @@ class Windowed(Generic[TRich], metaclass=_WINDOWED_METACLASS):
             underscore_expression=self._expression,
             offline_underscore_expression=self._offline_expression,
             window_materialization=(
-                MaterializationWindowConfig(bucket_duration=timedelta(seconds=window_duration))
+                MaterializationWindowConfig(bucket_duration=timedelta(seconds=abs(window_duration)))
                 if self._materialization is True and window_duration is not None
                 else self._materialization if isinstance(self._materialization, dict) else None
             ),
@@ -742,8 +746,24 @@ def windowed(
     ...     logins: Windowed[int] = windowed("10m", "1d", "30d")
     >>> User.email_count["7d"]
     """
+    all_buckets = list(buckets) + [f"{x}m" for x in minutes] + [f"{x}h" for x in hours] + [f"{x}d" for x in days]
+    if len(all_buckets) > 1:
+        try:
+            parsed_secs = [parse_chalk_duration_s(b) for b in all_buckets]
+        except ValueError:
+            pass
+        else:
+            has_positive = any(s > 0 for s in parsed_secs)
+            has_negative = any(s < 0 for s in parsed_secs)
+            if has_positive and has_negative:
+                raise ValueError(
+                    "Cannot mix positive and negative window durations on the same Windowed feature. "
+                    + "All windows must be either all lookback (positive) or all lookahead (negative). "
+                    + f"Got: {all_buckets}"
+                )
+
     return Windowed(
-        list(buckets) + [f"{x}m" for x in minutes] + [f"{x}h" for x in hours] + [f"{x}d" for x in days],
+        all_buckets,
         description=description,
         owner=owner,
         tags=tags,

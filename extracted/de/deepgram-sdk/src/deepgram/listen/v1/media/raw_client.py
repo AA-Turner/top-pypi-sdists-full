@@ -6,6 +6,7 @@ from json.decoder import JSONDecodeError
 from ....core.api_error import ApiError
 from ....core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ....core.http_response import AsyncHttpResponse, HttpResponse
+from ....core.parse_error import ParsingError
 from ....core.request_options import RequestOptions
 from ....core.unchecked_base_model import construct_type
 from ....errors.bad_request_error import BadRequestError
@@ -13,10 +14,11 @@ from .types.media_transcribe_request_callback_method import MediaTranscribeReque
 from .types.media_transcribe_request_custom_intent_mode import MediaTranscribeRequestCustomIntentMode
 from .types.media_transcribe_request_custom_topic_mode import MediaTranscribeRequestCustomTopicMode
 from .types.media_transcribe_request_encoding import MediaTranscribeRequestEncoding
-from .types.media_transcribe_request_model_zero import MediaTranscribeRequestModelZero
-from .types.media_transcribe_request_summarize_zero import MediaTranscribeRequestSummarizeZero
-from .types.media_transcribe_request_version_zero import MediaTranscribeRequestVersionZero
+from .types.media_transcribe_request_model import MediaTranscribeRequestModel
+from .types.media_transcribe_request_summarize import MediaTranscribeRequestSummarize
+from .types.media_transcribe_request_version import MediaTranscribeRequestVersion
 from .types.media_transcribe_response import MediaTranscribeResponse
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -34,7 +36,7 @@ class RawMediaClient:
         callback_method: typing.Optional[MediaTranscribeRequestCallbackMethod] = None,
         extra: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         sentiment: typing.Optional[bool] = None,
-        summarize: typing.Optional[MediaTranscribeRequestSummarizeZero] = None,
+        summarize: typing.Optional[MediaTranscribeRequestSummarize] = None,
         tag: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         topics: typing.Optional[bool] = None,
         custom_topic: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -52,7 +54,7 @@ class RawMediaClient:
         keywords: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         language: typing.Optional[str] = None,
         measurements: typing.Optional[bool] = None,
-        model: typing.Optional[MediaTranscribeRequestModelZero] = None,
+        model: typing.Optional[MediaTranscribeRequestModel] = None,
         multichannel: typing.Optional[bool] = None,
         numerals: typing.Optional[bool] = None,
         paragraphs: typing.Optional[bool] = None,
@@ -64,7 +66,7 @@ class RawMediaClient:
         smart_format: typing.Optional[bool] = None,
         utterances: typing.Optional[bool] = None,
         utt_split: typing.Optional[float] = None,
-        version: typing.Optional[MediaTranscribeRequestVersionZero] = None,
+        version: typing.Optional[MediaTranscribeRequestVersion] = None,
         mip_opt_out: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[MediaTranscribeResponse]:
@@ -87,7 +89,7 @@ class RawMediaClient:
         sentiment : typing.Optional[bool]
             Recognizes the sentiment throughout a transcript or text
 
-        summarize : typing.Optional[MediaTranscribeRequestSummarizeZero]
+        summarize : typing.Optional[MediaTranscribeRequestSummarize]
             Summarize content. For Listen API, supports string version option. For Read API, accepts boolean only.
 
         tag : typing.Optional[typing.Union[str, typing.Sequence[str]]]
@@ -141,7 +143,7 @@ class RawMediaClient:
         measurements : typing.Optional[bool]
             Spoken measurements will be converted to their corresponding abbreviations
 
-        model : typing.Optional[MediaTranscribeRequestModelZero]
+        model : typing.Optional[MediaTranscribeRequestModel]
             AI model used to process submitted audio
 
         multichannel : typing.Optional[bool]
@@ -177,7 +179,7 @@ class RawMediaClient:
         utt_split : typing.Optional[float]
             Seconds to wait before detecting a pause between words in submitted audio
 
-        version : typing.Optional[MediaTranscribeRequestVersionZero]
+        version : typing.Optional[MediaTranscribeRequestVersion]
             Version of an AI model to use
 
         mip_opt_out : typing.Optional[bool]
@@ -266,6 +268,10 @@ class RawMediaClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def transcribe_file(
@@ -276,7 +282,7 @@ class RawMediaClient:
         callback_method: typing.Optional[MediaTranscribeRequestCallbackMethod] = None,
         extra: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         sentiment: typing.Optional[bool] = None,
-        summarize: typing.Optional[MediaTranscribeRequestSummarizeZero] = None,
+        summarize: typing.Optional[MediaTranscribeRequestSummarize] = None,
         tag: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         topics: typing.Optional[bool] = None,
         custom_topic: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -294,7 +300,7 @@ class RawMediaClient:
         keywords: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         language: typing.Optional[str] = None,
         measurements: typing.Optional[bool] = None,
-        model: typing.Optional[MediaTranscribeRequestModelZero] = None,
+        model: typing.Optional[MediaTranscribeRequestModel] = None,
         multichannel: typing.Optional[bool] = None,
         numerals: typing.Optional[bool] = None,
         paragraphs: typing.Optional[bool] = None,
@@ -306,7 +312,7 @@ class RawMediaClient:
         smart_format: typing.Optional[bool] = None,
         utterances: typing.Optional[bool] = None,
         utt_split: typing.Optional[float] = None,
-        version: typing.Optional[MediaTranscribeRequestVersionZero] = None,
+        version: typing.Optional[MediaTranscribeRequestVersion] = None,
         mip_opt_out: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[MediaTranscribeResponse]:
@@ -329,7 +335,7 @@ class RawMediaClient:
         sentiment : typing.Optional[bool]
             Recognizes the sentiment throughout a transcript or text
 
-        summarize : typing.Optional[MediaTranscribeRequestSummarizeZero]
+        summarize : typing.Optional[MediaTranscribeRequestSummarize]
             Summarize content. For Listen API, supports string version option. For Read API, accepts boolean only.
 
         tag : typing.Optional[typing.Union[str, typing.Sequence[str]]]
@@ -383,7 +389,7 @@ class RawMediaClient:
         measurements : typing.Optional[bool]
             Spoken measurements will be converted to their corresponding abbreviations
 
-        model : typing.Optional[MediaTranscribeRequestModelZero]
+        model : typing.Optional[MediaTranscribeRequestModel]
             AI model used to process submitted audio
 
         multichannel : typing.Optional[bool]
@@ -419,7 +425,7 @@ class RawMediaClient:
         utt_split : typing.Optional[float]
             Seconds to wait before detecting a pause between words in submitted audio
 
-        version : typing.Optional[MediaTranscribeRequestVersionZero]
+        version : typing.Optional[MediaTranscribeRequestVersion]
             Version of an AI model to use
 
         mip_opt_out : typing.Optional[bool]
@@ -506,6 +512,10 @@ class RawMediaClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
 
@@ -521,7 +531,7 @@ class AsyncRawMediaClient:
         callback_method: typing.Optional[MediaTranscribeRequestCallbackMethod] = None,
         extra: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         sentiment: typing.Optional[bool] = None,
-        summarize: typing.Optional[MediaTranscribeRequestSummarizeZero] = None,
+        summarize: typing.Optional[MediaTranscribeRequestSummarize] = None,
         tag: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         topics: typing.Optional[bool] = None,
         custom_topic: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -539,7 +549,7 @@ class AsyncRawMediaClient:
         keywords: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         language: typing.Optional[str] = None,
         measurements: typing.Optional[bool] = None,
-        model: typing.Optional[MediaTranscribeRequestModelZero] = None,
+        model: typing.Optional[MediaTranscribeRequestModel] = None,
         multichannel: typing.Optional[bool] = None,
         numerals: typing.Optional[bool] = None,
         paragraphs: typing.Optional[bool] = None,
@@ -551,7 +561,7 @@ class AsyncRawMediaClient:
         smart_format: typing.Optional[bool] = None,
         utterances: typing.Optional[bool] = None,
         utt_split: typing.Optional[float] = None,
-        version: typing.Optional[MediaTranscribeRequestVersionZero] = None,
+        version: typing.Optional[MediaTranscribeRequestVersion] = None,
         mip_opt_out: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[MediaTranscribeResponse]:
@@ -574,7 +584,7 @@ class AsyncRawMediaClient:
         sentiment : typing.Optional[bool]
             Recognizes the sentiment throughout a transcript or text
 
-        summarize : typing.Optional[MediaTranscribeRequestSummarizeZero]
+        summarize : typing.Optional[MediaTranscribeRequestSummarize]
             Summarize content. For Listen API, supports string version option. For Read API, accepts boolean only.
 
         tag : typing.Optional[typing.Union[str, typing.Sequence[str]]]
@@ -628,7 +638,7 @@ class AsyncRawMediaClient:
         measurements : typing.Optional[bool]
             Spoken measurements will be converted to their corresponding abbreviations
 
-        model : typing.Optional[MediaTranscribeRequestModelZero]
+        model : typing.Optional[MediaTranscribeRequestModel]
             AI model used to process submitted audio
 
         multichannel : typing.Optional[bool]
@@ -664,7 +674,7 @@ class AsyncRawMediaClient:
         utt_split : typing.Optional[float]
             Seconds to wait before detecting a pause between words in submitted audio
 
-        version : typing.Optional[MediaTranscribeRequestVersionZero]
+        version : typing.Optional[MediaTranscribeRequestVersion]
             Version of an AI model to use
 
         mip_opt_out : typing.Optional[bool]
@@ -753,6 +763,10 @@ class AsyncRawMediaClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def transcribe_file(
@@ -763,7 +777,7 @@ class AsyncRawMediaClient:
         callback_method: typing.Optional[MediaTranscribeRequestCallbackMethod] = None,
         extra: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         sentiment: typing.Optional[bool] = None,
-        summarize: typing.Optional[MediaTranscribeRequestSummarizeZero] = None,
+        summarize: typing.Optional[MediaTranscribeRequestSummarize] = None,
         tag: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         topics: typing.Optional[bool] = None,
         custom_topic: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -781,7 +795,7 @@ class AsyncRawMediaClient:
         keywords: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         language: typing.Optional[str] = None,
         measurements: typing.Optional[bool] = None,
-        model: typing.Optional[MediaTranscribeRequestModelZero] = None,
+        model: typing.Optional[MediaTranscribeRequestModel] = None,
         multichannel: typing.Optional[bool] = None,
         numerals: typing.Optional[bool] = None,
         paragraphs: typing.Optional[bool] = None,
@@ -793,7 +807,7 @@ class AsyncRawMediaClient:
         smart_format: typing.Optional[bool] = None,
         utterances: typing.Optional[bool] = None,
         utt_split: typing.Optional[float] = None,
-        version: typing.Optional[MediaTranscribeRequestVersionZero] = None,
+        version: typing.Optional[MediaTranscribeRequestVersion] = None,
         mip_opt_out: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[MediaTranscribeResponse]:
@@ -816,7 +830,7 @@ class AsyncRawMediaClient:
         sentiment : typing.Optional[bool]
             Recognizes the sentiment throughout a transcript or text
 
-        summarize : typing.Optional[MediaTranscribeRequestSummarizeZero]
+        summarize : typing.Optional[MediaTranscribeRequestSummarize]
             Summarize content. For Listen API, supports string version option. For Read API, accepts boolean only.
 
         tag : typing.Optional[typing.Union[str, typing.Sequence[str]]]
@@ -870,7 +884,7 @@ class AsyncRawMediaClient:
         measurements : typing.Optional[bool]
             Spoken measurements will be converted to their corresponding abbreviations
 
-        model : typing.Optional[MediaTranscribeRequestModelZero]
+        model : typing.Optional[MediaTranscribeRequestModel]
             AI model used to process submitted audio
 
         multichannel : typing.Optional[bool]
@@ -906,7 +920,7 @@ class AsyncRawMediaClient:
         utt_split : typing.Optional[float]
             Seconds to wait before detecting a pause between words in submitted audio
 
-        version : typing.Optional[MediaTranscribeRequestVersionZero]
+        version : typing.Optional[MediaTranscribeRequestVersion]
             Version of an AI model to use
 
         mip_opt_out : typing.Optional[bool]
@@ -993,4 +1007,8 @@ class AsyncRawMediaClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)

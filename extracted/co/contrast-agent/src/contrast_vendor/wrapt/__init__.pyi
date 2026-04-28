@@ -199,7 +199,7 @@ if sys.version_info >= (3, 10):
             self, wrapped: Callable[..., Any]
         ) -> str | FullArgSpec | Callable[..., Any]: ...
 
-    def adapter_factory(wrapped: Callable[..., Any]) -> AdapterFactory: ...
+    def adapter_factory(factory: Callable[..., Any]) -> AdapterFactory: ...
 
     # decorator()
 
@@ -335,18 +335,18 @@ if sys.version_info >= (3, 10):
         target: ModuleType | type[Any] | Any | str,
         name: str,
         factory: WrapperFactory | type[ObjectProxy[Any]],
-        args: tuple[Any, ...],
-        kwargs: dict[str, Any],
+        args: tuple[Any, ...] = (),
+        kwargs: dict[str, Any] | None = None,
     ) -> Any: ...
 
     # wrap_object_attribute()
 
     def wrap_object_attribute(
-        target: ModuleType | type[Any] | Any | str,
+        module: ModuleType | type[Any] | Any | str,
         name: str,
         factory: WrapperFactory | type[ObjectProxy[Any]],
         args: tuple[Any, ...] = (),
-        kwargs: dict[str, Any] = {},
+        kwargs: dict[str, Any] | None = None,
     ) -> Any: ...
 
     # register_post_import_hook()
@@ -381,8 +381,58 @@ if sys.version_info >= (3, 10):
             exc_value: BaseException | None,
             traceback: TracebackType | None,
         ) -> bool | None: ...
+        async def __aenter__(self) -> Any: ...
+        async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None,
+        ) -> bool | None: ...
 
     @overload
     def synchronized(wrapped: Callable[P, R]) -> Callable[P, R]: ...
     @overload
     def synchronized(wrapped: Any) -> SynchronizedObject: ...
+
+    # mark_as_sync(), mark_as_async(), async_to_sync(), sync_to_async()
+
+    def mark_as_sync(wrapped: Callable[P, R]) -> Callable[P, R]: ...
+    def mark_as_async(wrapped: Callable[P, R]) -> Callable[P, R]: ...
+    def async_to_sync(wrapped: Callable[P, R]) -> Callable[P, R]: ...
+    def sync_to_async(wrapped: Callable[P, R]) -> Callable[P, R]: ...
+
+    # bind_state_to_wrapper()
+
+    class StateBindingWrapper:
+        name: str
+        wrapper_factory: Descriptor | None
+        def __init__(self, *, name: str = "state") -> None: ...
+        def __call__(self, wrapper_factory: Descriptor) -> StateBindingWrapper: ...
+        def __get__(
+            self, instance: Any, owner: type[Any] | None = None
+        ) -> (
+            StateBindingWrapper
+            | Callable[[Callable[..., Any]], FunctionWrapper[..., Any]]
+        ): ...
+
+    bind_state_to_wrapper = StateBindingWrapper
+
+    # lru_cache()
+
+    class _LRUCacheBoundWrapper(BoundFunctionWrapper[P1, R1]):
+        def cache_info(self) -> Any | None: ...
+        def cache_clear(self) -> None: ...
+        def cache_parameters(self) -> dict[str, Any] | None: ...
+
+    class _LRUCacheWrapper(FunctionWrapper[P1, R1]):
+        __bound_function_wrapper__: type[_LRUCacheBoundWrapper[P1, R1]]
+        def cache_info(self) -> Any | None: ...
+        def cache_clear(self) -> None: ...
+        def cache_parameters(self) -> dict[str, Any] | None: ...
+
+    @overload
+    def lru_cache(func: Callable[P, R], /) -> _LRUCacheWrapper[P, R]: ...
+    @overload
+    def lru_cache(
+        func: None = None, /, **kwargs: Any
+    ) -> Callable[[Callable[P, R]], _LRUCacheWrapper[P, R]]: ...

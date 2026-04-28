@@ -6,7 +6,6 @@ from typing import Any, Literal, TypeVar, overload
 import httpx
 from pydantic import TypeAdapter
 
-from cogames.cli._model_base import CLIModel
 from cogames.cli.base import console
 from cogames.cli.generated_models import (
     AssayResultsResponse,
@@ -27,6 +26,7 @@ from cogames.cli.generated_models import (
     PolicyVersionResponse,
     PolicyVersionRow,
     PolicyVersionsResponse,
+    PoolConfigInfo,
     PresignedUploadUrlResponse,
     ScorePoliciesLeaderboardEntry,
     SeasonDetail,
@@ -40,11 +40,6 @@ from cogames.cli.generated_models import (
 from softmax.auth import load_current_cogames_token
 
 T = TypeVar("T")
-
-
-class PoolConfigInfo(CLIModel):
-    pool_name: str
-    config: dict[str, Any]
 
 
 class TournamentServerClient:
@@ -73,10 +68,16 @@ class TournamentServerClient:
         token = load_current_cogames_token(login_server=login_server)
         if token is None:
             console.print("[red]Error:[/red] Not authenticated.")
-            console.print("Please run: [cyan]softmax login[/cyan]")
+            console.print("Please run: [cyan]cogames auth login[/cyan]")
             return None
 
         return cls(server_url=server_url, token=token, login_server=login_server)
+
+    def _headers(self, headers: dict[str, str] | None = None) -> dict[str, str]:
+        request_headers = dict(headers or {})
+        if self._token:
+            request_headers["X-Auth-Token"] = self._token
+        return request_headers
 
     def _request(
         self,
@@ -86,10 +87,7 @@ class TournamentServerClient:
         timeout: float | None = None,
         **kwargs: Any,
     ) -> T | dict[str, Any]:
-        headers = kwargs.pop("headers", {})
-        if self._token:
-            headers["X-Auth-Token"] = self._token
-
+        headers = self._headers(kwargs.pop("headers", None))
         if timeout is not None:
             kwargs["timeout"] = timeout
 
@@ -272,14 +270,18 @@ class TournamentServerClient:
         """
         return self._get("/tournament/my-memberships", dict[str, list[str]])
 
-    def get_pool_config(self, season_name: str, pool_name: str) -> PoolConfigInfo | dict[str, Any]:
-        result = self._get(f"/tournament/seasons/{season_name}/pools/{pool_name}/config")
-        if isinstance(result, dict):
-            response_pool_name = result.get("pool_name")
-            response_config = result.get("config")
-            if isinstance(response_pool_name, str) and isinstance(response_config, dict):
-                return PoolConfigInfo(pool_name=response_pool_name, config=response_config)
-        return result
+    def get_pool_config(self, season_name: str, pool_name: str) -> PoolConfigInfo:
+        return self._get(f"/tournament/seasons/{season_name}/pools/{pool_name}/config", PoolConfigInfo)
+
+    def get_optional_pool_config(self, season_name: str, pool_name: str) -> PoolConfigInfo | None:
+        response = self._http_client.get(
+            f"/tournament/seasons/{season_name}/pools/{pool_name}/config",
+            headers=self._headers(),
+        )
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return TypeAdapter(PoolConfigInfo).validate_python(response.json())
 
     def get_match(self, match_id: uuid.UUID) -> MatchResponse:
         return self._get(f"/tournament/matches/{match_id}", MatchResponse)

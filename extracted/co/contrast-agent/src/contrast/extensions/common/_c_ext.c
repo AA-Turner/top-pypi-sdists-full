@@ -59,9 +59,7 @@ PyMODINIT_FUNC PyInit__c_ext(void) {
     }
 
     PyModule_AddIntMacro(module, Py_TPFLAGS_HEAPTYPE);
-#if PY_MINOR_VERSION > 9
     PyModule_AddIntMacro(module, Py_TPFLAGS_IMMUTABLETYPE);
-#endif
 
     PyObject *py_scope = PyImport_ImportModule("contrast.agent.scope");
     if (py_scope == NULL) {

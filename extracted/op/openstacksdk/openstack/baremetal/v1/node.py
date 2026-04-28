@@ -12,9 +12,11 @@
 
 import collections
 import enum
+from typing import Any, cast
 import warnings
 
 from keystoneauth1 import adapter
+from typing_extensions import Self
 
 from openstack.baremetal.v1 import _common
 from openstack import exceptions
@@ -86,7 +88,6 @@ class Node(_common.Resource):
     allow_list = True
     allow_patch = True
     commit_method = 'PATCH'
-    commit_jsonpatch = True
 
     _query_mapping = resource.QueryParameters(
         'associated',
@@ -357,7 +358,7 @@ class Node(_common.Resource):
             microversion = None  # use the base negotiation
 
         # Ironic cannot set provision_state itself, so marking it as unchanged
-        self._clean_body_attrs({'provision_state'})
+        self._clean_body({'provision_state'})
 
         super().create(session, *args, microversion=microversion, **kwargs)
 
@@ -400,7 +401,7 @@ class Node(_common.Resource):
                 # maintenance_reason=None in the same request.
                 self._do_maintenance_action(session, 'delete')
 
-            self._clean_body_attrs({'maintenance', 'maintenance_reason'})
+            self._clean_body({'maintenance', 'maintenance_reason'})
             if not self.requires_commit:
                 # Other fields are not updated, re-fetch the node to reflect
                 # the new status.
@@ -1553,16 +1554,16 @@ class Node(_common.Resource):
 
     def patch(
         self,
-        session,
-        patch=None,
-        prepend_key=True,
-        has_body=True,
-        retry_on_conflict=None,
-        base_path=None,
+        session: adapter.Adapter,
+        patch: list[dict[str, Any]] | None = None,
+        prepend_key: bool = True,
+        has_body: bool = True,
+        retry_on_conflict: bool | None = None,
+        base_path: str | None = None,
         *,
-        microversion=None,
-        reset_interfaces=None,
-    ):
+        microversion: str | None = None,
+        reset_interfaces: bool | None = None,
+    ) -> Self:
         if reset_interfaces is not None:
             # The id cannot be dirty for an commit
             self._body._dirty.discard("id")
@@ -1589,7 +1590,9 @@ class Node(_common.Resource):
             )
 
             if patch:
-                request.body += self._convert_patch(patch)
+                cast(list[Any], request.body).extend(
+                    self._convert_patch(patch)
+                )
 
             return self._commit(
                 session,

@@ -36,7 +36,7 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
 use crate::alt::expr::MAX_TUPLE_LENGTH;
-use crate::alt::unwrap::HintRef;
+use crate::alt::unwrap::HintRefOld;
 use crate::binding::binding::KeyAnnotation;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
@@ -353,7 +353,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn binop_infer(
         &self,
         x: &ExprBinOp,
-        hint: Option<HintRef>,
+        hint: Option<HintRefOld>,
         errors: &ErrorCollector,
     ) -> Type {
         let lhs;
@@ -446,11 +446,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Without loss of generality, consider e1 + e2 where e1 has type int and e2 has type Any.
                 // Then e1 + e2 should have a return type of Any since e2's __radd__  signature could be
                 // inconsistent with the signature of e1 __add__.
-                if let Type::Any(style) = &rhs {
-                    style.propagate()
-                } else if let Type::Any(style) = &lhs {
-                    style.propagate()
-                } else if x.op == Operator::BitOr
+                //
+                // Exception: when one operand is a shaped Tensor, fall through
+                // to dunder dispatch. Tensor's arithmetic dunders accept any
+                // numeric type and return Self, so the shape is preserved
+                // regardless of the other operand's type. Without this, e.g.
+                // Tensor[B, 1] / (2**n - 1.0) loses shape because 2**n is Any.
+                if (lhs.is_any() || rhs.is_any())
+                    && !matches!(lhs, Type::Tensor(_))
+                    && !matches!(rhs, Type::Tensor(_))
+                {
+                    if let Type::Any(style) = &rhs {
+                        return style.propagate();
+                    } else if let Type::Any(style) = &lhs {
+                        return style.propagate();
+                    }
+                }
+                if x.op == Operator::BitOr
                     && let Some(l) = self.untype_opt(lhs.clone(), x.left.range(), errors)
                     && let Some(r) = self.untype_opt(rhs.clone(), x.right.range(), errors)
                 {
@@ -767,7 +779,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     errors,
                                     Some(&context),
                                 ) {
-                                    ret
+                                    self.check_dunder_bool_is_callable(&ret, x.range, errors);
+                                    self.heap.mk_class_type(self.stdlib.bool().clone())
                                 } else {
                                     let iteration_errors = self.error_collector();
                                     let iterables = self.iterate(

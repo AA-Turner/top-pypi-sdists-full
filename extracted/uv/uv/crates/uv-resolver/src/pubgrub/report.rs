@@ -4,6 +4,7 @@ use std::ops::Bound;
 
 use indexmap::IndexSet;
 use itertools::Itertools;
+use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use pubgrub::{DerivationTree, Derived, External, Map, Range, ReportFormatter, Term};
 use rustc_hash::FxHashMap;
@@ -30,9 +31,7 @@ use crate::resolver::{
     MetadataUnavailable, UnavailableErrorChain, UnavailablePackage, UnavailableReason,
     UnavailableVersion,
 };
-use crate::{
-    ExcludeNewerValue, Flexibility, InMemoryIndex, Options, ResolverEnvironment, VersionsResponse,
-};
+use crate::{Flexibility, InMemoryIndex, Options, ResolverEnvironment, VersionsResponse};
 
 #[derive(Debug)]
 pub(crate) struct PubGrubReportFormatter<'a> {
@@ -126,7 +125,7 @@ impl ReportFormatter<PubGrubPackage, Range<Version>, UnavailableReason>
                     match reason {
                         UnavailableReason::Package(reason) => {
                             let message = reason.singular_message();
-                            format!("{}{}", package, Padded::new(" ", &message, ""))
+                            format!("{}{}", package, padded(" ", &message, ""))
                         }
                         UnavailableReason::Version(reason) => {
                             let range = self.compatible_range(package, set);
@@ -140,9 +139,9 @@ impl ReportFormatter<PubGrubPackage, Range<Version>, UnavailableReason>
                                 self.python_requirement.target().abi_tag(),
                             );
                             if let Some(context) = context {
-                                format!("{}{}{}", range, Padded::new(" ", &message, " "), context)
+                                format!("{}{}{}", range, padded(" ", &message, " "), context)
                             } else {
-                                format!("{}{}", range, Padded::new(" ", &message, ""))
+                                format!("{}{}", range, padded(" ", &message, ""))
                             }
                         }
                     }
@@ -245,8 +244,8 @@ impl ReportFormatter<PubGrubPackage, Range<Version>, UnavailableReason>
 
         format!(
             "Because {}we can conclude that {}",
-            Padded::from_string("", &external, ", "),
-            Padded::from_string("", &terms, "."),
+            padded("", &external, ", "),
+            padded("", &terms, "."),
         )
     }
 
@@ -268,10 +267,10 @@ impl ReportFormatter<PubGrubPackage, Range<Version>, UnavailableReason>
         format!(
             "Because we know from ({}) that {}and we know from ({}) that {}{}",
             ref_id1,
-            Padded::new("", &derived1_terms, " "),
+            padded("", &derived1_terms, " "),
             ref_id2,
-            Padded::new("", &derived2_terms, ", "),
-            Padded::new("", &current_terms, "."),
+            padded("", &derived2_terms, ", "),
+            padded("", &current_terms, "."),
         )
     }
 
@@ -294,9 +293,9 @@ impl ReportFormatter<PubGrubPackage, Range<Version>, UnavailableReason>
         format!(
             "Because we know from ({}) that {}and {}we can conclude that {}",
             ref_id,
-            Padded::new("", &derived_terms, " "),
-            Padded::new("", &external, ", "),
-            Padded::new("", &current_terms, "."),
+            padded("", &derived_terms, " "),
+            padded("", &external, ", "),
+            padded("", &current_terms, "."),
         )
     }
 
@@ -311,8 +310,8 @@ impl ReportFormatter<PubGrubPackage, Range<Version>, UnavailableReason>
 
         format!(
             "And because {}we can conclude that {}",
-            Padded::from_string("", &external, ", "),
-            Padded::from_string("", &terms, "."),
+            padded("", &external, ", "),
+            padded("", &terms, "."),
         )
     }
 
@@ -329,8 +328,8 @@ impl ReportFormatter<PubGrubPackage, Range<Version>, UnavailableReason>
         format!(
             "And because we know from ({}) that {}we can conclude that {}",
             ref_id,
-            Padded::from_string("", &derived, ", "),
-            Padded::from_string("", &current, "."),
+            padded("", &derived, ", "),
+            padded("", &current, "."),
         )
     }
 
@@ -346,8 +345,8 @@ impl ReportFormatter<PubGrubPackage, Range<Version>, UnavailableReason>
 
         format!(
             "And because {}we can conclude that {}",
-            Padded::from_string("", &external, ", "),
-            Padded::from_string("", &terms, "."),
+            padded("", &external, ", "),
+            padded("", &terms, "."),
         )
     }
 }
@@ -488,7 +487,7 @@ impl PubGrubReportFormatter<'_> {
                 if let Some(root) = self.format_root_requires(package1) {
                     return format!(
                         "{root} {}and {}",
-                        Padded::new("", &dependency1, " "),
+                        padded("", &dependency1, " "),
                         dependency2,
                     );
                 }
@@ -516,11 +515,7 @@ impl PubGrubReportFormatter<'_> {
                 let external1 = self.format_external(external1);
                 let external2 = self.format_external(external2);
 
-                format!(
-                    "{}and {}",
-                    Padded::from_string("", &external1, " "),
-                    &external2,
-                )
+                format!("{}and {}", padded("", &external1, " "), &external2,)
             }
         }
     }
@@ -1393,7 +1388,7 @@ pub(crate) enum PubGrubHint {
         package: PackageName,
         source: EffectiveExcludeNewerSource,
         // excluded from `PartialEq` and `Hash`
-        exclude_newer: ExcludeNewerValue,
+        exclude_newer: Timestamp,
         // excluded from `PartialEq` and `Hash`
         matching_version: Option<ExcludeNewerVersionDetail>,
     },
@@ -2244,8 +2239,6 @@ fn update_availability_range(
         versions.contains(&version)
     }
 
-    let mut new_range = Range::empty();
-
     // Construct an available range to help guide simplification. Note this is not strictly correct,
     // as the available range should have many holes in it. However, for this use-case it should be
     // okay — we just may avoid simplifying some segments _inside_ the available range.
@@ -2270,61 +2263,53 @@ fn update_availability_range(
             (None, None) => return Range::empty(),
         };
 
-    for segment in range.iter() {
-        let (lower, upper) = segment;
-        let segment_range = Range::from_range_bounds((lower.clone(), upper.clone()));
+    range
+        .iter()
+        .filter_map(|(lower, upper)| {
+            let segment_range = Range::from_range_bounds((lower.clone(), upper.clone()));
 
-        // Drop the segment if it's disjoint with the available range, e.g., if the segment is
-        // `foo>999`, and the available versions are all `<10` it's useless to show.
-        if segment_range.is_disjoint(&available_range) {
-            continue;
-        }
+            // Drop the segment if it's disjoint with the available range, e.g., if the segment is
+            // `foo>999`, and the available versions are all `<10` it's useless to show.
+            if segment_range.is_disjoint(&available_range) {
+                return None;
+            }
 
-        // Replace the segment if it's captured by the available range, e.g., if the segment is
-        // `foo<1000` and the available versions are all `<10` we can simplify to `foo<10`.
-        if available_range.subset_of(&segment_range) {
-            // If the segment only has a lower or upper bound, only take the relevant part of the
-            // available range. This avoids replacing `foo<100` with `foo>1,<2`, instead using
-            // `foo<2` to avoid extra noise.
-            if matches!(lower, Bound::Unbounded) {
-                new_range = new_range.union(&Range::from_range_bounds((
-                    Bound::Unbounded,
-                    Bound::Included(last_available.clone()),
-                )));
-            } else if matches!(upper, Bound::Unbounded) {
-                new_range = new_range.union(&Range::from_range_bounds((
+            // Replace the segment if it's captured by the available range, e.g., if the segment is
+            // `foo<1000` and the available versions are all `<10` we can simplify to `foo<10`.
+            if available_range.subset_of(&segment_range) {
+                // If the segment only has a lower or upper bound, only take the relevant part of
+                // the available range. This avoids replacing `foo<100` with `foo>1,<2`, instead
+                // using `foo<2` to avoid extra noise.
+                if matches!(lower, Bound::Unbounded) {
+                    return Some((Bound::Unbounded, Bound::Included(last_available.clone())));
+                } else if matches!(upper, Bound::Unbounded) {
+                    return Some((Bound::Included(first_available.clone()), Bound::Unbounded));
+                }
+                return Some((
                     Bound::Included(first_available.clone()),
-                    Bound::Unbounded,
-                )));
-            } else {
-                new_range = new_range.union(&available_range);
+                    Bound::Included(last_available.clone()),
+                ));
             }
-            continue;
-        }
 
-        // If the bound is inclusive, and the version is _not_ available, change it to an exclusive
-        // bound to avoid confusion, e.g., if the segment is `foo<=10` and the available versions
-        // do not include `foo 10`, we should instead say `foo<10`.
-        let lower = match lower {
-            Bound::Included(version) if !version_contained_in(version, available_versions) => {
-                Bound::Excluded(version.clone())
-            }
-            _ => (*lower).clone(),
-        };
-        let upper = match upper {
-            Bound::Included(version) if !version_contained_in(version, available_versions) => {
-                Bound::Excluded(version.clone())
-            }
-            _ => (*upper).clone(),
-        };
+            // If the bound is inclusive, and the version is _not_ available, change it to an
+            // exclusive bound to avoid confusion, e.g., if the segment is `foo<=10` and the
+            // available versions do not include `foo 10`, we should instead say `foo<10`.
+            let lower = match lower {
+                Bound::Included(version) if !version_contained_in(version, available_versions) => {
+                    Bound::Excluded(version.clone())
+                }
+                _ => (*lower).clone(),
+            };
+            let upper = match upper {
+                Bound::Included(version) if !version_contained_in(version, available_versions) => {
+                    Bound::Excluded(version.clone())
+                }
+                _ => (*upper).clone(),
+            };
 
-        // Note this repeated-union construction is not particularly efficient, but there's not
-        // better API exposed by PubGrub. Since we're just generating an error message, it's
-        // probably okay, but we should investigate a better upstream API.
-        new_range = new_range.union(&Range::from_range_bounds((lower, upper)));
-    }
-
-    new_range
+            Some((lower, upper))
+        })
+        .collect()
 }
 
 impl std::fmt::Display for PackageRange<'_> {
@@ -2440,7 +2425,7 @@ impl<'a> DependsOn<'a> {
 
 impl std::fmt::Display for DependsOn<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", Padded::new("", self.package, " "))?;
+        write!(f, "{}", padded("", self.package, " "))?;
         if self.package.plural() {
             write!(f, "depend on ")?;
         } else {
@@ -2451,8 +2436,8 @@ impl std::fmt::Display for DependsOn<'_> {
             Some(ref dependency2) => write!(
                 f,
                 "{}and{}",
-                Padded::new("", &self.dependency1, " "),
-                Padded::new(" ", &dependency2, "")
+                padded("", &self.dependency1, " "),
+                padded(" ", &dependency2, "")
             )?,
             None => write!(f, "{}", self.dependency1)?,
         }
@@ -2463,52 +2448,28 @@ impl std::fmt::Display for DependsOn<'_> {
 
 /// Inserts the given padding on the left and right sides of the content if
 /// the content does not start and end with whitespace respectively.
-#[derive(Debug)]
-struct Padded<'a, T: std::fmt::Display> {
+fn padded<'a, T: std::fmt::Display + ?Sized>(
     left: &'a str,
     content: &'a T,
     right: &'a str,
-}
-
-impl<'a, T: std::fmt::Display> Padded<'a, T> {
-    fn new(left: &'a str, content: &'a T, right: &'a str) -> Self {
-        Padded {
-            left,
-            content,
-            right,
-        }
-    }
-}
-
-impl<'a> Padded<'a, String> {
-    fn from_string(left: &'a str, content: &'a String, right: &'a str) -> Self {
-        Padded {
-            left,
-            content,
-            right,
-        }
-    }
-}
-
-impl<T: std::fmt::Display> std::fmt::Display for Padded<'_, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut result = String::new();
-        let content = self.content.to_string();
+) -> impl std::fmt::Display + 'a {
+    std::fmt::from_fn(move |f| {
+        let content = content.to_string();
 
         if let Some(char) = content.chars().next() {
             if !char.is_whitespace() {
-                result.push_str(self.left);
+                f.write_str(left)?;
             }
         }
 
-        result.push_str(&content);
+        f.write_str(&content)?;
 
         if let Some(char) = content.chars().last() {
             if !char.is_whitespace() {
-                result.push_str(self.right);
+                f.write_str(right)?;
             }
         }
 
-        write!(f, "{result}")
-    }
+        Ok(())
+    })
 }

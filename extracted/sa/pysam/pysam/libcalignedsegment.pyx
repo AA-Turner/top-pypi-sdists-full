@@ -1,6 +1,5 @@
 # cython: language_level=3
 # cython: embedsignature=True
-# cython: profile=True
 ###############################################################################
 ###############################################################################
 # Cython wrapper for SAM/BAM/CRAM files based on htslib
@@ -888,12 +887,12 @@ cdef _alignedpairs_with_seq(qpos, pos, ref_seq, uint32_t r_idx, int op):
 
 
 cdef _alignedpairs_with_cigar(qpos, pos, ref_seq, uint32_t r_idx, int op):
-    return (qpos, pos, CIGAR_OPS(op))
+    return (qpos, pos, <CIGAR_OPS>op)
 
 
 cdef _alignedpairs_with_seq_cigar(qpos, pos, ref_seq, uint32_t r_idx, int op):
     ref_base = ref_seq[r_idx] if ref_seq is not None else None
-    return (qpos, pos, ref_base, CIGAR_OPS(op))
+    return (qpos, pos, ref_base, <CIGAR_OPS>op)
 
 
 cdef class _AlignedSegment_Cache:
@@ -1863,63 +1862,72 @@ cdef class AlignedSegment:
         """start index of the aligned query portion of the sequence (0-based,
         inclusive).
 
-        This the index of the first base in :attr:`query_sequence` 
-        that is not soft-clipped.
+        This the index of the first base in :attr:`query_sequence` that is not
+        soft-clipped. (For unmapped reads and when CIGAR is unavailable, this
+        will be zero.)
         """
         def __get__(self):
             return getQueryStart(self._delegate)
 
     property query_alignment_end:
         """end index of the aligned query portion of the sequence (0-based,
-        exclusive)
+        exclusive).
 
         This the index just past the last base in :attr:`query_sequence` 
-        that is not soft-clipped.
+        that is not soft-clipped. (For unmapped reads and when CIGAR is
+        unavailable, this will be the length of the query/read.)
         """
         def __get__(self):
             return getQueryEnd(self._delegate)
 
     property modified_bases:
-        """Modified bases annotations from Ml/Mm tags. The output is
+        """Modified bases annotations from MM/ML tags. The output is
         Dict[(canonical base, strand, modification)] -> [ (pos,qual), ...]
         with qual being (256*probability), or -1 if unknown.
         Strand==0 for forward and 1 for reverse strand modification
         """
         def __get__(self):
-            cdef bam1_t * src
-            cdef hts_base_mod_state *m = hts_base_mod_state_alloc()
-            cdef hts_base_mod mods[5]
-            cdef int pos
+            cdef bam1_t *src = self._delegate
+            cdef hts_base_mod_state *m = NULL
+            cdef hts_base_mod *mods = NULL
+            cdef int qpos, max_mods
+            cdef int *mod_codes
 
-            ret = {}
-            src = self._delegate
-            
-            if bam_parse_basemod(src, m) < 0:        
-                return None
-            
-            n = bam_next_basemod(src, m, mods, 5, &pos)
+            try:
+                m = hts_base_mod_state_alloc()
+                if m == NULL:
+                    raise MemoryError("Can't allocate modified_bases state")
 
-            while n>0:
-                for i in range(n):
-                    mod_code = chr(mods[i].modified_base) if mods[i].modified_base>0 else -mods[i].modified_base
-                    mod_strand = mods[i].strand
-                    if self.is_reverse:
-                        mod_strand = 1 - mod_strand
-                    key = (chr(mods[i].canonical_base), 
-                            mod_strand,
-                            mod_code )
-                    ret.setdefault(key,[]).append((pos,mods[i].qual))
-                    
-                n = bam_next_basemod(src, m, mods, 5, &pos)
+                if bam_parse_basemod(src, m) < 0:
+                    return None
 
-            if n<0:
-                return None
+                mod_codes = bam_mods_recorded(m, &max_mods)
+                mods = <hts_base_mod *> calloc(max_mods, sizeof(hts_base_mod))
+                if mods == NULL:
+                    raise MemoryError("Can't allocate modified_bases buffer")
 
-            hts_base_mod_state_free(m)
-            return ret
+                ret = {}
+
+                while (n := bam_next_basemod(src, m, mods, max_mods, &qpos)) > 0:
+                    for i in range(n):
+                        mod_code = chr(mods[i].modified_base) if mods[i].modified_base>0 else -mods[i].modified_base
+                        mod_strand = mods[i].strand
+                        if self.is_reverse:
+                            mod_strand = 1 - mod_strand
+                        key = (chr(mods[i].canonical_base), mod_strand, mod_code)
+                        ret.setdefault(key, []).append((qpos, mods[i].qual))
+
+                if n < 0:
+                    return None
+
+                return ret
+
+            finally:
+                free(mods)
+                hts_base_mod_state_free(m)
 
     property modified_bases_forward:
-        """Modified bases annotations from Ml/Mm tags. The output is
+        """Modified bases annotations from MM/ML tags. The output is
         Dict[(canonical base, strand, modification)] -> [ (pos,qual), ...]
         with qual being (256*probability), or -1 if unknown.
         Strand==0 for forward and 1 for reverse strand modification.
@@ -1951,8 +1959,9 @@ cdef class AlignedSegment:
     property query_alignment_length:
         """length of the aligned query sequence.
 
-        This is equal to :attr:`query_alignment_end` - 
-        :attr:`query_alignment_start`
+        This is the number of bases in :attr:`query_sequence` that are not
+        soft-clipped. (For unmapped reads and when CIGAR is unavailable, this
+        will equal the length of the query/read.)
         """
         def __get__(self):
             cdef bam1_t * src
@@ -2615,25 +2624,25 @@ cdef class AlignedSegment:
         specification) as well as additional value type 'd' as
         implemented in htslib.
 
-        Parameters:
+        Parameters
+        ----------
+        tag : str
+            Data tag.
 
-            tag :
-                data tag.
+        with_value_type : Optional[bool]
+            If set to True, the return value is a tuple of (tag value, type code).
+            (default False)
 
-            with_value_type : Optional[bool]
-                if set to True, the return value is a tuple of (tag value, type
-                code). (default False)
-
-        Returns:
-
+        Returns
+        -------
+        Any or tuple(Any, str)
             A python object with the value of the `tag`. The type of the
             object depends on the data type in the data record.
 
-        Raises:
-
-            KeyError
-                If `tag` is not present, a KeyError is raised.
-
+        Raises
+        ------
+        KeyError
+            If `tag` is not present, a KeyError is raised.
         """
         cdef uint8_t * v
         cdef int nvalues

@@ -27,13 +27,15 @@ from ee import projection
 from ee import reducer
 
 Array = Union[
+    float,
+    ee_number.Number,
     Sequence[float | ee_number.Number],
     Sequence[Sequence[AnyType]],
     ee_array.Array,
     ee_list.List,
     computedobject.ComputedObject,
 ]
-Bool = Union[bool, ee_number.Number, computedobject.ComputedObject]
+Bool = Union[bool, int, ee_number.Number, computedobject.ComputedObject]
 Classifier = Union[classifier.Classifier, computedobject.ComputedObject]
 Clusterer = Union[clusterer.Clusterer, computedobject.ComputedObject]
 ConfusionMatrix = Union[
@@ -44,6 +46,8 @@ Date = Union[
 ]
 DateRange = Union[daterange.DateRange, computedobject.ComputedObject]
 Dictionary = Union[
+    tuple[AnyType, AnyType],
+    Sequence[Sequence[AnyType]],
     Mapping[AnyType, AnyType],
     dictionary.Dictionary,
     computedobject.ComputedObject,
@@ -64,7 +68,14 @@ FeatureCollection = Union[
 ]
 Filter = Union[ee_filter.Filter, computedobject.ComputedObject]
 Geometry = Union[AnyType, computedobject.ComputedObject]
-Image = Union[str, ee_string.String, image.Image, computedobject.ComputedObject]
+Image = Union[
+    float,
+    str,
+    ee_number.Number,
+    ee_string.String,
+    image.Image,
+    computedobject.ComputedObject,
+]
 ImageCollection = Union[
     str,
     ee_string.String,

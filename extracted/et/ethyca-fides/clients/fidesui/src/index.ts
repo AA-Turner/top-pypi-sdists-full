@@ -183,6 +183,7 @@ export type {
   FormInstance,
   FormItemProps,
   FormProps,
+  FormRule,
   GetProps,
   InputProps as InputPropsOriginal,
   InputRef,
@@ -197,6 +198,7 @@ export type {
   TableProps,
   TabsProps,
   TooltipProps,
+  TransferProps,
   TreeDataNode,
   TreeProps,
   UploadFile,
@@ -242,6 +244,7 @@ export {
   Spin as TableSpinner,
   Tabs,
   TimePicker,
+  Transfer,
   Tree,
   TreeSelect,
   Upload,
@@ -450,4 +453,9 @@ export type {
   ThemeModeProviderProps,
   UseFormModalOptions,
 } from "./hooks";
-export { ThemeModeProvider, useFormModal, useThemeMode } from "./hooks";
+export {
+  ThemeModeProvider,
+  useFormModal,
+  usePrefersReducedMotion,
+  useThemeMode,
+} from "./hooks";

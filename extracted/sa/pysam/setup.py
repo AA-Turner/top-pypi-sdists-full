@@ -61,8 +61,9 @@ def changedir(path):
 def run_configure(option):
     sys.stdout.flush()
     try:
+        # Always disable ref-cache as its code is omitted from pysam's htslib/
         retcode = subprocess.call(
-            " ".join(("./configure", option)),
+            " ".join(("./configure", "--disable-ref-cache", option)),
             shell=True)
         if retcode != 0:
             return False
@@ -78,7 +79,7 @@ def run_make(targets):
 
 
 def run_make_print_config():
-    stdout = subprocess.check_output(["make", "-s", "print-config"], encoding="ascii")
+    stdout = subprocess.check_output([os.environ.get("MAKE", "make"), "-s", "print-config"], encoding="ascii")
 
     make_print_config = {}
     for line in stdout.splitlines():
@@ -93,19 +94,20 @@ def run_make_print_config():
 def run_nm_defined_symbols(objfile):
     stdout = subprocess.check_output(["nm", "-g", "-P", objfile], encoding="ascii")
 
+    def cython_internal(sym):
+        offset = 1 if sym.startswith("___") else 0  # Skip extra underscore on macOS
+        return sym.startswith("__pyx_", offset) or sym.startswith("__Pyx_", offset)
+
     symbols = set()
     for line in stdout.splitlines():
         (sym, symtype) = line.split()[:2]
-        if symtype not in "UFNWw":
+        if symtype not in "UFNWw" and not cython_internal(sym):
             if IS_DARWIN:
                 # On macOS, all symbols have a leading underscore
                 symbols.add(sym[1:] if sym.startswith("_") else sym)
             else:
                 # Ignore symbols such as _edata (present in all shared objects)
                 if sym[0] not in "_$.@": symbols.add(sym)
-
-    # Work around Cython 3.1.2 bug whereby this function is not static
-    symbols.discard("__pyx_CommonTypesMetaclass_get_module")
 
     return symbols
 
@@ -189,6 +191,12 @@ def set_compiler_envvars():
             del os.environ[var]
 
 
+def truthy(s):
+    if s.lower() in ["1", "true", "y", "yes"]: return True
+    elif s.lower() in ["0", "false", "n", "no"]: return False
+    else: return None
+
+
 def format_macro_option(name, value):
     return f"-D{name}={value}" if value is not None else f"-D{name}"
 
@@ -217,6 +225,12 @@ def configure_library(library_dir, env_options=None, options=[]):
     return None
 
 
+def global_cython_directives():
+    directives = {}
+    if truthy(os.environ.get("PYSAM_PROFILE", "0")): directives["profile"] = True
+    return directives
+
+
 def get_pysam_version():
     sys.path.insert(0, "pysam")
     import version
@@ -233,7 +247,7 @@ class cythonize_sdist(sdist):
 
     def run(self):
         from Cython.Build import cythonize
-        cythonize(self.distribution.ext_modules)
+        cythonize(self.distribution.ext_modules, force=True, compiler_directives=global_cython_directives())
         super().run()
 
 
@@ -256,6 +270,10 @@ class CyExtension(Extension):
 
 
 class cy_build_ext(build_ext):
+    def initialize_options(self):
+        super().initialize_options()
+        self.cython_directives = global_cython_directives()
+
     def check_ext_symbol_conflicts(self):
         """Checks for symbols defined in multiple extension modules,
         which can lead to crashes due to incorrect functions being invoked.
@@ -630,7 +648,7 @@ modules = [
          extra_objects=separate_htslib_objects,
          libraries=external_htslib_libraries + internal_htslib_libraries),
     dict(name="pysam.libcutils",
-         sources=[source_pattern % "utils", "pysam/pysam_util.c"] + os_c_files,
+         sources=[source_pattern % "utils"] + os_c_files,
          extra_objects=separate_htslib_objects,
          libraries=external_htslib_libraries + internal_htslib_libraries + internal_samtools_libraries),
     dict(name="pysam.libcalignmentfile",
@@ -688,7 +706,6 @@ classifiers = """
 Development Status :: 4 - Beta
 Intended Audience :: Science/Research
 Intended Audience :: Developers
-License :: OSI Approved
 Programming Language :: Python
 Topic :: Software Development
 Topic :: Scientific/Engineering

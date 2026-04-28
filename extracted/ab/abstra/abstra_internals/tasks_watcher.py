@@ -22,6 +22,16 @@ class TasksWatcher(FileSystemEventHandler):
         observer.start()
         self._observer = observer
 
+    def stop(self, timeout: float = 5.0):
+        observer = getattr(self, "_observer", None)
+        if observer is None:
+            return
+        try:
+            observer.stop()
+            observer.join(timeout=timeout)
+        except Exception:
+            pass
+
     def dispatch(self, event: FileSystemEvent):
         if not isinstance(event, (FileCreatedEvent, FileModifiedEvent)):
             return

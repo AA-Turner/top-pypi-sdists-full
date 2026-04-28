@@ -6,7 +6,13 @@ from io import StringIO
 import pytest
 
 from pymobiledevice3.cli import syslog as syslog_module
-from pymobiledevice3.services.os_trace import SyslogEntry, SyslogLabel, SyslogLogLevel
+from pymobiledevice3.services.os_trace import (
+    OS_TRACE_RELAY_STREAM_FLAGS_DEFAULT,
+    OsActivityStreamFlag,
+    SyslogEntry,
+    SyslogLabel,
+    SyslogLogLevel,
+)
 
 pytestmark = [pytest.mark.cli]
 
@@ -14,10 +20,15 @@ _FAKE_SERVICE_PROVIDER = object()
 
 
 class _FakeOsTraceService:
+    last_pid = None
+    last_stream_flags = None
+
     def __init__(self, entries):
         self._entries = entries
 
-    async def syslog(self, pid=-1):
+    async def syslog(self, pid=-1, stream_flags=OS_TRACE_RELAY_STREAM_FLAGS_DEFAULT, **_kwargs):
+        type(self).last_pid = pid
+        type(self).last_stream_flags = stream_flags
         for entry in self._entries:
             yield entry
 
@@ -32,6 +43,12 @@ def _create_syslog_entry(message: str) -> SyslogEntry:
         filename="/usr/libexec/test-process",
         message=message,
     )
+
+
+def _create_syslog_entry_with_level(message: str, level: SyslogLogLevel) -> SyslogEntry:
+    entry = _create_syslog_entry(message)
+    entry.level = level
+    return entry
 
 
 def _create_syslog_entries(messages: list[str]) -> list[SyslogEntry]:
@@ -55,6 +72,8 @@ async def _run_syslog_live(
         "include_label": False,
         "regex": [],
         "insensitive_regex": [],
+        "no_debug": False,
+        "no_info": False,
     }
     kwargs.update(syslog_live_kwargs)
 
@@ -242,6 +261,50 @@ async def test_syslog_live_regex_filters_and_writes_plain_output_to_out(monkeypa
     assert printed_lines[0].endswith("daemon ready")
     assert printed_lines[1].endswith("worker ready")
     assert out_lines == printed_lines
+
+
+@pytest.mark.asyncio
+async def test_syslog_live_no_debug_suppresses_only_debug(monkeypatch, capsys):
+    entries = [
+        _create_syslog_entry_with_level("info line", SyslogLogLevel.INFO),
+        _create_syslog_entry_with_level("debug line", SyslogLogLevel.DEBUG),
+        _create_syslog_entry_with_level("notice line", SyslogLogLevel.NOTICE),
+        _create_syslog_entry_with_level("error line", SyslogLogLevel.ERROR),
+    ]
+
+    printed_lines, _ = await _run_syslog_live(
+        monkeypatch,
+        capsys,
+        entries,
+        no_debug=True,
+    )
+
+    assert len(printed_lines) == 3
+    assert printed_lines[0].endswith("info line")
+    assert printed_lines[1].endswith("notice line")
+    assert printed_lines[2].endswith("error line")
+    assert _FakeOsTraceService.last_stream_flags == (OS_TRACE_RELAY_STREAM_FLAGS_DEFAULT & ~OsActivityStreamFlag.DEBUG)
+
+
+@pytest.mark.asyncio
+async def test_syslog_live_no_info_suppresses_only_info(monkeypatch, capsys):
+    entries = [
+        _create_syslog_entry_with_level("info line", SyslogLogLevel.INFO),
+        _create_syslog_entry_with_level("debug line", SyslogLogLevel.DEBUG),
+        _create_syslog_entry_with_level("notice line", SyslogLogLevel.NOTICE),
+    ]
+
+    printed_lines, _ = await _run_syslog_live(
+        monkeypatch,
+        capsys,
+        entries,
+        no_info=True,
+    )
+
+    assert len(printed_lines) == 2
+    assert printed_lines[0].endswith("debug line")
+    assert printed_lines[1].endswith("notice line")
+    assert _FakeOsTraceService.last_stream_flags == (OS_TRACE_RELAY_STREAM_FLAGS_DEFAULT & ~OsActivityStreamFlag.INFO)
 
 
 def test_format_json_line_with_label():

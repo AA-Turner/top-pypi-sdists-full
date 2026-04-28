@@ -10,6 +10,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from typing import Any
+
+from keystoneauth1 import adapter
+from typing_extensions import Self
+
 from openstack import exceptions
 from openstack import resource
 
@@ -51,22 +56,20 @@ class AcceleratorRequest(resource.Resource):
         # the PATCH method consumes JSON, its key is the ARQ uuid
         # and its value is an ordinary JSON patch. spec:
         # https://specs.openstack.org/openstack/cyborg-specs/specs/train/implemented/cyborg-api
-
         converted = super()._convert_patch(patch)
-        converted = {self.id: converted}
-        return converted
+        return {self.id: converted}
 
     def patch(
         self,
-        session,
-        patch=None,
-        prepend_key=True,
-        has_body=True,
-        retry_on_conflict=None,
-        base_path=None,
+        session: adapter.Adapter,
+        patch: list[dict[str, Any]] | None = None,
+        prepend_key: bool = True,
+        has_body: bool = True,
+        retry_on_conflict: bool | None = None,
+        base_path: str | None = None,
         *,
-        microversion=None,
-    ):
+        microversion: str | None = None,
+    ) -> Self:
         # This overrides the default behavior of patch because
         # the PATCH method consumes a dict rather than a list. spec:
         # https://specs.openstack.org/openstack/cyborg-specs/specs/train/implemented/cyborg-api

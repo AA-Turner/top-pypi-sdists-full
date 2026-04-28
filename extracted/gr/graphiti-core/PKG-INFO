@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphiti-core
-Version: 0.28.2
+Version: 0.29.0
 Summary: A temporal graph building library
 Project-URL: Homepage, https://help.getzep.com/graphiti/graphiti/overview
 Project-URL: Repository, https://github.com/getzep/graphiti
@@ -29,7 +29,7 @@ Requires-Dist: kuzu>=0.11.3; extra == 'dev'
 Requires-Dist: langchain-anthropic>=0.2.4; extra == 'dev'
 Requires-Dist: langchain-aws>=0.2.29; extra == 'dev'
 Requires-Dist: langchain-openai>=0.2.6; extra == 'dev'
-Requires-Dist: langgraph>=0.2.15; extra == 'dev'
+Requires-Dist: langgraph>=1.0.10; extra == 'dev'
 Requires-Dist: langsmith>=0.1.108; extra == 'dev'
 Requires-Dist: opensearch-py>=3.0.0; extra == 'dev'
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == 'dev'
@@ -95,6 +95,10 @@ Graphiti
 <a href="https://trendshift.io/repositories/12986" target="_blank"><img src="https://trendshift.io/api/badge/repositories/12986" alt="getzep%2Fgraphiti | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 </div>
+
+> [!NOTE]
+> **We're Hiring!** Build context graphs that power reliable, personalized, fast production AI agents.
+> Come build with us — we're hiring Engineers and Developer Relations folks. [View open roles](https://www.getzep.com/careers/).
 
 ⭐ *Help us reach more developers and grow the Graphiti community. Star this repo!*
 

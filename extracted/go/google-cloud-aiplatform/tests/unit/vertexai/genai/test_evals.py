@@ -21,7 +21,6 @@ import re
 import statistics
 import sys
 import tempfile
-import unittest
 from unittest import mock
 
 import google.auth.credentials
@@ -3624,8 +3623,7 @@ class TestEvalsRunInference:
         ) as mock_litellm, mock.patch(
             "vertexai._genai._evals_common._call_litellm_completion"
         ) as mock_call_litellm_completion:
-            # fmt: on
-            mock_litellm.utils.get_valid_models.return_value = ["gpt-4o"]
+            mock_litellm.get_llm_provider.return_value = ("gpt-4o", "openai", None , None)
             prompt_df = pd.DataFrame([{"prompt": "What is LiteLLM?"}])
             expected_messages = [{"role": "user", "content": "What is LiteLLM?"}]
 
@@ -3686,7 +3684,12 @@ class TestEvalsRunInference:
             ) as mock_call_litellm_completion,
         ):
             # fmt: on
-            mock_litellm.utils.get_valid_models.return_value = ["gpt-4o"]
+            mock_litellm.get_llm_provider.return_value = (
+                "gpt-4o",
+                "openai",
+                None,
+                None,
+            )
             prompt_df = pd.DataFrame(
                 [
                     {
@@ -3755,7 +3758,9 @@ class TestEvalsRunInference:
         with mock.patch(
             "vertexai._genai._evals_common.litellm"
         ) as mock_litellm_package:
-            mock_litellm_package.utils.get_valid_models.return_value = []
+            mock_litellm_package.get_llm_provider.side_effect = ValueError(
+                "unsupported model"
+            )
             evals_module = evals.Evals(api_client_=mock_api_client_fixture)
             prompt_df = pd.DataFrame([{"prompt": "test"}])
 
@@ -3822,7 +3827,7 @@ class TestEvalsRunInference:
         # fmt: off
         with mock.patch("vertexai._genai._evals_common.litellm") as mock_litellm:
             # fmt: on
-            mock_litellm.utils.get_valid_models.return_value = ["gpt-4o"]
+            mock_litellm.get_llm_provider.return_value = ("gpt-4o", "openai", None , None)
             inference_result = self.client.evals.run_inference(
                 model="gpt-4o",
                 src=mock_df,
@@ -8421,11 +8426,10 @@ class TestEvaluationDataset:
         )
 
 
-class TestEvalsGenerateConversationScenarios(unittest.TestCase):
+class TestEvalsGenerateConversationScenarios:
     """Unit tests for the Evals generate_conversation_scenarios method."""
 
-    def setUp(self):
-        self.addCleanup(mock.patch.stopall)
+    def setup_method(self, method):
         self.mock_client = mock.MagicMock(spec=client.Client)
         self.mock_client.vertexai = True
         self.mock_api_client = mock.MagicMock()
@@ -8452,6 +8456,7 @@ class TestEvalsGenerateConversationScenarios(unittest.TestCase):
                 root_agent_id="agent_1",
             ),
             config={"count": 2},
+            allow_cross_region_model=True,
         )
         assert isinstance(eval_dataset, vertexai_genai_types.EvaluationDataset)
         assert len(eval_dataset.eval_cases) == 2
@@ -8468,6 +8473,9 @@ class TestEvalsGenerateConversationScenarios(unittest.TestCase):
         assert eval_dataset.eval_dataset_df.iloc[1]["conversation_plan"] == "Plan 2"
 
         self.mock_api_client.request.assert_called_once()
+        call_args = self.mock_api_client.request.call_args
+        request_body = call_args[0][2]  # Third positional arg is the request dict
+        assert request_body.get("allowCrossRegionModel") is True
 
     @pytest.mark.asyncio
     async def test_async_generate_conversation_scenarios(self):
@@ -8484,6 +8492,7 @@ class TestEvalsGenerateConversationScenarios(unittest.TestCase):
                 root_agent_id="agent_1",
             ),
             config={"count": 2},
+            allow_cross_region_model=True,
         )
         assert isinstance(eval_dataset, vertexai_genai_types.EvaluationDataset)
         assert len(eval_dataset.eval_cases) == 2
@@ -8497,6 +8506,9 @@ class TestEvalsGenerateConversationScenarios(unittest.TestCase):
         assert eval_dataset.eval_dataset_df.iloc[1]["conversation_plan"] == "Plan 2"
 
         self.mock_api_client.async_request.assert_called_once()
+        call_args = self.mock_api_client.async_request.call_args
+        request_body = call_args[0][2]  # Third positional arg is the request dict
+        assert request_body.get("allowCrossRegionModel") is True
 
 
 class TestTransformDataframe:

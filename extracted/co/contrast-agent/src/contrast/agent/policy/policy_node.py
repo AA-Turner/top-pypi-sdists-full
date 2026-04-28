@@ -1,22 +1,26 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from __future__ import annotations
+
 from collections.abc import Sequence
-from typing import Literal, Union
-from contrast.agent.policy import constants
-from contrast.agent.assess.assess_exceptions import ContrastAssessException
+from typing import Literal
+
 from contrast_fireball import AssessEventAction, AssessEventType
+
+from contrast.agent.assess.assess_exceptions import ContrastAssessException
+from contrast.agent.policy import constants
 
 UNDERSCORE = "_"
 COMMA = ","
 COLON = ":"
 
-Location = Union[
-    Literal["OBJ"],
-    int,  # args index
-    str,  # kwargs key
-    Literal["RETURN"],
-]
+Location = (
+    Literal["OBJ"]
+    | int  # args index
+    | str  # kwargs key
+    | Literal["RETURN"]
+)
+
 # variables can't be used within Literal, or the Union becomes
 # a (variable) not a (type). So we have to duplicate the strings.
 # This is an extra check to ensure that the strings are the same.

@@ -2,7 +2,7 @@
 
 /*  bam_plcmd.c -- mpileup subcommand.
 
-    Copyright (C) 2008-2015, 2019-2021, 2023-2024 Genome Research Ltd.
+    Copyright (C) 2008-2015, 2019-2021, 2023-2025 Genome Research Ltd.
     Portions copyright (C) 2009-2012 Broad Institute.
 
     Author: Heng Li <lh3@sanger.ac.uk>
@@ -137,7 +137,7 @@ int pileup_seq(kstring_t *ks_seq, const bam_pileup1_t *p, hts_pos_t pos,
                     if (ks->s[j] == '[') in_mod = 1;
                     else if (ks->s[j] == ']') in_mod = 0;
                     err |= kputc_(ks->s[j] != '*'
-                                  ? (in_mod ? ks->s[j] : tolower(ks->s[j]))
+                                  ? (in_mod ? ks->s[j] : tolower_c(ks->s[j]))
                                   : pad, ks_seq) < 0;
                 }
             } else {
@@ -145,7 +145,7 @@ int pileup_seq(kstring_t *ks_seq, const bam_pileup1_t *p, hts_pos_t pos,
                 for (j = 0; j < ks->l; j++) {
                     if (ks->s[j] == '[') in_mod = 1;
                     if (ks->s[j] == ']') in_mod = 0;
-                    err |= kputc_(in_mod ? ks->s[j] : toupper(ks->s[j]),
+                    err |= kputc_(in_mod ? ks->s[j] : toupper_c(ks->s[j]),
                                   ks_seq) < 0;
                 }
             }
@@ -158,7 +158,7 @@ int pileup_seq(kstring_t *ks_seq, const bam_pileup1_t *p, hts_pos_t pos,
         if (!no_del) {
             for (j = 1; j <= del_len; ++j) {
                 int c = (ref && (int)pos+j < ref_len)? ref[pos+j] : 'N';
-                err |= kputc_(bam_is_rev(p->b)? tolower(c) : toupper(c),
+                err |= kputc_(bam_is_rev(p->b)? tolower_c(c) : toupper_c(c),
                               ks_seq) < 0;
             }
         }
@@ -218,12 +218,12 @@ typedef struct {
 } mplp_conf_t;
 
 typedef struct {
-    char *ref[2];
-    int ref_id[2];
-    hts_pos_t ref_len[2];
+    char *ref[3];
+    int ref_id[3];
+    hts_pos_t ref_len[3];
 } mplp_ref_t;
 
-#define MPLP_REF_INIT {{NULL,NULL},{-1,-1},{0,0}}
+#define MPLP_REF_INIT {{NULL,NULL,NULL},{-1,-1,-1},{0,0,0}}
 
 typedef struct {
     samFile *fp;
@@ -300,31 +300,38 @@ static int mplp_get_ref(mplp_aux_t *ma, int tid, char **ref, hts_pos_t *ref_len)
 
     // Do we need to reference count this so multiple mplp_aux_t can
     // track which references are in use?
-    // For now we just cache the last two. Sufficient?
-    if (tid == r->ref_id[0]) {
+    // For now we just cache the last three.  This is because we need
+    // current ref and last ref (for -a opt) and mpileup itself may use
+    // current ref and potentially next ref.
+    int x;
+    for (x = 0; x < 3; x++) {
+        if (tid != r->ref_id[x])
+            continue;
+
+        if (x) {
+            // Shuffle element x to element 0 and rotate others up one
+            int tmp_id        = r->ref_id[x];
+            hts_pos_t tmp_len = r->ref_len[x];
+            char *tmp_ref     = r->ref[x];
+
+            // x is 1 (aBc -> Bac) or 2 (abC -> Cab).
+            memmove(&r->ref_id[1],  &r->ref_id[0],  x * sizeof(*r->ref_id));
+            memmove(&r->ref_len[1], &r->ref_len[0], x * sizeof(*r->ref_len));
+            memmove(&r->ref[1],     &r->ref[0],     x * sizeof(*r->ref));
+            r->ref_id[0]  = tmp_id;
+            r->ref_len[0] = tmp_len;
+            r->ref[0]     = tmp_ref;
+        }
         *ref = r->ref[0];
         *ref_len = r->ref_len[0];
         return 1;
     }
-    if (tid == r->ref_id[1]) {
-        // Last, swap over
-        int tmp_id;
-        hts_pos_t tmp_len;
-        tmp_id  = r->ref_id[0];  r->ref_id[0]  = r->ref_id[1];  r->ref_id[1]  = tmp_id;
-        tmp_len = r->ref_len[0]; r->ref_len[0] = r->ref_len[1]; r->ref_len[1] = tmp_len;
 
-        char *tc;
-        tc = r->ref[0]; r->ref[0] = r->ref[1]; r->ref[1] = tc;
-        *ref = r->ref[0];
-        *ref_len = r->ref_len[0];
-        return 1;
-    }
-
-    // New, so migrate to old and load new
-    free(r->ref[1]);
-    r->ref[1]     = r->ref[0];
-    r->ref_id[1]  = r->ref_id[0];
-    r->ref_len[1] = r->ref_len[0];
+    // New, so fill slot zero
+    free(r->ref[2]);
+    memmove(&r->ref_id[1],  &r->ref_id[0],  2 * sizeof(*r->ref_id));
+    memmove(&r->ref_len[1], &r->ref_len[0], 2 * sizeof(*r->ref_len));
+    memmove(&r->ref[1],     &r->ref[0],     2 * sizeof(*r->ref));
 
     r->ref_id[0] = tid;
     r->ref[0] = faidx_fetch_seq64(ma->conf->fai,
@@ -868,6 +875,7 @@ fail:
     free(data); free(plp); free(n_plp);
     free(mp_ref.ref[0]);
     free(mp_ref.ref[1]);
+    free(mp_ref.ref[2]);
     return ret;
 }
 
@@ -902,7 +910,7 @@ int read_file_list(const char *file_list,int *n,char **argv[])
     {
         // allow empty lines and trailing spaces
         len = strlen(buf);
-        while ( len>0 && isspace(buf[len-1]) ) len--;
+        while ( len>0 && isspace_c(buf[len-1]) ) len--;
         if ( !len ) continue;
 
         // check sanity of the file list
@@ -912,7 +920,7 @@ int read_file_list(const char *file_list,int *n,char **argv[])
             // no such file, check if it is safe to print its name
             int i, safe_to_print = 1;
             for (i=0; i<len; i++)
-                if (!isprint(buf[i])) { safe_to_print = 0; break; }
+                if (!isprint_c(buf[i])) { safe_to_print = 0; break; }
             if ( safe_to_print )
                 fprintf(samtools_stderr,"The file list \"%s\" appears broken, could not locate: %s\n", file_list,buf);
             else
@@ -1214,5 +1222,6 @@ int bam_mpileup(int argc, char *argv[])
     if (mplp.fai) fai_destroy(mplp.fai);
     if (mplp.bed) bed_destroy(mplp.bed);
     if (mplp.auxlist) kl_destroy(auxlist, (klist_t(auxlist) *)mplp.auxlist);
+    sam_global_args_free(&mplp.ga);
     return ret;
 }

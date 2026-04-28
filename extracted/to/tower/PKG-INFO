@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tower
-Version: 0.3.59
+Version: 0.3.60
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -28,6 +28,7 @@ Requires-Dist: dbt-core>=1.9,<1.10 ; extra == 'dbt'
 Requires-Dist: polars>=1.39.3 ; extra == 'iceberg'
 Requires-Dist: pyarrow>=23.0.1 ; extra == 'iceberg'
 Requires-Dist: pyiceberg>=0.11.1 ; extra == 'iceberg'
+Requires-Dist: boto3>=1.35.0 ; extra == 'iceberg'
 Provides-Extra: ai
 Provides-Extra: all
 Provides-Extra: dbt

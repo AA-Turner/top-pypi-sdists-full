@@ -30,7 +30,7 @@ use crate::alt::class::class_field::ClassField;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
-use crate::alt::unwrap::HintRef;
+use crate::alt::unwrap::HintRefOld;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
@@ -47,7 +47,10 @@ use crate::types::callable::ParamList;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::literal::Lit;
+use crate::types::quantified::AnchorIndex;
 use crate::types::quantified::Quantified;
+use crate::types::quantified::QuantifiedIdentity;
+use crate::types::quantified::QuantifiedOrigin;
 use crate::types::read_only::ReadOnlyReason;
 use crate::types::type_var::PreInferenceVariance;
 use crate::types::type_var::Restriction;
@@ -159,7 +162,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let partial_td_ty = self.heap.mk_partial_typed_dict(typed_dict.clone());
                 let item_ty = self.expr_infer_with_hint(
                     &x.value,
-                    Some(HintRef::soft(&partial_td_ty)),
+                    Some(HintRefOld::soft(&partial_td_ty)),
                     item_errors,
                 );
                 let subset_result = self.is_subset_eq_with_reason(&item_ty, &partial_td_ty);
@@ -466,14 +469,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Get a (key, default: T) -> ValueType | T overload.
     fn get_overload_with_default(
         &self,
+        cls: &Class,
         metadata: &FuncMetadata,
         self_param: &Param,
         name: Option<&Name>,
         ty: Type,
     ) -> OverloadType {
+        // Synthetic `_T` quantified used internally for the default parameter type.
+        // Anchored to the TypedDict class definition range with SyntheticCallableResidual origin.
+        let identity = QuantifiedIdentity::new(
+            self.module().name(),
+            AnchorIndex::first(cls.range()),
+            QuantifiedOrigin::SyntheticCallableResidual,
+        );
         let q = Quantified::type_var(
             Name::new("_T"),
-            self.uniques.fresh(),
+            identity,
             None,
             Restriction::Unrestricted,
             PreInferenceVariance::Invariant,
@@ -543,6 +554,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }));
                 // (self, key: Literal["key"], default: T) -> ValueType | T
                 literal_signatures.push(self.get_overload_with_default(
+                    cls,
                     &metadata,
                     &self_param,
                     Some(name),
@@ -568,7 +580,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 metadata: metadata.clone(),
             }),
         );
-        signatures.push(self.get_overload_with_default(&metadata, &self_param, None, value_ty));
+        signatures.push(self.get_overload_with_default(
+            cls,
+            &metadata,
+            &self_param,
+            None,
+            value_ty,
+        ));
         ClassSynthesizedField::new(self.heap.mk_overload(Overload {
             signatures,
             metadata: Box::new(metadata),
@@ -593,6 +611,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn gen_pop_overloads_for_field(
         &self,
+        cls: &Class,
         metadata: &FuncMetadata,
         self_param: &Param,
         name: Option<&Name>,
@@ -616,7 +635,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }));
 
         // 2) default: (self, key: Literal["field_name"], default: _T) -> FieldType | _T
-        overloads.push(self.get_overload_with_default(metadata, self_param, name, ty));
+        overloads.push(self.get_overload_with_default(cls, metadata, self_param, name, ty));
     }
 
     /// Synthesize a method for every non-required field. Thus, this method returns None if all fields are required since no methods are synthesized
@@ -630,6 +649,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut literal_signatures: Vec<OverloadType> = Vec::new();
         for (name, field) in self.names_to_fields(cls, fields) {
             self.gen_pop_overloads_for_field(
+                cls,
                 &metadata,
                 &self_param,
                 Some(name),
@@ -641,6 +661,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         if let ExtraItems::Extra(extra) = self.typed_dict_extra_items_for_cls(cls) {
             self.gen_pop_overloads_for_field(
+                cls,
                 &metadata,
                 &self_param,
                 None,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-pyodide
-Version: 0.59.1
+Version: 0.59.2
 Summary: Pytest plugin for testing applications that use Pyodide
 Project-URL: Homepage, https://github.com/pyodide/pytest-pyodide
 Project-URL: Repository, https://github.com/pyodide/pytest-pyodide

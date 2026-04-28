@@ -51,6 +51,28 @@ class FileWatcher(FileSystemEventHandler):
         observer.start()
         self._observer = observer
 
+    def stop(self, timeout: float = 5.0):
+        observer = getattr(self, "_observer", None)
+        if observer is None:
+            return
+        try:
+            observer.stop()
+            observer.join(timeout=timeout)
+        except Exception:
+            pass
+        for timer in list(self._debounce_timers.values()):
+            try:
+                timer.cancel()
+            except Exception:
+                pass
+        self._debounce_timers.clear()
+        if self._modules_folder_timer is not None:
+            try:
+                self._modules_folder_timer.cancel()
+            except Exception:
+                pass
+            self._modules_folder_timer = None
+
     def dispatch(self, event: FileSystemEvent):
         filepath = Path(event.src_path).absolute()
         filepath_str = str(filepath)

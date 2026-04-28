@@ -12,7 +12,7 @@ classifiers=[
 dynamic = ["version"]
 dependencies = [
     "contrast-agent-lib==0.13.0",
-    "contrast-fireball==0.1.25"
+    "contrast-fireball==0.1.26"
 ]
 description = "Contrast Security's agent for Python web frameworks"
 keywords = ["security development"]
@@ -28,7 +28,7 @@ readme = "README.md"
 
 [project.optional-dependencies]
 debug = [
-    "viztracer>=0.16.3,<1.1.0"
+    "viztracer>=0.16.3,<1.2.0"
 ]
 
 [project.urls]
@@ -46,7 +46,7 @@ debug = [
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2,<10"]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2,<11"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -56,7 +56,7 @@ write_to = "src/contrast/version.py"
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 extend-exclude = [
   "src/contrast_vendor/",
   "*.golden",
@@ -101,6 +101,9 @@ ignore = [
 
 
 [tool.ruff.lint.extend-per-file-ignores]
+# don't upgrade sitecustomize for broadcast compatibility, where the agent could be
+# injected into very old Python versions.
+"src/contrast/loader/sitecustomize.py" = ["UP"]
 # https://github.com/astral-sh/ruff/issues/10662
 "tests/**/test_*.py" = ["F811"]
 "tests/**/conftest.py" = ["F811"]
@@ -132,6 +135,7 @@ filterwarnings = [
   "ignore:pkg_resources is deprecated as an API.*:UserWarning:contrast_rewriter",
   "ignore:ast.Ellipsis is deprecated.*:DeprecationWarning",
   "ignore:.*datetime.datetime.utc.*:DeprecationWarning",  # from older dependency or maybe pytest
+  "ignore::DeprecationWarning:google.genai.*",
 
   # defusedxml was deprecated long ago but we still test it.
   "ignore:.*defusedxml.lxml:DeprecationWarning",

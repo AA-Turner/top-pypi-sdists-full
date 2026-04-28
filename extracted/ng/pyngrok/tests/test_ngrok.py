@@ -945,6 +945,33 @@ class TestNgrok(NgrokTestCase):
         with self.assertRaises(PyngrokError):
             ngrok.connect(pyngrok_config=self.pyngrok_config)
 
+    def test_v3_agent_web_addr_false_not_allowed(self):
+        # GIVEN
+        with open(self.pyngrok_config.config_path, "w") as config_file:
+            yaml.dump({"version": "3", "agent": {"web_addr": False}}, config_file)
+
+        # WHEN
+        with self.assertRaises(PyngrokError):
+            ngrok.connect(pyngrok_config=self.pyngrok_config)
+
+    def test_v3_agent_log_format_json_not_allowed(self):
+        # GIVEN
+        with open(self.pyngrok_config.config_path, "w") as config_file:
+            yaml.dump({"version": "3", "agent": {"log_format": "json"}}, config_file)
+
+        # WHEN
+        with self.assertRaises(PyngrokError):
+            ngrok.connect(pyngrok_config=self.pyngrok_config)
+
+    def test_v3_agent_log_level_warn_not_allowed(self):
+        # GIVEN
+        with open(self.pyngrok_config.config_path, "w") as config_file:
+            yaml.dump({"version": "3", "agent": {"log_level": "warn"}}, config_file)
+
+        # WHEN
+        with self.assertRaises(PyngrokError):
+            ngrok.connect(pyngrok_config=self.pyngrok_config)
+
     def test_api_request_security_error(self):
         # WHEN
         with self.assertRaises(PyngrokSecurityError):

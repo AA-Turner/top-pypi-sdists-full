@@ -541,7 +541,7 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
         materialization.get("bucket_duration", None) if isinstance(materialization, dict) else f.window_duration
     )
     assert bucket_duration_str is not None
-    bucket_duration_seconds = parse_chalk_duration_s(bucket_duration_str)
+    bucket_duration_seconds = abs(parse_chalk_duration_s(bucket_duration_str))
 
     bucket_start = datetime.fromtimestamp(0, tz=timezone.utc)
     if isinstance(materialization, dict):

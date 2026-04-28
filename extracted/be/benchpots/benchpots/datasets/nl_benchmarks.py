@@ -9,18 +9,24 @@ Preprocessing func for nonlinear benchmarks.
 import nonlinear_benchmarks
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+from typing import Any, Optional, Sequence, Union
 
 from ..utils.logging import logger, print_final_dataset_info
 from ..utils.missingness import create_missingness
 from ..utils.sliding import sliding_window
+from ..utils.task_type import convert_processed_dataset_by_task_type
 
 
 def preprocess_nl_benchmarks(
-    dataset_name,
-    rate,
-    n_steps,
+    dataset_name: str,
+    rate: float,
+    n_steps: int,
     pattern: str = "point",
-    **kwargs,
+    random_state: Optional[int] = None,
+    task_type: str = "imputation",
+    n_pred_steps: int = 1,
+    forecast_feature_indices: Optional[Union[int, Sequence[int]]] = None,
+    **kwargs: Any,
 ) -> dict:
     """Load and preprocess the dataset from nonlinear benchmarks.
 
@@ -48,12 +54,27 @@ def preprocess_nl_benchmarks(
         The missing pattern to apply to the dataset.
         Must be one of ['point', 'subseq', 'block'].
 
+    random_state:
+        Controls the randomness of missingness generation.
+        Pass an int for reproducible missingness masks across runs.
+
+    task_type:
+        Task type for postprocessing. Supported values are
+        ['imputation', 'forecasting', 'classification', 'clustering', 'anomaly_detection'].
+
+    n_pred_steps:
+        Forecasting horizon. Effective only when task_type is 'forecasting'.
+
+    forecast_feature_indices:
+        Target feature indices for forecasting labels. If None, all features are used.
+
     Returns
     -------
     processed_dataset :
         A dictionary containing the processed nonlinear benchmark datasets.
     """
 
+    assert 0 <= rate < 1, f"rate must be in [0, 1), but got {rate}"
     assert n_steps > 0, f"sample_n_steps must be larger than 0, but got {n_steps}"
 
     if dataset_name == "EMPS":
@@ -118,9 +139,9 @@ def preprocess_nl_benchmarks(
         "n_steps": n_steps,
         "n_features": test_X.shape[-1],
         "scaler": scaler,
-        ## Sampling time (delta time) in seconds
+        # Sampling time (delta time) in seconds
         "dt": dt,
-        ## The maximum size of the initial state (i.e., y[:init_state_size]) recommended for use in prediction.
+        # The maximum size of the initial state (i.e., y[:init_state_size]) recommended for use in prediction.
         "init_state_size": init_state_size,
         # train set
         "train_X": train_X,
@@ -130,18 +151,28 @@ def preprocess_nl_benchmarks(
         "test_X": test_X,
     }
 
+    processed_dataset = convert_processed_dataset_by_task_type(
+        processed_dataset,
+        task_type=task_type,
+        n_pred_steps=n_pred_steps,
+        forecast_feature_indices=forecast_feature_indices,
+    )
+
     if rate > 0:
+        if random_state is not None and "random_state" not in kwargs:
+            kwargs["random_state"] = random_state
+
         # hold out ground truth in the original data for evaluation
-        train_X_ori = train_X
-        val_X_ori = val_X
-        test_X_ori = test_X
+        train_X_ori = processed_dataset["train_X"]
+        val_X_ori = processed_dataset["val_X"]
+        test_X_ori = processed_dataset["test_X"]
 
         # mask values in the train set to keep the same with below validation and test sets
-        train_X = create_missingness(train_X, rate, pattern, **kwargs)
+        train_X = create_missingness(processed_dataset["train_X"], rate, pattern, **kwargs)
         # mask values in the validation set as ground truth
-        val_X = create_missingness(val_X, rate, pattern, **kwargs)
+        val_X = create_missingness(processed_dataset["val_X"], rate, pattern, **kwargs)
         # mask values in the test set as ground truth
-        test_X = create_missingness(test_X, rate, pattern, **kwargs)
+        test_X = create_missingness(processed_dataset["test_X"], rate, pattern, **kwargs)
 
         processed_dataset["train_X"] = train_X
         processed_dataset["train_X_ori"] = train_X_ori
@@ -153,6 +184,5 @@ def preprocess_nl_benchmarks(
         processed_dataset["test_X_ori"] = test_X_ori
     else:
         logger.warning("rate is 0, no missing values are artificially added.")
-
-    print_final_dataset_info(train_X, val_X, test_X)
+    print_final_dataset_info(processed_dataset)
     return processed_dataset

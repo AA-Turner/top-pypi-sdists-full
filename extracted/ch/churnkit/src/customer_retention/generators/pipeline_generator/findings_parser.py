@@ -2,12 +2,18 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 import yaml
 
 _PARITY_MODE_ENV_VAR = "CR_FEATURE_SPEC_PARITY_MODE"
 _PARITY_MODES = frozenset({"strict", "warn"})
+
+
+def _resolve_parity_ignored_features(explicit: Optional[Iterable[str]]) -> FrozenSet[str]:
+    if not explicit:
+        return frozenset()
+    return frozenset(str(c) for c in explicit if c)
 
 
 def _resolve_parity_mode(explicit: Optional[str]) -> str:
@@ -204,6 +210,11 @@ class FindingsParser:
         bronze_aggregation_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
         disable_user_extensions: Optional[bool] = None,
         parity_mode: Optional[str] = None,
+        parity_ignored_features: Optional[Iterable[str]] = None,
+        raw_source_path_overrides: Optional[Dict[str, str]] = None,
+        landing_lifecycle_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+        landing_filter_overrides: Optional[Dict[str, str]] = None,
+        landing_drop_columns_overrides: Optional[Dict[str, Iterable[str]]] = None,
     ):
         self._findings_dir = Path(findings_dir)
         self._namespace = namespace
@@ -211,6 +222,47 @@ class FindingsParser:
         self._bronze_aggregation_overrides: Dict[str, Dict[str, Any]] = (
             dict(bronze_aggregation_overrides) if bronze_aggregation_overrides else {}
         )
+        # Dataset-name -> persistent upstream path. When set, the parser swaps
+        # any `raw_source_path` it would have read from findings (e.g. a stale
+        # `global_temp.sps_filtered_case` from a pre-fix NB00 run) with the
+        # operator-supplied upstream path. NB10 cells `1a5c0868` /
+        # `0f3cc762` resolve this dict from `_namespace.original_datasets`
+        # (or paste-fallback `DATASETS_ORIGINAL_FALLBACK`); passing it here
+        # is what makes the in-flight generated landing read from the
+        # persistent upstream WITHOUT re-running NB00 -> NB05.
+        self._raw_source_path_overrides: Dict[str, str] = (
+            dict(raw_source_path_overrides) if raw_source_path_overrides else {}
+        )
+        # Per-dataset NB10-time landing-step overrides. Same shape the
+        # `registry.add_landing_lifecycle_enrichment` / `add_landing_filter`
+        # recommendations would emit, but injected directly without going
+        # through `recommendations.yaml`. Lets the operator finish a run
+        # whose NB00 still uses pre-migration imperative `@cr:user_code`
+        # cells (so the registry never received the `add_landing_*` calls).
+        # `landing_lifecycle_overrides[<ds>]` carries a dict in the shape
+        # `LifecycleEnrichmentConfig.from_dict(...)` accepts; the parser
+        # appends one `LANDING_LIFECYCLE_ENRICHMENT` step to that dataset's
+        # `LandingLayerConfig.lifecycle_enrichments`.
+        # `landing_filter_overrides[<ds>]` carries the predicate string;
+        # the parser appends one `LANDING_FILTER` step.
+        self._landing_lifecycle_overrides: Dict[str, Dict[str, Any]] = (
+            dict(landing_lifecycle_overrides) if landing_lifecycle_overrides else {}
+        )
+        self._landing_filter_overrides: Dict[str, str] = (
+            dict(landing_filter_overrides) if landing_filter_overrides else {}
+        )
+        # `landing_drop_columns_overrides[<ds>]` carries a list of exact column
+        # names to drop from the upstream UC table at landing time, after the
+        # raw read and any rename / filter / lifecycle step. Drops are
+        # case-exact (`df.select(*[c for c in df.columns if c not in set])`)
+        # so a Snowflake quoted-identifier `"opportunity_id"` and the
+        # case-folded `OPPORTUNITY_ID` can be disambiguated rather than both
+        # silently dropped by Spark's case-insensitive `df.drop("...")`.
+        self._landing_drop_columns_overrides: Dict[str, List[str]] = {
+            ds: [str(c) for c in cols]
+            for ds, cols in (landing_drop_columns_overrides or {}).items()
+            if cols
+        }
         self._source_findings_paths: Dict[str, Path] = {}
         self._landing_sibling_findings: Dict[str, ExplorationFindings] = {}
         self._raw_source_columns: Dict[str, Set[str]] = {}
@@ -222,6 +274,9 @@ class FindingsParser:
         self._feature_spec: Optional[FeatureSpec] = None
         self._silver_merged_columns_cache: Optional[Set[str]] = None
         self._parity_mode: str = _resolve_parity_mode(parity_mode)
+        self._parity_ignored_features: FrozenSet[str] = _resolve_parity_ignored_features(
+            parity_ignored_features
+        )
         from customer_retention.runtime.flags import is_user_extensions_disabled
         self._ext_disabled: bool = is_user_extensions_disabled(disable_user_extensions)
 
@@ -232,6 +287,39 @@ class FindingsParser:
     @property
     def parity_mode(self) -> str:
         return self._parity_mode
+
+    @property
+    def parity_ignored_features(self) -> FrozenSet[str]:
+        return self._parity_ignored_features
+
+    @property
+    def raw_source_path_overrides(self) -> Dict[str, str]:
+        return dict(self._raw_source_path_overrides)
+
+    @property
+    def landing_lifecycle_overrides(self) -> Dict[str, Dict[str, Any]]:
+        return {k: dict(v) for k, v in self._landing_lifecycle_overrides.items()}
+
+    @property
+    def landing_filter_overrides(self) -> Dict[str, str]:
+        return dict(self._landing_filter_overrides)
+
+    @property
+    def landing_drop_columns_overrides(self) -> Dict[str, List[str]]:
+        return {k: list(v) for k, v in self._landing_drop_columns_overrides.items()}
+
+    def _resolve_raw_source(self, name: str, fallback: Optional[str]) -> Optional[str]:
+        """Apply the operator-supplied raw_source_path override for ``name``.
+
+        Returns the override when present; otherwise the normalized fallback
+        (the value the parser would have used pre-override). Single source of
+        truth for raw_source_path resolution across `_build_source_configs`,
+        `_build_landing_configs`, and `_build_discovered_landing_configs`.
+        """
+        override = self._raw_source_path_overrides.get(name)
+        if override:
+            return _normalize_source_path(str(override))
+        return _normalize_source_path(fallback) if fallback else fallback
 
     def parse(self) -> PipelineConfig:
         self._feature_spec = self._load_feature_spec()
@@ -264,6 +352,7 @@ class FindingsParser:
         if recommendations_registry:
             self._apply_recommendations_to_config(config, recommendations_registry, multi_dataset, source_findings)
             self._apply_event_recommendations(config, recommendations_registry)
+        self._apply_landing_overrides(config)
         config.gold.feature_exclusion_prefixes = self._collect_leakage_exclusion_prefixes(source_findings, multi_dataset)
         self._reconcile_discovered_event_transforms(config, discovered_events)
         self._reconcile_event_post_shaping(config)
@@ -338,7 +427,42 @@ class FindingsParser:
                 spec_path = fallback
         if spec_path is None:
             return None
-        return FeatureSpec.load(spec_path)
+        spec = FeatureSpec.load(spec_path)
+        return self._apply_parity_ignored(spec)
+
+    def _apply_parity_ignored(self, spec: FeatureSpec) -> FeatureSpec:
+        """Return a copy of ``spec`` with ``parity_ignored_features`` removed.
+
+        The on-disk spec is never mutated. Removing ignored features here makes
+        every downstream consumer (parity gate, reconciliation, runtime gate via
+        the patched copy in `_materialize_patched_feature_spec`) see a spec that
+        does not include the user-acknowledged divergent feature, so `NB10`
+        completes without re-running NB08. ``fitted_transforms`` for the ignored
+        column are also dropped so `FeatureSpec.validate()` still passes.
+        """
+        ignored = self._parity_ignored_features
+        if not ignored:
+            return spec
+        recognized = ignored & set(spec.selected_features)
+        if not recognized:
+            return spec
+        from dataclasses import replace
+        kept_features = [c for c in spec.selected_features if c not in recognized]
+        kept_transforms = [ft for ft in spec.fitted_transforms if ft.column not in recognized]
+        kept_topology = [
+            step for step in spec.transform_topology
+            if getattr(step, "column", None) not in recognized
+        ]
+        logger.warning(
+            "PARITY_IGNORED_FEATURES: skipping %d feature(s) from spec parity gate: %s",
+            len(recognized), sorted(recognized),
+        )
+        return replace(
+            spec,
+            selected_features=kept_features,
+            fitted_transforms=kept_transforms,
+            transform_topology=kept_topology,
+        )
 
     def _collect_allowlist_drops(
         self,
@@ -616,9 +740,10 @@ class FindingsParser:
             dataset_info = multi.datasets.get(name)
             is_event = name in multi.event_datasets
             is_excluded = name in multi.excluded_datasets or (dataset_info and dataset_info.excluded)
-            raw_source = _normalize_source_path(
-                dataset_info.raw_source_path or dataset_info.source_path
-                if dataset_info else findings.source_path
+            raw_source = self._resolve_raw_source(
+                name,
+                (dataset_info.raw_source_path or dataset_info.source_path)
+                if dataset_info else findings.source_path,
             )
             time_col = None
             entity_key = findings.identifier_columns[0] if findings.identifier_columns else "id"
@@ -868,6 +993,91 @@ class FindingsParser:
         self._apply_dedup_recommendations(config, registry)
         self._apply_filter_recommendations(config, registry)
         self._apply_landing_recommendations(config, registry)
+
+    @staticmethod
+    def _coerce_lifecycle_override_value(value: Any) -> Dict[str, Any]:
+        if value is None:
+            return {}
+        if isinstance(value, dict):
+            return dict(value)
+        if hasattr(value, "to_dict") and callable(value.to_dict):
+            coerced = value.to_dict()
+            if isinstance(coerced, dict):
+                return dict(coerced)
+        from dataclasses import asdict, is_dataclass
+        if is_dataclass(value) and not isinstance(value, type):
+            return asdict(value)
+        raise TypeError(
+            "landing_lifecycle_overrides values must be a "
+            "LifecycleEnrichmentConfig instance, a dataclass with .to_dict(), "
+            f"or a plain dict; got {type(value).__name__}: {value!r}"
+        )
+
+    def _apply_landing_overrides(self, config: PipelineConfig) -> None:
+        """Inject NB10-time landing filters / lifecycle enrichments per dataset.
+
+        This is the post-recommendations escape hatch: if the operator's NB00
+        still uses pre-migration imperative `@cr:user_code` cells (so the
+        registered overrides chain in `recommendations.yaml.landing` never
+        received the `add_landing_*` calls), NB10 can paste the equivalent
+        config directly into `LANDING_LIFECYCLE_OVERRIDES` /
+        `LANDING_FILTER_OVERRIDES` and the generated landing notebook will
+        replay the same logic at runtime via the existing template branches
+        (`databricks_landing.py.j2` `config.lifecycle_enrichments` /
+        `config.filters`).
+        """
+        for dataset, predicate in self._landing_filter_overrides.items():
+            if not predicate:
+                continue
+            target = config.landing.get(dataset)
+            if target is None:
+                logger.warning(
+                    "landing_filter_overrides: unknown dataset %r (known landing keys: %s); skipping.",
+                    dataset, sorted(config.landing.keys()),
+                )
+                continue
+            target.filters.append(TransformationStep(
+                type=PipelineTransformationType.LANDING_FILTER,
+                column=dataset,
+                parameters={"predicate": str(predicate)},
+                rationale="NB10 LANDING_FILTER_OVERRIDES",
+                source_notebook="NB10",
+            ))
+        for dataset, lifecycle_cfg in self._landing_lifecycle_overrides.items():
+            if not lifecycle_cfg:
+                continue
+            target = config.landing.get(dataset)
+            if target is None:
+                logger.warning(
+                    "landing_lifecycle_overrides: unknown dataset %r (known landing keys: %s); skipping.",
+                    dataset, sorted(config.landing.keys()),
+                )
+                continue
+            coerced_cfg = self._coerce_lifecycle_override_value(lifecycle_cfg)
+            if not coerced_cfg:
+                continue
+            target.lifecycle_enrichments.append(TransformationStep(
+                type=PipelineTransformationType.LANDING_LIFECYCLE_ENRICHMENT,
+                column=dataset,
+                parameters={"config": coerced_cfg},
+                rationale="NB10 LANDING_LIFECYCLE_OVERRIDES",
+                source_notebook="NB10",
+            ))
+        for dataset, drop_cols in self._landing_drop_columns_overrides.items():
+            if not drop_cols:
+                continue
+            target = config.landing.get(dataset)
+            if target is None:
+                logger.warning(
+                    "landing_drop_columns_overrides: unknown dataset %r (known landing keys: %s); skipping.",
+                    dataset, sorted(config.landing.keys()),
+                )
+                continue
+            existing = set(target.drop_columns)
+            for col in drop_cols:
+                if col not in existing:
+                    target.drop_columns.append(col)
+                    existing.add(col)
 
     def _apply_landing_recommendations(
         self, config: PipelineConfig, registry: RecommendationRegistry
@@ -1915,8 +2125,9 @@ class FindingsParser:
                 or "timestamp"
             )
             raw_time_col = self._resolve_raw_time_column(findings)
-            raw_source = _normalize_source_path(
-                dataset_info.raw_source_path or dataset_info.source_path or findings.source_path
+            raw_source = self._resolve_raw_source(
+                event_name,
+                dataset_info.raw_source_path or dataset_info.source_path or findings.source_path,
             )
             source_cfg = next((s for s in config.sources if s.name == event_name), None)
             if not source_cfg:
@@ -2510,7 +2721,7 @@ class FindingsParser:
                 if ms.name == agg_name:
                     ms.granularity = DatasetGranularity.EVENT_LEVEL.value
                     break
-            raw_source = _normalize_source_path(preagg.source_path)
+            raw_source = self._resolve_raw_source(agg_name, preagg.source_path)
             original_target = self._resolve_original_target(preagg, config.target_column)
             config.landing[agg_name] = LandingLayerConfig(
                 source=source_cfg,

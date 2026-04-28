@@ -18,36 +18,9 @@ from pysam.libchtslib cimport hts_idx_t, hts_itr_t, htsFile, \
     tbx_t, kstring_t, BGZF, HTSFile
 
 
-# These functions are put here and not in chtslib.pxd in order
-# to avoid warnings for unused functions.
-cdef extern from "pysam_stream.h" nogil:
-
-    ctypedef struct kstream_t:
-        pass
-
-    ctypedef struct kseq_t:
-        kstring_t name
-        kstring_t comment
-        kstring_t seq
-        kstring_t qual
-
-    kseq_t *kseq_init(BGZF *)
-    int kseq_read(kseq_t *)
-    void kseq_destroy(kseq_t *)
-    kstream_t *ks_init(BGZF *)
-    void ks_destroy(kstream_t *)
-
-    # Retrieve characters from stream until delimiter
-    # is reached placing results in str.
-    int ks_getuntil(kstream_t *,
-                    int delimiter,
-                    kstring_t * str,
-                    int * dret)
-
-
 cdef class tabix_file_iterator:
     cdef BGZF * fh
-    cdef kstream_t * kstream
+    cdef void * unused
     cdef kstring_t buffer
     cdef size_t size
     cdef Parser parser
@@ -109,7 +82,7 @@ cdef class TabixIteratorParsed(TabixIterator):
 cdef class GZIterator:
     cdef object _filename
     cdef BGZF * gzipfile
-    cdef kstream_t * kstream
+    cdef void * unused
     cdef kstring_t buffer
     cdef int __cnext__(self)
     cdef encoding

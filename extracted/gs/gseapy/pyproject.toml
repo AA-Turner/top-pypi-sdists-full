@@ -1,0 +1,104 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools_rust>=1.10"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gseapy"
+version = "1.2.1"
+dynamic = ["readme"]
+description = "Gene Set Enrichment Analysis in Python"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [{ name = "Zhuoqing Fang", email = "fzq518@gmail.com" }]
+keywords = [
+    "Gene Ontology",
+    "GO",
+    "Biology",
+    "Enrichment",
+    "Bioinformatics",
+    "Computational Biology",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Software Development :: Libraries",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.13.0",
+    "scipy",
+    "pandas",
+    "matplotlib>=2.2",
+    "requests"
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pytest",
+    "pytest-cov",
+    "lxml",
+    "twine>=6.1.0"
+]
+test = [
+    "ruff",
+    "pytest",
+    "pytest-cov",
+    "pyyaml",
+    "lxml"
+]
+docs = [
+    "sphinx",
+    "numpydoc",
+    "sphinx-rtd-theme",
+]
+
+[project.scripts]
+gseapy = "gseapy.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/zqfang/gseapy"
+Documentation = "https://gseapy.readthedocs.io/en/latest/"
+Source = "https://github.com/zqfang/GSEApy"
+Tracker = "https://github.com/zqfang/GSEApy/issues"
+
+
+[tool.setuptools.dynamic]
+readme = { file = ["README.rst"] }
+
+[tool.setuptools.packages.find]
+include = ["gseapy*"]
+
+[tool.setuptools.package-data]
+gseapy = ["data/palette.json"]
+
+[tool.uv]
+# Always try to use the latest version found on the system
+python-preference = "only-managed"
+# Development workflow:
+#   uv sync --extra dev      → install editable + dev deps
+#   uv run pytest            → run tests
+#   uv run ruff format gseapy → format code
+#   uv build                 → build wheel + sdist
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gseapy"]
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+testpaths = ["tests", "gseapy"]
+markers = [
+    "network: marks tests that require network access (deselect with '-m \"not network\"')",
+]

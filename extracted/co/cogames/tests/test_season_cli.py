@@ -137,7 +137,11 @@ class _FakeClient:
                 players=[MatchPlayerInfo(policy=policy_version_summary(), num_agents=1, score=10.0)],
             ),
         ]
-        self.pool_config: PoolConfigInfo = PoolConfigInfo(pool_name="pool-a", config={"max_steps": 1000})
+        self.pool_config: PoolConfigInfo = PoolConfigInfo(
+            pool_name="pool-a",
+            game_engine="mettagrid",
+            config={"max_steps": 1000},
+        )
         self.last_leaderboard_season: str | None = None
 
     def __enter__(self) -> _FakeClient:
@@ -206,6 +210,29 @@ def fake_client(monkeypatch: pytest.MonkeyPatch) -> _FakeClient:
     client = _FakeClient()
     monkeypatch.setattr(season, "_get_client", lambda *args, **kwargs: client)
     return client
+
+
+def test_get_client_uses_login_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_load_current_cogames_token(login_server: str) -> str:
+        captured["token_login_server"] = login_server
+        return "test-token"
+
+    def fake_tournament_server_client(**kwargs: Any) -> str:
+        captured.update(kwargs)
+        return "client"
+
+    monkeypatch.setattr(season, "load_current_cogames_token", fake_load_current_cogames_token)
+    monkeypatch.setattr(season, "TournamentServerClient", fake_tournament_server_client)
+
+    assert season._get_client(login_server="http://login", server="http://server") == "client"
+    assert captured == {
+        "token_login_server": "http://login",
+        "server_url": "http://server",
+        "token": "test-token",
+        "login_server": "http://login",
+    }
 
 
 def test_season_list_json(fake_client: _FakeClient, monkeypatch: pytest.MonkeyPatch) -> None:

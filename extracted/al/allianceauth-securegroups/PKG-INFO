@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth-securegroups
-Version: 0.10.0
+Version: 0.10.1
 Summary: On its own this app does very little! However it leverages any module that is capable of providing a filter. Giving you the ability to add a very wide range of automatic filtration options your groups.
 Keywords: allianceauth,eveonline
 Author-email: AaronKable <aaronkable@gmail.com>
@@ -26,7 +26,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 License-File: LICENSE
-Requires-Dist: allianceauth>=4,<5
+Requires-Dist: allianceauth>=4
 Project-URL: Homepage, https://github.com/Solar-Helix-Independent-Transport/allianceauth-secure-groups
 Project-URL: Source, https://github.com/Solar-Helix-Independent-Transport/allianceauth-secure-groupss
 Project-URL: Tracker, https://github.com/Solar-Helix-Independent-Transport/allianceauth-secure-groups/issues

@@ -16,13 +16,12 @@ limitations under the License.
 import json
 import os
 from abc import abstractmethod
-from datetime import datetime
 
-from bzt import TaurusConfigError
+from bzt import TaurusConfigError, ToolError
 from bzt.modules import SubprocessedExecutor
 from bzt.modules.aggregator import ResultsReader, ConsolidatingAggregator
 from bzt.utils import TclLibrary, RequiredTool, Node, CALL_PROBLEMS, RESOURCES_DIR, FileReader
-from bzt.utils import get_full_path, is_windows, to_json, dehumanize_time, iteritems
+from bzt.utils import get_full_path, is_windows, is_linux, to_json, dehumanize_time, iteritems
 
 
 class JavaScriptExecutor(SubprocessedExecutor):
@@ -81,10 +80,11 @@ class PlaywrightTester(JavaScriptExecutor):
     """
     def __init__(self):
         super(PlaywrightTester, self).__init__()
+        self.tools_dir = get_full_path("~/.bzt/playwright")
 
     def get_script_path(self, required=False, scenario=None):
         if not self.execution:
-            return "~/.bzt/playwright"
+            return get_full_path("~/.bzt/playwright")
         return super(PlaywrightTester, self).get_script_path(required, scenario)
 
     def prepare(self):
@@ -106,13 +106,13 @@ class PlaywrightTester(JavaScriptExecutor):
         self.node = self._get_tool(Node)
         self.npm = self._get_tool(NPM)
 
-        node_npx_module = self._get_tool(NodeNPXModule, tools_dir=self.get_launch_cwd(), node_tool=self.node, npm_tool=self.npm)
+        npm_playwright_test = self._get_tool(PlaywrightTestPackage, tools_dir=self.get_launch_cwd(), node_tool=self.node, npm_tool=self.npm)
         playwright = self._get_tool(PLAYWRIGHT, tools_dir=self.get_launch_cwd())
         playwright_reporter = self._get_tool(PlaywrightCustomReporter, tools_dir=self.get_launch_cwd(), node_tool=self.node, npm_tool=self.npm)
 
         npm_all_packages = self._get_tool(NPMModuleInstaller,node_tool=self.node, npm_tool=self.npm, tools_dir=self.get_launch_cwd())
 
-        tools = [tcl_lib, self.node, self.npm, node_npx_module, npm_all_packages, playwright, playwright_reporter]
+        tools = [tcl_lib, self.node, self.npm, npm_playwright_test, npm_all_packages, playwright, playwright_reporter]
         self._check_tools(tools)
 
     def get_launch_cmdline(self, *args):
@@ -183,6 +183,26 @@ class PlaywrightTester(JavaScriptExecutor):
     def has_results(self):
         return True
 
+    def check(self):
+        ret_code = self.process.poll()
+        if ret_code is not None:
+            if ret_code != 0:
+                if ret_code == 1 and self._tests_ran():
+                    self.log.debug(
+                        "Playwright process exited with code 1 and tests were run - treating as normal completion"
+                    )
+                    return True
+                msg = "Test runner %s (%s) has failed with retcode %s"
+                raise ToolError(msg % (self.label, self.__class__.__name__, ret_code),
+                                self.get_error_diagnostics())
+            return True
+        return False
+
+    def _tests_ran(self):
+        if self.reader and os.path.exists(self.reader.filename):
+            return os.path.getsize(self.reader.filename) > 0
+        return False
+
 
 class PlaywrightLogReader(ResultsReader):
 
@@ -205,7 +225,7 @@ class PlaywrightLogReader(ResultsReader):
                    self._safe_ms_to_s(content.get("duration")),
                    self._safe_ms_to_s(content.get("connectTime", None)),
                    self._safe_ms_to_s(content.get("latency",  None)),
-                   1 - int(content.get("ok", True)),
+                   None,
                    content.get("error", None),
                    content.get("runDetails", None),
                    content.get("byte_count", 0))
@@ -484,7 +504,7 @@ class NPMModuleInstaller(NPMLocalModulePackage):
 
 
 class Mocha(NPMPackage):
-    PACKAGE_NAME = "mocha@10.6.0"
+    PACKAGE_NAME = "mocha@11.7.5"
 
 
 class JSSeleniumWebdriver(NPMPackage):
@@ -500,10 +520,6 @@ class Newman(NPMPackage):
         tool_path = "%s/node_modules/%s/bin/newman.js" % (tools_dir, self.PACKAGE_NAME)
         super(Newman, self).__init__(tool_path=tool_path, tools_dir=tools_dir, **kwargs)
 
-class NodeNPXModule(NPMModulePackage):
-    PACKAGE_NAME = "npx@11.4.2"
-
-
 class TaurusMochaPlugin(RequiredTool):
     def __init__(self, **kwargs):
         tool_path = os.path.join(RESOURCES_DIR, "mocha-taurus-plugin.js")
@@ -513,6 +529,29 @@ class TaurusNewmanPlugin(RequiredTool):
     def __init__(self, **kwargs):
         tool_path = os.path.join(RESOURCES_DIR, "newman-reporter-taurus.js")
         super(TaurusNewmanPlugin, self).__init__(tool_path=tool_path, installable=False, **kwargs)
+
+class PlaywrightTestPackage(NPMPackage):
+    PACKAGE_NAME = "@playwright/test" if os.environ.get("PLAYWRIGHT_TEST_PACKAGE_FORCED_VERSION", None) is None \
+        else "@playwright/test@" + os.environ.get("PLAYWRIGHT_TEST_PACKAGE_FORCED_VERSION")
+
+    def check_if_installed(self):
+        if not super().check_if_installed():
+            return False
+        # Check if installed version is expected version if we force version
+        if os.environ.get("PLAYWRIGHT_TEST_PACKAGE_FORCED_VERSION", None) is None:
+            # Not forcing version, any installed is good
+            return True
+
+        cmdline = [self.npm.tool_path, "list"]
+        try:
+            out, _ = self.call(cmdline)
+            version_changed = self.PACKAGE_NAME not in out
+            if version_changed:
+                self.log.warning("Frozen version not found in installed packages, will re-install %s", self.PACKAGE_NAME)
+            return not version_changed
+        except CALL_PROBLEMS as exc:
+            self.log.debug("%s check of forced version failed: %s", self.PACKAGE_NAME, exc)
+            return False
 
 class PlaywrightCustomReporter(NPMLocalModulePackage):
     PACKAGE_NAME = "@taurus/playwright-custom-reporter@1.0.0"
@@ -533,21 +572,40 @@ class PLAYWRIGHT(RequiredTool):
         return False
 
     def install(self):
-        cmd_line = ["npx", "playwright", "install"]
-        self.install_cmd(cmd_line + ["--with-deps"])
-        self.install_cmd(cmd_line)
-        self.install_cmd(cmd_line + ["chromium"])
-        self.install_cmd(cmd_line + ["firefox"])
-        self.install_cmd(cmd_line + ["webkit"])
+        frozen_version = os.environ.get("PLAYWRIGHT_PACKAGE_FORCED_VERSION", None)
+        package_name = "playwright" if frozen_version is None else "playwright@" + frozen_version
+        version_changed = False
+        if frozen_version:
+            cmdline = ["npm", "list"]
+            try:
+                out, _ = self.call(cmdline)
+                version_changed = package_name not in out
+                if version_changed:
+                    self.log.warning("Frozen version not found in installed packages, will re-install %s", package_name)
+            except CALL_PROBLEMS as exc:
+                self.log.debug("%s check of forced version failed: %s", package_name, exc)
+                version_changed = True
+
+        # npx playwright install is not needed to run again if version did not change and is frozen
+        if frozen_version is None or version_changed:
+            # Do not install deps for browsers if we know it will fail because of user permissions (linux & non-root)
+            if is_linux() and hasattr(os, "geteuid") and os.geteuid() != 0:
+                self.install_cmd(cmdline = ["npx", package_name, "install"])
+            else:
+                self.install_cmd(cmdline = ["npx", package_name, "install", "--with-deps"])
 
     def install_cmd(self, cmdline):
         self.log.debug("Installing Playwright: %s", cmdline)
+        if not os.path.exists(self.tools_dir):
+            self.log.debug("Creating directory: %s", self.tools_dir)
+            os.makedirs(self.tools_dir, exist_ok=True)
+
         try:
             out, err = self.call(cmdline,cwd=self.tools_dir)
         except CALL_PROBLEMS as exc:
             self.log.warning("'%s' install failed: %s", cmdline, exc)
             return
         if out:
-            self.log.debug("%s install stdout: %s", self.tool_name, out)
+            self.log.debug("%s install stdout\n: %s", self.tool_name, out)
         if err:
-            self.log.warning("%s install stderr: %s", self.tool_name, err)
+            self.log.warning("%s install stderr\n: %s", self.tool_name, err)

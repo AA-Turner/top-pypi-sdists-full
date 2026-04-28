@@ -70,6 +70,8 @@ def parse_chalk_duration_s(s: str | timedelta | int | Literal["infinity"]) -> in
         return int(s.total_seconds())
     if isinstance(s, int):
         return int(CHALK_MAX_TIMEDELTA.total_seconds()) if s >= CHALK_MAX_TIMEDELTA.total_seconds() else s
+    if s.startswith("-"):
+        return -_rs_parse_duration_s(s[1:])
     return _rs_parse_duration_s(s)
 
 
@@ -90,6 +92,9 @@ def parse_chalk_duration(s: str | timedelta | int | Literal["infinity", "all"]) 
             + "Read more at https://docs.chalk.ai/api-docs#Duration"
         )
 
+    if s.startswith("-"):
+        ms = _rs_parse_duration_ms(s[1:])
+        return timedelta(milliseconds=-ms)
     ms = _rs_parse_duration_ms(s)
     return timedelta(milliseconds=ms)
 

@@ -6,22 +6,17 @@
 
 """Base classes for Large Language Model services with function calling support."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import uuid
 import warnings
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import (
     Any,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
-    Mapping,
-    Optional,
     Protocol,
-    Sequence,
-    Type,
 )
 
 from loguru import logger
@@ -56,9 +51,9 @@ from pipecat.processors.aggregators.llm_context import (
     LLMContext,
     LLMSpecificMessage,
 )
-from pipecat.processors.frame_processor import FrameDirection
+from pipecat.processors.frame_processor import FrameDirection, FrameProcessorSetup
 from pipecat.services.ai_service import AIService
-from pipecat.services.settings import LLMSettings
+from pipecat.services.settings import LLMSettings, assert_given
 from pipecat.services.websocket_service import WebsocketService
 from pipecat.turns.user_turn_completion_mixin import UserTurnCompletionLLMServiceMixin
 from pipecat.utils.async_tool_cancellation import (
@@ -86,7 +81,7 @@ class FunctionCallResultCallback(Protocol):
     """
 
     async def __call__(
-        self, result: Any, *, properties: Optional[FunctionCallResultProperties] = None
+        self, result: Any, *, properties: FunctionCallResultProperties | None = None
     ) -> None:
         """Call the result callback.
 
@@ -112,14 +107,18 @@ class FunctionCallParams:
             For async function calls (``cancel_on_interruption=False``), call
             it with ``properties=FunctionCallResultProperties(is_final=False)``
             to push intermediate updates before the final result.
+        tool_resources: Application-defined bag of resources (DB handles, clients,
+            state, etc.) shared across tool calls for the pipeline session. Set
+            via ``PipelineTask(..., tool_resources=...)`` and passed by reference.
     """
 
     function_name: str
     tool_call_id: str
     arguments: Mapping[str, Any]
-    llm: "LLMService"
+    llm: LLMService
     context: LLMContext
     result_callback: FunctionCallResultCallback
+    tool_resources: Any = None
 
 
 @dataclass
@@ -139,10 +138,10 @@ class FunctionCallRegistryItem:
             ``function_call_timeout_secs`` for this specific function.
     """
 
-    function_name: Optional[str]
-    handler: FunctionCallHandler | "DirectFunctionWrapper"
+    function_name: str | None
+    handler: FunctionCallHandler | DirectFunctionWrapper
     cancel_on_interruption: bool
-    timeout_secs: Optional[float] = None
+    timeout_secs: float | None = None
 
 
 @dataclass
@@ -168,8 +167,8 @@ class FunctionCallRunnerItem:
     tool_call_id: str
     arguments: Mapping[str, Any]
     context: LLMContext
-    run_llm: Optional[bool] = None
-    group_id: Optional[str] = None
+    run_llm: bool | None = None
+    group_id: str | None = None
 
 
 class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
@@ -207,15 +206,15 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
 
     # OpenAILLMAdapter is used as the default adapter since it aligns with most LLM implementations.
     # However, subclasses should override this with a more specific adapter when necessary.
-    adapter_class: Type[BaseLLMAdapter] = OpenAILLMAdapter
+    adapter_class: type[BaseLLMAdapter] = OpenAILLMAdapter
 
     def __init__(
         self,
         run_in_parallel: bool = True,
         group_parallel_tools: bool = True,
-        function_call_timeout_secs: Optional[float] = None,
+        function_call_timeout_secs: float | None = None,
         enable_async_tool_cancellation: bool = False,
-        settings: Optional[LLMSettings] = None,
+        settings: LLMSettings | None = None,
         **kwargs,
     ):
         """Initialize the LLM service.
@@ -250,13 +249,14 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
         self._enable_async_tool_cancellation: bool = enable_async_tool_cancellation
         self._filter_incomplete_user_turns: bool = False
         self._async_tool_cancellation_enabled: bool = False
-        self._base_system_instruction: Optional[str] = None
+        self._base_system_instruction: str | None = None
         self._adapter = self.adapter_class()
-        self._functions: Dict[Optional[str], FunctionCallRegistryItem] = {}
-        self._function_call_tasks: Dict[Optional[asyncio.Task], FunctionCallRunnerItem] = {}
-        self._sequential_runner_task: Optional[asyncio.Task] = None
-        self._skip_tts: Optional[bool] = None
-        self._summary_task: Optional[asyncio.Task] = None
+        self._functions: dict[str | None, FunctionCallRegistryItem] = {}
+        self._function_call_tasks: dict[asyncio.Task | None, FunctionCallRunnerItem] = {}
+        self._sequential_runner_task: asyncio.Task | None = None
+        self._skip_tts: bool | None = None
+        self._summary_task: asyncio.Task | None = None
+        self._tool_resources: Any = None
 
         self._register_event_handler("on_function_calls_started")
         self._register_event_handler("on_function_calls_cancelled")
@@ -284,9 +284,9 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
     async def run_inference(
         self,
         context: LLMContext,
-        max_tokens: Optional[int] = None,
-        system_instruction: Optional[str] = None,
-    ) -> Optional[str]:
+        max_tokens: int | None = None,
+        system_instruction: str | None = None,
+    ) -> str | None:
         """Run a one-shot, out-of-band (i.e. out-of-pipeline) inference with the given LLM context.
 
         Must be implemented by subclasses.
@@ -302,6 +302,15 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
             The LLM's response as a string, or None if no response is generated.
         """
         raise NotImplementedError(f"run_inference() not supported by {self.__class__.__name__}")
+
+    async def setup(self, setup: FrameProcessorSetup):
+        """Set up the LLM service.
+
+        Args:
+            setup: The frame processor setup data.
+        """
+        await super().setup(setup)
+        self._tool_resources = setup.tool_resources
 
     async def start(self, frame: StartFrame):
         """Start the LLM service.
@@ -352,6 +361,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
             parts.append(ASYNC_TOOL_CANCELLATION_INSTRUCTIONS)
         composed = "\n\n".join(p for p in parts if p)
         self._settings.system_instruction = composed or None
+        logger.debug(f"{self}: System instruction composed: {self._settings.system_instruction}")
 
     async def _update_settings(self, delta: LLMSettings) -> dict[str, Any]:
         """Apply a settings delta, handling turn-completion fields.
@@ -382,7 +392,9 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
                 self._base_system_instruction = None
 
         if "user_turn_completion_config" in changed and self._filter_incomplete_user_turns:
-            self.set_user_turn_completion_config(self._settings.user_turn_completion_config)
+            self.set_user_turn_completion_config(
+                assert_given(self._settings.user_turn_completion_config)
+            )
             self._compose_system_instruction()
 
         if (
@@ -495,7 +507,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
                 self._generate_summary(frame),
                 timeout=timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             await self.push_error(error_msg=f"Context summarization timed out after {timeout}s")
         except Exception as e:
             error = f"Error generating context summary: {e}"
@@ -580,11 +592,11 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
 
     def register_function(
         self,
-        function_name: Optional[str],
+        function_name: str | None,
         handler: Any,
         *,
         cancel_on_interruption: bool = True,
-        timeout_secs: Optional[float] = None,
+        timeout_secs: float | None = None,
     ):
         """Register a function handler for LLM function calls.
 
@@ -621,7 +633,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
         handler: DirectFunction,
         *,
         cancel_on_interruption: bool = True,
-        timeout_secs: Optional[float] = None,
+        timeout_secs: float | None = None,
     ):
         """Register a direct function handler for LLM function calls.
 
@@ -653,7 +665,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
             timeout_secs=timeout_secs,
         )
 
-    def unregister_function(self, function_name: Optional[str]):
+    def unregister_function(self, function_name: str | None):
         """Remove a registered function handler.
 
         Args:
@@ -725,7 +737,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
                 logger.warning(
                     f"{self} is calling '{function_call.function_name}', but it's not registered."
                 )
-                continue
+                item = self._build_missing_function_call_registry_item(function_call.function_name)
 
             runner_items.append(
                 FunctionCallRunnerItem(
@@ -782,12 +794,21 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
             await self._sequential_runner_queue.put(runner_item)
 
     async def _run_function_call(self, runner_item: FunctionCallRunnerItem):
+        # Re-resolve the registry item at execution time. The function may have
+        # been unregistered between queuing and execution, in which case we
+        # fall back to the missing-function handler so the call still terminates
+        # with a normal tool result.
         if runner_item.function_name in self._functions.keys():
             item = self._functions[runner_item.function_name]
         elif None in self._functions.keys():
             item = self._functions[None]
+        elif runner_item.registry_item.handler == self._missing_function_call_handler:
+            item = runner_item.registry_item
         else:
-            return
+            logger.warning(
+                f"{self} is calling '{runner_item.function_name}', but it was just unregistered."
+            )
+            item = self._build_missing_function_call_registry_item(runner_item.function_name)
 
         logger.debug(
             f"{self} Calling function [{runner_item.function_name}:{runner_item.tool_call_id}] with arguments {runner_item.arguments}"
@@ -806,12 +827,12 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
             group_id=runner_item.group_id,
         )
 
-        timeout_task: Optional[asyncio.Task] = None
+        timeout_task: asyncio.Task | None = None
 
         # Single callback for both intermediate updates and final results.
         # Pass properties=FunctionCallResultProperties(is_final=False) for updates.
         async def function_call_result_callback(
-            result: Any, *, properties: Optional[FunctionCallResultProperties] = None
+            result: Any, *, properties: FunctionCallResultProperties | None = None
         ):
             is_final = properties.is_final if properties else True
             if not is_final and item.cancel_on_interruption:
@@ -873,6 +894,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
                         llm=self,
                         context=runner_item.context,
                         result_callback=function_call_result_callback,
+                        tool_resources=self._tool_resources,
                     ),
                 )
             else:
@@ -884,6 +906,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
                     llm=self,
                     context=runner_item.context,
                     result_callback=function_call_result_callback,
+                    tool_resources=self._tool_resources,
                 )
                 await item.handler(params)
         except Exception as e:
@@ -893,6 +916,20 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
         finally:
             if timeout_task and not timeout_task.done():
                 await self.cancel_task(timeout_task)
+
+    def _build_missing_function_call_registry_item(
+        self, function_name: str
+    ) -> FunctionCallRegistryItem:
+        """Build a registry item that routes to the missing-function handler."""
+        return FunctionCallRegistryItem(
+            function_name=function_name,
+            handler=self._missing_function_call_handler,
+            cancel_on_interruption=True,
+        )
+
+    async def _missing_function_call_handler(self, params: FunctionCallParams):
+        """Return a terminal tool result when the LLM calls an unknown function."""
+        await params.result_callback(f"Error: function '{params.function_name}' is not registered.")
 
     def _has_async_tools(self) -> bool:
         """Return True if at least one non-builtin async tool is registered."""
@@ -940,7 +977,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
         self._functions.pop(CANCEL_ASYNC_TOOL_NAME, None)
         self._compose_system_instruction()
 
-    async def _cancel_async_tool_call_handler(self, params: "FunctionCallParams"):
+    async def _cancel_async_tool_call_handler(self, params: FunctionCallParams):
         """Handle a ``cancel_async_tool_call`` invocation from the LLM.
 
         Args:
@@ -948,7 +985,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
         """
         logger.debug(f"{self}: cancel_async_tool_call invoked")
 
-        tool_call_id: Optional[str] = params.arguments.get("tool_call_id")
+        tool_call_id: str | None = params.arguments.get("tool_call_id")
         if not tool_call_id:
             logger.warning(f"{self} cancel_async_tool_call called with no tool_call_id")
             await params.result_callback({"cancelled": None})
@@ -1003,7 +1040,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService):
         if cancelled_items:
             await self._call_event_handler("on_function_calls_cancelled", cancelled_items)
 
-    async def _cancel_function_call(self, function_name: Optional[str]):
+    async def _cancel_function_call(self, function_name: str | None):
         cancelled_tasks = set()
         cancelled_items = []
         for task, runner_item in self._function_call_tasks.items():

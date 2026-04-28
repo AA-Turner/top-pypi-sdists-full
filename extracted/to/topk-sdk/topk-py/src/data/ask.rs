@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
-    types::{PyAny, PyDict, PySequence, PyString},
+    types::{PyAny, PyDict},
     IntoPyObjectExt,
 };
 use topk_rs::proto::v1::ctx::ask_result::Message;
@@ -16,8 +16,7 @@ use crate::expr::logical::LogicalExpr;
 pub enum Mode {
     Auto,
     Summarize,
-    Reason,
-    DeepResearch,
+    Research,
 }
 
 impl FromPyObject<'_, '_> for Mode {
@@ -28,17 +27,16 @@ impl FromPyObject<'_, '_> for Mode {
             return match str.as_str() {
                 "auto" => Ok(Mode::Auto),
                 "summarize" => Ok(Mode::Summarize),
-                "reason" => Ok(Mode::Reason),
-                "deep_research" => Ok(Mode::DeepResearch),
+                "research" => Ok(Mode::Research),
                 _ => Err(PyTypeError::new_err(format!(
-                    "Invalid mode: {}. Must be one of: auto, summarize, reason, deep_research",
+                    "Invalid mode: {}. Must be one of: auto, summarize, research",
                     str
                 ))),
             };
         }
 
         Err(PyTypeError::new_err(
-            "Mode must be one of: auto, summarize, reason, deep_research",
+            "Mode must be one of: auto, summarize, research",
         ))
     }
 }
@@ -48,8 +46,7 @@ impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
         match mode {
             Mode::Auto => topk_rs::proto::v1::ctx::Mode::Auto,
             Mode::Summarize => topk_rs::proto::v1::ctx::Mode::Summarize,
-            Mode::Reason => topk_rs::proto::v1::ctx::Mode::Reason,
-            Mode::DeepResearch => topk_rs::proto::v1::ctx::Mode::DeepResearch,
+            Mode::Research => topk_rs::proto::v1::ctx::Mode::Research,
         }
     }
 }
@@ -60,8 +57,10 @@ pub struct Source {
     pub filter: Option<LogicalExpr>,
 }
 
-impl Source {
-    fn from_py_object(obj: &Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+impl FromPyObject<'_, '_> for Source {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
         // If it's a string, treat it as just a dataset name (no filter)
         if let Ok(dataset) = obj.extract::<String>() {
             return Ok(Source {
@@ -72,7 +71,7 @@ impl Source {
 
         // Otherwise, try to extract as a dict
         let dict = obj.cast_exact::<PyDict>().map_err(|_| {
-          PyTypeError::new_err("Source must be a string (dataset name) or a dict with 'dataset' and optional 'filter' keys")
+            PyTypeError::new_err("Source must be a string (dataset name) or a dict with 'dataset' and optional 'filter' keys")
         })?;
 
         let dataset = dict
@@ -93,43 +92,6 @@ impl Source {
     }
 }
 
-pub struct Sources(Vec<Source>);
-
-impl IntoIterator for Sources {
-    type Item = Source;
-    type IntoIter = std::vec::IntoIter<Source>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-
-impl From<Sources> for Vec<Source> {
-    fn from(sources: Sources) -> Self {
-        sources.0
-    }
-}
-
-impl FromPyObject<'_, '_> for Sources {
-    type Error = PyErr;
-
-    fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
-        if obj.is_instance_of::<PyString>() {
-            return Err(PyTypeError::new_err(
-                "sources must be a list or tuple, not a string; use [\"dataset_name\"] for a single source",
-            ));
-        }
-        let seq = obj.cast::<PySequence>()?;
-        let len = seq.len()?;
-        let mut sources = Vec::with_capacity(len);
-        for i in 0..len {
-            let item = seq.get_item(i)?;
-            sources.push(Source::from_py_object(&item.as_borrowed())?);
-        }
-        Ok(Sources(sources))
-    }
-}
-
 impl From<Source> for topk_rs::proto::v1::ctx::Source {
     fn from(source: Source) -> Self {
         topk_rs::proto::v1::ctx::Source {
@@ -145,7 +107,7 @@ pub struct Fact {
     #[pyo3(get)]
     fact: String,
     #[pyo3(get)]
-    source_ids: Vec<String>,
+    ref_ids: Vec<String>,
 }
 
 #[pymethods]
@@ -159,7 +121,7 @@ impl From<topk_rs::proto::v1::ctx::Fact> for Fact {
     fn from(f: topk_rs::proto::v1::ctx::Fact) -> Self {
         Fact {
             fact: f.fact,
-            source_ids: f.ref_ids,
+            ref_ids: f.ref_ids,
         }
     }
 }
@@ -320,7 +282,7 @@ pub struct Answer {
     #[pyo3(get)]
     facts: Vec<Fact>,
     #[pyo3(get)]
-    sources: HashMap<String, SearchResult>,
+    refs: HashMap<String, SearchResult>,
 }
 
 #[pymethods]
@@ -338,7 +300,7 @@ pub struct Search {
     #[pyo3(get)]
     facts: Vec<Fact>,
     #[pyo3(get)]
-    sources: HashMap<String, SearchResult>,
+    refs: HashMap<String, SearchResult>,
 }
 
 #[pymethods]
@@ -390,7 +352,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResult {
         match msg {
             Message::Answer(fa) => Ok(AskResult::Answer(Answer {
                 facts: fa.facts.into_iter().map(Fact::from).collect(),
-                sources: fa
+                refs: fa
                     .refs
                     .into_iter()
                     .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
@@ -399,7 +361,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResult {
             Message::Search(sq) => Ok(AskResult::Search(Search {
                 objective: sq.objective,
                 facts: sq.facts.into_iter().map(Fact::from).collect(),
-                sources: sq
+                refs: sq
                     .refs
                     .into_iter()
                     .map(|(k, v)| v.try_into().map(|sr| (k, sr)))

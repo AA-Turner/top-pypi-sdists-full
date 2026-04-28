@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json-stream
-Version: 2.5.0
+Version: 2.5.1
 Summary: Streaming JSON encoder and decoder
 Author-email: Jamie Cockburn <jamie_cockburn@hotmail.co.uk>
 License: Copyright (c) 2020 Jamie Cockburn

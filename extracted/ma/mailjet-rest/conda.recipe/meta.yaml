@@ -30,9 +30,8 @@ requirements:
     {% endfor %}
   run:
     - python
-    {% for dep in pyproject['project']['dependencies'] %}
-    - {{ dep.lower() }}
-    {% endfor %}
+    - requests >=2.33.0
+    - typing-extensions >=4.7.1  # [py<311]
 
 test:
   imports:
@@ -40,19 +39,13 @@ test:
     - mailjet_rest.utils
     - samples
   source_files:
-    - tests/test_client.py
-    - tests/test_version.py
-    - test.py
-    - tests/doc_tests/files/data.csv
+    - tests/unit/
   requires:
     - pip
     - pytest
   commands:
     - pip check
-    # TODO: Add environment variables for tests
-    - pytest tests/test_client.py -vv
-    - pytest tests/test_version.py -vv
-    - pytest test.py -vv
+    - pytest tests/unit/ -v
 
 about:
   home: {{ project['urls']['Homepage'] }}

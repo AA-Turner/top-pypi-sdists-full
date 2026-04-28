@@ -6,6 +6,7 @@ auto-start, health check, and HTTP request with retry.
 
 import http.client
 import json
+import logging
 import os
 import signal
 import subprocess
@@ -19,6 +20,8 @@ from .const import (
     DAEMON_TOKEN_FILE,
     OPS_LOG_FILE,
 )
+
+logger = logging.getLogger(__name__)
 
 _auth_token: str = ""
 _auth_token_store: str = ""
@@ -38,7 +41,7 @@ def _load_token(store_override: str | None = None, *, force: bool = False) -> st
         try:
             _auth_token = token_file.read_text().strip()
         except OSError:
-            pass
+            logger.debug("Failed to read daemon auth token from %s", token_file, exc_info=True)
     return _auth_token
 
 
@@ -59,7 +62,7 @@ def http_request(
         from opentelemetry.propagate import inject
         inject(headers)
     except Exception:
-        pass
+        logger.debug("Failed to inject trace context into daemon request", exc_info=True)
     data = None
     if body is not None:
         data = json.dumps({k: v for k, v in body.items() if v is not None})
@@ -87,10 +90,39 @@ def http_request(
             try:
                 conn.close()
             except Exception:
-                pass
+                logger.debug("Failed to close daemon HTTP connection after error", exc_info=True)
+            logger.debug(
+                "Daemon request attempt %d failed for %s %s",
+                attempt + 1,
+                method,
+                path,
+                exc_info=True,
+            )
             if attempt == 0:
                 time.sleep(0.2)
     raise last_exc  # type: ignore[misc]
+
+
+def http_request_with_discovery_retry(
+    method: str,
+    port: int,
+    path: str,
+    body: dict | None = None,
+    *,
+    store_override: str | None = None,
+    timeout: int = 30,
+) -> tuple[int, dict]:
+    """Make a daemon request, re-resolving the port once on connection loss.
+
+    A daemon can exit between discovery and the first real request. Re-reading
+    discovery files lets CLI/MCP callers survive that restart without
+    duplicating socket-retry policy.
+    """
+    try:
+        return http_request(method, port, path, body, timeout=timeout)
+    except (ConnectionError, TimeoutError, http.client.RemoteDisconnected, OSError):
+        retry_port = get_port(store_override)
+        return http_request(method, retry_port, path, body, timeout=timeout)
 
 
 def resolve_store_path(override: str | None = None) -> Path:
@@ -113,7 +145,7 @@ def resolve_store_path(override: str | None = None) -> Path:
             if val:
                 return Path(val).expanduser().resolve()
         except Exception:
-            pass
+            logger.debug("Failed to read store path from %s", config_file, exc_info=True)
     return config_dir.resolve()
 
 
@@ -152,6 +184,7 @@ def check_health(port: int) -> bool:
     except SystemExit:
         raise
     except Exception:
+        logger.debug("Daemon health check failed for port %s", port, exc_info=True)
         return False
 
 

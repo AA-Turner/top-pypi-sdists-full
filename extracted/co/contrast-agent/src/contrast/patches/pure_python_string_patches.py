@@ -12,7 +12,13 @@ import _io
 from collections import UserString
 import contrast
 from contrast.agent import scope
-from contrast.agent.assess.utils import is_tracked
+from contrast.agent.assess.utils import (
+    copy_events,
+    copy_tags_to_offset,
+    get_properties,
+    is_tracked,
+    track_string,
+)
 from contrast.agent.policy import patch_manager, registry
 from contrast.agent.assess.policy.propagation_policy import (
     PROPAGATOR_ACTIONS,
@@ -66,6 +72,47 @@ def build_bytearray_join_patch(orig_method, patch_policy):
         return result
 
     return wrap_and_watermark(orig_method, bytearray_join_patch)
+
+
+def build_bytearray_extend_patch(orig_method, patch_policy):
+    del patch_policy
+
+    def bytearray_extend_patch(wrapped, instance, args, kwargs):
+        if scope.in_contrast_or_propagation_scope():
+            return wrapped(*args, **kwargs)
+
+        pre_extend_len = len(instance)
+        source = args[0] if args else None
+
+        result = wrapped(*args, **kwargs)
+
+        with scope.contrast_scope():
+            try:
+                if (
+                    context := contrast.REQUEST_CONTEXT.get()
+                ) is None or context.stop_propagation:
+                    return result
+
+                if source is None:
+                    return result
+
+                source_properties = get_properties(source)
+                if source_properties is None or not source_properties.tags:
+                    return result
+
+                target_properties = track_string(instance)
+                if target_properties is not None:
+                    copy_tags_to_offset(
+                        target_properties, source_properties.tags, pre_extend_len
+                    )
+                    copy_events(target_properties, source_properties)
+                    context.propagated()
+            except Exception as ex:
+                logger.debug("failed to propagate bytearray.extend", exc_info=ex)
+
+        return result
+
+    return wrap_and_watermark(orig_method, bytearray_extend_patch)
 
 
 def build_strtype_join_patch(orig_method, patch_policy):
@@ -358,6 +405,8 @@ def patch_strtype_method(strtype, method_name):
         builder = build_str_format_patch
     elif method_name == "format_map":
         builder = build_str_formatmap_patch
+    elif method_name == "extend":
+        builder = build_bytearray_extend_patch
     elif method_name == "translate" and strtype is str:
         builder = build_track_without_new_event_patch
     else:

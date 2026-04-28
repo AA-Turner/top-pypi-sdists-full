@@ -546,6 +546,9 @@ twine = "*"
                     "custom.example.com:12345",
                 ],
             ),
+            # GHSA-8xgg-v3jj-95m2: credentials embedded in source URLs must
+            # NOT be passed to pip via argv (visible in `ps`/`/proc/<pid>/cmdline`).
+            # `prepare_pip_source_args` strips userinfo from the URL.
             (
                 [
                     {"url": "https://pypi.org/simple"},
@@ -558,7 +561,7 @@ twine = "*"
                     "-i",
                     "https://pypi.org/simple",
                     "--extra-index-url",
-                    "https://user:password@custom.example.com/simple",
+                    "https://custom.example.com/simple",
                     "--trusted-host",
                     "custom.example.com",
                 ],
@@ -572,7 +575,7 @@ twine = "*"
                     "-i",
                     "https://pypi.org/simple",
                     "--extra-index-url",
-                    "https://user:password@custom.example.com/simple",
+                    "https://custom.example.com/simple",
                 ],
             ),
             (
@@ -584,7 +587,7 @@ twine = "*"
                 ],
                 [
                     "-i",
-                    "https://user:password@custom.example.com/simple",
+                    "https://custom.example.com/simple",
                     "--trusted-host",
                     "custom.example.com",
                 ],
@@ -599,6 +602,46 @@ twine = "*"
         sources = [{}]
         with pytest.raises(PipenvUsageError):
             indexes.prepare_pip_source_args(sources, pip_args=None)
+
+    @pytest.mark.utils
+    @pytest.mark.parametrize(
+        "sources",
+        [
+            [
+                {
+                    "url": "https://user:SuperSecret123@10.255.255.1/simple",
+                    "verify_ssl": True,
+                    "name": "private",
+                }
+            ],
+            [
+                {"url": "https://pypi.org/simple"},
+                {
+                    "url": "https://__token__:gha_top_secret@private.example.com/simple",
+                    "verify_ssl": False,
+                },
+            ],
+        ],
+    )
+    def test_prepare_pip_source_args_does_not_leak_credentials(self, sources):
+        """GHSA-8xgg-v3jj-95m2: credentials embedded in source URLs must not
+        appear in the argv list passed to pip — argv is exposed to other local
+        users via ``ps`` and ``/proc/<pid>/cmdline``.
+        """
+        args = indexes.prepare_pip_source_args(sources, pip_args=None)
+        joined = " ".join(args)
+        for source in sources:
+            url = source["url"]
+            from urllib.parse import urlparse
+
+            parsed = urlparse(url)
+            if parsed.password:
+                assert parsed.password not in joined, (
+                    f"Password for {url} leaked into pip argv: {args}"
+                )
+            if parsed.username:
+                # Userinfo (whether name or token) must also be stripped.
+                assert f"{parsed.username}@" not in joined
 
     @pytest.mark.utils
     def test_project_python_tries_python3_before_python_if_system_is_true(self):
@@ -1148,6 +1191,39 @@ class TestPipfilePythonOverride:
         proj.pipfile_exists = False
         override = _get_pipfile_python_override(proj)
         assert override is None
+
+    @pytest.mark.utils
+    @pytest.mark.parametrize(
+        "spec",
+        [">=3.9", "<=3.12", ">=3.9,<4", "~=3.9", "!=3.11", ">3.9", "<3.12", "==3.11"],
+    )
+    def test_override_python_version_specifier_returns_none(self, monkeypatch, spec):
+        """PEP 440 specifiers in python_version must not try to be parsed as a
+        single literal version — they should yield no override so the running
+        interpreter's version is used.  See #6645."""
+        from pipenv.utils.resolver import _get_pipfile_python_override
+
+        proj = self._make_project(monkeypatch, {"python_version": spec})
+        assert _get_pipfile_python_override(proj) is None
+
+    @pytest.mark.utils
+    def test_override_python_full_version_specifier_returns_none(self, monkeypatch):
+        """python_full_version as a specifier should likewise produce no override."""
+        from pipenv.utils.resolver import _get_pipfile_python_override
+
+        proj = self._make_project(monkeypatch, {"python_full_version": ">=3.9.0"})
+        assert _get_pipfile_python_override(proj) is None
+
+    @pytest.mark.utils
+    def test_resolver_target_py_version_info_none_for_specifier(self, monkeypatch):
+        """target_py_version_info must return None (not attempt int parse) when
+        the Pipfile python_version is a range.  See #6645."""
+        from pipenv.utils.resolver import Resolver
+
+        project = self._make_project(monkeypatch, {"python_version": ">=3.9"})
+        resolver = Resolver(set(), ".", project, sources=[])
+        # Must not raise ValueError: invalid literal for int() …
+        assert resolver.target_py_version_info is None
 
     @pytest.mark.utils
     def test_patched_marker_environment_overrides_python(self):
@@ -2178,3 +2254,105 @@ def test_expand_url_credentials_unset_var_left_unchanged():
     )
     # The raw placeholder must survive intact (no %24, %7B, %7D encoding).
     assert "${NONEXISTENT_VAR_12345}@" in result
+
+
+@pytest.mark.utils
+def test_safe_expandvars_with_explicit_env_does_not_leak_ambient_vars(monkeypatch):
+    monkeypatch.setenv("PIPENV_PROJECT_DIR", "/outer/project")
+    path_value = "/usr/bin:/bin"
+    monkeypatch.setenv("PATH", path_value)
+
+    result = shell.safe_expandvars(
+        "$PIPENV_PROJECT_DIR/marker.txt",
+        env={"PATH": path_value},
+    )
+
+    assert result == "$PIPENV_PROJECT_DIR/marker.txt"
+
+
+class TestTargetMarkerEnvironment:
+    """Tests for _target_marker_environment (GH-6647).
+
+    Install-time marker filtering must use the venv's Python version, not the
+    interpreter running pipenv itself.  Otherwise packages that apply to the
+    target Python are wrongly skipped when pipenv is driven by a different
+    system Python (e.g. system Python 3.10 running ``pipenv sync --python 3.12``).
+    """
+
+    @pytest.mark.utils
+    def test_returns_override_when_venv_python_differs(self, monkeypatch):
+        from pipenv.routines import install
+
+        venv_version = "3.12.3"
+        project = mock.MagicMock()
+        project.virtualenv_exists = True
+        project._which.return_value = "/fake/venv/bin/python"
+        monkeypatch.setattr(
+            install, "_python_version_for_path", lambda _path: venv_version
+        )
+        # Force the running interpreter to look like something other than the venv.
+        fake_version_info = mock.MagicMock(major=3, minor=10, micro=0)
+        monkeypatch.setattr(install.sys, "version_info", fake_version_info)
+
+        env = install._target_marker_environment(project)
+        assert env == {
+            "python_version": "3.12",
+            "python_full_version": "3.12.3",
+        }
+
+    @pytest.mark.utils
+    def test_returns_none_when_venv_matches_host(self, monkeypatch):
+        from pipenv.routines import install
+
+        running = (
+            f"{install.sys.version_info.major}."
+            f"{install.sys.version_info.minor}."
+            f"{install.sys.version_info.micro}"
+        )
+        project = mock.MagicMock()
+        project.virtualenv_exists = True
+        project._which.return_value = "/fake/venv/bin/python"
+        monkeypatch.setattr(
+            install, "_python_version_for_path", lambda _path: running
+        )
+        assert install._target_marker_environment(project) is None
+
+    @pytest.mark.utils
+    def test_returns_none_when_allow_global(self, monkeypatch):
+        """With allow_global=True the target IS the running interpreter; no override."""
+        from pipenv.routines import install
+
+        project = mock.MagicMock()
+        project.virtualenv_exists = True
+        project._which.return_value = "/fake/venv/bin/python"
+        assert install._target_marker_environment(project, allow_global=True) is None
+
+    @pytest.mark.utils
+    def test_returns_none_when_no_virtualenv(self, monkeypatch):
+        from pipenv.routines import install
+
+        project = mock.MagicMock()
+        project.virtualenv_exists = False
+        assert install._target_marker_environment(project) is None
+
+    @pytest.mark.utils
+    def test_returns_none_when_venv_python_unknown(self, monkeypatch):
+        from pipenv.routines import install
+
+        project = mock.MagicMock()
+        project.virtualenv_exists = True
+        project._which.return_value = "/fake/venv/bin/python"
+        monkeypatch.setattr(install, "_python_version_for_path", lambda _path: None)
+        assert install._target_marker_environment(project) is None
+
+    @pytest.mark.utils
+    def test_marker_evaluation_with_target_env_passes_packages(self, monkeypatch):
+        """A marker like ``python_version >= "3.11"`` must evaluate True when
+        the target venv is Python 3.12 even if pipenv itself runs on 3.10."""
+        from pipenv.patched.pip._vendor.packaging.markers import Marker
+
+        marker = Marker('python_version >= "3.11"')
+        env = {"python_version": "3.12", "python_full_version": "3.12.3"}
+        assert marker.evaluate(environment=env) is True
+        env_low = {"python_version": "3.10", "python_full_version": "3.10.0"}
+        assert marker.evaluate(environment=env_low) is False

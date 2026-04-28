@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Callable, Literal, cast, get_args
+from typing import Literal, cast, get_args
+from collections.abc import Callable
 
 import contrast_fireball
 
@@ -13,9 +14,10 @@ from contrast.utils.stack_trace_utils import StackSummary, build_stack
 
 ApiProvider = Literal[
     "anthropic",
-    "bedrock",
     "bedrock-agent",
+    "bedrock",
     "deepseek",
+    "gemini",
     "openai",
     "vertex",
 ]
@@ -122,6 +124,53 @@ def botocore_log_event_builder(
             api_url=api_url,
             model=model,
             stack=stack,
+        )
+
+    return log_record_attrs
+
+
+def google_genai_log_event_builder(
+    event_dict: EventDict,
+) -> Callable[
+    [Mapping[str, object], object],
+    fireball.LogRecordEvent,
+]:
+    def log_record_attrs(args: Mapping[str, object], result: object):
+        self = args["self"]
+        model = args.get("model")
+
+        # Get API URL from config if present, otherwise from client
+        api_url = None
+        config = args.get("config")
+        if config is not None:
+            # config can be a class or dict
+            http_options = (
+                getattr(config, "http_options", None)
+                if not isinstance(config, dict)
+                else config.get("http_options")
+            )
+            if http_options is not None:
+                api_url = (
+                    getattr(http_options, "base_url", None)
+                    if not isinstance(http_options, dict)
+                    else http_options.get("base_url")
+                )
+
+        # Get the API client - some objects have _api_client directly (Models, Batches),
+        # others have it through _modules (Chats)
+        api_client = getattr(self, "_api_client", None)
+        if api_client is None:
+            api_client = self._modules._api_client
+
+        if api_url is None:
+            api_url = str(api_client._http_options.base_url)
+
+        api_provider = "vertex" if api_client.vertexai else "gemini"
+
+        return ai_usage_event(
+            api_provider=api_provider,
+            api_url=api_url,
+            model=model,
         )
 
     return log_record_attrs

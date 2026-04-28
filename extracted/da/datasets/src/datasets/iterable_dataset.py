@@ -58,7 +58,7 @@ from .formatting import (
 from .info import DatasetInfo
 from .naming import _split_re
 from .splits import NamedSplit, Split, SplitInfo
-from .table import cast_table_to_features, embed_table_storage, read_schema_from_file, table_cast
+from .table import _batch_arrow_table, cast_table_to_features, embed_table_storage, read_schema_from_file, table_cast
 from .utils import tqdm as hf_tqdm
 from .utils.logging import get_logger
 from .utils.py_utils import (
@@ -3428,10 +3428,11 @@ class IterableDataset(DatasetInfoMixin):
                 force_convert_to_arrow=True,
             )
         else:
-            if self._formatting and self._ex_iterable.iter_arrow:
-                ex_iterable = RebatchedArrowExamplesIterable(
-                    self._ex_iterable, batch_size=batch_size if batched else 1, drop_last_batch=drop_last_batch
-                )
+            if self._ex_iterable.iter_arrow:
+                if self._formatting or input_features:
+                    ex_iterable = RebatchedArrowExamplesIterable(
+                        self._ex_iterable, batch_size=batch_size if batched else 1, drop_last_batch=drop_last_batch
+                    )
             if self._formatting or input_features:
                 # apply formatting after iter_arrow to avoid re-encoding the examples
                 ex_iterable = FormattedExamplesIterable(
@@ -4223,6 +4224,18 @@ class IterableDataset(DatasetInfoMixin):
             features = Features({col: List(feature) for col, feature in self.features.items()})
         else:
             features = None
+        if self._formatting and self._formatting.is_table:
+            return (
+                self.with_format("arrow")
+                .map(
+                    _batch_arrow_table,
+                    batched=True,
+                    batch_size=batch_size,
+                    drop_last_batch=drop_last_batch,
+                    features=features,
+                )
+                .with_format(self._formatting.format_type)
+            )
         return self.map(
             _batch_fn, batched=True, batch_size=batch_size, drop_last_batch=drop_last_batch, features=features
         )

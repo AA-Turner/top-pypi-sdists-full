@@ -286,7 +286,8 @@ def install_default_config(config_path: str,
         else:
             data = copy.deepcopy(data)
 
-        data.update(get_default_config(ngrok_version, config_version))
+        for key, value in get_default_config(ngrok_version, config_version).items():
+            data.setdefault(key, value)
 
         config_dir = os.path.dirname(config_path)
         if not os.path.exists(config_dir):
@@ -316,11 +317,18 @@ def validate_config(data: Dict[str, Any]) -> None:
     :param data: A dictionary of things to be validated as config items.
     :raises: :class:`~pyngrok.exception.PyngrokError`: When a key or value fails validation.
     """
-    if data.get("web_addr", None) is False:
+    if str(data.get("version")) == "3":
+        _validate_config_values(data.get("agent", {}))
+    else:
+        _validate_config_values(data)
+
+
+def _validate_config_values(values: Dict[str, Any]) -> None:
+    if values.get("web_addr", None) is False:
         raise PyngrokError("\"web_addr\" cannot be False, as the ngrok API is a dependency for pyngrok")
-    elif data.get("log_format") == "json":
+    elif values.get("log_format") == "json":
         raise PyngrokError("\"log_format\" must be \"term\" to be compatible with pyngrok")
-    elif data.get("log_level", "info") not in ["info", "debug"]:
+    elif values.get("log_level", "info") not in ["info", "debug"]:
         raise PyngrokError("\"log_level\" must be \"info\" to be compatible with pyngrok")
 
 

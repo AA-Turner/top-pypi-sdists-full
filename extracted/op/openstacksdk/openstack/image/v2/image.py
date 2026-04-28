@@ -32,8 +32,8 @@ class Image(resource.Resource, tag.TagMixin, _download.DownloadMixin):
     allow_commit = True
     allow_delete = True
     allow_list = True
+    allow_patch = True
     commit_method = 'PATCH'
-    commit_jsonpatch = True
 
     # Store all unknown attributes under 'properties' in the object.
     # Remotely they would be still in the resource root

@@ -11,8 +11,8 @@ import threading
 import time
 from typing import (
     Any,
-    Callable,
 )
+from collections.abc import Callable
 from collections.abc import Mapping, Sequence
 from contrast.agent.assess.tag import Tag
 

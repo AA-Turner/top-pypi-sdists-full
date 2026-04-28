@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-llms-azure-openai
-Version: 0.5.3
+Version: 0.5.4
 Summary: llama-index llms azure openai integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT

@@ -2,7 +2,7 @@ from enum import Enum
 from logging import Logger
 from typing import cast
 
-from trilogy.core.enums import Derivation, Granularity
+from trilogy.core.enums import Derivation, FunctionType, Granularity, Purpose
 from trilogy.core.graph import DiGraph
 from trilogy.core.models.build import (
     BuildConcept,
@@ -15,6 +15,46 @@ from trilogy.core.processing.condition_utility import (
     condition_implies_with_extras,
     decompose_condition,
 )
+
+ADDITIVE_ROLLUP_FUNCTIONS = {FunctionType.COUNT, FunctionType.SUM}
+
+
+def _aggregate_signature(
+    concept: BuildConcept,
+) -> tuple[FunctionType, tuple[str, ...]] | None:
+    from trilogy.core.models.build import BuildAggregateWrapper
+
+    if not isinstance(concept.lineage, BuildAggregateWrapper):
+        return None
+    return (
+        concept.lineage.function.operator,
+        tuple(
+            sorted(
+                arg.canonical_address
+                for arg in concept.lineage.function.concept_arguments
+            )
+        ),
+    )
+
+
+def _datasource_materializes_aggregate(
+    datasource: BuildDatasource, concept: BuildConcept
+) -> bool:
+    signature = _aggregate_signature(concept)
+    if signature is None:
+        return False
+    for output in datasource.output_concepts:
+        output_signature = _aggregate_signature(output)
+        if output_signature == signature:
+            return True
+    return False
+
+
+def _datasource_has_aggregate_output(datasource: BuildDatasource) -> bool:
+    return any(
+        _aggregate_signature(output) is not None
+        for output in datasource.output_concepts
+    )
 
 
 class SearchCriteria(Enum):
@@ -54,12 +94,30 @@ def _condition_canonical_addresses(conditions: BuildWhereClause) -> set[str]:
 def datasource_has_filter_sensitive_aggregate(
     ds: BuildDatasource,
     conditions: BuildWhereClause | None,
+    canonical_to_concept: "dict[str, BuildConcept] | None" = None,
 ) -> bool:
     if not conditions or not any(c.is_aggregate for c in ds.output_concepts):
         return False
     condition_addresses = _condition_canonical_addresses(conditions)
     output_addresses = {c.canonical_address for c in ds.output_concepts}
-    return not condition_addresses.issubset(output_addresses)
+    if condition_addresses.issubset(output_addresses):
+        return False
+    # A condition concept reachable via the DS's grain key (e.g. a property
+    # of customer_id when the DS is at customer_id grain) doesn't affect the
+    # aggregate's per-grain computation: the filter is applied at the joined
+    # dim, not here. So treat the WHERE as non-sensitive for this DS.
+    if canonical_to_concept is not None:
+        ds_grain_components = set(ds.grain.components)
+        unreached = condition_addresses - output_addresses
+        if unreached and all(
+            (concept := canonical_to_concept.get(ca)) is not None
+            and concept.purpose == Purpose.PROPERTY
+            and concept.keys
+            and set(concept.keys).issubset(ds_grain_components)
+            for ca in unreached
+        ):
+            return False
+    return True
 
 
 def _datasource_is_exact_match(
@@ -69,6 +127,7 @@ def _datasource_is_exact_match(
     allow_intersection: bool = False,
     allow_filter_application: bool = True,
     relevant_concepts: set[str] | None = None,
+    canonical_to_concept: "dict[str, BuildConcept] | None" = None,
 ) -> bool:
     if not conditions:
         return (
@@ -77,7 +136,9 @@ def _datasource_is_exact_match(
         )
     # Row filters still affect aggregates unless the datasource can apply them.
     if not ds.non_partial_for:
-        if datasource_has_filter_sensitive_aggregate(ds, conditions):
+        if datasource_has_filter_sensitive_aggregate(
+            ds, conditions, canonical_to_concept=canonical_to_concept
+        ):
             return False
         condition_addresses = _condition_canonical_addresses(conditions)
         ds_output_addresses = {c.canonical_address for c in ds.output_concepts}
@@ -90,6 +151,44 @@ def _datasource_is_exact_match(
             and condition_addresses.issubset(requested_addresses)
         ) and requested_addresses.isdisjoint(partial_addresses):
             return True
+        # Preserve partial-aggregate datasources (e.g. `count` non-partial,
+        # `~origin.code` partial) whose condition columns are themselves
+        # non-partial: the partial join keys get upgraded by a non-matching-grain
+        # source via prune_sources_for_aggregates. Without this branch, condition
+        # pruning strips the aggregate before the partial-upgrade step can run.
+        has_aggregate_output = any(c.is_aggregate for c in ds.output_concepts)
+        if (
+            has_aggregate_output
+            and partial_addresses
+            and allow_filter_application
+            and not conditions.existence_arguments
+            and condition_addresses
+            and condition_addresses.issubset(ds_output_addresses - partial_addresses)
+        ):
+            return True
+        # Property-of-key reachability: a condition concept (e.g. `region`)
+        # not in this datasource's outputs is still applicable when its key
+        # (e.g. `customer_id`) is in the datasource's grain. The planner
+        # joins the dim that owns the property and applies the WHERE there.
+        # Only applies to aggregate datasources; granular tables don't
+        # benefit from the dim-join path here.
+        if (
+            has_aggregate_output
+            and canonical_to_concept is not None
+            and allow_filter_application
+            and not conditions.existence_arguments
+            and condition_addresses
+        ):
+            ds_grain_components = set(ds.grain.components)
+            unreached = condition_addresses - ds_output_addresses
+            if unreached and all(
+                (concept := canonical_to_concept.get(ca)) is not None
+                and concept.purpose == Purpose.PROPERTY
+                and concept.keys
+                and set(concept.keys).issubset(ds_grain_components)
+                for ca in unreached
+            ):
+                return True
         if allow_intersection:
             # When conditions are "covered" by another datasource's non_partial_for,
             # a datasource with no overlap is still an exact match (condition handled elsewhere).
@@ -128,6 +227,7 @@ def get_graph_exact_match(
     relevant_concepts: set[str] | None = None,
 ) -> set[str]:
     exact: set[str] = set()
+    canonical_to_concept = {bc.canonical_address: bc for bc in g.concepts.values()}
     for node, ds in g.datasources.items():
         if isinstance(ds, BuildUnionDatasource):
             if _union_is_exact_match(ds, conditions):
@@ -139,6 +239,7 @@ def get_graph_exact_match(
             allow_intersection,
             allow_filter_application,
             relevant_concepts,
+            canonical_to_concept=canonical_to_concept,
         ):
             exact.add(node)
     return exact
@@ -167,7 +268,9 @@ def prune_sources_for_aggregates(
     g: "ReferenceGraph",
     all_concepts: list[BuildConcept],
     logger: Logger,
+    orig_g: "ReferenceGraph | None" = None,
 ) -> None:
+    aggregate_concepts: list[BuildConcept] = []
     required_grains = []
     for x in all_concepts:
         logger.debug(
@@ -175,6 +278,7 @@ def prune_sources_for_aggregates(
         )
         if x.is_aggregate:
             logger.debug(f"Aggregate found: {x.address} at grain {x.grain}")
+            aggregate_concepts.append(x)
             required_grains.append(x.grain)
     # if no aggregates, exit
     logger.debug(f"Required grains for aggregates: {required_grains}")
@@ -186,9 +290,9 @@ def prune_sources_for_aggregates(
     # don't disqualify a precomputed datasource that binds the named form.
     addr_to_canonical = {bc.address: bc.canonical_address for bc in g.concepts.values()}
 
-    def grain_key(grain) -> frozenset[str] | None:
+    def grain_key(grain) -> frozenset[str]:
         if grain.abstract:
-            return None
+            return frozenset()
         return frozenset(addr_to_canonical.get(c, c) for c in grain.components)
 
     required_keys = {grain_key(rg) for rg in required_grains}
@@ -196,13 +300,154 @@ def prune_sources_for_aggregates(
         logger.debug("Multiple required grains found, cannot prune datasources.")
         return
     target = next(iter(required_keys))
+
+    exact_matches = [
+        node
+        for node, ds in g.datasources.items()
+        if isinstance(ds, BuildDatasource)
+        and grain_key(ds.grain) == target
+        and all(_datasource_materializes_aggregate(ds, c) for c in aggregate_concepts)
+    ]
+    if exact_matches:
+        keep = set(exact_matches)
+    else:
+        keep = set()
+        additive = [
+            c
+            for c in aggregate_concepts
+            if (signature := _aggregate_signature(c))
+            and signature[0] in ADDITIVE_ROLLUP_FUNCTIONS
+        ]
+        if len(additive) == len(aggregate_concepts):
+            # A target component is "reachable" from a datasource's grain
+            # either directly (it IS a grain component) or via property-of-key
+            # (it's a Property concept whose key is in the grain). The latter
+            # lets an aggregate at customer_id grain serve a region-grain
+            # query — `region` is a property of `customer_id`, and the merge
+            # will join to a `customers` dim and SUM-roll counts up to region.
+            canonical_to_concept = {
+                bc.canonical_address: bc for bc in g.concepts.values()
+            }
+
+            def _target_reachable(ds_grain: frozenset[str]) -> bool:
+                for tc in target:
+                    if tc in ds_grain:
+                        continue
+                    concept = canonical_to_concept.get(tc)
+                    if concept is None or concept.purpose != Purpose.PROPERTY:
+                        return False
+                    if not concept.keys:
+                        return False
+                    canonical_keys = {addr_to_canonical.get(k, k) for k in concept.keys}
+                    if not canonical_keys.issubset(ds_grain):
+                        return False
+                return True
+
+            for node, ds in g.datasources.items():
+                if not isinstance(ds, BuildDatasource):
+                    continue
+                ds_grain = grain_key(ds.grain)
+                if ds_grain == target:
+                    continue
+                if not _target_reachable(ds_grain):
+                    continue
+                # Address-match (not just signature): the DS must bind a
+                # column under the requested aggregate's exact address.
+                # Signature-only matches let an alias like
+                # `customer_daily_order_count` masquerade as `order_count`,
+                # which the renderer can't emit (no column with that name).
+                ds_output_addresses = {c.address for c in ds.output_concepts}
+                if all(
+                    c.address in ds_output_addresses
+                    and _datasource_materializes_aggregate(ds, c)
+                    for c in additive
+                ):
+                    keep.add(node)
+
+    keep.update(
+        node
+        for node, ds in g.datasources.items()
+        if isinstance(ds, BuildDatasource) and not _datasource_has_aggregate_output(ds)
+    )
+
+    # Partial concepts on kept aggregate datasources that fall on the target
+    # grain — candidates for an upgrade from a non-matching-grain dimension
+    # source. (Computed before pruning `keep` so the re-inject below can see
+    # what was lost to condition pruning earlier.)
+    partials_to_upgrade: set[str] = set()
+    for kept_node in keep:
+        kept_ds = g.datasources.get(kept_node)
+        if not isinstance(kept_ds, BuildDatasource):
+            continue
+        partials_to_upgrade.update(
+            {c.canonical_address for c in kept_ds.partial_concepts} & target
+        )
+
     to_remove = []
     for node, ds in g.datasources.items():
-        if grain_key(ds.grain) != target:
+        if node not in keep:
             logger.debug(f"Removing datasource {node} at grain {ds.grain}")
             to_remove.append(node)
     for node in to_remove:
         g.remove_node(node)
+    # Re-inject upgrade-eligible datasources that condition-pruning removed:
+    # a non-partial source for a partial join key in a kept aggregate is still
+    # useful even if it can't apply the WHERE itself (the aggregate applies it).
+    # Only consider datasources whose grain *is* the partial concept being
+    # upgraded — i.e. dimension tables that enumerate that key. A datasource
+    # that merely references the key as a foreign column (e.g. an `orders` table
+    # with `customer_id`) isn't a full enumerating source.
+    if orig_g is not None and partials_to_upgrade:
+        for node, ds in orig_g.datasources.items():
+            if node in g.datasources or isinstance(ds, BuildUnionDatasource):
+                continue
+            ds_partial = {c.canonical_address for c in ds.partial_concepts}
+            ds_grain_components = grain_key(ds.grain) or frozenset()
+            # Only re-inject single-grain dimension tables whose grain key
+            # *enumerates* the partial concept being upgraded — either
+            # directly (the grain key IS the partial concept) or as a 1:1
+            # PROPERTY of the grain key. Foreign-key references (e.g. an
+            # `orders` table that mentions `customer_id` at order_id grain)
+            # are not full enumerators and must not be re-injected.
+            if len(ds_grain_components) != 1:
+                continue
+            sole_key = next(iter(ds_grain_components))
+            relevant = False
+            for upgrade_addr in partials_to_upgrade:
+                if upgrade_addr in ds_partial:
+                    continue
+                if upgrade_addr == sole_key:
+                    relevant = True
+                    break
+                concept = orig_g.concepts.get("c~" + upgrade_addr) or next(
+                    (
+                        c
+                        for c in ds.output_concepts
+                        if c.canonical_address == upgrade_addr
+                    ),
+                    None,
+                )
+                if (
+                    concept is not None
+                    and concept.purpose == Purpose.PROPERTY
+                    and concept.keys
+                    and {k for k in concept.keys} == {sole_key}
+                ):
+                    relevant = True
+                    break
+            if not relevant:
+                continue
+            g.add_node(node)
+            g.datasources[node] = ds
+            for edge in orig_g.edges:
+                if edge[0] != node and edge[1] != node:
+                    continue
+                other = edge[1] if edge[0] == node else edge[0]
+                if other not in g:
+                    g.add_node(other)
+                    if other in orig_g.concepts:
+                        g.concepts[other] = orig_g.concepts[other]
+                g.add_edge(*edge)
     return
 
 

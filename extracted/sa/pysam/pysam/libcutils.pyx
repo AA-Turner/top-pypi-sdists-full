@@ -46,14 +46,19 @@ cpdef array_to_qualitystring(c_array.array qualities, int offset=33):
     """convert an array of quality values to a string."""
     if qualities is None:
         return None
-    cdef int x
 
-    cdef c_array.array result
-    result = c_array.clone(qualities, len(qualities), zero=False)
+    cdef const unsigned char[::1] qualities_view = qualities
+    cdef size_t n = qualities_view.shape[0]
 
-    for x from 0 <= x < len(qualities):
-        result[x] = qualities[x] + offset
-    return force_str(result.tobytes())
+    cdef bytearray result_ba = bytearray(n)
+    cdef unsigned char[::1] result_view = result_ba
+
+    cdef size_t i
+
+    for i in range(n):
+        result_view[i] = qualities_view[i] + offset
+
+    return force_str(bytes(result_ba))
 
 
 cpdef qualities_to_qualitystring(qualities, int offset=33):
@@ -327,14 +332,11 @@ def _pysam_dispatch(collection,
     # redirect stdout to file
     if save_stdout:
         stdout_f = save_stdout
-        stdout_h = c_open(force_bytes(stdout_f),
-                          O_WRONLY|O_CREAT|O_TRUNC, 0666)
+        stdout_f_bytes = force_bytes(stdout_f)
+        stdout_h = c_open(stdout_f_bytes, O_WRONLY|O_CREAT|O_TRUNC, 0666)
         if stdout_h == -1:
             raise OSError_from_errno("Could not redirect standard output", stdout_f)
 
-        samtools_set_stdout_fn(force_bytes(stdout_f))
-        bcftools_set_stdout_fn(force_bytes(stdout_f))
-            
     elif catch_stdout:
         stdout_h, stdout_f = tempfile.mkstemp()
         MAP_STDOUT_OPTIONS = {
@@ -360,13 +362,14 @@ def _pysam_dispatch(collection,
 
         if stdout_option is not None and not is_usage:
             os.close(stdout_h)
-            samtools_set_stdout_fn(force_bytes(stdout_f))
-            bcftools_set_stdout_fn(force_bytes(stdout_f))
+            stdout_f_bytes = force_bytes(stdout_f)
             args.extend(stdout_option.format(stdout_f).split(" "))
             stdout_h = c_open(b"/dev/null", O_WRONLY)
+        else:
+            stdout_f_bytes = None
+
     else:
-        samtools_set_stdout_fn("-")
-        bcftools_set_stdout_fn("-")
+        stdout_f_bytes = b"-"
         if catch_stdout is None: stdout_h = c_dup(STDOUT_FILENO)
         else: stdout_h = c_open(b"/dev/null", O_WRONLY)
 
@@ -397,15 +400,19 @@ def _pysam_dispatch(collection,
 
     # call samtools/bcftools
     if collection == b"samtools":
+        if stdout_f_bytes is not None: samtools_set_stdout_fn(stdout_f_bytes)
         samtools_set_stdout(stdout_h)
         samtools_set_stderr(stderr_h)
         retval = samtools_dispatch(n + 2, cargs)
+        samtools_set_stdout_fn(NULL)
         samtools_close_stdout()
         samtools_close_stderr()
     elif collection == b"bcftools":
+        if stdout_f_bytes is not None: bcftools_set_stdout_fn(stdout_f_bytes)
         bcftools_set_stdout(stdout_h)
         bcftools_set_stderr(stderr_h)
         retval = bcftools_dispatch(n + 2, cargs)
+        bcftools_set_stdout_fn(NULL)
         bcftools_close_stdout()
         bcftools_close_stderr()
     else:

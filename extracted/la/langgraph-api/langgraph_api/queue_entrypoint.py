@@ -34,11 +34,15 @@ shutdown_reason: str | None = None
 
 def _ensure_port_available(host: str, port: int) -> None:
     host = normalize_host(host)
+    # Pin AF_INET6 for IPv6 literals: glibc's getaddrinfo can return EAI_ADDRFAMILY
+    # on IPv6-only hosts when the family is unspecified.
+    family = socket.AF_INET6 if ":" in host else socket.AF_UNSPEC
     last_error: OSError | None = None
     try:
         addrinfos = socket.getaddrinfo(
             host,
             port,
+            family=family,
             type=socket.SOCK_STREAM,
             flags=socket.AI_PASSIVE,
         )

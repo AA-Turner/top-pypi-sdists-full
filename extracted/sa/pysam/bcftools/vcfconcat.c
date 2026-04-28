@@ -1,6 +1,6 @@
 /*  vcfconcat.c -- Concatenate or combine VCF/BCF files.
 
-    Copyright (C) 2013-2023 Genome Research Ltd.
+    Copyright (C) 2013-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -594,6 +594,7 @@ static void concat(args_t *args)
                 bcf1_t *line1 = args->files->nreaders > 1 ? bcf_sr_get_line(args->files,1) : NULL;
                 phased_push(args, line0, line1, is_overlap);
             }
+            if ( args->files->errnum ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
 
             if ( args->files->nreaders )
             {
@@ -617,6 +618,7 @@ static void concat(args_t *args)
                 if ( args->remove_dups ) break;
             }
         }
+        if ( args->files->errnum ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
     }
     else    // concatenate as is
     {
@@ -641,7 +643,7 @@ static void concat(args_t *args)
                 bcf_hdr_remove(hdr, BCF_HL_FMT, NULL);
                 bcf_hdr_destroy(hdr_ori);
             }
-            if ( !fp->is_bin && args->output_type&FT_VCF )
+            if ( !fp->is_bin && args->output_type&FT_VCF && !args->out_fh->idx)
             {
                 line->max_unpack = BCF_UN_STR;
                 // if VCF is on both input and output, avoid VCF to BCF conversion
@@ -662,6 +664,7 @@ static void concat(args_t *args)
                             }
                             str++;
                         }
+                        fp->line.l = str - fp->line.s;
                         str = fp->line.s;
                     }
                     while ( *str && *str!='\t' ) str++;
@@ -891,7 +894,8 @@ static void naive_concat(args_t *args)
         int nskip;
         if ( type.format==bcf )
         {
-            const size_t magic_len = 5 + 4; // "Magic" string + header length
+            // Macro here as magic_len is used in an array declaration.
+            #define magic_len (5 + 4) // "Magic" string + header length.
             uint8_t magic[magic_len];
             if ( bgzf_read(fp, magic, magic_len) != magic_len ) error("\nFailed to read the BCF header in %s\n", args->fnames[i]);
             // First five bytes are the "Magic" string
@@ -904,10 +908,11 @@ static void naive_concat(args_t *args)
             // write only the first header
             if ( i==0 )
             {
-                if ( bgzf_write(bgzf_out, magic, magic_len) != magic_len ) error("\nFailed to write %zu bytes to %s\n", magic_len,args->output_fname);
+                if ( bgzf_write(bgzf_out, magic, magic_len) != magic_len ) error("\nFailed to write %d bytes to %s\n", magic_len,args->output_fname);
                 if ( bgzf_write(bgzf_out, tmp.s, tmp.l) != tmp.l) error("\nFailed to write %"PRId64" bytes to %s\n", (uint64_t)tmp.l,args->output_fname);
             }
             nskip = fp->block_offset;
+            #undef magic_len
         }
         else
         {
@@ -918,7 +923,7 @@ static void naive_concat(args_t *args)
         // Output all non-header data that were read together with the header block
         if ( fp->block_length - nskip > 0 )
         {
-            if ( bgzf_write(bgzf_out, (char *)fp->uncompressed_block+nskip, fp->block_length-nskip)<0 ) error("\nError: %d\n",fp->errcode);
+            if ( bgzf_write(bgzf_out, (char *)fp->uncompressed_block+nskip, fp->block_length-nskip)<0 ) error("\nError: %d\n",bgzf_out->errcode);
         }
         if ( bgzf_flush(bgzf_out)<0 ) error("\nError: %d\n",bgzf_out->errcode);
 
@@ -951,7 +956,7 @@ static void naive_concat(args_t *args)
     }
     free(buf);
     free(tmp.s);
-    if (bgzf_close(bgzf_out) < 0) error("Error: %d\n",bgzf_out->errcode);
+    if (bgzf_close(bgzf_out) < 0) error("Error: %s\n",strerror(errno));
 }
 
 static void usage(args_t *args)
@@ -986,7 +991,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -R, --regions-file FILE        Restrict to regions listed in a file\n");
     fprintf(stderr, "       --regions-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "       --threads INT              Use multithreading with <int> worker threads [0]\n");
-    fprintf(stderr, "   -v, --verbose 0|1              Set verbosity level [1]\n");
+    fprintf(stderr, "   -v, --verbosity INT            Set verbosity level\n");
     fprintf(stderr, "   -W, --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -1008,6 +1013,7 @@ int main_vcfconcat(int argc, char *argv[])
     static struct option loptions[] =
     {
         {"verbose",required_argument,NULL,'v'},
+        {"verbosity",required_argument,NULL,'v'},
         {"naive",no_argument,NULL,'n'},
         {"naive-force",no_argument,NULL,7},
         {"compact-PS",no_argument,NULL,'c'},
@@ -1080,6 +1086,7 @@ int main_vcfconcat(int argc, char *argv[])
             case 'v':
                       args->verbose = strtol(optarg, &tmp, 0);
                       if ( *tmp || args->verbose<0 || args->verbose>1 ) error("Error: currently only --verbose 0 or --verbose 1 is supported\n");
+                      if ( args->verbose > 3 ) hts_verbose = args->verbose;
                       break;
             case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))

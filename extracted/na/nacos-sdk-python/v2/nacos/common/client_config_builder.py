@@ -27,6 +27,10 @@ class ClientConfigBuilder:
         self._config.namespace_id = namespace_id
         return self
 
+    def context_path(self, context_path: str) -> "ClientConfigBuilder":
+        self._config.context_path = ClientConfig._normalize_context_path(context_path)
+        return self
+
     def timeout_ms(self, timeout_ms) -> "ClientConfigBuilder":
         self._config.timeout_ms = timeout_ms
         return self
@@ -107,6 +111,14 @@ class ClientConfigBuilder:
 
     def update_thread_num(self, update_thread_num: int) -> "ClientConfigBuilder":
         self._config.update_thread_num = update_thread_num
+        return self
+
+    def ai_transport_mode(self, ai_transport_mode: str) -> "ClientConfigBuilder":
+        self._config.ai_transport_mode = ai_transport_mode
+        return self
+
+    def ai_prompt_cache_update_interval(self, interval: int) -> "ClientConfigBuilder":
+        self._config.ai_prompt_cache_update_interval = interval
         return self
 
     def build(self):

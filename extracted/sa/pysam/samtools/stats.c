@@ -1,6 +1,6 @@
 /*  stats.c -- This is the former bamcheck integrated into samtools/htslib.
 
-    Copyright (C) 2012-2024 Genome Research Ltd.
+    Copyright (C) 2012-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
     Author: Sam Nicholls <sam@samnicholls.net>
@@ -58,6 +58,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include "samtools.h"
 #include <htslib/khash.h>
 #include <htslib/kstring.h>
+#include <htslib/thread_pool.h>
 #include "stats_isize.h"
 #include "sam_opts.h"
 #include "bedidx.h"
@@ -159,8 +160,25 @@ typedef struct
     char *split_prefix;   // Path or string prefix for filenames created when splitting
     int remove_overlaps;
     int cov_threshold;
+    int ref_stats;      // have statistics on reference data or not, 1 - yes, 0 - no
+    int ref_chunksz;    // size of ref base chunks to retrieve, in bytes
 }
 stats_info_t;
+
+//statistics on reference data
+typedef struct {
+    int32_t refseq_total_count; // total seq count
+    int32_t refseq_count;       // relevant seq count
+    int64_t combinedlen;        // combined length
+    int64_t minlen;             // min length
+    int64_t maxlen;             // max length
+    float avglen;               // avg length
+    float avggc;                // avg GC contents
+    char **refseq_name;         // names of sequences
+    int64_t *reflen;            // ref lengths
+    float *refgc;               // GC contents
+    int64_t *refN;              // undetermined on each
+} refstats;
 
 typedef struct
 {
@@ -260,6 +278,8 @@ typedef struct
     barcode_info_t *tags_barcode;
     uint32_t ntags;
     uint32_t error_number;
+
+    refstats *rstat;                // Reference statistics
 }
 stats_t;
 KHASH_MAP_INIT_STR(c2stats, stats_t*)
@@ -277,6 +297,7 @@ KHASH_SET_INIT_STR(rg)
 static void HTS_NORETURN error(const char *format, ...);
 int is_in_regions(bam1_t *bam_line, stats_t *stats);
 void realloc_buffers(stats_t *stats, int seq_len);
+void destroy_refstats(stats_t *stats);
 
 static int regions_lt(const void *r1, const void *r2) {
     int64_t from_diff = ((hts_pair_pos_t *)r1)->beg - ((hts_pair_pos_t *)r2)->beg;
@@ -745,7 +766,7 @@ void update_checksum(bam1_t *bam_line, stats_t *stats)
     stats->checksum.reads += crc32(0L, seq, (seq_len+1)/2);
 
     uint8_t *qual = bam_get_qual(bam_line);
-    stats->checksum.quals += crc32(0L, qual, (seq_len+1)/2);
+    stats->checksum.quals += crc32(0L, qual, seq_len);
 }
 
 // Collect statistics about the barcode tags specified by init_barcode_tags method
@@ -1254,7 +1275,7 @@ void collect_stats(bam1_t *bam_line, stats_t *stats, khash_t(qn2pair) *read_pair
 
             if ( is_fwd*is_mfwd>0 )
                 stats->isize->inc_other(stats->isize->data, isize);
-            else if ( is_fst*pos_fst>=0 )
+            else if ( is_fst*pos_fst>0 )
             {
                 if ( is_fst*is_fwd>0 )
                     stats->isize->inc_inward(stats->isize->data, isize);
@@ -1267,6 +1288,9 @@ void collect_stats(bam1_t *bam_line, stats_t *stats, khash_t(qn2pair) *read_pair
                     stats->isize->inc_outward(stats->isize->data, isize);
                 else
                     stats->isize->inc_inward(stats->isize->data, isize);
+            } else {
+                // assume that exactly overlapping reads are inwards
+                stats->isize->inc_inward(stats->isize->data, isize);
             }
         }
     }
@@ -1537,7 +1561,7 @@ void output_stats(FILE *to, stats_t *stats, int sparse)
     fprintf(to, "SN\traw total sequences:\t%ld\t# excluding supplementary and secondary reads\n", (long)(stats->nreads_filtered+stats->nreads_1st+stats->nreads_2nd+stats->nreads_other));  // not counting excluded seqs (and none of the below)
     fprintf(to, "SN\tfiltered sequences:\t%ld\n", (long)stats->nreads_filtered);
     fprintf(to, "SN\tsequences:\t%ld\n", (long)(stats->nreads_1st+stats->nreads_2nd+stats->nreads_other));
-    fprintf(to, "SN\tis sorted:\t%d\n", stats->is_sorted ? 1 : 0);
+    fprintf(to, "SN\tis sorted:\t%d\t# %s by coordinate\n", stats->is_sorted ? 1 : 0, stats->is_sorted ? "sorted" : "not sorted");
     fprintf(to, "SN\t1st fragments:\t%ld\n", (long)stats->nreads_1st);
     fprintf(to, "SN\tlast fragments:\t%ld\n", (long)stats->nreads_2nd);
     fprintf(to, "SN\treads mapped:\t%ld\n", (long)(stats->nreads_paired_and_mapped+stats->nreads_single_mapped));
@@ -1821,47 +1845,73 @@ void output_stats(FILE *to, stats_t *stats, int sparse)
             fprintf(to, "IC\t%d\t%ld\t%ld\t%ld\t%ld\n", ilen+1, (long)stats->ins_cycles_1st[ilen], (long)stats->ins_cycles_2nd[ilen], (long)stats->del_cycles_1st[ilen], (long)stats->del_cycles_2nd[ilen]);
     }
 
-    fprintf(to, "# Coverage distribution. Use `grep ^COV | cut -f 2-` to extract this part.\n");
-    if  ( stats->cov[0] )
-        fprintf(to, "COV\t[<%d]\t%d\t%ld\n",stats->info->cov_min,stats->info->cov_min-1, (long)stats->cov[0]);
-    for (icov=1; icov<stats->ncov-1; icov++)
-        if ( stats->cov[icov] )
-            fprintf(to, "COV\t[%d-%d]\t%d\t%ld\n",stats->info->cov_min + (icov-1)*stats->info->cov_step, stats->info->cov_min + icov*stats->info->cov_step-1,stats->info->cov_min + icov*stats->info->cov_step-1, (long)stats->cov[icov]);
-    if ( stats->cov[stats->ncov-1] )
-        fprintf(to, "COV\t[%d<]\t%d\t%ld\n",stats->info->cov_min + (stats->ncov-2)*stats->info->cov_step-1,stats->info->cov_min + (stats->ncov-2)*stats->info->cov_step-1, (long)stats->cov[stats->ncov-1]);
+    if (stats->is_sorted) {
+        fprintf(to, "# Coverage distribution. Use `grep ^COV | cut -f 2-` to extract this part.\n");
+        if  ( stats->cov[0] )
+            fprintf(to, "COV\t[<%d]\t%d\t%ld\n",stats->info->cov_min,stats->info->cov_min-1, (long)stats->cov[0]);
+        for (icov=1; icov<stats->ncov-1; icov++)
+            if ( stats->cov[icov] )
+                fprintf(to, "COV\t[%d-%d]\t%d\t%ld\n",stats->info->cov_min + (icov-1)*stats->info->cov_step, stats->info->cov_min + icov*stats->info->cov_step-1,stats->info->cov_min + icov*stats->info->cov_step-1, (long)stats->cov[icov]);
+        if ( stats->cov[stats->ncov-1] )
+            fprintf(to, "COV\t[%d<]\t%d\t%ld\n",stats->info->cov_min + (stats->ncov-2)*stats->info->cov_step-1,stats->info->cov_min + (stats->ncov-2)*stats->info->cov_step-1, (long)stats->cov[stats->ncov-1]);
 
-    // Calculate average GC content, then sort by GC and depth
-    fprintf(to, "# GC-depth. Use `grep ^GCD | cut -f 2-` to extract this part. The columns are: GC%%, unique sequence percentiles, 10th, 25th, 50th, 75th and 90th depth percentile\n");
-    uint32_t igcd;
-    for (igcd=0; igcd<stats->igcd; igcd++)
-    {
-        if ( stats->info->fai )
-            stats->gcd[igcd].gc = rint(100. * stats->gcd[igcd].gc);
-        else
-            if ( stats->gcd[igcd].depth )
-                stats->gcd[igcd].gc = rint(100. * stats->gcd[igcd].gc / stats->gcd[igcd].depth);
-    }
-    if ( stats->ngcd )
-        qsort(stats->gcd, stats->igcd+1, sizeof(gc_depth_t), gcd_cmp);
-    igcd = 0;
-    while ( igcd < stats->igcd )
-    {
-        // Calculate percentiles (10,25,50,75,90th) for the current GC content and print
-        uint32_t nbins=0, itmp=igcd;
-        float gc = stats->gcd[igcd].gc;
-        while ( itmp<stats->igcd && fabs(stats->gcd[itmp].gc-gc)<0.1 )
+
+        // Calculate average GC content, then sort by GC and depth
+        fprintf(to, "# GC-depth. Use `grep ^GCD | cut -f 2-` to extract this part. The columns are: GC%%, unique sequence percentiles, 10th, 25th, 50th, 75th and 90th depth percentile\n");
+        uint32_t igcd;
+        for (igcd=0; igcd<stats->igcd; igcd++)
         {
-            nbins++;
-            itmp++;
+            if ( stats->info->fai )
+                stats->gcd[igcd].gc = rint(100. * stats->gcd[igcd].gc);
+            else
+                if ( stats->gcd[igcd].depth )
+                    stats->gcd[igcd].gc = rint(100. * stats->gcd[igcd].gc / stats->gcd[igcd].depth);
         }
-        fprintf(to, "GCD\t%.1f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n", gc, (igcd+nbins+1)*100./(stats->igcd+1),
-                gcd_percentile(&(stats->gcd[igcd]),nbins,10) *avg_read_length/stats->info->gcd_bin_size,
-                gcd_percentile(&(stats->gcd[igcd]),nbins,25) *avg_read_length/stats->info->gcd_bin_size,
-                gcd_percentile(&(stats->gcd[igcd]),nbins,50) *avg_read_length/stats->info->gcd_bin_size,
-                gcd_percentile(&(stats->gcd[igcd]),nbins,75) *avg_read_length/stats->info->gcd_bin_size,
-                gcd_percentile(&(stats->gcd[igcd]),nbins,90) *avg_read_length/stats->info->gcd_bin_size
-              );
-        igcd += nbins;
+        if ( stats->ngcd )
+            qsort(stats->gcd, stats->igcd+1, sizeof(gc_depth_t), gcd_cmp);
+        igcd = 0;
+        while ( igcd < stats->igcd )
+        {
+            // Calculate percentiles (10,25,50,75,90th) for the current GC content and print
+            uint32_t nbins=0, itmp=igcd;
+            float gc = stats->gcd[igcd].gc;
+            while ( itmp<stats->igcd && fabs(stats->gcd[itmp].gc-gc)<0.1 )
+            {
+                nbins++;
+                itmp++;
+            }
+            fprintf(to, "GCD\t%.1f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n", gc, (igcd+nbins+1)*100./(stats->igcd+1),
+                    gcd_percentile(&(stats->gcd[igcd]),nbins,10) *avg_read_length/stats->info->gcd_bin_size,
+                    gcd_percentile(&(stats->gcd[igcd]),nbins,25) *avg_read_length/stats->info->gcd_bin_size,
+                    gcd_percentile(&(stats->gcd[igcd]),nbins,50) *avg_read_length/stats->info->gcd_bin_size,
+                    gcd_percentile(&(stats->gcd[igcd]),nbins,75) *avg_read_length/stats->info->gcd_bin_size,
+                    gcd_percentile(&(stats->gcd[igcd]),nbins,90) *avg_read_length/stats->info->gcd_bin_size
+                  );
+            igcd += nbins;
+        }
+    }
+    //reference stats
+    if (stats->rstat) {
+        int i, j, pos = 0;
+        refstats *rs = stats->rstat;
+        fprintf(to, "# Reference statistics. Use `grep ^RFS | cut -f 2-` to extract this part.\n");
+        fprintf(to, "# Total count, Output count, Average GC, Min length, Max length, Average length, Total length in first row.\n");
+        fprintf(to, "# Sequence name, Length, GC content, Unknown count in following rows.\n");
+
+        fprintf(to, "RFS\t%d\t%d\t%.2f\t%"PRId64"\t%"PRId64"\t%.2f\t%"PRId64"\n",
+            rs->refseq_total_count, rs->refseq_count, rs->avggc, rs->minlen,
+            rs->maxlen, rs->avglen, rs->combinedlen);
+        for (i = 0; i < stats->nregions; ++i) {
+            for(j = 0; j < stats->regions[i].npos; ++j) {
+                if (!rs->refseq_name[pos]) {
+                    ++pos;
+                    continue;   //Invalid / empty region, ignore
+                }
+                fprintf(to, "RFS\t%s\t%"PRId64"\t%.2f\t%"PRId64"\n", rs->refseq_name[pos],
+                    rs->reflen[pos], rs->refgc[pos], rs->refN[pos]);
+                ++pos;
+            }
+        }
     }
 }
 
@@ -1879,7 +1929,7 @@ static void init_regions(stats_t *stats, const char *file, stats_info_t* info)
         if ( line.s[0] == '#' ) continue;
 
         int i = 0;
-        while ( i<line.l && !isspace(line.s[i]) ) i++;
+        while ( i<line.l && !isspace_c(line.s[i]) ) i++;
         if ( i>=line.l ) error("Could not parse the file: %s [%s]\n", file, line.s);
         line.s[i] = '\0';
 
@@ -1967,6 +2017,8 @@ void destroy_regions(stats_t *stats)
     }
     if ( stats->regions ) free(stats->regions);
     if ( stats->chunks ) free(stats->chunks);
+    stats->regions = NULL;
+    stats->chunks = NULL;
 }
 
 void reset_regions(stats_t *stats)
@@ -2118,6 +2170,8 @@ error(const char *format, ...)
         printf("    -x, --sparse                        Suppress outputting IS rows where there are no insertions.\n");
         printf("    -p, --remove-overlaps               Remove overlaps of paired-end reads from coverage and base count computations.\n");
         printf("    -g, --cov-threshold <int>           Only bases with coverage above this value will be included in the target percentage computation [0]\n");
+        printf("        --ref-stats                     Create statistics on reference data.\n");
+        printf("        --ref-stats-chunk <int>         Reference retrival chunk size, in Mbs, for reference statistics [1].\n");
         sam_global_opt_help(stdout, "-.--.@-.");
         printf("\n");
     }
@@ -2162,6 +2216,9 @@ void cleanup_stats(stats_t* stats)
     if (stats->acgtno_barcode) free(stats->acgtno_barcode);
     if (stats->quals_barcode) free(stats->quals_barcode);
     free(stats->tags_barcode);
+    if (stats->info->ref_stats) {
+        destroy_refstats(stats);
+    }
     destroy_regions(stats);
     if ( stats->rg_hash ) kh_destroy(rg, stats->rg_hash);
     free(stats->split_name);
@@ -2232,6 +2289,7 @@ stats_info_t* stats_info_init(int argc, char *argv[])
     info->argv = argv;
     info->remove_overlaps = 0;
     info->cov_threshold = 0;
+    info->ref_chunksz = 1024 * 1024;    //1MB
 
     return info;
 }
@@ -2401,6 +2459,208 @@ static stats_t* get_curr_split_stats(bam1_t* bam_line, khash_t(c2stats)* split_h
     return curr_stats;
 }
 
+/// destroy_refstats - cleanup ref stats
+/** @param stats - pointer to stats data
+ * returns nothing
+*/
+void destroy_refstats(stats_t *stats)
+{
+    int i, j, regcnt = 0;
+    refstats *rstat = NULL;
+    if (!stats || !stats->rstat) {
+        return;
+    }
+    rstat = stats->rstat;
+    if (stats->regions && rstat->refseq_name) {
+        for (i = 0; i < stats->nregions; ++i) {
+            for (j = 0; j < stats->regions[i].npos; ++j) {
+                free(rstat->refseq_name[regcnt++]);
+            }
+        }
+        free(rstat->refseq_name);
+    }
+    free(rstat->reflen);
+    free(rstat->refgc);
+    free(rstat->refN);
+    free(rstat);
+}
+
+/// collect_refstats - reference statistics collection
+/** @param stats - pointer to stats data
+ * returns nothing
+ * uses region data when region or targets specified and populates and reuses
+ * the fields when whole file is considered.
+ * stats kept against each region and when ref file not present, uses -1 to
+ * show lack of data.
+ * stats created is about specified target if given, regions if specified or
+ * the whole file
+*/
+void collect_refstats(stats_t *stats)
+{
+    int i, j, k, alltrgts = 0, regcnt = 0, warned = 0;
+    hts_pos_t tmp, start, end, tmpend, rem;
+    refstats *rstat = NULL;
+    char *buf = NULL;
+    const char *name = NULL;
+    float gcsum = 0;
+    int64_t gc, at, cntN;
+    kstring_t regname = KS_INITIALIZE;
+    if (!stats || !stats->info->ref_stats)
+        return;             //nothing to do here
+
+    /*expects this to be called after all processing made as this reuses the
+     regions buffer*/
+    if (!(rstat = calloc(1, sizeof(refstats)))) {
+        error("Failed to allocate memory for reference stats.\n");
+    }
+
+    rstat->refseq_total_count = sam_hdr_nref(stats->info->sam_header);
+    if (!stats->nregions) {
+        //statistics for all seq. in input file
+        alltrgts = 1;
+        regcnt = rstat->refseq_total_count;
+        destroy_regions(stats); //to rebuild region data for all seqs
+        if (!(stats->regions = calloc(regcnt, sizeof(regions_t)))) {
+           error("Failed to allocate memory for reference regions.\n");
+        }
+        stats->nregions = regcnt;
+        for (i = 0; i < stats->nregions; ++i) {
+            stats->regions[i].npos = stats->regions[i].mpos = 1;
+            if (!(stats->regions[i].pos = malloc(sizeof(hts_pair_pos_t)))) {
+                destroy_refstats(stats);
+                destroy_regions(stats); //failed, exit
+                error("Failed to allocate memory for reference pos.\n");
+            }
+            stats->regions[i].pos[0].beg = 1;
+            stats->regions[i].pos[0].end = HTS_POS_MAX;
+        }
+    } else {
+        //statistics matching to these regions, from target file or commandline
+        for (i = 0; i < stats->nregions; ++i) {
+            for (j = 0; j < stats->regions[i].npos; ++j) {
+                ++regcnt;  //count relevant targets
+            }
+        }
+    }
+    if (!(rstat->refseq_name = calloc(regcnt, sizeof(char*))) ||
+        !(rstat->reflen = calloc(regcnt, sizeof(int64_t))) ||
+        !(rstat->refgc = calloc(regcnt, sizeof(float))) ||
+        !(rstat->refN = calloc(regcnt, sizeof(int64_t)))) {
+        destroy_refstats(stats);
+        if (alltrgts) {     //locally allocated regions
+            destroy_regions(stats);
+        }
+        error("Failed to allocate memory for reference data.\n");
+    }
+    regcnt = 0;
+    for (i = 0; i < stats->nregions; ++i) {
+        if (!stats->regions[i].npos) { // empty / non-interested
+            continue;
+        }
+        if (!(name = sam_hdr_tid2name(stats->info->sam_header,  i))) {
+            continue;   //invalid
+        }
+        for (j = 0; j < stats->regions[i].npos; ++j) {
+            //get data for each region
+            start = stats->regions[i].pos[j].beg;
+            end = stats->regions[i].pos[j].end;
+            if (end == HTS_POS_MAX) {
+                end = sam_hdr_tid2len(stats->info->sam_header, i);
+            }
+            if (end < start) {
+                ++regcnt;
+                continue;       //invalid range, ignore
+            }
+
+            ++rstat->refseq_count;
+            if (!alltrgts) {    //given regions alone
+                ks_clear(&regname);
+                tmp = sam_hdr_tid2len(stats->info->sam_header,  i);
+                if (stats->regions[i].pos[j].beg == 1 && stats->regions[i].pos[j].end == HTS_POS_MAX) {
+                    //full seq, use name
+                    ksprintf(&regname, "%s", name);
+                } else {    //range, use name:start-end
+                    ksprintf(&regname, "%s:%"PRIhts_pos"-%"PRIhts_pos, name, start, end);
+                }
+                rstat->refseq_name[regcnt] = regname.l ? strdup(regname.s) : NULL;
+                rstat->reflen[regcnt] = end - start + 1;   //both included
+                rstat->reflen[regcnt] = rstat->reflen[regcnt] < tmp ?
+                                            rstat->reflen[regcnt] : tmp;
+            } else {    //all targets in file
+                rstat->refseq_name[regcnt] = name ? strdup(name) : NULL;
+                rstat->reflen[regcnt] = sam_hdr_tid2len(stats->info->sam_header, i);
+            }
+
+            rstat->combinedlen += rstat->reflen[regcnt];
+            if (!rstat->minlen) rstat->minlen = rstat->reflen[regcnt];
+            if (rstat->minlen > rstat->reflen[regcnt])
+                rstat->minlen = rstat->reflen[regcnt];
+            if (rstat->maxlen < rstat->reflen[regcnt])
+                rstat->maxlen = rstat->reflen[regcnt];
+
+            rstat->refgc[regcnt] = -1;
+            rstat->refN[regcnt] = -1;
+            if (!stats->info->fai) {
+                gcsum = -1;
+                ++regcnt;
+                continue;   //no ref file, ignore
+            }
+
+            --start;        //0 based position
+            gc = 0; at = 0; cntN = 0;
+            for (rem = end - start; rem > 0; rem -= tmp) {
+                tmp = 0;
+                tmpend = rem > stats->info->ref_chunksz ? stats->info->ref_chunksz
+                             : rem;
+                buf = faidx_fetch_seq64(stats->info->fai, sam_hdr_tid2name(stats->info->sam_header, i),
+                    start, start + tmpend - 1, &tmp);   //-1 to make 0 based pos
+                if (tmp < 0 || !buf) {
+                    if (tmp == -2) { //target not found
+                        if (!warned) {
+                            fprintf(stderr,"Warning: Some sequences not present in the reference, e.g. \"%s\".\
+                             This message is printed only once.\n", sam_hdr_tid2name(stats->info->sam_header, i));
+                            warned = 1;
+                        }
+                        break;
+                    }
+                    error("Failed to fetch the sequence \"%s\"\n", sam_hdr_tid2name(stats->info->sam_header, i));
+                }
+                int64_t bc[256] = {0};          //count of bases
+                for (k = 0; k < tmp; ++k) {
+                    ++bc[(uint8_t)*(buf + k)];
+                }
+                //get count of relevant bases
+                gc += bc['G'] + bc['g'] + bc['C'] + bc['c'];
+                at += bc['A'] + bc['a'] + bc['T'] + bc['t'];
+                cntN += bc['N'] + bc['n'];
+                free(buf);
+                if (tmp < tmpend) {
+                    //asked and didnt get whole --> nothing more
+                    break;
+                }
+                start += tmp;
+            }
+            if ((tmp = gc + at)) {
+                rstat->refgc[regcnt] = (float)gc / tmp;
+            } else {
+                rstat->refgc[regcnt] = 0;
+            }
+            gcsum += rstat->refgc[regcnt];
+            rstat->refN[regcnt++] = cntN;
+        }
+    }
+    if (rstat->refseq_count) {
+        rstat->avglen = (float)rstat->combinedlen / rstat->refseq_count;
+        rstat->avggc = gcsum < 0 ? -1 : gcsum / rstat->refseq_count;
+    } else {
+        rstat->avglen = -1;
+        rstat->avggc = -1;
+    }
+    stats->rstat = rstat;
+
+    ks_free(&regname);
+}
+
 int main_stats(int argc, char *argv[])
 {
     char *targets = NULL;
@@ -2409,6 +2669,8 @@ int main_stats(int argc, char *argv[])
     char *group_id = NULL;
     int sparse = 0, has_index_file = 0, ret = 1;
     sam_global_args ga = SAM_GLOBAL_ARGS_INIT;
+    hts_tpool *tpool = NULL;
+    htsThreadPool htspool = {0};
 
     stats_info_t *info = stats_info_init(argc, argv);
     if (!info) {
@@ -2439,6 +2701,8 @@ int main_stats(int argc, char *argv[])
         {"split-prefix", required_argument, NULL, 'P'},
         {"remove-overlaps", no_argument, NULL, 'p'},
         {"cov-threshold", required_argument, NULL, 'g'},
+        {"ref-stats", no_argument, NULL, 2},
+        {"ref-stats-chunk", required_argument, NULL, 3},
         {NULL, 0, NULL, 0}
     };
     int opt, tmp_flag;
@@ -2494,6 +2758,14 @@ int main_stats(int argc, char *argv[])
                       if ( info->cov_threshold < 0 || info->cov_threshold == INT_MAX )
                           error("Unsupported value for coverage threshold %d\n", info->cov_threshold);
                       break;
+            case   2: info->ref_stats = 1; break;           //ref stats
+            case   3: info->ref_chunksz = atoi(optarg);     //in Mbs
+                if (info->ref_chunksz <= 0) {
+                    info->ref_chunksz = 1;
+                }
+                //ref retrieval buffer size in bytes
+                info->ref_chunksz = info->ref_chunksz * 1024 * 1024;
+            break;
             case '?':
             case 'h': error(NULL);
             /* no break */
@@ -2523,8 +2795,14 @@ int main_stats(int argc, char *argv[])
         return 1;
     }
 
-    if (ga.nthreads > 0)
-        hts_set_threads(info->sam, ga.nthreads);
+    if (ga.nthreads > 0 && (tpool = hts_tpool_init(ga.nthreads))) {
+        //q size set automatically and threads shared b/w sam and fai file
+        htspool.pool = tpool;
+        hts_set_thread_pool(info->sam, &htspool);
+        if (info->fai) {
+            fai_thread_pool(info->fai, tpool, 0);
+        }
+    }
 
     stats_t *all_stats = stats_init();
     if (!all_stats) {
@@ -2615,6 +2893,9 @@ int main_stats(int argc, char *argv[])
         }
     }
 
+    if (info->ref_stats) {
+        collect_refstats(all_stats);
+    }
     round_buffer_flush(all_stats, -1);
     output_stats(stdout, all_stats, sparse);
     if (info->split_tag)
@@ -2633,6 +2914,9 @@ cleanup_split_hash:
 cleanup_all_stats:
     cleanup_stats(all_stats);
     cleanup_stats_info(info);
+    if (tpool) {
+        hts_tpool_destroy(tpool);
+    }
 
     return ret;
 }

@@ -3,7 +3,7 @@ members = ["crates/keeper-pam-webrtc-rs", "crates/webrtc-bindings", "crates/guac
 resolver = "2"
 
 [workspace.package]
-version = "2.1.16"
+version = "2.1.17"
 edition = "2021"
 license = "MIT"
 authors = ["Keeper Security Engineering <pam@keepersecurity.com>"]
@@ -75,7 +75,7 @@ pbkdf2 = { version = "0.12", features = ["simple"] }
 hmac = "0.12"
 aes = "0.8"
 cbc = "0.1"
-ed25519-dalek = "2.1"
+ed25519-dalek = { version = "2.1", features = ["hazmat"] }
 rsa = { version = "0.9", features = ["sha1"] }
 zeroize = { version = "1.7", features = ["derive"] }
 rand = "0.8"

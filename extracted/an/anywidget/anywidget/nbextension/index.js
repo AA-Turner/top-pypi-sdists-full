@@ -1,25 +1,157 @@
-// node_modules/.pnpm/@lukeed+uuid@2.0.1/node_modules/@lukeed/uuid/dist/index.mjs
-var IDX = 256;
-var HEX = [];
-var BUFFER;
-while (IDX--) HEX[IDX] = (IDX + 256).toString(16).substring(1);
-function v4() {
-  var i = 0, num, out = "";
-  if (!BUFFER || IDX + 16 > 256) {
-    BUFFER = Array(i = 256);
-    while (i--) BUFFER[i] = 256 * Math.random() | 0;
-    i = IDX = 0;
-  }
-  for (; i < 16; i++) {
-    num = BUFFER[IDX + i];
-    if (i == 6) out += HEX[num & 15 | 64];
-    else if (i == 8) out += HEX[num & 63 | 128];
-    else out += HEX[num];
-    if (i & 1 && i > 1 && i < 11) out += "-";
-  }
-  IDX++;
-  return out;
+// packages/anywidget/src/model-proxy.ts
+var INITIALIZE_MARKER = /* @__PURE__ */ Symbol("anywidget.initialize");
+function modelProxy(model, context) {
+  return {
+    get: model.get.bind(model),
+    set: model.set.bind(model),
+    save_changes: model.save_changes.bind(model),
+    send: model.send.bind(model),
+    on(name, callback) {
+      model.on(name, callback, context);
+    },
+    off(name, callback) {
+      model.off(name, callback, context);
+    },
+    // The widget_manager type is wider than what we want to expose to
+    // developers. In a future version, we will expose a more limited API but
+    // that can wait for a minor version bump.
+    widget_manager: model.widget_manager
+  };
 }
+
+// packages/anywidget/src/util.ts
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+async function safeCleanup(fn, kind) {
+  return Promise.resolve().then(() => fn?.()).catch((e) => console.warn(`[anywidget] error cleaning up ${kind}.`, e));
+}
+function throwAnywidgetError(source) {
+  if (!(source instanceof Error)) {
+    throw source;
+  }
+  let lines = source.stack?.split("\n") ?? [];
+  let anywidgetIndex = lines.findIndex((line) => line.includes("anywidget"));
+  let cleanStack = anywidgetIndex === -1 ? lines : lines.slice(0, anywidgetIndex + 1);
+  source.stack = cleanStack.join("\n");
+  console.error(source);
+  throw source;
+}
+function promiseWithResolvers() {
+  let resolve;
+  let reject;
+  let promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+// packages/anywidget/src/binding.ts
+function isSafeCleanupFunction(x) {
+  return typeof x === "function";
+}
+var WidgetBinding = class {
+  #controller;
+  #widgetDef;
+  #exports;
+  #model;
+  ready;
+  #resolvers;
+  constructor(model) {
+    this.#model = model;
+    this.#resolvers = promiseWithResolvers();
+    this.ready = this.#resolvers.promise;
+  }
+  async bind(widgetDef, { experimental }) {
+    if (this.#widgetDef === widgetDef) return;
+    if (this.#widgetDef && this.#widgetDef !== widgetDef) {
+      this.#controller?.abort();
+      let prevResolvers = this.#resolvers;
+      this.#resolvers = promiseWithResolvers();
+      this.ready = this.#resolvers.promise;
+      prevResolvers.promise.catch(() => {
+      });
+      prevResolvers.reject(new Error("[anywidget] widget bind aborted by re-bind"));
+    }
+    this.#widgetDef = widgetDef;
+    this.#controller = new AbortController();
+    let signal = this.#controller.signal;
+    let model = this.#model;
+    model.off(null, null, INITIALIZE_MARKER);
+    let result = await widgetDef.initialize?.({
+      model: modelProxy(model, INITIALIZE_MARKER),
+      signal,
+      experimental
+    });
+    if (signal.aborted) {
+      await safeCleanup(isSafeCleanupFunction(result) ? result : void 0, "esm update");
+      return;
+    }
+    if (isSafeCleanupFunction(result)) {
+      signal.addEventListener("abort", () => safeCleanup(result, "esm update"));
+      this.#exports = void 0;
+    } else if (typeof result === "object" && result !== null) {
+      this.#exports = result;
+    } else {
+      this.#exports = void 0;
+    }
+    this.#resolvers.resolve(this.#exports);
+  }
+  async createView(target, { signal, experimental, host }) {
+    await this.ready;
+    if (!this.#widgetDef?.render) return;
+    let controller = new AbortController();
+    let combined = AbortSignal.any([signal, controller.signal]);
+    let model = this.#model;
+    let cleanup = await this.#widgetDef.render({
+      model: modelProxy(model, target),
+      el: target.el,
+      signal: combined,
+      host,
+      experimental
+    });
+    let disposeView = (reason) => {
+      model.off(null, null, target);
+      void safeCleanup(cleanup, reason);
+    };
+    if (combined.aborted) {
+      disposeView("dispose view - already aborted");
+      return;
+    }
+    combined.addEventListener("abort", () => disposeView("dispose view - aborted"));
+  }
+  get exports() {
+    return this.#exports;
+  }
+  destroy() {
+    this.#controller?.abort();
+    this.#controller = void 0;
+    this.#widgetDef = void 0;
+  }
+};
+var BindingManager = class {
+  #bindings = /* @__PURE__ */ new Map();
+  getOrCreate(model) {
+    let binding = this.#bindings.get(model);
+    if (!binding) {
+      binding = new WidgetBinding(model);
+      this.#bindings.set(model, binding);
+    }
+    return binding;
+  }
+  get(model) {
+    return this.#bindings.get(model);
+  }
+  destroy(model) {
+    let binding = this.#bindings.get(model);
+    if (binding) {
+      binding.destroy();
+      this.#bindings.delete(model);
+    }
+  }
+};
+var BINDINGS = new BindingManager();
 
 // node_modules/.pnpm/solid-js@1.9.12/node_modules/solid-js/dist/solid.js
 var sharedConfig = {
@@ -571,15 +703,115 @@ function handleError(err, owner = Owner) {
   else runErrors(error, fns, owner);
 }
 
-// packages/anywidget/src/widget.js
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
+// node_modules/.pnpm/@lukeed+uuid@2.0.1/node_modules/@lukeed/uuid/dist/index.mjs
+var IDX = 256;
+var HEX = [];
+var BUFFER;
+while (IDX--) HEX[IDX] = (IDX + 256).toString(16).substring(1);
+function v4() {
+  var i = 0, num, out = "";
+  if (!BUFFER || IDX + 16 > 256) {
+    BUFFER = Array(i = 256);
+    while (i--) BUFFER[i] = 256 * Math.random() | 0;
+    i = IDX = 0;
+  }
+  for (; i < 16; i++) {
+    num = BUFFER[IDX + i];
+    if (i == 6) out += HEX[num & 15 | 64];
+    else if (i == 8) out += HEX[num & 63 | 128];
+    else out += HEX[num];
+    if (i & 1 && i > 1 && i < 11) out += "-";
+  }
+  IDX++;
+  return out;
 }
-function is_href(str) {
+
+// packages/anywidget/src/invoke.ts
+function invoke(model, name, msg, options = {}) {
+  let id = v4();
+  let signal = options.signal ?? AbortSignal.timeout(3e3);
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+    }
+    signal.addEventListener("abort", () => {
+      model.off("msg:custom", handler);
+      reject(signal.reason);
+    });
+    function handler(msg2, buffers) {
+      if (!(msg2.id === id)) return;
+      resolve([msg2.response, buffers]);
+      model.off("msg:custom", handler);
+    }
+    model.on("msg:custom", handler);
+    model.send({ id, kind: "anywidget-command", name, msg }, void 0, options.buffers ?? []);
+  });
+}
+
+// packages/anywidget/src/widget-ref.ts
+var WIDGET_REF_PREFIX = "anywidget:";
+function parseWidgetRef(ref) {
+  if (typeof ref === "string" && ref.startsWith(WIDGET_REF_PREFIX)) {
+    return ref.slice(WIDGET_REF_PREFIX.length);
+  }
+  throw new Error(`[anywidget] Invalid widget reference: ${JSON.stringify(ref)}`);
+}
+
+// packages/anywidget/src/host.ts
+function createHost(model, { signal }) {
+  let host = {
+    // @ts-expect-error - modelProxy returns AnyModel; generic T is erased at runtime
+    async getModel(ref) {
+      let modelId = parseWidgetRef(ref);
+      let childModel = await model.widget_manager.get_model(modelId);
+      let context = /* @__PURE__ */ Symbol("anywidget.host.getModel");
+      signal.addEventListener("abort", () => childModel.off(null, null, context));
+      return modelProxy(childModel, context);
+    },
+    // @ts-expect-error - generic T is erased at runtime, exports typed as unknown
+    async getWidget(ref) {
+      let modelId = parseWidgetRef(ref);
+      let childModel = await model.widget_manager.get_model(modelId);
+      let childBinding = BINDINGS.get(childModel);
+      if (!childBinding) {
+        throw new Error(`[anywidget] No binding found for widget ${modelId}`);
+      }
+      let timer;
+      let exports = await new Promise((resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`[anywidget] Timed out waiting for widget ${modelId} to initialize`)),
+          1e4
+        );
+        childBinding.ready.then(resolve, reject);
+      }).finally(() => clearTimeout(timer));
+      return {
+        exports,
+        async render({ el, signal: viewSignal }) {
+          let childViewSignal = viewSignal ?? signal;
+          await childBinding.createView(
+            { el },
+            {
+              signal: childViewSignal,
+              experimental: {
+                // @ts-expect-error - bind isn't working
+                invoke: invoke.bind(null, childModel)
+              },
+              host
+            }
+          );
+        }
+      };
+    }
+  };
+  return host;
+}
+
+// packages/anywidget/src/load.ts
+function isHref(str) {
   return str.startsWith("http://") || str.startsWith("https://");
 }
-async function load_css_href(href, anywidget_id) {
-  let prev = document.querySelector(`link[id='${anywidget_id}']`);
+async function loadCssHref(href, anywidgetId) {
+  let prev = document.querySelector(`link[id='${anywidgetId}']`);
   if (prev) {
     let newLink = prev.cloneNode();
     newLink.href = href;
@@ -597,26 +829,26 @@ async function load_css_href(href, anywidget_id) {
     document.head.appendChild(link);
   });
 }
-function load_css_text(css_text, anywidget_id) {
-  let prev = document.querySelector(`style[id='${anywidget_id}']`);
+function loadCssText(cssText, anywidgetId) {
+  let prev = document.querySelector(`style[id='${anywidgetId}']`);
   if (prev) {
-    prev.textContent = css_text;
+    prev.textContent = cssText;
     return;
   }
   let style = Object.assign(document.createElement("style"), {
-    id: anywidget_id,
+    id: anywidgetId,
     type: "text/css"
   });
-  style.appendChild(document.createTextNode(css_text));
+  style.appendChild(document.createTextNode(cssText));
   document.head.appendChild(style);
 }
-async function load_css(css, anywidget_id) {
-  if (!css || !anywidget_id) return;
-  if (is_href(css)) return load_css_href(css, anywidget_id);
-  return load_css_text(css, anywidget_id);
+async function loadCss(css, anywidgetId) {
+  if (!css || !anywidgetId) return;
+  if (isHref(css)) return loadCssHref(css, anywidgetId);
+  return loadCssText(css, anywidgetId);
 }
-async function load_esm(esm) {
-  if (is_href(esm)) {
+async function loadEsm(esm) {
+  if (isHref(esm)) {
     return await import(
       /* webpackIgnore: true */
       /* @vite-ignore */
@@ -632,8 +864,8 @@ async function load_esm(esm) {
   URL.revokeObjectURL(url);
   return mod;
 }
-function warn_render_deprecation(anywidget_id) {
-  console.warn(`[anywidget] Deprecation Warning for ${anywidget_id}: Direct export of a 'render' will likely be deprecated in the future. To migrate ...
+function warnRenderDeprecation(anywidgetId) {
+  console.warn(`[anywidget] Deprecation Warning for ${anywidgetId}: Direct export of a 'render' will likely be deprecated in the future. To migrate ...
 
 Remove the 'export' keyword from 'render'
 -----------------------------------------
@@ -657,10 +889,10 @@ dependencies = ["anywidget>=0.9.0"]
 To learn more, please see: https://github.com/manzt/anywidget/pull/395.
 `);
 }
-async function load_widget(esm, anywidget_id) {
-  let mod = await load_esm(esm);
+async function loadWidget(esm, anywidgetId) {
+  let mod = await loadEsm(esm);
   if (mod.render) {
-    warn_render_deprecation(anywidget_id);
+    warnRenderDeprecation(anywidgetId);
     return {
       async initialize() {
       },
@@ -671,69 +903,8 @@ async function load_widget(esm, anywidget_id) {
   let widget = typeof mod.default === "function" ? await mod.default() : mod.default;
   return widget;
 }
-var INITIALIZE_MARKER = /* @__PURE__ */ Symbol("anywidget.initialize");
-function model_proxy(model, context) {
-  return {
-    get: model.get.bind(model),
-    set: model.set.bind(model),
-    save_changes: model.save_changes.bind(model),
-    send: model.send.bind(model),
-    on(name, callback) {
-      model.on(name, callback, context);
-    },
-    off(name, callback) {
-      model.off(name, callback, context);
-    },
-    // @ts-expect-error - the widget_manager type is wider than what
-    // we want to expose to developers.
-    // In a future version, we will expose a more limited API but
-    // that can wait for a minor version bump.
-    widget_manager: model.widget_manager
-  };
-}
-async function safe_cleanup(fn, kind) {
-  return Promise.resolve().then(() => fn?.()).catch((e) => console.warn(`[anywidget] error cleaning up ${kind}.`, e));
-}
-function throw_anywidget_error(source) {
-  if (!(source instanceof Error)) {
-    throw source;
-  }
-  let lines = source.stack?.split("\n") ?? [];
-  let anywidget_index = lines.findIndex((line) => line.includes("anywidget"));
-  let clean_stack = anywidget_index === -1 ? lines : lines.slice(0, anywidget_index + 1);
-  source.stack = clean_stack.join("\n");
-  console.error(source);
-  throw source;
-}
-function invoke(model, name, msg, options = {}) {
-  let id = v4();
-  let signal = options.signal ?? AbortSignal.timeout(3e3);
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      reject(signal.reason);
-    }
-    signal.addEventListener("abort", () => {
-      model.off("msg:custom", handler);
-      reject(signal.reason);
-    });
-    function handler(msg2, buffers) {
-      if (!(msg2.id === id)) return;
-      resolve([msg2.response, buffers]);
-      model.off("msg:custom", handler);
-    }
-    model.on("msg:custom", handler);
-    model.send({ id, kind: "anywidget-command", name, msg }, void 0, options.buffers ?? []);
-  });
-}
-function promise_with_resolvers() {
-  let resolve;
-  let reject;
-  let promise = new Promise((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
+
+// packages/anywidget/src/observe.ts
 function observe(model, name, { signal }) {
   let [get, set] = createSignal(model.get(name));
   let update = () => set(() => model.get(name));
@@ -743,20 +914,15 @@ function observe(model, name, { signal }) {
   });
   return get;
 }
+
+// packages/anywidget/src/runtime.ts
 var Runtime = class {
-  /** @type {solid.Accessor<Result<AnyWidget>>} */
   // @ts-expect-error - Set synchronously in constructor.
-  #widget_result;
-  /** @type {AbortSignal} */
+  #widgetResult;
   #signal;
-  /** @type {Promise<void>} */
   ready;
-  /**
-   * @param {DOMWidgetModel} model
-   * @param {{ signal: AbortSignal }} options
-   */
   constructor(model, options) {
-    let resolvers = promise_with_resolvers();
+    let resolvers = promiseWithResolvers();
     this.ready = resolvers.promise;
     this.#signal = options.signal;
     this.#signal.throwIfAborted();
@@ -764,16 +930,20 @@ var Runtime = class {
     AbortSignal.timeout(2e3).addEventListener("abort", () => {
       resolvers.reject(new Error("[anywidget] Failed to initialize model."));
     });
+    let binding = BINDINGS.getOrCreate(model);
+    let experimental = {
+      // @ts-expect-error - invoke.bind loses generic type parameter
+      invoke: invoke.bind(null, model)
+    };
     let dispose = createRoot((dispose2) => {
-      let typed_model = model;
-      let id = typed_model.get("_anywidget_id");
-      let css = observe(typed_model, "_css", { signal: this.#signal });
-      let esm = observe(typed_model, "_esm", { signal: this.#signal });
-      let [widget_result, set_widget_result] = createSignal(
-        /** @type {Result<AnyWidget>} */
-        { status: "pending" }
-      );
-      this.#widget_result = widget_result;
+      let typedModel = model;
+      let id = typedModel.get("_anywidget_id");
+      let css = observe(typedModel, "_css", { signal: this.#signal });
+      let esm = observe(typedModel, "_esm", { signal: this.#signal });
+      let [widgetResult, setWidgetResult] = createSignal({
+        status: "pending"
+      });
+      this.#widgetResult = widgetResult;
       createEffect(
         on(css, () => console.debug(`[anywidget] css hot updated: ${id}`), { defer: true })
       );
@@ -781,82 +951,70 @@ var Runtime = class {
         on(esm, () => console.debug(`[anywidget] esm hot updated: ${id}`), { defer: true })
       );
       createEffect(() => {
-        return load_css(css(), id);
+        return loadCss(css(), id);
       });
       createEffect(() => {
         let controller = new AbortController();
         onCleanup(() => controller.abort());
-        model.off(null, null, INITIALIZE_MARKER);
-        load_widget(esm(), id).then(async (widget) => {
-          if (controller.signal.aborted) {
-            return;
-          }
-          let cleanup = await widget.initialize?.({
-            model: model_proxy(model, INITIALIZE_MARKER),
-            experimental: {
-              // @ts-expect-error - bind isn't working
-              invoke: invoke.bind(null, model)
-            }
-          });
-          if (controller.signal.aborted) {
-            return safe_cleanup(cleanup, "esm update");
-          }
-          controller.signal.addEventListener("abort", () => safe_cleanup(cleanup, "esm update"));
-          set_widget_result({ status: "ready", data: widget });
+        loadWidget(esm(), id).then(async (widget) => {
+          if (controller.signal.aborted) return;
+          await binding.bind(widget, { experimental });
+          if (controller.signal.aborted) return;
+          setWidgetResult({ status: "ready", data: widget });
           resolvers.resolve();
-        }).catch((error) => set_widget_result({ status: "error", error }));
+        }).catch((error) => {
+          if (controller.signal.aborted) return;
+          setWidgetResult({ status: "error", error });
+        });
       });
       return dispose2;
     });
   }
-  /**
-   * @param {DOMWidgetView} view
-   * @param {{ signal: AbortSignal }} options
-   * @returns {Promise<void>}
-   */
-  async create_view(view, options) {
+  async createView(view, options) {
     let model = view.model;
     let signal = AbortSignal.any([this.#signal, options.signal]);
     signal.throwIfAborted();
     signal.addEventListener("abort", () => dispose());
+    let binding = BINDINGS.get(model);
+    assert(binding, "[anywidget] WidgetBinding not found.");
+    let experimental = {
+      // @ts-expect-error - invoke.bind loses generic type parameter
+      invoke: invoke.bind(null, model)
+    };
+    let host = createHost(model, { signal });
     let dispose = createRoot((dispose2) => {
       createEffect(() => {
         model.off(null, null, view);
         view.$el.empty();
-        let result = this.#widget_result();
+        let result = this.#widgetResult();
         if (result.status === "pending") {
           return;
         }
         if (result.status === "error") {
-          throw_anywidget_error(result.error);
+          throwAnywidgetError(result.error);
           return;
         }
         let controller = new AbortController();
         onCleanup(() => controller.abort());
-        Promise.resolve().then(async () => {
-          let cleanup = await result.data.render?.({
-            model: model_proxy(model, view),
-            el: view.el,
-            experimental: {
-              // @ts-expect-error - bind isn't working
-              invoke: invoke.bind(null, model)
-            }
-          });
-          if (controller.signal.aborted) {
-            return safe_cleanup(cleanup, "dispose view - already aborted");
-          }
-          controller.signal.addEventListener(
-            "abort",
-            () => safe_cleanup(cleanup, "dispose view - aborted")
-          );
-        }).catch((error) => throw_anywidget_error(error));
+        Promise.resolve().then(
+          () => binding.createView(view, {
+            signal: AbortSignal.any([signal, controller.signal]),
+            experimental,
+            host
+          })
+        ).catch((error) => throwAnywidgetError(error));
       });
       return () => dispose2();
     });
   }
 };
-var version = "0.10.0";
-function widget_default({ DOMWidgetModel, DOMWidgetView }) {
+
+// packages/anywidget/src/widget.ts
+var version = "0.11.0";
+function widget_default({
+  DOMWidgetModel,
+  DOMWidgetView
+}) {
   let RUNTIMES = /* @__PURE__ */ new WeakMap();
   class AnyModel extends DOMWidgetModel {
     static model_name = "AnyModel";
@@ -865,35 +1023,29 @@ function widget_default({ DOMWidgetModel, DOMWidgetView }) {
     static view_name = "AnyView";
     static view_module = "anywidget";
     static view_module_version = version;
-    /** @param {Parameters<InstanceType<typeof DOMWidgetModel>["initialize"]>} args */
     initialize(...args) {
       super.initialize(...args);
       let controller = new AbortController();
       this.once("destroy", () => {
         controller.abort("[anywidget] Runtime destroyed.");
+        BINDINGS.destroy(this);
         RUNTIMES.delete(this);
       });
       RUNTIMES.set(this, new Runtime(this, { signal: controller.signal }));
     }
-    /** @param {Parameters<InstanceType<typeof DOMWidgetModel>["_handle_comm_msg"]>} msg */
     async _handle_comm_msg(...msg) {
       let runtime = RUNTIMES.get(this);
       await runtime?.ready;
       return super._handle_comm_msg(...msg);
     }
     /**
-     * @param {Record<string, any>} state
-     *
      * We override to support binary trailets because JSON.parse(JSON.stringify())
      * does not properly clone binary data (it just returns an empty object).
      *
      * https://github.com/jupyter-widgets/ipywidgets/blob/47058a373d2c2b3acf101677b2745e14b76dd74b/packages/base/src/widget.ts#L562-L583
      */
     serialize(state) {
-      let serializers = (
-        /** @type {typeof DOMWidgetModel} */
-        this.constructor.serializers || {}
-      );
+      let serializers = this.constructor.serializers || {};
       for (let k of Object.keys(state)) {
         try {
           let serialize = serializers[k]?.serialize;
@@ -920,7 +1072,7 @@ function widget_default({ DOMWidgetModel, DOMWidgetView }) {
     async render() {
       let runtime = RUNTIMES.get(this.model);
       assert(runtime, "[anywidget] Runtime not found.");
-      await runtime.create_view(this, { signal: this.#controller.signal });
+      await runtime.createView(this, { signal: this.#controller.signal });
     }
     remove() {
       this.#controller.abort("[anywidget] View destroyed.");

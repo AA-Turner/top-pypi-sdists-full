@@ -268,7 +268,9 @@ class Datasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _AssembleDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
@@ -358,7 +360,9 @@ class Datasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _AssessDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
@@ -438,7 +442,9 @@ class Datasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _CreateMultimodalDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
@@ -505,7 +511,9 @@ class Datasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _DeleteMultimodalDatasetRequestParameters_to_vertex(
                 parameter_model
@@ -577,7 +585,9 @@ class Datasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _GetMultimodalDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
@@ -649,7 +659,9 @@ class Datasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _GetMultimodalDatasetOperationParameters_to_vertex(
                 parameter_model
@@ -719,7 +731,9 @@ class Datasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _ListMultimodalDatasetsRequestParameters_to_vertex(
                 parameter_model
@@ -799,7 +813,9 @@ class Datasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _UpdateMultimodalDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
@@ -947,7 +963,9 @@ class Datasets(_api_module.BaseModule):
             operation=multimodal_dataset_operation,
             timeout_seconds=config.timeout,
         )
-        return _datasets_utils.create_from_response(types.MultimodalDataset, response)
+        return _datasets_utils.create_from_response(
+            types.MultimodalDataset, response, config
+        )
 
     def create_from_pandas(
         self,
@@ -1130,8 +1148,8 @@ class Datasets(_api_module.BaseModule):
 
         Args:
           name:
-            Required. name of a multimodal dataset. The name should be in
-            the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           config:
             Optional. A configuration for getting the multimodal dataset. If not
             provided, the default configuration will be used.
@@ -1145,6 +1163,10 @@ class Datasets(_api_module.BaseModule):
         elif not config:
             config = types.VertexBaseConfig()
 
+        name = _datasets_utils.resolve_dataset_name(
+            name, self._api_client.project, self._api_client.location
+        )
+
         return self._get_multimodal_dataset(config=config, name=name)
 
     def delete_multimodal_dataset(
@@ -1157,8 +1179,8 @@ class Datasets(_api_module.BaseModule):
 
         Args:
           name:
-            Required. name of a multimodal dataset. The name should be in
-            the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           config:
             Optional. A configuration for deleting the multimodal dataset. If not
             provided, the default configuration will be used.
@@ -1171,6 +1193,10 @@ class Datasets(_api_module.BaseModule):
             config = types.VertexBaseConfig(**config)
         elif not config:
             config = types.VertexBaseConfig()
+
+        name = _datasets_utils.resolve_dataset_name(
+            name, self._api_client.project, self._api_client.location
+        )
 
         return self._delete_multimodal_dataset(config=config, name=name)
 
@@ -1189,8 +1215,8 @@ class Datasets(_api_module.BaseModule):
 
         Args:
           name:
-            Required. The name of the dataset to assemble. The name should be in
-            the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           gemini_request_read_config:
             Optional. The read config to use to assemble the dataset. If
             not provided, the read config attached to the dataset will be
@@ -1206,6 +1232,10 @@ class Datasets(_api_module.BaseModule):
             config = types.AssembleDatasetConfig(**config)
         elif not config:
             config = types.AssembleDatasetConfig()
+
+        name = _datasets_utils.resolve_dataset_name(
+            name, self._api_client.project, self._api_client.location
+        )
 
         operation = self._assemble_multimodal_dataset(
             name=name,
@@ -1232,8 +1262,8 @@ class Datasets(_api_module.BaseModule):
 
         Args:
           dataset_name:
-            Required. The name of the dataset to assess the tuning resources
-            for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           model_name:
             Required. The name of the model to assess the tuning resources
             for.
@@ -1255,6 +1285,10 @@ class Datasets(_api_module.BaseModule):
         elif not config:
             config = types.AssessDatasetConfig()
 
+        dataset_name = _datasets_utils.resolve_dataset_name(
+            dataset_name, self._api_client.project, self._api_client.location
+        )
+
         operation = self._assess_multimodal_dataset(
             name=dataset_name,
             tuning_resource_usage_assessment_config=types.TuningResourceUsageAssessmentConfig(
@@ -1270,6 +1304,7 @@ class Datasets(_api_module.BaseModule):
         return _datasets_utils.create_from_response(
             types.TuningResourceUsageAssessmentResult,
             response["tuningResourceUsageAssessmentResult"],
+            config,
         )
 
     def assess_tuning_validity(
@@ -1288,8 +1323,8 @@ class Datasets(_api_module.BaseModule):
 
         Args:
           dataset_name:
-            Required. The name of the dataset to assess the tuning validity
-            for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           model_name:
               Required. The name of the model to assess the tuning validity
               for.
@@ -1316,6 +1351,10 @@ class Datasets(_api_module.BaseModule):
         elif not config:
             config = types.AssessDatasetConfig()
 
+        dataset_name = _datasets_utils.resolve_dataset_name(
+            dataset_name, self._api_client.project, self._api_client.location
+        )
+
         operation = self._assess_multimodal_dataset(
             name=dataset_name,
             tuning_validation_assessment_config=types.TuningValidationAssessmentConfig(
@@ -1332,6 +1371,7 @@ class Datasets(_api_module.BaseModule):
         return _datasets_utils.create_from_response(
             types.TuningValidationAssessmentResult,
             response["tuningValidationAssessmentResult"],
+            config,
         )
 
     def assess_batch_prediction_resources(
@@ -1348,8 +1388,8 @@ class Datasets(_api_module.BaseModule):
 
         Args:
           dataset_name:
-            Required. The name of the dataset to assess the batch prediction
-            resources. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           model_name:
               Required. The name of the model to assess the batch prediction
               resources.
@@ -1376,6 +1416,10 @@ class Datasets(_api_module.BaseModule):
         elif not config:
             config = types.AssessDatasetConfig()
 
+        dataset_name = _datasets_utils.resolve_dataset_name(
+            dataset_name, self._api_client.project, self._api_client.location
+        )
+
         operation = self._assess_multimodal_dataset(
             name=dataset_name,
             batch_prediction_resource_usage_assessment_config=types.BatchPredictionResourceUsageAssessmentConfig(
@@ -1390,7 +1434,7 @@ class Datasets(_api_module.BaseModule):
         )
         result = response["batchPredictionResourceUsageAssessmentResult"]
         return _datasets_utils.create_from_response(
-            types.BatchPredictionResourceUsageAssessmentResult, result
+            types.BatchPredictionResourceUsageAssessmentResult, result, config
         )
 
     def assess_batch_prediction_validity(
@@ -1409,8 +1453,8 @@ class Datasets(_api_module.BaseModule):
 
         Args:
           dataset_name:
-            Required. The name of the dataset to assess the batch prediction
-            validity for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           model_name:
             Required. The name of the model to assess the batch prediction
             validity for.
@@ -1435,6 +1479,10 @@ class Datasets(_api_module.BaseModule):
         elif not config:
             config = types.AssessDatasetConfig()
 
+        dataset_name = _datasets_utils.resolve_dataset_name(
+            dataset_name, self._api_client.project, self._api_client.location
+        )
+
         operation = self._assess_multimodal_dataset(
             name=dataset_name,
             batch_prediction_validation_assessment_config=types.BatchPredictionValidationAssessmentConfig(
@@ -1449,7 +1497,7 @@ class Datasets(_api_module.BaseModule):
         )
         result = response["batchPredictionValidationAssessmentResult"]
         return _datasets_utils.create_from_response(
-            types.BatchPredictionValidationAssessmentResult, result
+            types.BatchPredictionValidationAssessmentResult, result, config
         )
 
 
@@ -1476,7 +1524,9 @@ class AsyncDatasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _AssembleDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
@@ -1568,7 +1618,9 @@ class AsyncDatasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _AssessDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
@@ -1650,7 +1702,9 @@ class AsyncDatasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _CreateMultimodalDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
@@ -1719,7 +1773,9 @@ class AsyncDatasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _DeleteMultimodalDatasetRequestParameters_to_vertex(
                 parameter_model
@@ -1793,7 +1849,9 @@ class AsyncDatasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _GetMultimodalDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
@@ -1867,7 +1925,9 @@ class AsyncDatasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _GetMultimodalDatasetOperationParameters_to_vertex(
                 parameter_model
@@ -1939,7 +1999,9 @@ class AsyncDatasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _ListMultimodalDatasetsRequestParameters_to_vertex(
                 parameter_model
@@ -2021,7 +2083,9 @@ class AsyncDatasets(_api_module.BaseModule):
 
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
-            raise ValueError("This method is only supported in the Vertex AI client.")
+            raise ValueError(
+                "This method is only supported in the Gemini Enterprise Agent Platform (previously known as Vertex AI) client."
+            )
         else:
             request_dict = _UpdateMultimodalDatasetParameters_to_vertex(parameter_model)
             request_url_dict = request_dict.get("_url")
@@ -2171,7 +2235,9 @@ class AsyncDatasets(_api_module.BaseModule):
             operation=multimodal_dataset_operation,
             timeout_seconds=config.timeout,
         )
-        return _datasets_utils.create_from_response(types.MultimodalDataset, response)
+        return _datasets_utils.create_from_response(
+            types.MultimodalDataset, response, config
+        )
 
     async def create_from_pandas(
         self,
@@ -2352,20 +2418,24 @@ class AsyncDatasets(_api_module.BaseModule):
 
         Args:
           name:
-            Required. name of a multimodal dataset. The name should be in
-            the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           config:
             Optional. A configuration for getting the multimodal dataset. If not
             provided, the default configuration will be used.
 
         Returns:
-          A types.MultimodalDataset object representing the updated multimodal
+          A types.MultimodalDataset object representing the retrieved multimodal
           dataset.
         """
         if isinstance(config, dict):
             config = types.VertexBaseConfig(**config)
         elif not config:
             config = types.VertexBaseConfig()
+
+        name = _datasets_utils.resolve_dataset_name(
+            name, self._api_client.project, self._api_client.location
+        )
 
         return await self._get_multimodal_dataset(config=config, name=name)
 
@@ -2379,8 +2449,8 @@ class AsyncDatasets(_api_module.BaseModule):
 
         Args:
           name:
-            Required. name of a multimodal dataset. The name should be in
-            the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           config:
             Optional. A configuration for deleting the multimodal dataset. If not
             provided, the default configuration will be used.
@@ -2393,6 +2463,10 @@ class AsyncDatasets(_api_module.BaseModule):
             config = types.VertexBaseConfig(**config)
         elif not config:
             config = types.VertexBaseConfig()
+
+        name = _datasets_utils.resolve_dataset_name(
+            name, self._api_client.project, self._api_client.location
+        )
 
         return await self._delete_multimodal_dataset(config=config, name=name)
 
@@ -2411,8 +2485,8 @@ class AsyncDatasets(_api_module.BaseModule):
 
         Args:
           name:
-            Required. The name of the dataset to assemble. The name should be in
-            the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           gemini_request_read_config:
             Optional. The read config to use to assemble the dataset. If
             not provided, the read config attached to the dataset will be
@@ -2428,6 +2502,10 @@ class AsyncDatasets(_api_module.BaseModule):
             config = types.AssembleDatasetConfig(**config)
         elif not config:
             config = types.AssembleDatasetConfig()
+
+        name = _datasets_utils.resolve_dataset_name(
+            name, self._api_client.project, self._api_client.location
+        )
 
         operation = await self._assemble_multimodal_dataset(
             name=name,
@@ -2454,8 +2532,8 @@ class AsyncDatasets(_api_module.BaseModule):
 
         Args:
           dataset_name:
-            Required. The name of the dataset to assess the tuning resources
-            for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           model_name:
             Required. The name of the model to assess the tuning resources
             for.
@@ -2477,6 +2555,10 @@ class AsyncDatasets(_api_module.BaseModule):
         elif not config:
             config = types.AssessDatasetConfig()
 
+        dataset_name = _datasets_utils.resolve_dataset_name(
+            dataset_name, self._api_client.project, self._api_client.location
+        )
+
         operation = await self._assess_multimodal_dataset(
             name=dataset_name,
             tuning_resource_usage_assessment_config=types.TuningResourceUsageAssessmentConfig(
@@ -2492,6 +2574,7 @@ class AsyncDatasets(_api_module.BaseModule):
         return _datasets_utils.create_from_response(
             types.TuningResourceUsageAssessmentResult,
             response["tuningResourceUsageAssessmentResult"],
+            config,
         )
 
     async def assess_tuning_validity(
@@ -2510,8 +2593,8 @@ class AsyncDatasets(_api_module.BaseModule):
 
         Args:
           dataset_name:
-            Required. The name of the dataset to assess the tuning validity
-            for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           model_name:
               Required. The name of the model to assess the tuning validity
               for.
@@ -2538,6 +2621,10 @@ class AsyncDatasets(_api_module.BaseModule):
         elif not config:
             config = types.AssessDatasetConfig()
 
+        dataset_name = _datasets_utils.resolve_dataset_name(
+            dataset_name, self._api_client.project, self._api_client.location
+        )
+
         operation = await self._assess_multimodal_dataset(
             name=dataset_name,
             tuning_validation_assessment_config=types.TuningValidationAssessmentConfig(
@@ -2554,6 +2641,7 @@ class AsyncDatasets(_api_module.BaseModule):
         return _datasets_utils.create_from_response(
             types.TuningValidationAssessmentResult,
             response["tuningValidationAssessmentResult"],
+            config,
         )
 
     async def assess_batch_prediction_resources(
@@ -2570,8 +2658,8 @@ class AsyncDatasets(_api_module.BaseModule):
 
         Args:
           dataset_name:
-            Required. The name of the dataset to assess the batch prediction
-            resources. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           model_name:
               Required. The name of the model to assess the batch prediction
               resources.
@@ -2598,6 +2686,10 @@ class AsyncDatasets(_api_module.BaseModule):
         elif not config:
             config = types.AssessDatasetConfig()
 
+        dataset_name = _datasets_utils.resolve_dataset_name(
+            dataset_name, self._api_client.project, self._api_client.location
+        )
+
         operation = await self._assess_multimodal_dataset(
             name=dataset_name,
             batch_prediction_resource_usage_assessment_config=types.BatchPredictionResourceUsageAssessmentConfig(
@@ -2612,7 +2704,7 @@ class AsyncDatasets(_api_module.BaseModule):
         )
         result = response["batchPredictionResourceUsageAssessmentResult"]
         return _datasets_utils.create_from_response(
-            types.BatchPredictionResourceUsageAssessmentResult, result
+            types.BatchPredictionResourceUsageAssessmentResult, result, config
         )
 
     async def assess_batch_prediction_validity(
@@ -2631,8 +2723,8 @@ class AsyncDatasets(_api_module.BaseModule):
 
         Args:
           dataset_name:
-            Required. The name of the dataset to assess the batch prediction
-            validity for. The name should be in the format of "projects/{project}/locations/{location}/datasets/{dataset}".
+            Required. A fully-qualified resource name or ID of the dataset.
+            Example: "projects/.../locations/.../datasets/123" or "123".
           model_name:
             Required. The name of the model to assess the batch prediction
             validity for.
@@ -2657,6 +2749,10 @@ class AsyncDatasets(_api_module.BaseModule):
         elif not config:
             config = types.AssessDatasetConfig()
 
+        dataset_name = _datasets_utils.resolve_dataset_name(
+            dataset_name, self._api_client.project, self._api_client.location
+        )
+
         operation = await self._assess_multimodal_dataset(
             name=dataset_name,
             batch_prediction_validation_assessment_config=types.BatchPredictionValidationAssessmentConfig(
@@ -2671,5 +2767,5 @@ class AsyncDatasets(_api_module.BaseModule):
         )
         result = response["batchPredictionValidationAssessmentResult"]
         return _datasets_utils.create_from_response(
-            types.BatchPredictionValidationAssessmentResult, result
+            types.BatchPredictionValidationAssessmentResult, result, config
         )

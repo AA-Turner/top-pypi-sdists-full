@@ -16,6 +16,7 @@ from quack.gemm_interface import (
     default_config,
     gemm_dact,
     gemm_gated,
+    gemm_gated_tuned,
     gemm_dgated,
     gemm_ref,
     gemm_add_ref,
@@ -28,6 +29,7 @@ from quack.gemm_interface import (
     gemm_norm_act,
     gemm_norm_act_ref,
 )
+from quack.cute_dsl_utils import get_device_capacity
 from quack.gemm_config import GemmConfig
 from quack.rounding import RoundingMode
 from quack.rms_final_reduce import rms_final_reduce
@@ -366,7 +368,9 @@ def test_gemm_add_inplace_alpha_beta(
 
 
 @pytest.mark.parametrize("store_preact", [True, False])
-@pytest.mark.parametrize("activation", ["swiglu", "swiglu_oai", "reglu", "geglu", "glu"])
+@pytest.mark.parametrize(
+    "activation", ["swiglu", "swiglu_oai", "swiglu_oai-tanh", "reglu", "geglu", "glu"]
+)
 @pytest.mark.parametrize("input_dtype", [torch.bfloat16])
 @pytest.mark.parametrize("bias_dtype", [None, torch.float32, torch.bfloat16])
 @pytest.mark.parametrize("out_features", [1504, 2048])
@@ -377,6 +381,8 @@ def test_gemm_gated(
 ):
     """Test GEMM with gated activation forward computation."""
     device = "cuda"
+    if torch.cuda.is_available() and get_device_capacity(torch.device(device))[0] == 8:
+        pytest.skip("SM8x gated GEMM epilogue is not yet supported")
     torch.random.manual_seed(0)
     m = 1920
     x = torch.randn((m, in_features), device=device, dtype=input_dtype, requires_grad=True)
@@ -432,7 +438,58 @@ def test_gemm_gated(
         assert (preact - preact_ref).abs().max() < 2 * (preact_pt - preact_ref).abs().max() + 1e-5
 
 
-@pytest.mark.parametrize("activation", ["swiglu", "swiglu_oai", "reglu", "geglu", "glu"])
+@pytest.mark.parametrize("pingpong", [False, True])
+def test_gemm_gated_pingpong_configs(pingpong):
+    """Exercise tuned gated dispatch with configs that bypass the public wrapper."""
+    device = "cuda"
+    device_capacity = get_device_capacity(torch.device(device))[0]
+    if device_capacity not in (9, 12):
+        pytest.skip("pingpong config regression only covers SM90 and SM120")
+
+    torch.random.manual_seed(0)
+    input_dtype = torch.bfloat16
+    m, in_features, out_features = 512, 256, 512
+    x = torch.randn((m, in_features), device=device, dtype=input_dtype)
+    x = x[::2]
+    w = torch.randn((2 * out_features, in_features), device=device, dtype=input_dtype) / math.sqrt(
+        in_features
+    )
+    B = w.T
+    preact = torch.empty((x.shape[0], 2 * out_features), device=device, dtype=input_dtype)
+    postact = torch.empty((x.shape[0], out_features), device=device, dtype=input_dtype)
+    config = GemmConfig(
+        tile_m=128,
+        tile_n=128,
+        pingpong=pingpong,
+        is_dynamic_persistent=device_capacity == 12,
+        cluster_m=1,
+        cluster_n=1,
+        device_capacity=device_capacity,
+    )
+    gemm_gated_tuned.fn(
+        x,
+        B,
+        preact,
+        postact,
+        None,
+        None,
+        "swiglu",
+        None,
+        None,
+        False,
+        config=config,
+    )
+    preact_ref, postact_ref = gemm_gated_ref(
+        x.float(), B.float(), activation="swiglu", store_preact=True
+    )
+    preact_pt, postact_pt = gemm_gated_ref(x, B, activation="swiglu", store_preact=True)
+    assert (preact - preact_ref).abs().max() < 2 * (preact_pt - preact_ref).abs().max() + 1e-5
+    assert (postact - postact_ref).abs().max() < 2 * (postact_pt - postact_ref).abs().max() + 1e-6
+
+
+@pytest.mark.parametrize(
+    "activation", ["swiglu", "swiglu_oai", "swiglu_oai-tanh", "reglu", "geglu", "glu"]
+)
 # @pytest.mark.parametrize("activation", ["swiglu"])
 @pytest.mark.parametrize("input_dtype", [torch.bfloat16])
 @pytest.mark.parametrize("colvec_reduce", [False, True])
@@ -446,6 +503,8 @@ def test_gemm_gated(
 def test_gemm_dgated(n, k, has_colvec_scale, colvec_reduce, input_dtype, activation):
     """Test GEMM with gated activation gradient computation."""
     device = "cuda"
+    if torch.cuda.is_available() and get_device_capacity(torch.device(device))[0] == 8:
+        pytest.skip("SM8x gated dactivation GEMM epilogue is not yet supported")
     torch.random.manual_seed(0)
     m = 960
     dout_input = torch.randn((m, k), device=device, dtype=input_dtype)
@@ -496,9 +555,11 @@ def test_dact_linear_partial_grad(input_dtype, freeze, activation):
     both dpreact and dweight. Previously, freezing weight caused preact to not be saved.
     """
     device = "cuda"
+    if torch.cuda.is_available() and get_device_capacity(torch.device(device))[0] == 8:
+        pytest.skip("SM8x (d)activation GEMM epilogues not yet supported")
     torch.random.manual_seed(0)
     m, in_features, out_features = 256, 512, 512
-    gated = activation in ("swiglu", "swiglu_oai", "reglu", "geglu", "glu")
+    gated = activation in ("swiglu", "swiglu_oai", "swiglu_oai-tanh", "reglu", "geglu", "glu")
     freeze_x = freeze == "x"
     x = torch.randn(m, in_features, device=device, dtype=input_dtype, requires_grad=not freeze_x)
     w1_out = 2 * out_features if gated else out_features
@@ -538,9 +599,9 @@ def test_linear_act_partial_grad(input_dtype, freeze, activation):
     Regression test: ensure gradient flows correctly when x or weight is frozen.
     """
     device = "cuda"
+    gated = activation in ("swiglu", "swiglu_oai", "swiglu_oai-tanh", "reglu", "geglu", "glu")
     torch.random.manual_seed(0)
     m, in_features, out_features = 256, 512, 512
-    gated = activation in ("swiglu", "swiglu_oai", "reglu", "geglu", "glu")
     freeze_x = freeze == "x"
     x = torch.randn(m, in_features, device=device, dtype=input_dtype, requires_grad=not freeze_x)
     fc1_out = 2 * out_features if gated else out_features
@@ -825,7 +886,7 @@ def test_gemm_norm_act(input_dtype, k, n, has_C, activation, use_compile, swap_a
             rstd,
             activation,
             False,
-            config=GemmConfig(swap_ab=True),
+            config=replace(default_config(torch.device(device)), swap_ab=True),
         )
     preact_ref, postact_ref = gemm_norm_act_ref(
         A.float(),
@@ -854,6 +915,8 @@ def test_gemm_norm_act(input_dtype, k, n, has_C, activation, use_compile, swap_a
 @pytest.mark.parametrize("input_dtype", [torch.bfloat16])
 def test_gemm_norm_gated(input_dtype, k, n, activation, use_compile):
     device = "cuda"
+    if torch.cuda.is_available() and get_device_capacity(torch.device(device))[0] == 8:
+        pytest.skip("SM8x gated norm activation GEMM epilogue is not yet supported")
     torch.random.manual_seed(0)
     m = 1024
     A = torch.randn(m, k, device=device, dtype=input_dtype)

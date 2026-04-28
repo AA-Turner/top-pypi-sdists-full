@@ -60,9 +60,6 @@ include = [
     'tests/',
     'conftest.py',
 ]
-excludes = [
-    '**/.mypy_cache',
-]
 
 [tool.hatch.envs.default]
 installer = 'uv'
@@ -99,7 +96,7 @@ python = ['3.10', '3.11', '3.12', '3.13', '3.14']
 [tool.hatch.envs.qa]
 dependencies = [
     'ruff',
-    'mypy',
+    'pyrefly',
 ]
 
 [tool.hatch.envs.qa.env-vars]
@@ -109,7 +106,7 @@ MODULE_PATH = '{env:MODULE_PATH:src/flufl/lock}'
 [tool.hatch.envs.qa.scripts]
 qa = [
     'hatch fmt --check src',
-    'mypy -p {env:MODULE_NAME}',
+    'pyrefly check',
 ]
 fix = [
     'hatch fmt src',
@@ -198,52 +195,8 @@ lines-between-types = 1
 order-by-type = true
 section-order = ['standard-library', 'third-party', 'local-folder', 'first-party']
 
-[tool.mypy]
-mypy_path = 'src'
-
-# Disallow dynamic typing
-disallow_any_generics = true
-disallow_subclassing_any = true
-
-# Untyped definitions and calls
-disallow_untyped_calls = false
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = false
-
-# None and Optional handling
-no_implicit_optional = true
-
-# Configuring warnings
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_return_any = true
-warn_unreachable = true
-
-# Miscellaneous strictness flags
-implicit_reexport = false
-strict_equality = true
-
-# Configuring error messages
-show_error_context = true
-show_column_numbers = true
-show_error_codes = true
-pretty = true
-show_absolute_path = true
-
-# Miscellaneous
-warn_unused_configs = true
-verbosity = 0
-
-[[tool.mypy.overrides]]
-module = [
-    'psutil',
-    'pytest',
-    'sybil.*',
-]
-ignore_missing_imports = true
+[tool.pyrefly]
+project-includes = ['src']
 
 [build-system]
 requires = ['hatchling']

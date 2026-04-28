@@ -5,7 +5,7 @@ from __future__ import annotations
 import ctypes
 from dataclasses import dataclass, replace
 from enum import IntEnum
-from typing import Callable
+from collections.abc import Callable
 
 from contrast_agent_lib import constants, lib_contrast
 from contrast_fireball import AttackInputType, DocumentType, ProtectEventInput

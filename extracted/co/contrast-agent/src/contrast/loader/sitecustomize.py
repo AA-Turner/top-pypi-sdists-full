@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 
@@ -18,8 +19,6 @@ See https://docs.python.org/3/library/site.html for additional details
 import os
 import sys
 
-import contrast_rewriter
-
 MIN_SUPPORTED_VERSION = (3, 10)
 MAX_SUPPORTED_VERSION = (3, 14)
 # We need to check the version_info because certain installation tools bypass
@@ -28,7 +27,9 @@ MAX_SUPPORTED_VERSION = (3, 14)
 # prepend them to PYTHONPATH directly.
 
 
-def _log(msg: str) -> None:
+def _log(msg):
+    import contrast_rewriter
+
     contrast_rewriter.log_stderr(msg, logger_name="contrast-loader")
 
 
@@ -36,13 +37,16 @@ def _init_contrast():
     # this function is called at the module-level
     if not (MIN_SUPPORTED_VERSION <= sys.version_info[:2] <= MAX_SUPPORTED_VERSION):
         return
+    import contrast_rewriter
 
     _log("Initializing Contrast Python Agent")
     _log(
-        f"Installation tool: {os.environ.get('CONTRAST_INSTALLATION_TOOL', 'unknown')}"
+        "Installation tool: {}".format(
+            os.environ.get("CONTRAST_INSTALLATION_TOOL", "unknown")
+        )
     )
-    _log(f"Command: {getattr(sys, 'orig_argv', sys.argv)}")
-    _log(f"PYTHONPATH: {os.environ.get('PYTHONPATH', '<not set>')}")
+    _log("Command: {}".format(getattr(sys, "orig_argv", sys.argv)))
+    _log("PYTHONPATH: {}".format(os.environ.get("PYTHONPATH", "<not set>")))
 
     if contrast_rewriter.is_startup_profiler_enabled():
         contrast_rewriter.start_profiler()
@@ -67,7 +71,7 @@ def _init_contrast():
     from contrast_vendor import structlog as logging
 
     logger = logging.getLogger("contrast")
-    logger.info(f"Python Agent version: {contrast.__version__}")
+    logger.info("Python Agent version: {}".format(contrast.__version__))
 
     from contrast import loader  # noqa: E402
     from contrast.loader import instrumentation  # noqa: E402

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nautobot
-Version: 3.1.0
+Version: 3.1.1
 Summary: Source of truth and network automation platform.
 License: Apache-2.0
 Keywords: Nautobot
@@ -21,7 +21,7 @@ Provides-Extra: mysql
 Provides-Extra: napalm
 Provides-Extra: remote-storage
 Provides-Extra: sso
-Requires-Dist: GitPython (>=3.1.46,<3.2)
+Requires-Dist: GitPython (>=3.1.47,<3.2)
 Requires-Dist: Jinja2 (>=3.1.6,<3.2)
 Requires-Dist: Markdown (>=3.10.2,<3.11)
 Requires-Dist: PyYAML (>=6.0.3,<6.1)
@@ -51,7 +51,7 @@ Requires-Dist: django-taggit (>=6.1.0,<6.2)
 Requires-Dist: django-timezone-field (>=7.2.1,<7.3)
 Requires-Dist: django-tree-queries (>=0.23.1,<0.24)
 Requires-Dist: django-webserver (>=1.2.0,<1.3)
-Requires-Dist: djangorestframework (>=3.17.0,<3.18)
+Requires-Dist: djangorestframework (>=3.17.1,<3.18)
 Requires-Dist: drf-spectacular[sidecar] (>=0.28.0,<0.29)
 Requires-Dist: emoji (>=2.15.0,<2.16)
 Requires-Dist: graphene-django (>=3.2.3,<3.3)
@@ -68,12 +68,12 @@ Requires-Dist: nh3 (>=0.3.4,<0.4)
 Requires-Dist: packaging (>=23.1)
 Requires-Dist: pillow (>=12.2.0,<13)
 Requires-Dist: prometheus-client (>=0.24.1,<0.25)
-Requires-Dist: psycopg2-binary (>=2.9.11,<2.10)
+Requires-Dist: psycopg2-binary (>=2.9.12,<2.10)
 Requires-Dist: python-slugify (>=8.0.4,<8.1)
 Requires-Dist: pyuwsgi (>=2.0.30,<2.1)
 Requires-Dist: social-auth-app-django (>=5.7.0,<5.8)
-Requires-Dist: social-auth-core[saml] (>=4.8.5,<4.9) ; extra == "all"
-Requires-Dist: social-auth-core[saml] (>=4.8.5,<4.9) ; extra == "sso"
+Requires-Dist: social-auth-core[saml] (>=4.8.7,<4.9) ; extra == "all"
+Requires-Dist: social-auth-core[saml] (>=4.8.7,<4.9) ; extra == "sso"
 Requires-Dist: svgwrite (>=1.4.3,<1.5)
 Project-URL: Documentation, https://docs.nautobot.com
 Project-URL: Homepage, https://nautobot.com

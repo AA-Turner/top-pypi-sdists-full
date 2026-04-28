@@ -1016,11 +1016,17 @@ class Feature(Generic[_TPrim, _TRich]):
         and online stores."""
         return self.window_duration is not None
 
+    def _window_duration_suffix(self) -> str:
+        """FQN suffix for this windowed pseudofeature, e.g. '__86400__' or '__neg604800__'."""
+        d = self.window_duration
+        assert d is not None, f"Window duration for feature {self.root_fqn} was None, expected a duration"
+        return f"__neg{-d}__" if d < 0 else f"__{d}__"
+
     @property
     def window_stem(self) -> str:
         if not self.is_windowed_pseudofeature:
             return self.name
-        return self.name[: -len(f"__{self.window_duration}__")]
+        return self.name[: -len(self._window_duration_suffix())]
 
     @property
     def window_alias_name(self) -> frozenset[str]:
@@ -1028,7 +1034,7 @@ class Feature(Generic[_TPrim, _TRich]):
         if not self.is_windowed_pseudofeature:
             return frozenset()
 
-        suffix_len = len(f"__{self.window_duration}__")
+        suffix_len = len(self._window_duration_suffix())
         window_alias_formats = ["{stem}_{timerep}", "{stem}__{timerep}__"]  # w_1d_1h_1m_1s  # w__1d_1h_1m_1s__
         bucketed_time_groups = []
 

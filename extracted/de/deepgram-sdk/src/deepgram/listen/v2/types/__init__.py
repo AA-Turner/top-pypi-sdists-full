@@ -8,24 +8,28 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .listen_v2close_stream import ListenV2CloseStream
     from .listen_v2close_stream_type import ListenV2CloseStreamType
+    from .listen_v2configure import ListenV2Configure
+    from .listen_v2configure_failure import ListenV2ConfigureFailure
+    from .listen_v2configure_success import ListenV2ConfigureSuccess
+    from .listen_v2configure_success_thresholds import ListenV2ConfigureSuccessThresholds
+    from .listen_v2configure_thresholds import ListenV2ConfigureThresholds
     from .listen_v2connected import ListenV2Connected
-    from .listen_v2connected_type import ListenV2ConnectedType
     from .listen_v2fatal_error import ListenV2FatalError
-    from .listen_v2fatal_error_type import ListenV2FatalErrorType
     from .listen_v2turn_info import ListenV2TurnInfo
     from .listen_v2turn_info_event import ListenV2TurnInfoEvent
-    from .listen_v2turn_info_type import ListenV2TurnInfoType
     from .listen_v2turn_info_words_item import ListenV2TurnInfoWordsItem
 _dynamic_imports: typing.Dict[str, str] = {
     "ListenV2CloseStream": ".listen_v2close_stream",
     "ListenV2CloseStreamType": ".listen_v2close_stream_type",
+    "ListenV2Configure": ".listen_v2configure",
+    "ListenV2ConfigureFailure": ".listen_v2configure_failure",
+    "ListenV2ConfigureSuccess": ".listen_v2configure_success",
+    "ListenV2ConfigureSuccessThresholds": ".listen_v2configure_success_thresholds",
+    "ListenV2ConfigureThresholds": ".listen_v2configure_thresholds",
     "ListenV2Connected": ".listen_v2connected",
-    "ListenV2ConnectedType": ".listen_v2connected_type",
     "ListenV2FatalError": ".listen_v2fatal_error",
-    "ListenV2FatalErrorType": ".listen_v2fatal_error_type",
     "ListenV2TurnInfo": ".listen_v2turn_info",
     "ListenV2TurnInfoEvent": ".listen_v2turn_info_event",
-    "ListenV2TurnInfoType": ".listen_v2turn_info_type",
     "ListenV2TurnInfoWordsItem": ".listen_v2turn_info_words_item",
 }
 
@@ -54,12 +58,14 @@ def __dir__():
 __all__ = [
     "ListenV2CloseStream",
     "ListenV2CloseStreamType",
+    "ListenV2Configure",
+    "ListenV2ConfigureFailure",
+    "ListenV2ConfigureSuccess",
+    "ListenV2ConfigureSuccessThresholds",
+    "ListenV2ConfigureThresholds",
     "ListenV2Connected",
-    "ListenV2ConnectedType",
     "ListenV2FatalError",
-    "ListenV2FatalErrorType",
     "ListenV2TurnInfo",
     "ListenV2TurnInfoEvent",
-    "ListenV2TurnInfoType",
     "ListenV2TurnInfoWordsItem",
 ]

@@ -10,8 +10,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from typing import ClassVar, Literal
 from collections.abc import Callable
+from typing import ClassVar, Literal, overload
+import warnings
 
 import requests
 
@@ -32,6 +33,7 @@ from openstack import exceptions
 from openstack import proxy
 from openstack import resource
 from openstack import utils
+from openstack import warnings as os_warnings
 
 
 class Proxy(proxy.Proxy):
@@ -127,7 +129,31 @@ class Proxy(proxy.Proxy):
 
     # TODO(stephenfin): Delete this. You can't lookup a chassis by name so this
     # is identical to get_chassis
-    def find_chassis(self, name_or_id, ignore_missing=True, *, details=True):
+    @overload
+    def find_chassis(
+        self,
+        name_or_id: str,
+        ignore_missing: Literal[False],
+        *,
+        details: bool = True,
+    ) -> _chassis.Chassis: ...
+
+    @overload
+    def find_chassis(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _chassis.Chassis | None: ...
+
+    def find_chassis(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _chassis.Chassis | None:
         """Find a single chassis.
 
         :param str name_or_id: The ID of a chassis.
@@ -141,6 +167,12 @@ class Proxy(proxy.Proxy):
         :returns: One :class:`~openstack.baremetal.v1.chassis.Chassis` object
             or None.
         """
+        warnings.warn(
+            "The 'find_chassis' method is deprecated; use 'get_chassis' "
+            "instead.",
+            os_warnings.RemovedInSDK60Warning,
+        )
+
         return self._find(
             _chassis.Chassis,
             name_or_id,
@@ -334,7 +366,31 @@ class Proxy(proxy.Proxy):
         """
         return self._create(_node.Node, **attrs)
 
-    def find_node(self, name_or_id, ignore_missing=True, *, details=True):
+    @overload
+    def find_node(
+        self,
+        name_or_id: str,
+        ignore_missing: Literal[False],
+        *,
+        details: bool = True,
+    ) -> _node.Node: ...
+
+    @overload
+    def find_node(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _node.Node | None: ...
+
+    def find_node(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _node.Node | None:
         """Find a single node.
 
         :param str name_or_id: The name or ID of a node.
@@ -913,7 +969,31 @@ class Proxy(proxy.Proxy):
 
     # TODO(stephenfin): Delete this. You can't lookup a port by name so this is
     # identical to get_port
-    def find_port(self, name_or_id, ignore_missing=True, *, details=True):
+    @overload
+    def find_port(
+        self,
+        name_or_id: str,
+        ignore_missing: Literal[False],
+        *,
+        details: bool = True,
+    ) -> _port.Port: ...
+
+    @overload
+    def find_port(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _port.Port | None: ...
+
+    def find_port(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _port.Port | None:
         """Find a single port.
 
         :param str name_or_id: The ID of a port.
@@ -926,6 +1006,11 @@ class Proxy(proxy.Proxy):
         :returns: One :class:`~openstack.baremetal.v1.port.Port` object
             or None.
         """
+        warnings.warn(
+            "The 'find_port' method is deprecated; use 'get_port' instead.",
+            os_warnings.RemovedInSDK60Warning,
+        )
+
         return self._find(
             _port.Port,
             name_or_id,
@@ -1039,13 +1124,31 @@ class Proxy(proxy.Proxy):
         """
         return self._create(_portgroup.PortGroup, **attrs)
 
+    @overload
     def find_port_group(
         self,
-        name_or_id,
-        ignore_missing=True,
+        name_or_id: str,
+        ignore_missing: Literal[False],
         *,
-        details=True,
-    ):
+        details: bool = True,
+    ) -> _portgroup.PortGroup: ...
+
+    @overload
+    def find_port_group(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _portgroup.PortGroup | None: ...
+
+    def find_port_group(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _portgroup.PortGroup | None:
         """Find a single port group.
 
         :param str name_or_id: The name or ID of a portgroup.
@@ -1440,13 +1543,31 @@ class Proxy(proxy.Proxy):
 
     # TODO(stephenfin): Delete this. You can't lookup a volume connector by
     # name so this is identical to get_volume_connector
+    @overload
     def find_volume_connector(
         self,
-        vc_id,
-        ignore_missing=True,
+        vc_id: str,
+        ignore_missing: Literal[False],
         *,
-        details=True,
-    ):
+        details: bool = True,
+    ) -> _volumeconnector.VolumeConnector: ...
+
+    @overload
+    def find_volume_connector(
+        self,
+        vc_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _volumeconnector.VolumeConnector | None: ...
+
+    def find_volume_connector(
+        self,
+        vc_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _volumeconnector.VolumeConnector | None:
         """Find a single volume connector.
 
         :param str vc_id: The ID of a volume connector.
@@ -1462,6 +1583,12 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.baremetal.v1.volumeconnector.VolumeConnector`
             object or None.
         """
+        warnings.warn(
+            "The 'find_volume_connector' method is deprecated; use "
+            "'get_volume_connector' instead.",
+            os_warnings.RemovedInSDK60Warning,
+        )
+
         return self._find(
             _volumeconnector.VolumeConnector,
             vc_id,
@@ -1600,7 +1727,31 @@ class Proxy(proxy.Proxy):
 
     # TODO(stephenfin): Delete this. You can't lookup a volume target by
     # name so this is identical to get_volume_connector
-    def find_volume_target(self, vt_id, ignore_missing=True, *, details=True):
+    @overload
+    def find_volume_target(
+        self,
+        vt_id: str,
+        ignore_missing: Literal[False],
+        *,
+        details: bool = True,
+    ) -> _volumetarget.VolumeTarget: ...
+
+    @overload
+    def find_volume_target(
+        self,
+        vt_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _volumetarget.VolumeTarget | None: ...
+
+    def find_volume_target(
+        self,
+        vt_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _volumetarget.VolumeTarget | None:
         """Find a single volume target.
 
         :param str vt_id: The ID of a volume target.
@@ -1616,6 +1767,12 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.baremetal.v1.volumetarget.VolumeTarget`
             object or None.
         """
+        warnings.warn(
+            "The 'find_volume_target' method is deprecated; use "
+            "'get_volume_target' instead.",
+            os_warnings.RemovedInSDK60Warning,
+        )
+
         return self._find(
             _volumetarget.VolumeTarget,
             vt_id,
@@ -1790,13 +1947,31 @@ class Proxy(proxy.Proxy):
             _deploytemplates.DeployTemplate, deploy_template, fields=fields
         )
 
+    @overload
     def find_deploy_template(
         self,
-        name_or_id,
-        ignore_missing=True,
+        name_or_id: str,
+        ignore_missing: Literal[False],
         *,
-        details=True,
-    ):
+        details: bool = True,
+    ) -> _deploytemplates.DeployTemplate: ...
+
+    @overload
+    def find_deploy_template(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _deploytemplates.DeployTemplate | None: ...
+
+    def find_deploy_template(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _deploytemplates.DeployTemplate | None:
         """Find a single deployment template.
 
         :param str name_or_id: The name or ID of a deployment template.

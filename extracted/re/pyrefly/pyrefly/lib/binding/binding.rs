@@ -20,6 +20,7 @@ use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
+use pyrefly_types::callable::PlaceholderBodyKind;
 use pyrefly_types::heap::TypeHeap;
 use pyrefly_types::special_form::SpecialForm;
 use pyrefly_types::type_alias::TypeAlias;
@@ -29,7 +30,6 @@ use pyrefly_util::assert_words;
 use pyrefly_util::display::DisplayWith;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::display::intersperse_iter;
-use pyrefly_util::uniques::Unique;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
@@ -80,6 +80,7 @@ use crate::types::class::Class;
 use crate::types::class::ClassDefIndex;
 use crate::types::equality::TypeEq;
 use crate::types::globals::ImplicitGlobal;
+use crate::types::quantified::QuantifiedIdentity;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::stdlib::Stdlib;
 use crate::types::type_info::JoinStyle;
@@ -1763,6 +1764,13 @@ pub struct BindingUndecoratedFunction {
     pub def_index: FuncDefIndex,
     pub def: FunctionDefData,
     pub stub_or_impl: FunctionStubOrImpl,
+    /// `Some` if the function body is a single placeholder statement
+    /// (`raise NotImplementedError(...)` or `return NotImplemented`); `None` otherwise.
+    pub placeholder_body_kind: Option<PlaceholderBodyKind>,
+    /// `true` when the return type has no user-supplied annotation and will be
+    /// inferred from the body (i.e. the corresponding `ReturnType` binding will
+    /// use `ReturnTypeKind::ShouldInferType`).
+    pub is_return_inferred: bool,
     pub class_key: Option<Idx<KeyClass>>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
     pub decorators: Box<[Idx<KeyDecorator>]>,
@@ -1855,6 +1863,11 @@ impl ReturnTypeKind {
 pub struct ReturnType {
     pub kind: ReturnTypeKind,
     pub is_async: bool,
+    /// Per the constructor typing spec, an unannotated `__new__` is assumed to
+    /// return `Self`. We track that here so `Key::ReturnType` can expose the
+    /// effective return type without pretending the function was explicitly
+    /// annotated.
+    pub implicit_dunder_new_self: Option<Idx<KeyClass>>,
 }
 
 #[derive(Clone, Debug)]
@@ -1905,7 +1918,7 @@ pub enum AnnotationStyle {
 #[derive(Clone, Debug)]
 pub struct TypeParameter {
     pub name: Name,
-    pub unique: Unique,
+    pub identity: QuantifiedIdentity,
     pub kind: QuantifiedKind,
     pub bound: Option<Expr>,
     pub default: Option<Expr>,
@@ -2271,7 +2284,7 @@ impl DisplayWith<Bindings> for Binding {
             Self::Any(style) => write!(f, "Any({style:?})"),
             Self::Global(g) => write!(f, "Global({})", g.name()),
             Self::TypeParameter(tp) => {
-                write!(f, "TypeParameter({}, {}, ..)", tp.unique, tp.kind)
+                write!(f, "TypeParameter({}, {}, ..)", tp.identity, tp.kind)
             }
             Self::PossibleLegacyTParam(k, _) => {
                 write!(f, "PossibleLegacyTParam({})", ctx.display(*k))

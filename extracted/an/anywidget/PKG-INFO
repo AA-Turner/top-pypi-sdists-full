@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anywidget
-Version: 0.10.0
+Version: 0.11.0
 Summary: custom jupyter widgets made easy
 Project-URL: homepage, https://github.com/manzt/anywidget
 Author-email: Trevor Manz <trevor.j.manz@gmail.com>

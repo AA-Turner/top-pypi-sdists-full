@@ -130,7 +130,7 @@ class QuotaSet(resource.Resource):
 
                 self._body.attributes.update(normalized_attrs)
                 self._body.clean()
-                if self.commit_jsonpatch or self.allow_patch:
+                if self.allow_patch:
                     # We need the original body to compare against
                     self._original_body = normalized_attrs.copy()
             except ValueError:
@@ -146,11 +146,10 @@ class QuotaSet(resource.Resource):
 
     def _prepare_request_body(
         self,
-        patch: bool,
-        prepend_key: bool,
         *,
+        prepend_key: bool,
         resource_request_key: str | None = None,
-    ) -> dict[str, Any] | list[Any]:
+    ) -> dict[str, Any]:
         body = self._body.dirty
         # Ensure we never try to send meta props reservation and usage
         body.pop('reservation', None)

@@ -28,6 +28,7 @@ from .literals import (
     DurationUnitType,
     EvaluationTypeType,
     MetricSourceTypeType,
+    SelectionTypeType,
     ServiceLevelIndicatorComparisonOperatorType,
     ServiceLevelIndicatorMetricTypeType,
     ServiceLevelObjectiveBudgetStatusType,
@@ -58,6 +59,10 @@ __all__ = (
     "CalendarIntervalTypeDef",
     "CanaryEntityTypeDef",
     "ChangeEventTypeDef",
+    "CompositeSliComponentTypeDef",
+    "CompositeSliConfigOutputTypeDef",
+    "CompositeSliConfigTypeDef",
+    "CompositeSliConfigUnionTypeDef",
     "CreateServiceLevelObjectiveInputTypeDef",
     "CreateServiceLevelObjectiveOutputTypeDef",
     "DeleteServiceLevelObjectiveInputTypeDef",
@@ -141,6 +146,7 @@ __all__ = (
     "RequestBasedServiceLevelIndicatorTypeDef",
     "ResponseMetadataTypeDef",
     "RollingIntervalTypeDef",
+    "SelectionConfigTypeDef",
     "ServiceDependencyTypeDef",
     "ServiceDependentTypeDef",
     "ServiceEntityTypeDef",
@@ -236,6 +242,17 @@ class ChangeEventTypeDef(TypedDict):
     EventId: str
     UserName: NotRequired[str]
     EventName: NotRequired[str]
+
+class CompositeSliComponentTypeDef(TypedDict):
+    OperationName: NotRequired[str]
+
+SelectionConfigTypeDef = TypedDict(
+    "SelectionConfigTypeDef",
+    {
+        "Type": SelectionTypeType,
+        "Pattern": NotRequired[str],
+    },
+)
 
 class TagTypeDef(TypedDict):
     Key: str
@@ -409,6 +426,14 @@ class ServiceStateTypeDef(TypedDict):
     LatestChangeEvents: list[ChangeEventTypeDef]
     AttributeFilters: NotRequired[list[AttributeFilterOutputTypeDef]]
 
+class CompositeSliConfigOutputTypeDef(TypedDict):
+    SelectionConfig: SelectionConfigTypeDef
+    Components: NotRequired[list[CompositeSliComponentTypeDef]]
+
+class CompositeSliConfigTypeDef(TypedDict):
+    SelectionConfig: SelectionConfigTypeDef
+    Components: NotRequired[Sequence[CompositeSliComponentTypeDef]]
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -505,17 +530,6 @@ class ListServicesInputPaginateTypeDef(TypedDict):
     AwsAccountId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
-class ServiceLevelObjectiveSummaryTypeDef(TypedDict):
-    Arn: str
-    Name: str
-    KeyAttributes: NotRequired[dict[str, str]]
-    OperationName: NotRequired[str]
-    DependencyConfig: NotRequired[DependencyConfigOutputTypeDef]
-    CreatedTime: NotRequired[datetime]
-    EvaluationType: NotRequired[EvaluationTypeType]
-    MetricSourceType: NotRequired[MetricSourceTypeType]
-    MetricSource: NotRequired[MetricSourceOutputTypeDef]
-
 MetricSourceUnionTypeDef = Union[MetricSourceTypeDef, MetricSourceOutputTypeDef]
 
 class ListServiceStatesInputPaginateTypeDef(TypedDict):
@@ -551,6 +565,20 @@ class ListServiceStatesOutputTypeDef(TypedDict):
     ServiceStates: list[ServiceStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class ServiceLevelObjectiveSummaryTypeDef(TypedDict):
+    Arn: str
+    Name: str
+    KeyAttributes: NotRequired[dict[str, str]]
+    OperationName: NotRequired[str]
+    DependencyConfig: NotRequired[DependencyConfigOutputTypeDef]
+    CreatedTime: NotRequired[datetime]
+    EvaluationType: NotRequired[EvaluationTypeType]
+    MetricSourceType: NotRequired[MetricSourceTypeType]
+    MetricSource: NotRequired[MetricSourceOutputTypeDef]
+    CompositeSliConfig: NotRequired[CompositeSliConfigOutputTypeDef]
+
+CompositeSliConfigUnionTypeDef = Union[CompositeSliConfigTypeDef, CompositeSliConfigOutputTypeDef]
 
 class MetricStatOutputTypeDef(TypedDict):
     Metric: MetricOutputTypeDef
@@ -608,11 +636,6 @@ class GoalOutputTypeDef(TypedDict):
     AttainmentGoal: NotRequired[float]
     WarningThreshold: NotRequired[float]
 
-class ListServiceLevelObjectivesOutputTypeDef(TypedDict):
-    SloSummaries: list[ServiceLevelObjectiveSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class ListServiceLevelObjectivesInputPaginateTypeDef(TypedDict):
     KeyAttributes: NotRequired[Mapping[str, str]]
     OperationName: NotRequired[str]
@@ -646,6 +669,11 @@ class GoalTypeDef(TypedDict):
     Interval: NotRequired[IntervalTypeDef]
     AttainmentGoal: NotRequired[float]
     WarningThreshold: NotRequired[float]
+
+class ListServiceLevelObjectivesOutputTypeDef(TypedDict):
+    SloSummaries: list[ServiceLevelObjectiveSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class MetricDataQueryOutputTypeDef(TypedDict):
     Id: str
@@ -729,6 +757,7 @@ class ServiceLevelIndicatorMetricTypeDef(TypedDict):
     MetricType: NotRequired[ServiceLevelIndicatorMetricTypeType]
     DependencyConfig: NotRequired[DependencyConfigOutputTypeDef]
     MetricSource: NotRequired[MetricSourceOutputTypeDef]
+    CompositeSliConfig: NotRequired[CompositeSliConfigOutputTypeDef]
 
 MetricStatUnionTypeDef = Union[MetricStatTypeDef, MetricStatOutputTypeDef]
 AuditFindingTypeDef = TypedDict(
@@ -751,6 +780,7 @@ class RequestBasedServiceLevelIndicatorMetricTypeDef(TypedDict):
     MetricType: NotRequired[ServiceLevelIndicatorMetricTypeType]
     DependencyConfig: NotRequired[DependencyConfigOutputTypeDef]
     MetricSource: NotRequired[MetricSourceOutputTypeDef]
+    CompositeSliConfig: NotRequired[CompositeSliConfigOutputTypeDef]
 
 class ServiceLevelIndicatorTypeDef(TypedDict):
     SliMetric: ServiceLevelIndicatorMetricTypeDef
@@ -806,6 +836,7 @@ class ServiceLevelObjectiveTypeDef(TypedDict):
     EvaluationType: NotRequired[EvaluationTypeType]
     BurnRateConfigurations: NotRequired[list[BurnRateConfigurationTypeDef]]
     MetricSourceType: NotRequired[MetricSourceTypeType]
+    AutoInvestigationEnabled: NotRequired[bool]
 
 class MonitoredRequestCountMetricDataQueriesTypeDef(TypedDict):
     GoodCountMetric: NotRequired[Sequence[MetricDataQueryUnionTypeDef]]
@@ -821,6 +852,7 @@ class ServiceLevelIndicatorMetricConfigTypeDef(TypedDict):
     MetricSource: NotRequired[MetricSourceUnionTypeDef]
     MetricDataQueries: NotRequired[Sequence[MetricDataQueryUnionTypeDef]]
     DependencyConfig: NotRequired[DependencyConfigUnionTypeDef]
+    CompositeSliConfig: NotRequired[CompositeSliConfigUnionTypeDef]
 
 class BatchGetServiceLevelObjectiveBudgetReportOutputTypeDef(TypedDict):
     Timestamp: datetime
@@ -859,6 +891,7 @@ class RequestBasedServiceLevelIndicatorMetricConfigTypeDef(TypedDict):
     DependencyConfig: NotRequired[DependencyConfigUnionTypeDef]
     MetricSource: NotRequired[MetricSourceUnionTypeDef]
     MetricName: NotRequired[str]
+    CompositeSliConfig: NotRequired[CompositeSliConfigUnionTypeDef]
 
 class RequestBasedServiceLevelIndicatorConfigTypeDef(TypedDict):
     RequestBasedSliMetricConfig: RequestBasedServiceLevelIndicatorMetricConfigTypeDef
@@ -874,6 +907,7 @@ class CreateServiceLevelObjectiveInputTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
     BurnRateConfigurations: NotRequired[Sequence[BurnRateConfigurationTypeDef]]
     CreateRecommendedSlo: NotRequired[bool]
+    AutoInvestigationEnabled: NotRequired[bool]
 
 class UpdateServiceLevelObjectiveInputTypeDef(TypedDict):
     Id: str
@@ -882,3 +916,4 @@ class UpdateServiceLevelObjectiveInputTypeDef(TypedDict):
     RequestBasedSliConfig: NotRequired[RequestBasedServiceLevelIndicatorConfigTypeDef]
     Goal: NotRequired[GoalUnionTypeDef]
     BurnRateConfigurations: NotRequired[Sequence[BurnRateConfigurationTypeDef]]
+    AutoInvestigationEnabled: NotRequired[bool]

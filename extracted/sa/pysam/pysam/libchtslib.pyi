@@ -1,18 +1,17 @@
+import os
 import sys
-from typing import List, Union, NoReturn, Iterable, Any, Tuple, Optional, TypeVar
+from typing import List, Union, NoReturn, Iterable, Any, Tuple, Optional, Protocol, TypeVar
 
-if sys.version_info < (3, 8):
-    from typing_extensions import Protocol
-else:
-    from typing import Protocol
-
-class _HasFileNo(Protocol):
+class HasFileno(Protocol):
     def fileno(self) -> int: ...
 
 def get_verbosity() -> int: ...
 def set_verbosity(level: int): ...
 
 THFile = TypeVar("THFile", bound="HFile")
+
+StrOrBytesPath = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
+StrOrBytesPathOrFileDescriptorLike = Union[StrOrBytesPath, int, HasFileno]
 
 class HFile:
     def __init__(self, name: Union[int, str], mode: str = ...) -> None: ...
@@ -99,7 +98,7 @@ class HTSFile:
     def reset(self) -> None: ...
     def seek(self, offset: int, whence: int = ...) -> int: ...
     def tell(self) -> int: ...
-    def add_hts_options(self, format_options: Optional[List[str]] = ...) -> None: ...
+    def add_hts_options(self, format_options: List[str]) -> None: ...
     def parse_region(
         self,
         contig: Optional[str] = ...,

@@ -91,7 +91,7 @@ class FilterConverter(Protocol[TExpr]):
     def fill_null(self, expr: TExpr, fill_with: TExpr) -> TExpr:
         return self.if_else(self.is_null(expr), fill_with, expr)
 
-    def greatest(self, left_expr: TExpr, right_expr: TExpr, /) -> TExpr:
+    def greatest_skip_null(self, left_expr: TExpr, right_expr: TExpr, /) -> TExpr:
         """
         Returns the larger value of the two inputs. Ignores expressions that evaluate to null.
         If all expressions evaluate to null, the result evaluates to null.
@@ -112,7 +112,7 @@ class FilterConverter(Protocol[TExpr]):
             ),
         )
 
-    def least(self, left_expr: TExpr, right_expr: TExpr, /) -> TExpr:
+    def least_skip_null(self, left_expr: TExpr, right_expr: TExpr, /) -> TExpr:
         """
         Returns the larger value of the two inputs. Ignores expressions that evaluate to null.
         If all expressions evaluate to null, the result evaluates to null.

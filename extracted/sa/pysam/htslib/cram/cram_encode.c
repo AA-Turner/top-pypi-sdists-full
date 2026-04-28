@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012-2020, 2022-2024 Genome Research Ltd.
+Copyright (c) 2012-2020, 2022-2025 Genome Research Ltd.
 Author: James Bonfield <jkb@sanger.ac.uk>
 
 Redistribution and use in source and binary forms, with or without
@@ -1552,6 +1552,15 @@ static int cram_add_to_ref_MD(bam1_t *b, char **ref, uint32_t (**hist)[5],
     uint32_t ncigar = b->core.n_cigar;
     uint32_t cig_op = 0, cig_len = 0, cig_ind = 0;
 
+    // End position of the sequence on the reference.
+    hts_pos_t rlen = bam_cigar2rlen(b->core.n_cigar, bam_get_cigar(b));
+    hts_pos_t rseq_end = b->core.pos + (rlen ? rlen : b->core.l_qseq);
+
+    // No sequence means extend based on CIGAR instead
+    if (!b->core.l_qseq && extend_ref(ref, hist, rseq_end,
+                                      ref_start, ref_end) < 0)
+        return -1;
+
     int iseq = 0, next_op;
     hts_pos_t iref = b->core.pos - ref_start;
 
@@ -1761,7 +1770,6 @@ static int cram_generate_reference(cram_container *c, cram_slice *s, int r1) {
     c->ref_start = ref_start+1;
     c->ref_end   = ref_end+1;
     c->ref_free  = 1;
-
     return 0;
 
  err:
@@ -1843,7 +1851,7 @@ int cram_encode_container(cram_fd *fd, cram_container *c) {
     // Don't try embed ref if we repeatedly fail
     pthread_mutex_lock(&fd->ref_lock);
     int failed_embed = (fd->no_ref_counter >= 5); // maximum 5 tries
-    if (!failed_embed && c->embed_ref == -2) {
+    if (!failed_embed && c->embed_ref == -2 && c->ref_id >= 0) {
         hts_log_warning("Retrying embed_ref=2 mode for #%d/5", fd->no_ref_counter);
         fd->no_ref = c->no_ref = 0;
         fd->embed_ref = c->embed_ref = 2;
@@ -1922,6 +1930,12 @@ int cram_encode_container(cram_fd *fd, cram_container *c) {
                 // Do not confuse with fd->ref_free which is a pointer to a
                 // reference string to free.
                 c->ref_free = 1;
+            } else {
+                // Double check for broken input.  We shouldn't have
+                // embedded references enabled for unmapped data, but our
+                // data could be broken.
+                embed_ref = 0;
+                no_ref = c->no_ref = 1;
             }
         }
         c->ref_seq_id = c->ref_id;
@@ -1968,7 +1982,7 @@ int cram_encode_container(cram_fd *fd, cram_container *c) {
 
         // Embed consensus / MD-generated ref
         if (embed_ref == 2) {
-            if (cram_generate_reference(c, s, r1) < 0) {
+            if (c->ref_id < 0 || cram_generate_reference(c, s, r1) < 0) {
                 // Should this be a permanent thing via fd->no_ref?
                 // Doing so means we cannot easily switch back again should
                 // things fix themselves later on.  This is likely not a
@@ -1997,6 +2011,9 @@ int cram_encode_container(cram_fd *fd, cram_container *c) {
                 fd->no_ref_counter -= (fd->no_ref_counter > 0);
                 pthread_mutex_unlock(&fd->ref_lock);
             }
+
+            if (c->ref_end > fd->refs->ref_id[c->ref_id]->LN_length)
+                c->ref_end = fd->refs->ref_id[c->ref_id]->LN_length;
         }
 
         // Iterate through records creating the cram blocks for some
@@ -3180,18 +3197,21 @@ static sam_hrec_rg_t *cram_encode_aux(cram_fd *fd, bam_seq_t *b,
     // And and increment TD hash entry
     BLOCK_APPEND_CHAR(td_b, 0);
 
-    // Duplicate key as BLOCK_DATA() can be realloced to a new pointer.
-    key = string_ndup(c->comp_hdr->TD_keys,
-                      (char *)BLOCK_DATA(td_b) + TD_blk_size,
-                      BLOCK_SIZE(td_b) - TD_blk_size);
-    if (!key)
-        goto block_err;
+    key = (char *)BLOCK_DATA(td_b) + TD_blk_size;
     k = kh_put(m_s2i, c->comp_hdr->TD_hash, key, &new);
     if (new < 0) {
         goto err;
-    } else if (new == 0) {
+    } else if (new == 0) { // Seen this one before
         BLOCK_SIZE(td_b) = TD_blk_size;
     } else {
+        // New entry.  As BLOCK_DATA() can be realloced, copy the
+        // key into a string pool and use this as the key in the hash table.
+        char *pooled_key = string_ndup(c->comp_hdr->TD_keys,
+                                       (char *)BLOCK_DATA(td_b) + TD_blk_size,
+                                       BLOCK_SIZE(td_b) - TD_blk_size);
+        if (!pooled_key)
+            goto block_err;
+        kh_key(c->comp_hdr->TD_hash, k) = pooled_key;
         kh_val(c->comp_hdr->TD_hash, k) = c->comp_hdr->nTL;
         c->comp_hdr->nTL++;
     }
@@ -3683,7 +3703,8 @@ static int process_one_read(cram_fd *fd, cram_container *c,
             return -1;
         }
         fake_qual = spos;
-        cr->aend = no_ref ? apos : MIN(apos, c->ref_end);
+        // Protect against negative length refs (fuzz 382922241)
+        cr->aend = no_ref ? apos : MIN(apos, MAX(0, c->ref_end));
         if (cram_stats_add(c->stats[DS_FN], cr->nfeature) < 0)
             goto block_err;
 
@@ -3773,22 +3794,27 @@ static int process_one_read(cram_fd *fd, cram_container *c,
         //fprintf(stderr, "Checking %"PRId64"/%.*s\t", rnum,
         //      cr->name_len, DSTRING_STR(s->name_ds)+cr->name);
         if (cr->flags & BAM_FPAIRED) {
-            char *key = string_ndup(s->pair_keys, bam_name(b), bam_name_len(b));
-            if (!key)
-                return -1;
-
-            k = kh_put(m_s2i, s->pair[sec], key, &new);
+            k = kh_put(m_s2i, s->pair[sec], bam_name(b), &new);
             if (-1 == new)
                 return -1;
-            else if (new > 0)
-                kh_val(s->pair[sec], k) = rnum;
+            else if (new > 0) {
+                // bam_name(b) is likely to change, so copy it to a string pool
+                // and use that for the hash table key.
+                char *key = string_ndup(s->pair_keys, bam_name(b), bam_name_len(b));
+                if (!key)
+                    return -1;
+                kh_key(s->pair[sec], k) = key;
+                kh_val(s->pair[sec], k) = rnum
+                    | ((unsigned)((cr->flags & BAM_FREAD1)!=0)<<30)
+                    | ((unsigned)((cr->flags & BAM_FREAD2)!=0)<<31);
+            }
         } else {
             new = 1;
             k = 0; // Prevents false-positive warning from gcc -Og
         }
 
         if (new == 0) {
-            cram_record *p = &s->crecs[kh_val(s->pair[sec], k)];
+            cram_record *p = &s->crecs[kh_val(s->pair[sec], k) & ((1<<30)-1)];
             int64_t aleft, aright;
             int sign;
 
@@ -3803,6 +3829,14 @@ static int process_one_read(cram_fd *fd, cram_container *c,
             } else {
                 sign = -1;
             }
+
+            // Multiple sets of secondary reads means we cannot tell which is
+            // which, so we store TLEN etc verbatim.
+            int has_r1 = kh_val(s->pair[sec], k) & (1<<30);
+            unsigned int has_r2 = kh_val(s->pair[sec], k) & (1u<<31);
+            if ((has_r1 && (cr->flags & BAM_FREAD1)) ||
+                (has_r2 && (cr->flags & BAM_FREAD2)))
+                goto detached;
 
             // This vs p: tlen, matepos, flags. Permit TLEN 0 and/or TLEN +/-
             // a small amount, if appropriate options set.
@@ -3925,11 +3959,14 @@ static int process_one_read(cram_fd *fd, cram_container *c,
             if (cram_stats_add(c->stats[DS_CF], p->cram_flags & CRAM_FLAG_MASK) < 0)
                 goto block_err;
 
-            p->mate_line = rnum - (kh_val(s->pair[sec], k) + 1);
+            p->mate_line = rnum - ((kh_val(s->pair[sec], k) & ((1<<30)-1)) + 1);
             if (cram_stats_add(c->stats[DS_NF], p->mate_line) < 0)
                 goto block_err;
 
-            kh_val(s->pair[sec], k) = rnum;
+            int r12_flags = kh_val(s->pair[sec], k) & (3u<<30);
+            kh_val(s->pair[sec], k) = (unsigned int)rnum | r12_flags
+                | (((cr->flags & BAM_FREAD1)!=0)<<30)
+                | ((unsigned)((cr->flags & BAM_FREAD2)!=0)<<31);
         } else {
         detached:
             //fprintf(stderr, "unpaired\n");

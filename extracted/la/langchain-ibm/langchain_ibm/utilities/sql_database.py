@@ -2,6 +2,7 @@
 
 import contextlib
 import urllib.parse
+from collections import Counter
 from collections.abc import Iterable
 from typing import Any, Literal
 
@@ -14,8 +15,8 @@ except ModuleNotFoundError as e:
     )
     raise ModuleNotFoundError(error_msg) from e
 
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
-from ibm_watsonx_ai.helpers.connections.flight_sql_service import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient, Credentials
+from ibm_watsonx_ai.helpers.connections.flight_sql_service import (
     FlightSQLClient,
 )
 from langchain_core.utils.utils import from_env
@@ -364,15 +365,16 @@ class WatsonxSQLDatabase:
         else:
             self.watsonx_client = watsonx_client
 
-        context_id: dict[str, str | None] = {"project_id": None, "space_id": None}
+        client_project_id = None
+        client_space_id = None
         if project_id is not None:
-            context_id["project_id"] = project_id
+            client_project_id = project_id
         elif space_id is not None:
-            context_id["space_id"] = space_id
+            client_space_id = space_id
         elif self.watsonx_client.default_project_id is not None:
-            context_id["project_id"] = self.watsonx_client.default_project_id
+            client_project_id = self.watsonx_client.default_project_id
         elif self.watsonx_client.default_space_id is not None:
-            context_id["space_id"] = self.watsonx_client.default_space_id
+            client_space_id = self.watsonx_client.default_space_id
         else:
             error_msg = "Either project_id or space_id is required."
             raise ValueError(error_msg)
@@ -380,7 +382,8 @@ class WatsonxSQLDatabase:
         self._flight_sql_client = FlightSQLClient(
             connection_id=connection_id,
             api_client=self.watsonx_client,
-            **context_id,
+            project_id=client_project_id,
+            space_id=client_space_id,
         )
 
         with self._flight_sql_client as flight_sql_client:
@@ -422,6 +425,32 @@ class WatsonxSQLDatabase:
             return sorted(self._include_tables)
         return sorted(self._all_tables - self._ignore_tables)
 
+    def _deduplicate_column_names(self, columns: list[str]) -> list[str]:
+        """Ensure duplicate column names are made unique with suffixes."""
+        column_counts = Counter(columns)
+        column_indices: dict[str, int] = {}
+        new_columns: list[str] = []
+        all_names = set(columns)
+
+        for col in columns:
+            if column_counts[col] > 1:
+                column_indices[col] = column_indices.get(col, 0) + 1
+                suffix = column_indices[col]
+
+                # Find collision-free suffix
+                while f"{col}_{suffix}" in all_names:
+                    suffix += 1
+
+                # Update the index to the collision-free suffix
+                column_indices[col] = suffix
+                new_col = f"{col}_{suffix}"
+                all_names.add(new_col)
+                new_columns.append(new_col)
+            else:
+                new_columns.append(col)
+
+        return new_columns
+
     def _execute(
         self,
         command: str,
@@ -429,6 +458,11 @@ class WatsonxSQLDatabase:
         """Execute a command."""
         with self._flight_sql_client as flight_sql_client:
             results = flight_sql_client.execute(query=command)
+
+        columns = list(results.columns)
+        # Only deduplicate if there are duplicate column names
+        if len(columns) != len(set(columns)):
+            results.columns = self._deduplicate_column_names(columns)
 
         return results.to_dict("records")
 

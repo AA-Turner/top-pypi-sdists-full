@@ -51,6 +51,11 @@ string_propagators = [
                 "action": "APPEND",
             },
             {
+                "method_name": "extend",
+                "source": "OBJ,ARG_0",
+                "action": "APPEND",
+            },
+            {
                 "method_name": ["zfill", "rjust"],
                 "action": "PREPEND",
             },

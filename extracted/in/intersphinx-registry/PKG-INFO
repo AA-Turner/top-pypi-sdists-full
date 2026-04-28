@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: intersphinx_registry
-Version: 0.2603.16
+Version: 0.2605.27
 Summary: This package provides convenient utilities and data to write a sphinx config file.
 Author-email: M Bussonnier <bussonniermatthias@gmail.com>
 Description-Content-Type: text/markdown
 Classifier: License :: OSI Approved :: MIT License
 License-File: LICENSE
 Requires-Dist: intersphinx_registry[lookup] ; extra == "cli"
-Requires-Dist: sphinx>=8 ; extra == "lookup"
+Requires-Dist: sphinx>=9.1.0 ; extra == "lookup"
 Requires-Dist: requests ; extra == "lookup"
 Requires-Dist: requests-cache ; extra == "lookup"
 Requires-Dist: platformdirs ; extra == "lookup"
-Requires-Dist: pytest>=7.0 ; extra == "tests"
+Requires-Dist: pytest>=9.0.3 ; extra == "tests"
 Requires-Dist: pytest-xdist ; extra == "tests"
 Requires-Dist: mypy ; extra == "tests"
 Requires-Dist: types-requests ; extra == "tests"

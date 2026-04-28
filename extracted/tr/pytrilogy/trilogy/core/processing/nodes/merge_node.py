@@ -111,6 +111,7 @@ class MergeNode(StrategyNode):
         join_concepts: Optional[List] = None,
         force_join_type: Optional[JoinType] = None,
         partial_concepts: Optional[List[BuildConcept]] = None,
+        rollup_concepts: Optional[List[BuildConcept]] = None,
         nullable_concepts: Optional[List[BuildConcept]] = None,
         force_group: bool | None = None,
         depth: int = 0,
@@ -134,6 +135,7 @@ class MergeNode(StrategyNode):
             parents=parents,
             depth=depth,
             partial_concepts=partial_concepts,
+            rollup_concepts=rollup_concepts,
             nullable_concepts=nullable_concepts,
             force_group=force_group,
             grain=grain,
@@ -234,6 +236,10 @@ class MergeNode(StrategyNode):
                 f"{self.logging_prefix}{LOGGER_PREFIX} Final joins is not null {final_joins} but is empty, skipping join generation"
             )
             return []
+        if self.force_join_type is not None:
+            for j in joins:
+                if isinstance(j, BaseJoin):
+                    j.join_type = self.force_join_type
         return joins
 
     def _resolve(self) -> QueryDatasource:
@@ -373,6 +379,17 @@ class MergeNode(StrategyNode):
         nullable_concepts = find_nullable_concepts(
             source_map=source_map, joins=joins, datasources=final_datasets
         )
+        rollup_concepts = unique(
+            self.rollup_concepts
+            + [
+                c
+                for source in final_datasets
+                if isinstance(source, QueryDatasource)
+                for c in source.rollup_concepts
+                if c.address in {out.address for out in self.output_concepts}
+            ],
+            "address",
+        )
         if force_group:
 
             grain = BuildGrain.from_concepts(
@@ -393,6 +410,7 @@ class MergeNode(StrategyNode):
                 x for x in self.output_concepts if x.address in nullable_concepts
             ],
             partial_concepts=self.partial_concepts,
+            rollup_concepts=rollup_concepts,
             force_group=force_group,
             condition=self.conditions,
             hidden_concepts=self.hidden_concepts,
@@ -409,6 +427,7 @@ class MergeNode(StrategyNode):
             parents=self.parents,
             depth=self.depth,
             partial_concepts=list(self.partial_concepts),
+            rollup_concepts=list(self.rollup_concepts),
             force_group=self.force_group,
             grain=self.grain,
             conditions=self.conditions,

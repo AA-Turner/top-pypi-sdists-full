@@ -2,7 +2,7 @@
 
 /*  reheader.c -- reheader subcommand.
 
-    Copyright (C) 2014-2022,2024 Genome Research Ltd.
+    Copyright (C) 2014-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -51,6 +51,7 @@ THE SOFTWARE.  */
 typedef struct _args_t
 {
     char **argv, *fname, *samples_fname, *header_fname, *output_fname;
+    int samples_is_file;
     char *fai_fname;
     htsFile *fp;
     faidx_t *fai;
@@ -79,10 +80,10 @@ static char *copy_and_update_contig_line(faidx_t *fai, char *line, void *chr_see
         p = ++q;
         while ( *q && (*q==' ' || *q=='\t') ) { p++; q++; }
         // ^[A-Za-z_][0-9A-Za-z_.]*$
-        if (p==q && *q && (isalpha(*q) || *q=='_'))
+        if (p==q && *q && (isalpha_c(*q) || *q=='_'))
         {
             q++;
-            while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
+            while ( *q && (isalnum_c(*q) || *q=='_' || *q=='.') ) q++;
         }
         int n = q-p;
         int m = 0;
@@ -206,6 +207,14 @@ static void update_from_fai(faidx_t *fai, kstring_t *hdr_txt)
     khash_str2int_destroy_free(chr_seen);
 }
 
+static char **read_samples(char *fname, int is_file, int *nsamples)
+{
+    char **samples = hts_readlist(fname, is_file, nsamples);
+    if ( !samples && !*nsamples )
+        error("Error parsing the %s %s \"%s\"\n", is_file?"--samples-file":"--samples-list",is_file?"file":"list",fname);
+    return samples;
+}
+
 static void read_header_file(char *fname, kstring_t *hdr)
 {
     kstring_t tmp = {0,0,0};
@@ -221,7 +230,7 @@ static void read_header_file(char *fname, kstring_t *hdr)
     if ( hts_close(fp) ) error("Close failed: %s\n", fname);
     free(tmp.s);
 
-    while ( hdr->l>0 && isspace(hdr->s[hdr->l-1]) ) hdr->l--;  // remove trailing newlines
+    while ( hdr->l>0 && isspace_c(hdr->s[hdr->l-1]) ) hdr->l--;  // remove trailing newlines
     kputc('\n',hdr);
 }
 
@@ -241,17 +250,17 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
         while ( *ptr )
         {
             if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
-            if ( isspace(*ptr) && !escaped ) break;
+            if ( isspace_c(*ptr) && !escaped ) break;
             kputc(*ptr, &key);
             escaped = 0;
             ptr++;
         }
         if ( !*ptr ) break;
-        while ( *ptr && isspace(*ptr) ) ptr++;
+        while ( *ptr && isspace_c(*ptr) ) ptr++;
         while ( *ptr )
         {
             if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
-            if ( isspace(*ptr) && !escaped ) break;
+            if ( isspace_c(*ptr) && !escaped ) break;
             kputc(*ptr, &val);
             escaped = 0;
             ptr++;
@@ -266,7 +275,7 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
         return 0;
     }
 
-    while ( hdr->l>0 && isspace(hdr->s[hdr->l-1]) ) hdr->l--;  // remove trailing newlines
+    while ( hdr->l>0 && isspace_c(hdr->s[hdr->l-1]) ) hdr->l--;  // remove trailing newlines
     hdr->s[hdr->l] = 0;
 
     kstring_t tmp = {0,0,0};
@@ -391,10 +400,7 @@ static void reheader_vcf_gz(args_t *args)
     int nsamples = 0;
     char **samples = NULL;
     if ( args->samples_fname )
-    {
-        samples = hts_readlines(args->samples_fname, &nsamples);
-        if ( !samples || !nsamples ) error("Error reading the --samples file \"%s\"\n", args->samples_fname);
-    }
+        samples = read_samples(args->samples_fname, args->samples_is_file, &nsamples);
     if ( args->header_fname )
     {
         free(hdr.s); hdr.s = NULL; hdr.l = hdr.m = 0;
@@ -420,7 +426,7 @@ static void reheader_vcf_gz(args_t *args)
     // Output all remaining data read with the header block
     if ( fp->block_length - skip_until > 0 )
     {
-        if ( bgzf_write(bgzf_out, buffer+skip_until, fp->block_length-skip_until)<0 ) error("Error: %d\n",fp->errcode);
+        if ( bgzf_write(bgzf_out, buffer+skip_until, fp->block_length-skip_until)<0 ) error("Error: %d\n",bgzf_out->errcode);
     }
     if ( bgzf_flush(bgzf_out)<0 ) error("Error: %d\n",bgzf_out->errcode);
 
@@ -436,8 +442,8 @@ static void reheader_vcf_gz(args_t *args)
         int count = bgzf_raw_write(bgzf_out, buf, nread);
         if (count != nread) error("Write failed, wrote %d instead of %d bytes.\n", count,(int)nread);
     }
-    if (bgzf_close(bgzf_out) < 0) error("Error closing %s: %d\n",args->output_fname ? args->output_fname : "-",bgzf_out->errcode);
-    if (hts_close(args->fp)) error("Error closing %s: %d\n",args->fname,fp->errcode);
+    if (bgzf_close(bgzf_out) < 0) error("Error closing %s: %s\n",args->output_fname ? args->output_fname : "-",strerror(errno));
+    if (hts_close(args->fp)) error("Error closing %s: %s\n",args->fname,strerror(errno));
     free(buf);
 }
 static void reheader_vcf(args_t *args)
@@ -454,10 +460,7 @@ static void reheader_vcf(args_t *args)
     int nsamples = 0;
     char **samples = NULL;
     if ( args->samples_fname )
-    {
-        samples = hts_readlines(args->samples_fname, &nsamples);
-        if ( !samples || !nsamples ) error("Error reading the --samples file \"%s\"\n", args->samples_fname);
-    }
+        samples = read_samples(args->samples_fname, args->samples_is_file, &nsamples);
     if ( args->header_fname )
     {
         free(hdr.s); hdr.s = NULL; hdr.l = hdr.m = 0;
@@ -565,10 +568,7 @@ static void reheader_bcf(args_t *args, int is_compressed)
     int i, nsamples = 0;
     char **samples = NULL;
     if ( args->samples_fname )
-    {
-        samples = hts_readlines(args->samples_fname, &nsamples);
-        if ( !samples || !nsamples ) error("Error reading the --samples file \"%s\"\n", args->samples_fname);
-    }
+        samples = read_samples(args->samples_fname, args->samples_is_file, &nsamples);
     if ( args->header_fname )
     {
         free(htxt.s); htxt.s = NULL; htxt.l = htxt.m = 0;
@@ -663,12 +663,14 @@ static void usage(args_t *args)
     fprintf(bcftools_stderr, "Usage:   bcftools reheader [OPTIONS] <in.vcf.gz>\n");
     fprintf(bcftools_stderr, "\n");
     fprintf(bcftools_stderr, "Options:\n");
-    fprintf(bcftools_stderr, "    -f, --fai FILE             update sequences and their lengths from the .fai file\n");
-    fprintf(bcftools_stderr, "    -h, --header FILE          new header\n");
-    fprintf(bcftools_stderr, "    -o, --output FILE          write output to a file [standard output]\n");
-    fprintf(bcftools_stderr, "    -s, --samples FILE         new sample names\n");
-    fprintf(bcftools_stderr, "    -T, --temp-prefix PATH     ignored; was template for temporary file name\n");
-    fprintf(bcftools_stderr, "        --threads INT          use multithreading with <int> worker threads (BCF only) [0]\n");
+    fprintf(bcftools_stderr, "    -f, --fai FILE             Update sequences and their lengths from the .fai file\n");
+    fprintf(bcftools_stderr, "    -h, --header FILE          New header\n");
+    fprintf(bcftools_stderr, "    -o, --output FILE          Write output to a file [standard output]\n");
+    fprintf(bcftools_stderr, "    -n, --samples-list LIST    New sample names given as a comma-separated list\n");
+    fprintf(bcftools_stderr, "    -N, --samples-file FILE    New sample names in a file, see the man page for details\n");
+    fprintf(bcftools_stderr, "    -T, --temp-prefix PATH     Ignored; was template for temporary file name\n");
+    fprintf(bcftools_stderr, "        --threads INT          Use multithreading with INT worker threads (BCF only) [0]\n");
+    fprintf(bcftools_stderr, "    -v, --verbosity INT        Verbosity level\n");
     fprintf(bcftools_stderr, "\n");
     fprintf(bcftools_stderr, "Example:\n");
     fprintf(bcftools_stderr, "   # Write out the header to be modified\n");
@@ -696,18 +698,26 @@ int main_reheader(int argc, char *argv[])
         {"output",1,0,'o'},
         {"header",1,0,'h'},
         {"samples",1,0,'s'},
+        {"samples-file",1,0,'N'},
+        {"samples-list",1,0,'n'},
         {"threads",1,NULL,1},
+        {"verbosity",required_argument,NULL,'v'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "s:h:o:f:T:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "s:h:o:f:T:v:N:n:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                break;
             case  1 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'T': break; // unused - was temp file prefix
             case 'f': args->fai_fname = optarg; break;
             case 'o': args->output_fname = optarg; break;
-            case 's': args->samples_fname = optarg; break;
+            case 's': args->samples_fname = optarg; args->samples_is_file = 1; break;
+            case 'N': args->samples_fname = optarg; args->samples_is_file = 1; break;
+            case 'n': args->samples_fname = optarg; args->samples_is_file = 0; break;
             case 'h': args->header_fname = optarg; break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);

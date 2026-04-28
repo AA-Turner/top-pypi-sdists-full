@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: starlette-cramjam
-Version: 0.6.0
+Version: 0.7.0
 Summary: Cramjam integration for Starlette ASGI framework.
 Project-URL: Source, https://github.com/developmentseed/starlette-cramjam
 Author-email: Vincent Sarago <vincent@developmentseed.com>

@@ -53,6 +53,7 @@ def get_upload_url(file_path: str | Var[str]) -> Var[str]: ...
 
 _on_drop_spec = passthrough_event_spec(list[UploadFile])
 _on_drop_args_spec = (_on_drop_spec, passthrough_event_spec(UploadChunkIterator))
+_on_drop_rejected_spec = passthrough_event_spec(list[dict[str, Any]])
 _UPLOAD_FILES_CLIENT_HANDLER = "uploadFiles"
 
 class UploadFilesProvider(Component):
@@ -140,7 +141,7 @@ class GhostUpload(Fragment):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[list[UploadFile]] | (EventType[()] | EventType[UploadChunkIterator]) | None = None,
-        on_drop_rejected: EventType[()] | EventType[list[UploadFile]] | None = None,
+        on_drop_rejected: EventType[()] | EventType[list[dict[str, Any]]] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -221,7 +222,7 @@ class Upload(MemoizationLeaf):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[list[UploadFile]] | (EventType[()] | EventType[UploadChunkIterator]) | None = None,
-        on_drop_rejected: EventType[()] | EventType[list[UploadFile]] | None = None,
+        on_drop_rejected: EventType[()] | EventType[list[dict[str, Any]]] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -310,7 +311,7 @@ class StyledUpload(Upload):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[list[UploadFile]] | (EventType[()] | EventType[UploadChunkIterator]) | None = None,
-        on_drop_rejected: EventType[()] | EventType[list[UploadFile]] | None = None,
+        on_drop_rejected: EventType[()] | EventType[list[dict[str, Any]]] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -400,7 +401,7 @@ class UploadNamespace(ComponentNamespace):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[list[UploadFile]] | (EventType[()] | EventType[UploadChunkIterator]) | None = None,
-        on_drop_rejected: EventType[()] | EventType[list[UploadFile]] | None = None,
+        on_drop_rejected: EventType[()] | EventType[list[dict[str, Any]]] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,

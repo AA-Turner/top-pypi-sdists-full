@@ -97,16 +97,6 @@ class LockState(Enum):
     unknown = 6
 
 
-def _interval_to_datetime(
-    timeout: Interval | None = None,
-) -> datetime | None:
-    if timeout is None:
-        return None
-    if isinstance(timeout, int):
-        timeout = timedelta(seconds=timeout)
-    return datetime.now() + timeout
-
-
 @public
 class Lock:
     """Portable, NFS-safe file locking with timeouts for POSIX systems.
@@ -250,10 +240,10 @@ class Lock:
         if hostname != self._hostname:
             return LockState.unknown
         if pid == os.getpid():
-            expired = self.expiration < datetime.now()
+            expired = self.expiration < self._now()
             return LockState.ours_expired if expired else LockState.ours
         if pid_exists(pid):
-            expired = self.expiration < datetime.now()
+            expired = self.expiration < self._now()
             return LockState.theirs_expired if expired else LockState.unknown
         return LockState.stale
 
@@ -311,7 +301,9 @@ class Lock:
         :raises TimeOutError: if ``timeout`` is not None and the indicated
             time interval expires without a lock acquisition.
         """
-        timeout_time = _interval_to_datetime(self._default_timeout if timeout is None else timeout)
+        timeout_time = self._interval_to_datetime(
+            self._default_timeout if timeout is None else timeout
+        )
         # Make sure the claim file exists, and that its contents are current.
         self._write()
         # 2025-05-08(warsaw): Is the following comment still relevant?
@@ -368,7 +360,7 @@ class Lock:
                 pass  # noqa PIE790 Unnecessary `pass` statement
             # We did not acquire the lock, because someone else already has
             # it.  Have we timed out in our quest for the lock?
-            if timeout_time is not None and timeout_time < datetime.now():
+            if timeout_time is not None and timeout_time < self._now():
                 os.unlink(self._claimfile)
                 log.error('timed out')
                 raise TimeOutError('Could not acquire the lock')
@@ -377,7 +369,7 @@ class Lock:
             # time to avoid race conditions.  (LP: #827052)
             release_time = self._releasetime
             if release_time != -1:
-                now = datetime.now()
+                now = self._now()
                 future = cast(datetime, release_time) + CLOCK_SLOP
                 if now > future:
                     # Yes, so break the lock.
@@ -536,7 +528,7 @@ class Lock:
         :param filename: If given, the file to touch, otherwise our claim file
             is touched.
         """
-        expiration_date = datetime.now() + self._lifetime
+        expiration_date = self._now() + self._lifetime
         t = time.mktime(expiration_date.timetuple())
         try:
             # We probably don't need to modify atime, but this is easier.
@@ -623,3 +615,22 @@ class Lock:
         """Snooze for a random amount of time."""
         interval = random.random() * 2.0 + 0.01
         time.sleep(interval)
+
+    def _now(self) -> datetime:
+        """Hook for subclasses to influence the clock lookup.
+
+        This is useful if you're synchronizing locks across NFS servers that
+        cannot properly synchronize their clocks.  Override to add any custom
+        necessary custom logic.
+        """
+        return datetime.now()
+
+    def _interval_to_datetime(
+        self,
+        timeout: Interval | None = None,
+    ) -> datetime | None:
+        if timeout is None:
+            return None
+        if isinstance(timeout, int):
+            timeout = timedelta(seconds=timeout)
+        return self._now() + timeout

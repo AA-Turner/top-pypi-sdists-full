@@ -18,7 +18,7 @@ Example:
 import functools
 import inspect
 import re
-from typing import Callable
+from collections.abc import Callable
 
 from contrast_fireball import DiscoveredRoute
 

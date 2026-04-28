@@ -4,7 +4,6 @@ import typing
 
 import typing_extensions
 from ..types.listen_v2turn_info_event import ListenV2TurnInfoEvent
-from ..types.listen_v2turn_info_type import ListenV2TurnInfoType
 from .listen_v2turn_info_words_item import ListenV2TurnInfoWordsItemParams
 
 
@@ -13,13 +12,13 @@ class ListenV2TurnInfoParams(typing_extensions.TypedDict):
     Describes the current turn and latest state of the turn
     """
 
-    type: ListenV2TurnInfoType
+    type: typing.Literal["TurnInfo"]
     request_id: str
     """
     The unique identifier of the request
     """
 
-    sequence_id: float
+    sequence_id: int
     """
     Starts at `0` and increments for each message the server sends to the client.  This includes messages of other types, like `Connected` messages.
     """
@@ -35,7 +34,7 @@ class ListenV2TurnInfoParams(typing_extensions.TypedDict):
     - **EndOfTurn** - The user has finished speaking for the turn
     """
 
-    turn_index: float
+    turn_index: int
     """
     The index of the current turn
     """
@@ -63,4 +62,17 @@ class ListenV2TurnInfoParams(typing_extensions.TypedDict):
     end_of_turn_confidence: float
     """
     Confidence that no more speech is coming in this turn
+    """
+
+    languages: typing_extensions.NotRequired[typing.Sequence[str]]
+    """
+    Detected languages sorted by descending frequency in the
+    transcript. Only present when the flux-general-multi model
+    detects languages in the audio.
+    """
+
+    languages_hinted: typing_extensions.NotRequired[typing.Sequence[str]]
+    """
+    The language hints that were supplied for this turn. Only
+    present when language hints are configured.
     """

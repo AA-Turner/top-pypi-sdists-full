@@ -13,8 +13,9 @@ supporting multiple languages, custom vocabulary, and various audio processing o
 import asyncio
 import base64
 import json
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Literal, Optional
+from typing import Any, Literal
 
 import aiohttp
 from loguru import logger
@@ -38,7 +39,7 @@ from pipecat.services.gladia.config import (
     PreProcessingConfig,
     RealtimeProcessingConfig,
 )
-from pipecat.services.settings import NOT_GIVEN, STTSettings, _NotGiven
+from pipecat.services.settings import NOT_GIVEN, STTSettings, _NotGiven, assert_given
 from pipecat.services.stt_latency import GLADIA_TTFS_P99
 from pipecat.services.stt_service import WebsocketSTTService
 from pipecat.transcriptions.language import Language, resolve_language
@@ -55,7 +56,7 @@ except ModuleNotFoundError as e:
     raise Exception(f"Missing module: {e}")
 
 
-def language_to_gladia_language(language: Language) -> Optional[str]:
+def language_to_gladia_language(language: Language) -> str | None:
     """Convert a Language enum to Gladia's language code format.
 
     Args:
@@ -223,13 +224,13 @@ class GladiaSTTService(WebsocketSTTService):
         encoding: str = "wav/pcm",
         bit_depth: int = 16,
         channels: int = 1,
-        sample_rate: Optional[int] = None,
-        model: Optional[str] = None,
-        params: Optional[GladiaInputParams] = None,
+        sample_rate: int | None = None,
+        model: str | None = None,
+        params: GladiaInputParams | None = None,
         max_buffer_size: int = 1024 * 1024 * 20,  # 20MB default buffer
         should_interrupt: bool = True,
-        settings: Optional[Settings] = None,
-        ttfs_p99_latency: Optional[float] = GLADIA_TTFS_P99,
+        settings: Settings | None = None,
+        ttfs_p99_latency: float | None = GLADIA_TTFS_P99,
         **kwargs,
     ):
         """Initialize the Gladia STT service.
@@ -353,7 +354,7 @@ class GladiaSTTService(WebsocketSTTService):
         """
         return True
 
-    def language_to_service_language(self, language: Language) -> Optional[str]:
+    def language_to_service_language(self, language: Language) -> str | None:
         """Convert pipecat Language enum to Gladia's language code.
 
         Args:
@@ -376,7 +377,7 @@ class GladiaSTTService(WebsocketSTTService):
         }
 
         # Add custom_metadata if provided
-        settings["custom_metadata"] = dict(s.custom_metadata or {})
+        settings["custom_metadata"] = dict(assert_given(s.custom_metadata) or {})
         settings["custom_metadata"]["pipecat"] = pipecat_version()
 
         # Add endpointing parameters if provided
@@ -388,20 +389,24 @@ class GladiaSTTService(WebsocketSTTService):
             )
 
         # Add language configuration
-        if s.language_config:
-            settings["language_config"] = s.language_config.model_dump(exclude_none=True)
+        language_config = assert_given(s.language_config)
+        if language_config:
+            settings["language_config"] = language_config.model_dump(exclude_none=True)
 
         # Add pre_processing configuration if provided
-        if s.pre_processing:
-            settings["pre_processing"] = s.pre_processing.model_dump(exclude_none=True)
+        pre_processing = assert_given(s.pre_processing)
+        if pre_processing:
+            settings["pre_processing"] = pre_processing.model_dump(exclude_none=True)
 
         # Add realtime_processing configuration if provided
-        if s.realtime_processing:
-            settings["realtime_processing"] = s.realtime_processing.model_dump(exclude_none=True)
+        realtime_processing = assert_given(s.realtime_processing)
+        if realtime_processing:
+            settings["realtime_processing"] = realtime_processing.model_dump(exclude_none=True)
 
         # Add messages_config if provided
-        if s.messages_config:
-            settings["messages_config"] = s.messages_config.model_dump(exclude_none=True)
+        messages_config = assert_given(s.messages_config)
+        if messages_config:
+            settings["messages_config"] = messages_config.model_dump(exclude_none=True)
 
         return settings
 
@@ -460,7 +465,7 @@ class GladiaSTTService(WebsocketSTTService):
         await super().cancel(frame)
         await self._disconnect()
 
-    async def run_stt(self, audio: bytes) -> AsyncGenerator[Frame, None]:
+    async def run_stt(self, audio: bytes) -> AsyncGenerator[Frame | None, None]:
         """Run speech-to-text on audio data.
 
         Args:
@@ -587,7 +592,7 @@ class GladiaSTTService(WebsocketSTTService):
 
     @traced_stt
     async def _handle_transcription(
-        self, transcript: str, is_final: bool, language: Optional[str] = None
+        self, transcript: str, is_final: bool, language: str | None = None
     ):
         await self.stop_processing_metrics()
 

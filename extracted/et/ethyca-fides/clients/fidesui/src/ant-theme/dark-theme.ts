@@ -1,7 +1,7 @@
 import { generate } from "@ant-design/colors";
 import { theme, ThemeConfig } from "antd";
 
-import palette from "../palette/palette.module.scss";
+import { palette } from "../palette/palette";
 import { defaultAntTheme } from "./default-theme";
 
 /**
@@ -53,6 +53,12 @@ export const darkAntTheme: ThemeConfig = {
     },
     Card: {
       colorBgContainer: palette.FIDESUI_MINOS,
+    },
+    Select: {
+      ...defaultAntTheme.components?.Select,
+      colorBgElevated: palette.FIDESUI_BG_MINOS,
+      optionActiveBg: minosDark[2],
+      optionSelectedBg: minosDark[3],
     },
   },
 };

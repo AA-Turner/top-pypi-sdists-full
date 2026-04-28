@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, Tri Dao.
+# Copyright (c) 2025-2026, QuACK team.
 # Based on the cute-dsl example:
 # https://github.com/NVIDIA/cutlass/blob/main/examples/python/CuTeDSL/blackwell_geforce/dense_gemm.py
 # SM120-style GEMM using warp-level MMA (MmaF16BF16Op) + ldmatrix.
@@ -42,11 +42,12 @@ class GemmSm120(GemmSm90):
         self,
         acc_dtype: Type[cutlass.Numeric],
         a_dtype: Type[cutlass.Numeric],
-        tile_shape_mn: Tuple[int, int],
+        tile_shape_mnk: Tuple[int, int] | Tuple[int, int, int],
         cluster_shape_mnk: Tuple[int, int, int],
         pingpong: bool = False,
         is_persistent: bool = True,
         gather_A: bool = False,
+        concat_layout: tuple | None = None,
         use_pdl: bool = True,
     ):
         # Don't call super().__init__ — we set up our own config
@@ -57,22 +58,24 @@ class GemmSm120(GemmSm90):
         self.use_pdl = use_pdl
         self.fp8_slow_accum = False
         self.gather_A = gather_A
+        self.concat_layout = concat_layout or ()
         if self.pingpong:
             assert self.is_persistent, "Pingpong gemm requires persistent scheduler"
         if gather_A:
             assert cluster_shape_mnk[1] == 1
 
         self.cluster_shape_mnk = cluster_shape_mnk
-        tile_M, tile_N = tile_shape_mn
-        self.cta_tile_shape_mnk = (tile_M, tile_N, 1)
+        assert len(tile_shape_mnk) in [2, 3], "CTA tile shape must be (M, N) or (M, N, K)"
+        # K dimension: if user provides 3 values, use their K; otherwise default in _setup_tiled_mma.
+        self.cta_tile_shape_mnk = (
+            tuple(tile_shape_mnk) if len(tile_shape_mnk) == 3 else (*tile_shape_mnk, 0)
+        )
+        tile_M, tile_N = self.cta_tile_shape_mnk[:2]
 
         # Pingpong: 2 warp groups each with (2,2,1) atom layout
         # Non-pingpong: 1 group of 8 warps with (4,2,1) atom layout
         self.mma_inst_mnk = (16, 8, 16)
-        if not self.pingpong:
-            self.atom_layout_mnk = (4, 2, 1)
-        else:
-            self.atom_layout_mnk = (2, 2, 1)
+        self.atom_layout_mnk = (4, 2, 1) if not self.pingpong else (2, 2, 1)
         # num_mma_warps = total warps doing MMA (both warp groups in pingpong)
         self.num_mma_warps = math.prod(self.atom_layout_mnk) * (1 if not self.pingpong else 2)
         # For compatibility with SM90 code that uses warp groups
@@ -113,6 +116,7 @@ class GemmSm120(GemmSm90):
 
         self.ab_stage = None
         self.epi_stage = None
+        self.epi_m_major = True
         self.a_smem_layout_staged = None
         self.b_smem_layout_staged = None
         self.epi_smem_layout_staged = None
@@ -124,18 +128,26 @@ class GemmSm120(GemmSm90):
         """Set up warp-level MMA (MmaF16BF16Op) and tile K dimension."""
         op = warp.MmaF16BF16Op(self.a_dtype, self.acc_dtype, self.mma_inst_mnk)
         tC = cute.make_layout(self.atom_layout_mnk)
+        atom_m, atom_n, atom_k = self.atom_layout_mnk
+        # We want each warp to have 16 consecutive elements in the N direction, for STSM
+        # and for gated epilogue.
+        permutation_n = cute.make_ordered_layout((self.mma_inst_mnk[1], atom_n, 2), order=(0, 2, 1))
         permutation_mnk = (
-            self.atom_layout_mnk[0] * self.mma_inst_mnk[0],
-            self.atom_layout_mnk[1] * self.mma_inst_mnk[1] * 2,
-            self.atom_layout_mnk[2] * self.mma_inst_mnk[2],
+            atom_m * self.mma_inst_mnk[0],
+            permutation_n,
+            atom_k * self.mma_inst_mnk[2],
         )
         self.tiled_mma = cute.make_tiled_mma(op, tC, permutation_mnk=permutation_mnk)
-        tile_k = self.mma_inst_mnk[2] * 4
-        self.cta_tile_shape_mnk = (
-            self.cta_tile_shape_mnk[0],
-            self.cta_tile_shape_mnk[1],
-            tile_k,
+        tile_k = (
+            self.cta_tile_shape_mnk[2]
+            if self.cta_tile_shape_mnk[2] > 0
+            else self.mma_inst_mnk[2] * 4
         )
+        assert tile_k > 0, "CTA tile K must be positive"
+        assert tile_k % self.mma_inst_mnk[2] == 0, (
+            f"CTA tile K ({tile_k}) must be divisible by MMA instruction K ({self.mma_inst_mnk[2]})"
+        )
+        self.cta_tile_shape_mnk = (self.cta_tile_shape_mnk[0], self.cta_tile_shape_mnk[1], tile_k)
 
     # __call__, _setup_attributes, make_ab_pipeline, make_epi_store_pipeline,
     # make_sched_pipeline, epilogue are all inherited from GemmSm90.
@@ -314,8 +326,8 @@ class GemmSm120(GemmSm90):
                     len_k = varlen_manager.len_k(batch_idx)
                     k_tile_cnt = cute.ceil_div(len_k, self.cta_tile_shape_mnk[2])
                     if const_expr(not self.gather_A):
-                        ab_producer_state = self.load_AB(
-                            ab_pipeline, ab_producer_state, copy_A, copy_B, k_tile_cnt
+                        ab_producer_state = self.load_tma(
+                            ab_pipeline, ab_producer_state, [copy_A, copy_B], k_tile_cnt
                         )
                     else:
                         ab_producer_state = self.load_AB_gather_A(
@@ -472,7 +484,8 @@ class GemmSm120(GemmSm90):
                 tiled_copy_r2s, tRS_rD, tRS_sD = self.epilog_smem_store_and_partition(
                     tiled_mma, self.d_layout, d_dtype_for_layout, sD, tidx
                 )
-                tRS_rAcc = self.epi_retile_acc(acc, tRS_rD, tiled_copy_r2s, tidx)
+                # (R2S, R2S_M, R2S_N, (epi_M, epi_N))
+                tRS_rAcc = self.epi_retile_acc(acc, tRS_rD, tiled_copy_r2s)
                 load_acc_subtile = partial(self.epi_load_acc_subtile, tRS_rAcc)
                 if const_expr(has_C):
                     tiled_copy_s2r, tRS_rC, tSR_rC, tSR_sC = self.epilog_smem_load_and_partition(
@@ -610,17 +623,28 @@ class GemmSm120(GemmSm90):
 
         return ab_read_state
 
-    def epi_retile_acc(self, acc, tRS_rD, tiled_copy_r2s, tidx=None):
-        """Retile accumulator for epilogue. Warp-level MMA uses tiled_copy_r2s.retile."""
-        if tidx is None:
-            tidx = cute.arch.thread_idx()[0]
-        thr_copy_r2s = tiled_copy_r2s.get_slice(tidx)
-        self._epi_size_tRS_rD = cute.size(tRS_rD)
-        return thr_copy_r2s.retile(acc)
+    @staticmethod
+    def _compute_tile_shape_or_override(
+        cta_tile_shape_mnk: Tuple[int, int, int],
+        atom_layout_mnk: Tuple[int, int, int],
+        element_type: Optional[Type[cutlass.Numeric]] = None,
+        epi_tile_override: Tuple[int, int] | None = None,
+    ) -> Tuple[int, int]:
+        """Compute the epilogue tile shape or use override if provided.
 
-    @cute.jit
-    def epi_load_acc_subtile(self, tRS_rAcc, tRS_rD, epi_idx):
-        """Load acc subtile using retile-based flat indexing (warp-level MMA layout)."""
-        size_rD = self._epi_size_tRS_rD
-        for i in cutlass.range_constexpr(size_rD):
-            tRS_rD[i] = tRS_rAcc[epi_idx * size_rD + i]
+        :param cta_tile_shape_mnk: CTA tile shape (M,N,K)
+        :type cta_tile_shape_mnk: Tuple[int, int, int]
+        :param element_type: Data type of elements
+        :type element_type: type[cutlass.Numeric]
+        :param epi_tile_override: Optional override for epilogue tile shape
+        :type epi_tile_override: Tuple[int, int] or None
+
+        :return: Computed epilogue tile shape
+        :rtype: Tuple[int, int]
+        """
+        if epi_tile_override is not None:
+            return epi_tile_override
+        n_perf = 64 if element_type is not None and element_type.width == 8 else 32
+        tile_m = math.gcd(64, cute.size(cta_tile_shape_mnk, mode=[0]))
+        tile_n = math.gcd(n_perf, cute.size(cta_tile_shape_mnk, mode=[1]))
+        return (tile_m, tile_n)

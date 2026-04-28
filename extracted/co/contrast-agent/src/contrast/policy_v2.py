@@ -1,6 +1,18 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from typing import TypedDict
+from __future__ import annotations
+
+import sys
+from typing import TYPE_CHECKING, TypedDict
+
+if TYPE_CHECKING:
+    if sys.version_info[:2] >= (3, 11):
+        from typing import NotRequired
+    else:
+        try:
+            from typing_extensions import NotRequired
+        except ImportError:
+            from typing import Optional as NotRequired
 
 # Unfortunately, TypedDicts do not currently support arbitrary extra keys in addition to
 # required keys, so we cannot use one here.
@@ -23,6 +35,10 @@ class PolicyDefinition(TypedDict):
     module: str
     method_names: list[str]
     event: EventDict
+
+    # Optional distribution package that the module is part of.
+    # Used for version resolution.
+    dist_package: NotRequired[str]  # noqa: UP045 # remove noqa in python 3.11
 
 
 def definitions() -> list[PolicyDefinition]:
@@ -249,67 +265,96 @@ outbound_request: list[PolicyDefinition] = [
 ]
 
 
-ai_usage: list[PolicyDefinition] = [
-    {
-        "module": module,
-        "method_names": (
-            sync_methods + [f"Async{method_name}" for method_name in sync_methods]
-        ),
-        "event": {
-            "name": "ai-usage-stainless",
-            "client_type_to_api_provider": {
-                "anthropic.Anthropic": "anthropic",
-                "anthropic.AsyncAnthropic": "anthropic",
-                "anthropic.lib.bedrock._client.AnthropicBedrock": "bedrock",
-                "anthropic.lib.bedrock._client.AsyncAnthropicBedrock": "bedrock",
-                "anthropic.lib.vertex._client.AnthropicVertex": "vertex",
-                "anthropic.lib.vertex._client.AsyncAnthropicVertex": "vertex",
-                "openai.OpenAI": "openai",
-                "openai.AsyncOpenAI": "openai",
+ai_usage: list[PolicyDefinition] = (
+    [
+        {
+            "module": module,
+            "method_names": (
+                sync_methods + [f"Async{method_name}" for method_name in sync_methods]
+            ),
+            "event": {
+                "name": "ai-usage-stainless",
+                "client_type_to_api_provider": {
+                    "anthropic.Anthropic": "anthropic",
+                    "anthropic.AsyncAnthropic": "anthropic",
+                    "anthropic.lib.bedrock._client.AnthropicBedrock": "bedrock",
+                    "anthropic.lib.bedrock._client.AsyncAnthropicBedrock": "bedrock",
+                    "anthropic.lib.vertex._client.AnthropicVertex": "vertex",
+                    "anthropic.lib.vertex._client.AsyncAnthropicVertex": "vertex",
+                    "openai.OpenAI": "openai",
+                    "openai.AsyncOpenAI": "openai",
+                },
             },
-        },
-    }
-    for module, sync_methods in [
-        ("anthropic.resources.completions", ["Completions.create"]),
-        (
-            "anthropic.resources.messages.batches",
-            ["Batches.create"],
-        ),
-        (
-            "anthropic.resources.messages.messages",
-            ["Messages.create", "Messages.stream"],
-        ),
-        ("openai.resources.audio.speech", ["Speech.create"]),
-        ("openai.resources.audio.transcriptions", ["Transcriptions.create"]),
-        ("openai.resources.audio.translations", ["Translations.create"]),
-        (
-            "openai.resources.chat.completions.completions",
-            ["Completions.create", "Completions.list", "Completions.stream"],
-        ),
-        ("openai.resource.batches", ["Batches.create"]),
-        ("openai.resources.completions", ["Completions.create"]),
-        ("openai.resources.embeddings", ["Embeddings.create"]),
-        ("openai.resources.fine_tuning.jobs.jobs", ["Jobs.create"]),
-        (
-            "openai.resources.images",
-            ["Images.create_variation", "Images.edit", "Images.generate"],
-        ),
-        ("openai.resources.moderations", ["Moderations.create"]),
-        ("openai.resources.realtime.calls", ["Calls.accept"]),
-        (
-            "openai.resources.realtime.realtime",
-            ["Realtime.connect", "ConnectionManager.connect"],
-        ),
-        ("openai.resources.videos", ["Videos.create", "Videos.create_and_poll"]),
+        }
+        for module, sync_methods in [
+            ("anthropic.resources.completions", ["Completions.create"]),
+            (
+                "anthropic.resources.messages.batches",
+                ["Batches.create"],
+            ),
+            (
+                "anthropic.resources.messages.messages",
+                ["Messages.create", "Messages.stream"],
+            ),
+            ("openai.resources.audio.speech", ["Speech.create"]),
+            ("openai.resources.audio.transcriptions", ["Transcriptions.create"]),
+            ("openai.resources.audio.translations", ["Translations.create"]),
+            (
+                "openai.resources.chat.completions.completions",
+                ["Completions.create", "Completions.list", "Completions.stream"],
+            ),
+            ("openai.resource.batches", ["Batches.create"]),
+            ("openai.resources.completions", ["Completions.create"]),
+            ("openai.resources.embeddings", ["Embeddings.create"]),
+            ("openai.resources.fine_tuning.jobs.jobs", ["Jobs.create"]),
+            (
+                "openai.resources.images",
+                ["Images.create_variation", "Images.edit", "Images.generate"],
+            ),
+            ("openai.resources.moderations", ["Moderations.create"]),
+            ("openai.resources.realtime.calls", ["Calls.accept"]),
+            (
+                "openai.resources.realtime.realtime",
+                ["Realtime.connect", "ConnectionManager.connect"],
+            ),
+            ("openai.resources.videos", ["Videos.create", "Videos.create_and_poll"]),
+        ]
     ]
-] + [
-    {
-        "module": "botocore.client",
-        "method_names": ["BaseClient._make_api_call"],
-        "event": {"name": "aws-api-call"},
-    }
-]
-
+    + [
+        {
+            "module": "botocore.client",
+            "method_names": ["BaseClient._make_api_call"],
+            "event": {"name": "aws-api-call"},
+        }
+    ]
+    + [
+        {
+            "module": module,
+            "method_names": (
+                sync_methods + [f"Async{method_name}" for method_name in sync_methods]
+            ),
+            "event": {"name": "ai-usage-google-genai"},
+            "dist_package": "google-genai",
+        }
+        for module, sync_methods in [
+            (
+                "google.genai.models",
+                [
+                    "Models.generate_content",
+                    "Models.generate_content_stream",
+                    "Models.generate_videos",
+                    "Models.generate_images",
+                    "Models.edit_image",
+                    "Models.upscale_image",
+                    "Models.segment_image",
+                    "Models.recontext_image",
+                ],
+            ),
+            ("google.genai.chats", ["Chats.create"]),
+            ("google.genai.batches", ["Batches.create"]),
+        ]
+    ]
+)
 
 graphql_request: list[PolicyDefinition] = [
     {

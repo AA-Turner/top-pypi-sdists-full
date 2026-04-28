@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: utilsforecast
-Version: 0.2.15
+Version: 0.2.16
 Summary: Forecasting utilities
 Author-email: Nixtla <business@nixtla.io>
 License: Apache Software License 2.0
@@ -17,37 +17,19 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: packaging
-Requires-Dist: pandas>=1.1.1
+Requires-Dist: pandas<3.0.0
 Requires-Dist: narwhals>=2.0
 Provides-Extra: plotting
-Requires-Dist: pandas[plot]; extra == "plotting"
+Requires-Dist: pandas[plot]<3.0.0; extra == "plotting"
 Requires-Dist: plotly; extra == "plotting"
-Requires-Dist: plotly-resampler; extra == "plotting"
+Requires-Dist: plotly-resampler; python_version < "3.14" and extra == "plotting"
 Provides-Extra: polars
 Requires-Dist: polars[numpy]<=1.31; extra == "polars"
-Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
-Requires-Dist: datasetsforecast==0.0.8; extra == "dev"
-Requires-Dist: nbformat; extra == "dev"
-Requires-Dist: numba>=0.58.0; extra == "dev"
-Requires-Dist: pip; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pyarrow; extra == "dev"
-Requires-Dist: scipy; extra == "dev"
-Requires-Dist: pandas[plot]; extra == "dev"
-Requires-Dist: plotly; extra == "dev"
-Requires-Dist: plotly-resampler; extra == "dev"
-Requires-Dist: polars[numpy]; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: fugue[dask,spark]>=0.8.1; extra == "dev"
-Requires-Dist: dask<=2024.12.1; extra == "dev"
-Requires-Dist: pip-licenses; extra == "dev"
 Dynamic: license-file
 
 ## Install

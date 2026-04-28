@@ -19,7 +19,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 import typer
 from typing_extensions import Annotated
@@ -38,7 +38,6 @@ logger = logging.getLogger(__name__)
 
 _URI_SCHEME_PATTERN = re.compile(r'^[a-zA-Z][a-zA-Z0-9+.-]*://')
 
-from .api import Keeper
 from .config import get_default_provider_model, get_tool_directory
 from .logging_config import configure_quiet_mode, enable_debug_mode
 from .provider_identity import provider_model_name
@@ -57,6 +56,9 @@ from .types import (
     tag_values,
 )
 from .utils import _text_content_id
+
+if TYPE_CHECKING:
+    from .api import Keeper
 
 
 def _is_filesystem_path(source: str) -> Optional[Path]:
@@ -773,7 +775,7 @@ def _authoritative_remote_store(config):
     return remote_store
 
 
-def _get_keeper(store: Optional[Path], *, _force_local: bool = False) -> Keeper:
+def _get_keeper(store: Optional[Path], *, _force_local: bool = False) -> "Keeper":
     """Initialize memory, handling errors gracefully.
 
     Returns a local Keeper or RemoteKeeper depending on authoritative-store
@@ -785,6 +787,7 @@ def _get_keeper(store: Optional[Path], *, _force_local: bool = False) -> Keeper:
     (used by ``keep daemon`` and the hidden ``keep pending`` compatibility alias).
     """
     import atexit
+    from .api import Keeper
 
     # Env vars target the remote authoritative store.
     api_url = os.environ.get("KEEPNOTES_API_URL", "https://api.keepnotes.ai")
@@ -979,8 +982,13 @@ def _render_context_from_flow_bindings(bindings: dict[str, dict], kp=None) -> st
             ctx = kp.get_context(item_id)
             if ctx is not None and getattr(ctx, "item", None) is not None:
                 return render_context(ctx)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.info(
+                "Failed to render full context for %s; falling back to item binding: %s",
+                item_id,
+                exc,
+                exc_info=True,
+            )
 
     from ._context_resolution import ItemContext
     from .types import Item
@@ -2454,6 +2462,7 @@ def doctor(
 
     # 11. Round-trip (temp store, isolates stack from store data)
     from .config import ProviderConfig, StoreConfig
+    from .api import Keeper
     tmp_dir = None
     try:
         tmp_dir = tempfile.mkdtemp(prefix="keep_doctor_")

@@ -37,6 +37,7 @@ from .literals import (
     ImportStateType,
     ImportTypeType,
     IncludeKeyMaterialType,
+    KeyLastUsageTrackingOperationType,
     KeyManagerTypeType,
     KeyMaterialStateType,
     KeySpecType,
@@ -104,6 +105,8 @@ __all__ = (
     "GenerateMacResponseTypeDef",
     "GenerateRandomRequestTypeDef",
     "GenerateRandomResponseTypeDef",
+    "GetKeyLastUsageRequestTypeDef",
+    "GetKeyLastUsageResponseTypeDef",
     "GetKeyPolicyRequestTypeDef",
     "GetKeyPolicyResponseTypeDef",
     "GetKeyRotationStatusRequestTypeDef",
@@ -118,6 +121,7 @@ __all__ = (
     "GrantListEntryTypeDef",
     "ImportKeyMaterialRequestTypeDef",
     "ImportKeyMaterialResponseTypeDef",
+    "KeyLastUsageDataTypeDef",
     "KeyListEntryTypeDef",
     "KeyMetadataTypeDef",
     "ListAliasesRequestPaginateTypeDef",
@@ -273,6 +277,15 @@ class GenerateDataKeyWithoutPlaintextRequestTypeDef(TypedDict):
     NumberOfBytes: NotRequired[int]
     GrantTokens: NotRequired[Sequence[str]]
     DryRun: NotRequired[bool]
+
+class GetKeyLastUsageRequestTypeDef(TypedDict):
+    KeyId: str
+
+class KeyLastUsageDataTypeDef(TypedDict):
+    Operation: NotRequired[KeyLastUsageTrackingOperationType]
+    Timestamp: NotRequired[datetime]
+    CloudTrailEventId: NotRequired[str]
+    KmsRequestId: NotRequired[str]
 
 class GetKeyPolicyRequestTypeDef(TypedDict):
     KeyId: str
@@ -729,6 +742,13 @@ class ListResourceTagsRequestPaginateTypeDef(TypedDict):
 class ListRetirableGrantsRequestPaginateTypeDef(TypedDict):
     RetiringPrincipal: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetKeyLastUsageResponseTypeDef(TypedDict):
+    KeyId: str
+    KeyLastUsage: KeyLastUsageDataTypeDef
+    TrackingStartDate: datetime
+    KeyCreationDate: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GrantListEntryTypeDef(TypedDict):
     KeyId: NotRequired[str]

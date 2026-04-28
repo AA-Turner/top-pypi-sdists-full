@@ -547,6 +547,7 @@ class AdConfigurationTypeDef(TypedDict):
 class CreateAdConfigurationRequestTypeDef(TypedDict):
     mediaTailorPlaybackConfigurations: Sequence[MediaTailorPlaybackConfigurationTypeDef]
     name: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class EmptyResponseMetadataTypeDef(TypedDict):

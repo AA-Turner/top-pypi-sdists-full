@@ -1,6 +1,6 @@
 [project]
 name = "tokenizers"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
   { name = "Nicolas Patry", email = "patry.nicolas@protonmail.com" },
   { name = "Anthony Moi", email = "anthony@huggingface.co" },
@@ -13,11 +13,11 @@ classifiers = [
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -41,11 +41,11 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [tool.maturin]
-python-source = "py_src"
 module-name = "tokenizers.tokenizers"
 bindings = "pyo3"
-features = ["pyo3/extension-module"]
+features = ["pyo3/extension-module", "abi3"]
 manifest-path = "bindings/python/Cargo.toml"
+python-source = "py_src"
 
 
 [tool.ruff]
@@ -65,3 +65,7 @@ lint.ignore = [
   # Fixtures unused import
   "F811",
 ]
+
+[tool.ty.rules]
+invalid-method-override = "ignore"
+invalid-type-form = "ignore"

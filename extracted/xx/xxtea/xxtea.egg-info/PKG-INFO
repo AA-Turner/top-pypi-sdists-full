@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xxtea
-Version: 3.8.0
+Version: 4.0.0
 Summary: xxtea is a simple block cipher
 Home-page: https://github.com/ifduyue/xxtea
 Author: Yue Du
@@ -13,7 +13,6 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -21,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Dynamic: author
@@ -36,8 +35,8 @@ Dynamic: license-file
 Dynamic: requires-python
 Dynamic: summary
 
-xxtea |github-actions-badge| |pypi-badge| |supported-pythons-badge| |license-badge|
-==============================================================================================
+xxtea |github-actions-badge| |pypi-badge| |supported-pythons-badge| |license-badge| |codspeed-badge|
+=============================================================================================================
 
 .. |github-actions-badge| image:: https://github.com/ifduyue/xxtea/actions/workflows/test.yml/badge.svg
     :target: https://github.com/ifduyue/xxtea/actions/workflows/test.yml
@@ -54,6 +53,10 @@ xxtea |github-actions-badge| |pypi-badge| |supported-pythons-badge| |license-bad
 .. |license-badge| image:: https://img.shields.io/pypi/l/xxtea.svg
     :target: https://pypi.python.org/pypi/xxtea
     :alt: License
+
+.. |codspeed-badge| image:: https://img.shields.io/endpoint?url=https://codspeed.io/badge.json
+    :target: https://codspeed.io/ifduyue/xxtea?utm_source=badge
+    :alt: CodSpeed
 
 .. _XXTEA: http://en.wikipedia.org/wiki/XXTEA
 .. _longs2bytes: https://github.com/ifduyue/xxtea/blob/master/xxtea.c#L130
@@ -163,6 +166,8 @@ where n denotes how many 32-bit integers the input data can fit in.
 We can change this by setting ``rounds`` parameter.
 
 Do note that the more rounds it is, the more time will be consumed.
+``rounds`` must fit in a 32-bit unsigned integer; values exceeding
+``2**32 - 1`` raise ``OverflowError``.
 
 .. code-block:: python
 
@@ -211,3 +216,5 @@ is raised:
     TypeError : Odd-length string
     >>> try_catch(xxtea.decrypt_hex, 'abcd', key=' '*16)
     ValueError : Invalid data, data length is not a multiple of 4, or less than 8.
+    >>> try_catch(xxtea.encrypt, b'x', b'k'*16, rounds=2**32)
+    OverflowError : rounds value too large

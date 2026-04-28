@@ -35,7 +35,13 @@ and then returned to the caller.
 from __future__ import annotations
 
 import builtins
-from collections.abc import Callable, Generator, MutableMapping, Iterable
+from collections.abc import (
+    Callable,
+    Generator,
+    Iterable,
+    Iterator,
+    MutableMapping,
+)
 import inspect
 import itertools
 import operator
@@ -48,6 +54,7 @@ from typing import (
     TypeVar,
     TypedDict,
     Union,
+    cast,
     overload,
 )
 import urllib.parse
@@ -181,19 +188,23 @@ def Computed(
     )
 
 
-class _ComponentManager(MutableMapping):
+class _ComponentManager(MutableMapping[str, Any]):
     """Storage of a component type"""
 
     attributes: dict[str, Any]
 
-    def __init__(self, attributes=None, synchronized=False):
+    def __init__(
+        self,
+        attributes: dict[str, Any] | None = None,
+        synchronized: bool = False,
+    ) -> None:
         self.attributes = dict() if attributes is None else attributes.copy()
         self._dirty = set() if synchronized else set(self.attributes.keys())
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Any:
         return self.attributes[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: Any) -> None:
         try:
             orig = self.attributes[key]
         except KeyError:
@@ -205,14 +216,14 @@ class _ComponentManager(MutableMapping):
             self.attributes[key] = value
             self._dirty.add(key)
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: str) -> None:
         del self.attributes[key]
         self._dirty.add(key)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return iter(self.attributes)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.attributes)
 
     @property
@@ -235,7 +246,12 @@ class _ComponentManager(MutableMapping):
 class _Request:
     """Prepared components that go into a KSA request"""
 
-    def __init__(self, url, body, headers):
+    def __init__(
+        self,
+        url: str,
+        body: dict[str, Any] | list[dict[str, Any]] | None,
+        headers: dict[str, str],
+    ) -> None:
         self.url = url
         self.body = body
         self.headers = headers
@@ -252,7 +268,7 @@ class QueryParameters:
         *names: str,
         include_pagination_defaults: bool = True,
         **mappings: str | QueryMapping,
-    ):
+    ) -> None:
         """Create a dict of accepted query parameters
 
         :param names: List of strings containing client-side query parameter
@@ -276,7 +292,12 @@ class QueryParameters:
         self._mapping.update({name: name for name in names})
         self._mapping.update(mappings)
 
-    def _validate(self, query, base_path=None, allow_unknown_params=False):
+    def _validate(
+        self,
+        query: dict[str, Any],
+        base_path: str | None = None,
+        allow_unknown_params: bool = False,
+    ) -> dict[str, Any]:
         """Check that supplied query keys match known query mappings
 
         :param dict query: Collection of key-value pairs where each key is the
@@ -312,7 +333,11 @@ class QueryParameters:
                 known_keys = set(query).intersection(set(expected_params))
                 return {k: query[k] for k in known_keys}
 
-    def _transpose(self, query, resource_type):
+    def _transpose(
+        self,
+        query: dict[str, Any],
+        resource_type: type[Resource],
+    ) -> dict[str, Any]:
         """Transpose the keys in query based on the mapping
 
         If a query is supplied with its server side name, we will still use
@@ -374,7 +399,7 @@ class ResourceMixinProtocol(Protocol):
     def _get_microversion(cls, session: adapter.Adapter) -> str | None: ...
 
 
-class Resource(dict):
+class Resource(dict[str, Any]):
     # TODO(mordred) While this behaves mostly like a munch for the purposes
     # we need, sub-resources, such as Server.security_groups, which is a list
     # of dicts, will contain lists of real dicts, not lists of munch-like dict
@@ -424,12 +449,11 @@ class Resource(dict):
     #: Commits happen without header or body being dirty.
     allow_empty_commit = False
 
-    #: Method for committing a resource (PUT, PATCH, POST)
-    commit_method = "PUT"
-    #: Method for creating a resource (POST, PUT)
-    create_method = "POST"
-    #: Whether commit uses JSON patch format.
-    commit_jsonpatch = False
+    #: Method for committing a resource. This must be PATCH if
+    #: allow_patch is True.
+    commit_method: Literal['POST', 'PATCH', 'PUT'] = 'PUT'
+    #: Method for creating a resource
+    create_method: Literal['POST', 'PUT'] = 'POST'
 
     #: Do calls for this resource require an id
     requires_id = True
@@ -460,7 +484,28 @@ class Resource(dict):
     # Placeholder for aliases as dict of {__alias__:__original}
     _attr_aliases: dict[str, str] = {}
 
-    def __init__(self, _synchronized=False, connection=None, **attrs):
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        # TODO(stephenfin): It doesn't make much sense for allow_commit to be
+        # False while allow_patch is True but we do have some (acelerator
+        # service) resources doing just that. We can simplify when those are
+        # fixed.
+        if (
+            cls.allow_commit
+            and cls.allow_patch
+            and cls.commit_method != 'PATCH'
+        ):
+            raise TypeError(
+                f"{cls.__name__}: 'allow_patch' is True but "
+                f"'commit_method' is {cls.commit_method!r} instead of 'PATCH'"
+            )
+
+    def __init__(
+        self,
+        _synchronized: bool = False,
+        connection: connection.Connection | None = None,
+        **attrs: Any,
+    ) -> None:
         """The base resource
 
         :param bool _synchronized:
@@ -498,7 +543,7 @@ class Resource(dict):
         self._computed = _ComponentManager(
             attributes=computed, synchronized=_synchronized
         )
-        if self.commit_jsonpatch or self.allow_patch:
+        if self.allow_patch:
             # We need the original body to compare against
             if _synchronized:
                 self._original_body = self._body.attributes.copy()
@@ -531,8 +576,12 @@ class Resource(dict):
 
     @classmethod
     def _attributes_iterator(
-        cls, components=tuple([fields.Body, fields.Header])
-    ):
+        cls,
+        components: (
+            type[fields._BaseComponent]
+            | tuple[type[fields._BaseComponent], ...]
+        ) = tuple([fields.Body, fields.Header]),
+    ) -> Generator[tuple[str, fields._BaseComponent], None, None]:
         """Iterator over all Resource attributes"""
         # isinstance stricly requires this to be a tuple
         # Since we're looking at class definitions we need to include
@@ -542,7 +591,7 @@ class Resource(dict):
                 if isinstance(component, components):
                     yield attr, component
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         pairs = [
             "{}={}".format(k, v if v is not None else 'None')
             for k, v in dict(
@@ -558,7 +607,7 @@ class Resource(dict):
 
         return f"{self.__module__}.{self.__class__.__name__}({args})"
 
-    def __eq__(self, comparand):
+    def __eq__(self, comparand: object) -> bool:
         """Return True if another resource has the same contents"""
         if not isinstance(comparand, Resource):
             return False
@@ -571,7 +620,7 @@ class Resource(dict):
             ]
         )
 
-    def __getattribute__(self, name):
+    def __getattribute__(self, name: str) -> Any:
         """Return an attribute on this instance
 
         This is mostly a pass-through except for a specialization on
@@ -601,7 +650,7 @@ class Resource(dict):
                         return self._unknown_attrs_in_body[name]
                 raise e
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Any:
         """Provide dictionary access for elements of the data model."""
         # Check the class, since BaseComponent is a descriptor and thus
         # behaves like its wrapped content. If we get it on the class,
@@ -631,10 +680,10 @@ class Resource(dict):
                     return self._unknown_attrs_in_body[name]
         raise KeyError(name)
 
-    def __delitem__(self, name):
+    def __delitem__(self, name: str) -> None:
         delattr(self, name)
 
-    def __setitem__(self, name, value):
+    def __setitem__(self, name: str, value: Any) -> None:
         real_item = getattr(self.__class__, name, None)
         if isinstance(real_item, fields._BaseComponent):
             self.__setattr__(name, value)
@@ -649,8 +698,11 @@ class Resource(dict):
             )
 
     def _attributes(
-        self, remote_names=False, components=None, include_aliases=True
-    ):
+        self,
+        remote_names: bool = False,
+        components: tuple[type[fields._BaseComponent], ...] | None = None,
+        include_aliases: bool = True,
+    ) -> list[str]:
         """Generate list of supported attributes"""
         attributes = []
 
@@ -670,7 +722,7 @@ class Resource(dict):
 
         return attributes
 
-    def keys(self):
+    def keys(self) -> list[str]:  # type: ignore[override]
         # NOTE(mordred) In python2, dict.keys returns a list. In python3 it
         # returns a dict_keys view. For 2, we can return a list from the
         # itertools chain. In 3, return the chain so it's at least an iterator.
@@ -681,7 +733,7 @@ class Resource(dict):
         # remotes or "unknown"
         return self._attributes()
 
-    def items(self):
+    def items(self) -> list[tuple[str, Any]]:  # type: ignore[override]
         # This method is critically required for Ansible "jsonify"
         # NOTE(gtema) For some reason when running from SDK itself the native
         # implementation of the method is absolutely sifficient, when called
@@ -720,7 +772,9 @@ class Resource(dict):
         # always False even if we override __len__ or __bool__.
         dict.update(self, self.to_dict())
 
-    def _collect_attrs(self, attrs):
+    def _collect_attrs(
+        self, attrs: dict[str, Any]
+    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
         """Given attributes, return a dict per type of attribute
 
         This method splits up **attrs into separate dictionaries
@@ -774,8 +828,17 @@ class Resource(dict):
         if kwargs:
             self.location = self._connection._get_current_location(**kwargs)
 
-    def _compute_attributes(self, body, header, uri):
+    def _compute_attributes(
+        self,
+        body: dict[str, Any],
+        header: dict[str, Any],
+        uri: dict[str, Any],
+    ) -> dict[str, Any]:
         """Compute additional attributes from the remote resource."""
+        warnings.warn(
+            'The _compute_attributes method is deprecated for removal',
+            os_warnings.RemovedInSDK50Warning,
+        )
         return {}
 
     def _consume_body_attrs(
@@ -853,13 +916,16 @@ class Resource(dict):
 
         return relevant_attrs
 
-    def _clean_body_attrs(self, attrs):
+    def _clean_body(self, attrs: Iterable[str] | None = None) -> None:
         """Mark the attributes as up-to-date."""
         self._body.clean(only=attrs)
-        if self.commit_jsonpatch or self.allow_patch:
-            for attr in attrs:
-                if attr in self._body:
-                    self._original_body[attr] = self._body[attr]
+        if self.allow_patch:
+            if attrs:
+                for attr in attrs:
+                    if attr in self._body:
+                        self._original_body[attr] = self._body[attr]
+            else:
+                self._original_body = self._body.attributes.copy()
 
     @classmethod
     def _get_mapping(
@@ -879,27 +945,27 @@ class Resource(dict):
         return ret
 
     @classmethod
-    def _body_mapping(cls):
+    def _body_mapping(cls) -> MutableMapping[str, Any]:
         """Return all Body members of this class"""
         return cls._get_mapping(fields.Body)
 
     @classmethod
-    def _header_mapping(cls):
+    def _header_mapping(cls) -> MutableMapping[str, Any]:
         """Return all Header members of this class"""
         return cls._get_mapping(fields.Header)
 
     @classmethod
-    def _uri_mapping(cls):
+    def _uri_mapping(cls) -> MutableMapping[str, Any]:
         """Return all URI members of this class"""
         return cls._get_mapping(fields.URI)
 
     @classmethod
-    def _computed_mapping(cls):
+    def _computed_mapping(cls) -> MutableMapping[str, Any]:
         """Return all Computed members of this class"""
         return cls._get_mapping(fields.Computed)
 
     @classmethod
-    def _alternate_id(cls):
+    def _alternate_id(cls) -> str:
         """Return the name of any value known as an alternate_id
 
         NOTE: This will only ever return the first such alternate_id.
@@ -944,7 +1010,9 @@ class Resource(dict):
         return cls(_synchronized=False, **kwargs)
 
     @classmethod
-    def existing(cls, connection=None, **kwargs):
+    def existing(
+        cls, connection: connection.Connection | None = None, **kwargs: Any
+    ) -> Self:
         """Create an instance of an existing remote resource.
 
         When creating the instance set the ``_synchronized`` parameter
@@ -977,7 +1045,7 @@ class Resource(dict):
         """
         return cls(_synchronized=synchronized, connection=connection, **obj)
 
-    def _attr_to_dict(self, attr, to_munch):
+    def _attr_to_dict(self, attr: str, to_munch: bool) -> Any:
         """For a given attribute, convert it into a form suitable for a dict
         value.
 
@@ -1032,7 +1100,7 @@ class Resource(dict):
         :return: A dictionary of key/value pairs where keys are named
             as they exist as attributes of this class.
         """
-        mapping: utils.Munch | dict
+        mapping: utils.Munch | dict[str, Any]
         if _to_munch:
             mapping = utils.Munch()
         else:
@@ -1088,18 +1156,20 @@ class Resource(dict):
     # Make the munch copy method use to_dict
     copy = to_dict
 
-    def _to_munch(self, original_names=True):
+    def _to_munch(self, original_names: bool = True) -> utils.Munch:
         """Convert this resource into a Munch compatible with shade."""
-        return self.to_dict(
-            body=True,
-            headers=False,
-            original_names=original_names,
-            _to_munch=True,
+        return utils.Munch(
+            self.to_dict(
+                body=True,
+                headers=False,
+                original_names=original_names,
+                _to_munch=True,
+            )
         )
 
-    def _unpack_properties_to_resource_root(self, body):
-        if not body:
-            return
+    def _unpack_properties_to_resource_root(
+        self, body: dict[str, Any]
+    ) -> dict[str, Any]:
         # We do not want to modify caller
         body = body.copy()
         props = body.pop('properties', {})
@@ -1111,7 +1181,9 @@ class Resource(dict):
             body['properties'] = props
         return body
 
-    def _pack_attrs_under_properties(self, body, attrs):
+    def _pack_attrs_under_properties(
+        self, body: dict[str, Any], attrs: dict[str, Any]
+    ) -> dict[str, Any]:
         props = body.get('properties', {})
         if not isinstance(props, dict):
             props = {'properties': props}
@@ -1121,57 +1193,59 @@ class Resource(dict):
 
     def _prepare_request_body(
         self,
-        patch: bool,
-        prepend_key: bool,
         *,
+        prepend_key: bool,
         resource_request_key: str | None = None,
-    ) -> dict[str, Any] | builtins.list[Any]:
-        body: dict[str, Any] | list[Any]
-        if patch:
-            if not self._store_unknown_attrs_as_properties:
-                # Default case
-                new = self._body.attributes
-                original_body = self._original_body
-            else:
-                new = self._unpack_properties_to_resource_root(
-                    self._body.attributes
-                )
-                original_body = self._unpack_properties_to_resource_root(
-                    self._original_body
-                )
-
-            # NOTE(gtema) sort result, since we might need validate it in tests
-            body = sorted(
-                list(jsonpatch.make_patch(original_body, new).patch),
-                key=operator.itemgetter('path'),
-            )
+    ) -> dict[str, Any]:
+        body: dict[str, Any]
+        if not self._store_unknown_attrs_as_properties:
+            # Default case
+            body = self._body.dirty
         else:
-            if not self._store_unknown_attrs_as_properties:
-                # Default case
-                body = self._body.dirty
-            else:
-                body = self._unpack_properties_to_resource_root(
-                    self._body.dirty
-                )
+            body = self._unpack_properties_to_resource_root(self._body.dirty)
 
-            if prepend_key:
-                if resource_request_key is not None:
-                    body = {resource_request_key: body}
-                elif self.resource_key is not None:
-                    body = {self.resource_key: body}
+        if prepend_key:
+            if resource_request_key is not None:
+                body = {resource_request_key: body}
+            elif self.resource_key is not None:
+                body = {self.resource_key: body}
         return body
+
+    def _prepare_request_patch(
+        self,
+        *,
+        prepend_key: bool,
+        resource_request_key: str | None = None,
+    ) -> list[dict[str, Any]]:
+        if not self._store_unknown_attrs_as_properties:
+            # Default case
+            new = self._body.attributes
+            original_body = self._original_body
+        else:
+            new = self._unpack_properties_to_resource_root(
+                self._body.attributes
+            )
+            original_body = self._unpack_properties_to_resource_root(
+                self._original_body
+            )
+
+        # NOTE(gtema) sort result, since we might need validate it in tests
+        return sorted(
+            list(jsonpatch.make_patch(original_body, new).patch),
+            key=operator.itemgetter('path'),
+        )
 
     def _prepare_request(
         self,
-        requires_id=None,
-        prepend_key=False,
-        patch=False,
-        base_path=None,
-        params=None,
+        requires_id: bool | None = None,
+        prepend_key: bool = False,
+        patch: bool = False,
+        base_path: str | None = None,
+        params: Any = None,
         *,
-        resource_request_key=None,
-        **kwargs,
-    ):
+        resource_request_key: str | None = None,
+        **kwargs: Any,
+    ) -> _Request:
         """Prepare a request to be sent to the server
 
         Create operations don't require an ID, but all others do,
@@ -1189,11 +1263,17 @@ class Resource(dict):
         if requires_id is None:
             requires_id = self.requires_id
 
-        # Conditionally construct arguments for _prepare_request_body
-        request_kwargs = {"patch": patch, "prepend_key": prepend_key}
-        if resource_request_key is not None:
-            request_kwargs['resource_request_key'] = resource_request_key
-        body = self._prepare_request_body(**request_kwargs)
+        body: list[dict[str, Any]] | dict[str, Any]
+        if patch:
+            body = self._prepare_request_patch(
+                prepend_key=prepend_key,
+                resource_request_key=resource_request_key,
+            )
+        else:
+            body = self._prepare_request_body(
+                prepend_key=prepend_key,
+                resource_request_key=resource_request_key,
+            )
 
         # TODO(mordred) Ensure headers have string values better than this
         headers = {}
@@ -1205,7 +1285,7 @@ class Resource(dict):
 
         if base_path is None:
             base_path = self.base_path
-        uri = base_path % self._uri.attributes
+        uri = base_path % {'id': self.id, **self._uri.attributes}
         if requires_id:
             if self.id is None:
                 raise exceptions.InvalidRequest(
@@ -1266,10 +1346,7 @@ class Resource(dict):
                     )
 
                 self._body.attributes.update(body_attrs)
-                self._body.clean()
-                if self.commit_jsonpatch or self.allow_patch:
-                    # We need the original body to compare against
-                    self._original_body = self._body.attributes.copy()
+                self._clean_body()
             except ValueError:
                 # Server returned not parse-able response (202, 204, etc)
                 # Do simply nothing
@@ -1385,6 +1462,12 @@ class Resource(dict):
 
         return actual
 
+    # TODO(stephenfin): We should have one of these for each operation. It
+    # might help cut down on the amount of repetition we have.
+    def _transform_create_request(self, request: _Request) -> None:
+        """Apply any resource-specific transformations to the request."""
+        return None
+
     def create(
         self,
         session: adapter.Adapter,
@@ -1420,6 +1503,11 @@ class Resource(dict):
         if not self.allow_create:
             raise exceptions.MethodNotSupported(self, 'create')
 
+        if self.create_method not in {'PUT', 'POST'}:
+            raise exceptions.ResourceFailure(
+                f"Invalid create method: {self.create_method}"
+            )
+
         session = self._get_session(session)
         if microversion is None:
             microversion = self._get_microversion(session)
@@ -1430,19 +1518,18 @@ class Resource(dict):
         )
 
         # Construct request arguments.
-        request_kwargs = {
-            "requires_id": requires_id,
-            "prepend_key": prepend_key,
-            "base_path": base_path,
-        }
-        if resource_request_key is not None:
-            request_kwargs['resource_request_key'] = resource_request_key
 
         if self.create_exclude_id_from_body:
             self._body._dirty.discard("id")
 
+        request = self._prepare_request(
+            requires_id=requires_id,
+            prepend_key=prepend_key,
+            base_path=base_path,
+            resource_request_key=resource_request_key,
+        )
+        self._transform_create_request(request)
         if self.create_method == 'PUT':
-            request = self._prepare_request(**request_kwargs)
             response = session.put(
                 request.url,
                 json=request.body,
@@ -1450,18 +1537,13 @@ class Resource(dict):
                 microversion=microversion,
                 params=params,
             )
-        elif self.create_method == 'POST':
-            request = self._prepare_request(**request_kwargs)
+        else:  # self.create_method == 'POST'
             response = session.post(
                 request.url,
                 json=request.body,
                 headers=request.headers,
                 microversion=microversion,
                 params=params,
-            )
-        else:
-            raise exceptions.ResourceFailure(
-                f"Invalid create method: {self.create_method}"
             )
 
         has_body = (
@@ -1516,6 +1598,11 @@ class Resource(dict):
         if not cls.allow_create:
             raise exceptions.MethodNotSupported(cls, 'create')
 
+        if cls.create_method not in {'PUT', 'POST'}:
+            raise exceptions.ResourceFailure(
+                f"Invalid create method: {cls.create_method}"
+            )
+
         if not (
             data
             and isinstance(data, list)
@@ -1531,14 +1618,6 @@ class Resource(dict):
             if cls.create_requires_id is not None
             else cls.create_method == 'PUT'
         )
-        if cls.create_method == 'PUT':
-            method = session.put
-        elif cls.create_method == 'POST':
-            method = session.post
-        else:
-            raise exceptions.ResourceFailure(
-                f"Invalid create method: {cls.create_method}"
-            )
 
         _body: list[Any] = []
         resources = []
@@ -1568,13 +1647,22 @@ class Resource(dict):
 
             body = {cls.resources_key: body}
 
-        response = method(
-            request.url,
-            json=body,
-            headers=request.headers,
-            microversion=microversion,
-            params=params,
-        )
+        if cls.create_method == 'PUT':
+            response = session.put(
+                request.url,
+                json=body,
+                headers=request.headers,
+                microversion=microversion,
+                params=params,
+            )
+        else:  # cls.create_method == 'POST'
+            response = session.post(
+                request.url,
+                json=body,
+                headers=request.headers,
+                microversion=microversion,
+                params=params,
+            )
         exceptions.raise_from_response(response)
         json = response.json()
 
@@ -1707,9 +1795,9 @@ class Resource(dict):
         return self
 
     @property
-    def requires_commit(self):
+    def requires_commit(self) -> bool:
         """Whether the next commit() call will do anything."""
-        return (
+        return bool(
             self._body.dirty or self._header.dirty or self.allow_empty_commit
         )
 
@@ -1753,14 +1841,10 @@ class Resource(dict):
         if not self.requires_commit:
             return self
 
-        # Avoid providing patch unconditionally to avoid breaking subclasses
-        # without it.
-        if self.commit_jsonpatch:
-            kwargs['patch'] = True
-
         request = self._prepare_request(
             prepend_key=prepend_key,
             base_path=base_path,
+            patch=self.allow_patch,
             **kwargs,
         )
         if microversion is None:
@@ -1777,13 +1861,13 @@ class Resource(dict):
 
     def _commit(
         self,
-        session,
-        request,
-        method,
-        microversion,
-        has_body=True,
-        retry_on_conflict=None,
-    ):
+        session: adapter.Adapter,
+        request: _Request,
+        method: Literal['POST', 'PUT', 'PATCH'],
+        microversion: str | None = None,
+        has_body: bool = True,
+        retry_on_conflict: bool | None = None,
+    ) -> Self:
         session = self._get_session(session)
 
         kwargs = {}
@@ -1795,20 +1879,35 @@ class Resource(dict):
             # overriding it via an explicit retry_on_conflict=False.
             kwargs['retriable_status_codes'] = retriable_status_codes - {409}
 
-        try:
-            call = getattr(session, method.lower())
-        except AttributeError:
+        if method not in {'POST', 'PATCH', 'PUT'}:
             raise exceptions.ResourceFailure(
                 f"Invalid commit method: {method}"
             )
 
-        response = call(
-            request.url,
-            json=request.body,
-            headers=request.headers,
-            microversion=microversion,
-            **kwargs,
-        )
+        if method == 'POST':
+            response = session.post(
+                request.url,
+                json=request.body,
+                headers=request.headers,
+                microversion=microversion,
+                **kwargs,
+            )
+        elif method == 'PATCH':
+            response = session.patch(
+                request.url,
+                json=request.body,
+                headers=request.headers,
+                microversion=microversion,
+                **kwargs,
+            )
+        else:  # method == 'PUT'
+            response = session.put(
+                request.url,
+                json=request.body,
+                headers=request.headers,
+                microversion=microversion,
+                **kwargs,
+            )
 
         self.microversion = microversion
 
@@ -1816,7 +1915,9 @@ class Resource(dict):
 
         return self
 
-    def _convert_patch(self, patch):
+    def _convert_patch(
+        self, patch: list[dict[str, Any]] | dict[str, Any]
+    ) -> list[dict[str, Any]]:
         if not isinstance(patch, list):
             patch = [patch]
 
@@ -1846,15 +1947,15 @@ class Resource(dict):
 
     def patch(
         self,
-        session,
-        patch=None,
-        prepend_key=True,
-        has_body=True,
-        retry_on_conflict=None,
-        base_path=None,
+        session: adapter.Adapter,
+        patch: list[dict[str, Any]] | None = None,
+        prepend_key: bool = True,
+        has_body: bool = True,
+        retry_on_conflict: bool | None = None,
+        base_path: str | None = None,
         *,
-        microversion=None,
-    ):
+        microversion: str | None = None,
+    ) -> Self:
         """Patch the remote resource.
 
         Allows modifying the resource by providing a list of JSON patches to
@@ -1896,7 +1997,7 @@ class Resource(dict):
         if microversion is None:
             microversion = self._get_microversion(session)
         if patch:
-            request.body += self._convert_patch(patch)
+            cast(list[Any], request.body).extend(self._convert_patch(patch))
 
         return self._commit(
             session,
@@ -1942,7 +2043,12 @@ class Resource(dict):
         )
         return self
 
-    def _raw_delete(self, session, microversion=None, **kwargs):
+    def _raw_delete(
+        self,
+        session: adapter.Adapter,
+        microversion: str | None = None,
+        **kwargs: Any,
+    ) -> requests.Response:
         if not self.allow_delete:
             raise exceptions.MethodNotSupported(self, 'delete')
 
@@ -2053,14 +2159,14 @@ class Resource(dict):
             # know what they're doing.
             query_params['limit'] = max_items
 
-        limit = query_params.get('limit')
+        limit: str | None = query_params.get('limit')
 
         for k, v in params.items():
             # We need to gather URI parts to set them on the resource later
             if hasattr(cls, k) and isinstance(getattr(cls, k), fields.URI):
                 uri_params[k] = v
 
-        def _dict_filter(f, d):
+        def _dict_filter(f: dict[str, Any], d: dict[str, Any] | None) -> bool:
             """Dict param based filtering"""
             if not d:
                 return False
@@ -2102,7 +2208,7 @@ class Resource(dict):
             if not isinstance(resources, list):
                 resources = [resources]
 
-            marker = None
+            marker: str | None = None
             for raw_resource in resources:
                 # We return as soon as we hit our limit, even if we have items
                 # remaining
@@ -2145,7 +2251,9 @@ class Resource(dict):
                 total_yielded += 1
 
             if resources and paginated:
-                uri, next_params = cls._get_next_link(
+                # FIXME(stephenfin): Should we fail in _get_next_link if we
+                # can't build a new uri?
+                uri, next_params = cls._get_next_link(  # type: ignore[assignment]
                     uri, response, data, marker, limit, total_yielded
                 )
                 try:
@@ -2164,9 +2272,17 @@ class Resource(dict):
                 return
 
     @classmethod
-    def _get_next_link(cls, uri, response, data, marker, limit, total_yielded):
-        next_link = None
-        params: dict[str, str | list[str] | int] = {}
+    def _get_next_link(
+        cls,
+        uri: str,
+        response: requests.Response,
+        data: dict[str, Any],
+        marker: str | None,
+        limit: str | None,
+        total_yielded: int,
+    ) -> tuple[str | None, dict[str, str | builtins.list[str] | int | None]]:
+        next_link: str | None = None
+        params: dict[str, str | list[str] | int | None] = {}
 
         if isinstance(data, dict):
             pagination_key = cls.pagination_key
@@ -2205,8 +2321,7 @@ class Resource(dict):
         if not next_link and cls.pagination_key:
             total_count = response.headers.get(cls.pagination_key)
             if total_count:
-                total_count = int(total_count)
-                if total_count > total_yielded:
+                if int(total_count) > total_yielded:
                     params['marker'] = marker
                     if limit:
                         params['limit'] = limit
@@ -2232,7 +2347,9 @@ class Resource(dict):
         return next_link, params
 
     @classmethod
-    def _get_one_match(cls, name_or_id, results):
+    def _get_one_match(
+        cls, name_or_id: str, results: Iterable[Self]
+    ) -> Self | None:
         """Given a list of results, return the match"""
         the_result = None
         for maybe_result in results:

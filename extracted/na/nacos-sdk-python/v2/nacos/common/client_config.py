@@ -47,7 +47,7 @@ class GRPCConfig:
 
 
 class ClientConfig:
-    def __init__(self, server_addresses=None, endpoint=None, namespace_id='', context_path='', access_key=None,
+    def __init__(self, server_addresses=None, endpoint=None, namespace_id='', context_path=Constants.WEB_CONTEXT, access_key=None,
                  secret_key=None, username=None, password=None, app_name='', app_key='', log_dir='', log_level=None,
                  log_rotation_backup_count=None, app_conn_labels=None, credentials_provider=None):
         self.server_list = []
@@ -63,7 +63,7 @@ class ClientConfig:
         self.endpoint_query_header = None
         self.namespace_id = namespace_id
         self.credentials_provider = credentials_provider if credentials_provider else StaticCredentialsProvider(access_key, secret_key)
-        self.context_path = context_path
+        self.context_path = self._normalize_context_path(context_path)
         self.username = username  # the username for nacos auth
         self.password = password  # the password for nacos auth
         self.app_name = app_name
@@ -83,6 +83,29 @@ class ClientConfig:
         self.app_conn_labels = app_conn_labels
         self.async_update_service = False
         self.update_thread_num = 5
+        self.ai_transport_mode = "grpc"
+        self.ai_prompt_cache_update_interval = 10
+
+    @staticmethod
+    def _normalize_context_path(context_path):
+        """Normalize context path: fallback to default when empty, ensure leading
+        '/', strip trailing '/' except when the value is exactly '/'.
+        """
+        if not context_path:
+            return Constants.WEB_CONTEXT
+        cp = context_path
+        if not cp.startswith("/"):
+            cp = "/" + cp
+        if cp != "/" and cp.endswith("/"):
+            cp = cp[:-1]
+        return cp
+
+    def build_context_prefix(self):
+        """Return the context path to use as URL prefix. Returns '' when
+        context_path is '/' to avoid double slashes when concatenated with an
+        API path that already starts with '/'.
+        """
+        return "" if self.context_path == "/" else self.context_path
 
     def set_log_level(self, log_level):
         self.log_level = log_level
@@ -138,4 +161,12 @@ class ClientConfig:
 
     def set_update_thread_num(self, update_thread_num: int):
         self.update_thread_num = update_thread_num
+        return self
+
+    def set_ai_transport_mode(self, ai_transport_mode: str):
+        self.ai_transport_mode = ai_transport_mode
+        return self
+
+    def set_ai_prompt_cache_update_interval(self, interval: int):
+        self.ai_prompt_cache_update_interval = interval
         return self

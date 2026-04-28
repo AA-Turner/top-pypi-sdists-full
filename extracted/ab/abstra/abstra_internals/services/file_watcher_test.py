@@ -413,5 +413,76 @@ class TestFileWatcherDispatch(unittest.TestCase):
             mock_timer.assert_called_once()
 
 
+class TestFileWatcherStop(unittest.TestCase):
+    """Tests for the graceful-shutdown stop() method of FileWatcher."""
+
+    def test_stop_without_start_is_noop(self):
+        """stop() must be safe when start() was never called."""
+        watcher = FileWatcher(handlers=[])
+        watcher.stop()  # must not raise
+
+    def test_stop_stops_observer_and_joins(self):
+        """stop() must call observer.stop() and observer.join(timeout=...)."""
+        watcher = FileWatcher(handlers=[])
+        fake_observer = MagicMock()
+        watcher._observer = fake_observer
+
+        watcher.stop(timeout=3.0)
+
+        fake_observer.stop.assert_called_once_with()
+        fake_observer.join.assert_called_once_with(timeout=3.0)
+
+    def test_stop_cancels_debounce_timers(self):
+        """Pending per-file debounce timers must be cancelled and cleared."""
+        watcher = FileWatcher(handlers=[])
+        watcher._observer = MagicMock()
+        timer_a = MagicMock()
+        timer_b = MagicMock()
+        watcher._debounce_timers = {"a": timer_a, "b": timer_b}
+
+        watcher.stop()
+
+        timer_a.cancel.assert_called_once_with()
+        timer_b.cancel.assert_called_once_with()
+        self.assertEqual(watcher._debounce_timers, {})
+
+    def test_stop_cancels_modules_folder_timer(self):
+        """Pending modules-folder debounce timer must be cancelled and cleared."""
+        watcher = FileWatcher(handlers=[])
+        watcher._observer = MagicMock()
+        modules_timer = MagicMock()
+        watcher._modules_folder_timer = modules_timer
+
+        watcher.stop()
+
+        modules_timer.cancel.assert_called_once_with()
+        self.assertIsNone(watcher._modules_folder_timer)
+
+    def test_stop_swallows_observer_exception(self):
+        """Exceptions from observer.stop() must not propagate — shutdown cannot fail."""
+        watcher = FileWatcher(handlers=[])
+        fake_observer = MagicMock()
+        fake_observer.stop.side_effect = RuntimeError("boom")
+        watcher._observer = fake_observer
+
+        watcher.stop()  # must not raise
+
+        fake_observer.stop.assert_called_once()
+
+    def test_stop_swallows_timer_cancel_exception(self):
+        """Timer.cancel() failures must not prevent the rest of stop() from running."""
+        watcher = FileWatcher(handlers=[])
+        watcher._observer = MagicMock()
+        bad_timer = MagicMock()
+        bad_timer.cancel.side_effect = RuntimeError("boom")
+        good_timer = MagicMock()
+        watcher._debounce_timers = {"a": bad_timer, "b": good_timer}
+
+        watcher.stop()
+
+        good_timer.cancel.assert_called_once_with()
+        self.assertEqual(watcher._debounce_timers, {})
+
+
 if __name__ == "__main__":
     unittest.main()

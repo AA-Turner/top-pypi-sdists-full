@@ -34,6 +34,7 @@ from abstra_internals.repositories.producer import (
 from abstra_internals.server.apps import get_local_app
 from abstra_internals.services.file_watcher import FileWatcher
 from abstra_internals.settings import Settings
+from abstra_internals.signals import SignalHandlers
 from abstra_internals.stdio_patcher import StdioPatcher
 from abstra_internals.tasks_watcher import TasksWatcher
 from abstra_internals.utils.browser import background_open_editor
@@ -59,6 +60,57 @@ def start_consumer(controller: MainController, debug_mode: bool = False):
         return consumer, th, consumer_controller
 
     raise ValueError("Invalid producer repository")
+
+
+def shutdown_editor_components(
+    *,
+    server,
+    watchers,
+    editor_consumer,
+    consumer_controller,
+    stdio_broadcast_stop_event,
+    thread_factory=threading.Thread,
+):
+    """Stop every long-lived resource started by editor() and unblock
+    serve_forever() by scheduling server.shutdown() on a background thread.
+
+    Exposed at module level so it can be unit-tested without bootstrapping
+    the full editor() function.
+    """
+    AbstraLogger.warning("[Editor] Graceful shutdown initiated")
+
+    if editor_consumer is not None:
+        try:
+            editor_consumer.stop_iter()
+        except Exception as e:
+            AbstraLogger.error(f"[Editor] Error stopping editor consumer: {e}")
+    if consumer_controller is not None:
+        try:
+            consumer_controller.shutdown()
+        except Exception as e:
+            AbstraLogger.error(f"[Editor] Error shutting down consumer controller: {e}")
+
+    if stdio_broadcast_stop_event is not None:
+        stdio_broadcast_stop_event.set()
+
+    for component in watchers:
+        if component is None:
+            continue
+        try:
+            component.stop()
+        except Exception as e:
+            AbstraLogger.error(
+                f"[Editor] Error stopping {component.__class__.__name__}: {e}"
+            )
+
+    # server.shutdown() blocks until serve_forever() returns, so run it
+    # from a dedicated thread — the signal handler runs on the main thread
+    # (same thread that is blocked in serve_forever).
+    thread_factory(
+        target=server.shutdown,
+        name="WerkzeugShutdown",
+        daemon=True,
+    ).start()
 
 
 def ensure_certificates():
@@ -167,9 +219,13 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
 
     threading.Thread(target=_initial_lint, daemon=True, name="InitialLintCheck").start()
 
+    logs_watcher = None
+    stdio_broadcast_stop_event = None
     if WORKER_LOG_TO_QUEUE and use_rabbitmq_workers:
         assert RABBITMQ_CONNECTION_URI is not None
-        start_stdio_broadcast_consumer(RABBITMQ_CONNECTION_URI)
+        broadcast_result = start_stdio_broadcast_consumer(RABBITMQ_CONNECTION_URI)
+        if isinstance(broadcast_result, tuple) and len(broadcast_result) >= 2:
+            stdio_broadcast_stop_event = broadcast_result[1]
     else:
         logs_watcher = LogsWatcher([on_logs_update])
         logs_watcher.start()
@@ -177,15 +233,45 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
     tasks_watcher = TasksWatcher()
     tasks_watcher.start()
 
+    editor_consumer = None
+    consumer_controller = None
     if not is_web_editor:
-        start_consumer(main_controller, debug_mode=debug_mode)
+        editor_consumer, _, consumer_controller = start_consumer(
+            main_controller, debug_mode=debug_mode
+        )
 
     app = get_local_app(main_controller)
     server = make_server(host=HOST, port=Settings.server_port, threaded=True, app=app)
+
+    shutdown_started = threading.Event()
+
+    def _graceful_shutdown():
+        if shutdown_started.is_set():
+            return
+        shutdown_started.set()
+        shutdown_editor_components(
+            server=server,
+            watchers=(watcher, logs_watcher, tasks_watcher),
+            editor_consumer=editor_consumer,
+            consumer_controller=consumer_controller,
+            stdio_broadcast_stop_event=stdio_broadcast_stop_event,
+        )
+
+    SignalHandlers.register_sigterm_callback(_graceful_shutdown)
+    SignalHandlers.init()
 
     if not headless:
         background_open_editor()
 
     connect_tunnel(verbose=verbose)
 
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        _graceful_shutdown()
+    finally:
+        try:
+            server.server_close()
+        except Exception:
+            pass
+        AbstraLogger.warning("[Editor] Server stopped")

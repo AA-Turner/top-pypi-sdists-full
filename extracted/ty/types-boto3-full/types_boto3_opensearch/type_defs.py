@@ -492,6 +492,7 @@ class JWTOptionsInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     SubjectKey: NotRequired[str]
     RolesKey: NotRequired[str]
+    JwksUrl: NotRequired[str]
     PublicKey: NotRequired[str]
 
 
@@ -511,6 +512,7 @@ class JWTOptionsOutputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     SubjectKey: NotRequired[str]
     RolesKey: NotRequired[str]
+    JwksUrl: NotRequired[str]
     PublicKey: NotRequired[str]
 
 

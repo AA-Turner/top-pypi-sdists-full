@@ -3,7 +3,7 @@
 from __future__ import annotations
 from collections.abc import Mapping
 import shlex
-from typing import Callable
+from collections.abc import Callable
 
 from contrast_fireball import OtelAttributes, SpanType
 

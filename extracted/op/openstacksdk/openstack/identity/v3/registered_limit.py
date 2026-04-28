@@ -26,7 +26,6 @@ class RegisteredLimit(resource.Resource):
     allow_delete = True
     allow_list = True
     commit_method = 'PATCH'
-    commit_jsonpatch = True
 
     _query_mapping = resource.QueryParameters(
         'service_id', 'region_id', 'resource_name'
@@ -45,6 +44,11 @@ class RegisteredLimit(resource.Resource):
     resource_name = resource.Body('resource_name')
     #: The default limit value. *Type: int*
     default_limit = resource.Body('default_limit')
+
+    def _transform_create_request(self, request):
+        # Keystone supports batch create for unified limit. So the
+        # request body for creating limit is a list instead of dict.
+        request.body = {self.resources_key: [request.body[self.resource_key]]}
 
     def create(
         self,
@@ -66,24 +70,6 @@ class RegisteredLimit(resource.Resource):
             microversion=microversion,
             **params,
         )
-
-    def _prepare_request_body(
-        self,
-        patch,
-        prepend_key,
-        *,
-        resource_request_key=None,
-    ):
-        body = self._body.dirty
-        if prepend_key and self.resource_key is not None:
-            if patch:
-                body = {self.resource_key: body}
-            else:
-                # Keystone supports bunch create for registered limit. So the
-                # request body for creating registered_limit is a list instead
-                # of dict.
-                body = {self.resources_key: [body]}
-        return body
 
     def _translate_response(
         self,
@@ -138,7 +124,7 @@ class RegisteredLimit(resource.Resource):
 
                 self._body.attributes.update(body_attrs)
                 self._body.clean()
-                if self.commit_jsonpatch or self.allow_patch:
+                if self.allow_patch:
                     # We need the original body to compare against
                     self._original_body = body_attrs.copy()
             except ValueError:

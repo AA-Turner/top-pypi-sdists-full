@@ -126,9 +126,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: jdx/mise-action@v4
         with:
-          python-version: "3.13"
+          cache_key_prefix: mise-rel-${{ github.job }}
 
       - name: Update coglet version constraint
         run: |
@@ -183,20 +183,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: crates -> target
           key: release-${{ matrix.target }}
 
-      - uses: astral-sh/setup-uv@v6
-        with:
-          python-version: "3.13"
-          enable-cache: false
-
+      # maturin-action bundles maturin, zig, and Rust inside a manylinux container
       - name: Build coglet wheel
         uses: PyO3/maturin-action@v1
         with:
@@ -224,13 +216,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v6
+      - uses: jdx/mise-action@v4
         with:
-          go-version-file: go.mod
+          cache_key_prefix: mise-rel-${{ github.job }}
 
-      - uses: mlugg/setup-zig@v2
-        with:
-          version: 0.15.2
+      - name: Keep release tree clean after mise
+        run: |
+          CHANGED_FILES=$(git status --porcelain)
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "Working tree is clean"
+            exit 0
+          fi
+
+          NON_MISE_CHANGES=$(git status --porcelain | grep -vE "^[[:space:]]*[MARCDU?!]{1,2}[[:space:]]+mise\.lock$" || true)
+          if [ -n "$NON_MISE_CHANGES" ]; then
+            echo "::error::Unexpected file changes after tool setup"
+            git status --short
+            exit 1
+          fi
+
+          echo "Resetting mise.lock changes introduced during setup"
+          git checkout -- mise.lock
+          git status --short
 
       - name: Check for existing release
         run: |

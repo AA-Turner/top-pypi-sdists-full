@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: benchpots
-Version: 0.5
+Version: 1
 Summary: A Python Toolbox for Benchmarking Machine Learning on Partially-Observed Time Series
 Author-email: Wenjie Du <wenjay.du@gmail.com>
 License: Copyright (c) 2024-present, Wenjie Du

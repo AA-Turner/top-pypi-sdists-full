@@ -32,7 +32,7 @@ use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::alt::types::pydantic::PydanticModelKind;
-use crate::alt::unwrap::HintRef;
+use crate::alt::unwrap::HintRefOld;
 use crate::binding::pydantic::GE;
 use crate::binding::pydantic::GT;
 use crate::binding::pydantic::LE;
@@ -318,7 +318,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         kws: &[CallKeyword],
         callee_range: TextRange,
         arg_range: TextRange,
-        hint: Option<HintRef>,
+        hint: Option<HintRefOld>,
         errors: &ErrorCollector,
     ) -> Type {
         let Some(CallArg::Arg(obj_arg)) = args.first() else {
@@ -617,6 +617,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         alias: &mut Option<Name>,
         converter_param: &mut Option<Type>,
     ) {
+        // Class-based field specifiers (e.g. `field_specifiers=(CustomField,)`) need to be
+        // resolved to their constructor callable so that we can read keyword defaults from
+        // `__init__`. This mirrors how Pyright handles `field_specifiers` per PEP 681.
+        let constructor_callable = self.constructor_to_callable_distributed(func);
+        let func = constructor_callable.as_ref().unwrap_or(func);
         let sigs = func.callable_signatures();
         let sig = if sigs.len() == 1 {
             sigs[0].clone()

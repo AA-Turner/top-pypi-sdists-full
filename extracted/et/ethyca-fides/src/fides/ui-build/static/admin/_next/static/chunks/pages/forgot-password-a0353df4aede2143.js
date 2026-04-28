@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[9461],{55157:(_,n,s)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/forgot-password",function(){return s(25488)}])}},_=>{_.O(0,[636,6593,8792],()=>_(_.s=55157)),_N_E=_.O()}]);

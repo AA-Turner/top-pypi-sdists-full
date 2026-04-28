@@ -154,7 +154,9 @@ class RapidataOrderManager:
             raise TypeError("Priority must be an integer or None")
 
         if priority is not None and priority < 0:
-            raise ValueError("Priority must be greater than 0 or None")
+            raise ValueError(
+                "Priority must be a positive integer or None"
+            )
 
         self.__priority = priority
 
@@ -907,14 +909,14 @@ class RapidataOrderManager:
             list[RapidataOrder]: A list of RapidataOrder instances.
         """
         with tracer.start_as_current_span("RapidataOrderManager.find_orders"):
-            from rapidata.api_client.models.audiences_get_name_parameter import (
-                AudiencesGetNameParameter,
+            from rapidata.api_client.models.audience_audience_id_jobs_get_job_id_parameter import (
+                AudienceAudienceIdJobsGetJobIdParameter,
             )
 
             order_page_result = self.__openapi_service.order.order_api.orders_get(
                 page=page,
                 page_size=amount,
-                order_name=AudiencesGetNameParameter(contains=name),
+                order_name=AudienceAudienceIdJobsGetJobIdParameter(contains=name),
                 sort=["-order_date"],
             )
 

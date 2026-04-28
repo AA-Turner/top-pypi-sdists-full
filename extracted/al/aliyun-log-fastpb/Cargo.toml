@@ -1,6 +1,6 @@
 [package]
 name = "aliyun-log-fastpb"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Aliyun Log FastPB Contributors"]
 description = "Fast protobuf serialization for Aliyun Log using PyO3 and quick-protobuf"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hishel
-Version: 1.2.0
+Version: 1.1.10
 Summary:  Elegant HTTP Caching for Python
 Author-email: Kar Petrosyan <kar.petrosyanpy@gmail.com>
 Project-URL: Homepage, https://hishel.com
@@ -35,6 +35,4 @@ Requires-Dist: anyio>=4.9.0; extra == "httpx"
 Requires-Dist: anysqlite>=0.0.5; extra == "httpx"
 Provides-Extra: fastapi
 Requires-Dist: fastapi>=0.119.1; extra == "fastapi"
-Provides-Extra: redis
-Requires-Dist: redis>=7.0.0; extra == "redis"
 Dynamic: license-file

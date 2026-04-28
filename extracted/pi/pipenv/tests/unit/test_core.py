@@ -4,7 +4,9 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from pipenv.cmdparse import Script
 from pipenv.project import NON_CATEGORY_SECTIONS
+from pipenv.routines.shell import do_run_posix
 from pipenv.shells import _get_activate_script, _get_deactivate_wrapper_script
 from pipenv.utils.environment import load_dot_env
 from pipenv.utils.shell import temp_environ
@@ -144,6 +146,24 @@ def test_load_dot_env_suppresses_message_when_pipenv_active(monkeypatch, capsys,
         assert os.environ[key] == val
         # But the "Loading .env" message should be suppressed
         assert "Loading .env" not in err
+
+
+@pytest.mark.core
+def test_do_run_posix_expands_project_dir_from_child_env():
+    script = Script("python", ["-c", "print('ok')", "$PIPENV_PROJECT_DIR/marker.txt"])
+    env = {"PATH": "/usr/bin", "PIPENV_PROJECT_DIR": "/tmp/project-root"}
+
+    with temp_environ():
+        os.environ["PIPENV_PROJECT_DIR"] = "/outer/project"
+        with patch("pipenv.routines.shell.system_which", return_value="/usr/bin/python"):
+            with patch("os.execve") as execve:
+                do_run_posix(project=MagicMock(), script=script, command="python", env=env)
+
+    execve.assert_called_once_with(
+        "/usr/bin/python",
+        ["/usr/bin/python", "-c", "print('ok')", "/tmp/project-root/marker.txt"],
+        {"PATH": "/usr/bin", "PIPENV_PROJECT_DIR": "/tmp/project-root"},
+    )
 
 
 @pytest.mark.core
@@ -403,34 +423,32 @@ def test_get_activate_script_windows_full_path():
 
 @pytest.mark.core
 @pytest.mark.skipif(os.name == "nt", reason="PTY/pexpect not available on Windows")
-def test_fork_compat_sentinel_restores_echo():
-    """Regression test for GH-6572 and GH-3615.
+def test_fork_compat_sentinel_handshake():
+    """Regression test for GH-3615, GH-6572, GH-6633.
 
-    GH-6572: fork_compat must re-enable PTY echo.  In Docker / pty-over-pty
-    environments the shell's own readline initialisation can race with our
-    setecho(True) call, leaving echo permanently disabled.
+    fork_compat hands a newly-spawned interactive shell over to
+    ``pexpect.interact()`` after sending a few internal setup commands
+    (source activate, deactivate wrapper).  To avoid leaking any of those
+    setup commands (or sentinel text) into the user's terminal the
+    implementation MUST:
 
-    GH-3615: fork_compat must wait for the shell to finish its startup
-    (including any interactive prompts like oh-my-zsh's update dialogue)
-    before sending the activate script.
-
-    The fix sends a startup sentinel ``echo __PIPENV_STARTUP_READY__`` and
-    blocks on ``c.expect(sentinel)`` *before* activating, then sends a
-    second sentinel ``echo __PIPENV_SHELL_READY__`` *after* all setup
-    commands and blocks again before re-enabling echo.
-
-    This test verifies both sentinels are performed and that setecho is
-    called in the correct order (False → startup sentinel → activate →
-    ready sentinel → True) using a mock pexpect child.
+    * Wait for the shell to finish its startup before sending activate
+      (GH-3615) — oh-my-zsh's update dialogue otherwise consumes activate.
+    * NOT call ``c.setecho(True/False)`` at all (GH-6633) — toggling kernel
+      pty ECHO fights with the shell's own readline termios management and
+      produces either permanently-disabled echo (GH-6572) or double-echoed
+      keystrokes (GH-6633: ``1234`` → ``11223344``).
+    * Drain the final sentinel twice — once for the shell echoing the
+      ``echo …`` command back at us, once for the command's actual output —
+      so no ``__PIPENV_SHELL_READY__`` text is left in the pexpect buffer
+      for ``interact()`` to flush to stdout.
     """
     from pipenv.shells import Shell
 
     shell = Shell("/bin/bash")
 
-    # Build a mock pexpect child that simulates the sentinel handshake.
     mock_child = MagicMock()
-    mock_child.setecho.return_value = None
-    mock_child.expect.return_value = 0  # sentinel found
+    mock_child.expect.return_value = 0  # every expect() succeeds
     mock_child.interact.return_value = None
     mock_child.exitstatus = 0
 
@@ -461,54 +479,47 @@ def test_fork_compat_sentinel_restores_echo():
 
         shell.fork_compat("/path/to/venv", "/project", [])
 
-    # Verify setecho(False) was called before any sendline.
-    setecho_false_idx = next(
-        i for i, item in enumerate(call_order) if item == ("setecho", False)
-    )
-    first_sendline_idx = next(
-        i for i, item in enumerate(call_order) if item[0] == "sendline"
-    )
-    assert setecho_false_idx < first_sendline_idx, (
-        "setecho(False) must be called before any sendline"
+    # GH-6633: fork_compat must NOT touch setecho — the shell's own readline
+    # is responsible for termios, and toggling pty ECHO fights with it.
+    setecho_calls = [item for item in call_order if item[0] == "setecho"]
+    assert setecho_calls == [], (
+        f"fork_compat must not call setecho at all (GH-6633), got: {setecho_calls}"
     )
 
-    # Verify the startup sentinel was sent and expected *before* activate.
-    startup_send = [item for item in call_order if item[0] == "sendline" and "__PIPENV_STARTUP_READY__" in item[1]]
-    assert startup_send, "Startup sentinel must be sent via sendline"
-
-    startup_expect = [item for item in call_order if item[0] == "expect" and "__PIPENV_STARTUP_READY__" in str(item[1])]
-    assert startup_expect, "Startup sentinel must be waited for via expect"
-
+    # GH-3615: startup sentinel expect must precede the activate sendline.
     startup_expect_idx = next(
-        i for i, item in enumerate(call_order) if item[0] == "expect" and "__PIPENV_STARTUP_READY__" in str(item[1])
+        i for i, item in enumerate(call_order)
+        if item[0] == "expect" and "__PIPENV_STARTUP_READY__" in str(item[1])
     )
     activate_idx = next(
-        i for i, item in enumerate(call_order) if item == ("sendline", "source /venv/bin/activate")
+        i for i, item in enumerate(call_order)
+        if item == ("sendline", "source /venv/bin/activate")
     )
     assert startup_expect_idx < activate_idx, (
-        "Startup sentinel expect must complete before the activate script is sent (GH-3615)"
+        "Startup sentinel expect must complete before the activate script "
+        "is sent (GH-3615)"
     )
 
-    # Verify the ready sentinel was sent and expected *after* activate.
-    ready_send = [item for item in call_order if item[0] == "sendline" and "__PIPENV_SHELL_READY__" in item[1]]
-    assert ready_send, "Ready sentinel must be sent via sendline"
-
-    ready_expect = [item for item in call_order if item[0] == "expect" and "__PIPENV_SHELL_READY__" in str(item[1])]
-    assert ready_expect, "Ready sentinel must be waited for via expect"
-
-    ready_expect_idx = next(
-        i for i, item in enumerate(call_order) if item[0] == "expect" and "__PIPENV_SHELL_READY__" in str(item[1])
+    # Ready sentinel must be sent AFTER activate.
+    ready_send_idx = next(
+        i for i, item in enumerate(call_order)
+        if item[0] == "sendline" and "__PIPENV_SHELL_READY__" in item[1]
     )
-    assert activate_idx < ready_expect_idx, (
-        "Ready sentinel expect must happen after the activate script"
+    assert activate_idx < ready_send_idx, (
+        "Ready sentinel must be sent after activate"
     )
 
-    # Verify ready sentinel expect happens before setecho(True).
-    setecho_true_idx = next(
-        i for i, item in enumerate(call_order) if item == ("setecho", True)
-    )
-    assert ready_expect_idx < setecho_true_idx, (
-        "Ready sentinel expect must complete before setecho(True) to avoid the race condition"
+    # GH-6633 / GH-6636: the ready sentinel must be expected TWICE so the
+    # command-echo copy and the actual-output copy are both consumed from
+    # the pexpect buffer — otherwise ``__PIPENV_SHELL_READY__`` leaks to
+    # the user's terminal when interact() flushes the buffer.
+    ready_expects = [
+        item for item in call_order
+        if item[0] == "expect" and "__PIPENV_SHELL_READY__" in str(item[1])
+    ]
+    assert len(ready_expects) >= 2, (
+        "Ready sentinel must be expected twice so both the command-echo and "
+        f"output-echo copies are drained (GH-6633), got {len(ready_expects)}"
     )
 
 
@@ -961,7 +972,9 @@ def test_python_flag_defaults_to_none_when_absent():
 @pytest.mark.core
 def test_run_passes_verbose_to_remaining():
     """Regression test for GH-6626: ``pipenv run ./manage.py test --verbose``
-    must put ``--verbose`` into *remaining*, not consume it as a pipenv flag.
+    must pass ``--verbose`` through to the user's process, not consume it as a
+    pipenv flag.  As of #6641 pass-through args are captured in ``run_args``
+    (argparse REMAINDER) rather than the top-level ``remaining`` list.
     """
     from pipenv.cli.options import build_parser
 
@@ -969,7 +982,8 @@ def test_run_passes_verbose_to_remaining():
     args, remaining = parser.parse_known_args(
         ["run", "./manage.py", "test", "--verbose"]
     )
-    assert "--verbose" in remaining
+    passthrough = list(getattr(args, "run_args", []) or []) + list(remaining)
+    assert "--verbose" in passthrough
 
 
 @pytest.mark.core
@@ -983,7 +997,8 @@ def test_run_passes_short_v_to_remaining():
     args, remaining = parser.parse_known_args(
         ["run", "./manage.py", "test", "-v"]
     )
-    assert "-v" in remaining
+    passthrough = list(getattr(args, "run_args", []) or []) + list(remaining)
+    assert "-v" in passthrough
 
 
 @pytest.mark.core
@@ -995,8 +1010,9 @@ def test_run_passes_quiet_to_remaining():
     args, remaining = parser.parse_known_args(
         ["run", "pytest", "-q", "--tb=short"]
     )
-    assert "-q" in remaining
-    assert "--tb=short" in remaining
+    passthrough = list(getattr(args, "run_args", []) or []) + list(remaining)
+    assert "-q" in passthrough
+    assert "--tb=short" in passthrough
 
 
 @pytest.mark.core
@@ -1015,7 +1031,38 @@ def test_run_system_flag_still_works():
 
     assert args.system is True
     assert args.run_command == "python"
-    assert remaining == ["-c", "print('hi')"]
+    passthrough = list(getattr(args, "run_args", []) or []) + list(remaining)
+    assert passthrough == ["-c", "print('hi')"]
+
+
+@pytest.mark.core
+def test_run_passes_dash_h_through_to_command():
+    """Regression test for GH-6641: ``pipenv run psql -h localhost`` must
+    pass ``-h`` through to psql instead of consuming it as pipenv's help flag.
+    """
+    from pipenv.cli.options import build_parser
+
+    parser = build_parser()
+    args, remaining = parser.parse_known_args(
+        ["run", "psql", "-h", "localhost"]
+    )
+    assert args.run_command == "psql"
+    assert args.help is False
+    passthrough = list(getattr(args, "run_args", []) or []) + list(remaining)
+    assert passthrough == ["-h", "localhost"]
+
+
+@pytest.mark.core
+def test_run_help_before_command_still_shows_help():
+    """``pipenv run --help`` and ``pipenv run -h`` with no command must still
+    trigger help (not be swallowed by the REMAINDER positional)."""
+    from pipenv.cli.options import build_parser
+
+    parser = build_parser()
+    for flag in ("--help", "-h"):
+        args, _ = parser.parse_known_args(["run", flag])
+        assert args.help is True, f"{flag} failed to set help"
+        assert args.run_command is None
 
 
 # --- Regression test for shell history pollution (GH-6627) ---

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sae-lens
-Version: 6.39.0
+Version: 6.41.2
 Summary: Training and Analyzing Sparse Autoencoders (SAEs)
 License: MIT
 License-File: LICENSE
@@ -64,7 +64,7 @@ This library is maintained by [Joseph Bloom](https://www.decoderesearch.com/), [
 
 ## Loading Pre-trained SAEs.
 
-Pre-trained SAEs for various models can be imported via SAE Lens. See this [page](https://decoderesearch.github.io/SAELens/pretrained_saes/) for a list of all SAEs.
+Pre-trained SAEs for various models can be imported via SAE Lens. See this [page](https://decoderesearch.github.io/SAELens/latest/pretrained_saes/) for a list of all SAEs.
 
 ## Migrating to SAELens v6
 

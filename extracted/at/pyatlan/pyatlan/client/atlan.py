@@ -121,6 +121,17 @@ DEFAULT_RETRY = Retry(
 
 VERSION = read_text("pyatlan", "version.txt").strip()
 
+# Connection pool configuration (GOVFOUN-408).
+# keepalive_expiry=30s < nginx keepalive_timeout=75s → client retires idle
+# connections before nginx sends FIN, preventing CLOSE_WAIT accumulation.
+# pool timeout=30s → threads raise PoolTimeout instead of blocking forever.
+_DEFAULT_POOL_LIMITS = httpx.Limits(
+    max_connections=50,
+    max_keepalive_connections=10,
+    keepalive_expiry=30.0,
+)
+_DEFAULT_POOL_TIMEOUT_SECONDS = 30.0
+
 
 def log_response(response, *args, **kwargs):
     LOGGER.debug("HTTP Status: %s", response.status_code)
@@ -214,7 +225,10 @@ class AtlanClient(BaseSettings):
         # Pass self reference to transport for duplicate checking during retries
         self._session = httpx.Client(
             transport=PyatlanSyncTransport(
-                retry=self.retry, client=self, **transport_kwargs
+                retry=self.retry,
+                client=self,
+                limits=_DEFAULT_POOL_LIMITS,
+                **transport_kwargs,
             ),
             headers={
                 "x-atlan-agent": "sdk",
@@ -281,6 +295,37 @@ class AtlanClient(BaseSettings):
                 self.verify = ssl_cert_file
                 transport_kwargs["verify"] = ssl_cert_file
         return transport_kwargs
+
+    def reset_http_session(self) -> None:
+        """Close and rebuild the HTTP session to recover from a degraded connection pool."""
+        try:
+            self._session.close()
+        except Exception as e:
+            LOGGER.debug("Failed to close old HTTP session: %s", e)
+        transport_kwargs = {}
+        if self.proxy is not None:
+            transport_kwargs["proxy"] = self.proxy
+        if self.verify is not None:
+            transport_kwargs["verify"] = self.verify
+        self._session = httpx.Client(
+            transport=PyatlanSyncTransport(
+                retry=self.retry,
+                client=self,
+                limits=_DEFAULT_POOL_LIMITS,
+                **transport_kwargs,
+            ),
+            headers={
+                "x-atlan-agent": "sdk",
+                "x-atlan-agent-id": "python",
+                "x-atlan-client-origin": "product_sdk",
+                "x-atlan-python-version": get_python_version(),
+                "x-atlan-client-type": "sync",
+                "User-Agent": f"Atlan-PythonSDK/{VERSION}",
+            },
+            event_hooks={"response": [log_response]},
+        )
+        self._401_has_retried.set(False)
+        LOGGER.info("HTTP session reset: new connection pool created")
 
     @property
     def admin(self) -> AdminClient:
@@ -554,7 +599,10 @@ class AtlanClient(BaseSettings):
         try:
             params["headers"]["X-Atlan-Request-Id"] = request_id_var.get()
             timeout = httpx.Timeout(
-                None, connect=self.connect_timeout, read=self.read_timeout
+                None,
+                connect=self.connect_timeout,
+                read=self.read_timeout,
+                pool=_DEFAULT_POOL_TIMEOUT_SECONDS,
             )
             if binary_data:
                 response = self._session.request(
@@ -2014,7 +2062,10 @@ class AtlanClient(BaseSettings):
             transport_kwargs["verify"] = self.verify
 
         new_transport = PyatlanSyncTransport(
-            retry=max_retries, client=self, **transport_kwargs
+            retry=max_retries,
+            client=self,
+            limits=_DEFAULT_POOL_LIMITS,
+            **transport_kwargs,
         )
         self._session._transport = new_transport
 

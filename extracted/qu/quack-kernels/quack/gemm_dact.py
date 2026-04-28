@@ -60,7 +60,7 @@ class GemmDActMixin(GemmActMixin):
         # If we don't have .shape here, the compiler generates local stores and loads
         if const_expr(params.act_fn is not None):
             tRS_rPostAct = cute.make_rmem_tensor(tRS_rD.layout.shape, self.acc_dtype)
-            if const_expr(self.arch < 100):
+            if const_expr(self.arch != 100):
                 for i in cutlass.range(cute.size(tRS_rPostAct), unroll_full=True):
                     tRS_rD[i], tRS_rPostAct[i] = params.act_fn(tRS_rC_acc[i], tRS_rD[i])
             else:
@@ -150,7 +150,7 @@ class GemmDGatedMixin(GemmActMixin):
         tRS_rOut = cute.make_rmem_tensor_like(tRS_rD, Float32)
         tRS_rD_scaled = cute.make_rmem_tensor_like(tRS_rD)
         if const_expr(tDrColVec is not None):  # Scale D by colvec
-            if const_expr(self.arch < 100):
+            if const_expr(self.arch != 100):
                 tRS_rD_scaled.store(tRS_rD.load() * tDrColVec.load().to(tRS_rD.element_type))
             else:
                 tDrColVec_mn = layout_utils.convert_layout_zero_stride(tDrColVec, tDrColVec.layout)
@@ -171,7 +171,7 @@ class GemmDGatedMixin(GemmActMixin):
                         )
         else:
             tRS_rD_scaled.store(tRS_rD.load())
-        if const_expr(self.arch < 100):
+        if const_expr(self.arch != 100):
             for i in cutlass.range(cute.size(tRS_rD)):
                 (
                     tRS_rdXY_f32x2[2 * i],
@@ -196,7 +196,7 @@ class GemmDGatedMixin(GemmActMixin):
             colvec_reduce_accumulate(self, tDrColVecReduce, tRS_rOut, rScale=tRS_rD)
 
         if const_expr(tDrColVec is not None):  # Scale Out by colvec
-            if const_expr(self.arch < 100):
+            if const_expr(self.arch != 100):
                 tRS_rOut.store(tRS_rOut.load() * tDrColVec.load().to(tRS_rD.element_type))
             else:
                 tDrColVec_mn = layout_utils.convert_layout_zero_stride(tDrColVec, tDrColVec.layout)
@@ -229,7 +229,7 @@ class GemmDGatedSm100(GemmDGatedMixin, GemmSm100):
 
 
 class GemmDGatedSm120(GemmDGatedMixin, GemmSm120):
-    pass
+    _epi_ops = (*GemmActMixin._epi_ops, ColVecReduce("mColVecReduce", max_warps_in_n=2))
 
 
 @jit_cache
@@ -271,8 +271,6 @@ def _compile_gemm_dact(
             12: GemmDGatedSm120,
         },
     }
-    if device_capacity[0] == 12 and gemm_cls_name == "dact":
-        raise NotImplementedError("SM120 non-gated dactivation GEMM epilogue is not yet supported")
     GemmCls = sm_to_cls[gemm_cls_name][device_capacity[0]]
     mA, mB, mD, mC, m, n, k, l = make_fake_gemm_tensors(
         a_dtype,
@@ -369,6 +367,7 @@ def gemm_dact(
     tile_N: int,
     cluster_M: int,
     cluster_N: int,
+    tile_K: int | None = None,
     pingpong: bool = True,
     persistent: bool = True,
     is_dynamic_persistent: bool = False,
@@ -433,6 +432,8 @@ def gemm_dact(
 
     device_capacity = get_device_capacity(A.device)
     assert device_capacity[0] in [9, 10, 11, 12], "Only SM90, SM100, SM110, and SM120 are supported"
+    if tile_K is not None:
+        assert device_capacity[0] in [10, 11], "tile_K currently requires SM100/SM110"
 
     if is_dynamic_persistent and device_capacity[0] == 9:
         assert tile_count_semaphore is not None, (
@@ -451,7 +452,7 @@ def gemm_dact(
         d_major,
         c_major,
         postact_major,
-        (tile_M, tile_N),
+        (tile_M, tile_N, tile_K) if tile_K is not None else (tile_M, tile_N),
         (cluster_M, cluster_N, 1),
         pingpong,
         persistent,

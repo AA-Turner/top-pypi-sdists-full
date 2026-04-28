@@ -296,7 +296,13 @@ def _build_summary_params(parser, inputs):
     if parser.has_option("DEFAULT", "production_statistics_file"):
         default_yield = parser.get("DEFAULT", "production_statistics_file")
 
-    params = [("Countries", countries)]
+    dir_output = Path(parser.get("PATHS", "dir_output"))
+    dir_inputs = Path(parser.get("PATHS", "dir_inputs", fallback=parser.get("PATHS", "dir_input", fallback="")))
+    params = [
+        ("Input dir", str(dir_inputs)),
+        ("Output dir", str(dir_output)),
+        ("Countries", countries),
+    ]
     for country, info in country_details.items():
         params.append((f"  {country} crops", sorted(info["crops"])))
         params.append((f"  {country} seasons", sorted(info["seasons"])))

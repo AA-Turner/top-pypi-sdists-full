@@ -1,0 +1,74 @@
+name: Bug Report
+description: File a bug report for pymobiledevice3
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please fill out the form below. Reports with concrete reproduction steps, version details, and logs are much faster to triage.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce this?
+      description: Share the exact command or API usage, what device or service was involved, and the steps needed to reproduce the issue.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include host OS, Python version, pymobiledevice3 version, target device model, and target OS version.
+      placeholder: |
+        Host OS: macOS 15.4
+        Python: 3.12.3
+        pymobiledevice3: 4.26.0
+        Device: iPhone15,4
+        Target OS: iOS 18.4
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Paste logs, stack traces, or protocol errors that help explain the failure.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: search
+    attributes:
+      label: Search
+      options:
+        - label: I searched for existing open and closed issues before opening this
+          required: true
+  - type: textarea
+    id: ai-assistance
+    attributes:
+      label: AI assistance
+      description: If AI tools helped draft or analyze this report, disclose the tool and extent. Otherwise write `none`.
+      placeholder: none
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow this project's [Code of Conduct](https://github.com/doronz88/pymobiledevice3/blob/master/CODE_OF_CONDUCT.md).
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add anything else that may be relevant, including links, screenshots, or related issues.
+    validations:
+      required: false

@@ -14,12 +14,7 @@ from typing import (
     Iterable,
 )
 
-if sys.version_info < (3, 8):
-    from typing_extensions import Literal
-else:
-    from typing import Literal
-
-from pysam.libchtslib import HTSFile, _HasFileNo
+from pysam.libchtslib import HTSFile, StrOrBytesPathOrFileDescriptorLike
 from pysam.libcalignedsegment import AlignedSegment, PileupColumn
 from pysam.libcfaidx import FastaFile
 
@@ -78,10 +73,8 @@ AlignmentFileIterator = AlignmentFile
 class AlignmentFile(HTSFile):
     def __init__(
         self,
-        filename: Union[str, bytes, int, _HasFileNo],
-        mode: Optional[
-            Literal["r", "w", "wh", "rb", "wb", "wbu", "wb0", "rc", "wc"]
-        ] = ...,
+        filename: StrOrBytesPathOrFileDescriptorLike,
+        mode: Optional[str] = ...,
         template: Optional[AlignmentFile] = ...,
         reference_names: Optional[Sequence[str]] = ...,
         reference_lengths: Optional[Sequence[int]] = ...,

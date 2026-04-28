@@ -48,7 +48,9 @@ class AWSV4Signer:
         signature_host = self._fetch_url(url, headers or dict())
 
         # create an AWS request object and sign it using SigV4Auth
-        aws_request = AWSRequest(method=method.upper(), url=signature_host, data=body)
+        aws_request = AWSRequest(
+            method=method.upper(), url=signature_host, data=body, headers=headers or {}
+        )
 
         # credentials objects expose access_key, secret_key and token attributes
         # via @property annotations that call _refresh() on every access,
@@ -65,13 +67,18 @@ class AWSV4Signer:
         )
 
         sig_v4_auth = SigV4Auth(credentials, self.service, self.region)
+
+        # Set X-Amz-Content-SHA256 before signing so it is included in SignedHeaders.
+        # Per the SigV4 spec, x-amz-* headers must be signed. Preserve any
+        # caller-provided value (e.g., UNSIGNED-PAYLOAD or precomputed hashes).
+        if "X-Amz-Content-SHA256" not in aws_request.headers:
+            aws_request.headers["X-Amz-Content-SHA256"] = sig_v4_auth.payload(
+                aws_request
+            )
+
         sig_v4_auth.add_auth(aws_request)
 
-        # copy the headers from AWS request object into the prepared_request
-        headers = dict(aws_request.headers.items())
-        headers["X-Amz-Content-SHA256"] = sig_v4_auth.payload(aws_request)
-
-        return headers
+        return dict(aws_request.headers.items())
 
     @staticmethod
     def _fetch_url(url: str, headers: Optional[Dict[str, str]]) -> str:

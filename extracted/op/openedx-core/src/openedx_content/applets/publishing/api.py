@@ -9,15 +9,17 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime, timezone
+from functools import partial
 from typing import ContextManager, Optional, cast
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, OuterRef, Prefetch, Q, QuerySet, Subquery
-from django.db.transaction import atomic
+from django.db.transaction import atomic, on_commit
 
 from openedx_django_lib.fields import create_hash_digest
 
+from . import signals
 from .contextmanagers import DraftChangeLogContext
 from .models import (
     Draft,
@@ -114,6 +116,14 @@ def create_learning_package(
     )
     package.full_clean()
     package.save()
+    new_id = package.id
+
+    def send_event():
+        signals.LEARNING_PACKAGE_CREATED.send_event(
+            learning_package=signals.LearningPackageEventData(id=new_id, title=title),
+        )
+
+    on_commit(send_event)
 
     return package
 
@@ -152,6 +162,21 @@ def update_learning_package(
     lp.updated = updated
 
     lp.save()
+
+    # Emit LEARNING_PACKAGE_UPDATED once the transaction commits. Note: we only
+    # reach this point if at least one of key/title/description/updated was
+    # passed in (the early-return above handles the no-op case), so the update
+    # really did touch the row.
+    lp_id = lp.id
+    lp_title = lp.title
+
+    def send_event():
+        signals.LEARNING_PACKAGE_UPDATED.send_event(
+            learning_package=signals.LearningPackageEventData(id=lp_id, title=lp_title),
+        )
+
+    on_commit(send_event)
+
     return lp
 
 
@@ -195,7 +220,7 @@ def create_publishable_entity_version(
     created: datetime,
     created_by: int | None,
     *,
-    dependencies: list[int] | None = None,  # PublishableEntity IDs
+    dependencies: list[PublishableEntity.ID] | None = None,
 ) -> PublishableEntityVersion:
     """
     Create a PublishableEntityVersion.
@@ -226,7 +251,7 @@ def create_publishable_entity_version(
 def set_version_dependencies(
     version_id: int,  # PublishableEntityVersion.id,
     /,
-    dependencies: list[int]  # List of PublishableEntity.id
+    dependencies: list[PublishableEntity.ID],
 ) -> None:
     """
     Set the dependencies of a publishable entity version.
@@ -509,6 +534,7 @@ def publish_from_drafts(
                 published_draft_ids.add(draft.pk)
 
         _create_side_effects_for_change_log(publish_log)
+        _emit_event_for_change_log(publish_log, timestamp=published_at, user_id=published_by)
 
     return publish_log
 
@@ -962,6 +988,8 @@ def set_draft_version(
             )
             draft.save()
             _create_side_effects_for_change_log(change_log)
+            # Send out an event immediately after this database transaction commits, since this is an isolated change.
+            _emit_event_for_change_log(change_log, timestamp=set_at, user_id=set_by)
 
 
 def _add_to_existing_draft_change_log(
@@ -1195,6 +1223,49 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
         )
 
     update_dependencies_hash_digests_for_log(change_log)
+
+
+def _emit_event_for_change_log(
+    change_log: PublishLog | DraftChangeLog, timestamp: datetime, user_id: int | None
+) -> None:
+    """
+    Construct and emit the _CHANGED / _PUBLISHED event when a set of entities is
+    changed or published.
+
+    Works with either ``DraftChangeLog`` or ``PublishLog``.
+    """
+
+    learning_package_id = change_log.learning_package.id
+    learning_package_title = change_log.learning_package.title
+    changes = [
+        signals.ChangeLogRecordData(
+            entity_id=record.entity_id,
+            old_version=record.old_version.version_num if record.old_version else None,
+            old_version_id=record.old_version_id,
+            new_version=record.new_version.version_num if record.new_version else None,
+            new_version_id=record.new_version_id,
+            direct=record.direct if isinstance(record, PublishLogRecord) else None,
+        )
+        for record in change_log.records.order_by("id").select_related("old_version", "new_version").all()
+    ]
+
+    change_log_data: signals.DraftChangeLogEventData | signals.PublishLogEventData
+    if isinstance(change_log, DraftChangeLog):
+        signal = signals.ENTITIES_DRAFT_CHANGED
+        change_log_data = signals.DraftChangeLogEventData(draft_change_log_id=change_log.id, changes=changes)
+    else:
+        assert isinstance(change_log, PublishLog)
+        signal = signals.ENTITIES_PUBLISHED
+        change_log_data = signals.PublishLogEventData(publish_log_id=change_log.id, changes=changes)
+
+    # Send out an event immediately after this database transaction commits.
+    on_commit(partial(
+        signal.send_event,
+        time=timestamp,
+        learning_package=signals.LearningPackageEventData(id=learning_package_id, title=learning_package_title),
+        changed_by=signals.UserAttributionEventData(user_id=user_id),
+        change_log=change_log_data,
+    ))
 
 
 def update_dependencies_hash_digests_for_log(
@@ -1649,11 +1720,14 @@ def bulk_draft_changes_for(
         with bulk_draft_changes_for(component.learning_package.id):
             update_one_component(component.learning_package.id, component)
     """
+    if not changed_at:
+        changed_at = datetime.now(tz=timezone.utc)
     return DraftChangeLogContext(
         learning_package_id,
         changed_at=changed_at,
         changed_by=changed_by,
         exit_callbacks=[
             _create_side_effects_for_change_log,
+            partial(_emit_event_for_change_log, timestamp=changed_at, user_id=changed_by),
         ]
     )

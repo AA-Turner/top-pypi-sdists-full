@@ -26,13 +26,14 @@ class Limit(resource.Resource):
     allow_delete = True
     allow_list = True
     commit_method = 'PATCH'
-    commit_jsonpatch = True
 
     _query_mapping = resource.QueryParameters(
         'service_id', 'region_id', 'resource_name', 'project_id'
     )
 
     # Properties
+    #: The ID of the domain. *Type: string*
+    domain_id = resource.Body('domain_id')
     #: User-facing description of the registered_limit. *Type: string*
     description = resource.Body('description')
     #: The links for the registered_limit resource.
@@ -47,6 +48,11 @@ class Limit(resource.Resource):
     resource_limit = resource.Body('resource_limit')
     #: ID of project. *Type: string*
     project_id = resource.Body('project_id')
+
+    def _transform_create_request(self, request):
+        # Keystone supports batch create for unified limit. So the
+        # request body for creating limit is a list instead of dict.
+        request.body = {self.resources_key: [request.body[self.resource_key]]}
 
     def create(
         self,
@@ -68,23 +74,6 @@ class Limit(resource.Resource):
             microversion=microversion,
             **params,
         )
-
-    def _prepare_request_body(
-        self,
-        patch,
-        prepend_key,
-        *,
-        resource_request_key=None,
-    ):
-        body = self._body.dirty
-        if prepend_key and self.resource_key is not None:
-            if patch:
-                body = {self.resource_key: body}
-            else:
-                # Keystone support bunch create for unified limit. So the
-                # request body for creating limit is a list instead of dict.
-                body = {self.resources_key: [body]}
-        return body
 
     def _translate_response(
         self,
@@ -138,7 +127,7 @@ class Limit(resource.Resource):
 
                 self._body.attributes.update(body_attrs)
                 self._body.clean()
-                if self.commit_jsonpatch or self.allow_patch:
+                if self.allow_patch:
                     # We need the original body to compare against
                     self._original_body = body_attrs.copy()
             except ValueError:

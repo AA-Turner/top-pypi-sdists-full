@@ -37,6 +37,15 @@ def serialize_log_group(log_group_dict: dict) -> bytes:
     """
     ...
 
+def deserialize_log_group_list(data: bytes) -> dict:
+    """
+    Deserialize a LogGroupList protobuf bytes to Python dict.
+
+    Returns:
+        dict with "logGroupList" key containing list of LogGroup dicts.
+    """
+    ...
+
 def serialize_log_group_raw(log_group_dict: dict) -> bytes:
     """
     Serialize a LogGroupRaw Python dict to protobuf bytes.

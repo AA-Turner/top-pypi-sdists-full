@@ -131,62 +131,7 @@ if sys.platform == "win32":
     except ImportError:
         pass
 
-# Print environment diagnostics to stderr (survives crashes)
 _debug = os.environ.get("COMFY_ENV_DEBUG", "").lower() in ("1", "true", "yes")
-if _debug:
-    _sep = ";" if sys.platform == "win32" else ":"
-    print(f"[meta-scan] python: {sys.executable}", file=sys.stderr, flush=True)
-    print(f"[meta-scan] PATH:", file=sys.stderr, flush=True)
-    for _i, _p in enumerate(os.environ.get("PATH", "").split(_sep)):
-        print(f"[meta-scan]   [{_i}] {_p}", file=sys.stderr, flush=True)
-    # List shared libraries in the env's library directory
-    _env_root = os.path.dirname(sys.executable)
-    if sys.platform == "win32":
-        import ctypes
-        _lib_dir = os.path.join(_env_root, "Library", "bin")
-        _ext = ".dll"
-    elif sys.platform == "darwin":
-        _lib_dir = os.path.join(_env_root, "..", "lib")
-        _ext = ".dylib"
-    else:
-        _lib_dir = os.path.join(_env_root, "..", "lib")
-        _ext = ".so"
-    _lib_dir = os.path.normpath(_lib_dir)
-    if os.path.isdir(_lib_dir):
-        _libs = sorted(f for f in os.listdir(_lib_dir) if _ext in f.lower())
-        print(f"[meta-scan] {_lib_dir}: {len(_libs)} shared libs", file=sys.stderr, flush=True)
-        # On Windows, probe each DLL with ctypes to detect missing dependencies
-        if sys.platform == "win32":
-            if hasattr(os, "add_dll_directory"):
-                os.add_dll_directory(_lib_dir)
-            for _d in _libs:
-                _path = os.path.join(_lib_dir, _d)
-                try:
-                    ctypes.WinDLL(_path)
-                    print(f"[meta-scan]   OK   {_d}", file=sys.stderr, flush=True)
-                except OSError as _e:
-                    print(f"[meta-scan]   FAIL {_d}: {_e}", file=sys.stderr, flush=True)
-        else:
-            # Deduplicate versioned symlinks: libfoo.so.1.2.0 -> libfoo.so
-            import re
-            _seen = set()
-            _deduped = []
-            for _d in _libs:
-                _base = re.sub(r'\.so[\d.]*$', '.so', _d) if '.so' in _d else re.sub(r'\.(\d+\.)*dylib$', '.dylib', _d)
-                if _base not in _seen:
-                    _seen.add(_base)
-                    _deduped.append(_base)
-            for _d in _deduped[:40]:
-                print(f"[meta-scan]   {_d}", file=sys.stderr, flush=True)
-            if len(_deduped) > 40:
-                print(f"[meta-scan]   ... and {len(_deduped) - 40} more", file=sys.stderr, flush=True)
-    else:
-        print(f"[meta-scan] lib dir NOT FOUND: {_lib_dir}", file=sys.stderr, flush=True)
-    # Also print LD/DYLD paths on non-Windows
-    if sys.platform != "win32":
-        _ld = os.environ.get("LD_LIBRARY_PATH") or os.environ.get("DYLD_LIBRARY_PATH")
-        if _ld:
-            print(f"[meta-scan] LD/DYLD_LIBRARY_PATH: {_ld}", file=sys.stderr, flush=True)
 
 working_dir = sys.argv[1]
 package_name = sys.argv[2]
@@ -355,27 +300,35 @@ def fetch_metadata(
 
         t0 = time.perf_counter()
 
-        # Launch pixi python directly instead of "pixi run" to avoid the per-call overhead
-        # of pixi's lockfile resolve. Set up conda env vars manually for DLL search paths.
+        # Route the metadata scan through `pixi run -e <env> --frozen` so pixi
+        # handles activation (PATH for delay-loaded DLLs, CONDA_PREFIX,
+        # [activation.env] vars like KMP_DUPLICATE_LIB_OK). Hand-rolling the
+        # PATH activation worked for delay-load resolution but missed the
+        # [activation.env] block — without KMP_DUPLICATE_LIB_OK, torch's OMP
+        # guard or MKL init failed mid-scan. The previous attempt also
+        # hard-coded the env name as "default", silently scanning under the
+        # wrong env's site-packages. `--frozen` avoids re-resolving the
+        # lockfile per scan.
         is_pixi = ".pixi" in str(python)
-        cmd = [str(python), script_file, str(working_dir), package_name]
-        if sys.platform == "win32" and is_pixi:
-            # Find pixi env root for PATH setup
-            pixi_env_root = python
-            while pixi_env_root.name != ".pixi" and pixi_env_root.parent != pixi_env_root:
-                pixi_env_root = pixi_env_root.parent
-            pixi_env_root = pixi_env_root / "envs" / "default"
-            scan_env["CONDA_PREFIX"] = str(pixi_env_root)
-            path_sep = ";"
-            pixi_paths = [
-                str(pixi_env_root),
-                str(pixi_env_root / "Library" / "mingw-w64" / "bin"),
-                str(pixi_env_root / "Library" / "usr" / "bin"),
-                str(pixi_env_root / "Library" / "bin"),
-                str(pixi_env_root / "Scripts"),
+        if is_pixi:
+            # python is at <workspace>/.pixi/envs/<env_name>/python.exe (Win)
+            # or <workspace>/.pixi/envs/<env_name>/bin/python (POSIX).
+            env_root = python.parent if sys.platform == "win32" else python.parent.parent
+            env_name = env_root.name
+            workspace_dir = env_root.parent.parent.parent  # strip envs/<name> and .pixi
+            try:
+                from ..packages.pixi import ensure_pixi
+                pixi_path = ensure_pixi(log=lambda m: None)
+            except Exception:
+                pixi_path = "pixi"
+            cmd = [
+                str(pixi_path), "run", "--as-is",
+                "--manifest-path", str(workspace_dir / "pixi.toml"),
+                "-e", env_name,
+                "python", script_file, str(working_dir), package_name,
             ]
-            current_path = scan_env.get("PATH", "")
-            scan_env["PATH"] = path_sep.join(pixi_paths + [current_path])
+        else:
+            cmd = [str(python), script_file, str(working_dir), package_name]
 
         if _DEBUG:
             print(f"[comfy-env] Metadata scan: {' '.join(cmd)}", file=sys.stderr, flush=True)

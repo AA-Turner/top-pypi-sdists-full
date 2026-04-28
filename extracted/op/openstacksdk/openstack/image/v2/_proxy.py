@@ -10,10 +10,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from collections.abc import Callable
 import os
 import time
-from typing import ClassVar, Literal
-from collections.abc import Callable
+from typing import Any, ClassVar, Literal, overload
 import warnings
 
 from openstack import exceptions
@@ -116,7 +116,7 @@ class Proxy(proxy.Proxy):
     # ====== IMAGES ======
 
     def _make_v2_image_params(self, meta, properties):
-        ret: dict = {}
+        ret: dict[str, Any] = {}
         for k, v in iter(properties.items()):
             if k in _INT_PROPERTIES:
                 ret[k] = int(v)
@@ -916,7 +916,25 @@ class Proxy(proxy.Proxy):
         else:
             self._delete(_image.Image, image, ignore_missing=ignore_missing)
 
-    def find_image(self, name_or_id, ignore_missing=True):
+    @overload
+    def find_image(
+        self,
+        name_or_id: str,
+        ignore_missing: Literal[False],
+    ) -> _image.Image: ...
+
+    @overload
+    def find_image(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+    ) -> _image.Image | None: ...
+
+    def find_image(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+    ) -> _image.Image | None:
         """Find a single image
 
         :param name_or_id: The name or ID of a image.
@@ -1116,7 +1134,28 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def find_member(self, name_or_id, image, ignore_missing=True):
+    @overload
+    def find_member(
+        self,
+        name_or_id: str,
+        image: str | _image.Image,
+        ignore_missing: Literal[False],
+    ) -> _member.Member: ...
+
+    @overload
+    def find_member(
+        self,
+        name_or_id: str,
+        image: str | _image.Image,
+        ignore_missing: bool = True,
+    ) -> _member.Member | None: ...
+
+    def find_member(
+        self,
+        name_or_id: str,
+        image: str | _image.Image,
+        ignore_missing: bool = True,
+    ) -> _member.Member | None:
         """Find a single member
 
         :param name_or_id: The name or ID of a member.

@@ -110,8 +110,7 @@ class VerificationComponents:
     OPERATOR_HEALTH = "Operator Health"
     OPERATOR_IDENTITY = "Operator Identity"
     FILE_STORAGE = "File Storage"
-    GATEWAY_SUPPORT = "Gateway Support"
-    NGINX_INGRESS = "NGINX Ingress"
+    NETWORKING = "Networking"
 
 
 # =============================================================================
@@ -222,8 +221,7 @@ class VerificationResults:
     operator_health: VerificationStatus = VerificationStatus.FAILED
     operator_identity: VerificationStatus = VerificationStatus.FAILED
     file_storage: VerificationStatus = VerificationStatus.FAILED
-    gateway_support: VerificationStatus = VerificationStatus.FAILED
-    nginx_ingress: VerificationStatus = VerificationStatus.FAILED
+    networking: VerificationStatus = VerificationStatus.FAILED
 
     def to_dict(self) -> Dict[str, VerificationStatus]:
         """Convert to dictionary format for reporting."""
@@ -232,8 +230,7 @@ class VerificationResults:
             VerificationComponents.OPERATOR_HEALTH: self.operator_health,
             VerificationComponents.OPERATOR_IDENTITY: self.operator_identity,
             VerificationComponents.FILE_STORAGE: self.file_storage,
-            VerificationComponents.GATEWAY_SUPPORT: self.gateway_support,
-            VerificationComponents.NGINX_INGRESS: self.nginx_ingress,
+            VerificationComponents.NETWORKING: self.networking,
         }
 
     @property
@@ -246,8 +243,7 @@ class VerificationResults:
                 self.operator_health,
                 self.operator_identity,
                 self.file_storage,
-                self.gateway_support,
-                self.nginx_ingress,
+                self.networking,
             ]
         )
 
@@ -1144,8 +1140,8 @@ class StorageVerifier:
 # =============================================================================
 
 
-class GatewayVerifier:
-    """Handles verification of gateway and ingress components for Kubernetes deployments."""
+class NetworkVerifier:
+    """Handles verification of networking (gateway or ingress) for Kubernetes deployments."""
 
     def __init__(
         self,
@@ -1157,36 +1153,38 @@ class GatewayVerifier:
         self.config = k8s_config
         self.log = logger
 
-    def verify_gateway_support(self, operator_data: OperatorData) -> VerificationStatus:
-        """Verify gateway support using pre-fetched config data.
+    def verify_networking(self, operator_data: OperatorData) -> VerificationStatus:
+        """Verify networking based on operator configuration.
 
-        Returns:
-            VerificationStatus enum value
+        Reads the operator config; if gateway is enabled, verifies the configured
+        gateway exists in the cluster, otherwise verifies an NGINX ingress
+        controller is present.
         """
         if not operator_data.config.is_valid:
-            self.log.info(
-                "Could not retrieve operator configuration - skipping gateway verification"
+            self.log.error(
+                "Could not retrieve operator configuration - networking verification failed"
             )
-            return VerificationStatus.SKIPPED
+            return VerificationStatus.FAILED
 
-        # Extract gateway configuration from operator data
         gateway_config = GatewayConfig.from_operator_config(
             operator_data.config.config_data
         )
 
-        if not gateway_config.enabled:
-            self.log.info(
-                "Gateway support is not enabled - skipping gateway verification"
-            )
-            return VerificationStatus.SKIPPED
+        if gateway_config.enabled:
+            self.log.info("Gateway is enabled - verifying gateway")
+            return self._verify_gateway(gateway_config)
 
+        self.log.info("Gateway is not enabled - verifying NGINX ingress controller")
+        return self._verify_nginx_ingress()
+
+    def _verify_gateway(self, gateway_config: GatewayConfig) -> VerificationStatus:
+        """Verify the configured gateway exists in the cluster."""
         if not gateway_config.requires_verification:
             self.log.error(
                 "Gateway is enabled but no gateway name found in operator configuration"
             )
             return VerificationStatus.FAILED
 
-        # Verify gateway exists in cluster
         assert (
             gateway_config.name is not None
         )  # guaranteed by requires_verification check
@@ -1195,7 +1193,7 @@ class GatewayVerifier:
         else:
             return VerificationStatus.FAILED
 
-    def verify_nginx_ingress(self) -> VerificationStatus:
+    def _verify_nginx_ingress(self) -> VerificationStatus:
         """Check for NGINX ingress controller (warning only)."""
         try:
             self.log.info("Checking for NGINX ingress controller...")
@@ -1486,7 +1484,7 @@ class KubernetesCloudDeploymentVerifier:
         kubectl_ops = KubectlOperations(self.k8s_config.context, self.log)
         operator_verifier = OperatorVerifier(kubectl_ops, self.k8s_config, self.log)
         storage_verifier = StorageVerifier(kubectl_ops, self.k8s_config, self.log)
-        gateway_verifier = GatewayVerifier(kubectl_ops, self.k8s_config, self.log)
+        network_verifier = NetworkVerifier(kubectl_ops, self.k8s_config, self.log)
 
         # Step 2: Find and verify operator pod
         with self._verification_step("Finding operator pod"):
@@ -1545,17 +1543,10 @@ class KubernetesCloudDeploymentVerifier:
 
             self.log.info(f"File Storage: {self.results.file_storage.value}")
 
-        # Step 5: Verify gateway support
-        with self._verification_step("Checking gateway support"):
-            self.results.gateway_support = gateway_verifier.verify_gateway_support(
-                operator_data
-            )
-            self.log.info(f"Gateway Support: {self.results.gateway_support.value}")
-
-        # Step 6: Check NGINX ingress (warning only)
-        with self._verification_step("Checking NGINX ingress controller"):
-            self.results.nginx_ingress = gateway_verifier.verify_nginx_ingress()
-            self.log.info(f"NGINX Ingress: {self.results.nginx_ingress.value}")
+        # Step 5: Verify networking (gateway or ingress, depending on operator config)
+        with self._verification_step("Checking networking"):
+            self.results.networking = network_verifier.verify_networking(operator_data)
+            self.log.info(f"Networking: {self.results.networking.value}")
 
         self._show_verification_summary()
 

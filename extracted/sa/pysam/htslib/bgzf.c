@@ -2,7 +2,7 @@
 
    Copyright (c) 2008 Broad Institute / Massachusetts Institute of Technology
                  2011, 2012 Attractive Chaos <attractor@live.co.uk>
-   Copyright (C) 2009, 2013-2023 Genome Research Ltd
+   Copyright (C) 2009, 2013-2025 Genome Research Ltd
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -48,12 +48,13 @@
 #include "htslib/hts_endian.h"
 #include "cram/pooled_alloc.h"
 #include "hts_internal.h"
+#include "bgzf_internal.h"
+#include "htslib/khash.h"
 
 #ifndef EFTYPE
 #define EFTYPE ENOEXEC
 #endif
 
-#define BGZF_CACHE
 #define BGZF_MT
 
 #define BLOCK_HEADER_LENGTH 18
@@ -76,21 +77,15 @@
 */
 static const uint8_t g_magic[19] = "\037\213\010\4\0\0\0\0\0\377\6\0\102\103\2\0\0\0";
 
-#ifdef BGZF_CACHE
 typedef struct {
     int size;
     uint8_t *block;
     int64_t end_offset;
 } cache_t;
 
-#include "htslib/khash.h"
-KHASH_MAP_INIT_INT64(cache, cache_t)
-#endif
+KHASH_MAP_INIT_INT64(bgzf_cache, cache_t)
 
-struct bgzf_cache_t {
-    khash_t(cache) *h;
-    khint_t last_pos;
-};
+// struct bgzf_cache_t is defined in bgzf_internal.h
 
 #ifdef BGZF_MT
 
@@ -409,20 +404,21 @@ static BGZF *bgzf_read_init(hFILE *hfpr, const char *filename)
         errno = EFTYPE;
         return NULL;
     }
-#ifdef BGZF_CACHE
+
     if (!(fp->cache = malloc(sizeof(*fp->cache)))) {
         free(fp->uncompressed_block);
         free(fp);
         return NULL;
     }
-    if (!(fp->cache->h = kh_init(cache))) {
+    if (!(fp->cache->h = kh_init(bgzf_cache))) {
         free(fp->uncompressed_block);
         free(fp->cache);
         free(fp);
         return NULL;
     }
     fp->cache->last_pos = 0;
-#endif
+    fp->cache->private_data = NULL;
+    fp->cache->private_data_cleanup = (bgzf_private_data_cleanup_func *) NULL;
     return fp;
 }
 
@@ -442,6 +438,15 @@ static BGZF *bgzf_write_init(const char *mode)
     fp = (BGZF*)calloc(1, sizeof(BGZF));
     if (fp == NULL) goto mem_fail;
     fp->is_write = 1;
+
+    fp->cache = malloc(sizeof(bgzf_cache_t));
+    if (!fp->cache)
+        goto mem_fail;
+    fp->cache->h = NULL;
+    fp->cache->last_pos = 0;
+    fp->cache->private_data = NULL;
+    fp->cache->private_data_cleanup = (bgzf_private_data_cleanup_func *) NULL;
+
     int compress_level = mode2level(mode);
     if ( compress_level==-2 )
     {
@@ -479,6 +484,7 @@ mem_fail:
 
 fail:
     if (fp != NULL) {
+        free(fp->cache);
         free(fp->uncompressed_block);
         free(fp->gz_stream);
         free(fp);
@@ -548,6 +554,10 @@ BGZF *bgzf_hopen(hFILE *hfp, const char *mode)
 }
 
 #ifdef HAVE_LIBDEFLATE
+uint32_t hts_crc32(uint32_t crc, const void *buf, size_t len) {
+    return libdeflate_crc32(crc, buf, len);
+}
+
 int bgzf_compress(void *_dst, size_t *dlen, const void *src, size_t slen, int level)
 {
     if (slen == 0) {
@@ -606,6 +616,10 @@ int bgzf_compress(void *_dst, size_t *dlen, const void *src, size_t slen, int le
 }
 
 #else
+
+uint32_t hts_crc32(uint32_t crc, const void *buf, size_t len) {
+    return crc32(crc, buf, len);
+}
 
 int bgzf_compress(void *_dst, size_t *dlen, const void *src, size_t slen, int level)
 {
@@ -888,15 +902,16 @@ static int check_header(const uint8_t *header)
             && unpackInt16((uint8_t*)&header[14]) == 2) ? 0 : -1;
 }
 
-#ifdef BGZF_CACHE
 static void free_cache(BGZF *fp)
 {
     khint_t k;
-    if (fp->is_write) return;
-    khash_t(cache) *h = fp->cache->h;
-    for (k = kh_begin(h); k < kh_end(h); ++k)
-        if (kh_exist(h, k)) free(kh_val(h, k).block);
-    kh_destroy(cache, h);
+    if (fp->cache->h) {
+        khash_t(bgzf_cache) *h = fp->cache->h;
+        for (k = kh_begin(h); k < kh_end(h); ++k)
+            if (kh_exist(h, k)) free(kh_val(h, k).block);
+        kh_destroy(bgzf_cache, h);
+    }
+    bgzf_clear_private_data(fp);
     free(fp->cache);
 }
 
@@ -905,8 +920,8 @@ static int load_block_from_cache(BGZF *fp, int64_t block_address)
     khint_t k;
     cache_t *p;
 
-    khash_t(cache) *h = fp->cache->h;
-    k = kh_get(cache, h, block_address);
+    khash_t(bgzf_cache) *h = fp->cache->h;
+    k = kh_get(bgzf_cache, h, block_address);
     if (k == kh_end(h)) return 0;
     p = &kh_val(h, k);
     if (fp->block_length != 0) fp->block_offset = 0;
@@ -929,7 +944,7 @@ static void cache_block(BGZF *fp, int size)
     uint8_t *block = NULL;
     cache_t *p;
     //fprintf(stderr, "Cache block at %llx\n", (int)fp->block_address);
-    khash_t(cache) *h = fp->cache->h;
+    khash_t(bgzf_cache) *h = fp->cache->h;
     if (BGZF_MAX_BLOCK_SIZE >= fp->cache_size) return;
     if (fp->block_length < 0 || fp->block_length > BGZF_MAX_BLOCK_SIZE) return;
     if ((kh_size(h) + 1) * BGZF_MAX_BLOCK_SIZE > (uint32_t)fp->cache_size) {
@@ -951,13 +966,13 @@ static void cache_block(BGZF *fp, int size)
 
         if (k != k_orig) {
             block = kh_val(h, k).block;
-            kh_del(cache, h, k);
+            kh_del(bgzf_cache, h, k);
         }
     } else {
         block = (uint8_t*)malloc(BGZF_MAX_BLOCK_SIZE);
     }
     if (!block) return;
-    k = kh_put(cache, h, fp->block_address, &ret);
+    k = kh_put(bgzf_cache, h, fp->block_address, &ret);
     if (ret <= 0) { // kh_put failed, or in there already (shouldn't happen)
         free(block);
         return;
@@ -968,11 +983,6 @@ static void cache_block(BGZF *fp, int size)
     p->block = block;
     memcpy(p->block, fp->uncompressed_block, p->size);
 }
-#else
-static void free_cache(BGZF *fp) {}
-static int load_block_from_cache(BGZF *fp, int64_t block_address) {return 0;}
-static void cache_block(BGZF *fp, int size) {}
-#endif
 
 /*
  * Absolute htell in this compressed file.
@@ -1350,13 +1360,7 @@ static void *bgzf_encode_level0_func(void *arg) {
     u16_to_le(~j->uncomp_len, j->comp_data + BLOCK_HEADER_LENGTH + 3);
 
     // Trailer (CRC, uncompressed length)
-#ifdef HAVE_LIBDEFLATE
-    crc = libdeflate_crc32(0, j->comp_data + BLOCK_HEADER_LENGTH + 5,
-                           j->uncomp_len);
-#else
-    crc = crc32(crc32(0L, NULL, 0L),
-                (Bytef*)j->comp_data + BLOCK_HEADER_LENGTH + 5, j->uncomp_len);
-#endif
+    crc = hts_crc32(0, j->comp_data + BLOCK_HEADER_LENGTH + 5, j->uncomp_len);
     u32_to_le(crc, j->comp_data +  j->comp_len - 8);
     u32_to_le(j->uncomp_len, j->comp_data + j->comp_len - 4);
 
@@ -1584,7 +1588,7 @@ static void bgzf_mt_seek(BGZF *fp) {
     mt->errcode = 0;
 
     if (hseek(fp->fp, mt->block_address, SEEK_SET) < 0)
-        mt->errcode = BGZF_ERR_IO;
+        mt->errcode = errno;
 
     pthread_mutex_unlock(&mt->job_pool_m);
     mt->command = SEEK_DONE;
@@ -1737,6 +1741,8 @@ int bgzf_thread_pool(BGZF *fp, hts_tpool *pool, int qsize) {
     // No gain from multi-threading when not compressed
     if (!fp->is_compressed)
         return 0;
+    if (fp->mt)
+        return -2;  //already exists!
 
     mtaux_t *mt;
     mt = (mtaux_t*)calloc(1, sizeof(mtaux_t));
@@ -1785,9 +1791,10 @@ int bgzf_mt(BGZF *fp, int n_threads, int n_sub_blks)
     if (!p)
         return -1;
 
-    if (bgzf_thread_pool(fp, p, 0) != 0) {
+    int ret = 0;
+    if ((ret = bgzf_thread_pool(fp, p, 0)) < 0) {
         hts_tpool_destroy(p);
-        return -1;
+        return ret;
     }
 
     fp->mt->own_pool = 1;
@@ -1902,7 +1909,7 @@ static int mt_flush_queue(BGZF *fp)
         if ((shutdown = hts_tpool_process_is_shutdown(mt->out_queue)))
             break;
         pthread_mutex_unlock(&mt->job_pool_m);
-        usleep(10000); // FIXME: replace by condition variable
+        hts_usleep(10000); // FIXME: replace by condition variable
         pthread_mutex_lock(&mt->job_pool_m);
     }
     pthread_mutex_unlock(&mt->job_pool_m);
@@ -2203,7 +2210,15 @@ static inline int64_t bgzf_seek_common(BGZF* fp,
                 abort();  // Should not get to any other state
             }
         } while (fp->mt->command != SEEK_DONE);
+
         fp->mt->command = NONE;
+
+        if (fp->mt->errcode) {
+            fp->errcode |= BGZF_ERR_IO;
+            errno = fp->mt->errcode;
+            pthread_mutex_unlock(&fp->mt->command_m);
+            return -1;
+        }
 
         fp->block_length = 0;  // indicates current block has not been loaded
         fp->block_address = block_address;
@@ -2384,10 +2399,11 @@ int bgzf_index_dump_hfile(BGZF *fp, struct hFILE *idx, const char *name)
     if (bgzf_flush(fp) != 0) return -1;
 
     // discard the entry marking the end of the file
-    if (fp->mt && fp->idx)
+    if (fp->mt && fp->idx && fp->idx->noffs > 0)
         fp->idx->noffs--;
 
-    if (hwrite_uint64(fp->idx->noffs - 1, idx) < 0) goto fail;
+    if (hwrite_uint64(fp->idx->noffs > 0 ? fp->idx->noffs - 1 : 0, idx) < 0)
+        goto fail;
     for (i=1; i<fp->idx->noffs; i++)
     {
         if (hwrite_uint64(fp->idx->offs[i].caddr, idx) < 0) goto fail;
@@ -2459,6 +2475,9 @@ int bgzf_index_load_hfile(BGZF *fp, struct hFILE *idx, const char *name)
     if (fp->idx == NULL) goto fail;
     uint64_t x;
     if (hread_uint64(&x, idx) < 0) goto fail;
+    if (x >= ((SIZE_MAX < UINT64_MAX ? SIZE_MAX : UINT64_MAX)
+              / sizeof(bgzidx1_t) / 2))
+        goto fail;
 
     fp->idx->noffs = fp->idx->moffs = x + 1;
     fp->idx->offs  = (bgzidx1_t*) malloc(fp->idx->moffs*sizeof(bgzidx1_t));

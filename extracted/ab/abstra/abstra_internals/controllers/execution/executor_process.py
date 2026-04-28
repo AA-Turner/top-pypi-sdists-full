@@ -6,8 +6,10 @@ import threading
 import time
 import traceback
 from multiprocessing import Queue
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
+
+from dotenv import load_dotenv
 
 from abstra_internals.consts.filepaths import SMARTCHAT_SNIPPETS_DIR_PATH
 from abstra_internals.controllers.execution.connection_protocol import (
@@ -114,9 +116,30 @@ class ExecutorState:
         self.executions_completed: int = 0
         self.verbose = verbose
         self.nats_persistent: Optional[NATSPersistentConnection] = None
+        self.env_file_signature: Optional[Tuple[float, int]] = None
 
     def is_warmed_up(self) -> bool:
         return self.warmup_complete and self.controller is not None
+
+
+def _reload_project_env_vars(state: ExecutorState) -> None:
+    # Web-editor UI and worker run in separate pods sharing the project via EFS;
+    # reload the .env when it changes so user code sees the latest values. Gated
+    # to dev so a project .env can never override pod-injected vars in prod. The
+    # (mtime, size) signature avoids a full EFS read on every execution.
+    if not (IS_DEVELOPMENT and EDITOR_MODE == "web"):
+        return
+    env_path = Settings.root_path / ".env"
+    try:
+        stat = env_path.stat()
+    except FileNotFoundError:
+        state.env_file_signature = None
+        return
+    signature = (stat.st_mtime, stat.st_size)
+    if signature == state.env_file_signature:
+        return
+    load_dotenv(env_path, override=True)
+    state.env_file_signature = signature
 
 
 def make_client_from_context(
@@ -227,6 +250,7 @@ def handle_execute(
     try:
         Settings.set_root_path(root_path)
         Settings.set_server_port(server_port, force=True)
+        _reload_project_env_vars(state)
 
         thread = threading.current_thread()
         thread.name = f"Executor[{request.worker_id}]"
@@ -436,6 +460,7 @@ def handle_run_snippet(
 
     Settings.set_root_path(root_path)
     Settings.set_server_port(server_port, force=True)
+    _reload_project_env_vars(state)
 
     snippet_dir = Settings.root_path / SMARTCHAT_SNIPPETS_DIR_PATH
     snippet_dir.mkdir(parents=True, exist_ok=True)

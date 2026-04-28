@@ -1663,6 +1663,9 @@ def parse_common_module(
     elif mod.__name__.startswith("polars"):
         if check_if_subpackage("polars", mod.__name__):
             return FunctionCapturedGlobalModule(name=module_name)
+    elif mod.__name__.startswith("textdistance"):
+        if check_if_subpackage("textdistance", mod.__name__):
+            return FunctionCapturedGlobalModule(name=module_name)
     elif mod.__name__.startswith("chalk"):
         import chalk
 
@@ -1817,6 +1820,24 @@ def _capture_global(
             instance_type = type(global_value).__name__
             # Generate a call signature identifier for the callable instance
             call_signature = f"{instance_type}.__call__"
+
+            # textdistance exposes algorithms like `levenshtein` as callable instances
+            # rather than functions, so `from textdistance import levenshtein` needs
+            # explicit module-member capture.
+            if type(global_value).__module__.startswith("textdistance."):
+                try:
+                    import textdistance  # pyright: ignore[reportMissingImports]
+
+                    for member_name in dir(textdistance):
+                        if member_name.startswith("_"):
+                            continue
+                        if getattr(textdistance, member_name) is global_value:
+                            return FunctionCapturedGlobalModuleMember(
+                                module_name="textdistance",
+                                qualname=member_name,
+                            )
+                except Exception:
+                    pass
 
             # For known callable instances like ProtobufDeserializer, create a specialized capture
             if instance_type in ("ProtobufDeserializer",) and module_name:

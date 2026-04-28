@@ -38,16 +38,14 @@ from rich.table import Table
 
 
 def _run_metadata_only_cli() -> None:
-    if __name__ != "__main__" or len(sys.argv) <= 1 or sys.argv[1] not in {"games", "missions", "mission"}:
+    if __name__ != "__main__" or len(sys.argv) <= 1 or sys.argv[1] != "missions":
         return
 
     from cogames.cli.mission import list_missions  # noqa: PLC0415
 
     metadata_app = typer.Typer(add_help_option=False)
 
-    @metadata_app.command("games", hidden=True)
     @metadata_app.command("missions")
-    @metadata_app.command("mission", hidden=True)
     def _missions_cmd(
         mission_filter: Optional[str] = typer.Argument(None, metavar="MISSION"),
         game_name: str = typer.Option("cogsguard", "--game", help="Game whose missions to list."),
@@ -66,7 +64,8 @@ from cogames import verbose
 from cogames.cli.assay import assay_app
 from cogames.cli.auth import auth_app
 from cogames.cli.base import console, emit_json
-from cogames.cli.client import SeasonDetail, TournamentServerClient
+from cogames.cli.bitworld import bitworld_app
+from cogames.cli.client import PoolConfigInfo, SeasonDetail, TournamentServerClient
 from cogames.cli.episode import episode_app
 from cogames.cli.leaderboard import (
     leaderboard_cmd,
@@ -118,28 +117,29 @@ logger = logging.getLogger("cogames.main")
 POLICY_NAME_MAX_LENGTH = 64
 _REPO_COGAMES_ROOT = Path(__file__).resolve().parents[2]
 _DOC_DESCRIPTIONS: dict[str, str] = {
+    "amongthem_policy": "AmongThem policy practice walkthrough",
     "readme": "CoGames overview and documentation",
     "mission": "Mission briefing for CvC Deployment",
     "technical_manual": "Technical manual for Cogames",
     "scripted_agent": "Scripted agent policy documentation",
 }
 _DOC_RESOURCE_PATHS: dict[str, tuple[str, ...]] = {
+    "amongthem_policy": ("docs", "AMONGTHEM_POLICY.md"),
     "mission": ("docs", "MISSION.md"),
     "technical_manual": ("docs", "TECHNICAL_MANUAL.md"),
     "scripted_agent": ("docs", "SCRIPTED_AGENT.md"),
 }
 
 _POLICY_FREE_COMMANDS = {
+    "auth",
+    "bitworld",
     "describe",
     "docs",
     "docsync",
     "evals",
-    "games",
     "leaderboard",
-    "login",
     "match-artifacts",
     "matches",
-    "mission",
     "missions",
     "replay",
     "submissions",
@@ -372,6 +372,7 @@ app.add_typer(auth_app, name="auth", rich_help_panel="Tournament")
 app.add_typer(season_app, name="season", rich_help_panel="Tournament")
 app.add_typer(episode_app, name="episode", rich_help_panel="Tournament")
 app.add_typer(assay_app, name="assay", rich_help_panel="Tournament")
+app.add_typer(bitworld_app, name="bitworld", rich_help_panel="BitWorld")
 
 
 def _help_callback(ctx: typer.Context, value: bool) -> None:
@@ -403,9 +404,7 @@ This command has two modes:
   [cyan]cogames missions -m arena --format json[/cyan]             Output as JSON""",
     add_help_option=False,
 )
-@app.command("games", hidden=True)
-@app.command("mission", hidden=True)
-def games_cmd(
+def missions_cmd(
     ctx: typer.Context,
     game_name: str = typer.Option(
         "cogsguard",
@@ -920,7 +919,6 @@ def replay_cmd(
   [cyan]cogames play -m my_mission.yml[/cyan]                                         Use custom mission""",
     add_help_option=False,
 )
-@app.command("make-game", hidden=True)
 def make_mission(
     ctx: typer.Context,
     # --- Mission ---
@@ -1016,13 +1014,16 @@ def make_mission(
 # TODO: Verify make-policy templates work with CvC game mechanics
 @tutorial_app.command(
     name="make-policy",
-    help="Create a new policy from a template. Requires --trainable or --scripted.",
+    help="Create a new policy from a template. Requires exactly one policy type.",
     rich_help_panel="Tutorial",
     epilog="""[dim]Examples:[/dim]
 
 [cyan]cogames tutorial make-policy -t -o my_nn_policy.py[/cyan]        Trainable (neural network)
 
-[cyan]cogames tutorial make-policy -s -o my_scripted_policy.py[/cyan]  Scripted (rule-based)""",
+[cyan]cogames tutorial make-policy -s -o my_scripted_policy.py[/cyan]  Scripted (rule-based)
+
+[cyan]cogames tutorial make-policy --amongthem -o amongthem_policy.py[/cyan]
+                                                                  AmongThem scripted practice""",
     add_help_option=False,
 )
 def make_policy(
@@ -1037,6 +1038,12 @@ def make_policy(
         False,
         "--scripted",
         help="Create a scripted (rule-based) policy.",
+        rich_help_panel="Policy Type",
+    ),
+    amongthem: bool = typer.Option(
+        False,
+        "--amongthem",
+        help="Create an AmongThem BitWorld scripted practice policy.",
         rich_help_panel="Policy Type",
     ),
     # --- Output ---
@@ -1059,21 +1066,28 @@ def make_policy(
         rich_help_panel="Other",
     ),
 ) -> None:
-    if trainable == scripted:
-        console.print("[red]Error: Specify exactly one of --trainable or --scripted[/red]")
+    if sum(int(selected) for selected in (trainable, scripted, amongthem)) != 1:
+        console.print("[red]Error: Specify exactly one of --trainable, --scripted, or --amongthem[/red]")
         console.print("[dim]Examples:[/dim]")
-        console.print("[dim]  cogames make-policy --trainable -o my_nn_policy.py[/dim]")
-        console.print("[dim]  cogames make-policy --scripted -o my_scripted_policy.py[/dim]")
+        console.print("[dim]  cogames tutorial make-policy --trainable -o my_nn_policy.py[/dim]")
+        console.print("[dim]  cogames tutorial make-policy --scripted -o my_scripted_policy.py[/dim]")
+        console.print("[dim]  cogames tutorial make-policy --amongthem -o amongthem_policy.py[/dim]")
         raise typer.Exit(1)
 
     try:
         if trainable:
-            require_neural("cogames make-policy --trainable")
+            require_neural("cogames tutorial make-policy --trainable")
             import cogames.policy.trainable_policy_template as trainable_policy_template  # noqa: PLC0415
 
             template_path = Path(trainable_policy_template.__file__)
             policy_class = "MyTrainablePolicy"
             policy_type = "Trainable"
+        elif amongthem:
+            import cogames.policy.amongthem_policy_template as amongthem_policy_template  # noqa: PLC0415
+
+            template_path = Path(amongthem_policy_template.__file__)
+            policy_class = "AmongThemPolicy"
+            policy_type = "AmongThem"
         else:
             # Deferred: imported only to locate its source file as a template.
             import cogames.policy.starter_agent as starter_agent  # noqa: PLC0415
@@ -1104,15 +1118,24 @@ def make_policy(
             console.print(
                 f"[dim]Train with: cogames tutorial train -m arena -p class={dest_path.stem}.{policy_class}[/dim]"
             )
+        elif amongthem:
+            policy_spec = f"class={dest_path.stem}.{policy_class}"
+            console.print(
+                f"[dim]Dry-run validation: cogames upload -p {policy_spec} -f {output} "
+                "-n $USER-amongthem-practice --season <season> --dry-run[/dim]"
+            )
+            console.print(
+                f"[dim]Ship: cogames ship -p {policy_spec} -f {output} "
+                "-n $USER-amongthem-practice --season <season>[/dim]"
+            )
+            console.print("[dim]Score: cogames leaderboard <season> --policy $USER-amongthem-practice[/dim]")
+            console.print("[dim]Walkthrough: cogames docs amongthem_policy[/dim]")
         else:
             console.print(f"[dim]Play with: cogames play -m arena -p class={dest_path.stem}.{policy_class}[/dim]")
 
     except Exception as exc:  # pragma: no cover - user input
         console.print(f"[red]Error: {exc}[/red]")
         raise typer.Exit(1) from exc
-
-
-app.command(name="make-policy", hidden=True)(make_policy)
 
 
 @tutorial_app.command(
@@ -1284,7 +1307,7 @@ def train_cmd(
         rich_help_panel="Other",
     ),
 ) -> None:
-    require_neural("cogames train")
+    require_neural("cogames tutorial train")
     from cogames import train as train_module  # noqa: PLC0415
 
     selected_missions = get_mission_names_and_configs(
@@ -1335,9 +1358,6 @@ def train_cmd(
     console.print(f"[green]Training complete. Checkpoints saved to: {checkpoints_path}[/green]")
 
 
-app.command(name="train", hidden=True)(train_cmd)
-
-
 @app.command(
     name="run",
     help="""Evaluate one or more policies on missions.
@@ -1372,8 +1392,6 @@ This command is equivalent to running `cogames run` with a single policy.
 [cyan]cogames scrimmage -m arena -p lstm[/cyan]                          Single policy eval""",
     add_help_option=False,
 )
-@app.command("eval", hidden=True)
-@app.command("evaluate", hidden=True)
 def run_cmd(
     ctx: typer.Context,
     # --- Mission ---
@@ -1756,48 +1774,6 @@ def policies_cmd() -> None:
     console.print(table)
 
 
-@app.command(
-    name="login",
-    help="Compatibility alias for softmax login.",
-    rich_help_panel="Tournament",
-    add_help_option=False,
-)
-def login_cmd(
-    login_server: str = typer.Option(
-        DEFAULT_COGAMES_SERVER,
-        "--login-server",
-        metavar="URL",
-        help="Authentication server URL.",
-        rich_help_panel="Server",
-    ),
-    no_browser: bool = typer.Option(
-        False,
-        "--no-browser",
-        help="Skip opening browser automatically.",
-        rich_help_panel="Options",
-    ),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        "-f",
-        help="Re-authenticate even if already logged in.",
-        rich_help_panel="Options",
-    ),
-    _help: bool = typer.Option(
-        False,
-        "--help",
-        "-h",
-        help="Show this message and exit.",
-        is_eager=True,
-        callback=_help_callback,
-        rich_help_panel="Other",
-    ),
-) -> None:
-    from cogames.cli.auth import login_cmd as auth_login  # noqa: PLC0415
-
-    auth_login(login_server=login_server, no_browser=no_browser, force=force)
-
-
 app.command(
     name="submissions",
     help="Show your uploads and tournament submissions.",
@@ -1903,17 +1879,25 @@ def _resolve_season(server: str, login_server: str | None = None, season_name: s
         raise typer.Exit(1) from None
 
 
-def _resolve_validation_config_pool(season_info: SeasonDetail) -> tuple[str, UUID]:
-    entry_pool_info = next((p for p in season_info.pools if p.name == season_info.entry_pool and p.config_id), None)
-    if entry_pool_info is not None:
-        entry_config_id = entry_pool_info.config_id
-        if entry_config_id is not None:
-            return entry_pool_info.name, entry_config_id
-
+def _validation_pool_names(season_info: SeasonDetail) -> list[str]:
+    names: list[str] = []
+    if season_info.entry_pool is not None:
+        names.append(season_info.entry_pool)
     for pool_info in season_info.pools:
-        config_id = pool_info.config_id
-        if config_id is not None:
-            return pool_info.name, config_id
+        if pool_info.name not in names:
+            names.append(pool_info.name)
+    return names
+
+
+def _resolve_validation_pool_config(
+    client: TournamentServerClient,
+    season_ref: str,
+    season_info: SeasonDetail,
+) -> PoolConfigInfo:
+    for pool_name in _validation_pool_names(season_info):
+        pool_config = client.get_optional_pool_config(season_ref, pool_name)
+        if pool_config is not None:
+            return pool_config
 
     console.print(f"[red]No playable config found for season '{season_info.name}'[/red]")
     raise typer.Exit(1)
@@ -2055,18 +2039,18 @@ def validate_bundle_cmd(
     ensure_docker_daemon_access()
 
     season_info = _resolve_season(server, login_server, season)
-    pool_name, config_id = _resolve_validation_config_pool(season_info)
 
     if image == DEFAULT_EPISODE_RUNNER_IMAGE and season_info.compat_version is not None:
         image = f"ghcr.io/metta-ai/episode-runner:compat-v{season_info.compat_version}"
 
     auth_token = load_current_cogames_token(login_server=login_server)
+    season_ref = season or season_info.name
     with TournamentServerClient(server_url=server, token=auth_token, login_server=login_server) as client:
-        config_data = client.get_config(config_id)
+        pool_config = _resolve_validation_pool_config(client, season_ref, season_info)
 
-    validate_bundle_docker(policy, config_data, image)
+    validate_bundle_docker(policy, pool_config.config, image, game_engine=pool_config.game_engine)
 
-    console.print(f"[dim]Validated against pool: {pool_name}[/dim]")
+    console.print(f"[dim]Validated against pool: {pool_config.pool_name} ({pool_config.game_engine})[/dim]")
     console.print("[green]Policy validated successfully[/green]")
     raise typer.Exit(0)
 

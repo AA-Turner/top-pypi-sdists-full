@@ -1,1 +1,0 @@
-(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[6721],{83806:function(n,t,_){(window.__NEXT_P=window.__NEXT_P||[]).push(["/data-discovery/action-center/datastore/[monitorId]",function(){return _(84632)}])}},function(n){n.O(0,[4184,5415,2489,408,483,4632,2888,9774,179],function(){return n(n.s=83806)}),_N_E=n.O()}]);

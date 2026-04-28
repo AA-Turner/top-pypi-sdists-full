@@ -6,7 +6,6 @@ import pydantic
 from ....core.pydantic_utilities import IS_PYDANTIC_V2
 from ....core.unchecked_base_model import UncheckedBaseModel
 from .listen_v2turn_info_event import ListenV2TurnInfoEvent
-from .listen_v2turn_info_type import ListenV2TurnInfoType
 from .listen_v2turn_info_words_item import ListenV2TurnInfoWordsItem
 
 
@@ -15,13 +14,13 @@ class ListenV2TurnInfo(UncheckedBaseModel):
     Describes the current turn and latest state of the turn
     """
 
-    type: ListenV2TurnInfoType
+    type: typing.Literal["TurnInfo"] = "TurnInfo"
     request_id: str = pydantic.Field()
     """
     The unique identifier of the request
     """
 
-    sequence_id: float = pydantic.Field()
+    sequence_id: int = pydantic.Field()
     """
     Starts at `0` and increments for each message the server sends to the client.  This includes messages of other types, like `Connected` messages.
     """
@@ -37,7 +36,7 @@ class ListenV2TurnInfo(UncheckedBaseModel):
     - **EndOfTurn** - The user has finished speaking for the turn
     """
 
-    turn_index: float = pydantic.Field()
+    turn_index: int = pydantic.Field()
     """
     The index of the current turn
     """
@@ -65,6 +64,19 @@ class ListenV2TurnInfo(UncheckedBaseModel):
     end_of_turn_confidence: float = pydantic.Field()
     """
     Confidence that no more speech is coming in this turn
+    """
+
+    languages: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Detected languages sorted by descending frequency in the
+    transcript. Only present when the flux-general-multi model
+    detects languages in the audio.
+    """
+
+    languages_hinted: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    The language hints that were supplied for this turn. Only
+    present when language hints are configured.
     """
 
     if IS_PYDANTIC_V2:

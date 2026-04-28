@@ -6,8 +6,7 @@ from abstra_internals.controllers.execution.connection_protocol import (
     ConnectionProtocol,
 )
 from abstra_internals.entities.execution_context import Response
-
-DEFAULT_DRAIN_TIMEOUT = 30.0
+from abstra_internals.environment import DRAIN_RESPONSE_TIMEOUT_SECONDS
 
 _INTERNAL_MESSAGE_TYPES = frozenset(
     {
@@ -21,7 +20,7 @@ _INTERNAL_MESSAGE_TYPES = frozenset(
 
 def drain_until_response(
     connection: ConnectionProtocol,
-    timeout: float = DEFAULT_DRAIN_TIMEOUT,
+    timeout: float = DRAIN_RESPONSE_TIMEOUT_SECONDS,
 ) -> Optional[Any]:
     """Drain intermediate stdio/stdio_batch messages from the connection
     until a real response (Response, non-stdio dict, or unparseable string)

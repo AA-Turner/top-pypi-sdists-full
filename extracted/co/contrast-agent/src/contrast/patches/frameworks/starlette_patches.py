@@ -7,7 +7,8 @@ import sys
 from collections.abc import Iterable
 from contextvars import ContextVar
 from copy import copy
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 from contrast_fireball import DiscoveredRoute
 

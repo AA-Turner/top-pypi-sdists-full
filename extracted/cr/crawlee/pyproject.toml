@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "crawlee"
-version = "1.6.2"
+version = "1.6.3"
 description = "Crawlee for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
@@ -256,6 +256,9 @@ exclude = [
     "docs/guides/code_examples/storage_clients/custom_storage_client_example.py",
     "website/versioned_docs",
 ]
+
+[tool.ty.rules]
+unused-ignore-comment = "error"
 
 [[tool.ty.overrides]]
 include = [

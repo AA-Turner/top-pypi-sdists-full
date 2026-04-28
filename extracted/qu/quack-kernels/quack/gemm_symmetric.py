@@ -97,19 +97,19 @@ class GemmSymmetricMixin(GemmActMixin):
 
         if const_expr(copy_C is not None):
             for epi_idx in cutlass.range(min(epi_tile_num, self.epi_c_stage), unroll=1):
-                gmem_coord_C = epi_tile_layout.get_hier_coord(epi_idx)
+                epi_coord_C = epi_tile_layout.get_hier_coord(epi_idx)
                 if is_tma_warp:
                     epi_pipeline.producer_acquire(epi_producer_state)
-                    copy_C(src_idx=gmem_coord_C, producer_state=epi_producer_state)
+                    copy_C(src_idx=epi_coord_C, producer_state=epi_producer_state)
                     epi_pipeline.producer_commit(epi_producer_state)
                 epi_producer_state.advance()
 
         for epi_idx in cutlass.range_constexpr(epi_tile_num):
             # The global memory coordinate for the current epi tile
-            gmem_coord = epi_tile_layout.get_hier_coord(epi_idx)
+            epi_coord = epi_tile_layout.get_hier_coord(epi_idx)
             # Copy from acc to D registers
-            load_acc_subtile(tRS_rD, epi_idx)
-            epi_loop_tensors = self.epi_begin_loop(params, epi_tensors, gmem_coord)
+            load_acc_subtile(tRS_rD, epi_coord)
+            epi_loop_tensors = self.epi_begin_loop(params, epi_tensors, epi_coord)
             if const_expr(has_C):
                 epi_pipeline.consumer_wait(epi_read_state)
                 cute.copy(tiled_copy_s2r, tSR_sC[None, None, None, epi_read_state.index], tSR_rC)
@@ -120,10 +120,10 @@ class GemmSymmetricMixin(GemmActMixin):
                     epi_pipeline.consumer_release(epi_read_state)
                 epi_read_state.advance()
             if const_expr(copy_C is not None and epi_idx + self.epi_c_stage < epi_tile_num):
-                gmem_coord_C = epi_tile_layout.get_hier_coord(epi_idx + self.epi_c_stage)
+                epi_coord_C = epi_tile_layout.get_hier_coord(epi_idx + self.epi_c_stage)
                 if is_tma_warp:
                     epi_pipeline.producer_acquire(epi_producer_state)
-                    copy_C(src_idx=gmem_coord_C, producer_state=epi_producer_state)
+                    copy_C(src_idx=epi_coord_C, producer_state=epi_producer_state)
                     epi_pipeline.producer_commit(epi_producer_state)
                 epi_producer_state.advance()
             tRS_rPostAct = self.epi_visit_subtile(params, epi_loop_tensors, tRS_rD, tRS_rC)
@@ -178,9 +178,9 @@ class GemmSymmetricMixin(GemmActMixin):
                 square_tile_m = pid_m // self.cluster_shape_mnk[0]
                 square_tile_n = pid_n // self.cluster_shape_mnk[1]
                 if const_expr(has_D):
-                    copy_D(src_idx=epi_buffer, dst_idx=gmem_coord)
+                    copy_D(src_idx=epi_buffer, dst_idx=epi_coord)
                 if square_tile_m != square_tile_n:  # don't write twice to the same tile
-                    copy_postact(src_idx=epi_buffer, dst_idx=gmem_coord)
+                    copy_postact(src_idx=epi_buffer, dst_idx=epi_coord)
                 epi_store_pipeline.producer_commit()
 
         self.epi_end(
@@ -306,6 +306,7 @@ def gemm_symmetric(
     tile_N: int,
     cluster_M: int,
     cluster_N: int,
+    tile_K: int | None = None,
     pingpong: bool = False,
     persistent: bool = True,
     is_dynamic_persistent: bool = False,
@@ -326,13 +327,15 @@ def gemm_symmetric(
 
     device_capacity = get_device_capacity(A.device)
     assert device_capacity[0] in [9, 10, 11, 12], "Only SM90, SM100, SM110, and SM120 are supported"
+    if tile_K is not None:
+        assert device_capacity[0] in [10, 11], "tile_K currently requires SM100/SM110"
 
     if is_dynamic_persistent and device_capacity[0] == 9:
         assert tile_count_semaphore is not None, (
             "Dynamic persistent tile scheduler in SM90 requires a semaphore in GMEM"
         )
 
-    tile_shape_mn = (tile_M, tile_N)
+    tile_shape_mn = (tile_M, tile_N, tile_K) if tile_K is not None else (tile_M, tile_N)
     cluster_shape_mnk = (cluster_M, cluster_N, 1)
     alpha_mode = 2 if isinstance(alpha, Tensor) else (1 if alpha != 1.0 else 0)
     beta_mode = 2 if isinstance(beta, Tensor) else (1 if beta != 1.0 else 0)

@@ -2,7 +2,7 @@
 
 /*  vcfplugin.c -- plugin modules for operating on VCF/BCF files.
 
-    Copyright (C) 2013-2023 Genome Research Ltd.
+    Copyright (C) 2013-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -603,10 +603,10 @@ static void usage(args_t *args)
     fprintf(bcftools_stderr, "   -i, --include EXPR             Select sites for which the expression is true\n");
     fprintf(bcftools_stderr, "   -r, --regions REGION           Restrict to comma-separated list of regions\n");
     fprintf(bcftools_stderr, "   -R, --regions-file FILE        Restrict to regions listed in a file\n");
-    fprintf(bcftools_stderr, "        --regions-overlap 0|1|2   Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
+    fprintf(bcftools_stderr, "       --regions-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(bcftools_stderr, "   -t, --targets REGION           Similar to -r but streams rather than index-jumps\n");
     fprintf(bcftools_stderr, "   -T, --targets-file FILE        Similar to -R but streams rather than index-jumps\n");
-    fprintf(bcftools_stderr, "        --targets-overlap 0|1|2   Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
+    fprintf(bcftools_stderr, "       --targets-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(bcftools_stderr, "VCF output options:\n");
     fprintf(bcftools_stderr, "       --no-version               Do not append version and command line to the header\n");
     fprintf(bcftools_stderr, "   -o, --output FILE              Write output to a file [standard output]\n");
@@ -615,7 +615,7 @@ static void usage(args_t *args)
     fprintf(bcftools_stderr, "Plugin options:\n");
     fprintf(bcftools_stderr, "   -h, --help                     List plugin's options\n");
     fprintf(bcftools_stderr, "   -l, --list-plugins             List available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
-    fprintf(bcftools_stderr, "   -v, --verbose                  Print verbose information, -vv increases verbosity\n");
+    fprintf(bcftools_stderr, "   -v, --verbosity INT            Verbosity level\n");
     fprintf(bcftools_stderr, "   -V, --version                  Print version string and exit\n");
     fprintf(bcftools_stderr, "   -W, --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(bcftools_stderr, "\n");
@@ -680,7 +680,8 @@ int main_plugin(int argc, char *argv[])
     static struct option loptions[] =
     {
         {"version",no_argument,NULL,'V'},
-        {"verbose",no_argument,NULL,'v'},
+        {"verbose",optional_argument,NULL,'v'},
+        {"verbosity",optional_argument,NULL,'v'},
         {"help",no_argument,NULL,'h'},
         {"list-plugins",no_argument,NULL,'l'},
         {"output",required_argument,NULL,'o'},
@@ -699,11 +700,18 @@ int main_plugin(int argc, char *argv[])
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "h?o:O:r:R:t:T:li:e:vVW::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?o:O:r:R:t:T:li:e:v::VW::",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'V': version_only = 1; break;
-            case 'v': args->verbose++; break;
+            case 'v':
+                if ( !optarg ) args->verbose++;
+                else
+                {
+                    args->verbose = strtol(optarg,&tmp,10);
+                    if ( *tmp || args->verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                    if ( args->verbose > 3 ) hts_verbose = args->verbose;
+                }
             case 'o': args->output_fname = optarg; break;
             case 'O':
                 switch (optarg[0]) {
@@ -829,6 +837,7 @@ int main_plugin(int argc, char *argv[])
             if ( bcf_write1(args->out_fh, args->hdr_out, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
         }
     }
+    if ( args->files->errnum ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
     destroy_data(args);
     bcf_sr_destroy(args->files);
     free(args);

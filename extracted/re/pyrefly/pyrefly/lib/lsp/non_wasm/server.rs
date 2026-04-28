@@ -474,6 +474,17 @@ pub trait TspInterface: Send + Sync {
         &self,
         func_id: &pyrefly_types::callable::FuncId,
     ) -> Option<TextRange>;
+
+    /// Resolve a URI to a filesystem path.
+    ///
+    /// Handles both `file://` URIs (via [`Url::to_file_path`]) and notebook
+    /// cell URIs (via the `open_notebook_cells` map). Returns `None` when
+    /// the URI cannot be mapped to a path.
+    fn resolve_uri_to_path(&self, uri: &Url) -> Option<PathBuf>;
+
+    /// Return the cell index if `uri` is an open notebook cell, or `None`
+    /// for regular file URIs.
+    fn maybe_get_cell_index(&self, uri: &Url) -> Option<usize>;
 }
 
 pub struct Connection {
@@ -2963,10 +2974,10 @@ impl Server {
                 diags.insert(handle_path_buf, Vec::new());
             }
         }
-        let collected = transaction.get_errors(handles).collect_errors();
-        let mut output_errors = collected.ordinary;
-        output_errors.extend(collected.directives);
-        for e in output_errors {
+        for e in transaction
+            .get_errors(handles)
+            .collect_display_errors_with_unused_ignores()
+        {
             if let Some((path, diag)) = self.get_diag_if_shown(&e, &open_files, None) {
                 diags.entry(path.to_owned()).or_default().push(diag);
             }
@@ -5410,10 +5421,10 @@ impl Server {
         let handle = make_open_handle(&self.state, &path);
         let mut items = Vec::new();
         let open_files = &self.open_files.read();
-        let collected = transaction.get_errors(once(&handle)).collect_errors();
-        let mut output_errors = collected.ordinary;
-        output_errors.extend(collected.directives);
-        for e in output_errors {
+        for e in transaction
+            .get_errors(once(&handle))
+            .collect_display_errors_with_unused_ignores()
+        {
             if let Some((_, diag)) = self.get_diag_if_shown(&e, open_files, cell_uri) {
                 items.push(diag);
             }
@@ -6277,15 +6288,14 @@ impl TspInterface for Server {
         let url = Url::parse(uri)
             .ok()
             .or_else(|| Url::from_file_path(uri).ok())?;
-        let path = url.to_file_path().ok()?;
+        let path = self.path_for_uri_or_notebook_cell(&url)?;
+        let notebook_cell = self.maybe_get_cell_index(&url);
 
         let handle = make_open_handle(&self.state, &path);
         let transaction = self.state.transaction();
         let module_info = transaction.get_module_info(&handle)?;
-        let position = module_info.from_lsp_position(
-            lsp_types::Position { line, character },
-            /* notebook_cell */ None,
-        );
+        let position =
+            module_info.from_lsp_position(lsp_types::Position { line, character }, notebook_cell);
         transaction.get_type_at(&handle, position)
     }
 
@@ -6300,5 +6310,13 @@ impl TspInterface for Server {
         let key = KeyUndecoratedFunctionRange(def_index);
         let idx = bindings.key_to_idx_hashed_opt(Hashed::new(&key))?;
         Some(bindings.get(idx).0.range())
+    }
+
+    fn resolve_uri_to_path(&self, uri: &Url) -> Option<PathBuf> {
+        self.path_for_uri_or_notebook_cell(uri)
+    }
+
+    fn maybe_get_cell_index(&self, uri: &Url) -> Option<usize> {
+        Self::maybe_get_cell_index(self, uri)
     }
 }

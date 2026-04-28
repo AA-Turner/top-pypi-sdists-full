@@ -51,6 +51,7 @@ cargo-binstall = "1.16.6"
 "aqua:golangci/golangci-lint" = "2.10.1"
 ruff = "0.14.13"
 ty = "0.0.10"
+"npm:prettier" = "3.6.2"
 "npm:markdownlint-cli2" = "0.22.0"
 
 [env]
@@ -387,11 +388,17 @@ run = "ruff format ."
 [tasks."fmt:docs"]
 alias = "fmt:docs:check"
 description = "Check Markdown formatting"
-run = "markdownlint-cli2"
+run = [
+  "bash ./tools/format-markdown.sh --check",
+  "markdownlint-cli2",
+]
 
 [tasks."fmt:docs:fix"]
 description = "Fix Markdown formatting"
-run = "markdownlint-cli2 --fix"
+run = [
+  "bash ./tools/format-markdown.sh --write",
+  "markdownlint-cli2 --fix",
+]
 
 # =============================================================================
 # Lint tasks
@@ -437,8 +444,12 @@ description = "Lint Rust code (clippy)"
 run = "cargo clippy --manifest-path crates/Cargo.toml --workspace -- -D warnings"
 
 [tasks."lint:rust:deny"]
-description = "Check Rust licenses and advisories"
+description = "Check Rust licenses, bans, sources, and advisories"
 run = "cargo deny --manifest-path crates/Cargo.toml check"
+
+[tasks."lint:rust:deny:advisories"]
+description = "Check Rust advisory database (RUSTSEC)"
+run = "cargo deny --manifest-path crates/Cargo.toml check advisories"
 
 [tasks."lint:rust:fix"]
 description = "Fix Rust lint issues"
@@ -666,7 +677,10 @@ echo "docs/llms.txt is up to date"
 description = "Generate CLI reference documentation"
 sources = ["pkg/cli/*.go", "cmd/cog/*.go"]
 outputs = ["docs/cli.md"]
-run = "go run ./tools/gendocs/main.go -o docs/cli.md"
+run = [
+  "go run ./tools/gendocs/main.go -o docs/cli.md",
+  "prettier --write docs/cli.md",
+]
 
 [tasks."docs:cli:check"]
 description = "Check that CLI docs are up to date"
@@ -674,9 +688,12 @@ run = """
 #!/usr/bin/env bash
 set -e
 tmpfile=$(mktemp)
+mv "$tmpfile" "$tmpfile.md"
+tmpfile="$tmpfile.md"
 trap 'rm -f "$tmpfile"' EXIT
 # Generate to temp file and compare
 go run ./tools/gendocs/main.go -o "$tmpfile"
+prettier --write "$tmpfile"
 if ! diff -q "$tmpfile" docs/cli.md > /dev/null 2>&1; then
   echo "ERROR: docs/cli.md is out of date. Run 'mise run docs:cli' to update."
   exit 1

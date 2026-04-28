@@ -4267,6 +4267,8 @@ def update_challenge_enrollment(ctx, enrollment_id, user_id, answer, **kwargs):
 @click.option("--type", multiple=True, default=None)
 @click.option("--includes-any-label", type=str, multiple=True, default=None)
 @click.option("--has-label", type=bool, default=None)
+@click.option("--upstream-idp-id", default=None)
+@click.option("--upstream-user-id", default=None)
 @click.pass_context
 def list_combined_user_details(ctx, organisation, org_id, type, **kwargs):
     # get all orgs

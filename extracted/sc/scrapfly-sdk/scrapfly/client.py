@@ -38,6 +38,14 @@ from .extraction_config import ExtractionConfig
 from .classify import ClassifyResult
 from .crawler import CrawlerConfig, CrawlerStartResponse, CrawlerStatusResponse, CrawlerArtifactResponse
 from .browser_config import BrowserConfig
+from .schedule import (
+    ScheduleClientMixin,
+    CreateScheduleRequest,
+    UpdateScheduleRequest,
+    ScheduleRecurrence,
+    ScheduleEnd,
+    ScheduleAPIError,
+)
 from . import __version__, ScrapeApiResponse, ScreenshotApiResponse, ExtractionApiResponse, HttpError, UpstreamHttpError
 
 logger = logging.getLogger(__name__)
@@ -80,7 +88,7 @@ MonitoringAggregation = Literal[
     ScraperAPI.MONITORING_TARGET_AGGREGATION
 ]
 
-class ScrapflyClient:
+class ScrapflyClient(ScheduleClientMixin):
 
     HOST = 'https://api.scrapfly.io'
     CLOUD_BROWSER_HOST = 'wss://browser.scrapfly.io'
@@ -1631,6 +1639,7 @@ class ScrapflyClient:
         body: Optional[str] = None,
         method: Optional[str] = None,
         enable_mcp: Optional[bool] = None,
+        solve_captcha: Optional[bool] = None,
     ) -> Dict:
         """
         Bypass anti-bot protection and get a ready-to-use browser session.
@@ -1678,6 +1687,9 @@ class ScrapflyClient:
 
         if enable_mcp is not None:
             json_body['enable_mcp'] = enable_mcp
+
+        if solve_captcha is not None:
+            json_body['solve_captcha'] = solve_captcha
 
         response = self._http_handler(
             method='POST',

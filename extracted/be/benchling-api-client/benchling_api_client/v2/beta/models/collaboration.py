@@ -143,9 +143,9 @@ class Collaboration:
                 discriminator = _collaborator["type"]
                 if discriminator == "APP":
                     collaborator = AppCollaborator.from_dict(_collaborator)
-                elif discriminator == "ORGANIZATION_MEMBER":
+                elif discriminator == "ORGANIZATION_MEMBERSHIP":
                     collaborator = OrgMembershipCollaborator.from_dict(_collaborator)
-                elif discriminator == "TEAM_MEMBER":
+                elif discriminator == "TEAM_MEMBERSHIP":
                     collaborator = TeamMembershipCollaborator.from_dict(_collaborator)
                 elif discriminator == "USER":
                     collaborator = UserCollaborator.from_dict(_collaborator)

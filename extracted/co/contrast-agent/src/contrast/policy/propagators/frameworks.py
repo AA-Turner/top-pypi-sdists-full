@@ -175,7 +175,7 @@ framework_propagators = [
         # MapAdapter.make_redirect_url constructs a URL using the server's scheme and host,
         # preventing redirects to external domains even if path_info is user-controlled.
         # This makes automatic trailing slash redirects and similar internal redirects safe.
-        "module": "werkzeug.routing",
+        "module": "werkzeug.routing",  # target .routing instead of .routing.map for backward compatibility.
         "class_name": "MapAdapter",
         "method_name": "make_redirect_url",
         "source": "ARG_0,KWARG:path_info",

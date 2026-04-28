@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rh-model-signing
-Version: 1.0.0
+Version: 1.0.1
 Summary: A tool for signing and verifying ML models (Red Hat Tech Preview)
 Project-URL: Homepage, https://pypi.org/project/rh-model-signing/
 Project-URL: Changelog, https://github.com/securesign/model-transparency/blob/main/CHANGELOG.md

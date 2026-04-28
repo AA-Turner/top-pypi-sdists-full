@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import dataclasses
 import plistlib
 import struct
@@ -18,6 +17,54 @@ from pymobiledevice3.utils import try_decode
 CHUNK_SIZE = 4096
 TIME_FORMAT = "%H:%M:%S"
 SYSLOG_LINE_SPLITTER = "\n\x00"
+
+
+class OsActivityStreamFlag(IntEnum):
+    """
+    Exact `os_activity_stream_flag_t` values from Apple private headers.
+
+    Based on: https://github.com/limneos/oslog/blob/master/ActivityStreamAPI.h
+    """
+
+    PROCESS_ONLY = 0x00000001
+    SKIP_DECODE = 0x00000002
+    PAYLOAD = 0x00000004
+    HISTORICAL = 0x00000008
+    CALLSTACK = 0x00000010
+    DEBUG = 0x00000020
+    NO_SENSITIVE = 0x00000080
+    INFO = 0x00000100
+    PROMISCUOUS = 0x00000200
+
+
+class OsActivityStreamType(IntEnum):
+    """
+    Exact `os_activity_stream_type_t` values from Apple private headers.
+
+    Based on: https://github.com/limneos/oslog/blob/master/ActivityStreamAPI.h
+    """
+
+    ACTIVITY_CREATE = 0x0201
+    ACTIVITY_TRANSITION = 0x0202
+    ACTIVITY_USERACTION = 0x0203
+    TRACE_MESSAGE = 0x0300
+    LOG_MESSAGE = 0x0400
+    LEGACY_LOG_MESSAGE = 0x0480
+    TIMESYNC = 0x0500
+    SIGNPOST = 0x0600
+    LOSS = 0x0700
+    STATEDUMP_EVENT = 0x0A00
+
+
+OS_TRACE_RELAY_MESSAGE_FILTER_ALL = 0xFFFF
+
+# Sniffed from Console.app when enabling both info and debug messages
+OS_TRACE_RELAY_STREAM_FLAGS_DEFAULT = (
+    OsActivityStreamFlag.PAYLOAD
+    | OsActivityStreamFlag.HISTORICAL
+    | OsActivityStreamFlag.CALLSTACK
+    | OsActivityStreamFlag.DEBUG
+)
 
 
 class SyslogLogLevel(IntEnum):
@@ -229,14 +276,19 @@ class OsTraceService(LockdownService):
                 await self.create_archive(f, size_limit=size_limit, age_limit=age_limit, start_time=start_time)
             TarFile(file).extractall(out)
 
-    async def syslog(self, pid=-1) -> typing.AsyncGenerator[SyslogEntry, None]:
+    async def syslog(
+        self,
+        pid: int = -1,
+        message_filter: int = OS_TRACE_RELAY_MESSAGE_FILTER_ALL,
+        stream_flags: int = OS_TRACE_RELAY_STREAM_FLAGS_DEFAULT,
+    ) -> typing.AsyncGenerator[SyslogEntry, None]:
         await self.connect()
         assert self.service is not None
         await self.service.send_plist({
             "Request": "StartActivity",
-            "MessageFilter": 65535,
+            "MessageFilter": message_filter,
             "Pid": pid,
-            "StreamFlags": 60,
+            "StreamFlags": stream_flags,
         })
 
         (length_length,) = struct.unpack("<I", await self.service.recvall(4))

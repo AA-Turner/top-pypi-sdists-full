@@ -23,6 +23,7 @@ from abstra_internals.entities.execution_context import (
 from abstra_internals.environment import (
     BUILD_ID,
     CLOUD_API_PROD_SHARED_TOKEN,
+    DRAIN_START_TIMEOUT_SECONDS,
     EDITOR_MODE,
     IS_PRODUCTION,
     OIDC_AUTHORITY,
@@ -242,7 +243,9 @@ def get_player_bp(controller: MainController):
 
         connection = controller.repositories.producer.enqueue(hook.id, context)
 
-        drain_until_response(connection)  # ExecutionStartedMessage
+        drain_until_response(
+            connection, timeout=DRAIN_START_TIMEOUT_SECONDS
+        )  # ExecutionStartedMessage
 
         try:
             response = normalize_response(drain_until_response(connection))
@@ -290,7 +293,9 @@ def get_player_bp(controller: MainController):
         )
 
         # First drain gets execution:started message
-        start_msg = drain_until_response(connection)
+        start_msg = drain_until_response(
+            connection, timeout=DRAIN_START_TIMEOUT_SECONDS
+        )
         if not start_msg:
             connection.close()
             flask.abort(500)

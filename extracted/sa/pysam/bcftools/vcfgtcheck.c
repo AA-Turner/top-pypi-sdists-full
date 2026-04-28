@@ -1,6 +1,6 @@
 /*  vcfgtcheck.c -- Check sample identity.
 
-    Copyright (C) 2013-2024 Genome Research Ltd.
+    Copyright (C) 2013-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -64,7 +64,7 @@ typedef struct
     char *cwd, **argv, *gt_samples, *qry_samples, *regions, *targets, *qry_fname, *gt_fname, *pair_samples;
     char *output_fname;
     int argc, gt_samples_is_file, qry_samples_is_file, regions_is_file, targets_is_file, pair_samples_is_file, output_type;;
-    int regions_overlap, targets_overlap, clevel;
+    int regions_overlap, targets_overlap, clevel, keep_ref;
     int qry_use_GT,gt_use_GT, nqry_smpl,ngt_smpl, *qry_smpl,*gt_smpl;
     int nused[2][2];
     double *pdiff, *qry_prob, *gt_prob;
@@ -78,6 +78,7 @@ typedef struct
     BGZF *out_fh;
     unsigned int nskip_no_match, nskip_not_ba, nskip_mono, nskip_no_data, nskip_dip_GT, nskip_dip_PL, nskip_filter;
     kstring_t kstr;
+    bcf1_t *rec[2];
 
     // for --distinctive-sites
     double distinctive_sites;
@@ -358,13 +359,13 @@ static void init_data(args_t *args)
             for (i=0; i<args->npairs; i++)
             {
                 char *ptr = tmp[i];
-                while ( *ptr && !isspace(*ptr) ) ptr++;
+                while ( *ptr && !isspace_c(*ptr) ) ptr++;
                 if ( !*ptr ) error("Could not parse %s: %s\n",args->pair_samples,tmp[i]);
                 *ptr = 0;
                 args->pairs[i].iqry = bcf_hdr_id2int(args->qry_hdr, BCF_DT_SAMPLE, tmp[i]);
                 if ( args->pairs[i].iqry < 0 ) error("No such sample in %s: [%s]\n",args->qry_fname,tmp[i]);
                 ptr++;
-                while ( *ptr && isspace(*ptr) ) ptr++;
+                while ( *ptr && isspace_c(*ptr) ) ptr++;
                 args->pairs[i].igt = bcf_hdr_id2int(args->gt_hdr?args->gt_hdr:args->qry_hdr, BCF_DT_SAMPLE, ptr);
                 if ( args->pairs[i].igt < 0 ) error("No such sample in %s: [%s]\n",args->gt_fname?args->gt_fname:args->qry_fname,ptr);
                 free(tmp[i]);
@@ -450,6 +451,9 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
+    int i;
+    for (i=0; i<2; i++)
+        if ( args->rec[i] ) bcf_destroy(args->rec[i]);
     free(args->kstr.s);
     if ( args->gt_filter ) filter_destroy(args->gt_filter);
     if ( args->qry_filter ) filter_destroy(args->qry_filter);
@@ -576,13 +580,7 @@ static void process_line(args_t *args)
 {
     int i,j,k, nqry1, ngt1, ret;
 
-    bcf1_t *gt_rec = NULL, *qry_rec = bcf_sr_get_line(args->files,0);   // the query file
-    if ( args->qry_filter )
-    {
-        int pass = filter_test(args->qry_filter, qry_rec, NULL);
-        if ( args->qry_filter_logic==FLT_EXCLUDE ) pass = pass ? 0 : 1;
-        if ( !pass ) { args->nskip_filter++; return; }
-    }
+    bcf1_t *gt_rec = NULL, *qry_rec = args->rec[0];   // the query file
 
     int qry_use_GT = args->qry_use_GT;
     int gt_use_GT  = args->gt_use_GT;
@@ -592,7 +590,7 @@ static void process_line(args_t *args)
 
     if ( args->gt_hdr )
     {
-        gt_rec = bcf_sr_get_line(args->files,1);
+        gt_rec = args->rec[1];
         if ( args->gt_filter )
         {
             int pass = filter_test(args->gt_filter, gt_rec, NULL);
@@ -619,8 +617,13 @@ static void process_line(args_t *args)
         if ( args->gt_hdr )
         {
             if ( bcf_calc_ac(args->gt_hdr, gt_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
+            if ( gt_rec->n_allele<2 ) ac[1] = 0;
         }
-        else if ( bcf_calc_ac(args->qry_hdr, qry_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
+        else
+        {
+            if ( bcf_calc_ac(args->qry_hdr, qry_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
+            if ( qry_rec->n_allele<2 ) ac[1] = 0;
+        }
 
         // Calculate HWE probability for each possible qry+gt dosage combination. The alternate allele dosage
         // values returned by gt_to_prob() below are 0,1,2,4 (0=missing, 1<<0, 1<<1, 1<<2). We consider only
@@ -1094,40 +1097,81 @@ static void report(args_t *args)
 
 static int is_input_okay(args_t *args, int nmatch)
 {
-    int i;
+    int i, rid = -1, skip_filter = 0;
     const char *msg;
-    bcf_hdr_t *hdr;
-    bcf1_t *rec;
-    if ( args->gt_hdr && nmatch!=2 )
+    bcf_hdr_t *hdr = NULL;
+    bcf1_t *rec = NULL;
+    for (i=0; i<args->files->nreaders; i++)
     {
-        if ( args->nskip_no_match++ ) return 0;
-        for (i=0; i<2; i++)
+        bcf1_t *tmp = bcf_sr_get_line(args->files,i);
+        if ( !tmp ) continue;
+
+        // this is just to be able to print informative error messages
+        hdr = bcf_sr_get_header(args->files,i);
+        rec = tmp;
+
+        // pass/fail filters
+        if ( i==0 && args->qry_filter )
         {
-            rec = bcf_sr_get_line(args->files,i);
-            if ( rec ) break;
+            int pass = filter_test(args->qry_filter, tmp, NULL);
+            if ( args->qry_filter_logic==FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( !pass ) { skip_filter = 1; continue; }
         }
-        hdr = bcf_sr_get_header(args->files,i);
-        fprintf(stderr,"INFO: skipping %s:%"PRIhts_pos", no record with matching POS+ALT. (This is printed only once.)\n",
-                bcf_seqname(hdr,rec),rec->pos+1);
-        return 0;
+        if ( i==1 && args->gt_filter )
+        {
+            int pass = filter_test(args->gt_filter, tmp, NULL);
+            if ( args->gt_filter_logic==FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( !pass ) { skip_filter = 1; continue; }
+        }
+
+        rid = rec->rid;
+        if ( args->rec[i] ) bcf_destroy(args->rec[i]);
+        args->rec[i] = bcf_dup(rec);
     }
-    for (i=0; i<2; i++)
+    if ( skip_filter )
     {
-        hdr = bcf_sr_get_header(args->files,i);
-        rec = bcf_sr_get_line(args->files,i);
-        if ( rec->n_allele>2 )
+        if ( args->nskip_filter++ ) return 0;
+        msg = "filtered site";
+        goto not_okay;
+    }
+    if ( args->files->nreaders==2 )
+    {
+        bcf1_t **clean = NULL;
+        int olap = 1;
+        if ( !args->rec[0] || !args->rec[1] ) olap = 0;
+        else if ( args->rec[0]->rid!=rid ) clean = &args->rec[0];
+        else if ( args->rec[1]->rid!=rid ) clean = &args->rec[1];
+        else if ( args->rec[0]->pos + args->rec[0]->rlen - 1 < args->rec[1]->pos ) clean = &args->rec[0];
+        else if ( args->rec[1]->pos + args->rec[1]->rlen - 1 < args->rec[0]->pos ) clean = &args->rec[1];
+        if ( clean )
+        {
+            if ( *clean ) bcf_destroy(*clean);
+            *clean = NULL;
+            olap = 0;
+        }
+        if ( !olap )
+        {
+            if ( args->nskip_no_match++ ) return 0;
+            msg = "POS+ALT mismatch";
+            goto not_okay;
+        }
+    }
+    int nmono = 0;
+    for (i=0; i<args->files->nreaders; i++)
+    {
+        if ( args->rec[i]->n_allele>2 )
         {
             if ( args->nskip_not_ba++ ) return 0;
             msg = "not a biallelic site, run `bcftools norm -m -` first";
             goto not_okay;
         }
-        if ( bcf_get_variant_types(rec)==VCF_REF )
-        {
-            if ( args->nskip_mono++ ) return 0;
-            msg = "monoallelic site";
-            goto not_okay;
-        }
-        if ( !args->gt_hdr ) break;
+        if ( bcf_get_variant_types(args->rec[i])==VCF_REF ) nmono++;
+    }
+    if ( nmono==args->files->nreaders && !args->keep_ref )
+    {
+        if ( args->nskip_mono++ ) return 0;
+        msg = "monoallelic site";
+        goto not_okay;
     }
     return 1;
 
@@ -1160,6 +1204,7 @@ static void usage(void)
     fprintf(stderr, "    -g, --genotypes FILE               Genotypes to compare against\n");
     fprintf(stderr, "    -H, --homs-only                    Homozygous genotypes only, useful with low coverage data (requires -g)\n");
     fprintf(stderr, "    -i, --include [qry|gt]:EXPR        Include sites for which the expression is true\n");
+    fprintf(stderr, "        --keep-refs                    Keep monoallelic sites with no alternate allele\n");
     fprintf(stderr, "        --n-matches INT                Print only top INT matches for each sample (sorted by average score), 0 for unlimited.\n");
     fprintf(stderr, "                                           Use negative value to sort by HWE probability rather than by discordance [0]\n");
     fprintf(stderr, "        --no-HWE-prob                  Disable calculation of HWE probability\n");
@@ -1176,6 +1221,7 @@ static void usage(void)
     fprintf(stderr, "    -T, --targets-file FILE            Similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "        --targets-overlap 0|1|2        Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "    -u, --use TAG1[,TAG2]              Which tag to use in the query file (TAG1) and the -g file (TAG2) [PL,GT]\n");
+    fprintf(stderr, "    -v, --verbosity INT                Verbosity level\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # Check discordance of all samples from B against all samples in A\n");
     fprintf(stderr, "   bcftools gtcheck -g A.bcf B.bcf\n");
@@ -1229,6 +1275,7 @@ int main_vcfgtcheck(int argc, char *argv[])
         {"GTs-only",1,0,'G'},
         {"all-sites",0,0,'a'},
         {"homs-only",0,0,'H'},
+        {"keep-refs",0,0,9},
         {"help",0,0,'h'},
         {"genotypes",1,0,'g'},
         {"plot",1,0,'p'},
@@ -1247,11 +1294,15 @@ int main_vcfgtcheck(int argc, char *argv[])
         {"targets-overlap",required_argument,NULL,8},
         {"pairs",1,0,'p'},
         {"pairs-file",1,0,'P'},
+        {"verbosity",required_argument,NULL,'v'},
         {0,0,0,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hg:p:s:S:p:P:Hr:R:at:T:G:c:u:e:E:i:o:O:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hg:p:s:S:p:P:Hr:R:at:T:G:c:u:e:E:i:o:O:v:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'v':
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
                 switch (optarg[0]) {
@@ -1273,13 +1324,13 @@ int main_vcfgtcheck(int argc, char *argv[])
                 if ( !strncasecmp("gt:",optarg,3) )
                 {
                     if ( args->gt_filter_str ) error("Error: only one -i or -e expression can be given for gt:, and they cannot be combined\n");
-                    args->gt_filter_str = optarg;
+                    args->gt_filter_str = optarg+3;
                     args->gt_filter_logic |= FLT_EXCLUDE;
                 }
                 else if ( !strncasecmp("qry:",optarg,4) )
                 {
                     if ( args->qry_filter_str ) error("Error: only one -i or -e expression can be given for qry:, and they cannot be combined\n");
-                    args->qry_filter_str = optarg;
+                    args->qry_filter_str = optarg+4;
                     args->qry_filter_logic |= FLT_EXCLUDE;
                 }
                 else
@@ -1304,13 +1355,13 @@ int main_vcfgtcheck(int argc, char *argv[])
                 if ( !strncasecmp("gt:",optarg,3) )
                 {
                     if ( args->gt_filter_str ) error("Error: only one -i or -e expression can be given for gt:, and they cannot be combined\n");
-                    args->gt_filter_str = optarg;
+                    args->gt_filter_str = optarg+3;
                     args->gt_filter_logic |= FLT_INCLUDE;
                 }
                 else if ( !strncasecmp("qry:",optarg,4) )
                 {
                     if ( args->qry_filter_str ) error("Error: only one -i or -e expression can be given for qry:, and they cannot be combined\n");
-                    args->qry_filter_str = optarg;
+                    args->qry_filter_str = optarg+4;
                     args->qry_filter_logic |= FLT_INCLUDE;
                 }
                 else
@@ -1404,6 +1455,7 @@ int main_vcfgtcheck(int argc, char *argv[])
                 args->regions_overlap = parse_overlap_option(optarg);
                 if ( args->regions_overlap < 0 ) error("Could not parse: --regions-overlap %s\n",optarg);
                 break;
+            case  9 : args->keep_ref = 1; break;
             case  8 :
                 args->targets_overlap = parse_overlap_option(optarg);
                 if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
@@ -1453,6 +1505,7 @@ int main_vcfgtcheck(int argc, char *argv[])
             if ( args->dry_run ) break;
         }
     }
+    if ( args->files->errnum ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
     if ( !args->dry_run )
     {
         report(args);

@@ -13,7 +13,10 @@ from pytensor import config
 from pytensor.graph.basic import Apply, Constant, Variable
 from pytensor.graph.fg import FunctionGraph
 from pytensor.graph.type import Type
-from pytensor.link.numba.cache import compile_numba_function_src, hash_from_pickle_dump
+from pytensor.link.numba.cache import (
+    compile_numba_function_src,
+    hash_from_pickle_dump,
+)
 from pytensor.link.utils import (
     fgraph_to_python,
 )
@@ -33,7 +36,7 @@ def _filter_numba_warnings():
         "ignore",
         message=(
             "(\x1b\\[1m)*"  # ansi escape code for bold text
-            'Cannot cache compiled function "numba_funcified_fgraph" as it uses dynamic globals'
+            'Cannot cache compiled function "numba_funcified_fgraph.*" as it uses dynamic globals'
         ),
         category=NumbaWarning,
     )

@@ -41,10 +41,10 @@ class Client:
     def ask(
         self,
         query: builtins.str,
-        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         filter: typing.Optional[query.LogicalExpr] = None,
         mode: typing.Optional[
-            typing.Literal["auto", "summarize", "reason", "deep_research"]
+            typing.Literal["auto", "summarize", "research"]
         ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.Union[Answer, Search, Reason]:
@@ -55,10 +55,10 @@ class Client:
     def ask_stream(
         self,
         query: builtins.str,
-        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         filter: typing.Optional[query.LogicalExpr] = None,
         mode: typing.Optional[
-            typing.Literal["auto", "summarize", "reason", "deep_research"]
+            typing.Literal["auto", "summarize", "research"]
         ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.Iterator[typing.Union[Answer, Search, Reason]]:
@@ -69,7 +69,7 @@ class Client:
     def search(
         self,
         query: builtins.str,
-        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         top_k: builtins.int,
         filter: typing.Optional[query.LogicalExpr] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -81,7 +81,7 @@ class Client:
     def search_stream(
         self,
         query: builtins.str,
-        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         top_k: builtins.int,
         filter: typing.Optional[query.LogicalExpr] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -119,10 +119,10 @@ class AsyncClient:
     def ask(
         self,
         query: builtins.str,
-        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         filter: typing.Optional[query.LogicalExpr] = None,
         mode: typing.Optional[
-            typing.Literal["auto", "summarize", "reason", "deep_research"]
+            typing.Literal["auto", "summarize", "research"]
         ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.Awaitable[typing.Union[Answer, Search, Reason]]:
@@ -133,10 +133,10 @@ class AsyncClient:
     def ask_stream(
         self,
         query: builtins.str,
-        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         filter: typing.Optional[query.LogicalExpr] = None,
         mode: typing.Optional[
-            typing.Literal["auto", "summarize", "reason", "deep_research"]
+            typing.Literal["auto", "summarize", "research"]
         ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.AsyncIterator[typing.Union[Answer, Search, Reason]]:
@@ -147,7 +147,7 @@ class AsyncClient:
     def search(
         self,
         query: builtins.str,
-        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         top_k: builtins.int,
         filter: typing.Optional[query.LogicalExpr] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -159,7 +159,7 @@ class AsyncClient:
     def search_stream(
         self,
         query: builtins.str,
-        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         top_k: builtins.int,
         filter: typing.Optional[query.LogicalExpr] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -334,6 +334,7 @@ class Collection:
     project_id: builtins.str
     region: builtins.str
     schema: builtins.dict[builtins.str, schema.FieldSpec]
+    created_at: builtins.str
 
 class Dataset:
     """
@@ -344,6 +345,7 @@ class Dataset:
     org_id: builtins.str
     project_id: builtins.str
     region: builtins.str
+    created_at: builtins.str
 
 class ListEntry:
     """
@@ -354,6 +356,8 @@ class ListEntry:
     name: builtins.str
     size: builtins.int
     mime_type: builtins.str
+    status: builtins.str
+    status_reason: typing.Optional[builtins.str]
     metadata: builtins.dict[builtins.str, typing.Any]
 
 class Response:
@@ -655,7 +659,7 @@ class Fact:
     """
 
     fact: builtins.str
-    source_ids: builtins.list[builtins.str]
+    ref_ids: builtins.list[builtins.str]
 
 class Chunk:
     """
@@ -706,7 +710,7 @@ class Answer:
     """
 
     facts: builtins.list[Fact]
-    sources: builtins.dict[builtins.str, SearchResult]
+    refs: builtins.dict[builtins.str, SearchResult]
 
 class Search:
     """
@@ -715,7 +719,7 @@ class Search:
 
     objective: builtins.str
     facts: builtins.list[Fact]
-    sources: builtins.dict[builtins.str, SearchResult]
+    refs: builtins.dict[builtins.str, SearchResult]
 
 
 class Reason:

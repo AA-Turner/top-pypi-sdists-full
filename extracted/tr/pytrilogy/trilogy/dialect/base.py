@@ -707,6 +707,22 @@ class BaseDialect:
         logger.debug(
             f"{LOGGER_PREFIX} [{c.address}] Starting rendering loop on cte: {cte.name}"
         )
+        if cte.group_to_grain and c.address in {
+            concept.address for concept in cte.rollup_concepts
+        }:
+            rolled = safe_get_cte_value(
+                self.FUNCTION_MAP[FunctionType.COALESCE],
+                cte,
+                c,
+                self.QUOTE_CHARACTER,
+                self.render_expr,
+                self.used_map,
+            )
+            if not rolled:
+                rolled = INVALID_REFERENCE_STRING(
+                    f"Missing rollup source reference to {c.address}"
+                )
+            return self.FUNCTION_MAP[FunctionType.SUM]([rolled], [])
 
         # check if it's not inherited AND no pseudonyms are inherited
         if c.lineage and cte.source_map.get(c.address, []) == []:
@@ -857,6 +873,21 @@ class BaseDialect:
                         rval = INVALID_REFERENCE_STRING(
                             f"Missing source reference to {c.address}"
                         )
+        # Pre-aggregated COUNT columns sourced from a sparse materialization
+        # leak NULL through a LEFT/FULL JOIN when a dim row has no matching
+        # fact row. The granular path's `count(...)` returns 0 in that case
+        # (count over an empty group is 0). Coalesce to keep the two paths
+        # result-equivalent. SUM is left alone — `SUM` over an empty group
+        # is NULL in both paths.
+        if (
+            isinstance(c.lineage, BuildAggregateWrapper)
+            and c.lineage.function.operator == FunctionType.COUNT
+            and not cte.group_to_grain
+            and any(
+                n.address == c.address for n in getattr(cte, "nullable_concepts", [])
+            )
+        ):
+            rval = self.FUNCTION_MAP[FunctionType.COALESCE]([rval, "0"], [])
         return rval
 
     def _render_subselect(

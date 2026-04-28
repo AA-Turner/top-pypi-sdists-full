@@ -811,8 +811,10 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
 
             self.logger.info(f"Step {self._step_count}: done={result.done}")
 
-            if not result.done:
-                await self.checkpoint(f"step.{self._step_count}")
+            # Checkpoint unconditionally — the final step's outputs would
+            # otherwise be dropped because the previous gate skipped this
+            # call when result.done was True.
+            await self.checkpoint(f"step.{self._step_count}")
 
             if result.done:
                 break

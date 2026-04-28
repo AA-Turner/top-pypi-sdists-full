@@ -20,9 +20,10 @@ from __future__ import annotations
 
 import contextlib
 import inspect
+import sys
 from dataclasses import dataclass
 from functools import partial
-from typing import Callable
+from collections.abc import Callable
 
 import contrast
 from contrast.agent import scope
@@ -104,6 +105,11 @@ EVENT_HANDLER_BUILDERS: dict[str, dict[str, EventHandlerBuilder]] = {
             observe_log_handler_builder, ai_usage.botocore_log_event_builder
         )
     },
+    "ai-usage-google-genai": {
+        "ai-usage": partial(
+            observe_log_handler_builder, ai_usage.google_genai_log_event_builder
+        )
+    },
     "graphql-request": {},  # populated conditionally below
 }
 """
@@ -137,36 +143,27 @@ class Location:
     """
     Represents a location of a function in the format 'module.method_name' or
     'module.class_name.method_name'. This is used to uniquely identify a function.
+
+    dist_package_name can optionally be provided for locations that depend on
+    distribution package metadata.
     """
 
     module: str
     method_name: str
     class_name: str | None = None
+    dist_package_name: str | None = None
 
     @classmethod
-    def from_string(cls, name: str) -> Location:
-        parts = name.rsplit(".", maxsplit=2)
-        if len(parts) == 2:
-            return cls(module=parts[0], method_name=parts[1])
-        elif len(parts) == 3:
-            # This is a loose check for classname. It assumes we aren't dealing with
-            # modules that have names starting with uppercase letters. Our existing policy
-            # doesn't have such modules, but we should be careful if we accept policy from
-            # users.
-            if parts[1][0].isupper():
-                return cls(
-                    module=parts[0],
-                    class_name=parts[1],
-                    method_name=parts[2],
-                )
-            else:
-                return cls(
-                    module=".".join(parts[:2]), class_name=None, method_name=parts[2]
-                )
-        else:
-            raise ValueError(
-                f"Invalid location name '{name}'. Must be in the format 'module.method_name' or 'module.class_name.method_name'."
-            )
+    def from_string(
+        cls, module: str, method_name: str, dist_package_name: str | None = None
+    ) -> Location:
+        *class_name, method_name = method_name.rsplit(".", maxsplit=1)
+        return cls(
+            module=module,
+            class_name=class_name[0] if class_name else None,
+            method_name=method_name,
+            dist_package_name=dist_package_name,
+        )
 
 
 def register_policy_definitions(definitions: list[PolicyDefinition]) -> None:
@@ -192,10 +189,18 @@ def register_policy_definitions(definitions: list[PolicyDefinition]) -> None:
         raise RuntimeError(f"Duplicate policy definitions: {duplicates}")
 
     _policy_v2.update(new_definitions)
+    policy_locations.update(
+        Location.from_string(
+            module=d["module"],
+            method_name=method_name,
+            dist_package_name=d.get("dist_package"),
+        )
+        for d in definitions
+        for method_name in d["method_names"]
+    )
 
 
-def get_policy_locations() -> set[Location]:
-    return {Location.from_string(location) for location in _policy_v2}
+policy_locations: set[Location] = set()
 
 
 def generate_policy_event_handlers(
@@ -326,6 +331,13 @@ def build_generic_contrast_wrapper(original_func, module_name: str | None = None
     return generic_contrast_wrapper(original_func)
 
 
+inspect_signature = inspect.signature
+if sys.version_info[:2] >= (3, 14):
+    from annotationlib import Format
+
+    inspect_signature = partial(inspect.signature, annotation_format=Format.STRING)
+
+
 def event_arguments_binder(func: Callable):
     """
     Returns a function that binds the arguments for func.
@@ -334,9 +346,9 @@ def event_arguments_binder(func: Callable):
     can be retrieved by their names regardless of their order or how they are passed
     in the function call.
     """
-    sig = inspect.signature(func)
+    sig = inspect_signature(func)
     if inspect.ismethod(func):
-        sig = inspect.signature(func.__func__)
+        sig = inspect_signature(func.__func__)
 
     def _bind(instance, args, kwargs) -> inspect.BoundArguments:
         bound_args = (

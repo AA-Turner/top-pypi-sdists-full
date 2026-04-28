@@ -53,7 +53,13 @@ class RotatingFile:
         self._backup_count = config.backup_count
         self._file = file
         self._filename = file.name
-        self._lock = FileLock(f".{self._filename}.lock")
+
+        # The lock file should be hidden (prefixed with '.') and placed next to the
+        # configured log file. Do NOT prepend '.' to the full path, because if the
+        # filename is absolute it would turn into a relative path like "./var/...".
+        log_path = pathlib.Path(self._filename)
+        lock_path = log_path.with_name(f".{log_path.name}.lock")
+        self._lock = FileLock(str(lock_path))
 
     def write(self, message: str) -> int:
         """Write a message to the log file, performing rotation if needed."""

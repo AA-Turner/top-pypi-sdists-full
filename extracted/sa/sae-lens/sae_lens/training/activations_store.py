@@ -123,6 +123,7 @@ class ActivationsStore:
                 "You must either pass in a dataset or specify a dataset_path in your configutation."
             )
 
+        assert cfg.act_store_device is not None  # set in cfg.__post_init__
         device = torch.device(cfg.act_store_device)
         exclude_special_tokens = cfg.exclude_special_tokens
         if exclude_special_tokens is False:
@@ -538,7 +539,7 @@ class ActivationsStore:
                     )
                 sequences.append(next(self.iterable_sequences))
 
-        return torch.stack(sequences, dim=0).to(_get_model_device(self.model))
+        return torch.stack(sequences, dim=0).to(_get_input_token_device(self.model))
 
     @torch.no_grad()
     def get_activations(self, batch_tokens: torch.Tensor):
@@ -671,10 +672,8 @@ class ActivationsStore:
         if self.cached_activation_dataset is not None:
             return self._load_raw_llm_batch_from_cached(raise_on_epoch_end)
 
-        # move batch toks to gpu for model
-        batch_tokens = self.get_batch_tokens(raise_at_epoch_end=raise_on_epoch_end).to(
-            _get_model_device(self.model)
-        )
+        # get_batch_tokens already returns tokens on the model's input device.
+        batch_tokens = self.get_batch_tokens(raise_at_epoch_end=raise_on_epoch_end)
         activations = self.get_activations(batch_tokens).to(self.device)
 
         # handle seqpos_slice, this is done for activations in get_activations
@@ -682,7 +681,9 @@ class ActivationsStore:
 
         # reshape from (batch, context, d_in) to (batch * context, d_in)
         activations = activations.reshape(-1, d_in)
-        token_ids = batch_tokens.reshape(-1)
+        # tokens come from the LLM device; move them alongside activations so
+        # downstream filtering (e.g. exclude_special_tokens) lives on one device.
+        token_ids = batch_tokens.reshape(-1).to(self.device)
 
         return activations, token_ids
 
@@ -820,9 +821,23 @@ def validate_pretokenized_dataset_tokenizer(
         )
 
 
-def _get_model_device(model: HookedRootModule) -> torch.device:
+def _get_input_token_device(model: HookedRootModule) -> torch.device:
+    """Return the device where input tokens should be placed.
+
+    For sharded models (HookedTransformer with ``n_devices`` or HF with
+    ``device_map``) this is the device hosting the input embedding layer,
+    which is not necessarily the "first" device in the shard.
+    """
     if hasattr(model, "W_E"):
         return model.W_E.device  # type: ignore
+    # HF models (wrapped in HookedProxyLM) expose input embeddings via
+    # get_input_embeddings(); use that to find the embedding device under
+    # `device_map`.
+    underlying = getattr(model, "model", model)
+    if hasattr(underlying, "get_input_embeddings"):
+        embed = underlying.get_input_embeddings()  # type: ignore
+        if embed is not None and hasattr(embed, "weight"):
+            return embed.weight.device  # type: ignore
     if hasattr(model, "cfg") and hasattr(model.cfg, "device"):
         return model.cfg.device  # type: ignore
     return next(model.parameters()).device  # type: ignore

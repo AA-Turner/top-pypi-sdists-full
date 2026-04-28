@@ -21,7 +21,7 @@ class Observe(ConfigBuilder):
             ),
             ConfigOption(
                 canonical_name="observe.ai_usage.enable",
-                default_value=False,  # TODO: PYT-4045 flip to True when AI usage is ready for release.
+                default_value=True,
                 type_cast=str_to_bool,
             ),
         ]

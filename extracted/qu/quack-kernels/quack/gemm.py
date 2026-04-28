@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, Tri Dao.
+# Copyright (c) 2025-2026, QuACK team.
 # GEMM compilation via TVM-FFI with fake tensors and NamedTuple args.
 
 from typing import Optional
@@ -149,6 +149,8 @@ def gemm(
     tile_N: int,
     cluster_M: int,
     cluster_N: int,
+    cluster_K: int = 1,
+    tile_K: int | None = None,
     pingpong: bool = False,
     persistent: bool = True,
     is_dynamic_persistent: bool = False,
@@ -189,6 +191,8 @@ def gemm(
 
     device_capacity = get_device_capacity(A.device)
     assert device_capacity[0] in [9, 10, 11, 12], "Only SM90, SM100, SM110, and SM120 are supported"
+    if tile_K is not None:
+        assert device_capacity[0] in [10, 11], "tile_K currently requires SM100/SM110"
     if use_tma_gather:
         assert device_capacity[0] in [10, 11], "TMA gather currently requires SM100/SM110"
     if rounding_mode == RoundingMode.RS:
@@ -210,6 +214,7 @@ def gemm(
     sr_seed_mode = (
         2 if isinstance(sr_seed, Tensor) else (1 if rounding_mode == RoundingMode.RS else 0)
     )
+    tile_shape_mnk = (tile_M, tile_N) if tile_K is None else (tile_M, tile_N, tile_K)
     compiled_fn = _compile_gemm(
         a_dtype,
         b_dtype,
@@ -219,8 +224,8 @@ def gemm(
         b_major,
         d_major,
         c_major,
-        (tile_M, tile_N),
-        (cluster_M, cluster_N, 1),
+        tile_shape_mnk,
+        (cluster_M, cluster_N, cluster_K),
         pingpong,
         persistent,
         is_dynamic_persistent,
@@ -255,7 +260,9 @@ def gemm(
         else:
             return scalar.data_ptr()
 
-    max_active_clusters = get_max_active_clusters(cluster_M * cluster_N) if persistent else 0
+    max_active_clusters = (
+        get_max_active_clusters(cluster_M * cluster_N * cluster_K) if persistent else 0
+    )
 
     epi_args = GemmDefaultEpiMixin.EpilogueArguments(
         alpha=scalar_arg(alpha, alpha_mode),

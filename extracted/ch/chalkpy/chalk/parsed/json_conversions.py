@@ -470,7 +470,7 @@ def convert_type_to_gql(
         return UpsertModelReferenceGQL(
             name=t.name,
             version=t.version,
-            asOf=t.as_of_date,
+            asOf=datetime.isoformat(t.as_of_date) if t.as_of_date is not None else None,
             alias=t.alias,
             relations=[
                 ModelRelationGQL(inputFeatures=input_features, outputFeature=output_feature)
@@ -685,7 +685,9 @@ def convert_type_to_gql(
                         if mat.backfill_lookback_duration_seconds is not None
                         else None
                     ),
-                    backfillStartTime=mat.backfill_start_time,
+                    backfillStartTime=(
+                        datetime.isoformat(mat.backfill_start_time) if mat.backfill_start_time is not None else None
+                    ),
                     backfillSchedule=mat.backfill_schedule,
                     backfillTags=mat.backfill_tags,
                     continuousResolver=mat.continuous_resolver,

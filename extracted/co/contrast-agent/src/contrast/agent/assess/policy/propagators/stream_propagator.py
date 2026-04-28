@@ -11,8 +11,6 @@ from contrast.agent.assess.utils import (
     get_properties,
     set_properties,
 )
-
-
 from contrast_vendor import structlog as logging
 
 logger = logging.getLogger("contrast")
@@ -149,7 +147,7 @@ def propagate_stream_write(method_name, preshift, target, ret):
         parents.append(new_props.event)
 
     # Iterate over all newly written lines and copy tags if the line is tracked
-    for line, source_props in zip(lines, props):
+    for line, source_props in zip(lines, props, strict=True):
         if source_props is not None:
             # This means that the original stream was not tracked at all
             if new_props is None:

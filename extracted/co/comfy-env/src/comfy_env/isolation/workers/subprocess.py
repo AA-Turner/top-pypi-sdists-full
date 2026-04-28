@@ -1225,52 +1225,9 @@ if _DBG_VRAM:
     _vram_thread.start()
     wlog("[worker] VRAM poller started (200MB threshold, 100ms poll, 1s cooldown)")
 
-# Debug: print PATH at startup (only if debug enabled)
-if _DEBUG:
-    _path_sep = ";" if sys.platform == "win32" else ":"
-    _path_parts = os.environ.get("PATH", "").split(_path_sep)
-    print(f"[worker] PATH has {len(_path_parts)} entries:", file=sys.stderr, flush=True)
-    for _i, _p in enumerate(_path_parts[:15]):
-        print(f"[worker]   [{_i}] {_p}", file=sys.stderr, flush=True)
-    if len(_path_parts) > 15:
-        print(f"[worker]   ... and {len(_path_parts) - 15} more", file=sys.stderr, flush=True)
-
-# On Windows, add host Python's DLL directories so packages like opencv can find VC++ runtime
-if sys.platform == "win32":
-    _host_python_dir = os.environ.get("COMFYUI_HOST_PYTHON_DIR")
-    if _host_python_dir and hasattr(os, "add_dll_directory"):
-        try:
-            os.add_dll_directory(_host_python_dir)
-            # Also add DLLs subdirectory if it exists
-            _dlls_dir = os.path.join(_host_python_dir, "DLLs")
-            if os.path.isdir(_dlls_dir):
-                os.add_dll_directory(_dlls_dir)
-        except Exception:
-            pass
-
-    # Pixi env root -- python310.dll, vcruntime, etc.
-    _env_root = os.path.dirname(sys.executable)
-    if hasattr(os, "add_dll_directory"):
-        try:
-            os.add_dll_directory(_env_root)
-        except Exception:
-            pass
-
-    # For pixi environments with MKL, add Library/bin for MKL DLLs
-    _pixi_library_bin = os.environ.get("COMFYUI_PIXI_LIBRARY_BIN")
-    if _pixi_library_bin and hasattr(os, "add_dll_directory"):
-        try:
-            os.add_dll_directory(_pixi_library_bin)
-            wlog(f"[worker] Added pixi Library/bin to DLL search: {_pixi_library_bin}")
-        except Exception as e:
-            wlog(f"[worker] Failed to add pixi Library/bin: {e}")
-
 # =============================================================================
 # Shared Memory Serialization
 # =============================================================================
-
-from multiprocessing import shared_memory as shm
-import numpy as np
 
 # Pin to single CPU core before importing torch to prevent TSC non-monotonicity
 # during libc10_cuda.so static initialization (WSL has imprecise per-core TSC sync).
@@ -1283,6 +1240,11 @@ if sys.platform == "linux":
     except OSError:
         pass
 
+# Import torch BEFORE numpy on Windows. conda-forge's numpy is MKL-linked, and
+# loading numpy first pulls in libiomp5md.dll from <env>/Library/bin -- once that
+# OMP runtime is in the process, torch's bundled libiomp5md (in torch/lib/) can't
+# load alongside it and fbgemm.dll's delay-loaded deps fail with WinError 127.
+# Order matters: torch first ensures torch/lib's DLLs win the address-space race.
 # Use default sharing strategy (file_descriptor on Linux).
 # Do NOT force file_system -- its torch_shm_manager prematurely unlinks files in torch 2.8.
 try:
@@ -1291,6 +1253,9 @@ try:
     wlog(f"[worker] PyTorch sharing strategy: {mp.get_sharing_strategy()}")
 except Exception as e:
     wlog(f"[worker] PyTorch not available: {e}")
+
+from multiprocessing import shared_memory as shm
+import numpy as np
 
 # Release CPU affinity back to all cores for actual GPU work
 if _affinity_pinned:
@@ -2965,45 +2930,41 @@ class SubprocessWorker(Worker):
         print(f"[{self.name}] sys_path sent to worker: {all_sys_path}", flush=True)
 
         # Launch subprocess with the venv/pixi Python, passing socket address.
-        # For pixi environments, we set up the conda env vars manually instead of
-        # using "pixi run" -- "pixi run" re-resolves the lockfile every call, which
-        # adds noticeable latency for short-lived workers.
+        # For pixi environments, route through `pixi run -e <env> --frozen` so
+        # pixi handles activation (PATH, CONDA_PREFIX, [activation.env] vars
+        # like KMP_DUPLICATE_LIB_OK, libomp/MKL setup). Hand-rolling the
+        # activation worked for PATH but missed the [activation.env] block,
+        # which is what set KMP_DUPLICATE_LIB_OK=TRUE — without it, torch's
+        # OMP guard or delay-loaded DLLs failed at `import torch` with
+        # WinError 127 / OMP Error #15. `--frozen` avoids re-resolving the
+        # lockfile per worker (the original perf concern).
         is_pixi = '.pixi' in str(self.python)
         if _DBG_WORKER:
             print(f"[SubprocessWorker] is_pixi={is_pixi}, python={self.python}", flush=True)
         if is_pixi:
-            # Find pixi env root (the .pixi/envs/default directory)
-            pixi_env_root = self.python
-            while pixi_env_root.name != '.pixi' and pixi_env_root.parent != pixi_env_root:
-                pixi_env_root = pixi_env_root.parent
-            pixi_env_root = pixi_env_root / "envs" / "default"
-
-            cmd = [str(self.python), str(self._worker_script), self._socket_addr]
-
-            # Set up conda-like env vars that pixi run would normally provide
-            env["CONDA_PREFIX"] = str(pixi_env_root)
-
-            # Build PATH: pixi env paths first, then cleaned system PATH
-            path_sep = ";" if sys.platform == "win32" else ":"
-            current_path = env.get("PATH", "")
-            clean_path_parts = [
-                p for p in current_path.split(path_sep)
-                if not any(x in p.lower() for x in (".ct-envs", "conda", "mamba", "miniforge", "miniconda", "anaconda"))
-            ]
+            # <workspace>/.pixi/envs/<env_name>/python.exe (Windows) or
+            # <workspace>/.pixi/envs/<env_name>/bin/python (POSIX). Walk up to
+            # find the workspace dir (parent of `.pixi/`) and the env name.
             if sys.platform == "win32":
-                pixi_paths = [
-                    str(pixi_env_root),
-                    str(pixi_env_root / "Library" / "mingw-w64" / "bin"),
-                    str(pixi_env_root / "Library" / "usr" / "bin"),
-                    str(pixi_env_root / "Library" / "bin"),
-                    str(pixi_env_root / "Scripts"),
-                    str(pixi_env_root / "Library" / "bin" / "Lib" / "site-packages" / "bpy"),
-                ]
+                pixi_env_root = self.python.parent
             else:
-                pixi_paths = [
-                    str(pixi_env_root / "bin"),
-                ]
-            env["PATH"] = path_sep.join(pixi_paths + clean_path_parts)
+                pixi_env_root = self.python.parent.parent
+            env_name = pixi_env_root.name
+            # pixi_env_root is <workspace>/.pixi/envs/<env_name>; walk up 3 levels.
+            workspace_dir = pixi_env_root.parent.parent.parent
+
+            try:
+                from ...packages.pixi import ensure_pixi
+                pixi_path = ensure_pixi(log=lambda m: None)
+            except Exception:
+                pixi_path = "pixi"  # fall back to PATH lookup
+
+            cmd = [
+                str(pixi_path), "run", "--as-is",
+                "--manifest-path", str(workspace_dir / "pixi.toml"),
+                "-e", env_name,
+                "python", str(self._worker_script), self._socket_addr,
+            ]
             launch_env = env
         else:
             cmd = [str(self.python), str(self._worker_script), self._socket_addr]
@@ -3011,14 +2972,6 @@ class SubprocessWorker(Worker):
 
         if _DBG_WORKER:
             print(f"[SubprocessWorker] launching cmd={cmd[:3]}...", flush=True)
-            if launch_env:
-                path_sep = ";" if sys.platform == "win32" else ":"
-                path_parts = launch_env.get("PATH", "").split(path_sep)
-                print(f"[SubprocessWorker] PATH has {len(path_parts)} entries:", flush=True)
-                for i, p in enumerate(path_parts[:10]):  # Show first 10
-                    print(f"[SubprocessWorker]   [{i}] {p}", flush=True)
-                if len(path_parts) > 10:
-                    print(f"[SubprocessWorker]   ... and {len(path_parts) - 10} more", flush=True)
         self._process = subprocess.Popen(
             cmd,
             stdin=subprocess.DEVNULL,

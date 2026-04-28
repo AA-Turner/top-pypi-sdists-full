@@ -5,6 +5,24 @@ from typing import Any, Dict, List, Optional
 
 import dataclasses_json
 
+# =====================================================================
+# WARNING: DO NOT USE `datetime` FOR NEW FIELDS IN THIS FILE.
+# =====================================================================
+# These GQL input types are round-tripped through the server's GraphQL
+# layer (Strawberry). Strawberry's handling of `Optional[datetime]`
+# inputs does NOT interop correctly with what `dataclasses_json`
+# serializes on this side, so any field typed as `Optional[datetime]`
+# here will silently arrive as `None` on the server. This has bitten us
+# repeatedly — see `lowerBound` / `upperBound` on `UpsertCronQueryGQL`,
+# which are marked deprecated for exactly this reason, and the former
+# `backfillStartTime` / `asOf` fields which never worked.
+#
+# The fix: type the field as `Optional[str]` on both sides and pass an
+# ISO-8601 string (e.g. `datetime.isoformat(dt)`). Parse it back to a
+# `datetime` on the server with `datetime.fromisoformat` at the point
+# of use. Do NOT add a `datetime`-typed mirror field "for convenience".
+# =====================================================================
+
 
 @dataclasses_json.dataclass_json
 @dataclass
@@ -104,7 +122,7 @@ class UpsertWindowMaterializationGQL:
     dtype: Optional[str] = None
     backfillResolver: Optional[str] = None
     backfillLookbackDuration: Optional[float] = None
-    backfillStartTime: Optional[datetime] = None
+    backfillStartTime: Optional[str] = None  # isoformat; datetime can't round-trip through graphql
     backfillSchedule: Optional[str] = None
     backfillTags: Optional[List[List[str]]] = None
     continuousResolver: Optional[str] = None
@@ -322,7 +340,7 @@ class UpsertModelReferenceGQL:
     filename: str
     version: Optional[int] = None
     alias: Optional[str] = None
-    asOf: Optional[datetime] = None
+    asOf: Optional[str] = None  # isoformat; datetime can't round-trip through graphql
     relations: Optional[List[ModelRelationGQL]] = None
     resolvers: Optional[List[str]] = None
     code: Optional[str] = None

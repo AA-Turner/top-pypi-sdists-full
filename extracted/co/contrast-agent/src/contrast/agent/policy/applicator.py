@@ -5,24 +5,20 @@ import inspect
 from inspect import iscoroutinefunction
 from types import ModuleType
 
-
-from contrast.utils.patch_utils import register_module_patcher
-from contrast.agent.policy import patch_manager, registry
-from contrast.agent.protect.policy import apply_protect_patch
 from contrast.agent.assess.policy.patches import (
-    build_assess_method,
-    build_assess_method_legacy,
+    apply_cached_property,
+    build_assess_async_deadzone,
+    build_assess_async_method,
     build_assess_classmethod,
     build_assess_deadzone,
+    build_assess_method,
+    build_assess_method_legacy,
     build_assess_property_fget,
-    apply_cached_property,
-    build_assess_async_method,
-    build_assess_async_deadzone,
 )
-from contrast.utils.patch_utils import repatch_module
+from contrast.agent.policy import patch_manager, registry
+from contrast.agent.protect.policy import apply_protect_patch
+from contrast.utils.patch_utils import register_module_patcher, repatch_module
 from contrast.utils.safe_import import safe_import
-
-
 from contrast_vendor import structlog as logging
 
 logger = logging.getLogger("contrast")
@@ -284,7 +280,7 @@ def _apply_v2_patches(module: ModuleType):
 
     patch_locations = {
         location
-        for location in registry_v2.get_policy_locations()
+        for location in registry_v2.policy_locations
         if location.module == module.__name__
     }
     if len(patch_locations) == 0:
@@ -330,13 +326,16 @@ def register_policy_patches(*, protect_mode: bool):
     """
     from contrast.agent.policy import registry_v2
 
-    modules_to_patch = set(registry.get_patch_policies(protect=protect_mode)) | {
-        location.module for location in registry_v2.get_policy_locations()
+    modules_to_patch = {
+        (module, None) for module in registry.get_patch_policies(protect=protect_mode)
+    } | {
+        (location.module, location.dist_package_name)
+        for location in registry_v2.policy_locations
     }
 
-    for module_name in modules_to_patch:
+    for module_name, dist_package in modules_to_patch:
         logger.debug("Registering import hook for %s", module_name)
-        register_module_patcher(apply_module_patches, module_name)
+        register_module_patcher(apply_module_patches, module_name, dist_package)
 
 
 def apply_patch_to_dynamic_property(class_to_patch, property_name, tags):

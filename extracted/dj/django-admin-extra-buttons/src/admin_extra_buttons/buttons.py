@@ -8,7 +8,7 @@ from django.urls import NoReverseMatch, reverse
 
 from admin_extra_buttons.utils import check_permission, get_preserved_filters, labelize
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable, Generator
 
     from django.contrib.admin import AdminSite
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     _M_co = TypeVar("_M_co", bound=Model, covariant=True)
 
 
-class ButtonWidget:
+class StandardButton:
     default_change_form_arguments = 2
     default_template = "admin_extra_buttons/includes/button.html"
 
@@ -31,8 +31,8 @@ class ButtonWidget:
         handler: "BaseExtraHandler",
         context: "RequestContext",
         label: str | None = None,
-        visible: "bool|Callable[[ButtonWidget], bool]" = True,
-        enabled: "bool|Callable[[ButtonWidget], bool]" = True,
+        visible: "bool|Callable[[StandardButton], bool]" = True,
+        enabled: "bool|Callable[[StandardButton], bool]" = True,
         change_form: bool | None = None,
         change_list: bool | None = None,
         template: str | None = None,
@@ -161,7 +161,7 @@ class ButtonWidget:
         return f"{url_}?{filters}"
 
 
-class LinkButton(ButtonWidget):
+class LinkButton(StandardButton):
     @property
     def url(self) -> str:
         return self.href
@@ -195,7 +195,7 @@ class ChoiceButton(LinkButton):
         self.choices: list[BaseExtraHandler] = []
         super().__init__(handler, context, label, visible, enabled, change_form, change_list, template, **config)
 
-    def get_choices(self) -> Generator[dict[str, Any], None, None]:
+    def get_choices(self) -> Generator[dict[str, Any]]:
         for handler_config in self.choices:
             handler = handler_config.func.extra_buttons_handler  # type: ignore[union-attr]
             if self.change_list and handler.single_object_invocation:

@@ -388,11 +388,14 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
 
     dir_plots = dir_outlook / "plots" / model / country
     dir_maps = dir_outlook / "maps" / model
+    dir_csvs = dir_outlook / "csvs" / model / country
     if stage_safe:
         dir_plots = dir_plots / stage_safe
         dir_maps = dir_maps / stage_safe
+        dir_csvs = dir_csvs / stage_safe
     os.makedirs(dir_plots, exist_ok=True)
     os.makedirs(dir_maps, exist_ok=True)
+    os.makedirs(dir_csvs, exist_ok=True)
 
     title = f"{country.title()} {crop.title()} — {model}"
     if stage_name:
@@ -401,6 +404,15 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
     with plt.style.context(["science", "no-latex"]):
         diag.scatter_obs_pred(df, title, dir_plots,
                               f"scatter_{country}_{crop}_{model}{stage_suffix}.png")
+        df.to_csv(dir_csvs / f"scatter_{country}_{crop}_{model}{stage_suffix}.csv", index=False)
+
+        # National scatter (area-weighted)
+        df_national = _aggregate_national_yields(df)
+        if len(df_national) >= 2:
+            title_nat = f"{title} — National"
+            diag.scatter_obs_pred(df_national, title_nat, dir_plots,
+                                  f"scatter_national_{country}_{crop}_{model}{stage_suffix}.png")
+            df_national.to_csv(dir_csvs / f"scatter_national_{country}_{crop}_{model}{stage_suffix}.csv", index=False)
 
         df_mape = (
             df.assign(
@@ -414,6 +426,7 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
         diag.mape_bar_chart(df_mape, title, dir_plots,
                             f"mape_bar_{country}_{crop}_{model}{stage_suffix}.png",
                             production_pct=prod_pct)
+        df_mape.to_csv(dir_csvs / f"mape_bar_{country}_{crop}_{model}{stage_suffix}.csv", index=False)
 
     df_mape["Country Region"] = (
         country.lower().replace("_", " ") + " " + df_mape["Region"].str.lower()
@@ -548,6 +561,29 @@ def _compute_region_metric(df, stages_sorted, metric_col):
     )
 
 
+def _aggregate_national_yields(df):
+    """Area-weighted national observed/predicted yield per year."""
+    obs_col = "Observed Yield (tn per ha)"
+    pred_col = "Predicted Yield (tn per ha)"
+    has_area = "Area (ha)" in df.columns and df["Area (ha)"].notna().any()
+
+    if has_area:
+        df = df.copy()
+        df["_prod_obs"] = df[obs_col] * df["Area (ha)"]
+        df["_prod_pred"] = df[pred_col] * df["Area (ha)"]
+        nat = df.groupby("Harvest Year").agg(
+            _prod_obs=("_prod_obs", "sum"),
+            _prod_pred=("_prod_pred", "sum"),
+            _area=("Area (ha)", "sum"),
+        )
+        nat[obs_col] = nat["_prod_obs"] / nat["_area"]
+        nat[pred_col] = nat["_prod_pred"] / nat["_area"]
+    else:
+        nat = df.groupby("Harvest Year").agg({obs_col: "mean", pred_col: "mean"})
+
+    return nat.reset_index()
+
+
 def _compute_national_metric(df, stages_sorted, metric_col, has_area):
     """Compute area-weighted (or simple mean) national metric per stage."""
     rows = []
@@ -647,6 +683,8 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
     prod_pct = diag.compute_production_pct(df, country)
 
     dir_progression = dir_outlook / "plots" / model / country / "progression"
+    dir_csvs_prog = dir_outlook / "csvs" / model / country / "progression"
+    os.makedirs(dir_csvs_prog, exist_ok=True)
     base_title = f"{country.title()} {crop.title()} ({model})"
 
     # MAPE
@@ -657,6 +695,8 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
         f"mape_progression_{country}_{crop}_{model}.png",
         prod_pct, has_area,
     )
+    df[["Region", "Stage Name", "Harvest Year", "MAPE"]].to_csv(
+        dir_csvs_prog / f"mape_progression_{country}_{crop}_{model}.csv", index=False)
 
     # RMSE — compute per (Stage Name, Region)
     rmse_data = []
@@ -681,6 +721,7 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
             f"rmse_progression_{country}_{crop}_{model}.png",
             prod_pct, has_area,
         )
+        df_rmse.to_csv(dir_csvs_prog / f"rmse_progression_{country}_{crop}_{model}.csv", index=False)
 
     # R² — compute per (Stage Name, Region)
     r2_data = []
@@ -705,6 +746,7 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
             f"r2_progression_{country}_{crop}_{model}.png",
             prod_pct, has_area,
         )
+        df_r2.to_csv(dir_csvs_prog / f"r2_progression_{country}_{crop}_{model}.csv", index=False)
 
 
 def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
@@ -774,7 +816,9 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
             continue
 
         dir_comp = dir_outlook / "plots" / "model_comparison" / country
+        dir_csvs_comp = dir_outlook / "csvs" / "model_comparison" / country
         os.makedirs(dir_comp, exist_ok=True)
+        os.makedirs(dir_csvs_comp, exist_ok=True)
 
         # Build metrics per model × region and model × year
         rows_region = []
@@ -822,6 +866,8 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
 
         df_region = pd.DataFrame(rows_region)
         df_year = pd.DataFrame(rows_year)
+        df_region.to_csv(dir_csvs_comp / f"metrics_by_region_{country}_{crop}.csv", index=False)
+        df_year.to_csv(dir_csvs_comp / f"metrics_by_year_{country}_{crop}.csv", index=False)
         base_title = f"{country.title()} {crop.title()}"
 
         # Consistent model colors across all plots
@@ -1122,7 +1168,12 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             else:
                 yield_files[c] = default_yield
 
+        dir_output = Path(parser.get("PATHS", "dir_output"))
+        dir_inputs = Path(parser.get("PATHS", "dir_inputs", fallback=parser.get("PATHS", "dir_input", fallback="")))
         params = [
+            ("Config files", [str(p) for p in path_config_files]),
+            ("Input dir", str(dir_inputs)),
+            ("Output dir", str(dir_output)),
             ("Countries", countries),
             ("Crops", crops),
             ("Models", models),

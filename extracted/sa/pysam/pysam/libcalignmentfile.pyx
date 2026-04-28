@@ -1,5 +1,5 @@
+# cython: language_level=3
 # cython: embedsignature=True
-# cython: profile=True
 ########################################################
 ########################################################
 # Cython wrapper for SAM/BAM/CRAM files based on htslib
@@ -581,11 +581,11 @@ cdef class AlignmentHeader(object):
 
 cdef class AlignmentFile(HTSFile):
     """AlignmentFile(filepath_or_object, mode=None, template=None,
-    reference_names=None, reference_lengths=None, text=NULL,
-    header=None, add_sq_text=False, check_header=True, check_sq=True,
+    reference_names=None, reference_lengths=None, text=None, header=None,
+    add_sq_text=True, add_sam_header=True, check_header=True, check_sq=True,
     reference_filename=None, filename=None, index_filename=None,
     filepath_index=None, require_index=False, duplicate_filehandle=True,
-    ignore_truncation=False, threads=1)
+    ignore_truncation=False, format_options=None, threads=1)
 
     A :term:`SAM`/:term:`BAM`/:term:`CRAM` formatted file.
 
@@ -727,8 +727,9 @@ cdef class AlignmentFile(HTSFile):
         to bgzipped formats. (Default=False)
 
     format_options: list
-        A list of key=value strings, as accepted by --input-fmt-option and
-        --output-fmt-option in samtools.
+        A list of ``key=value`` strings, as accepted by `samtools's global
+        fmt-options`_.
+
     threads: integer
         Number of threads to use for compressing/decompressing BAM/CRAM files.
         Setting threads to > 1 cannot be combined with `ignore_truncation`.
@@ -952,7 +953,7 @@ cdef class AlignmentFile(HTSFile):
                 else:
                     raise ValueError("could not open alignment file `{}`".format(force_str(filename)))
 
-            if self.htsfile.format.category != sequence_data:
+            if hts_get_format(self.htsfile).category != sequence_data:
                 raise ValueError("file does not contain alignment data")
 
             if format_options and len(format_options):
@@ -2320,38 +2321,48 @@ cdef class IteratorRowSelection(IteratorRow):
             raise IOError(read_failure_reason(ret))
 
 
-cdef int __advance_nofilter(void *data, bam1_t *b):
+cdef int __advance_nofilter(void *data, bam1_t *b) noexcept nogil:
     '''advance without any read filtering.
     '''
     cdef __iterdata * d = <__iterdata*>data
-    cdef int ret
-    with nogil:
-        ret = sam_itr_next(d.htsfile, d.iter, b)
-    return ret
+    return sam_itr_next(d.htsfile, d.iter, b)
 
 
-cdef int __advance_raw_nofilter(void *data, bam1_t *b):
+cdef int __advance_raw_nofilter(void *data, bam1_t *b) noexcept nogil:
     '''advance (without iterator) without any read filtering.
     '''
     cdef __iterdata * d = <__iterdata*>data
+    return sam_read1(d.htsfile, d.header, b)
+
+
+cdef int __advance_all(void *data, bam1_t *b) noexcept nogil:
+    '''only use reads for pileup passing basic filters such as
+
+    BAM_FUNMAP, BAM_FSECONDARY, BAM_FQCFAIL, BAM_FDUP
+    '''
+
+    cdef __iterdata * d = <__iterdata*>data
     cdef int ret
-    with nogil:
+    while 1:
+        ret = sam_itr_next(d.htsfile, d.iter, b)
+        if ret < 0:
+            break
+        if b.core.flag & d.flag_filter:
+            continue
+        break
+    return ret
+
+
+cdef int __advance_raw_all(void *data, bam1_t *b) noexcept nogil:
+    '''only use reads for pileup passing basic filters such as
+
+    BAM_FUNMAP, BAM_FSECONDARY, BAM_FQCFAIL, BAM_FDUP
+    '''
+
+    cdef __iterdata * d = <__iterdata*>data
+    cdef int ret
+    while 1:
         ret = sam_read1(d.htsfile, d.header, b)
-    return ret
-
-
-cdef int __advance_all(void *data, bam1_t *b):
-    '''only use reads for pileup passing basic filters such as
-
-    BAM_FUNMAP, BAM_FSECONDARY, BAM_FQCFAIL, BAM_FDUP
-    '''
-
-    cdef __iterdata * d = <__iterdata*>data
-    cdef mask = BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP
-    cdef int ret
-    while 1:
-        with nogil:
-            ret = sam_itr_next(d.htsfile, d.iter, b)
         if ret < 0:
             break
         if b.core.flag & d.flag_filter:
@@ -2360,26 +2371,7 @@ cdef int __advance_all(void *data, bam1_t *b):
     return ret
 
 
-cdef int __advance_raw_all(void *data, bam1_t *b):
-    '''only use reads for pileup passing basic filters such as
-
-    BAM_FUNMAP, BAM_FSECONDARY, BAM_FQCFAIL, BAM_FDUP
-    '''
-
-    cdef __iterdata * d = <__iterdata*>data
-    cdef int ret
-    while 1:
-        with nogil:
-            ret = sam_read1(d.htsfile, d.header, b)
-        if ret < 0:
-            break
-        if b.core.flag & d.flag_filter:
-            continue
-        break
-    return ret
-
-
-cdef int __advance_samtools(void * data, bam1_t * b):
+cdef int __advance_samtools(void * data, bam1_t *b) nogil:
     '''advance using same filter and read processing as in
     the samtools pileup.
     '''
@@ -2388,8 +2380,7 @@ cdef int __advance_samtools(void * data, bam1_t * b):
     cdef int q
 
     while 1:
-        with nogil:
-            ret = sam_itr_next(d.htsfile, d.iter, b) if d.iter else sam_read1(d.htsfile, d.header, b)
+        ret = sam_itr_next(d.htsfile, d.iter, b) if d.iter else sam_read1(d.htsfile, d.header, b)
         if ret < 0:
             break
         if b.core.flag & d.flag_filter:
@@ -2402,13 +2393,7 @@ cdef int __advance_samtools(void * data, bam1_t * b):
             if d.seq != NULL:
                 free(d.seq)
             d.tid = b.core.tid
-            with nogil:
-                d.seq = faidx_fetch_seq(
-                    d.fastafile,
-                    d.header.target_name[d.tid],
-                    0, MAX_POS,
-                    &d.seq_len)
-
+            d.seq = faidx_fetch_seq(d.fastafile, d.header.target_name[d.tid], 0, MAX_POS, &d.seq_len)
             if d.seq == NULL:
                 raise ValueError(
                     "reference sequence for '{}' (tid={}) not found".format(
@@ -2560,19 +2545,13 @@ cdef class IteratorColumn:
 
         if self.stepper is None or self.stepper == "all":
             with nogil:
-                self.pileup_iter = bam_mplp_init(1,
-                                                 <bam_plp_auto_f>&__advance_all,
-                                                 data)
+                self.pileup_iter = bam_mplp_init(1, __advance_all, data)
         elif self.stepper == "nofilter":
             with nogil:
-                self.pileup_iter = bam_mplp_init(1,
-                                                 <bam_plp_auto_f>&__advance_nofilter,
-                                                 data)
+                self.pileup_iter = bam_mplp_init(1, __advance_nofilter, data)
         elif self.stepper == "samtools":
             with nogil:
-                self.pileup_iter = bam_mplp_init(1,
-                                                 <bam_plp_auto_f>&__advance_samtools,
-                                                 data)
+                self.pileup_iter = bam_mplp_init(1, <bam_plp_auto_f>__advance_samtools, data)
         else:
             raise ValueError(
                 "unknown stepper option `%s` in IteratorColumn" % self.stepper)
@@ -2609,19 +2588,13 @@ cdef class IteratorColumn:
 
         if self.stepper is None or self.stepper == "all":
             with nogil:
-                self.pileup_iter = bam_mplp_init(1,
-                                                 <bam_plp_auto_f>&__advance_raw_all,
-                                                 data)
+                self.pileup_iter = bam_mplp_init(1, __advance_raw_all, data)
         elif self.stepper == "nofilter":
             with nogil:
-                self.pileup_iter = bam_mplp_init(1,
-                                                 <bam_plp_auto_f>&__advance_raw_nofilter,
-                                                 data)
+                self.pileup_iter = bam_mplp_init(1, __advance_raw_nofilter, data)
         elif self.stepper == "samtools":
             with nogil:
-                self.pileup_iter = bam_mplp_init(1,
-                                                 <bam_plp_auto_f>&__advance_samtools,
-                                                 data)
+                self.pileup_iter = bam_mplp_init(1, <bam_plp_auto_f>__advance_samtools, data)
         else:
             raise ValueError(
                 "unknown stepper option `%s` in IteratorColumn" % self.stepper)

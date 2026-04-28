@@ -1,14 +1,15 @@
-from typing import Any, Callable, Protocol, TypeAlias
+from collections.abc import Callable
+from typing import Any, Protocol
 
 from django.db.models import Model
 from django.http import HttpRequest, HttpResponse
 from django.template import RequestContext
 
-from .buttons import ButtonWidget, ChoiceButton, LinkButton
+from .buttons import ChoiceButton, LinkButton, StandardButton
 from .handlers import BaseExtraHandler, ButtonHandler, ChoiceHandler, LinkHandler
 from .mixins import ExtraButtonsMixin
 
-VisibleButton: TypeAlias = ButtonWidget | LinkButton | ChoiceButton
+type VisibleButton = StandardButton | LinkButton | ChoiceButton
 
 class PermissionHandler(Protocol):
     def __call__(
@@ -16,42 +17,31 @@ class PermissionHandler(Protocol):
     ) -> bool: ...
 
 class WidgetProtocol(Protocol):
-    button_class: ButtonWidget
+    button_class: StandardButton
     change_list: bool
     change_form: bool
 
     def get_button_params(self, context: RequestContext, **extra: Any) -> dict[str, Any]: ...
-    def get_button(self, context: RequestContext) -> ButtonWidget: ...
+    def get_button(self, context: RequestContext) -> VisibleButton: ...
 
 class BaseHandlerFunction(Protocol):
     __name__: str
     extra_buttons_handler: BaseExtraHandler
 
-"""
-# xxx1 = Callable[[ExtraButtonsMixin, HttpRequest], HttpResponse | None]
-# xxx2 = Callable[[ExtraButtonsMixin, HttpRequest, str], HttpResponse | None]
-#
-# aaa = xxx1 | xxx2
-#
-# bbb = Callable[[ExtraButtonsMixin, VisibleButton], HttpResponse | None]
-#
-# zzz = aaa | bbb
-#
-# ViewHandlerFunction = aaa
-# ButtonHandlerFunction = aaa
-# ChoiceHandlerFunction = bbb
-# LinkHandlerFunction = bbb
-"""
+type Callback1[_S: ExtraButtonsMixin] = Callable[[_S, HttpRequest], HttpResponse | None]
+type Callback2[_S: ExtraButtonsMixin] = Callable[[_S, HttpRequest, str], HttpResponse | None]
 
-Callback1: TypeAlias = Callable[[ExtraButtonsMixin, HttpRequest], HttpResponse | None]
-Callback2: TypeAlias = Callable[[ExtraButtonsMixin, HttpRequest, str], HttpResponse | None]
+type ViewHandlerFunction[_S: ExtraButtonsMixin] = Callback1[_S] | Callback2[_S]
+type ButtonHandlerFunction[_S: ExtraButtonsMixin] = ViewHandlerFunction[_S]
 
-ViewHandlerFunction: TypeAlias = Callback1 | Callback2
-ButtonHandlerFunction = ViewHandlerFunction
+type ChoiceHandlerFunction[_S: ExtraButtonsMixin, _B: VisibleButton] = Callable[[_S, _B], HttpResponse | None]
+type LinkHandlerFunction[_S: ExtraButtonsMixin, _B: VisibleButton] = Callable[[_S, _B], HttpResponse | None]
 
-ChoiceHandlerFunction: TypeAlias = Callable[[ExtraButtonsMixin, VisibleButton], HttpResponse | None]
-LinkHandlerFunction: TypeAlias = Callable[[ExtraButtonsMixin, VisibleButton], HttpResponse | None]
+type GenericHandler = (
+    ButtonHandlerFunction[Any]
+    | ViewHandlerFunction[Any]
+    | ChoiceHandlerFunction[Any, Any]
+    | LinkHandlerFunction[Any, Any]
+)
 
-GenericHandler: TypeAlias = ButtonHandlerFunction | ViewHandlerFunction | ChoiceHandlerFunction | LinkHandlerFunction
-
-HandlerWithButton: TypeAlias = ButtonHandler | LinkHandler | ChoiceHandler
+type HandlerWithButton = ButtonHandler | LinkHandler | ChoiceHandler

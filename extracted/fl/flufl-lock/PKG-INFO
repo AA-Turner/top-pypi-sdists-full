@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flufl.lock
-Version: 9.0.0
+Version: 9.1.0
 Summary: NFS-safe file locking with timeouts for POSIX and Windows
 Project-URL: Home Page, https://flufllock.readthedocs.io
 Project-URL: Documentation, https://flufllock.readthedocs.io
@@ -65,7 +65,7 @@ your clocks are properly synchronized.
 Author
 ======
 
-``flufl.lock`` is Copyright (C) 2007-2025 Barry Warsaw <barry@python.org>
+``flufl.lock`` is Copyright (C) 2007-2026 Barry Warsaw <barry@python.org>
 
 Licensed under the terms of the Apache License Version 2.0.  See the LICENSE
 file for details.

@@ -9,7 +9,7 @@ import os
 import sys
 from collections import OrderedDict
 from types import ModuleType
-from typing import Callable
+from collections.abc import Callable
 
 from contrast.agent.policy import patch_manager
 from contrast.utils.decorators import fail_quietly
@@ -148,7 +148,7 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "aiohttp_session": ((2, 0), (2, 12)),
     "anthropic": (
         (0, 4),
-        (0, 89),
+        (0, 94),
     ),  # anthropic 0.4.0 is the first minor release with Stainless.
     "ariadne": ((0, 26), (1, 0)),
     "beaker": ((1, 0), (1, 13)),
@@ -166,9 +166,10 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "enumfields": ((2, 0), (2, 1)),  # django-enumfields
     "falcon": ((3, 0), (4, 0)),
     "falcon_multipart": ((0, 1), (0, 2)),
-    "fastapi": ((0, 71), (0, 135)),
+    "fastapi": ((0, 71), (0, 136)),
     "flask": ((1, 1), (3, 1)),
     "genshi": ((0, 7), (0, 7)),
+    "google-genai": ((1, 0), (1, 73)),
     "graphene": ((3, 4), (3, 4)),
     "httpx": ((0,), (0,)),
     "jinja2": ((2, 10), (3, 1)),  # min version required by our min version of flask
@@ -193,8 +194,8 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "sqlalchemy": ((1,), (2,)),
     "starlette": (
         (0, 17),
-        (0, 52),
-    ),  # fastapi==0.71.0 requires starlette==0.17.1, fastapi==0.120.1 requires starlette<0.50.0
+        (1, 0),
+    ),  # fastapi==0.71.0 requires starlette==0.17.1
     "urllib3": ((1, 25), (2, 6)),
     "webob": ((1, 8), (1, 9)),
     "werkzeug": ((1, 0), (3, 1)),  # flask==1.1.* resolved to Werkzeug==1.0.1
@@ -218,7 +219,9 @@ _IMPORTANT_PACKAGES = frozenset(
 ModulePatcher = Callable[[ModuleType], None]
 
 
-def register_module_patcher(patcher: ModulePatcher, module_name: str):
+def register_module_patcher(
+    patcher: ModulePatcher, module_name: str, dist_package_name: str | None = None
+):
     """
     Register a patcher that will be called with the module object when the named module is imported.
 
@@ -229,8 +232,10 @@ def register_module_patcher(patcher: ModulePatcher, module_name: str):
         and not is_contrast_module(module_name)
         and not is_versioned_patch(patcher)
     ):
-        top_level_module = module_name.split(".", maxsplit=1)[0]
-        if constraint := THIRD_PARTY_SUPPORTED_VERSIONS.get(top_level_module):
+        if dist_package_name is None:
+            # Default common case where dist_package_name is the top-level module name.
+            dist_package_name = module_name.split(".", maxsplit=1)[0]
+        if constraint := THIRD_PARTY_SUPPORTED_VERSIONS.get(dist_package_name):
             patcher = versioned_patch(*constraint)(patcher)
         else:
             raise ValueError(

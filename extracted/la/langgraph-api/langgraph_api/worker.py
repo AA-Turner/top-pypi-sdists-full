@@ -15,7 +15,6 @@ from typing_extensions import TypedDict
 import langgraph_api.logging as lg_logging
 from langgraph_api.auth.custom import SimpleUser, normalize_user
 from langgraph_api.config import (
-    BG_JOB_ISOLATED_LOOPS,
     BG_JOB_MAX_RETRIES,
     BG_JOB_TIMEOUT_SECS,
     USE_CUSTOM_CHECKPOINTER,
@@ -238,16 +237,10 @@ async def worker(
 
                 error_message = (
                     f"Run {run['run_id']} exceeded max attempts ({BG_JOB_MAX_RETRIES}).\n\n"
-                    "This may happen if your code blocks the event loop with synchronous I/O bound calls (network requests, database queries, etc.).\n\n"
-                    "If that is the case, your issues may be resolved by converting synchronous operations to async (e.g., use aiohttp instead of requests).\n\n"
+                    "This usually means the pod processing the run became unhealthy and the run was re-queued repeatedly. "
+                    "Check for OOM kills, pod restarts, liveness/readiness probe failures, or other signs of pod instability "
+                    "in your deployment's logs and metrics.\n\n"
                 )
-
-                if not BG_JOB_ISOLATED_LOOPS:
-                    error_message += (
-                        "Also consider setting BG_JOB_ISOLATED_LOOPS=true in your environment. This will isolate I/O-bound operations to avoid"
-                        " blocking the main API server.\n\n"
-                        "See: https://langchain-ai.github.io/langgraph/cloud/reference/env_var/#bg_job_isolated_loops\n\n"
-                    )
 
                 raise RuntimeError(error_message)
             configurable = run["kwargs"].get("config", {}).get("configurable", {})

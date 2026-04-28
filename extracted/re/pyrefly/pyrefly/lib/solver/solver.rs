@@ -62,6 +62,7 @@ use crate::types::module::ModuleType;
 use crate::types::simplify::simplify_tuples;
 use crate::types::simplify::unions;
 use crate::types::simplify::unions_with_literals;
+use crate::types::typed_dict::TypedDict;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::Var;
@@ -352,6 +353,9 @@ pub struct Solver {
     /// Only caches results for types that contain no Vars, to ensure
     /// soundness across different subset contexts.
     protocol_cache: Mutex<HashMap<(Type, Type), Result<(), SubsetError>>>,
+    /// Cross-call cache for TypedDict subset results.
+    /// Like protocol_cache, only caches Var-free types.
+    typed_dict_cache: Mutex<HashMap<(TypedDict, TypedDict), Result<(), SubsetError>>>,
     pub infer_with_first_use: bool,
     pub heap: TypeHeap,
     pub tensor_shapes: bool,
@@ -392,6 +396,7 @@ impl Solver {
             variables: Default::default(),
             instantiation_errors: Default::default(),
             protocol_cache: Default::default(),
+            typed_dict_cache: Default::default(),
             infer_with_first_use,
             heap: TypeHeap::new(),
             tensor_shapes,
@@ -415,6 +420,26 @@ impl Solver {
     /// Store a protocol conformance result.
     pub fn store_protocol_cache(&self, got: Type, want: Type, result: Result<(), SubsetError>) {
         self.protocol_cache.lock().insert((got, want), result);
+    }
+
+    pub fn check_typed_dict_cache(
+        &self,
+        got: &TypedDict,
+        want: &TypedDict,
+    ) -> Option<Result<(), SubsetError>> {
+        self.typed_dict_cache
+            .lock()
+            .get(&(got.clone(), want.clone()))
+            .cloned()
+    }
+
+    pub fn store_typed_dict_cache(
+        &self,
+        got: TypedDict,
+        want: TypedDict,
+        result: Result<(), SubsetError>,
+    ) {
+        self.typed_dict_cache.lock().insert((got, want), result);
     }
 
     /// Force all non-recursive Vars in `vars`.
@@ -477,6 +502,9 @@ impl Solver {
 
     /// Snapshot the current state of the given vars so they can be restored later.
     pub fn snapshot_vars(&self, vars: &[Var]) -> VarSnapshot {
+        if vars.is_empty() {
+            return VarSnapshot(Vec::new()); // avoid acquiring locks
+        }
         let variables = self.variables.lock();
         let errors = self.instantiation_errors.read();
         VarSnapshot(
@@ -497,6 +525,9 @@ impl Solver {
 
     /// Restore vars to a previously saved snapshot.
     pub fn restore_vars(&self, snapshot: VarSnapshot) {
+        if snapshot.0.is_empty() {
+            return; // avoid acquiring locks
+        }
         let variables = self.variables.lock();
         let mut errors = self.instantiation_errors.write();
         for (var, state) in snapshot.0 {
@@ -1472,14 +1503,7 @@ impl Solver {
     }
 
     /// Record a variable that is used recursively.
-    pub fn record_recursive<Ans: LookupAnswer>(
-        &self,
-        var: Var,
-        ty: Type,
-        type_order: TypeOrder<Ans>,
-        errors: &ErrorCollector,
-        range: TextRange,
-    ) -> Type {
+    pub fn record_recursive(&self, var: Var, ty: Type) -> Type {
         fn expand(
             t: Type,
             variables: &Variables,
@@ -1512,34 +1536,14 @@ impl Solver {
         let variable = lock.get(var);
         match &*variable {
             Variable::Answer(forced) => {
+                // An answer was already forced - use it, not the type from analysis.
+                //
+                // This can only happen in a fixpoint, and we'll catch it with a fixpoint non-convergence
+                // error if it does not eventually converge.
                 let forced = forced.clone();
                 drop(variable);
                 drop(lock);
-                // We got forced into choosing a type to satisfy a subset constraint, so check we are OK with that.
-                // Since we have already used `forced`, and will continue to do so, important that what we expect
-                // is more restrictive (so the `forced` is an over-approximation).
-                if self.is_subset_eq(&ty, &forced, type_order).is_err() {
-                    // Poor error message, but overall, this is a terrible experience for users.
-                    self.error(
-                        &ty,
-                        &forced,
-                        errors,
-                        range,
-                        &|| TypeCheckContext::of_kind(TypeCheckKind::CycleBreaking),
-                        SubsetError::Other,
-                    );
-                }
-                // In order to minimize the blast radius of poor cycle-handling, we currently produce
-                // inconsistent results - any other binding that saved an answer which depended on
-                // this one sees the forced type, but anything downstream of this sees the computed
-                // type.
-                //
-                // This is both highly unpredictable in terms of end user experience, and nondeterministic
-                // because we can definitely get non-idempotent errors in some cases.
-                //
-                // TODO(stroxler): Probably remove this - it regresses a CRTP example, so we should
-                // remove it in a dedicated diff.
-                ty
+                forced
             }
             _ => {
                 drop(variable);
@@ -1904,6 +1908,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         ty: &Type,
         constraints: &'c [Type],
     ) -> Option<&'c Type> {
+        if ty.is_any() {
+            return None;
+        }
         let matching: Vec<&Type> = constraints
             .iter()
             .filter(|c| self.is_subset_eq(ty, c).is_ok())

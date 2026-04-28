@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: deepgram-sdk
-Version: 6.1.1
+Version: 7.0.0
 Summary: 
 License: MIT
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
@@ -13,8 +13,6 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -23,9 +21,12 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
+Provides-Extra: aiohttp
+Requires-Dist: aiohttp (>=3.13.4,<4) ; (python_version >= "3.9") and (extra == "aiohttp")
 Requires-Dist: httpx (>=0.21.2)
+Requires-Dist: httpx-aiohttp (==0.1.8) ; (python_version >= "3.9") and (extra == "aiohttp")
 Requires-Dist: pydantic (>=1.9.2)
-Requires-Dist: pydantic-core (>=2.18.2)
+Requires-Dist: pydantic-core (>=2.18.2,<2.44.0)
 Requires-Dist: typing_extensions (>=4.0.0)
 Requires-Dist: websockets (>=12.0)
 Project-URL: Repository, https://github.com/deepgram/deepgram-python-sdk
@@ -35,7 +36,7 @@ Description-Content-Type: text/markdown
 
 ![Built with Fern](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)
 [![PyPI version](https://img.shields.io/pypi/v/deepgram-sdk)](https://pypi.python.org/pypi/deepgram-sdk)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
 The official Python SDK for Deepgram's automated speech recognition, text-to-speech, and language understanding APIs. Power your applications with world-class speech and Language AI models.
@@ -46,7 +47,8 @@ Comprehensive API documentation and guides are available at [developers.deepgram
 
 ### Migrating From Earlier Versions
 
-- [v5 to v6](./docs/Migrating-v5-to-v6.md) (current)
+- [v6 to v7](./docs/Migrating-v6-to-v7.md) (current)
+- [v5 to v6](./docs/Migrating-v5-to-v6.md)
 - [v3+ to v5](./docs/Migrating-v3-to-v5.md)
 - [v2 to v3+](./docs/Migrating-v2-to-v3.md)
 
@@ -497,7 +499,7 @@ See our [CONTRIBUTING](./CONTRIBUTING.md) guide.
 
 ### Requirements
 
-- Python 3.8+
+- Python 3.10+
 - See `pyproject.toml` for full dependency list
 
 ## Community Code of Conduct

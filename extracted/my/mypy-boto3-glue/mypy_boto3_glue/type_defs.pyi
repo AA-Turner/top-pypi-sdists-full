@@ -2980,12 +2980,6 @@ class GetPartitionIndexesRequestTypeDef(TypedDict):
     CatalogId: NotRequired[str]
     NextToken: NotRequired[str]
 
-class GetPartitionRequestTypeDef(TypedDict):
-    DatabaseName: str
-    TableName: str
-    PartitionValues: Sequence[str]
-    CatalogId: NotRequired[str]
-
 class SegmentTypeDef(TypedDict):
     SegmentNumber: int
     TotalSegments: int
@@ -3032,19 +3026,6 @@ GetTableOptimizerRequestTypeDef = TypedDict(
         "Type": TableOptimizerTypeType,
     },
 )
-
-class GetTableVersionRequestTypeDef(TypedDict):
-    DatabaseName: str
-    TableName: str
-    CatalogId: NotRequired[str]
-    VersionId: NotRequired[str]
-
-class GetTableVersionsRequestTypeDef(TypedDict):
-    DatabaseName: str
-    TableName: str
-    CatalogId: NotRequired[str]
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
 
 class GetTagsRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -3998,6 +3979,28 @@ ApplyMappingPaginatorTypeDef = TypedDict(
         "Mapping": list[MappingPaginatorTypeDef],
     },
 )
+
+class GetPartitionRequestTypeDef(TypedDict):
+    DatabaseName: str
+    TableName: str
+    PartitionValues: Sequence[str]
+    CatalogId: NotRequired[str]
+    AuditContext: NotRequired[AuditContextTypeDef]
+
+class GetTableVersionRequestTypeDef(TypedDict):
+    DatabaseName: str
+    TableName: str
+    CatalogId: NotRequired[str]
+    VersionId: NotRequired[str]
+    AuditContext: NotRequired[AuditContextTypeDef]
+
+class GetTableVersionsRequestTypeDef(TypedDict):
+    DatabaseName: str
+    TableName: str
+    CatalogId: NotRequired[str]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    AuditContext: NotRequired[AuditContextTypeDef]
 
 class BackfillErrorTypeDef(TypedDict):
     Code: NotRequired[BackfillErrorCodeType]
@@ -5220,6 +5223,7 @@ class GetTableVersionsRequestPaginateTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
     CatalogId: NotRequired[str]
+    AuditContext: NotRequired[AuditContextTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class GetTablesRequestPaginateTypeDef(TypedDict):
@@ -5505,6 +5509,7 @@ class GetPartitionsRequestPaginateTypeDef(TypedDict):
     ExcludeColumnSchema: NotRequired[bool]
     TransactionId: NotRequired[str]
     QueryAsOfTime: NotRequired[TimestampTypeDef]
+    AuditContext: NotRequired[AuditContextTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class GetPartitionsRequestTypeDef(TypedDict):
@@ -5518,6 +5523,7 @@ class GetPartitionsRequestTypeDef(TypedDict):
     ExcludeColumnSchema: NotRequired[bool]
     TransactionId: NotRequired[str]
     QueryAsOfTime: NotRequired[TimestampTypeDef]
+    AuditContext: NotRequired[AuditContextTypeDef]
 
 class GetResourcePoliciesResponseTypeDef(TypedDict):
     GetResourcePoliciesResponseList: list[GluePolicyTypeDef]

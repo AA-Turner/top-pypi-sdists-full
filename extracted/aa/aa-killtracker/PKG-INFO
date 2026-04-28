@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aa-killtracker
-Version: 1.4.0
+Version: 1.4.1
 Summary: An app for running killmail trackers with Alliance Auth and Discord.
 Author-email: Erik Kalkoken <kalkoken87@gmail.com>
 Requires-Python: >=3.8

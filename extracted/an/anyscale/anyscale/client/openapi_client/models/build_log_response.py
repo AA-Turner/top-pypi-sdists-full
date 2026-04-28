@@ -33,23 +33,38 @@ class BuildLogResponse(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'logs': 'str'
+        'logs': 'str',
+        'portal_url': 'str',
+        'acr_run_id': 'str',
+        'acr_cli_command': 'str'
     }
 
     attribute_map = {
-        'logs': 'logs'
+        'logs': 'logs',
+        'portal_url': 'portal_url',
+        'acr_run_id': 'acr_run_id',
+        'acr_cli_command': 'acr_cli_command'
     }
 
-    def __init__(self, logs=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, logs=None, portal_url=None, acr_run_id=None, acr_cli_command=None, local_vars_configuration=None):  # noqa: E501
         """BuildLogResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._logs = None
+        self._portal_url = None
+        self._acr_run_id = None
+        self._acr_cli_command = None
         self.discriminator = None
 
         self.logs = logs
+        if portal_url is not None:
+            self.portal_url = portal_url
+        if acr_run_id is not None:
+            self.acr_run_id = acr_run_id
+        if acr_cli_command is not None:
+            self.acr_cli_command = acr_cli_command
 
     @property
     def logs(self):
@@ -75,6 +90,75 @@ class BuildLogResponse(object):
             raise ValueError("Invalid value for `logs`, must not be `None`")  # noqa: E501
 
         self._logs = logs
+
+    @property
+    def portal_url(self):
+        """Gets the portal_url of this BuildLogResponse.  # noqa: E501
+
+        Azure Portal URL to view build logs. Only set for Azure deployments.  # noqa: E501
+
+        :return: The portal_url of this BuildLogResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._portal_url
+
+    @portal_url.setter
+    def portal_url(self, portal_url):
+        """Sets the portal_url of this BuildLogResponse.
+
+        Azure Portal URL to view build logs. Only set for Azure deployments.  # noqa: E501
+
+        :param portal_url: The portal_url of this BuildLogResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._portal_url = portal_url
+
+    @property
+    def acr_run_id(self):
+        """Gets the acr_run_id of this BuildLogResponse.  # noqa: E501
+
+        Azure Container Registry task run ID. Only set for Azure deployments.  # noqa: E501
+
+        :return: The acr_run_id of this BuildLogResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._acr_run_id
+
+    @acr_run_id.setter
+    def acr_run_id(self, acr_run_id):
+        """Sets the acr_run_id of this BuildLogResponse.
+
+        Azure Container Registry task run ID. Only set for Azure deployments.  # noqa: E501
+
+        :param acr_run_id: The acr_run_id of this BuildLogResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._acr_run_id = acr_run_id
+
+    @property
+    def acr_cli_command(self):
+        """Gets the acr_cli_command of this BuildLogResponse.  # noqa: E501
+
+        Azure CLI command to fetch build logs. Only set for Azure deployments.  # noqa: E501
+
+        :return: The acr_cli_command of this BuildLogResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._acr_cli_command
+
+    @acr_cli_command.setter
+    def acr_cli_command(self, acr_cli_command):
+        """Sets the acr_cli_command of this BuildLogResponse.
+
+        Azure CLI command to fetch build logs. Only set for Azure deployments.  # noqa: E501
+
+        :param acr_cli_command: The acr_cli_command of this BuildLogResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._acr_cli_command = acr_cli_command
 
     def to_dict(self):
         """Returns the model properties as a dict"""

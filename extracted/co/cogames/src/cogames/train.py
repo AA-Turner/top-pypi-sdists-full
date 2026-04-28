@@ -221,8 +221,9 @@ def train(
 
     resolved_initial_weights = initial_weights_path
 
+    policy_env_interface = PolicyEnvInterface.from_mg_cfg(vecenv.driver_env.env_cfg)
     policy = initialize_or_load_policy(
-        PolicyEnvInterface.from_mg_cfg(vecenv.driver_env.env_cfg),
+        policy_env_interface,
         PolicySpec(
             class_path=policy_class_path,
             data_path=resolved_initial_weights,
@@ -395,6 +396,7 @@ def train(
             spec = SubmissionPolicySpec(
                 class_path=policy_class_path,
                 data_path=final_checkpoint.name,
+                policy_env_interface=policy_env_interface,
             )
             write_submission_policy_spec(run_dir / POLICY_SPEC_FILENAME, spec)
 
@@ -420,13 +422,13 @@ def train(
 
             console.print()
             console.print("To continue training this policy:", style="bold")
-            console.print(f"  [yellow]cogames train {all_missions} -p {policy_arg}[/yellow]")
+            console.print(f"  [yellow]cogames tutorial train {all_missions} -p {policy_arg}[/yellow]")
             console.print()
             console.print("To play with this policy:", style="bold")
             console.print(f"  [yellow]cogames play -m {first_mission} -p {policy_arg}[/yellow]")
             console.print()
             console.print("To evaluate this policy:", style="bold")
-            console.print(f"  [yellow]cogames eval -m {first_mission} -p {policy_arg}[/yellow]")
+            console.print(f"  [yellow]cogames run -m {first_mission} -p {policy_arg}[/yellow]")
         elif checkpoints and training_diverged:
             console.print()
             console.print(f"[yellow]Found {len(checkpoints)} checkpoint(s). The most recent may be corrupted.[/yellow]")

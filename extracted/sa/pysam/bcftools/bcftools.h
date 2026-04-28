@@ -31,6 +31,7 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kfunc.h>
 #include <math.h>
+#include <ctype.h>
 
 #define FT_TAB_TEXT 0       // custom tab-delimited text file
 #define FT_GZ 1
@@ -49,6 +50,9 @@ void error(const char *format, ...) HTS_NORETURN HTS_FORMAT(HTS_PRINTF_FMT, 1, 2
 //  Note: unlike error() above, the message should not end with "\n" as a
 //  newline will be added by the function.
 void error_errno(const char *format, ...) HTS_NORETURN HTS_FORMAT(HTS_PRINTF_FMT, 1, 2);
+
+//  Set hts_verbose and return 0, or return -1 if str is not a valid integer
+int apply_verbosity(const char *str);
 
 // For on the fly index creation with --write-index
 int init_index2(htsFile *fh, bcf_hdr_t *hdr, const char *fname, char **idx_fname, int idx_fmt);
@@ -180,5 +184,21 @@ static inline int get_unseen_allele(bcf1_t *line)
     }
     return 0;
 }
+
+// <ctype.h> wrappers, borrowed from htslib's textutils_internal.h
+// The <ctype.h> functions operate on ints such as are returned by fgetc(),
+// i.e., characters represented as unsigned-char-valued ints, or EOF.
+// To operate on plain chars (and to avoid warnings on some platforms),
+// technically one must cast to unsigned char everywhere (see CERT STR37-C)
+// or less painfully use these *_c() functions that operate on plain chars
+// (but not EOF, which must be considered separately where it is applicable).
+static inline int isalnum_c(char c) { return isalnum((unsigned char) c); }
+static inline int isalpha_c(char c) { return isalpha((unsigned char) c); }
+static inline int isdigit_c(char c) { return isdigit((unsigned char) c); }
+static inline int isprint_c(char c) { return isprint((unsigned char) c); }
+static inline int ispunct_c(char c) { return ispunct((unsigned char) c); }
+static inline int isspace_c(char c) { return isspace((unsigned char) c); }
+static inline char tolower_c(char c) { return tolower((unsigned char) c); }
+static inline char toupper_c(char c) { return toupper((unsigned char) c); }
 
 #endif

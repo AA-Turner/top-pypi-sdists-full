@@ -236,7 +236,7 @@ def _interpolate_tunnel_definition(pyngrok_config: PyngrokConfig,
 
     matched: Optional[Dict[str, Any]] = None
 
-    # v3 represents `endpoints:` as a list of objects (each with a `name` field)
+    # v3 represents `endpoints` as a list of objects (each with a `name` field)
     if pyngrok_config.config_version == "3":
         endpoint_definitions = config.get("endpoints") or []
         if not name:
@@ -252,7 +252,7 @@ def _interpolate_tunnel_definition(pyngrok_config: PyngrokConfig,
                     matched = definition
                     break
 
-    # `tunnels:` is the v2 block, but ngrok also allows it in v3 configs alongside `endpoints:`
+    # `tunnels` is the v2 block, but ngrok also allows it in v3 configs alongside `endpoints`
     if not matched:
         tunnel_definitions = config.get("tunnels", {}) or {}
         if not name and "pyngrok-default" in tunnel_definitions:
@@ -330,9 +330,9 @@ def connect(addr: Optional[str] = None,
     Establish a new ``ngrok`` tunnel for the given protocol to the given port, returning an object representing
     the connected tunnel.
 
-    Routing is driven by :attr:`~pyngrok.conf.PyngrokConfig.config_version`: ``"2"`` posts to ``/api/tunnels``
-    and reads the v2 ``tunnels:`` config block; ``"3"`` posts to ``/api/endpoints`` and reads the v3
-    ``endpoints:`` block (and a ``tunnels:`` block if also present, since ``ngrok`` allows both there).
+    Routing is driven by :attr:`~pyngrok.conf.PyngrokConfig.config_version`: ``"2"`` uses ``ngrok``'s Tunnels
+    and reads the v2 ``tunnels`` config block; ``"3"`` uses Endpoints and reads the v3
+    ``endpoints`` block (and a ``tunnels`` block if also present, since ``ngrok`` allows both there).
 
     If a tunnel definition in ``ngrok``'s config file matches the given ``name``, it will be loaded and used to
     start the tunnel (note that "-api" will be appended to its name when started). When ``name`` is ``None`` and

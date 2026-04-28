@@ -390,14 +390,6 @@ class ConfigResolver(object):
         return self.with_config_source(LegacyDictConfigSource(legacy_dict_object))
 
 
-def non_interactive_config_resolver() -> ConfigResolver:
-    """
-    Create a typical config resolver in a non-interactive context (e.g. lexicon used as a library).
-    Configuration will be resolved against env variables and lexicon config files in working dir.
-    """
-    return ConfigResolver().with_env().with_config_dir(os.getcwd())
-
-
 def legacy_config_resolver(legacy_dict: dict[str, Any]) -> ConfigResolver:
     """
     With the old legacy approach, we juste got a plain configuration dict object.

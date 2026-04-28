@@ -225,7 +225,7 @@ def get_stage_information_dict(stage_str, method):
     # cumulative stage window, and lead-N targets month init+N per FF2 STM
     # §6.1.1 / Figures 23-29. Non-FLDAS features keep the stage range unshifted.
     fldas_lead = None
-    if parts[0] == "MEAN" and len(parts) >= 2 and parts[1] == "FLDAS":
+    if parts[0] == "MEAN" and len(parts) >= 2 and parts[1] in ("FLDAS", "S2S"):
         lead_idx = next((i for i, p in enumerate(parts) if p.startswith("LEAD")), None)
         if lead_idx is not None:
             try:
@@ -297,7 +297,7 @@ def update_feature_names(df, method):
         if parts[0] == "AEF" and len(parts) >= 2:
             cid = "_".join(parts[:2])  # AEF_1, AEF_2, ...
             stage_parts = parts[2:]
-        elif parts[0] == "MEAN" and len(parts) >= 2 and parts[1] == "FLDAS":
+        elif parts[0] == "MEAN" and len(parts) >= 2 and parts[1] in ("FLDAS", "S2S"):
             # MEAN_FLDAS_SoilMoist_tavg_LEAD0_1_2_3
             # Find LEADn token to split CID name from stage numbers
             lead_idx = next((i for i, p in enumerate(parts) if p.startswith("LEAD")), None)

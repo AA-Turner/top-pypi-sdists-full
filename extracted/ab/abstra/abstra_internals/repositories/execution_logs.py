@@ -1,4 +1,6 @@
 import json
+import os
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
@@ -142,13 +144,42 @@ class LocalExecutionLogsRepository(ExecutionLogsRepository):
 
 
 class ProductionExecutionLogsRepository(ExecutionLogsRepository):
+    # Thread-local reentry guard — see save() below for why.
+    _saving = threading.local()
+
     def __init__(self, client: "HTTPClient"):
         self.sequence = 0
         self.client = client
 
-    def save(
-        self, log_entry: LogEntry
-    ) -> None: ...  # No-op in production, as logs are saved directly by the cluster.
+    def save(self, log_entry: LogEntry) -> None:
+        # In prod, logs are captured by the cluster's log collector (Fluentbit/Filebeat)
+        # and this is a no-op. In local-player mode there is no log collector, so we
+        # forward the entry over HTTP and let cloud-api index it into ES directly.
+        if os.getenv("ABSTRA_LOCAL_LOGS") != "true":
+            return
+
+        # The HTTP stack (urllib3, OTel requests instrumentation, etc.) emits lines on
+        # stdout/stderr that abstra's stdio capture hooks and feeds back into this same
+        # save() — infinite recursion. Guard re-entry so nested calls are dropped.
+        if getattr(self._saving, "active", False):
+            return
+        self._saving.active = True
+        try:
+            dto = log_entry.to_dto()
+            body = {
+                "createdAt": dto["createdAt"],
+                "event": dto["event"],
+                "payload": dto["payload"],
+                "sequence": dto["sequence"],
+            }
+            response = self.client.post(
+                f"/executions/{log_entry.execution_id}/logs", json=body
+            )
+            response.raise_for_status()
+        except Exception as e:
+            AbstraLogger.capture_exception(e)
+        finally:
+            self._saving.active = False
 
     def get(
         self,

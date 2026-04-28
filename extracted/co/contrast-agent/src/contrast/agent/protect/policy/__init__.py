@@ -1,7 +1,7 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import functools
-from typing import Callable
+from collections.abc import Callable
 from contrast.applies import apply_rule
 from contrast.utils.patch_utils import add_watermark
 from contrast.agent.policy import patch_manager

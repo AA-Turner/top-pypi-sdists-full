@@ -5,6 +5,7 @@ use topk_rs::proto::v1::{
     ctx::{ask_result::Message, AskResult},
     data::Value,
 };
+use topk_rs::{Client, ClientConfig, Error};
 
 mod utils;
 use utils::ProjectTestContext;
@@ -18,7 +19,7 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset")
         .into_inner()
@@ -63,4 +64,17 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
             message: Some(Message::Answer(_))
         })
     ));
+}
+
+#[tokio::test]
+async fn test_ask_empty_datasets() {
+    let err = Client::new(ClientConfig::new("dummy-key", "us-east-1"))
+        .ask("query", Vec::<&str>::new(), None, None, None)
+        .await
+        .expect_err("should fail with empty datasets");
+
+    assert!(
+        matches!(err, Error::InvalidArgument(ref s) if s == "provide at least one dataset"),
+        "unexpected error: {err}"
+    );
 }

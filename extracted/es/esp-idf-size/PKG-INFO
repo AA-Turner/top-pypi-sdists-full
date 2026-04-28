@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: esp-idf-size
-Version: 2.1.0
+Version: 2.2.0
 Summary: Firmware size analysis for ESP-IDF
-Home-page: https://github.com/espressif/esp-idf-size
 Author: Espressif Systems
-Author-email: 
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/espressif/esp-idf-size
 Keywords: espressif,embedded,project,size
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -18,6 +18,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
@@ -32,18 +34,8 @@ Requires-Dist: coverage; extra == "dev"
 Requires-Dist: jsonschema; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: commitizen; extra == "dev"
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
+Requires-Dist: czespressif; extra == "dev"
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # esp-idf-size
 

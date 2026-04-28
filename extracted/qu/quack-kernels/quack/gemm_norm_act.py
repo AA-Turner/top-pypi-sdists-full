@@ -21,7 +21,7 @@ from quack.cute_dsl_utils import (
 from quack.gemm_sm90 import GemmSm90
 from quack.gemm_sm100 import GemmSm100
 from quack.gemm_sm120 import GemmSm120
-from quack.gemm_act import GemmActMixin, GemmGatedMixin
+from quack.gemm_act import GemmActMixin, GemmGatedMixin, GemmGatedSm120Mixin
 from quack.epi_ops import vec_multiply
 from quack.activation import act_fn_map, gate_fn_map
 from quack.cache_utils import jit_cache
@@ -74,7 +74,7 @@ class GemmNormActMixin(GemmActMixin):
         # Apply activation
         if const_expr(params.act_fn is not None):
             tRS_rPostAct = cute.make_rmem_tensor(tRS_rD.layout.shape, self.acc_dtype)
-            if const_expr(self.arch < 100):
+            if const_expr(self.arch != 100):
                 for i in cutlass.range(cute.size(tRS_rPostAct), unroll_full=True):
                     tRS_rPostAct[i] = params.act_fn(tRS_rD[i])
             else:
@@ -129,7 +129,7 @@ class GemmNormGatedMixin(GemmGatedMixin):
         # Gated activation on normalized D
         tRS_rPostAct_layout = cute.recast_layout(2, 1, tRS_rD.layout)
         tRS_rPostAct = cute.make_rmem_tensor(tRS_rPostAct_layout.shape, self.acc_dtype)
-        if const_expr(self.arch < 100):
+        if const_expr(self.arch != 100):
             for i in cutlass.range(cute.size(tRS_rPostAct), unroll_full=True):
                 tRS_rPostAct[i] = params.act_fn(tRS_rD[2 * i], tRS_rD[2 * i + 1])
         else:
@@ -149,7 +149,7 @@ class GemmNormGatedSm100(GemmNormGatedMixin, GemmSm100):
     pass
 
 
-class GemmNormGatedSm120(GemmNormGatedMixin, GemmSm120):
+class GemmNormGatedSm120(GemmGatedSm120Mixin, GemmNormGatedMixin, GemmSm120):
     pass
 
 
@@ -277,6 +277,7 @@ def gemm_norm_act_fn(
     tile_N: int,
     cluster_M: int,
     cluster_N: int,
+    tile_K: int | None = None,
     pingpong: bool = False,
     persistent: bool = True,
     is_dynamic_persistent: bool = False,
@@ -327,6 +328,8 @@ def gemm_norm_act_fn(
 
     device_capacity = get_device_capacity(A.device)
     assert device_capacity[0] in [9, 10, 11, 12], "Only SM90, SM100, SM110, and SM120 are supported"
+    if tile_K is not None:
+        assert device_capacity[0] in [10, 11], "tile_K currently requires SM100/SM110"
     if rounding_mode == RoundingMode.RS:
         assert device_capacity[0] == 10, "Stochastic rounding requires SM100"
 
@@ -349,7 +352,7 @@ def gemm_norm_act_fn(
         d_major,
         c_major,
         postact_major,
-        (tile_M, tile_N),
+        (tile_M, tile_N, tile_K) if tile_K is not None else (tile_M, tile_N),
         (cluster_M, cluster_N, 1),
         pingpong,
         persistent,

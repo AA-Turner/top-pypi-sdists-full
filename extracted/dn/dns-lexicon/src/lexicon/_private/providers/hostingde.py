@@ -184,13 +184,14 @@ class Provider(BaseProvider):
         # so, here check after deleting and loop
         # if record(s) is not deleted after 30 seconds > False
         retries = 30
+        wait_time = int(self._get_provider_option("retry_wait_time") or 1000)
         for record_id in delete_record_ids:
             while True:
                 if self.list_records(record_id):
                     if retries < 1:
                         break
                     retries = retries - 1
-                    time.sleep(1)
+                    time.sleep(wait_time / 1000)
                 else:
                     break
 
@@ -205,8 +206,9 @@ class Provider(BaseProvider):
         read_page = 1
         return_data = []
         retries = 30
+        wait_time = int(self._get_provider_option("retry_wait_time") or 1000)
 
-        # in some situatons, API uses pagination
+        # in some situations, API uses pagination
         # here we check and if there is pagination, go through all pages
         while True:
             page_data = data
@@ -231,15 +233,15 @@ class Provider(BaseProvider):
                 if retries < 1:
                     raise Exception(f"Api error: {response_json.get('errors')}")
                 retries = retries - 1
-                time.sleep(1)
+                time.sleep(wait_time / 1000)
                 continue
 
             if status not in ("success", "pending"):
                 raise Exception(f"Api error: {response_json.get('errors')}")
-            # check if there a data object
+            # check if there is a data object
             read_data = response_json.get("response", {}).get("data", None)
 
-            # if no data object, check if there a records object
+            # if no data object, check if there is a records object
             if read_data is None:
                 read_data = response_json.get("response", {}).get("records", None)
 

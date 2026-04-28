@@ -19,7 +19,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 from .literals import (
     ActionCategoryType,
@@ -274,6 +274,8 @@ __all__ = (
     "ListWavesResponseTypeDef",
     "ManagedAccountTypeDef",
     "MarkAsArchivedRequestTypeDef",
+    "MergeConstructTypeDef",
+    "MergeOperationTypeDef",
     "NetworkInterfaceTypeDef",
     "NetworkMigrationAnalysisJobDetailsTypeDef",
     "NetworkMigrationAnalysisResultSourceTypeDef",
@@ -324,6 +326,8 @@ __all__ = (
     "SourceServerConnectorActionTypeDef",
     "SourceServerResponseTypeDef",
     "SourceServerTypeDef",
+    "SplitConstructTypeDef",
+    "SplitOperationTypeDef",
     "SsmDocumentOutputTypeDef",
     "SsmDocumentTypeDef",
     "SsmExternalParameterTypeDef",
@@ -717,6 +721,7 @@ class NetworkMigrationMapperSegmentConstructTypeDef(TypedDict):
     name: NotRequired[str]
     description: NotRequired[str]
     logicalID: NotRequired[str]
+    excluded: NotRequired[bool]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
     properties: NotRequired[dict[str, str]]
@@ -985,6 +990,11 @@ class MarkAsArchivedRequestTypeDef(TypedDict):
     accountID: NotRequired[str]
 
 
+class MergeConstructTypeDef(TypedDict):
+    segmentID: NotRequired[str]
+    constructID: NotRequired[str]
+
+
 class NetworkInterfaceTypeDef(TypedDict):
     macAddress: NotRequired[str]
     ips: NotRequired[list[str]]
@@ -1018,6 +1028,8 @@ class OSTypeDef(TypedDict):
 
 
 class UpdateOperationTypeDef(TypedDict):
+    name: NotRequired[str]
+    excluded: NotRequired[bool]
     properties: NotRequired[Mapping[str, str]]
 
 
@@ -1073,6 +1085,10 @@ class SourceS3ConfigurationTypeDef(TypedDict):
 class SourceServerConnectorActionTypeDef(TypedDict):
     credentialsSecretArn: NotRequired[str]
     connectorArn: NotRequired[str]
+
+
+class SplitConstructTypeDef(TypedDict):
+    cidrBlock: NotRequired[str]
 
 
 class StartCutoverRequestTypeDef(TypedDict):
@@ -1834,6 +1850,10 @@ class ListWavesRequestTypeDef(TypedDict):
     accountID: NotRequired[str]
 
 
+class MergeOperationTypeDef(TypedDict):
+    mergeConstructs: NotRequired[Sequence[MergeConstructTypeDef]]
+
+
 class NetworkMigrationAnalysisResultTypeDef(TypedDict):
     jobID: NotRequired[str]
     networkMigrationExecutionID: NotRequired[str]
@@ -1910,10 +1930,6 @@ class SourcePropertiesTypeDef(TypedDict):
     cpus: NotRequired[list[CPUTypeDef]]
     ramBytes: NotRequired[int]
     os: NotRequired[OSTypeDef]
-
-
-class OperationUnionTypeDef(TypedDict):
-    update: NotRequired[UpdateOperationTypeDef]
 
 
 class PutSourceServerActionRequestTypeDef(TypedDict):
@@ -2089,6 +2105,10 @@ class UpdateSourceServerRequestTypeDef(TypedDict):
     connectorAction: NotRequired[SourceServerConnectorActionTypeDef]
 
 
+class SplitOperationTypeDef(TypedDict):
+    splitConstructs: NotRequired[Sequence[SplitConstructTypeDef]]
+
+
 class WaveResponseTypeDef(TypedDict):
     waveID: str
     arn: str
@@ -2230,13 +2250,6 @@ class ListNetworkMigrationDeployedStacksResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class StartNetworkMigrationMappingUpdateConstructTypeDef(TypedDict):
-    segmentID: str
-    constructID: str
-    constructType: str
-    operation: NotRequired[OperationUnionTypeDef]
-
-
 class ListSourceServerActionsResponseTypeDef(TypedDict):
     items: list[SourceServerActionDocumentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2311,6 +2324,13 @@ class UpdateNetworkMigrationDefinitionRequestTypeDef(TypedDict):
     scopeTags: NotRequired[Mapping[str, str]]
 
 
+class OperationUnionTypeDef(TypedDict):
+    merge: NotRequired[MergeOperationTypeDef]
+    split: NotRequired[SplitOperationTypeDef]
+    delete: NotRequired[Mapping[str, Any]]
+    update: NotRequired[UpdateOperationTypeDef]
+
+
 class ListWavesResponseTypeDef(TypedDict):
     items: list[WaveTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2367,13 +2387,6 @@ class ListNetworkMigrationCodeGenerationSegmentsResponseTypeDef(TypedDict):
     items: list[NetworkMigrationCodeGenerationSegmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-
-class StartNetworkMigrationMappingUpdateRequestTypeDef(TypedDict):
-    networkMigrationExecutionID: str
-    networkMigrationDefinitionID: str
-    constructs: NotRequired[Sequence[StartNetworkMigrationMappingUpdateConstructTypeDef]]
-    segments: NotRequired[Sequence[StartNetworkMigrationMappingUpdateSegmentTypeDef]]
 
 
 class PostLaunchActionsStatusTypeDef(TypedDict):
@@ -2443,6 +2456,13 @@ class LaunchConfigurationTypeDef(TypedDict):
 
 
 PostLaunchActionsUnionTypeDef = Union[PostLaunchActionsTypeDef, PostLaunchActionsOutputTypeDef]
+
+
+class StartNetworkMigrationMappingUpdateConstructTypeDef(TypedDict):
+    segmentID: str
+    constructID: str
+    constructType: str
+    operation: NotRequired[OperationUnionTypeDef]
 
 
 class DescribeSourceServersResponseTypeDef(TypedDict):
@@ -2515,6 +2535,13 @@ class UpdateLaunchConfigurationTemplateRequestTypeDef(TypedDict):
     largeVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
     enableParametersEncryption: NotRequired[bool]
     parametersEncryptionKey: NotRequired[str]
+
+
+class StartNetworkMigrationMappingUpdateRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    constructs: NotRequired[Sequence[StartNetworkMigrationMappingUpdateConstructTypeDef]]
+    segments: NotRequired[Sequence[StartNetworkMigrationMappingUpdateSegmentTypeDef]]
 
 
 JobTypeDef = TypedDict(

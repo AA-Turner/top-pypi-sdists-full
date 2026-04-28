@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
 from customer_retention.core.config.experiments import get_framework_repo_path
 
@@ -30,6 +30,11 @@ class DatabricksPipelineGenerator(PipelineGeneratorBase):
         disable_user_extensions: Optional[bool] = None,
         harvest_result: Optional["HarvestResult"] = None,
         parity_mode: Optional[str] = None,
+        parity_ignored_features: Optional[Iterable[str]] = None,
+        raw_source_path_overrides: Optional[Dict[str, str]] = None,
+        landing_lifecycle_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+        landing_filter_overrides: Optional[Dict[str, str]] = None,
+        landing_drop_columns_overrides: Optional[Dict[str, Iterable[str]]] = None,
     ):
         self._findings_dir = Path(findings_dir)
         self._output_dir = Path(output_dir)
@@ -47,6 +52,11 @@ class DatabricksPipelineGenerator(PipelineGeneratorBase):
             bronze_aggregation_overrides=merged_bronze_overrides,
             disable_user_extensions=disable_user_extensions,
             parity_mode=parity_mode,
+            parity_ignored_features=parity_ignored_features,
+            raw_source_path_overrides=raw_source_path_overrides,
+            landing_lifecycle_overrides=landing_lifecycle_overrides,
+            landing_filter_overrides=landing_filter_overrides,
+            landing_drop_columns_overrides=landing_drop_columns_overrides,
         )
         self._harvest_result = harvest_result
         self._renderer = DatabricksCodeRenderer(

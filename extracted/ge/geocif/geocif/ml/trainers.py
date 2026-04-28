@@ -139,15 +139,17 @@ def optimized_model(
         try:
             if model_name == "catboost":
                 params = {
-                    "depth": trial.suggest_int("depth", 1, 7),
+                    "depth": trial.suggest_int("depth", 2, 5),
                     "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1),
                     "iterations": trial.suggest_int(
                         "iterations", low=1000, high=5000, step=500
                     ),
-                    "subsample": trial.suggest_float("subsample", 1.0, 1.0),
+                    "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+                    "bootstrap_type": "Bernoulli",
                     "random_strength": trial.suggest_float("random_strength", 0.3, 1.0),
-                    "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 1.0),
-                    "loss_function": "MAPE",
+                    "reg_lambda": trial.suggest_float("reg_lambda", 1.0, 30.0, log=True),
+                    "min_data_in_leaf": trial.suggest_int("min_data_in_leaf", 3, 10),
+                    "loss_function": "RMSE",
                     "early_stopping_rounds": 50,
                     "random_seed": seed,
                     "verbose": False,
@@ -197,13 +199,15 @@ def optimized_model(
     except Exception as e:
         print(f"Optimization failed: {e}")
         hyperparams = {
-            "depth": 6,
+            "depth": 4,
             "learning_rate": 0.01,
             "iterations": 10,
             "subsample": 1.0,
+            "bootstrap_type": "Bernoulli",
             "random_strength": 0.5,
-            "reg_lambda": 0.001,
-            "loss_function": "MAPE",
+            "reg_lambda": 5.0,
+            "min_data_in_leaf": 5,
+            "loss_function": "RMSE",
             "early_stopping_rounds": 50,
             "random_seed": seed,
             "verbose": False,
@@ -267,18 +271,18 @@ def auto_train(
         if model_name in ["catboost", "merf"]:
             from catboost import CatBoostRegressor, CatBoostClassifier
 
-            loss_function = "MAPE" if model_type == "REGRESSION" else "MultiClass"
-            bootstrap_type = "Bernoulli" if model_type == "CLASSIFICATION" else "MVS"
+            loss_function = "RMSE" if model_type == "REGRESSION" else "MultiClass"
             hyperparams = {
                 "iterations": 2500,
                 "learning_rate": 0.01,
-                "depth": 6,
+                "depth": 4,
                 "subsample": 1.0,
-                "bootstrap_type": bootstrap_type,
+                "bootstrap_type": "Bernoulli",
                 "random_strength": 0.5,
-                "reg_lambda": 0.1,
+                "reg_lambda": 5.0,
+                "min_data_in_leaf": 5,
                 "loss_function": loss_function,
-                "early_stopping_rounds": 20,
+                "early_stopping_rounds": 50,
                 "random_seed": seed,
                 "verbose": False,
             }

@@ -655,6 +655,12 @@ from ._modify_streaming_job_request import ModifyStreamingJobRequest
 from ._modify_streaming_job_shrink_request import ModifyStreamingJobShrinkRequest
 from ._modify_streaming_job_response_body import ModifyStreamingJobResponseBody
 from ._modify_streaming_job_response import ModifyStreamingJobResponse
+from ._modify_supabase_auto_scale_policy_request import ModifySupabaseAutoScalePolicyRequest
+from ._modify_supabase_auto_scale_policy_response_body import ModifySupabaseAutoScalePolicyResponseBody
+from ._modify_supabase_auto_scale_policy_response import ModifySupabaseAutoScalePolicyResponse
+from ._modify_supabase_project_resource_request import ModifySupabaseProjectResourceRequest
+from ._modify_supabase_project_resource_response_body import ModifySupabaseProjectResourceResponseBody
+from ._modify_supabase_project_resource_response import ModifySupabaseProjectResourceResponse
 from ._modify_supabase_project_security_ips_request import ModifySupabaseProjectSecurityIpsRequest
 from ._modify_supabase_project_security_ips_response_body import ModifySupabaseProjectSecurityIpsResponseBody
 from ._modify_supabase_project_security_ips_response import ModifySupabaseProjectSecurityIpsResponse
@@ -1681,6 +1687,12 @@ __all__ = [
     ModifyStreamingJobShrinkRequest,
     ModifyStreamingJobResponseBody,
     ModifyStreamingJobResponse,
+    ModifySupabaseAutoScalePolicyRequest,
+    ModifySupabaseAutoScalePolicyResponseBody,
+    ModifySupabaseAutoScalePolicyResponse,
+    ModifySupabaseProjectResourceRequest,
+    ModifySupabaseProjectResourceResponseBody,
+    ModifySupabaseProjectResourceResponse,
     ModifySupabaseProjectSecurityIpsRequest,
     ModifySupabaseProjectSecurityIpsResponseBody,
     ModifySupabaseProjectSecurityIpsResponse,

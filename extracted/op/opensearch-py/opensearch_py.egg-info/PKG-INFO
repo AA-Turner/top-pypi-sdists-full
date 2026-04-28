@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opensearch-py
-Version: 3.1.0
+Version: 3.2.0
 Summary: Python client for OpenSearch
 Home-page: https://github.com/opensearch-project/opensearch-py
 Author: Aleksei Atavin, Denis Zalevskiy, Rushi Agrawal, Shephali Mittal
@@ -32,7 +32,7 @@ Requires-Dist: requests<3.0.0,>=2.32.0
 Requires-Dist: python-dateutil
 Requires-Dist: certifi>=2024.07.04
 Requires-Dist: Events
-Requires-Dist: opensearch-protobufs==0.19.0
+Requires-Dist: opensearch-protobufs==1.2.0
 Provides-Extra: develop
 Requires-Dist: requests<3.0.0,>=2.0.0; extra == "develop"
 Requires-Dist: coverage<8.0.0; extra == "develop"

@@ -33,8 +33,9 @@ class AuthResourceType(object):
     WORKSPACE = "workspace"
     PROJECT = "project"
     CLOUD = "cloud"
+    COMPUTE_CONFIG = "compute_config"
 
-    allowable_values = [CONTAINER_IMAGE, ORGANIZATION, WORKSPACE, PROJECT, CLOUD]  # noqa: E501
+    allowable_values = [CONTAINER_IMAGE, ORGANIZATION, WORKSPACE, PROJECT, CLOUD, COMPUTE_CONFIG]  # noqa: E501
 
     """
     Attributes:

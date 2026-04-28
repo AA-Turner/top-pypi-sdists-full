@@ -25,6 +25,7 @@ except ImportError:
     pd.DataFrame = None
     pd.Series = None
     DataFrame = Series = None
+    is_datetime64_any_dtype = None
 
 
 # dataclass will remove empty default value even with field(default_factory=lambda: [])
@@ -244,12 +245,13 @@ class TimeSeriesDataset:
 
         else:
             if isinstance(y_pred, np.ndarray):
-                raise ValueError("Can't enrich np.ndarray as self.test_data is None")
+                y_pred = pd.DataFrame(data=y_pred, columns=self.target_names)
             elif isinstance(y_pred, pd.Series):
                 assert len(self.target_names) == 1, "Not enough columns in y_pred"
                 y_pred = pd.DataFrame({self.target_names[0]: y_pred})
-            # TODO auto-create the timestamps for the time column instead of throwing
-            raise NotImplementedError("Need a non-None test_data for this to work, for now")
+            if self.time_col not in y_pred.columns:
+                forward_frame = create_forward_frame(self.frequency, len(y_pred), self.end_date, self.time_col)
+                y_pred[self.time_col] = forward_frame[self.time_col].values
 
         assert isinstance(y_pred, pd.DataFrame)
         assert self.time_col in y_pred.columns
@@ -272,7 +274,7 @@ def enrich_dataframe(
 
     new_cols = []
     for col in df.columns:
-        if df[col].dtype.name == "datetime64[ns]":
+        if is_datetime64_any_dtype is not None and is_datetime64_any_dtype(df[col]):
             extras = monthly_fourier_features(df[col], fourier_degree)
             extras.columns = [f"{col}_{c}" for c in extras.columns]
             extras.index = df.index
@@ -403,12 +405,12 @@ class DataTransformerTS:
                 continue
 
             # Robust datetime detection (covers datetime64[ms/us/ns], tz-aware, etc.)
-            if is_datetime64_any_dtype(X[column]):
+            if is_datetime64_any_dtype is not None and is_datetime64_any_dtype(X[column]):
                 self.datetime_columns.append(column)
                 continue
 
             # sklearn/utils/validation.py needs int/float values
-            if X[column].dtype.name in ("object", "category", "string"):
+            if X[column].dtype.name in ("object", "category", "string", "str"):
                 if (
                     # drop columns where all values are the same
                     X[column].nunique() == 1
@@ -498,10 +500,18 @@ class DataTransformerTS:
 def create_forward_frame(
     frequency: str,
     steps: int,
-    test_end_date: datetime.datetime,
+    last_timestamp: datetime.datetime,
     time_col: str,
 ):
-    start_date = test_end_date + pd.Timedelta(1, frequency)
+    if frequency is None:
+        raise ValueError("frequency cannot be None")
+    if last_timestamp is None or pd.isna(last_timestamp):
+        raise ValueError(f"last_timestamp cannot be None or NaT, got {last_timestamp!r}")
+    try:
+        offset = pd.tseries.frequencies.to_offset(frequency)
+    except ValueError as e:
+        raise ValueError(f"Invalid frequency {frequency!r}; expected a pandas offset alias.") from e
+    start_date = last_timestamp + offset
     times = pd.date_range(
         start=start_date,
         periods=steps,

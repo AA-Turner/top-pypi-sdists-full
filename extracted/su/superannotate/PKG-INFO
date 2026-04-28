@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: superannotate
-Version: 4.5.3
+Version: 4.5.4
 Summary: Python SDK to SuperAnnotate platform
 Home-page: https://github.com/superannotateai/superannotate-python-sdk
 Author: SuperAnnotate AI
@@ -26,7 +26,7 @@ Requires-Dist: plotly~=6.5
 Requires-Dist: pandas~=2.0
 Requires-Dist: pillow~=12.1
 Requires-Dist: tqdm~=4.66
-Requires-Dist: requests~=2.32
+Requires-Dist: requests~=2.33
 Requires-Dist: aiofiles~=25.1
 Requires-Dist: fire~=0.7
 Requires-Dist: mixpanel~=5.1

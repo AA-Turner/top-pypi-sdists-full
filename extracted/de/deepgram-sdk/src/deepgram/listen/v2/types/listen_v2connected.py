@@ -5,11 +5,10 @@ import typing
 import pydantic
 from ....core.pydantic_utilities import IS_PYDANTIC_V2
 from ....core.unchecked_base_model import UncheckedBaseModel
-from .listen_v2connected_type import ListenV2ConnectedType
 
 
 class ListenV2Connected(UncheckedBaseModel):
-    type: ListenV2ConnectedType = pydantic.Field()
+    type: typing.Literal["Connected"] = pydantic.Field(default="Connected")
     """
     Message type identifier
     """
@@ -19,7 +18,7 @@ class ListenV2Connected(UncheckedBaseModel):
     The unique identifier of the request
     """
 
-    sequence_id: float = pydantic.Field()
+    sequence_id: int = pydantic.Field()
     """
     Starts at `0` and increments for each message the server sends
     to the client.  This includes messages of other types, like

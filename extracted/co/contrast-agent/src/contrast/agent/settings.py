@@ -528,7 +528,9 @@ class Settings(Singleton):
                 }
                 ui_config.append(config_entry)
             if option.file_values:
-                for val, filename in zip(option.file_values, option.file_sources):
+                for val, filename in zip(
+                    option.file_values, option.file_sources, strict=True
+                ):
                     config_entry = {
                         "canonical_name": option.canonical_name,
                         # provided name is only for env vars

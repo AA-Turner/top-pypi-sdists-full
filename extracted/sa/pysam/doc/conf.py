@@ -41,7 +41,7 @@ intersphinx_mapping = {'python': ('https://docs.python.org/%d.%d' % sys.version_
 templates_path = ['_templates']
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = {'.rst': 'restructuredtext'}
 
 # The encoding of source files.
 #source_encoding = 'utf-8'
@@ -50,16 +50,17 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'pysam'
+project = 'pysam'
 copyright = '2009–2025 Andreas Heger, John Marshall, Kevin Jacobs, et al'
 
 # Included at the end of each rst file
 rst_epilog = '''
 .. _pysam: https://github.com/pysam-developers/pysam
-.. _samtools: https://www.htslib.org/doc/1.21/samtools.html
-.. _bcftools: https://www.htslib.org/doc/1.21/bcftools.html
+.. _samtools: https://www.htslib.org/doc/1.23/samtools.html
+.. _bcftools: https://www.htslib.org/doc/1.23/bcftools.html
 .. _htslib: https://www.htslib.org/
 .. _tabix: https://www.htslib.org/doc/tabix.html
+.. _samtools's global fmt-options: https://www.htslib.org/doc/samtools.html#GLOBAL_COMMAND_OPTIONS
 .. _Galaxy: https://usegalaxy.org/
 .. _cython: https://cython.org/
 .. _python: https://www.python.org/
@@ -227,7 +228,7 @@ htmlhelp_basename = 'samtoolsdoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ('index', 'pysam.tex', u'pysam documentation',
+    ('index', 'pysam.tex', 'pysam documentation',
      'Andreas Heger, John Marshall, Kevin Jacobs, et al', 'manual'),
 ]
 

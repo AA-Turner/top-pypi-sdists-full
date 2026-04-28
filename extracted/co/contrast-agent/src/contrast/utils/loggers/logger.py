@@ -331,8 +331,7 @@ class SecureSysLogHandler(stdlib_logging_handlers.SysLogHandler):
         Adds safety checks for before Python 3.10 to account for unset
         socket crash: https://github.com/python/cpython/issues/82961
         """
-        if sys.version_info >= (3, 10):
-            return super().close()
+        return super().close()
 
         self.acquire()
         try:

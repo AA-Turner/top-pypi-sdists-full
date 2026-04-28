@@ -1,6 +1,5 @@
 # cython: language_level=3
 # cython: embedsignature=True
-# cython: profile=True
 ###############################################################################
 ###############################################################################
 # Cython wrapper for access to tabix indexed files in bgzf format
@@ -69,7 +68,7 @@ from cpython cimport PyErr_SetString, PyBytes_Check, \
 cimport pysam.libctabixproxies as ctabixproxies
 
 from pysam.libchtslib cimport htsFile, hts_open, hts_close, HTS_IDX_START,\
-    BGZF, bgzf_open, bgzf_dopen, bgzf_close, bgzf_write, \
+    BGZF, bgzf_open, bgzf_dopen, bgzf_close, bgzf_getline, bgzf_write, \
     tbx_index_build2, tbx_index_load2, tbx_itr_queryi, tbx_itr_querys, \
     tbx_conf_t, tbx_seqnames, tbx_itr_next, tbx_itr_destroy, \
     tbx_destroy, hisremote, region_list, hts_getline, \
@@ -78,6 +77,7 @@ from pysam.libchtslib cimport htsFile, hts_open, hts_close, HTS_IDX_START,\
 
 from pysam.libcutils cimport force_bytes, force_str, charptr_to_str
 from pysam.libcutils cimport encode_filename, from_string_and_size
+
 
 cdef class Parser:
 
@@ -389,7 +389,7 @@ cdef class TabixFile:
         if self.htsfile == NULL:
             raise IOError("could not open file `%s`" % filename)
         
-        #if self.htsfile.format.category != region_list:
+        #if hts_get_format(self.htsfile).category != region_list:
         #    raise ValueError("file does not contain region data")
 
         with nogil:
@@ -732,7 +732,6 @@ cdef class GZIterator:
         with nogil:
             self.gzipfile = bgzf_open(cfilename, "r")
         self._filename = filename
-        self.kstream = ks_init(self.gzipfile)
         self.encoding = encoding
 
         self.buffer.l = 0
@@ -746,24 +745,15 @@ cdef class GZIterator:
             self.gzipfile = NULL
         if self.buffer.s != NULL:
             free(self.buffer.s)
-        if self.kstream != NULL:
-            ks_destroy(self.kstream)
 
     def __iter__(self):
         return self
 
     cdef int __cnext__(self):
-        cdef int dret = 0
-        cdef int retval = 0
-        while 1:
-            with nogil:
-                retval = ks_getuntil(self.kstream, b'\n', &self.buffer, &dret)
-            
-            if retval < 0: 
-                break
-
-            return dret
-        return -1
+        cdef int retval
+        with nogil:
+            retval = bgzf_getline(self.gzipfile, b'\n', &self.buffer)
+        return retval
 
     def __next__(self):
         """python version of next().
@@ -1021,70 +1011,6 @@ def tabix_index(filename,
     
     return filename
 
-# #########################################################
-# cdef class tabix_file_iterator_old:
-#     '''iterate over ``infile``.
-
-#     This iterator is not safe. If the :meth:`__next__()` method is called 
-#     after ``infile`` is closed, the result is undefined (see ``fclose()``).
-
-#     The iterator might either raise a StopIteration or segfault.
-#     '''
-
-
-#     def __cinit__(self, 
-#                   infile, 
-#                   Parser parser,
-#                   int buffer_size = 65536 ):
-
-#         cdef int fd = PyObject_AsFileDescriptor( infile )
-#         if fd == -1: raise ValueError( "I/O operation on closed file." )
-#         self.infile = fdopen( fd, 'r')
-
-#         if self.infile == NULL: raise ValueError( "I/O operation on closed file." )
-
-#         self.buffer = <char*>malloc( buffer_size )        
-#         self.size = buffer_size
-#         self.parser = parser
-
-#     def __iter__(self):
-#         return self
-
-#     cdef __cnext__(self):
-
-#         cdef char * b
-#         cdef size_t nbytes
-#         b = self.buffer
-
-#         while not feof( self.infile ):
-#             nbytes = getline( &b, &self.size, self.infile)
-
-#             # stop at first error or eof
-#             if (nbytes == -1): break
-#             # skip comments
-#             if (b[0] == '#'): continue
-
-#             # skip empty lines
-#             if b[0] == '\0' or b[0] == '\n' or b[0] == '\r': continue
-
-#             # make sure that entry is complete
-#             if b[nbytes-1] != '\n' and b[nbytes-1] != '\r':
-#                 result = b
-#                 raise ValueError( "incomplete line at %s" % result )
-
-#             # make sure that this goes fully through C
-#             # otherwise buffer is copied to/from a
-#             # Python object causing segfaults as
-#             # the wrong memory is freed
-#             return self.parser.parse( b, nbytes )
-
-#         raise StopIteration
-
-#     def __dealloc__(self):
-#         free(self.buffer)
-
-#     def __next__(self):
-#         return self.__cnext__()
 
 #########################################################
 #########################################################
@@ -1127,8 +1053,6 @@ cdef class tabix_file_iterator:
         if self.fh == NULL: 
             raise IOError('%s' % strerror(errno))
 
-        self.kstream = ks_init(self.fh) 
-        
         self.buffer.s = <char*>malloc(buffer_size)
         #if self.buffer == NULL:
         #    raise MemoryError( "tabix_file_iterator: could not allocate %i bytes" % buffer_size)
@@ -1141,12 +1065,11 @@ cdef class tabix_file_iterator:
     cdef __cnext__(self):
 
         cdef char * b
-        cdef int dret = 0
         cdef int retval = 0
         while 1:
             with nogil:
-                retval = ks_getuntil(self.kstream, b'\n', &self.buffer, &dret)
-            
+                retval = bgzf_getline(self.fh, b'\n', &self.buffer)
+
             if retval < 0: 
                 break
                 #raise IOError('gzip error: %s' % buildGzipError( self.fh ))
@@ -1170,7 +1093,6 @@ cdef class tabix_file_iterator:
 
     def __dealloc__(self):
         free(self.buffer.s)
-        ks_destroy(self.kstream)
         bgzf_close(self.fh)
         
     def __next__(self):

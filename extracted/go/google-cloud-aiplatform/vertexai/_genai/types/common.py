@@ -3541,6 +3541,92 @@ class EvaluationSetDict(TypedDict, total=False):
 EvaluationSetOrDict = Union[EvaluationSet, EvaluationSetDict]
 
 
+class DeleteEvaluationMetricConfig(_common.BaseModel):
+    """Config for deleting an evaluation metric."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class DeleteEvaluationMetricConfigDict(TypedDict, total=False):
+    """Config for deleting an evaluation metric."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+DeleteEvaluationMetricConfigOrDict = Union[
+    DeleteEvaluationMetricConfig, DeleteEvaluationMetricConfigDict
+]
+
+
+class _DeleteEvaluationMetricParameters(_common.BaseModel):
+    """Parameters for deleting an evaluation metric."""
+
+    metric_resource_name: Optional[str] = Field(default=None, description="""""")
+    config: Optional[DeleteEvaluationMetricConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _DeleteEvaluationMetricParametersDict(TypedDict, total=False):
+    """Parameters for deleting an evaluation metric."""
+
+    metric_resource_name: Optional[str]
+    """"""
+
+    config: Optional[DeleteEvaluationMetricConfigDict]
+    """"""
+
+
+_DeleteEvaluationMetricParametersOrDict = Union[
+    _DeleteEvaluationMetricParameters, _DeleteEvaluationMetricParametersDict
+]
+
+
+class DeleteEvaluationMetricOperation(_common.BaseModel):
+    """Operation for deleting an evaluation metric."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class DeleteEvaluationMetricOperationDict(TypedDict, total=False):
+    """Operation for deleting an evaluation metric."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+DeleteEvaluationMetricOperationOrDict = Union[
+    DeleteEvaluationMetricOperation, DeleteEvaluationMetricOperationDict
+]
+
+
 class BleuInstance(_common.BaseModel):
     """Bleu instance."""
 
@@ -4926,6 +5012,10 @@ class _GenerateUserScenariosParameters(_common.BaseModel):
     config: Optional[GenerateUserScenariosConfig] = Field(
         default=None, description=""""""
     )
+    allow_cross_region_model: Optional[bool] = Field(
+        default=None,
+        description="""Opt-in flag to authorize cross-region routing for LLM models.""",
+    )
 
 
 class _GenerateUserScenariosParametersDict(TypedDict, total=False):
@@ -4945,6 +5035,9 @@ class _GenerateUserScenariosParametersDict(TypedDict, total=False):
 
     config: Optional[GenerateUserScenariosConfigDict]
     """"""
+
+    allow_cross_region_model: Optional[bool]
+    """Opt-in flag to authorize cross-region routing for LLM models."""
 
 
 _GenerateUserScenariosParametersOrDict = Union[
@@ -5390,6 +5483,21 @@ class ListEvaluationMetricsConfig(_common.BaseModel):
     http_options: Optional[genai_types.HttpOptions] = Field(
         default=None, description="""Used to override HTTP request options."""
     )
+    page_size: Optional[int] = Field(default=None, description="""""")
+    page_token: Optional[str] = Field(default=None, description="""""")
+    filter: Optional[str] = Field(
+        default=None,
+        description="""An expression for filtering the results of the request.
+      For field names both snake_case and camelCase are supported.
+      For more information about filter syntax, see
+      `AIP-160 <https://google.aip.dev/160>`_.""",
+    )
+    order_by: Optional[str] = Field(
+        default=None,
+        description="""A comma-separated list of fields to order by, sorted in ascending
+      order by default. Use ``desc`` after a field name for descending.
+      Example: ``"create_time desc"``.""",
+    )
 
 
 class ListEvaluationMetricsConfigDict(TypedDict, total=False):
@@ -5397,6 +5505,23 @@ class ListEvaluationMetricsConfigDict(TypedDict, total=False):
 
     http_options: Optional[genai_types.HttpOptionsDict]
     """Used to override HTTP request options."""
+
+    page_size: Optional[int]
+    """"""
+
+    page_token: Optional[str]
+    """"""
+
+    filter: Optional[str]
+    """An expression for filtering the results of the request.
+      For field names both snake_case and camelCase are supported.
+      For more information about filter syntax, see
+      `AIP-160 <https://google.aip.dev/160>`_."""
+
+    order_by: Optional[str]
+    """A comma-separated list of fields to order by, sorted in ascending
+      order by default. Use ``desc`` after a field name for descending.
+      Example: ``"create_time desc"``."""
 
 
 ListEvaluationMetricsConfigOrDict = Union[
@@ -7384,7 +7509,7 @@ class ReasoningEngineSpecDeploymentSpec(_common.BaseModel):
     )
     min_instances: Optional[int] = Field(
         default=None,
-        description="""Optional. The minimum number of application instances that will be kept running at all times. Defaults to 1. Range: [0, 10].""",
+        description="""Optional. The minimum number of application instances that will be kept running at all times. Defaults to 1. Range: [0, 75].""",
     )
     psc_interface_config: Optional[PscInterfaceConfig] = Field(
         default=None, description="""Optional. Configuration for PSC-I."""
@@ -7425,7 +7550,7 @@ class ReasoningEngineSpecDeploymentSpecDict(TypedDict, total=False):
     """Optional. The maximum number of application instances that can be launched to handle increased traffic. Defaults to 100. Range: [1, 1000]. If VPC-SC or PSC-I is enabled, the acceptable range is [1, 100]."""
 
     min_instances: Optional[int]
-    """Optional. The minimum number of application instances that will be kept running at all times. Defaults to 1. Range: [0, 10]."""
+    """Optional. The minimum number of application instances that will be kept running at all times. Defaults to 1. Range: [0, 75]."""
 
     psc_interface_config: Optional[PscInterfaceConfigDict]
     """Optional. Configuration for PSC-I."""
@@ -8224,14 +8349,12 @@ class CreateAgentEngineConfig(_common.BaseModel):
       - If `source_packages` is specified, the agent framework will
         default to "custom".""",
     )
-    python_version: Optional[Literal["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]] = (
-        Field(
-            default=None,
-            description="""The Python version to be used for the Agent Engine.
+    python_version: Optional[Literal["3.10", "3.11", "3.12", "3.13", "3.14"]] = Field(
+        default=None,
+        description="""The Python version to be used for the Agent Engine.
       If not specified, it will use the current Python version of the environment.
-      Supported versions: "3.9", "3.10", "3.11", "3.12", "3.13", "3.14".
+      Supported versions: "3.10", "3.11", "3.12", "3.13", "3.14".
       """,
-        )
     )
     build_options: Optional[dict[str, list[str]]] = Field(
         default=None,
@@ -8371,10 +8494,10 @@ class CreateAgentEngineConfigDict(TypedDict, total=False):
       - If `source_packages` is specified, the agent framework will
         default to "custom"."""
 
-    python_version: Optional[Literal["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]]
+    python_version: Optional[Literal["3.10", "3.11", "3.12", "3.13", "3.14"]]
     """The Python version to be used for the Agent Engine.
       If not specified, it will use the current Python version of the environment.
-      Supported versions: "3.9", "3.10", "3.11", "3.12", "3.13", "3.14".
+      Supported versions: "3.10", "3.11", "3.12", "3.13", "3.14".
       """
 
     build_options: Optional[dict[str, list[str]]]
@@ -8893,14 +9016,12 @@ class UpdateAgentEngineConfig(_common.BaseModel):
       - If `source_packages` is specified, the agent framework will
         default to "custom".""",
     )
-    python_version: Optional[Literal["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]] = (
-        Field(
-            default=None,
-            description="""The Python version to be used for the Agent Engine.
+    python_version: Optional[Literal["3.10", "3.11", "3.12", "3.13", "3.14"]] = Field(
+        default=None,
+        description="""The Python version to be used for the Agent Engine.
       If not specified, it will use the current Python version of the environment.
-      Supported versions: "3.9", "3.10", "3.11", "3.12", "3.13", "3.14".
+      Supported versions: "3.10", "3.11", "3.12", "3.13", "3.14".
       """,
-        )
     )
     build_options: Optional[dict[str, list[str]]] = Field(
         default=None,
@@ -9045,10 +9166,10 @@ class UpdateAgentEngineConfigDict(TypedDict, total=False):
       - If `source_packages` is specified, the agent framework will
         default to "custom"."""
 
-    python_version: Optional[Literal["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]]
+    python_version: Optional[Literal["3.10", "3.11", "3.12", "3.13", "3.14"]]
     """The Python version to be used for the Agent Engine.
       If not specified, it will use the current Python version of the environment.
-      Supported versions: "3.9", "3.10", "3.11", "3.12", "3.13", "3.14".
+      Supported versions: "3.10", "3.11", "3.12", "3.13", "3.14".
       """
 
     build_options: Optional[dict[str, list[str]]]
@@ -11670,6 +11791,10 @@ class SandboxEnvironmentConnectionInfo(_common.BaseModel):
         default=None,
         description="""Output only. The hostname of the SandboxEnvironment.""",
     )
+    routing_token: Optional[str] = Field(
+        default=None,
+        description="""Output only. The routing token for the SandboxEnvironment.""",
+    )
 
 
 class SandboxEnvironmentConnectionInfoDict(TypedDict, total=False):
@@ -11686,6 +11811,9 @@ class SandboxEnvironmentConnectionInfoDict(TypedDict, total=False):
 
     sandbox_hostname: Optional[str]
     """Output only. The hostname of the SandboxEnvironment."""
+
+    routing_token: Optional[str]
+    """Output only. The routing token for the SandboxEnvironment."""
 
 
 SandboxEnvironmentConnectionInfoOrDict = Union[
@@ -11732,6 +11860,22 @@ class SandboxEnvironment(_common.BaseModel):
         default=None,
         description="""Output only. The timestamp when this SandboxEnvironment was most recently updated.""",
     )
+    latest_sandbox_environment_snapshot: Optional[str] = Field(
+        default=None,
+        description="""Output only. The resource name of the latest snapshot taken for this SandboxEnvironment.""",
+    )
+    owner: Optional[str] = Field(
+        default=None,
+        description="""Optional. Owner information for this sandbox environment. A Sandbox can only be restored from a snapshot that belongs to the same owner. If not set, sandbox will be created as the default owner.""",
+    )
+    sandbox_environment_snapshot: Optional[str] = Field(
+        default=None,
+        description="""Optional. The resource name of the SandboxEnvironmentSnapshot to use for creating this SandboxEnvironment. Format: `projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/sandboxEnvironmentSnapshots/{sandbox_environment_snapshot}`""",
+    )
+    sandbox_environment_template: Optional[str] = Field(
+        default=None,
+        description="""Optional. The name of the SandboxEnvironmentTemplate specified in the parent Agent Engine resource that this SandboxEnvironment is created from. Only one of `sandbox_environment_template` and `spec` should be set.""",
+    )
 
 
 class SandboxEnvironmentDict(TypedDict, total=False):
@@ -11764,6 +11908,18 @@ class SandboxEnvironmentDict(TypedDict, total=False):
 
     update_time: Optional[datetime.datetime]
     """Output only. The timestamp when this SandboxEnvironment was most recently updated."""
+
+    latest_sandbox_environment_snapshot: Optional[str]
+    """Output only. The resource name of the latest snapshot taken for this SandboxEnvironment."""
+
+    owner: Optional[str]
+    """Optional. Owner information for this sandbox environment. A Sandbox can only be restored from a snapshot that belongs to the same owner. If not set, sandbox will be created as the default owner."""
+
+    sandbox_environment_snapshot: Optional[str]
+    """Optional. The resource name of the SandboxEnvironmentSnapshot to use for creating this SandboxEnvironment. Format: `projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/sandboxEnvironmentSnapshots/{sandbox_environment_snapshot}`"""
+
+    sandbox_environment_template: Optional[str]
+    """Optional. The name of the SandboxEnvironmentTemplate specified in the parent Agent Engine resource that this SandboxEnvironment is created from. Only one of `sandbox_environment_template` and `spec` should be set."""
 
 
 SandboxEnvironmentOrDict = Union[SandboxEnvironment, SandboxEnvironmentDict]
@@ -17050,14 +17206,12 @@ class AgentEngineConfig(_common.BaseModel):
       - If `source_packages` is specified, the agent framework will
         default to "custom".""",
     )
-    python_version: Optional[Literal["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]] = (
-        Field(
-            default=None,
-            description="""The Python version to be used for the Agent Engine.
+    python_version: Optional[Literal["3.10", "3.11", "3.12", "3.13", "3.14"]] = Field(
+        default=None,
+        description="""The Python version to be used for the Agent Engine.
       If not specified, it will use the current Python version of the environment.
-      Supported versions: "3.9", "3.10", "3.11", "3.12", "3.13", "3.14".
+      Supported versions: "3.10", "3.11", "3.12", "3.13", "3.14".
       """,
-        )
     )
     build_options: Optional[dict[str, list[str]]] = Field(
         default=None,
@@ -17240,10 +17394,10 @@ class AgentEngineConfigDict(TypedDict, total=False):
       - If `source_packages` is specified, the agent framework will
         default to "custom"."""
 
-    python_version: Optional[Literal["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]]
+    python_version: Optional[Literal["3.10", "3.11", "3.12", "3.13", "3.14"]]
     """The Python version to be used for the Agent Engine.
       If not specified, it will use the current Python version of the environment.
-      Supported versions: "3.9", "3.10", "3.11", "3.12", "3.13", "3.14".
+      Supported versions: "3.10", "3.11", "3.12", "3.13", "3.14".
       """
 
     build_options: Optional[dict[str, list[str]]]

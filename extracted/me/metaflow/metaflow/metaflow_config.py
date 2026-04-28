@@ -176,7 +176,10 @@ TEMPDIR = from_conf("TEMPDIR", ".")
 
 DATATOOLS_CLIENT_PARAMS = from_conf("DATATOOLS_CLIENT_PARAMS", {})
 if S3_ENDPOINT_URL:
-    DATATOOLS_CLIENT_PARAMS["endpoint_url"] = S3_ENDPOINT_URL
+    # Use setdefault so that an explicit endpoint_url in METAFLOW_DATATOOLS_CLIENT_PARAMS
+    # takes precedence over S3_ENDPOINT_URL (e.g. when the datatools bucket lives on a
+    # different endpoint than the general S3 datastore).
+    DATATOOLS_CLIENT_PARAMS.setdefault("endpoint_url", S3_ENDPOINT_URL)
 if S3_VERIFY_CERTIFICATE:
     DATATOOLS_CLIENT_PARAMS["verify"] = S3_VERIFY_CERTIFICATE
 
@@ -445,6 +448,13 @@ KUBERNETES_JOBSET_VERSION = from_conf("KUBERNETES_JOBSET_VERSION", "v1alpha2")
 
 KUBERNETES_JOB_TERMINATE_MODE = from_conf("KUBERNETES_JOB_TERMINATE_MODE", "stop")
 
+# How long (in seconds) to keep completed k8s Jobs before auto-deletion.
+# Default: 7 days. Set lower in dev/test environments to prevent pod
+# accumulation that can exhaust cluster resources.
+KUBERNETES_JOB_TTL_SECONDS_AFTER_FINISHED = from_conf(
+    "KUBERNETES_JOB_TTL_SECONDS_AFTER_FINISHED", 7 * 24 * 60 * 60
+)
+
 ##
 # Argo Events Configuration
 ##
@@ -701,7 +711,18 @@ try:
                     d1 = f1(python_version, datastore_type)
                     d2 = f2(python_version, datastore_type)
                     for k, v in d2.items():
-                        d1[k] = v if k not in d1 else ",".join([d1[k], v])
+                        # An empty string means "any version" — treat it as a
+                        # no-op on either side of the merge instead of joining
+                        # with a comma. Joining "" with ">=X" produced ",>=X"
+                        # (or ">=X,") which downstream formatters turn into
+                        # malformed specs like `pkg==,>=X` that the conda
+                        # solver rejects with "Empty version".
+                        existing = d1.get(k, "")
+                        if not existing:
+                            d1[k] = v
+                        elif v:
+                            d1[k] = ",".join([existing, v])
+                        # else: v is empty — keep existing specifier
                     return d1
 
                 globals()[n] = _new_get_pinned_conda_libs

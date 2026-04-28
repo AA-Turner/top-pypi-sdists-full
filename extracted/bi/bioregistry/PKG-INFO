@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bioregistry
-Version: 0.13.44
+Version: 0.13.45
 Summary: Integrated registry of biological databases and nomenclatures
 Keywords: snekpack,cookiecutter,databases,biological databases,biomedical databases,persistent identifiers
 Author: Charles Tapley Hoyt
@@ -27,14 +27,14 @@ Requires-Dist: pystow>=0.8.2
 Requires-Dist: click
 Requires-Dist: more-click>=0.1.2
 Requires-Dist: pydantic[email]>=2.0
-Requires-Dist: curies>=0.13.5
+Requires-Dist: curies>=0.13.8
 Requires-Dist: sssom-pydantic>=0.4.0
 Requires-Dist: pyyaml ; extra == 'align'
 Requires-Dist: beautifulsoup4 ; extra == 'align'
 Requires-Dist: tabulate ; extra == 'align'
 Requires-Dist: defusedxml ; extra == 'align'
 Requires-Dist: class-resolver ; extra == 'align'
-Requires-Dist: fairsharing-client>=0.1.0 ; extra == 'align'
+Requires-Dist: fairsharing-client>=0.3.1 ; extra == 'align'
 Requires-Dist: pandas<3.0 ; extra == 'align'
 Requires-Dist: wikidata-client ; extra == 'align'
 Requires-Dist: ontoportal-client>=0.0.9 ; extra == 'align'

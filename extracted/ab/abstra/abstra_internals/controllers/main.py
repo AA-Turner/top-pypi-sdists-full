@@ -40,7 +40,10 @@ from abstra_internals.entities.execution_context import (
     Response,
     ScriptContext,
 )
-from abstra_internals.environment import WORKER_LOG_TO_QUEUE
+from abstra_internals.environment import (
+    DRAIN_START_TIMEOUT_SECONDS,
+    WORKER_LOG_TO_QUEUE,
+)
 from abstra_internals.interface.cli.deploy import deploy_without_git
 from abstra_internals.interface.cli.deploy_messages import DeployMessages
 from abstra_internals.interface.contract import ExecutionStartedMessage
@@ -1927,7 +1930,9 @@ class MainController:
         )
 
         # First drain gets execution:started message
-        start_msg = drain_until_response(connection)
+        start_msg = drain_until_response(
+            connection, timeout=DRAIN_START_TIMEOUT_SECONDS
+        )
         if not start_msg:
             connection.close()
             flask.abort(500)
@@ -2569,7 +2574,9 @@ class MainController:
         connection = self.repositories.producer.enqueue(
             hook.id, context, user_jwt=user_jwt
         )
-        start_msg = drain_until_response(connection)
+        start_msg = drain_until_response(
+            connection, timeout=DRAIN_START_TIMEOUT_SECONDS
+        )
 
         if isinstance(start_msg, str):
             try:

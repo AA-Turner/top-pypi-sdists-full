@@ -22,6 +22,7 @@ use pyrefly_types::callable::FuncId;
 use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::callable::ParamList;
 use pyrefly_types::callable::Params;
+use pyrefly_types::callable::PlaceholderBodyKind;
 use pyrefly_types::heap::TypeHeap;
 use pyrefly_types::literal::LitStyle;
 use pyrefly_types::quantified::QuantifiedKind;
@@ -85,7 +86,10 @@ use crate::types::display::LspDisplayMode;
 use crate::types::display::TypeDisplayContext;
 use crate::types::keywords::DataclassFieldKeywords;
 use crate::types::literal::Lit;
+use crate::types::quantified::AnchorIndex;
 use crate::types::quantified::Quantified;
+use crate::types::quantified::QuantifiedIdentity;
+use crate::types::quantified::QuantifiedOrigin;
 use crate::types::read_only::ReadOnlyReason;
 use crate::types::stdlib::Stdlib;
 use crate::types::typed_dict::TypedDict;
@@ -2590,10 +2594,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     /// Creates a Quantified for a class's "self" type.
-    fn get_self_quantified(&self, class_name: &Name, instance_type: Type) -> Quantified {
+    fn get_self_quantified(&self, class: &Class, instance_type: Type) -> Quantified {
+        let identity = QuantifiedIdentity::new(
+            self.module().name(),
+            AnchorIndex::first(class.range()),
+            QuantifiedOrigin::SyntheticSelf,
+        );
         Quantified::new(
-            self.uniques.fresh(),
-            Name::new(format!("Self@{class_name}")),
+            identity,
+            Name::new(format!("Self@{}", class.name())),
             QuantifiedKind::TypeVar,
             None,
             Restriction::Bound(instance_type),
@@ -2664,7 +2673,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // special case because it's not legal to use `Self` in other static methods.
         let self_quantified =
             if field_name == &dunder::NEW && matches!(instance.kind, InstanceKind::ClassType) {
-                Some(self.get_self_quantified(instance.class.name(), instance.to_type(self.heap)))
+                Some(self.get_self_quantified(instance.class, instance.to_type(self.heap)))
             } else {
                 None
             };
@@ -2792,10 +2801,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let self_quantified = if field_name == &dunder::NEW
             && let ClassBase::ClassDef(cls) = cls
         {
-            Some(self.get_self_quantified(
-                cls.class_object().name(),
-                self.heap.mk_class_type(cls.clone()),
-            ))
+            Some(self.get_self_quantified(cls.class_object(), self.heap.mk_class_type(cls.clone())))
         } else {
             None
         };
@@ -3274,21 +3280,61 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // Substitute `Self` with derived class to support contravariant occurrences of `Self`
                     &Instance::of_protocol(parent, self.instantiate(cls)),
                 );
-                if !want_class_field.has_explicit_annotation() {
-                    match &mut attr {
-                        ClassAttribute::ReadOnly(ty, _) | ClassAttribute::ReadWrite(ty)
-                            if ty.has_toplevel_func_metadata() =>
-                        {
-                            // If parent return type was Never (for example a method that only raises),
-                            // skip override consistency checks on the return type so we don't produce noisy bad-override diagnostics.
-                            ty.transform_toplevel_callable(&mut |callable: &mut Callable| {
-                                if callable.ret.is_never() {
-                                    callable.ret = Type::any_implicit();
-                                }
-                            });
-                        }
-                        _ => {}
+                // Relax the parent return type for the override-consistency check when the parent
+                // function's body is a `raise NotImplementedError(...)` placeholder *and* the
+                // parent's return type was inferred (not user-annotated). In that case the
+                // inferred return is `Never` (or `Coroutine[Any, Any, Never]` for `async def`),
+                // which we treat as no real signal about the intended return shape — replace it
+                // with `Any` (sync) or `Coroutine[Any, Any, Any]` (async) so a child override is
+                // not flagged. We preserve the async wrapper because override-consistency is a
+                // structural subset check on attribute types — collapsing an async parent's
+                // return to bare `Any` would silently let a sync child override an async parent.
+                // We do *not* relax when the user explicitly annotated the return (e.g.
+                // `-> Never`) — that annotation is intentional and should still produce an
+                // override error if a child's return is incompatible. We also do *not* relax
+                // `return NotImplemented` (different semantics — that's the dunder-protocol
+                // "defer to other operand" signal).
+                let relax_ty = |ty: &mut Type| {
+                    let (placeholder_kind, is_async, is_return_inferred) = ty
+                        .visit_toplevel_func_metadata(&|meta| {
+                            (
+                                meta.flags.placeholder_body_kind,
+                                meta.flags.is_async,
+                                meta.flags.is_return_inferred,
+                            )
+                        });
+                    if placeholder_kind != Some(PlaceholderBodyKind::RaiseNotImplementedError)
+                        || !is_return_inferred
+                    {
+                        return;
                     }
+                    let any_implicit = self.heap.mk_any_implicit();
+                    let relaxed_ret = if is_async {
+                        self.heap.mk_class_type(self.stdlib.coroutine(
+                            any_implicit.clone(),
+                            any_implicit.clone(),
+                            any_implicit,
+                        ))
+                    } else {
+                        any_implicit
+                    };
+                    ty.transform_toplevel_callable(&mut |callable: &mut Callable| {
+                        callable.ret = relaxed_ret.clone();
+                    });
+                };
+                match &mut attr {
+                    ClassAttribute::ReadOnly(ty, _) | ClassAttribute::ReadWrite(ty)
+                        if ty.has_toplevel_func_metadata() =>
+                    {
+                        relax_ty(ty);
+                    }
+                    ClassAttribute::Property(getter, setter, _) => {
+                        relax_ty(getter);
+                        if let Some(setter) = setter {
+                            relax_ty(setter);
+                        }
+                    }
+                    _ => {}
                 }
                 attr
             };

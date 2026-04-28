@@ -8,16 +8,15 @@ from ....core.unchecked_base_model import UncheckedBaseModel
 from .listen_v1results_channel import ListenV1ResultsChannel
 from .listen_v1results_entities_item import ListenV1ResultsEntitiesItem
 from .listen_v1results_metadata import ListenV1ResultsMetadata
-from .listen_v1results_type import ListenV1ResultsType
 
 
 class ListenV1Results(UncheckedBaseModel):
-    type: ListenV1ResultsType = pydantic.Field()
+    type: typing.Literal["Results"] = pydantic.Field(default="Results")
     """
     Message type identifier
     """
 
-    channel_index: typing.List[float] = pydantic.Field()
+    channel_index: typing.List[int] = pydantic.Field()
     """
     The index of the channel
     """

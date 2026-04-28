@@ -31,16 +31,7 @@ from geocif import logger as log
 from geocif import utils as ut
 
 # Shared fixed palette for model/experiment colors
-_FIXED_PALETTE = [
-    (0.122, 0.467, 0.706, 1.0),  # steel blue
-    (0.839, 0.153, 0.157, 1.0),  # brick red
-    (0.173, 0.627, 0.173, 1.0),  # forest green
-    (0.580, 0.404, 0.741, 1.0),  # muted purple
-    (1.000, 0.498, 0.055, 1.0),  # orange
-    (0.549, 0.337, 0.294, 1.0),  # brown
-    (0.890, 0.467, 0.761, 1.0),  # pink
-    (0.498, 0.498, 0.498, 1.0),  # grey
-]
+_FIXED_PALETTE = [tuple(c) for c in plt.cm.tab20.colors]
 
 
 def _fmt(name: str) -> str:
@@ -285,7 +276,7 @@ def _all_cid_types():
     types = set()
     for d in (
         di.dict_indices, di.dict_ndvi, di.dict_gcvi, di.dict_esi4wk,
-        di.dict_hindex, di.dict_aef, di.dict_fldas,
+        di.dict_hindex, di.dict_aef, di.dict_fldas, di.dict_s2s,
     ):
         for v in d.values():
             types.add(v[0])
@@ -298,7 +289,7 @@ def _all_cid_indices():
     keys = []
     for d in (
         di.dict_indices, di.dict_ndvi, di.dict_gcvi, di.dict_esi4wk,
-        di.dict_hindex, di.dict_aef, di.dict_fldas,
+        di.dict_hindex, di.dict_aef, di.dict_fldas, di.dict_s2s,
     ):
         keys.extend(d.keys())
     return sorted(set(keys))
@@ -888,7 +879,8 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
     else:
         all_cids_display = all_cids
 
-    params = gc._build_summary_params(parser, inputs)
+    params = [("Config files", [str(p) for p in path_config_files])]
+    params.extend(gc._build_summary_params(parser, inputs))
     params.append(("Experiments", ", ".join(run_experiments) if run_experiments else "(none)"))
     if "model_comparison" in run_experiments:
         params.append(("Exp 0: models", ", ".join(model_experiment)))
@@ -1353,101 +1345,147 @@ def _plot_mape_by_year(df_exp_data, experiment_name, dir_plots):
         plt.close(fig)
 
 
-def _plot_mape_by_cid(df_exp_data, experiment_name, dir_plots):
-    """Bar chart of mean MAPE per CID type."""
-    df_exp = _compute_ape(_filter_experiment(df_exp_data, experiment_name))
+def _compute_group_metric(df_exp, groupby_col, metric):
+    """Compute a metric aggregated by groupby_col from raw obs/pred data."""
+    obs_col, pred_col = _get_obs_pred_cols(df_exp)
+    if not obs_col:
+        return pd.Series(dtype=float)
+
+    results = {}
+    for name, grp in df_exp.groupby(groupby_col):
+        obs, pred = grp[obs_col], grp[pred_col]
+        valid = obs.notna() & pred.notna() & (obs != 0)
+        obs, pred = obs[valid], pred[valid]
+        if len(obs) < 2:
+            continue
+        if metric == "MAPE":
+            results[name] = np.mean(np.abs((obs - pred) / obs)) * 100
+        elif metric == "RMSE":
+            results[name] = np.sqrt(np.mean((obs - pred) ** 2))
+        elif metric == "R2":
+            results[name] = np.corrcoef(obs, pred)[0, 1] ** 2 if np.std(obs) > 0 else np.nan
+    return pd.Series(results)
+
+
+_METRIC_LABELS = {
+    "MAPE": ("MAPE (%)", "YlOrRd", True),   # (ylabel, cmap, ascending_is_better)
+    "RMSE": ("RMSE (tn/ha)", "YlOrRd", True),
+    "R2": ("R²", "RdYlGn", False),
+}
+
+
+def _plot_metric_by_cid(df_exp_data, experiment_name, dir_plots, metric="MAPE"):
+    """Bar chart of a metric per CID type."""
+    df_exp = _filter_experiment(df_exp_data, experiment_name)
     if df_exp.empty:
         return
 
-    mape = df_exp.groupby("param_value")["APE"].mean().sort_values()
+    ylabel, _, ascending = _METRIC_LABELS[metric]
+    vals = _compute_group_metric(df_exp, "param_value", metric).sort_values(ascending=ascending)
+    if vals.empty:
+        return
+
     # Place "All CIDs" first
-    if "All CIDs" in mape.index:
-        all_cids_val = mape.pop("All CIDs")
-        mape = pd.concat([pd.Series({"All CIDs": all_cids_val}), mape])
+    if "All CIDs" in vals.index:
+        ref = vals.pop("All CIDs")
+        vals = pd.concat([pd.Series({"All CIDs": ref}), vals])
 
     with plt.style.context(["science", "no-latex"]):
-        fig, ax = plt.subplots(figsize=(max(8, len(mape) * 0.8), 5))
-        bar_colors = ["black" if idx == "All CIDs" else _FIXED_PALETTE[0]
-                       for idx in mape.index]
-        mape.plot(kind="bar", ax=ax, color=bar_colors)
+        fig, ax = plt.subplots(figsize=(max(8, len(vals) * 0.8), 5))
+        bar_colors = ["black" if idx == "All CIDs"
+                       else _FIXED_PALETTE[i % len(_FIXED_PALETTE)]
+                       for i, idx in enumerate(vals.index)]
+        vals.plot(kind="bar", ax=ax, color=bar_colors)
         ax.set_xlabel("")
-        ax.set_ylabel("MAPE (%)")
-        ax.set_title(f"MAPE by CID Type — {experiment_name}")
+        ax.set_ylabel(ylabel)
+        ax.set_title(f"{ylabel} by CID Type — {experiment_name}")
         ax.tick_params(axis="x", rotation=45)
         plt.tight_layout()
-        fig.savefig(dir_plots / f"mape_cid_{experiment_name}.png", dpi=250)
+        fig.savefig(dir_plots / f"{metric.lower()}_cid_{experiment_name}.png", dpi=250)
         plt.close(fig)
 
 
-def _plot_mape_by_cid_region(df_exp_data, experiment_name, dir_plots):
-    """Heatmap of MAPE: regions (rows) vs CID types (cols), ordered by production %."""
-    df_exp = _compute_ape(_filter_experiment(df_exp_data, experiment_name))
+def _plot_metric_by_cid_region(df_exp_data, experiment_name, dir_plots, metric="MAPE"):
+    """Heatmap of a metric: regions (rows) vs CID types (cols), ordered by production %."""
+    df_exp = _filter_experiment(df_exp_data, experiment_name)
     if df_exp.empty:
         return
+
+    ylabel, cmap, _ = _METRIC_LABELS[metric]
+    fmt = ".1f" if metric != "R2" else ".2f"
 
     for country in df_exp["Country"].unique():
         df_c = df_exp[df_exp["Country"] == country]
         prod_pct = _compute_production_pct(df_exp, country)
 
-        pivot = df_c.pivot_table(
-            index="Region", columns="param_value", values="APE", aggfunc="mean"
-        )
+        # Compute metric per (Region, param_value)
+        rows = []
+        for (region, pv), grp in df_c.groupby(["Region", "param_value"]):
+            val = _compute_group_metric(grp, "param_value", metric)
+            if not val.empty:
+                rows.append({"Region": region, "param_value": pv, metric: val.iloc[0]})
+        if not rows:
+            continue
+        df_pivot = pd.DataFrame(rows)
+        pivot = df_pivot.pivot_table(index="Region", columns="param_value", values=metric)
         if pivot.empty:
             continue
 
-        # Order by production %
         pivot = _order_by_production(pivot, prod_pct, ascending=False)
-        # Place "All CIDs" first column
         if "All CIDs" in pivot.columns:
             cols = ["All CIDs"] + [c for c in pivot.columns if c != "All CIDs"]
             pivot = pivot[cols]
 
         fig, ax = plt.subplots(figsize=(max(8, len(pivot.columns) * 1.2), max(5, len(pivot) * 0.4)))
-        sns.heatmap(pivot, annot=True, fmt=".1f", cmap="YlOrRd", ax=ax, linewidths=0.5)
-        ax.set_title(f"MAPE by Region × CID — {country}\n({experiment_name})")
+        sns.heatmap(pivot, annot=True, fmt=fmt, cmap=cmap, ax=ax, linewidths=0.5)
+        ax.set_title(f"{ylabel} by Region × CID — {country}\n({experiment_name})")
         ax.set_xlabel("")
         ax.set_ylabel("Region (% of production)")
         for tick in ax.get_xticklabels():
             if tick.get_text() == "All CIDs":
                 tick.set_fontweight("bold")
         plt.tight_layout()
-        fig.savefig(dir_plots / f"mape_cid_region_{experiment_name}_{country}.png", dpi=250)
+        fig.savefig(dir_plots / f"{metric.lower()}_cid_region_{experiment_name}_{country}.png", dpi=250)
         plt.close(fig)
 
 
-def _plot_mape_by_cid_year(df_exp_data, experiment_name, dir_plots):
-    """Line plot of MAPE by harvest year, one line per CID type."""
-    df_exp = _compute_ape(_filter_experiment(df_exp_data, experiment_name))
+def _plot_metric_by_cid_year(df_exp_data, experiment_name, dir_plots, metric="MAPE"):
+    """Line plot of a metric by harvest year, one line per CID type."""
+    df_exp = _filter_experiment(df_exp_data, experiment_name)
     if df_exp.empty or "Harvest Year" not in df_exp.columns:
         return
 
-    mape_by_year = (
-        df_exp.groupby(["Harvest Year", "param_value"])["APE"]
-        .mean().reset_index().rename(columns={"APE": "MAPE"})
-        .sort_values("Harvest Year")
-    )
+    ylabel, _, _ = _METRIC_LABELS[metric]
 
-    cid_names = sorted(pv for pv in mape_by_year["param_value"].unique() if pv != "All CIDs")
+    # Compute metric per (Harvest Year, param_value)
+    rows = []
+    for (year, pv), grp in df_exp.groupby(["Harvest Year", "param_value"]):
+        val = _compute_group_metric(grp, "param_value", metric)
+        if not val.empty:
+            rows.append({"Harvest Year": year, "param_value": pv, metric: val.iloc[0]})
+    if not rows:
+        return
+    metric_by_year = pd.DataFrame(rows).sort_values("Harvest Year")
+
+    cid_names = sorted(pv for pv in metric_by_year["param_value"].unique() if pv != "All CIDs")
     cid_colors = {name: _FIXED_PALETTE[i % len(_FIXED_PALETTE)]
                   for i, name in enumerate(cid_names)}
-    groups = dict(list(mape_by_year.groupby("param_value")))
+    groups = dict(list(metric_by_year.groupby("param_value")))
 
     with plt.style.context(["science", "no-latex"]):
         fig, ax = plt.subplots(figsize=(10, 5))
-        # Plot individual CIDs first, then "All CIDs" on top
         for pv in cid_names:
             if pv in groups:
                 grp = groups[pv]
-                ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o",
+                ax.plot(grp["Harvest Year"], grp[metric], marker="o",
                         label=pv, color=cid_colors[pv])
         if "All CIDs" in groups:
             grp = groups["All CIDs"]
-            ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o", label="All CIDs",
+            ax.plot(grp["Harvest Year"], grp[metric], marker="o", label="All CIDs",
                     color="black", linewidth=2.5, zorder=10)
         ax.set_xlabel("")
-        ax.set_ylabel("MAPE (%)")
-        ax.set_title(f"MAPE by Year × CID — {experiment_name}")
-        # Place "All CIDs" first in legend
+        ax.set_ylabel(ylabel)
+        ax.set_title(f"{ylabel} by Year × CID — {experiment_name}")
         handles, labels = ax.get_legend_handles_labels()
         if "All CIDs" in labels:
             idx = labels.index("All CIDs")
@@ -1455,7 +1493,7 @@ def _plot_mape_by_cid_year(df_exp_data, experiment_name, dir_plots):
             labels = [labels[idx]] + labels[:idx] + labels[idx + 1:]
         ax.legend(handles, labels, title="CID Type", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
         plt.tight_layout()
-        fig.savefig(dir_plots / f"mape_cid_year_{experiment_name}.png", dpi=250)
+        fig.savefig(dir_plots / f"{metric.lower()}_cid_year_{experiment_name}.png", dpi=250)
         plt.close(fig)
 
 
@@ -1626,9 +1664,10 @@ def analyze_experiments(parser, experiments, logger, best_models=None):
         _safe_plot(_plot_feature_frequency, df_exp, exp_name, dir_exp_plots)
         _safe_plot(_plot_mape_by_year, df_exp, exp_name, dir_exp_plots)
         if exp_name == "cids":
-            _safe_plot(_plot_mape_by_cid, df_exp, exp_name, dir_exp_plots)
-            _safe_plot(_plot_mape_by_cid_region, df_exp, exp_name, dir_exp_plots)
-            _safe_plot(_plot_mape_by_cid_year, df_exp, exp_name, dir_exp_plots)
+            for _metric in ("MAPE", "RMSE", "R2"):
+                _safe_plot(_plot_metric_by_cid, df_exp, exp_name, dir_exp_plots, _metric)
+                _safe_plot(_plot_metric_by_cid_region, df_exp, exp_name, dir_exp_plots, _metric)
+                _safe_plot(_plot_metric_by_cid_year, df_exp, exp_name, dir_exp_plots, _metric)
             _safe_plot(_plot_cid_rank_by_year, df_exp, exp_name, dir_exp_plots)
         # Diagnostic plots: scatter, MAPE bar, MAPE map
         _safe_plot(_generate_diagnostics_for_experiment, df_exp, exp_name, dg, dir_experiments,

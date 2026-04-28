@@ -12,8 +12,10 @@ from braintrust.integrations import (
     AgentScopeIntegration,
     AgnoIntegration,
     AnthropicIntegration,
+    AutoGenIntegration,
     ClaudeAgentSDKIntegration,
     CohereIntegration,
+    CrewAIIntegration,
     DSPyIntegration,
     GoogleGenAIIntegration,
     LangChainIntegration,
@@ -23,6 +25,7 @@ from braintrust.integrations import (
     OpenAIIntegration,
     OpenRouterIntegration,
     PydanticAIIntegration,
+    StrandsIntegration,
 )
 from braintrust.integrations.base import BaseIntegration
 
@@ -60,6 +63,9 @@ def auto_instrument(
     langchain: bool = True,
     openai_agents: bool = True,
     cohere: bool = True,
+    autogen: bool = True,
+    crewai: bool = True,
+    strands: bool = True,
 ) -> dict[str, bool]:
     """
     Auto-instrument supported AI/ML libraries for Braintrust tracing.
@@ -86,6 +92,9 @@ def auto_instrument(
         langchain: Enable LangChain instrumentation (default: True)
         openai_agents: Enable OpenAI Agents SDK instrumentation (default: True)
         cohere: Enable Cohere instrumentation (default: True)
+        autogen: Enable AutoGen instrumentation (default: True)
+        crewai: Enable CrewAI instrumentation (default: True)
+        strands: Enable Strands Agents instrumentation (default: True)
 
     Returns:
         Dict mapping integration name to whether it was successfully instrumented.
@@ -163,6 +172,12 @@ def auto_instrument(
         results["openai_agents"] = _instrument_integration(OpenAIAgentsIntegration)
     if cohere:
         results["cohere"] = _instrument_integration(CohereIntegration)
+    if autogen:
+        results["autogen"] = _instrument_integration(AutoGenIntegration)
+    if crewai:
+        results["crewai"] = _instrument_integration(CrewAIIntegration)
+    if strands:
+        results["strands"] = _instrument_integration(StrandsIntegration)
 
     return results
 

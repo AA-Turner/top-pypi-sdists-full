@@ -15,12 +15,7 @@ from typing import (
     Generic,
 )
 
-if sys.version_info < (3, 8):
-    from typing_extensions import Literal
-else:
-    from typing import Literal
-
-from pysam.libchtslib import HTSFile, _HasFileNo
+from pysam.libchtslib import HTSFile, StrOrBytesPath
 
 _D = TypeVar("_D")
 _K = TypeVar("_K", str, Union[int, str])
@@ -326,8 +321,8 @@ class VariantFile(HTSFile):
     def header_written(self) -> bool: ...
     def __init__(
         self,
-        filename: Union[str, bytes, int, _HasFileNo],
-        mode: Optional[Literal["r", "w", "wh", "rb", "wb", "wbu", "wb0"]] = ...,
+        filename: StrOrBytesPath,
+        mode: Optional[str] = ...,
         index_filename: Optional[str] = ...,
         header: Optional[VariantHeader] = ...,
         drop_samples: bool = ...,
@@ -341,8 +336,8 @@ class VariantFile(HTSFile):
     def copy(self) -> VariantFile: ...
     def open(
         self,
-        filename: Union[str, bytes, int, _HasFileNo],
-        mode: Optional[Literal["r", "w", "wh", "rb", "wb", "wbu", "wb0"]] = ...,
+        filename: StrOrBytesPath,
+        mode: Optional[str] = ...,
         index_filename: Optional[str] = ...,
         header: Optional[VariantHeader] = ...,
         drop_samples: bool = ...,

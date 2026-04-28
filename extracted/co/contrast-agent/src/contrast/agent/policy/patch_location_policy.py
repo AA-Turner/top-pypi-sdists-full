@@ -3,7 +3,7 @@
 from __future__ import annotations
 from functools import cached_property
 from collections.abc import Sequence
-from typing import Callable
+from collections.abc import Callable
 from contrast.agent.assess.policy import (
     propagation_policy,
     source_policy,

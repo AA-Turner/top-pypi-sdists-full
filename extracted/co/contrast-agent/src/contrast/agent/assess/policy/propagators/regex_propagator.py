@@ -1,10 +1,10 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import re
+from functools import lru_cache
 
 from contrast.agent import scope
 from contrast.agent.assess.adjusted_span import AdjustedSpan
-from contrast.agent.policy import registry
 from contrast.agent.assess.policy.preshift import Preshift
 from contrast.agent.assess.utils import (
     copy_events,
@@ -13,9 +13,8 @@ from contrast.agent.assess.utils import (
     get_properties,
     track_string,
 )
+from contrast.agent.policy import registry
 from contrast.utils.decorators import fail_quietly
-
-from functools import lru_cache
 
 from .split_propagator import SplitPropagator
 
@@ -79,7 +78,7 @@ def propagate_group(self_obj, target, *args):
 
     preshift = Preshift(self_obj.string, args, {})
 
-    for string, group in zip(target, args):
+    for string, group in zip(target, args, strict=True):
         _propagate_group_string(
             "group", string, source_properties, self_obj.span(group), preshift, target
         )
@@ -105,7 +104,7 @@ def propagate_groups(self_obj, target, *args):
 
     preshift = Preshift(self_obj.string, args, {})
 
-    for string, span in zip(target, self_obj.regs[1:]):
+    for string, span in zip(target, self_obj.regs[1:], strict=True):
         _propagate_group_string(
             "groups", string, source_properties, span, preshift, target
         )
@@ -282,7 +281,10 @@ class RegexSplitPropagator(SplitPropagator):
             else:
                 match = re.match(pattern, string[source_offset:], flags=flags)
             if match is not None:
-                for target, span in zip(self.target[target_index:], match.regs[1:]):
+                # This propagator appears to rely on mismatched-length args to `zip`
+                for target, span in zip(
+                    self.target[target_index:], match.regs[1:], strict=False
+                ):
                     target_properties = copy_tags_in_span(
                         target, source_properties, span, offset=source_offset
                     )
@@ -347,7 +349,7 @@ class RegexFindallPropagator(RegexSplitPropagator):
             else re.finditer(pattern, string, flags)
         )
 
-        for target, match in zip(self.target, matches):
+        for target, match in zip(self.target, matches, strict=True):
             for i, result in enumerate(target):
                 target_properties = copy_tags_in_span(
                     result,

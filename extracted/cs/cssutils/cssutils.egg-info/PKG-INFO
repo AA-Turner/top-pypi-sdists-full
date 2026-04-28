@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cssutils
-Version: 2.14.0
+Version: 2.15.0
 Summary: A CSS Cascading Style Sheets library for Python
 Author-email: Christof Hoeke <c@cthedot.de>
 Maintainer-email: "Jason R. Coombs" <jaraco@jaraco.com>

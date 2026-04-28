@@ -1,6 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
-  - name: Just ask the community a question
+  - name: Ask a question
+    url: https://github.com/doronz88/pymobiledevice3/discussions
+    about: Ask questions and discuss pymobiledevice3 usage with the community.
+  - name: Join Discord
     url: https://discord.gg/52mZGC3JXJ
-    about: Community help about pymobiledevice3.
-
+    about: Community help and discussion on Discord.

@@ -380,3 +380,57 @@ class TestGitIgnoreCompatibility(TestCase):
                 # Some patterns might not be supported, that's OK
                 # But the function shouldn't crash
                 pass
+
+
+class TestMonorepoIgnoring(TestCase):
+    """Tests for ignore behavior when the project sits inside an outer git repo."""
+
+    def setUp(self):
+        self.original_cwd = Path.cwd()
+        self.tmp = Path(mkdtemp())
+        self.monorepo = self.tmp / "monorepo"
+        self.monorepo.mkdir()
+        # Outer git repo, NOT at the abstra project root.
+        subprocess.run(["git", "init"], cwd=self.monorepo, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=self.monorepo,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=self.monorepo,
+            capture_output=True,
+        )
+
+        self.project = self.monorepo / "abstra_project"
+        self.project.mkdir()
+        Settings.set_root_path(str(self.project.absolute()))
+
+        (self.project / GITIGNORE_FILEPATH).write_text(".env\n")
+        (self.project / ".env").write_text("SECRET=1")
+        (self.project / "main.py").write_text("print('hi')")
+
+        FileSystemService.clear_gitignore_cache()
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        FileSystemService.clear_gitignore_cache()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_is_git_available_rejects_outer_repo(self):
+        # The fix: project root is not its own git repo, so we should NOT
+        # route through `git check-ignore`.
+        self.assertFalse(FileSystemService._is_git_available())
+
+    def test_dotenv_in_inner_gitignore_is_ignored(self):
+        # The original bug: would return False here, leaking `.env` into
+        # the deploy bundle and overriding pod env vars in production.
+        self.assertTrue(FileSystemService.is_ignored(self.project / ".env"))
+        self.assertFalse(FileSystemService.is_ignored(self.project / "main.py"))
+
+    def test_list_files_excludes_dotenv_in_monorepo(self):
+        files = FileSystemService.list_files(self.project)
+        names = {f.name for f in files}
+        self.assertNotIn(".env", names)
+        self.assertIn("main.py", names)

@@ -60,6 +60,11 @@ class _TestManagerProvider(DtxServiceProvider):
     SERVICE_NAME = "com.apple.testmanagerd.lockdown.secure"
     RSD_SERVICE_NAME = "com.apple.dt.testmanagerd.remote"
     OLD_SERVICE_NAME = "com.apple.testmanagerd.lockdown"
+    REGISTER_SERVICES = (
+        XCTestManager_IDEInterface,
+        XCTestManager_DaemonConnectionInterface,
+        XCTestDriverInterface,
+    )
 
 
 class ProxyIdeToDaemonService(DtxProxyService[XCTestManager_IDEInterface, XCTestManager_DaemonConnectionInterface]):

@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-greenlet"
-version = "3.4.0.20260409"
+version = "3.5.0.20260428"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for greenlet"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`greenlet`](https://github.com/python-greenlet/greenlet) package. It can be used by type checkers
 to check code that uses `greenlet`. This version of
 `types-greenlet` aims to provide accurate annotations for
-`greenlet==3.4.*`.
+`greenlet==3.5.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`aaefc85a95431045b0726b297d0ad1f4786ba1e2`](https://github.com/python/typeshed/commit/aaefc85a95431045b0726b297d0ad1f4786ba1e2).
+[`c24684f216a14cbc172d2d27d55be37adfe336bb`](https://github.com/python/typeshed/commit/c24684f216a14cbc172d2d27d55be37adfe336bb).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

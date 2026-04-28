@@ -2649,7 +2649,7 @@ class ModelTrainer:
             self.obj.cluster_strategy,
             self.obj.model_name,
             self.obj.model_type,
-            False,
+            self.obj.optimize,
             "Harvest Year",
             df_region[
                 self.obj.selected_features + 
@@ -2741,10 +2741,19 @@ class CatBoostFitter(BaseFitter):
     """CatBoost-specific fitting."""
 
     def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
+        from catboost import Pool
+        from sklearn.model_selection import train_test_split
+
+        train_X, val_X, train_y, val_y = train_test_split(
+            X_train, self.obj.y_train, test_size=0.2, random_state=42,
+        )
+        train_pool = Pool(train_X, train_y, cat_features=self.obj.cat_features)
+        val_pool = Pool(val_X, val_y, cat_features=self.obj.cat_features)
+
         self.obj.model.fit(
-            X_train,
-            self.obj.y_train,
-            cat_features=self.obj.cat_features,
+            train_pool,
+            eval_set=val_pool,
+            use_best_model=True,
             verbose=False,
         )
 

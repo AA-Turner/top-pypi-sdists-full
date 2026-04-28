@@ -1,6 +1,6 @@
 /*  sam_view.c -- SAM<->BAM<->CRAM conversion.
 
-    Copyright (C) 2009-2024 Genome Research Ltd.
+    Copyright (C) 2009-2025 Genome Research Ltd.
     Portions copyright (C) 2009, 2011, 2012 Broad Institute.
 
     Author: Heng Li <lh3@sanger.ac.uk>
@@ -37,6 +37,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include "htslib/faidx.h"
 #include "htslib/khash.h"
 #include "htslib/kstring.h"
+#include "htslib/hfile.h"
 #include "htslib/thread_pool.h"
 #include "htslib/hts_expr.h"
 #include "samtools.h"
@@ -85,12 +86,15 @@ typedef struct samview_settings {
     sam_hdr_t *header;
     samFile *in, *out, *un_out;
     int64_t count;
+    int64_t processed;
     int is_count;
     char *fn_in, *fn_idx_in, *fn_out, *fn_fai, *fn_un_out, *fn_out_idx, *fn_un_out_idx;
+    char *fn_counts;
     int fetch_pairs, nreglist;
     hts_reglist_t *reglist;
     int sanitize;
     int count_rf; // CRAM_OPT_REQUIRED_FIELDS for view -c
+    int exclude_no_rg;
 } samview_settings_t;
 
 // Copied from htslib/sam.c.
@@ -174,12 +178,16 @@ static int process_aln(const sam_hdr_t *h, bam1_t *b, samview_settings_t* settin
         uint32_t k = __ac_Wang_hash(__ac_X31_hash_string(bam_get_qname(b)) ^ settings->subsam_seed);
         if ((double)(k&0xffffff) / 0x1000000 >= settings->subsam_frac) return 1;
     }
-    if (settings->rghash) {
+    if (settings->rghash || settings->exclude_no_rg) {
         uint8_t *s = bam_aux_get(b, "RG");
         if (s) {
-            khint_t k = kh_get(str, settings->rghash, (char*)(s + 1));
-            if ((k == kh_end(settings->rghash)) != settings->rghash_discard)
-                return 1;
+            if (settings->rghash) {
+                khint_t k = kh_get(str, settings->rghash, (char*)(s + 1));
+                if ((k == kh_end(settings->rghash)) != settings->rghash_discard)
+                    return 1;
+            }
+        } else if (settings->exclude_no_rg) {
+            return 1;
         }
     }
     if (settings->tag) {
@@ -671,13 +679,17 @@ static int fetch_pairs_collect_mates(samview_settings_t *conf, hts_itr_multi_t *
              k = kh_get(names,mate_names,bam_get_qname(rec));
              if ( k != kh_end(mate_names) ) drop = 0;
         }
+        if ( drop )
+            continue;
         int p = 0;
-        if (!drop && (p=process_aln(conf->header, rec, conf))== 0) {
+        conf->processed++;
+        if ((p=process_aln(conf->header, rec, conf)) == 0) {
             if (adjust_tags(conf->header, rec, conf) != 0)
                 goto out;
             if (check_sam_write1(conf->out, conf->header, rec, conf->fn_out,
                                  &write_error) < 0)
                 goto out;
+            conf->count++;
         }
         if (p < 0)
             goto out;
@@ -707,6 +719,7 @@ static int fetch_pairs_collect_mates(samview_settings_t *conf, hts_itr_multi_t *
 // Common code for processing and writing a record
 static inline int process_one_record(samview_settings_t *conf, bam1_t *b,
                                      int *write_error) {
+    conf->processed++;
     if (conf->sanitize)
         if (bam_sanitize(conf->header, b, conf->sanitize) < 0)
             return -1;
@@ -815,6 +828,48 @@ static void aux_list_free(samview_settings_t *settings) {
         kh_destroy(aux_exists, settings->remove_tag);
 }
 
+static int write_counts_to_file(samview_settings_t *settings) {
+    kstring_t text = KS_INITIALIZE;
+    hFILE *outfile = NULL;
+    int ret = -1;
+    int r = ksprintf(&text,
+                     "{\n"
+                     "    \"records_processed\" : %"PRId64",\n"
+                     "    \"records_filter_accepted\" : %"PRId64",\n"
+                     "    \"records_filter_rejected\" : %"PRId64"\n"
+                     "}\n",
+                     settings->processed, settings->count,
+                     settings->processed - settings->count);
+    if (r < 0) {
+        print_error_errno("view", "failed to make read counts text");
+        goto out;
+    }
+    outfile = hopen(settings->fn_counts, "w");
+    if (!outfile) {
+        print_error_errno("view", "failed to open \"%s\"", settings->fn_counts);
+        goto out;
+    }
+    if (hwrite(outfile, ks_c_str(&text), ks_len(&text)) != ks_len(&text)) {
+        print_error_errno("view", "failed to write to \"%s\"",
+                          settings->fn_counts);
+        goto out;
+    }
+    r = hclose(outfile);
+    outfile = NULL;
+    if (r < 0) {
+        print_error_errno("view", "error on closing \"%s\"",
+                          settings->fn_counts);
+        goto out;
+    }
+    ret = 0;
+
+ out:
+    ks_free(&text);
+    if (outfile)
+        hclose_abruptly(outfile);
+    return ret;
+}
+
 int main_samview(int argc, char *argv[])
 {
     samview_settings_t settings;
@@ -840,6 +895,10 @@ int main_samview(int argc, char *argv[])
         {"customized-index", no_argument, NULL, 'X'},
         {"excl-flags", required_argument, NULL, 'F'},
         {"exclude-flags", required_argument, NULL, 'F'},
+        {"excl-no-read-group", no_argument, NULL, 'n'},
+        {"excl-no-readgroup", no_argument, NULL, 'n'},
+        {"exclude-no-read-group", no_argument, NULL, 'n'},
+        {"exclude-no-readgroup", no_argument, NULL, 'n'},
         {"expr", required_argument, NULL, 'e'},
         {"expression", required_argument, NULL, 'e'},
         {"fai-reference", required_argument, NULL, 't'},
@@ -872,6 +931,7 @@ int main_samview(int argc, char *argv[])
         {"remove-flags", required_argument, NULL, LONGOPT('r')},
         {"remove-tag", required_argument, NULL, 'x'},
         {"require-flags", required_argument, NULL, 'f'},
+        {"save-counts", required_argument, NULL, LONGOPT('c')},
         {"subsample", required_argument, NULL, LONGOPT('s')},
         {"subsample-seed", required_argument, NULL, LONGOPT('S')},
         {"tag", required_argument, NULL, 'd'},
@@ -903,7 +963,7 @@ int main_samview(int argc, char *argv[])
     int tmp_flag;
 
     while ((c = getopt_long(argc, argv,
-                            "SbBcCt:h1Ho:O:q:f:F:G:ul:r:T:R:N:d:D:L:s:@:m:x:U:MXe:pPz:",
+                            "SbBcCt:h1Ho:O:q:f:F:G:ul:r:T:R:N:d:D:L:s:@:m:x:U:MXe:pPz:n",
                             lopts, NULL)) >= 0) {
         switch (c) {
         case 's':
@@ -935,6 +995,7 @@ int main_samview(int argc, char *argv[])
             settings.count_rf |= SAM_SEQ;
             break;
         case 'c': settings.is_count = 1; break;
+        case LONGOPT('c'): settings.fn_counts = optarg; break;
         case 'S': break;
         case 'b': out_format = "b"; break;
         case 'C': out_format = "c"; break;
@@ -1032,6 +1093,7 @@ int main_samview(int argc, char *argv[])
             }
             settings.count_rf |= SAM_RGAUX;
             break;
+        case 'n': settings.exclude_no_rg = 1; break;
         case 'N':
             if (add_read_names_file("view", &settings, optarg) != 0) {
                 ret = 1;
@@ -1457,6 +1519,11 @@ view_end:
         }
     }
 
+    if (settings.fn_counts && ret == 0) {
+        if (write_counts_to_file(&settings) < 0)
+            ret = EXIT_FAILURE;
+    }
+
     // close files, free and return
     if (settings.in) check_sam_close("view", settings.in, settings.fn_in, "standard input", &ret);
     if (settings.out) check_sam_close("view", settings.out, settings.fn_out, "standard output", &ret);
@@ -1525,12 +1592,14 @@ static int usage(FILE *fp, int exit_status, int is_long_help)
 "  -H, --header-only          Print SAM header only (no alignments)\n"
 "      --no-header            Print SAM alignment records only [default]\n"
 "  -c, --count                Print only the count of matching records\n"
+"      --save-counts FILE     Write counts of passed/failed records to FILE\n"
 "  -o, --output FILE          Write output to FILE [standard output]\n"
 "  -U, --unoutput FILE, --output-unselected FILE\n"
 "                             Output reads not selected by filters to FILE\n"
 "  -p, --unmap                Set flag to UNMAP on reads not selected\n"
 "                             then write to output file.\n"
 "  -P, --fetch-pairs          Retrieve complete pairs even when outside of region\n"
+"\n"
 "Input options:\n"
 "  -t, --fai-reference FILE   FILE listing reference names and lengths\n"
 "  -M, --use-index            Use index and multi-region iterator for regions\n"
@@ -1540,9 +1609,11 @@ static int usage(FILE *fp, int exit_status, int is_long_help)
 "Filtering options (Only include in output reads that...):\n"
 "  -L, --target[s]-file FILE  ...overlap (BED) regions in FILE\n"
 "  -N, --qname-file [^]FILE   ...whose read name is listed in FILE (\"^\" negates)\n"
-"  -r, --read-group STR       ...are in read group STR\n"
+"  -r, --read-group STR       ...are in read group STR or in no read group\n"
 "  -R, --read-group-file [^]FILE\n"
-"                             ...are in a read group listed in FILE\n"
+"                             ...are in a read group listed in FILE or in none\n"
+"  -n, --exclude-no-read_group\n"
+"                             ...have a read group, exclude those that have not\n"
 "  -d, --tag STR1[:STR2]      ...have a tag STR1 (with associated value STR2)\n"
 "  -D, --tag-file STR:FILE    ...have a tag STR whose value is listed in FILE\n"
 "  -q, --min-MQ INT           ...have mapping quality >= INT\n"

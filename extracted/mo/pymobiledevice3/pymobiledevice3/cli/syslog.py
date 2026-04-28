@@ -19,7 +19,13 @@ from pymobiledevice3.cli.cli_common import (
     user_requested_colored_output,
 )
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
-from pymobiledevice3.services.os_trace import OsTraceService, SyslogEntry, SyslogLogLevel
+from pymobiledevice3.services.os_trace import (
+    OS_TRACE_RELAY_STREAM_FLAGS_DEFAULT,
+    OsActivityStreamFlag,
+    OsTraceService,
+    SyslogEntry,
+    SyslogLogLevel,
+)
 from pymobiledevice3.services.syslog import SyslogService
 
 logger = logging.getLogger(__name__)
@@ -194,6 +200,8 @@ async def syslog_live(
     include_label: bool,
     regex: list[str],
     insensitive_regex: list[str],
+    no_debug: bool = False,
+    no_info: bool = False,
     image_offset: bool = False,
     start_after: Optional[str] = None,
     output_format: SyslogFormat = SyslogFormat.TEXT,
@@ -206,12 +214,25 @@ async def syslog_live(
         print(f'Waiting for "{start_after}" ...', flush=True)
 
     should_color_output = output_format is SyslogFormat.TEXT and user_requested_colored_output()
+    stream_flags = OS_TRACE_RELAY_STREAM_FLAGS_DEFAULT
+    if no_debug:
+        stream_flags &= ~OsActivityStreamFlag.DEBUG
+    if no_info:
+        stream_flags &= ~OsActivityStreamFlag.INFO
 
-    async for syslog_entry in OsTraceService(lockdown=service_provider).syslog(pid=pid):
+    async for syslog_entry in OsTraceService(lockdown=service_provider).syslog(pid=pid, stream_flags=stream_flags):
         if process_name and posixpath.basename(syslog_entry.filename) != process_name:
             continue
 
         if pid != -1 and syslog_entry.pid != pid:
+            continue
+
+        if no_debug and syslog_entry.level == SyslogLogLevel.DEBUG:
+            continue
+
+        if no_info and syslog_entry.level == SyslogLogLevel.INFO:
+            # I don't really understand why INFO is retrieved when not requested, but this is imitating
+            # Console.app behavior
             continue
 
         if output_format is SyslogFormat.JSON:
@@ -350,6 +371,20 @@ async def cli_syslog_live(
             help="Include image offset in log line (text mode only; JSON always emits image_offset).",
         ),
     ] = False,
+    no_debug: Annotated[
+        bool,
+        typer.Option(
+            "--no-debug",
+            help="Suppress DEBUG entries.",
+        ),
+    ] = False,
+    no_info: Annotated[
+        bool,
+        typer.Option(
+            "--no-info",
+            help="Suppress INFO entries.",
+        ),
+    ] = False,
     start_after: Annotated[
         Optional[str],
         typer.Option(
@@ -382,6 +417,8 @@ async def cli_syslog_live(
             include_label,
             regex or [],
             insensitive_regex or [],
+            no_debug,
+            no_info,
             image_offset,
             start_after,
             output_format,

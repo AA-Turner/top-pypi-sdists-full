@@ -12,8 +12,8 @@ generating speech from text input using HTTP streaming with Server-Sent Events.
 
 import base64
 import struct
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from typing import AsyncGenerator, Optional
 
 from loguru import logger
 
@@ -22,7 +22,7 @@ from pipecat.frames.frames import (
     Frame,
     TTSAudioRawFrame,
 )
-from pipecat.services.settings import TTSSettings
+from pipecat.services.settings import TTSSettings, assert_given
 from pipecat.services.tts_service import TTSService
 from pipecat.utils.tracing.service_decorators import traced_tts
 
@@ -63,20 +63,18 @@ class MistralTTSService(TTSService):
     def __init__(
         self,
         *,
-        api_key: Optional[str] = None,
-        sample_rate: Optional[int] = None,
-        settings: Optional[Settings] = None,
+        api_key: str | None = None,
+        sample_rate: int | None = None,
+        settings: Settings | None = None,
         **kwargs,
     ):
         """Initialize Mistral TTS service.
 
         Args:
-            api_key: Mistral API key for authentication. If None, uses
-                MISTRAL_API_KEY environment variable.
+            api_key: Mistral API key for authentication.
             sample_rate: Output audio sample rate in Hz. Audio is resampled from
                 Mistral's native 24kHz when a different rate is requested.
-            settings: Runtime-updatable settings. When provided alongside deprecated
-                parameters, ``settings`` values take precedence.
+            settings: Runtime-updatable settings.
             **kwargs: Additional keyword arguments passed to TTSService.
         """
         # Initialize default_settings with hardcoded defaults
@@ -139,8 +137,8 @@ class MistralTTSService(TTSService):
 
             async with await self._client.audio.speech.complete_async(
                 input=text,
-                model=self._settings.model,
-                voice_id=self._settings.voice,
+                model=assert_given(self._settings.model),
+                voice_id=assert_given(self._settings.voice),
                 response_format="pcm",
                 stream=True,
             ) as event_stream:

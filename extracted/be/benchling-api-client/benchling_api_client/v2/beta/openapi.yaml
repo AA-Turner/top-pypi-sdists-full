@@ -3514,8 +3514,8 @@ components:
             discriminator:
               mapping:
                 APP: '#/components/schemas/AppCollaborator'
-                ORGANIZATION_MEMBER: '#/components/schemas/OrgMembershipCollaborator'
-                TEAM_MEMBER: '#/components/schemas/TeamMembershipCollaborator'
+                ORGANIZATION_MEMBERSHIP: '#/components/schemas/OrgMembershipCollaborator'
+                TEAM_MEMBERSHIP: '#/components/schemas/TeamMembershipCollaborator'
                 USER: '#/components/schemas/UserCollaborator'
               propertyName: type
             oneOf:

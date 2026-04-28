@@ -224,6 +224,8 @@ class DataDesigner(DataDesignerInterface[DatasetCreationResults]):
         try:
             builder = self._create_dataset_builder(config_builder.build(), resource_provider)
             builder.build(num_records=num_records)
+        except DeprecationWarning:
+            raise
         except Exception as e:
             raise DataDesignerGenerationError(f"🛑 Error generating dataset: {e}") from e
 
@@ -296,6 +298,8 @@ class DataDesigner(DataDesignerInterface[DatasetCreationResults]):
             builder = self._create_dataset_builder(config_builder.build(), resource_provider)
             raw_dataset = builder.build_preview(num_records=num_records)
             processed_dataset = builder.process_preview(raw_dataset)
+        except DeprecationWarning:
+            raise
         except Exception as e:
             raise DataDesignerGenerationError(f"🛑 Error generating preview dataset: {e}") from e
 
@@ -333,6 +337,7 @@ class DataDesigner(DataDesignerInterface[DatasetCreationResults]):
             processor_artifacts=processor_artifacts,
             config_builder=config_builder,
             dataset_metadata=dataset_metadata,
+            task_traces=builder.task_traces or None,
         )
 
     def _log_jinja_rendering_engine_mode(self) -> None:

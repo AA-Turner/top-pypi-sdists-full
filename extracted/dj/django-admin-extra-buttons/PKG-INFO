@@ -1,27 +1,24 @@
 Metadata-Version: 2.4
 Name: django-admin-extra-buttons
-Version: 2.1.2
+Version: 2.2
 Summary: Django mixin to easily add buttons to any ModelAdmin
 Project-URL: Documentation, https://saxix.github.io/django-admin-extra-buttons/
 Project-URL: Homepage, https://github.com/saxix/django-admin-extra-buttons
 License-File: LICENSE
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.12
 Requires-Dist: django-stubs
 Description-Content-Type: text/markdown
 

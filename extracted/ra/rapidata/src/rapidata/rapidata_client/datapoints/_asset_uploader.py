@@ -65,10 +65,10 @@ class AssetUploader:
     def get_file_cache_key(self, asset: str) -> str:
         """Generate cache key for a file, including environment."""
         env = self.openapi_service.environment
-        if not os.path.exists(asset):
-            raise FileNotFoundError(f"File not found: {asset}")
-
-        stat = os.stat(asset)
+        try:
+            stat = os.stat(asset)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"File not found: {asset}") from None
         return f"{env}@{asset}:{stat.st_size}:{stat.st_mtime_ns}"
 
     def get_url_cache_key(self, url: str) -> str:
@@ -114,11 +114,18 @@ class AssetUploader:
             self.get_file_cache_key(file_path), upload_file
         )
 
+    # Accept http / https / HTTP / HTTPS / mixed case — people type URLs
+    # by hand or copy them from docs with varying capitalisation.
+    _URL_SCHEME_RE = re.compile(r"^https?://", re.IGNORECASE)
+
     def upload_asset(self, asset: str) -> str:
         logger.debug("Uploading asset: %s", asset)
-        assert isinstance(asset, str), "Asset must be a string"
+        if not isinstance(asset, str):
+            raise TypeError(
+                f"Asset must be a string, got {type(asset).__name__}"
+            )
 
-        if re.match(r"^https?://", asset):
+        if self._URL_SCHEME_RE.match(asset):
             return self._upload_url_asset(asset)
 
         return self._upload_file_asset(asset)

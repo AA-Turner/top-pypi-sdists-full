@@ -138,10 +138,17 @@ def _load_submission_spec(bundle_root: Path) -> SubmissionPolicySpec:
     return SubmissionPolicySpec.model_validate_json(spec_path.read_text())
 
 
-def _copy_include_paths_into_bundle(paths: list[Path], cwd: Path, bundle_root: Path) -> None:
+def _bundle_target_for_include(path: Path, bundle_root: Path, class_path: str) -> Path:
+    module_path = class_path.rsplit(".", 1)[0]
+    if "." not in module_path and path.name == f"{module_path}.py":
+        return bundle_root / path.name
+    return bundle_root / path
+
+
+def _copy_include_paths_into_bundle(paths: list[Path], cwd: Path, bundle_root: Path, class_path: str) -> None:
     for path in paths:
         source = cwd / path
-        target = bundle_root / path
+        target = _bundle_target_for_include(path, bundle_root, class_path)
         if source.is_dir():
             _copy_tree_to(source, target)
             continue
@@ -160,11 +167,7 @@ def _prepare_submission_spec_from_policy(
 
     if init_kwargs:
         merged_kwargs = {**policy_spec.init_kwargs, **init_kwargs}
-        policy_spec = PolicySpec(
-            class_path=policy_spec.class_path,
-            data_path=policy_spec.data_path,
-            init_kwargs=merged_kwargs,
-        )
+        policy_spec = policy_spec.model_copy(update={"init_kwargs": merged_kwargs})
 
     if policy_spec.init_kwargs:
         console.print(f"[dim]Init kwargs: {policy_spec.init_kwargs}[/dim]")
@@ -172,20 +175,11 @@ def _prepare_submission_spec_from_policy(
     files_to_include: list[str] = []
     if policy_spec.data_path:
         data_rel = str(_resolve_path_within_cwd(policy_spec.data_path, cwd))
-        policy_spec = PolicySpec(
-            class_path=policy_spec.class_path,
-            data_path=data_rel,
-            init_kwargs=policy_spec.init_kwargs,
-        )
+        policy_spec = policy_spec.model_copy(update={"data_path": data_rel})
         files_to_include.append(data_rel)
         console.print(f"[dim]Data path: {data_rel}[/dim]")
 
-    submission_spec = SubmissionPolicySpec(
-        class_path=policy_spec.class_path,
-        data_path=policy_spec.data_path,
-        init_kwargs=policy_spec.init_kwargs,
-        setup_script=None,
-    )
+    submission_spec = SubmissionPolicySpec.model_validate(policy_spec.model_dump())
     return submission_spec, files_to_include
 
 
@@ -230,11 +224,11 @@ def create_submission_zip(
     zip_fd, zip_path = tempfile.mkstemp(suffix=".zip", prefix="cogames_submission_")
     os.close(zip_fd)
 
-    submission_spec = SubmissionPolicySpec(
-        class_path=policy_spec.class_path,
-        data_path=policy_spec.data_path,
-        init_kwargs=policy_spec.init_kwargs,
-        setup_script=setup_script,
+    submission_spec = SubmissionPolicySpec.model_validate(
+        {
+            **policy_spec.model_dump(),
+            "setup_script": setup_script,
+        }
     )
 
     all_files: dict[str, Path] = {}
@@ -296,7 +290,7 @@ def create_bundle(
 
         if validated_paths:
             include_with_ancestors = validated_paths + _collect_ancestor_init_files(validated_paths)
-            _copy_include_paths_into_bundle(include_with_ancestors, cwd, bundle_root)
+            _copy_include_paths_into_bundle(include_with_ancestors, cwd, bundle_root, submission_spec.class_path)
 
         has_embedded_package_root = find_package_source_root(bundle_root, submission_spec.class_path) is not None
         if (
@@ -325,7 +319,12 @@ def create_bundle(
     return output
 
 
-def _validation_job_spec(policy_uri: str, config_data: dict[str, Any]) -> dict[str, Any]:
+def _validation_job_spec(
+    policy_uri: str,
+    config_data: dict[str, Any],
+    *,
+    game_engine: str = "mettagrid",
+) -> dict[str, Any]:
     env_cfg = dict(config_data)
     env_cfg["game"] = dict(env_cfg["game"])
     env_cfg["game"]["max_steps"] = 10
@@ -333,6 +332,7 @@ def _validation_job_spec(policy_uri: str, config_data: dict[str, Any]) -> dict[s
         "policy_uris": [policy_uri],
         "assignments": [0] * env_cfg["game"]["num_agents"],
         "env": env_cfg,
+        "game_engine": game_engine,
         "seed": 42,
         "max_action_time_ms": 10000,
     }
@@ -340,7 +340,13 @@ def _validation_job_spec(policy_uri: str, config_data: dict[str, Any]) -> dict[s
 
 def _check_results(res: PureSingleEpisodeResult) -> None:
     console.print(f"[dim]Ran for {res.steps} steps[/dim]")
-    non_noop_actions = sum(v for k, v in res.stats["agent"][0].items() if k.startswith("action.") and ".noop." not in k)
+    if res.steps <= 0:
+        console.print("[yellow]Warning: Policy ran for no steps[/yellow]")
+        raise typer.Exit(1)
+    action_counts = {k: v for k, v in res.stats["agent"][0].items() if k.startswith("action.")}
+    if not action_counts:
+        return
+    non_noop_actions = sum(v for k, v in action_counts.items() if ".noop." not in k)
     if non_noop_actions == 0:
         console.print("[yellow]Warning: Policy took no actions (all no-ops)[/yellow]")
         raise typer.Exit(1)
@@ -370,7 +376,13 @@ def ensure_docker_daemon_access() -> None:
         raise typer.Exit(1)
 
 
-def validate_bundle_docker(policy_uri: str, config_data: dict[str, Any], image: str) -> None:
+def validate_bundle_docker(
+    policy_uri: str,
+    config_data: dict[str, Any],
+    image: str,
+    *,
+    game_engine: str = "mettagrid",
+) -> None:
     local_path = localize_uri(policy_uri)
     if local_path is None:
         raise ValueError(f"Cannot localize policy URI: {policy_uri}")
@@ -382,7 +394,7 @@ def validate_bundle_docker(policy_uri: str, config_data: dict[str, Any], image: 
         container_policy_uri = f"file:///workspace/policy/{local_path.name}"
         container_mount_target = f"/workspace/policy/{local_path.name}"
 
-    job_spec = _validation_job_spec(container_policy_uri, config_data)
+    job_spec = _validation_job_spec(container_policy_uri, config_data, game_engine=game_engine)
 
     with tempfile.TemporaryDirectory(prefix="cogames_docker_validate_") as workspace:
         spec_path = Path(workspace) / "spec.json"

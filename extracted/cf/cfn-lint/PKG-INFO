@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cfn-lint
-Version: 1.49.3
+Version: 1.50.0
 Summary: Checks CloudFormation templates for practices and behaviour that could potentially be improved
 Author: Kevin DeJong
 Author-email: kddejong@amazon.com
@@ -49,7 +49,7 @@ Dynamic: license-file
 
 <img alt="[cfn-lint logo]" src="https://github.com/aws-cloudformation/cfn-python-lint/blob/main/logo.png?raw=true" width="150" align="right">
 
-[![Testing](https://github.com/aws-cloudformation/cfn-python-lint/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/aws-cloudformation/cfn-python-lint/actions/workflows/test.yaml)
+[![Testing](https://github.com/aws-cloudformation/cfn-lint/actions/workflows/ci-branch.yaml/badge.svg)](https://github.com/aws-cloudformation/cfn-lint/actions/workflows/ci-branch.yaml)
 [![PyPI version](https://badge.fury.io/py/cfn-lint.svg)](https://badge.fury.io/py/cfn-lint)
 [![PyPI downloads](https://pepy.tech/badge/cfn-lint/week)](https://pypistats.org/packages/cfn-lint)
 [![PyPI downloads](https://pepy.tech/badge/cfn-lint/month)](https://pypistats.org/packages/cfn-lint)
@@ -394,7 +394,7 @@ If you'd like cfn-lint to be run automatically when making changes to files in y
 ```yaml
 repos:
   - repo: https://github.com/aws-cloudformation/cfn-lint
-    rev: v1.49.3 # The version of cfn-lint to use
+    rev: v1.50.0 # The version of cfn-lint to use
     hooks:
       - id: cfn-lint
         files: path/to/cfn/dir/.*\.(json|yml|yaml)$
@@ -405,7 +405,7 @@ If you are using a `.cfnlintrc` and specifying the `templates` or `ignore_templa
 ```yaml
 repos:
   - repo: https://github.com/aws-cloudformation/cfn-lint
-    rev: v1.49.3 # The version of cfn-lint to use
+    rev: v1.50.0 # The version of cfn-lint to use
     hooks:
       - id: cfn-lint-rc
 ```

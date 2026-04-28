@@ -1,4 +1,4 @@
-__version__ = '0.10.2'
+__version__ = '0.10.3'
 
 from typing import Tuple
 from .errors import ScrapflyError
@@ -55,6 +55,15 @@ from .crawler import (
 )
 from .browser_config import BrowserConfig, ProxyPool, OperatingSystem
 from .classify import ClassifyResult
+from .schedule import (
+    CreateScheduleRequest,
+    UpdateScheduleRequest,
+    ScheduleRecurrence,
+    ScheduleEnd,
+    ScheduleAPIError,
+    Schedule,
+    ListSchedulesOptions,
+)
 
 
 __all__: Tuple[str, ...] = (
@@ -122,4 +131,11 @@ __all__: Tuple[str, ...] = (
     'BrowserConfig',
     'ProxyPool',
     'OperatingSystem',
+    'CreateScheduleRequest',
+    'UpdateScheduleRequest',
+    'ScheduleRecurrence',
+    'ScheduleEnd',
+    'ScheduleAPIError',
+    'Schedule',
+    'ListSchedulesOptions',
 )

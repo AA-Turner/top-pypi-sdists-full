@@ -1634,6 +1634,7 @@ class S3TableIntegrationSourceTypeDef(TypedDict):
     status: NotRequired[S3TableIntegrationSourceStatusType]
     statusReason: NotRequired[str]
     createdTimeStamp: NotRequired[int]
+    parentSourceIdentifier: NotRequired[str]
 
 
 class AssociateSourceToS3TableIntegrationResponseTypeDef(TypedDict):

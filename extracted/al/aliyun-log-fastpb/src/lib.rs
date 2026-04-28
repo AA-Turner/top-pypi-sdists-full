@@ -1,8 +1,9 @@
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
+use pyo3::intern;
 
-use quick_protobuf::{MessageWrite, Writer};
+use quick_protobuf::{BytesReader, MessageRead, MessageWrite, Writer};
 use std::borrow::Cow;
 
 mod proto;
@@ -327,6 +328,75 @@ where
     Ok(PyBytes::new(py, &buf).into())
 }
 
+#[pyfunction]
+fn deserialize_log_group_list(py: Python<'_>, data: &Bound<'_, PyBytes>) -> PyResult<Py<PyDict>> {
+    let bytes = data.as_bytes();
+    let mut reader = BytesReader::from_bytes(bytes);
+    let log_group_list = LogGroupList::from_reader(&mut reader, bytes)
+        .map_err(|e| PyValueError::new_err(format!("Deserialization failed: {e}")))?;
+
+    let result = PyDict::new(py);
+    let groups_list = PyList::empty(py);
+
+    let key_key = intern!(py, "Key");
+    let key_value = intern!(py, "Value");
+    let key_time = intern!(py, "Time");
+    let key_time_ns = intern!(py, "TimeNs");
+    let key_contents = intern!(py, "Contents");
+    let key_topic = intern!(py, "Topic");
+    let key_source = intern!(py, "Source");
+    let key_log_tags = intern!(py, "LogTags");
+    let key_log_items = intern!(py, "LogItems");
+    let key_log_group_list = intern!(py, "logGroupList");
+
+    for lg in &log_group_list.log_groups {
+        let group_dict = PyDict::new(py);
+
+        if let Some(ref topic) = lg.topic {
+            group_dict.set_item(key_topic, topic.as_ref())?;
+        }
+        if let Some(ref source) = lg.source {
+            group_dict.set_item(key_source, source.as_ref())?;
+        }
+
+        if !lg.log_tags.is_empty() {
+            let tags_list = PyList::empty(py);
+            for tag in &lg.log_tags {
+                let tag_dict = PyDict::new(py);
+                tag_dict.set_item(key_key, tag.key.as_ref())?;
+                tag_dict.set_item(key_value, tag.value.as_ref())?;
+                tags_list.append(tag_dict)?;
+            }
+            group_dict.set_item(key_log_tags, tags_list)?;
+        }
+
+        let items_list = PyList::empty(py);
+        for log in &lg.logs {
+            let item_dict = PyDict::new(py);
+            item_dict.set_item(key_time, log.time)?;
+            if let Some(time_ns) = log.time_ns {
+                item_dict.set_item(key_time_ns, time_ns)?;
+            }
+
+            let contents_list = PyList::empty(py);
+            for content in &log.contents {
+                let content_dict = PyDict::new(py);
+                content_dict.set_item(key_key, content.key.as_ref())?;
+                content_dict.set_item(key_value, content.value.as_ref())?;
+                contents_list.append(content_dict)?;
+            }
+            item_dict.set_item(key_contents, contents_list)?;
+            items_list.append(item_dict)?;
+        }
+        group_dict.set_item(key_log_items, items_list)?;
+
+        groups_list.append(group_dict)?;
+    }
+
+    result.set_item(key_log_group_list, groups_list)?;
+    Ok(result.into())
+}
+
 /// Serialize a LogGroup Python dict to protobuf bytes.
 ///
 /// Args:
@@ -370,6 +440,7 @@ fn serialize_log_group_raw(
 fn aliyun_log_fastpb(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(serialize_log_group, m)?)?;
     m.add_function(wrap_pyfunction!(serialize_log_group_raw, m)?)?;
+    m.add_function(wrap_pyfunction!(deserialize_log_group_list, m)?)?;
     Ok(())
 }
 
@@ -490,6 +561,55 @@ mod tests {
     }
 
     #[test]
+    fn test_deserialize_log_group_list_round_trip() {
+        let log_group_list = LogGroupList {
+            log_groups: vec![LogGroup {
+                logs: vec![Log {
+                    time: 1234567890,
+                    contents: vec![
+                        LogContent {
+                            key: Cow::Owned("level".to_string()),
+                            value: Cow::Owned("INFO".to_string()),
+                        },
+                        LogContent {
+                            key: Cow::Owned("message".to_string()),
+                            value: Cow::Owned("hello world".to_string()),
+                        },
+                    ],
+                    time_ns: Some(123456789),
+                }],
+                topic: Some(Cow::Owned("test-topic".to_string())),
+                source: Some(Cow::Owned("10.0.0.1".to_string())),
+                log_tags: vec![LogTag {
+                    key: Cow::Owned("host".to_string()),
+                    value: Cow::Owned("server1".to_string()),
+                }],
+            }],
+        };
+
+        let mut buf = Vec::new();
+        let mut writer = Writer::new(&mut buf);
+        log_group_list.write_message(&mut writer).unwrap();
+
+        let mut reader = BytesReader::from_bytes(&buf);
+        let decoded = LogGroupList::from_reader(&mut reader, &buf).unwrap();
+
+        assert_eq!(decoded.log_groups.len(), 1);
+        let lg = &decoded.log_groups[0];
+        assert_eq!(lg.topic.as_deref(), Some("test-topic"));
+        assert_eq!(lg.source.as_deref(), Some("10.0.0.1"));
+        assert_eq!(lg.log_tags.len(), 1);
+        assert_eq!(lg.log_tags[0].key, "host");
+        assert_eq!(lg.log_tags[0].value, "server1");
+        assert_eq!(lg.logs.len(), 1);
+        assert_eq!(lg.logs[0].time, 1234567890);
+        assert_eq!(lg.logs[0].time_ns, Some(123456789));
+        assert_eq!(lg.logs[0].contents.len(), 2);
+        assert_eq!(lg.logs[0].contents[0].key, "level");
+        assert_eq!(lg.logs[0].contents[0].value, "INFO");
+    }
+
+    #[test]
     fn test_large_log_group() {
         // Test with many log entries
         let mut logs = Vec::with_capacity(100);
@@ -517,5 +637,211 @@ mod tests {
 
         assert!(result.is_ok());
         assert!(buf.len() > 1000); // Should be a decent size
+    }
+
+    fn serialize_log_group_list(list: &LogGroupList) -> Vec<u8> {
+        let mut buf = Vec::new();
+        let mut writer = Writer::new(&mut buf);
+        list.write_message(&mut writer).unwrap();
+        buf
+    }
+
+    fn deserialize_log_group_list_rt(buf: &[u8]) -> LogGroupList<'_> {
+        let mut reader = BytesReader::from_bytes(buf);
+        LogGroupList::from_reader(&mut reader, buf).unwrap()
+    }
+
+    #[test]
+    fn test_deserialize_empty_bytes() {
+        let decoded = deserialize_log_group_list_rt(&[]);
+        assert!(decoded.log_groups.is_empty());
+    }
+
+    #[test]
+    fn test_deserialize_multiple_log_groups() {
+        let list = LogGroupList {
+            log_groups: vec![
+                LogGroup {
+                    logs: vec![Log {
+                        time: 1000,
+                        contents: vec![LogContent {
+                            key: Cow::Borrowed("k1"),
+                            value: Cow::Borrowed("v1"),
+                        }],
+                        time_ns: None,
+                    }],
+                    topic: Some(Cow::Borrowed("topic-a")),
+                    source: Some(Cow::Borrowed("src-a")),
+                    log_tags: vec![],
+                },
+                LogGroup {
+                    logs: vec![Log {
+                        time: 2000,
+                        contents: vec![LogContent {
+                            key: Cow::Borrowed("k2"),
+                            value: Cow::Borrowed("v2"),
+                        }],
+                        time_ns: Some(999),
+                    }],
+                    topic: None,
+                    source: None,
+                    log_tags: vec![LogTag {
+                        key: Cow::Borrowed("env"),
+                        value: Cow::Borrowed("prod"),
+                    }],
+                },
+            ],
+        };
+
+        let buf = serialize_log_group_list(&list);
+        let decoded = deserialize_log_group_list_rt(&buf);
+
+        assert_eq!(decoded.log_groups.len(), 2);
+
+        let g0 = &decoded.log_groups[0];
+        assert_eq!(g0.topic.as_deref(), Some("topic-a"));
+        assert_eq!(g0.source.as_deref(), Some("src-a"));
+        assert!(g0.log_tags.is_empty());
+        assert_eq!(g0.logs[0].time, 1000);
+        assert_eq!(g0.logs[0].time_ns, None);
+
+        let g1 = &decoded.log_groups[1];
+        assert_eq!(g1.topic, None);
+        assert_eq!(g1.source, None);
+        assert_eq!(g1.log_tags.len(), 1);
+        assert_eq!(g1.log_tags[0].key, "env");
+        assert_eq!(g1.logs[0].time, 2000);
+        assert_eq!(g1.logs[0].time_ns, Some(999));
+    }
+
+    #[test]
+    fn test_deserialize_no_optional_fields() {
+        let list = LogGroupList {
+            log_groups: vec![LogGroup {
+                logs: vec![Log {
+                    time: 500,
+                    contents: vec![LogContent {
+                        key: Cow::Borrowed("a"),
+                        value: Cow::Borrowed("b"),
+                    }],
+                    time_ns: None,
+                }],
+                topic: None,
+                source: None,
+                log_tags: vec![],
+            }],
+        };
+
+        let buf = serialize_log_group_list(&list);
+        let decoded = deserialize_log_group_list_rt(&buf);
+
+        assert_eq!(decoded.log_groups.len(), 1);
+        let lg = &decoded.log_groups[0];
+        assert_eq!(lg.topic, None);
+        assert_eq!(lg.source, None);
+        assert!(lg.log_tags.is_empty());
+        assert_eq!(lg.logs[0].contents[0].key, "a");
+    }
+
+    #[test]
+    fn test_deserialize_unicode_content() {
+        let list = LogGroupList {
+            log_groups: vec![LogGroup {
+                logs: vec![Log {
+                    time: 100,
+                    contents: vec![
+                        LogContent {
+                            key: Cow::Borrowed("消息"),
+                            value: Cow::Borrowed("你好世界 🌍"),
+                        },
+                        LogContent {
+                            key: Cow::Borrowed("タグ"),
+                            value: Cow::Borrowed("テスト"),
+                        },
+                    ],
+                    time_ns: None,
+                }],
+                topic: Some(Cow::Borrowed("日志主题")),
+                source: None,
+                log_tags: vec![],
+            }],
+        };
+
+        let buf = serialize_log_group_list(&list);
+        let decoded = deserialize_log_group_list_rt(&buf);
+
+        let lg = &decoded.log_groups[0];
+        assert_eq!(lg.topic.as_deref(), Some("日志主题"));
+        assert_eq!(lg.logs[0].contents[0].key, "消息");
+        assert_eq!(lg.logs[0].contents[0].value, "你好世界 🌍");
+        assert_eq!(lg.logs[0].contents[1].key, "タグ");
+    }
+
+    #[test]
+    fn test_deserialize_multiple_logs_in_group() {
+        let list = LogGroupList {
+            log_groups: vec![LogGroup {
+                logs: vec![
+                    Log {
+                        time: 1,
+                        contents: vec![LogContent {
+                            key: Cow::Borrowed("seq"),
+                            value: Cow::Borrowed("first"),
+                        }],
+                        time_ns: Some(100),
+                    },
+                    Log {
+                        time: 2,
+                        contents: vec![LogContent {
+                            key: Cow::Borrowed("seq"),
+                            value: Cow::Borrowed("second"),
+                        }],
+                        time_ns: Some(200),
+                    },
+                    Log {
+                        time: 3,
+                        contents: vec![LogContent {
+                            key: Cow::Borrowed("seq"),
+                            value: Cow::Borrowed("third"),
+                        }],
+                        time_ns: None,
+                    },
+                ],
+                topic: Some(Cow::Borrowed("multi")),
+                source: Some(Cow::Borrowed("10.0.0.1")),
+                log_tags: vec![
+                    LogTag {
+                        key: Cow::Borrowed("t1"),
+                        value: Cow::Borrowed("v1"),
+                    },
+                    LogTag {
+                        key: Cow::Borrowed("t2"),
+                        value: Cow::Borrowed("v2"),
+                    },
+                ],
+            }],
+        };
+
+        let buf = serialize_log_group_list(&list);
+        let decoded = deserialize_log_group_list_rt(&buf);
+
+        let lg = &decoded.log_groups[0];
+        assert_eq!(lg.logs.len(), 3);
+        assert_eq!(lg.logs[0].time, 1);
+        assert_eq!(lg.logs[0].time_ns, Some(100));
+        assert_eq!(lg.logs[0].contents[0].value, "first");
+        assert_eq!(lg.logs[1].time, 2);
+        assert_eq!(lg.logs[1].contents[0].value, "second");
+        assert_eq!(lg.logs[2].time, 3);
+        assert_eq!(lg.logs[2].time_ns, None);
+        assert_eq!(lg.log_tags.len(), 2);
+    }
+
+    #[test]
+    fn test_deserialize_invalid_bytes() {
+        let garbage = vec![0xFF, 0xFE, 0xFD, 0xFC, 0xFB];
+        let mut reader = BytesReader::from_bytes(&garbage);
+        let result = LogGroupList::from_reader(&mut reader, &garbage);
+        assert!(result.is_err());
     }
 }

@@ -6,15 +6,16 @@ from json.decoder import JSONDecodeError
 from ....core.api_error import ApiError
 from ....core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ....core.http_response import AsyncHttpResponse, HttpResponse
-from ....core.jsonable_encoder import jsonable_encoder
+from ....core.jsonable_encoder import encode_path_param
+from ....core.parse_error import ParsingError
 from ....core.request_options import RequestOptions
 from ....core.unchecked_base_model import construct_type
 from ....errors.bad_request_error import BadRequestError
 from ....types.create_project_distribution_credentials_v1response import CreateProjectDistributionCredentialsV1Response
 from ....types.get_project_distribution_credentials_v1response import GetProjectDistributionCredentialsV1Response
 from ....types.list_project_distribution_credentials_v1response import ListProjectDistributionCredentialsV1Response
-from .types.distribution_credentials_create_request_provider import DistributionCredentialsCreateRequestProvider
 from .types.distribution_credentials_create_request_scopes_item import DistributionCredentialsCreateRequestScopesItem
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -44,7 +45,7 @@ class RawDistributionCredentialsClient:
             A list of distribution credentials for a specific project
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"v1/projects/{jsonable_encoder(project_id)}/self-hosted/distribution/credentials",
+            f"v1/projects/{encode_path_param(project_id)}/self-hosted/distribution/credentials",
             base_url=self._client_wrapper.get_environment().base,
             method="GET",
             request_options=request_options,
@@ -73,6 +74,10 @@ class RawDistributionCredentialsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create(
@@ -85,7 +90,7 @@ class RawDistributionCredentialsClient:
                 typing.Sequence[DistributionCredentialsCreateRequestScopesItem],
             ]
         ] = None,
-        provider: typing.Optional[DistributionCredentialsCreateRequestProvider] = None,
+        provider: typing.Optional[typing.Literal["quay"]] = None,
         comment: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateProjectDistributionCredentialsV1Response]:
@@ -100,7 +105,7 @@ class RawDistributionCredentialsClient:
         scopes : typing.Optional[typing.Union[DistributionCredentialsCreateRequestScopesItem, typing.Sequence[DistributionCredentialsCreateRequestScopesItem]]]
             List of permission scopes for the credentials
 
-        provider : typing.Optional[DistributionCredentialsCreateRequestProvider]
+        provider : typing.Optional[typing.Literal["quay"]]
             The provider of the distribution service
 
         comment : typing.Optional[str]
@@ -115,7 +120,7 @@ class RawDistributionCredentialsClient:
             Single distribution credential
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"v1/projects/{jsonable_encoder(project_id)}/self-hosted/distribution/credentials",
+            f"v1/projects/{encode_path_param(project_id)}/self-hosted/distribution/credentials",
             base_url=self._client_wrapper.get_environment().base,
             method="POST",
             params={
@@ -155,6 +160,10 @@ class RawDistributionCredentialsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def get(
@@ -184,7 +193,7 @@ class RawDistributionCredentialsClient:
             Single distribution credential
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"v1/projects/{jsonable_encoder(project_id)}/self-hosted/distribution/credentials/{jsonable_encoder(distribution_credentials_id)}",
+            f"v1/projects/{encode_path_param(project_id)}/self-hosted/distribution/credentials/{encode_path_param(distribution_credentials_id)}",
             base_url=self._client_wrapper.get_environment().base,
             method="GET",
             request_options=request_options,
@@ -213,6 +222,10 @@ class RawDistributionCredentialsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def delete(
@@ -242,7 +255,7 @@ class RawDistributionCredentialsClient:
             Single distribution credential
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"v1/projects/{jsonable_encoder(project_id)}/self-hosted/distribution/credentials/{jsonable_encoder(distribution_credentials_id)}",
+            f"v1/projects/{encode_path_param(project_id)}/self-hosted/distribution/credentials/{encode_path_param(distribution_credentials_id)}",
             base_url=self._client_wrapper.get_environment().base,
             method="DELETE",
             request_options=request_options,
@@ -271,6 +284,10 @@ class RawDistributionCredentialsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
 
@@ -298,7 +315,7 @@ class AsyncRawDistributionCredentialsClient:
             A list of distribution credentials for a specific project
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"v1/projects/{jsonable_encoder(project_id)}/self-hosted/distribution/credentials",
+            f"v1/projects/{encode_path_param(project_id)}/self-hosted/distribution/credentials",
             base_url=self._client_wrapper.get_environment().base,
             method="GET",
             request_options=request_options,
@@ -327,6 +344,10 @@ class AsyncRawDistributionCredentialsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create(
@@ -339,7 +360,7 @@ class AsyncRawDistributionCredentialsClient:
                 typing.Sequence[DistributionCredentialsCreateRequestScopesItem],
             ]
         ] = None,
-        provider: typing.Optional[DistributionCredentialsCreateRequestProvider] = None,
+        provider: typing.Optional[typing.Literal["quay"]] = None,
         comment: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateProjectDistributionCredentialsV1Response]:
@@ -354,7 +375,7 @@ class AsyncRawDistributionCredentialsClient:
         scopes : typing.Optional[typing.Union[DistributionCredentialsCreateRequestScopesItem, typing.Sequence[DistributionCredentialsCreateRequestScopesItem]]]
             List of permission scopes for the credentials
 
-        provider : typing.Optional[DistributionCredentialsCreateRequestProvider]
+        provider : typing.Optional[typing.Literal["quay"]]
             The provider of the distribution service
 
         comment : typing.Optional[str]
@@ -369,7 +390,7 @@ class AsyncRawDistributionCredentialsClient:
             Single distribution credential
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"v1/projects/{jsonable_encoder(project_id)}/self-hosted/distribution/credentials",
+            f"v1/projects/{encode_path_param(project_id)}/self-hosted/distribution/credentials",
             base_url=self._client_wrapper.get_environment().base,
             method="POST",
             params={
@@ -409,6 +430,10 @@ class AsyncRawDistributionCredentialsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get(
@@ -438,7 +463,7 @@ class AsyncRawDistributionCredentialsClient:
             Single distribution credential
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"v1/projects/{jsonable_encoder(project_id)}/self-hosted/distribution/credentials/{jsonable_encoder(distribution_credentials_id)}",
+            f"v1/projects/{encode_path_param(project_id)}/self-hosted/distribution/credentials/{encode_path_param(distribution_credentials_id)}",
             base_url=self._client_wrapper.get_environment().base,
             method="GET",
             request_options=request_options,
@@ -467,6 +492,10 @@ class AsyncRawDistributionCredentialsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def delete(
@@ -496,7 +525,7 @@ class AsyncRawDistributionCredentialsClient:
             Single distribution credential
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"v1/projects/{jsonable_encoder(project_id)}/self-hosted/distribution/credentials/{jsonable_encoder(distribution_credentials_id)}",
+            f"v1/projects/{encode_path_param(project_id)}/self-hosted/distribution/credentials/{encode_path_param(distribution_credentials_id)}",
             base_url=self._client_wrapper.get_environment().base,
             method="DELETE",
             request_options=request_options,
@@ -525,4 +554,8 @@ class AsyncRawDistributionCredentialsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)

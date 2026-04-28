@@ -59,6 +59,7 @@ from chalk.streams.types import StreamResolverSignature
 from chalk.utils import MachineType, notebook
 from chalk.utils.collections import get_unique_item, get_unique_item_if_exists
 from chalk.utils.duration import CronTab, Duration, parse_chalk_duration, parse_chalk_duration_s, timedelta_to_duration
+from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.string import to_snake_case
 
@@ -1478,7 +1479,9 @@ def _parse_glot(
         errors.append(ResolverError(display=message, path=path, parameter=namespace))
 
     stripped_sql = _remove_comments(glot_result.sql_string)
-    lineage = _get_data_lineage(stripped_sql)
+    lineage: DataLineageResult | None = None
+    if env_var_bool("CHALK_SQL_RESOLVER_PARSE_LINEAGE", True):
+        lineage = _get_data_lineage(stripped_sql)
     # FIXME: @melrchen: need to make a name for unnamed datasources
     source_name = glot_result.source.name or "" if glot_result.source is not None else ""
     namespaced_lineage = (

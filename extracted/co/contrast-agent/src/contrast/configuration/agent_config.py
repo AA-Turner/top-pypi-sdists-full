@@ -6,7 +6,8 @@ from collections.abc import Mapping
 from functools import cached_property
 import re
 from threading import RLock
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from contrast.agent.inventory.fingerprint import artifact_fingerprint
 from contrast.utils.configuration_utils import (
