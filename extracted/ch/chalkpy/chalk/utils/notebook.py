@@ -165,6 +165,61 @@ def _get_import_names(node: Union[ast.Import, ast.ImportFrom], cell_source: str,
     return imported_names
 
 
+def _strip_ipython_magics(cell_source: str) -> str:
+    """Replace IPython line magics (`%foo`), cell magics (`%%foo` and the rest of
+    the cell), and shell escapes (`!cmd`, `?obj`) with blank lines, preserving
+    overall line numbers so ast line/column offsets continue to align with the
+    original cell text used by ast.get_source_segment."""
+    out_lines: list[str] = []
+    in_cell_magic = False
+    for line in cell_source.splitlines(keepends=True):
+        stripped = line.lstrip()
+        ending = "\n" if line.endswith("\n") else ""
+        if in_cell_magic:
+            out_lines.append(ending)
+            continue
+        if stripped.startswith("%%"):
+            in_cell_magic = True
+            out_lines.append(ending)
+            continue
+        if stripped.startswith("%") or stripped.startswith("!") or stripped.startswith("?"):
+            out_lines.append(ending)
+            continue
+        out_lines.append(line)
+    return "".join(out_lines)
+
+
+def _source_with_decorators(cell_source: str, node: Union["ast.FunctionDef", "ast.ClassDef"]) -> Optional[str]:
+    """Like ast.get_source_segment, but for decorated FunctionDef/ClassDef nodes
+    prepend the decorator lines that ast.get_source_segment otherwise drops
+    (CPython sets `node.lineno` to the `def`/`class` keyword, not the first `@`)."""
+    base = ast.get_source_segment(cell_source, node)
+    if base is None:
+        return None
+    decorators = node.decorator_list
+    if not decorators:
+        return base
+    lines = cell_source.splitlines(keepends=True)
+    first_decorator_lineno = min(d.lineno for d in decorators)  # 1-indexed
+    def_lineno = node.lineno  # 1-indexed; points at `def`/`class`
+    prefix = "".join(lines[first_decorator_lineno - 1 : def_lineno - 1])
+    return prefix + base
+
+
+def _names_from_target(target: ast.AST) -> list[str]:
+    """Extract all bound names from an assignment target, recursing into Tuple/List/Starred."""
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, (ast.Tuple, ast.List)):
+        names: list[str] = []
+        for elt in target.elts:
+            names.extend(_names_from_target(elt))
+        return names
+    if isinstance(target, ast.Starred):
+        return _names_from_target(target.value)
+    return []  # Subscript / Attribute — not a new global binding
+
+
 def _parse_notebook_cells(cells: list[tuple[int, int, str]]):
     """Parse notebook cells and extract definitions of functions, classes, globals, and imports."""
     import ast
@@ -175,39 +230,52 @@ def _parse_notebook_cells(cells: list[tuple[int, int, str]]):
     all_imports: dict[str, tuple[list[str], ast.AST]] = {}  # import_text -> (names_imported, ast_node)
 
     for _, _, cell_source in cells:
-        cell_source = cell_source.strip()
-        if not cell_source:
+        if not cell_source.strip():
             continue
 
+        # Strip IPython magics/shell escapes before parsing, but keep line
+        # numbers aligned so ast.get_source_segment still works on the sanitized
+        # source.
+        sanitized = _strip_ipython_magics(cell_source)
+
         try:
-            cell_tree = ast.parse(cell_source)
+            cell_tree = ast.parse(sanitized)
         except SyntaxError:
             continue
 
         for node in cell_tree.body:
             if isinstance(node, (ast.Import, ast.ImportFrom)):
-                import_source = ast.get_source_segment(cell_source, node)
+                import_source = ast.get_source_segment(sanitized, node)
                 if import_source is None:
                     continue
-                imported_names = _get_import_names(node, cell_source, import_source)
+                imported_names = _get_import_names(node, sanitized, import_source)
                 all_imports[import_source] = (list(imported_names), node)
 
             elif isinstance(node, ast.FunctionDef):
-                func_source = ast.get_source_segment(cell_source, node)
+                func_source = _source_with_decorators(sanitized, node)
                 if func_source is not None:
                     latest_function_def[node.name] = (func_source, node)
 
             elif isinstance(node, ast.ClassDef):
-                class_source = ast.get_source_segment(cell_source, node)
+                class_source = _source_with_decorators(sanitized, node)
                 if class_source is not None:
                     latest_class_def[node.name] = (class_source, node)
 
             elif isinstance(node, ast.Assign):
+                assign_source = ast.get_source_segment(sanitized, node)
+                if assign_source is None:
+                    continue
                 for target in node.targets:
-                    if isinstance(target, ast.Name):
-                        assign_source = ast.get_source_segment(cell_source, node)
-                        if assign_source is not None:
-                            latest_global_assign[target.id] = assign_source
+                    for name in _names_from_target(target):
+                        latest_global_assign[name] = assign_source
+
+            elif isinstance(node, ast.AnnAssign):
+                if node.value is None or not isinstance(node.target, ast.Name):
+                    # Bare annotations (`x: int`) carry no value to ship; skip.
+                    continue
+                assign_source = ast.get_source_segment(sanitized, node)
+                if assign_source is not None:
+                    latest_global_assign[node.target.id] = assign_source
 
     return latest_function_def, latest_class_def, latest_global_assign, all_imports
 
@@ -240,45 +308,39 @@ def _collect_dependencies(
     latest_global_assign: dict[str, str],
     builtin_names: set[str],
 ):
-    """Recursively collect all dependencies needed by the function."""
-    # maps name -> source
+    """Recursively collect dependencies needed by the function and emit them in
+    topological (post-order) order, so that base classes appear before subclasses
+    and globals appear before the helpers that use them."""
     needed_functions: dict[str, str] = {}
     needed_classes: dict[str, str] = {}
     needed_globals: dict[str, str] = {}
     needed_names: set[str] = set()
+    visiting: set[str] = set()
 
-    to_process = [fn_source]
-    processed = set()
+    def visit(name: str) -> None:
+        if name in visiting:
+            return
+        if name in needed_classes or name in needed_functions or name in needed_globals:
+            return
+        visiting.add(name)
+        if name in latest_class_def:
+            class_source, _ = latest_class_def[name]
+            for ref in _get_referenced_names(class_source) - builtin_names - {fn_name, name}:
+                needed_names.add(ref)
+                visit(ref)
+            needed_classes[name] = class_source
+        elif name in latest_function_def:
+            func_source, _ = latest_function_def[name]
+            for ref in _get_referenced_names(func_source) - builtin_names - {fn_name, name}:
+                needed_names.add(ref)
+                visit(ref)
+            needed_functions[name] = func_source
+        elif name in latest_global_assign:
+            needed_globals[name] = latest_global_assign[name]
 
-    while to_process:
-        current_source = to_process.pop()
-        if current_source in processed:
-            continue
-        processed.add(current_source)
-
-        referenced = _get_referenced_names(current_source)
-        referenced = referenced - builtin_names - {fn_name}
-        needed_names.update(referenced)
-
-        for name in referenced:
-            # Check if it's a class we defined
-            if name in latest_class_def and name not in needed_classes:
-                class_source, _ = latest_class_def[name]
-                needed_classes[name] = class_source
-                to_process.append(class_source)
-
-            # Check if it's a function we defined
-            elif name in latest_function_def and name not in needed_functions:
-                func_source, _ = latest_function_def[name]
-                needed_functions[name] = func_source
-                to_process.append(func_source)
-
-        for name in referenced:
-            # Check if it's a global variable we defined
-            if name in latest_global_assign and name not in needed_globals:
-                assign_source = latest_global_assign[name]
-                needed_globals[name] = assign_source
-                to_process.append(assign_source)
+    for ref in _get_referenced_names(fn_source) - builtin_names - {fn_name}:
+        needed_names.add(ref)
+        visit(ref)
 
     return needed_functions, needed_classes, needed_globals, needed_names
 
@@ -382,3 +444,69 @@ def parse_notebook_into_script(fn: Callable[[], None], takes_argument: bool) -> 
         raise RuntimeError("Error generating valid training function from notebook")
 
     return script
+
+
+def validate_train_script(script: str, function_name: str, takes_argument: bool) -> None:
+    """Validate that ``script`` is a syntactically valid Python module that
+    defines a top-level ``def {function_name}`` with the expected arity
+    (0 if ``takes_argument`` is False, 1 if True).
+
+    Raises:
+        RuntimeError: if ``script`` is not valid Python.
+        ValueError: if the named function is missing or has the wrong arity.
+    """
+    if not is_valid_python_code(script):
+        raise RuntimeError("Provided train script is not valid Python.")
+    tree = ast.parse(script)
+    matching = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == function_name]
+    if not matching:
+        raise ValueError(f"Function '{function_name}' not found at the top level of the training script.")
+    fn_node = matching[-1]  # last definition wins, matching Python semantics
+    nargs = len(fn_node.args.args)
+    expected = int(takes_argument)
+    if nargs != expected:
+        raise ValueError(
+            f"Function '{function_name}' must take {expected} inputs, but has parameters: "
+            + f"{[a.arg for a in fn_node.args.args]}"
+        )
+
+
+def resolve_train_script(
+    train_fn: Callable[..., Any],
+    train_script: Optional[str],
+    takes_argument: bool,
+) -> str:
+    """Produce the Python source string to ship for ``train_fn``.
+
+    Resolution order:
+      1. If ``train_script`` is provided, validate and return it as-is.
+      2. If running inside a Jupyter notebook, reconstruct via ``parse_notebook_into_script``.
+      3. Otherwise, read the entire ``.py`` file ``train_fn`` is defined in.
+    """
+    if train_script is not None:
+        validate_train_script(train_script, train_fn.__name__, takes_argument)
+        return train_script
+
+    if is_notebook():
+        return parse_notebook_into_script(train_fn, takes_argument)
+
+    try:
+        source_path = inspect.getfile(train_fn)
+    except TypeError as e:
+        raise RuntimeError(
+            f"Could not locate the source file for `{train_fn.__name__}`. "
+            + "When calling `client.train_model` outside a Jupyter notebook, either "
+            + "define `train_fn` in a regular `.py` file or pass `train_script=` explicitly."
+        ) from e
+
+    try:
+        with open(source_path, "r", encoding="utf-8") as f:
+            source = f.read()
+    except OSError as e:
+        raise RuntimeError(
+            f"Could not read source file `{source_path}` for `{train_fn.__name__}`: {e}. "
+            + "Pass `train_script=` explicitly to bypass file lookup."
+        ) from e
+
+    validate_train_script(source, train_fn.__name__, takes_argument)
+    return source

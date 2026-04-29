@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nJsentry_protos/billing/v1/services/billing_details/v1/billing_details.proto\x12\x34sentry_protos.billing.v1.services.billing_details.v1\"\x9a\x01\n\x07\x41\x64\x64ress\x12\x0c\n\x04\x63ity\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x14\n\x0c\x63ountry_code\x18\x03 \x01(\t\x12\x13\n\x0bpostal_code\x18\x04 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_1\x18\x05 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_2\x18\x06 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_3\x18\x07 \x01(\t\"`\n\x0e\x42illingDetails\x12N\n\x07\x61\x64\x64ress\x18\x01 \x01(\x0b\x32=.sentry_protos.billing.v1.services.billing_details.v1.Addressb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nJsentry_protos/billing/v1/services/billing_details/v1/billing_details.proto\x12\x34sentry_protos.billing.v1.services.billing_details.v1\"\x9a\x01\n\x07\x41\x64\x64ress\x12\x0c\n\x04\x63ity\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x14\n\x0c\x63ountry_code\x18\x03 \x01(\t\x12\x13\n\x0bpostal_code\x18\x04 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_1\x18\x05 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_2\x18\x06 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_3\x18\x07 \x01(\t\"\xd3\x01\n\x0e\x42illingDetails\x12N\n\x07\x61\x64\x64ress\x18\x01 \x01(\x0b\x32=.sentry_protos.billing.v1.services.billing_details.v1.Address\x12\x17\n\x0f\x64isplay_address\x18\x02 \x01(\t\x12\x19\n\x0c\x63ompany_name\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x1a\n\rbilling_email\x18\x04 \x01(\tH\x01\x88\x01\x01\x42\x0f\n\r_company_nameB\x10\n\x0e_billing_emailb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,6 +23,6 @@ if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_ADDRESS']._serialized_start=133
   _globals['_ADDRESS']._serialized_end=287
-  _globals['_BILLINGDETAILS']._serialized_start=289
-  _globals['_BILLINGDETAILS']._serialized_end=385
+  _globals['_BILLINGDETAILS']._serialized_start=290
+  _globals['_BILLINGDETAILS']._serialized_end=501
 # @@protoc_insertion_point(module_scope)

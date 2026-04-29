@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit
-Version: 1.56.0
+Version: 1.57.0
 Summary: A faster way to build and share data apps
 Author-email: Snowflake Inc <hello@streamlit.io>
 License-Expression: Apache-2.0
@@ -43,19 +43,18 @@ Requires-Dist: pyarrow>=7.0
 Requires-Dist: requests<3,>=2.27
 Requires-Dist: tenacity<10,>=8.1.0
 Requires-Dist: toml<2,>=0.10.1
-Requires-Dist: tornado!=6.5.0,<7,>=6.0.3
 Requires-Dist: typing-extensions<5,>=4.10.0
+Requires-Dist: starlette>=0.40.0
+Requires-Dist: uvicorn>=0.30.0
+Requires-Dist: httptools>=0.6.3
+Requires-Dist: anyio>=4.0.0
+Requires-Dist: python-multipart>=0.0.10
+Requires-Dist: websockets>=12.0.0
+Requires-Dist: itsdangerous>=2.1.2
 Requires-Dist: watchdog<7,>=2.1.5; platform_system != "Darwin"
 Provides-Extra: snowflake
-Requires-Dist: snowflake-snowpark-python[modin]>=1.17.0; python_version < "3.12" and extra == "snowflake"
-Requires-Dist: snowflake-connector-python>=3.3.0; python_version < "3.12" and extra == "snowflake"
-Provides-Extra: starlette
-Requires-Dist: starlette>=0.40.0; extra == "starlette"
-Requires-Dist: uvicorn>=0.30.0; extra == "starlette"
-Requires-Dist: anyio>=4.0.0; extra == "starlette"
-Requires-Dist: python-multipart>=0.0.10; extra == "starlette"
-Requires-Dist: websockets>=12.0.0; extra == "starlette"
-Requires-Dist: itsdangerous>=2.1.2; extra == "starlette"
+Requires-Dist: snowflake-snowpark-python[modin]>=1.17.0; extra == "snowflake"
+Requires-Dist: snowflake-connector-python>=3.3.0; extra == "snowflake"
 Provides-Extra: pdf
 Requires-Dist: streamlit-pdf>=1.0.0; extra == "pdf"
 Provides-Extra: auth
@@ -70,7 +69,6 @@ Requires-Dist: SQLAlchemy>=2.0.0; extra == "sql"
 Provides-Extra: performance
 Requires-Dist: orjson>=3.5.0; extra == "performance"
 Requires-Dist: uvloop>=0.15.2; (sys_platform != "win32" and sys_platform != "cygwin" and platform_python_implementation != "PyPy") and extra == "performance"
-Requires-Dist: httptools>=0.6.3; extra == "performance"
 Provides-Extra: all
 Requires-Dist: streamlit[auth,charts,pdf,performance,snowflake,sql]; extra == "all"
 Requires-Dist: rich>=11.0.0; extra == "all"
@@ -210,7 +208,7 @@ Deploy, manage and share your apps for free using our [Community Cloud](https://
 
 🎉 Thanks for your interest in helping improve Streamlit! 🎉
 
-Before contributing, please read our guidelines here: https://github.com/streamlit/streamlit/wiki/Contributing
+Before contributing, please read our guidelines here: https://github.com/streamlit/streamlit/blob/develop/CONTRIBUTING.md
 
 ## License
 

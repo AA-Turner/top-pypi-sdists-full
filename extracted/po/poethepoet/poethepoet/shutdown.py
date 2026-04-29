@@ -10,8 +10,7 @@ from typing import TYPE_CHECKING
 from weakref import WeakSet
 
 if TYPE_CHECKING:
-    from asyncio.subprocess import Process
-
+    from .executor.base import PoeProcess
     from .io import PoeIO
 
 
@@ -24,7 +23,7 @@ class ShutdownManager:
         self._shutting_down = asyncio.Event()
         self._urgency = 0
         self.tasks: WeakSet[asyncio.Task] = WeakSet()
-        self.processes: WeakSet[Process] = WeakSet()
+        self.processes: WeakSet[PoeProcess] = WeakSet()
         self._backup_sighup = None
         self._backup_sigint = None
         self._backup_sigterm = None
@@ -63,10 +62,22 @@ class ShutdownManager:
         if self._is_windows:
             for proc in tuple(self.processes):
                 if proc.returncode is None:
-                    self._io.print_debug(
-                        " ! Sending CTRL_BREAK_EVENT to subprocess %s", proc.pid
-                    )
-                    proc.send_signal(signal.CTRL_BREAK_EVENT)
+                    if proc.no_console_ctrl:
+                        self._io.print_debug(
+                            " ! Terminating subprocess tree %s"
+                            " to avoid console corruption",
+                            proc.pid,
+                        )
+                        subprocess.run(
+                            ["taskkill", "/T", "/PID", str(proc.pid)],
+                            capture_output=True,
+                        )
+                    else:
+                        self._io.print_debug(
+                            " ! Sending CTRL_BREAK_EVENT to subprocess %s",
+                            proc.pid,
+                        )
+                        proc.send_signal(signal.CTRL_BREAK_EVENT)
                 else:
                     self.processes.discard(proc)
         else:
@@ -126,9 +137,9 @@ class ShutdownManager:
                     if proc.returncode is None:
                         self._send_signal_to_group(proc, signal.SIGKILL)
 
-    def _send_signal_to_group(self, proc: Process, sig: int):
+    def _send_signal_to_group(self, proc: PoeProcess, sig: int):
         with contextlib.suppress(ProcessLookupError):
-            os.killpg(os.getpgid(proc.pid), sig)
+            os.killpg(os.getpgid(proc.pid), sig)  # type: ignore[attr-defined]
 
     def _propagate_sighup(self, signum=None, frame=None):
         """

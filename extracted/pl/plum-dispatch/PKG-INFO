@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plum-dispatch
-Version: 2.8.0
+Version: 2.9.0
 Summary: Multiple dispatch in Python
 Project-URL: repository, https://github.com/beartype/plum
 Project-URL: documentation, https://beartype.github.io/plum
@@ -14,7 +14,8 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: beartype>=0.16.2
+Requires-Dist: beartype>=0.16.2; python_version < '3.14'
+Requires-Dist: beartype>=0.22.2; python_version >= '3.14'
 Requires-Dist: rich>=10.0
 Requires-Dist: typing-extensions>=4.9.0
 Description-Content-Type: text/markdown

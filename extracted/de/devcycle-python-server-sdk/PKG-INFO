@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: devcycle-python-server-sdk
-Version: 3.13.7
+Version: 3.13.8
 Summary: DevCycle Python SDK
 Home-page: https://github.com/devcycleHQ/python-server-sdk
 Author-email: 
 Keywords: DevCycle
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: setuptools>=21.0.0
 Requires-Dist: urllib3>=1.15.1
-Requires-Dist: requests>=2.32
+Requires-Dist: requests>=2.33.0
 Requires-Dist: wasmtime~=30.0.0
 Requires-Dist: protobuf>=4.23.3
 Requires-Dist: openfeature-sdk~=0.8.0

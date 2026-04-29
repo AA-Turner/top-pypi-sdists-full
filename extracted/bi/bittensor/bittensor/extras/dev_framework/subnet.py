@@ -10,7 +10,7 @@ from bittensor.core.settings import DEFAULT_PERIOD
 from bittensor.core.types import ExtrinsicResponse
 from bittensor.extras import SubtensorApi
 from bittensor.utils.btlogging import logging
-from .calls import *  # noqa: F401#
+from .calls import *  #  noqa: F403
 from .utils import (
     is_instance_namedtuple,
     split_command,

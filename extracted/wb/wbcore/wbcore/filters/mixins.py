@@ -63,6 +63,10 @@ class WBCoreFilterMixin:
             initial = callable_initial(self, request, view)
         else:
             initial = self.initial
+        if initial:
+            return self._validate_initial(request, initial)
+
+    def _validate_initial(self, request, initial):
         return initial
 
     def _parse_request_initial(self, request_default: str) -> Any:
@@ -71,8 +75,6 @@ class WBCoreFilterMixin:
         return request_default
 
     def _validate_initial_with_request(self, initial, request, name):
-        if isinstance(initial, (list, tuple, set)):
-            initial = ",".join(map(lambda o: "" if o is None else str(o), initial))
         if request_default := request.GET.get(name):
             try:
                 return self.field.to_python(self._parse_request_initial(request_default))
@@ -110,7 +112,6 @@ class WBCoreFilterMixin:
         initial = self._get_initial(request, view)
         if (overridden_initial := self._validate_initial_with_request(initial, request, name)) is not None:
             initial = overridden_initial
-
         if initial is not None or self.allow_empty_initial:
             lookup_expr["input_properties"]["initial"] = initial
         lookup_expr["input_properties"]["required"] = self.required

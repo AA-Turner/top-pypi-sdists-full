@@ -16,6 +16,7 @@ __all__ = [
     "ExperimentalCustomTool",
     "ManageConnections",
     "MultiAccount",
+    "Preload",
     "Tags",
     "TagsUnionMember1",
     "Toolkits",
@@ -49,7 +50,10 @@ class SessionCreateParams(TypedDict, total=False):
     """The connected accounts to use for the session.
 
     This will override the default behaviour and use the given connected account
-    when specific toolkits are being executed
+    when specific toolkits are being executed. Each connected account must exist
+    (not deleted or disabled) and belong to the same `user_id` as the session —
+    otherwise session creation fails with a clear error explaining which account
+    didn't match.
     """
 
     experimental: Experimental
@@ -65,6 +69,18 @@ class SessionCreateParams(TypedDict, total=False):
     """Configure multi-account behavior.
 
     When enabled, users can connect multiple accounts per toolkit.
+    """
+
+    preload: Preload
+    """Preload configuration.
+
+    Controls which tools appear in `session.tools` and the MCP server tool list so
+    the agent can call them directly without going through search first — useful for
+    frequently used tools. Each slug must be allowed by the session filters
+    (`toolkits`, `tools`, `tags`), otherwise session creation fails with a 400.
+    Custom tools declared in `custom_tools` / `custom_toolkits` can also be
+    preloaded. Not supported when multi-account is enabled. Each preloaded tool adds
+    to the agent context window, so keep the list at or under ~20 tools.
     """
 
     tags: Tags
@@ -83,9 +99,12 @@ class SessionCreateParams(TypedDict, total=False):
     """
 
     tools: Dict[str, Tools]
-    """
-    Tool-level configuration per toolkit - either specify enable tools (whitelist),
-    disable tools (blacklist), or filter by MCP tags for each toolkit
+    """Tool-level configuration per toolkit.
+
+    Allows you to enable, disable, or filter by tags for specific tools within each
+    toolkit. Every slug passed in `enable` / `disable` must be a valid Composio tool
+    slug for that toolkit — invalid or typo'd slugs fail session creation with a
+    clear error listing which ones didn't match.
     """
 
     workbench: Workbench
@@ -247,12 +266,25 @@ class MultiAccount(TypedDict, total=False):
     """
 
 
+class Preload(TypedDict, total=False):
+    """Preload configuration.
+
+    Controls which tools appear in `session.tools` and the MCP server tool list so the agent can call them directly without going through search first — useful for frequently used tools. Each slug must be allowed by the session filters (`toolkits`, `tools`, `tags`), otherwise session creation fails with a 400. Custom tools declared in `custom_tools` / `custom_toolkits` can also be preloaded. Not supported when multi-account is enabled. Each preloaded tool adds to the agent context window, so keep the list at or under ~20 tools.
+    """
+
+    tools: SequenceNotStr[str]
+    """Tool slugs to preload.
+
+    Each slug must be allowed by the session filters (`toolkits`, `tools`, `tags`)
+    and exist either in the Composio tool catalog or in `custom_tools` /
+    `custom_toolkits` — unknown or blocked slugs return a 400 at session creation.
+    """
+
+
 class TagsUnionMember1(TypedDict, total=False):
     disable: List[Literal["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]]
-    """Tags that the tool must NOT have any of"""
 
     enable: List[Literal["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]]
-    """Tags that the tool must have at least one of"""
 
 
 Tags: TypeAlias = Union[
@@ -289,10 +321,8 @@ class ToolsDisable(TypedDict, total=False):
 
 class ToolsTagsTagsUnionMember1(TypedDict, total=False):
     disable: List[Literal["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]]
-    """Tags that the tool must NOT have any of"""
 
     enable: List[Literal["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]]
-    """Tags that the tool must have at least one of"""
 
 
 ToolsTagsTags: TypeAlias = Union[
@@ -332,4 +362,10 @@ class Workbench(TypedDict, total=False):
     """Whether proxy execution is enabled.
 
     When enabled, workbench can call URLs and APIs directly.
+    """
+
+    sandbox_size: Literal["standard", "medium", "large", "xlarge"]
+    """
+    Sandbox compute tier: standard (1 vCPU / 1 GB), medium (2 vCPU / 2 GB), large (4
+    vCPU / 4 GB), xlarge (8 vCPU / 8 GB). Defaults to standard.
     """

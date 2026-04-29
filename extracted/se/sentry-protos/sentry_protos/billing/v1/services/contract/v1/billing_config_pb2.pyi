@@ -141,12 +141,13 @@ class BillingConfig(google.protobuf.message.Message):
     CONTRACT_END_DATE_FIELD_NUMBER: builtins.int
     billing_type: global___BillingType.ValueType
     channel: global___BillingChannel.ValueType
+    """Remaining fields are deprecated"""
     external_billing_provider: global___ExternalBillingProvider.ValueType
     @property
     def address(self) -> global___Address: ...
     @property
     def contract_start_date(self) -> global___Date:
-        """Determines when to charge for base package price / subscription fee."""
+        """Use PricingConfig.billing_period_start_date and PricingConfig.billing_period_end_date"""
 
     @property
     def contract_end_date(self) -> global___Date: ...

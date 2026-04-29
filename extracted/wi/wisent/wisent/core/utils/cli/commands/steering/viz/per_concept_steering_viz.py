@@ -1,7 +1,7 @@
 """CLI command for per-concept steering effect visualization."""
 
 import os
-# NUMBA_NUM_THREADS deliberately not set here — see runner.py.
+os.environ["NUMBA_NUM_THREADS"] = "1"
 
 import sys
 import json

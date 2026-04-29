@@ -8,7 +8,9 @@ from ..._models import BaseModel
 __all__ = [
     "SessionRetrieveResponse",
     "Config",
+    "ConfigPreload",
     "ConfigManageConnections",
+    "ConfigMultiAccount",
     "ConfigTags",
     "ConfigToolkits",
     "ConfigToolkitsEnabled",
@@ -25,6 +27,20 @@ __all__ = [
     "ExperimentalCustomToolkitTool",
     "ExperimentalCustomTool",
 ]
+
+
+class ConfigPreload(BaseModel):
+    """Preload configuration.
+
+    Controls which tools appear in `session.tools` and the MCP server tool list, callable directly without going through search. Each preloaded tool adds to the agent context — roughly ≤20 tools is recommended. Always present in the response (empty `tools: []` when the session was created without a preload config).
+    """
+
+    tools: List[str]
+    """Tool slugs preloaded for this session.
+
+    Appear in `session.tools` and the MCP server tool list, callable directly
+    without going through search. Empty array when no preload was configured.
+    """
 
 
 class ConfigManageConnections(BaseModel):
@@ -44,6 +60,28 @@ class ConfigManageConnections(BaseModel):
 
     enabled: Optional[bool] = None
     """Whether to enable the connection manager for automatic connection handling"""
+
+
+class ConfigMultiAccount(BaseModel):
+    """Multi-account configuration for this session."""
+
+    enable: Optional[bool] = None
+    """When true, enables multi-account mode for this session.
+
+    When not set, falls back to org/project-level configuration.
+    """
+
+    max_accounts_per_toolkit: Optional[int] = None
+    """Maximum number of connected accounts allowed per toolkit.
+
+    Defaults to 5 when multi-account is enabled.
+    """
+
+    require_explicit_selection: Optional[bool] = None
+    """
+    When true, require explicit account selection when multiple accounts are
+    connected. When false (default), use the first/default account.
+    """
 
 
 class ConfigTags(BaseModel):
@@ -112,9 +150,24 @@ class ConfigWorkbench(BaseModel):
     proxy_execution_enabled: Optional[bool] = None
     """Whether proxy execution is enabled in the workbench"""
 
+    sandbox_size: Optional[Literal["standard", "medium", "large", "xlarge"]] = None
+    """
+    Sandbox compute tier: standard (1 vCPU / 1 GB), medium (2 vCPU / 2 GB), large (4
+    vCPU / 4 GB), xlarge (8 vCPU / 8 GB). Defaults to standard.
+    """
+
 
 class Config(BaseModel):
     """The session configuration including user, toolkits, and overrides"""
+
+    preload: ConfigPreload
+    """Preload configuration.
+
+    Controls which tools appear in `session.tools` and the MCP server tool list,
+    callable directly without going through search. Each preloaded tool adds to the
+    agent context — roughly ≤20 tools is recommended. Always present in the response
+    (empty `tools: []` when the session was created without a preload config).
+    """
 
     user_id: str
     """User identifier for this session"""
@@ -123,10 +176,16 @@ class Config(BaseModel):
     """Auth config overrides per toolkit"""
 
     connected_accounts: Optional[Dict[str, str]] = None
-    """Connected account overrides per toolkit"""
+    """Connected account overrides per toolkit.
+
+    Each connected account must belong to the same user_id as the session.
+    """
 
     manage_connections: Optional[ConfigManageConnections] = None
     """Manage connections configuration"""
+
+    multi_account: Optional[ConfigMultiAccount] = None
+    """Multi-account configuration for this session."""
 
     tags: Optional[ConfigTags] = None
     """MCP tool annotation hints for filtering tools with enabled/disabled support.
@@ -213,6 +272,12 @@ class Experimental(BaseModel):
 class SessionRetrieveResponse(BaseModel):
     config: Config
     """The session configuration including user, toolkits, and overrides"""
+
+    config_version: int
+    """Monotonic version of the config.
+
+    Incremented on each PATCH. Use for optimistic concurrency control.
+    """
 
     mcp: Mcp
 

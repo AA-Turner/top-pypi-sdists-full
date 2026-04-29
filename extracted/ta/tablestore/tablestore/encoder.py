@@ -940,11 +940,37 @@ class OTSProtoBufferEncoder(object):
             proto.index_type = pb2.IT_LOCAL_INDEX
             proto.index_update_mode = pb2.IUM_SYNC_INDEX
 
-    def _encode_create_table(self, table_meta, table_options, reserved_throughput, sse_spec, secondary_indexes):
+    def _make_partition_ranges(self, proto_partitions, split_points, first_pk_schema):
+        """
+        将 split_points 转换为 PartitionRange 列表
+        
+        :param proto_partitions: protobuf 中的 partitions 字段
+        :param split_points: 分区点列表
+        :param first_pk_schema: 第一个主键的 schema，如 ('gid', 'INTEGER')
+        """
+        from tablestore.metadata import INF_MIN, INF_MAX
+        
+        pk_type = first_pk_schema[1]
+        
+        # 构建分区边界列表：[INF_MIN, split_points[0], split_points[1], ..., INF_MAX]
+        boundaries = [INF_MIN] + list(split_points) + [INF_MAX]
+        
+        # 创建 PartitionRange
+        for i in range(len(boundaries) - 1):
+            partition_range = proto_partitions.add()
+            
+            # 序列化 begin 和 end 为 PlainBuffer 格式（不包含长度前缀，与 Java SDK 一致）
+            # 传递 pk_type 以正确处理 STRING 和 BINARY 类型
+            partition_range.begin = bytes(PlainBufferBuilder.serialize_primary_key_value_without_length_prefix(boundaries[i], pk_type))
+            partition_range.end = bytes(PlainBufferBuilder.serialize_primary_key_value_without_length_prefix(boundaries[i + 1], pk_type))
+
+    def _encode_create_table(self, table_meta, table_options, reserved_throughput, sse_spec, secondary_indexes, split_points=None):
         proto = pb2.CreateTableRequest()
         self._make_table_meta(proto.table_meta, table_meta)
         self._make_reserved_throughput(proto.reserved_throughput, reserved_throughput)
         self._make_table_options(proto.table_options, table_options)
+        if split_points is not None:
+            self._make_partition_ranges(proto.partitions, split_points, table_meta.schema_of_primary_key[0])
         if sse_spec is not None:
             self._make_sse_spec(proto.sse_spec, sse_spec)
         for secondary_index in secondary_indexes:

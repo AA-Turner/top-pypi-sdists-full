@@ -23,11 +23,12 @@ from pycdlib import dates
 from pycdlib import pycdlibexception
 from pycdlib import utils
 
-# For mypy annotations
-if False:  # pylint: disable=using-constant-test
-    from typing import Dict, List, Optional  # NOQA pylint: disable=unused-import
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Dict, List, Optional, Union  # noqa: F401
     # NOTE: this has to be here to avoid circular deps
-    from pycdlib import dr  # NOQA pylint: disable=unused-import,cyclic-import
+    from pycdlib import dr  # noqa: F401  pylint: disable=cyclic-import
 
 SU_ENTRY_VERSION = 1
 ALLOWED_DR_SIZE = 254
@@ -68,7 +69,7 @@ class RRSPRecord:
             raise pycdlibexception.PyCdlibInternalError('SP record already initialized')
 
         (su_len, su_entry_version_unused, check_byte1, check_byte2,
-         self.bytes_to_skip) = struct.unpack_from(self.FMT, rrstr[:7], 2)
+         self.bytes_to_skip) = struct.unpack_from(self.FMT, rrstr, 2)
 
         # We assume that the caller has already checked the su_entry_version,
         # so we don't bother.
@@ -156,7 +157,7 @@ class RRRRRecord:
             raise pycdlibexception.PyCdlibInternalError('RR record already initialized')
 
         (su_len, su_entry_version_unused,
-         self.rr_flags) = struct.unpack_from(self.FMT, rrstr[:5], 2)
+         self.rr_flags) = struct.unpack_from(self.FMT, rrstr, 2)
 
         # We assume that the caller has already checked the su_entry_version,
         # so we don't bother.
@@ -273,7 +274,7 @@ class RRCERecord:
 
         (su_len, su_entry_version_unused, bl_cont_area_le, bl_cont_area_be,
          offset_cont_area_le, offset_cont_area_be,
-         len_cont_area_le, len_cont_area_be) = struct.unpack_from(self.FMT, rrstr[:28], 2)
+         len_cont_area_le, len_cont_area_be) = struct.unpack_from(self.FMT, rrstr, 2)
 
         # We assume that the caller has already checked the su_entry_version,
         # so we don't bother.
@@ -436,7 +437,7 @@ class RRPXRecord:
         (su_len, su_entry_version_unused, posix_file_mode_le, posix_file_mode_be,
          posix_file_links_le, posix_file_links_be, posix_file_user_id_le,
          posix_file_user_id_be, posix_file_group_id_le,
-         posix_file_group_id_be) = struct.unpack_from(self.FMT, rrstr[:38], 2)
+         posix_file_group_id_be) = struct.unpack_from(self.FMT, rrstr, 2)
 
         # We assume that the caller has already checked the su_entry_version,
         # so we don't bother.
@@ -579,7 +580,7 @@ class RRERRecord:
             raise pycdlibexception.PyCdlibInternalError('ER record already initialized')
 
         (su_len, su_entry_version_unused, len_id, len_des, len_src,
-         self.ext_ver) = struct.unpack_from(self.FMT, rrstr[:8], 2)
+         self.ext_ver) = struct.unpack_from(self.FMT, rrstr, 2)
 
         # We assume that the caller has already checked the su_entry_version,
         # so we don't bother.
@@ -690,7 +691,7 @@ class RRESRecord:
         # so we don't bother.
 
         (su_len, su_entry_version_unused,
-         self.extension_sequence) = struct.unpack_from(self.FMT, rrstr[:5], 2)
+         self.extension_sequence) = struct.unpack_from(self.FMT, rrstr, 2)
         if su_len != RRESRecord.length():
             raise pycdlibexception.PyCdlibInvalidISO('Invalid length on rock ridge extension')
 
@@ -774,7 +775,7 @@ class RRPNRecord:
             raise pycdlibexception.PyCdlibInternalError('PN record already initialized')
 
         (su_len, su_entry_version_unused, dev_t_high_le, dev_t_high_be,
-         dev_t_low_le, dev_t_low_be) = struct.unpack_from(self.FMT, rrstr[:20], 2)
+         dev_t_low_le, dev_t_low_be) = struct.unpack_from(self.FMT, rrstr, 2)
 
         # We assume that the caller has already checked the su_entry_version,
         # so we don't bother.
@@ -1027,7 +1028,7 @@ class RRSLRecord:
             raise pycdlibexception.PyCdlibInternalError('SL record already initialized')
 
         (su_len, su_entry_version_unused,
-         self.flags) = struct.unpack_from('=BBB', rrstr[:5], 2)
+         self.flags) = struct.unpack_from('=BBB', rrstr, 2)
 
         # We assume that the caller has already checked the su_entry_version,
         # so we don't bother.
@@ -1364,7 +1365,7 @@ class RRALRecord:
             raise pycdlibexception.PyCdlibInternalError('AL record already initialized')
 
         (su_len, su_entry_version_unused,
-         self.flags) = struct.unpack_from('=BBB', rrstr[:5], 2)
+         self.flags) = struct.unpack_from('=BBB', rrstr, 2)
 
         # We assume that the caller has already checked the su_entry_version,
         # so we don't bother.
@@ -1568,7 +1569,7 @@ class RRNMRecord:
             raise pycdlibexception.PyCdlibInternalError('NM record already initialized')
 
         (su_len, su_entry_version_unused,
-         self.posix_name_flags) = struct.unpack_from(self.FMT, rrstr[:5], 2)
+         self.posix_name_flags) = struct.unpack_from(self.FMT, rrstr, 2)
 
         # We assume that the caller has already checked the su_entry_version,
         # so we don't bother.
@@ -1578,8 +1579,12 @@ class RRNMRecord:
             raise pycdlibexception.PyCdlibInvalidISO('Invalid Rock Ridge NM flags')
 
         if name_len != 0:
-            if (self.posix_name_flags & (1 << 1)) or (self.posix_name_flags & (1 << 2)) or (self.posix_name_flags & (1 << 5)):
-                raise pycdlibexception.PyCdlibInvalidISO('Invalid name in Rock Ridge NM entry (0x%x %d)' % (self.posix_name_flags, name_len))
+            # The spec says CURRENT (bit 1), PARENT (bit 2), and HOST (bit 5)
+            # must not be combined with a name -- the flag itself is the
+            # entire payload.  ISOs in the wild (e.g. VirtualBox Guest
+            # Additions) violate this by setting CURRENT with a real name.
+            # When a name is present, take it; the bare flag was clearly
+            # not the writer's intent.
             self.posix_name += rrstr[5:5 + name_len]
 
         self._initialized = True
@@ -1682,7 +1687,7 @@ class RRCLRecord:
         # so we don't bother.
 
         (su_len, su_entry_version_unused,
-         child_log_block_num_le, child_log_block_num_be) = struct.unpack_from(self.FMT, rrstr[:12], 2)
+         child_log_block_num_le, child_log_block_num_be) = struct.unpack_from(self.FMT, rrstr, 2)
         if su_len != RRCLRecord.length():
             raise pycdlibexception.PyCdlibInvalidISO('Invalid length on rock ridge extension')
 
@@ -1790,7 +1795,7 @@ class RRPLRecord:
         # so we don't bother.
 
         (su_len, su_entry_version_unused,
-         parent_log_block_num_le, parent_log_block_num_be) = struct.unpack_from(self.FMT, rrstr[:12], 2)
+         parent_log_block_num_le, parent_log_block_num_be) = struct.unpack_from(self.FMT, rrstr, 2)
         if su_len != RRPLRecord.length():
             raise pycdlibexception.PyCdlibInvalidISO('Invalid length on rock ridge extension')
         if parent_log_block_num_le != utils.swab_32bit(parent_log_block_num_be):
@@ -1879,14 +1884,27 @@ class RRTFRecord:
                  'modification_time', 'attribute_change_time', 'backup_time',
                  'expiration_time', 'effective_time', 'time_flags')
 
-    FIELDNAMES = ('creation_time', 'access_time', 'modification_time',
-                  'attribute_change_time', 'backup_time', 'expiration_time',
-                  'effective_time')
-
     def __init__(self):
         # type: () -> None
-        for fieldname in self.FIELDNAMES:
-            setattr(self, fieldname, None)
+        # The seven timestamp slots are populated lazily as bits in
+        # time_flags are seen.  The bit-to-field mapping (used by parse(),
+        # new(), and record()) is fixed by SUSP/RRIP:
+        #   bit 0 -> creation_time
+        #   bit 1 -> access_time
+        #   bit 2 -> modification_time
+        #   bit 3 -> attribute_change_time
+        #   bit 4 -> backup_time
+        #   bit 5 -> expiration_time
+        #   bit 6 -> effective_time
+        # bit 7 is the long-form flag (DR-style 7-byte vs VD-style 17-byte
+        # timestamps), not a separate field.
+        self.creation_time = None  # type: Optional[Union[dates.DirectoryRecordDate, dates.VolumeDescriptorDate]]
+        self.access_time = None  # type: Optional[Union[dates.DirectoryRecordDate, dates.VolumeDescriptorDate]]
+        self.modification_time = None  # type: Optional[Union[dates.DirectoryRecordDate, dates.VolumeDescriptorDate]]
+        self.attribute_change_time = None  # type: Optional[Union[dates.DirectoryRecordDate, dates.VolumeDescriptorDate]]
+        self.backup_time = None  # type: Optional[Union[dates.DirectoryRecordDate, dates.VolumeDescriptorDate]]
+        self.expiration_time = None  # type: Optional[Union[dates.DirectoryRecordDate, dates.VolumeDescriptorDate]]
+        self.effective_time = None  # type: Optional[Union[dates.DirectoryRecordDate, dates.VolumeDescriptorDate]]
 
         self.time_flags = 0
         self._initialized = False
@@ -1908,7 +1926,7 @@ class RRTFRecord:
         # so we don't bother.
 
         (su_len, su_entry_version_unused,
-         self.time_flags) = struct.unpack_from('=BBB', rrstr[:5], 2)
+         self.time_flags) = struct.unpack_from('=BBB', rrstr, 2)
         if su_len < 5:
             raise pycdlibexception.PyCdlibInvalidISO('Not enough bytes in the TF record')
 
@@ -1916,32 +1934,62 @@ class RRTFRecord:
         if self.time_flags & (1 << 7):
             tflen = 17
 
+        date_cls = dates.DirectoryRecordDate if tflen == 7 else dates.VolumeDescriptorDate
+        flags = self.time_flags
         offset = 5
-        for index, fieldname in enumerate(self.FIELDNAMES):
-            if self.time_flags & (1 << index):
-                if tflen == 7:
-                    setattr(self, fieldname, dates.DirectoryRecordDate())
-                elif tflen == 17:
-                    setattr(self, fieldname, dates.VolumeDescriptorDate())
-                getattr(self, fieldname).parse(rrstr[offset:offset + tflen])
-                offset += tflen
+        if flags & 0x01:
+            self.creation_time = date_cls()
+            self.creation_time.parse(rrstr[offset:offset + tflen])
+            offset += tflen
+        if flags & 0x02:
+            self.access_time = date_cls()
+            self.access_time.parse(rrstr[offset:offset + tflen])
+            offset += tflen
+        if flags & 0x04:
+            self.modification_time = date_cls()
+            self.modification_time.parse(rrstr[offset:offset + tflen])
+            offset += tflen
+        if flags & 0x08:
+            self.attribute_change_time = date_cls()
+            self.attribute_change_time.parse(rrstr[offset:offset + tflen])
+            offset += tflen
+        if flags & 0x10:
+            self.backup_time = date_cls()
+            self.backup_time.parse(rrstr[offset:offset + tflen])
+            offset += tflen
+        if flags & 0x20:
+            self.expiration_time = date_cls()
+            self.expiration_time.parse(rrstr[offset:offset + tflen])
+            offset += tflen
+        if flags & 0x40:
+            self.effective_time = date_cls()
+            self.effective_time.parse(rrstr[offset:offset + tflen])
+            offset += tflen
 
         self._initialized = True
 
-    def new(self, time_flags, date_seconds):
-        # type: (int, float) -> None
+    def new(self, time_flags, date_seconds, creation_seconds=None):
+        # type: (int, float, Optional[float]) -> None
         """
         Create a new Rock Ridge Time Stamp record.
 
         Parameters:
          time_flags - The flags to use for this time stamp record.
          date_seconds - Time and date, in seconds since the epoch, to use for
-                        this time stamp record.
+                        each enabled timestamp field.
+         creation_seconds - Time and date, in seconds since the epoch, to use
+                            specifically for the creation_time field.  When
+                            provided, the creation_time bit is forced on in
+                            time_flags and the field is populated from this
+                            value rather than from date_seconds.
         Returns:
          Nothing.
         """
         if self._initialized:
             raise pycdlibexception.PyCdlibInternalError('TF record already initialized')
+
+        if creation_seconds is not None:
+            time_flags |= 0x01
 
         self.time_flags = time_flags
 
@@ -1949,13 +1997,29 @@ class RRTFRecord:
         if self.time_flags & (1 << 7):
             tflen = 17
 
-        for index, fieldname in enumerate(self.FIELDNAMES):
-            if self.time_flags & (1 << index):
-                if tflen == 7:
-                    setattr(self, fieldname, dates.DirectoryRecordDate())
-                elif tflen == 17:
-                    setattr(self, fieldname, dates.VolumeDescriptorDate())
-                getattr(self, fieldname).new(date_seconds)
+        date_cls = dates.DirectoryRecordDate if tflen == 7 else dates.VolumeDescriptorDate
+        flags = self.time_flags
+        if flags & 0x01:
+            self.creation_time = date_cls()
+            self.creation_time.new(creation_seconds if creation_seconds is not None else date_seconds)
+        if flags & 0x02:
+            self.access_time = date_cls()
+            self.access_time.new(date_seconds)
+        if flags & 0x04:
+            self.modification_time = date_cls()
+            self.modification_time.new(date_seconds)
+        if flags & 0x08:
+            self.attribute_change_time = date_cls()
+            self.attribute_change_time.new(date_seconds)
+        if flags & 0x10:
+            self.backup_time = date_cls()
+            self.backup_time.new(date_seconds)
+        if flags & 0x20:
+            self.expiration_time = date_cls()
+            self.expiration_time.new(date_seconds)
+        if flags & 0x40:
+            self.effective_time = date_cls()
+            self.effective_time.new(date_seconds)
 
         self._initialized = True
 
@@ -1976,10 +2040,20 @@ class RRTFRecord:
                                       RRTFRecord.length(self.time_flags),
                                       SU_ENTRY_VERSION,
                                       self.time_flags)]
-        for fieldname in self.FIELDNAMES:
-            field = getattr(self, fieldname)
-            if field is not None:
-                outlist.append(field.record())
+        if self.creation_time is not None:
+            outlist.append(self.creation_time.record())
+        if self.access_time is not None:
+            outlist.append(self.access_time.record())
+        if self.modification_time is not None:
+            outlist.append(self.modification_time.record())
+        if self.attribute_change_time is not None:
+            outlist.append(self.attribute_change_time.record())
+        if self.backup_time is not None:
+            outlist.append(self.backup_time.record())
+        if self.expiration_time is not None:
+            outlist.append(self.expiration_time.record())
+        if self.effective_time is not None:
+            outlist.append(self.effective_time.record())
 
         return b''.join(outlist)
 
@@ -2039,18 +2113,18 @@ class RRSFRecord:
         # so we don't bother.
 
         (su_len,
-         su_entry_version_unused) = struct.unpack_from('=BB', rrstr[:4], 2)
+         su_entry_version_unused) = struct.unpack_from('=BB', rrstr, 2)
 
         if su_len == 12:
             # This is a Rock Ridge version 1.10 SF Record, which is 12 bytes.
-            (virtual_file_size_le, virtual_file_size_be) = struct.unpack_from('<LL', rrstr[:12], 4)
+            (virtual_file_size_le, virtual_file_size_be) = struct.unpack_from('<LL', rrstr, 4)
             if virtual_file_size_le != utils.swab_32bit(virtual_file_size_be):
                 raise pycdlibexception.PyCdlibInvalidISO('Virtual file size little-endian does not match big-endian')
             self.virtual_file_size_low = virtual_file_size_le
         elif su_len == 21:
             # This is a Rock Ridge version 1.12 SF Record, which is 21 bytes.
             (virtual_file_size_high_le, virtual_file_size_high_be, virtual_file_size_low_le,
-             virtual_file_size_low_be, self.table_depth) = struct.unpack_from('<LLLLB', rrstr[:21], 4)
+             virtual_file_size_low_be, self.table_depth) = struct.unpack_from('<LLLLB', rrstr, 4)
             if virtual_file_size_high_le != utils.swab_32bit(virtual_file_size_high_be):
                 raise pycdlibexception.PyCdlibInvalidISO('Virtual file size high little-endian does not match big-endian')
 
@@ -2164,7 +2238,7 @@ class RRRERecord:
             raise pycdlibexception.PyCdlibInternalError('RE record already initialized')
 
         (su_len,
-         su_entry_version_unused) = struct.unpack_from(self.FMT, rrstr[:4], 2)
+         su_entry_version_unused) = struct.unpack_from(self.FMT, rrstr, 2)
 
         # We assume that the caller has already checked the su_entry_version,
         # so we don't bother.
@@ -2250,7 +2324,7 @@ class RRSTRecord:
             raise pycdlibexception.PyCdlibInternalError('ST record already initialized')
 
         (su_len,
-         su_entry_version_unused) = struct.unpack_from(self.FMT, rrstr[:4], 2)
+         su_entry_version_unused) = struct.unpack_from(self.FMT, rrstr, 2)
 
         # We assume that the caller has already checked the su_entry_version,
         # so we don't bother.
@@ -2336,7 +2410,7 @@ class RRPDRecord:
             raise pycdlibexception.PyCdlibInternalError('PD record already initialized')
 
         (su_len_unused,
-         su_entry_version_unused) = struct.unpack_from(self.FMT, rrstr[:4], 2)
+         su_entry_version_unused) = struct.unpack_from(self.FMT, rrstr, 2)
 
         self.padding = rrstr[4:]
 
@@ -2507,13 +2581,13 @@ class RockRidge:
                 break
             if left == 1:
                 # There may be a padding byte on the end.
-                if bytes(bytearray([record[offset]])) != b'\x00':
+                if record[offset] != 0:
                     raise pycdlibexception.PyCdlibInvalidISO('Invalid pad byte')
                 break
             if left < 4:
                 raise pycdlibexception.PyCdlibInvalidISO('Not enough bytes left in the System Use field')
 
-            (rtype, su_len, su_entry_version) = struct.unpack_from('=2sBB', record[:offset + 4], offset)
+            (rtype, su_len, su_entry_version) = struct.unpack_from('=2sBB', record, offset)
             if su_entry_version != SU_ENTRY_VERSION:
                 raise pycdlibexception.PyCdlibInvalidISO('Invalid RR version %d!' % su_entry_version)
             if su_len == 0:
@@ -2528,12 +2602,13 @@ class RockRidge:
                     raise pycdlibexception.PyCdlibInvalidISO('Only single %s record supported' % (rtype.decode('utf-8')))
 
             if rtype == b'SP':
-                if left < 7 or not is_first_dir_record_of_root:
+                # SUSP says the SP record belongs in the first Directory
+                # Record of the root, but ISOs in the wild (e.g. VirtualBox
+                # Guest Additions) put one in every dot/dotdot DR.  Accept
+                # the record wherever it appears as long as there's room
+                # for one; RRSPRecord.parse() validates the magic bytes.
+                if left < 7:
                     raise pycdlibexception.PyCdlibInvalidISO('Invalid SUSP SP record')
-
-                # OK, this is the first Directory Record of the root
-                # directory, which means we should check it for the SUSP/RR
-                # extension, which is exactly 7 bytes and starts with 'SP'.
 
                 entry_list.sp_record = RRSPRecord()
                 entry_list.sp_record.parse(recslice)
@@ -2619,13 +2694,30 @@ class RockRidge:
         # above as a hint, and allow for some wiggle room.
 
         if px_record_length == 44 or sf_record_length == 21 or has_es_record or er_id == EXT_ID_112:
-            self.rr_version = '1.12'
+            this_call_version = '1.12'
+        elif sf_record_length == 12:
+            this_call_version = '1.10'
         else:
-            # Not 1.12, so either 1.09 or 1.10.
-            if sf_record_length == 12:
-                self.rr_version = '1.10'
-            else:
-                self.rr_version = '1.09'
+            this_call_version = '1.09'
+
+        if continuation:
+            # parse() runs once for the inline DR area (continuation=False)
+            # and a second time for the CE block (continuation=True).
+            # The 1.09 / 1.10 / 1.12 signals can appear on either side --
+            # e.g. an ISO whose 44-byte PX is inline but whose CE block
+            # carries only NM/SL records would, on the second call, see
+            # no 1.12 evidence and (without this guard) demote
+            # rr_version back to '1.09'.  That demotion silently
+            # downsizes the PX record on write, which produces an ISO
+            # with a dr_len longer than the bytes actually emitted (the
+            # tail then bleeds into the next record on re-parse).  Only
+            # let the continuation pass *upgrade* rr_version, never
+            # downgrade it.
+            ranks = {'1.09': 0, '1.10': 1, '1.12': 2}
+            if ranks[this_call_version] > ranks[self.rr_version]:
+                self.rr_version = this_call_version
+        else:
+            self.rr_version = this_call_version
 
         namelist = [nm.posix_name for nm in self.dr_entries.nm_records]
         namelist.extend([nm.posix_name for nm in self.ce_entries.nm_records])
@@ -3000,8 +3092,8 @@ class RockRidge:
     def _assign_entries(self, is_first_dir_record_of_root, rr_name, file_mode,
                         symlink_path, rr_relocated_child, rr_relocated,
                         rr_relocated_parent, bytes_to_skip, curr_dr_len,
-                        attributes, date_seconds):
-        # type: (bool, bytes, int, bytes, bool, bool, bool, int, int, Dict[bytes, bytes], float) -> int
+                        attributes, date_seconds, creation_seconds=None):
+        # type: (bool, bytes, int, bytes, bool, bool, bool, int, int, Dict[bytes, bytes], float, Optional[float]) -> int
         """
         Assign Rock Ridge entries to the appropriate DR or CE record.
 
@@ -3101,9 +3193,12 @@ class RockRidge:
                 rr_record.append_field('SL')
 
         # For TF record
+        tf_flags = TF_FLAGS
+        if creation_seconds is not None:
+            tf_flags |= 0x01
         new_tf = RRTFRecord()
-        new_tf.new(TF_FLAGS, date_seconds)
-        thislen = RRTFRecord.length(TF_FLAGS)
+        new_tf.new(tf_flags, date_seconds, creation_seconds)
+        thislen = RRTFRecord.length(tf_flags)
         if curr_dr_len + thislen > ALLOWED_DR_SIZE:
             if self.dr_entries.ce_record is None:
                 return -1
@@ -3198,8 +3293,8 @@ class RockRidge:
     def new(self, is_first_dir_record_of_root, rr_name, file_mode,
             symlink_path, rr_version, rr_relocated_child, rr_relocated,
             rr_relocated_parent, bytes_to_skip, curr_dr_len, attributes,
-            date_seconds):
-        # type: (bool, bytes, int, bytes, str, bool, bool, bool, int, int, Dict[bytes, bytes], float) -> int
+            date_seconds, creation_seconds=None):
+        # type: (bool, bytes, int, bytes, str, bool, bool, bool, int, int, Dict[bytes, bytes], float, Optional[float]) -> int
         """
         Create a new Rock Ridge record.
 
@@ -3240,7 +3335,8 @@ class RockRidge:
                                           file_mode, symlink_path,
                                           rr_relocated_child, rr_relocated,
                                           rr_relocated_parent, bytes_to_skip,
-                                          curr_dr_len, attributes, date_seconds)
+                                          curr_dr_len, attributes, date_seconds,
+                                          creation_seconds)
 
         if new_dr_len < 0:
             self.dr_entries = RockRidgeEntries()
@@ -3679,6 +3775,13 @@ class RockRidgeContinuationBlock:
         """
         newlen = offset + length - 1
         for entry in self._entries:
+            # Idempotent: if a previous DR already registered this exact
+            # range, accept silently.  Some writers (e.g. VirtualBox Guest
+            # Additions) share a single CE region across many dot/dotdot
+            # DRs to save space; each parses successfully and registers
+            # the same (offset, length) pair.
+            if entry.offset == offset and entry.length == length:
+                return
             thislen = entry.offset + entry.length - 1
             overlap = range(max(entry.offset, offset), min(thislen, newlen) + 1)
             if overlap:

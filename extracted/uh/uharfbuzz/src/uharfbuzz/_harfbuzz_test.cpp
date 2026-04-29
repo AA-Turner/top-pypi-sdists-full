@@ -13,6 +13,14 @@
                 "1"
             ],
             [
+                "HB_HAS_SUBSET",
+                "1"
+            ],
+            [
+                "HB_HAS_RASTER",
+                "1"
+            ],
+            [
                 "Py_LIMITED_API",
                 "0x030A0000"
             ],

@@ -21,13 +21,20 @@ import io
 from pycdlib import inode
 from pycdlib import pycdlibexception
 
-# For mypy annotations
-if False:  # pylint: disable=using-constant-test
-    import collections.abc  # NOQA pylint: disable=unused-import
-    import ctypes  # NOQA pylint: disable=unused-import
-    from mmap import mmap  # NOQA pylint: disable=unused-import
-    import pickle  # NOQA pylint: disable=unused-import
-    from typing import Any, Optional, Union  # NOQA pylint: disable=unused-import
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import array
+    import ctypes  # noqa: F401
+    from mmap import mmap
+    import pickle  # noqa: F401
+    from typing import Any, Optional, Union  # noqa: F401
+    # Used as the buffer-protocol parameter type for readinto.  Python 3.12+
+    # has collections.abc.Buffer (PEP 688), but the override already needs a
+    # Liskov suppression on every Python anyway, so enumerate the common
+    # writable-buffer concrete types and keep the type uniform across all
+    # versions.
+    Buffer = bytearray | memoryview | array.array | mmap
 
 
 class PyCdlibIO(io.RawIOBase):
@@ -40,7 +47,7 @@ class PyCdlibIO(io.RawIOBase):
 
     def __init__(self, ino, logical_block_size):
         # type: (inode.Inode, int) -> None
-        super(PyCdlibIO, self).__init__()  # pylint: disable=super-with-arguments
+        super().__init__()
         self._ctxt = inode.InodeOpenData(ino, logical_block_size)
         self._open = True
 
@@ -77,6 +84,12 @@ class PyCdlibIO(io.RawIOBase):
             data = self.readall()
         else:
             readsize = min(self._length - self._offset, size)
+            # _fp is the ISO's shared file descriptor; any other pycdlib
+            # operation (a second open_file_from_iso, write_fp, an
+            # internal _seek_to_extent, ...) can move its position
+            # between our reads.  Re-seek to the start of our slice on
+            # every read rather than trust accumulated state.
+            self._fp.seek(self._startpos + self._offset)
             data = self._fp.read(readsize)
             self._offset += readsize
 
@@ -98,6 +111,8 @@ class PyCdlibIO(io.RawIOBase):
 
         readsize = self._length - self._offset
         if readsize > 0:
+            # See read() for why the seek is here.
+            self._fp.seek(self._startpos + self._offset)
             data = self._fp.read(readsize)
             self._offset += readsize
         else:
@@ -105,8 +120,8 @@ class PyCdlibIO(io.RawIOBase):
 
         return data
 
-    def readinto(self, b):
-        # type: (collections.abc.Buffer) -> int
+    def readinto(self, b):  # type: ignore[override]
+        # type: (Buffer) -> int
         if not self._open:
             raise pycdlibexception.PyCdlibInvalidInput('I/O operation on closed file.')
 
@@ -115,9 +130,12 @@ class PyCdlibIO(io.RawIOBase):
             mv = memoryview(b)
             m = mv.cast('B')
             readsize = min(readsize, len(m))
+            # See read() for why the seek is here.
+            self._fp.seek(self._startpos + self._offset)
             data = self._fp.read(readsize)
             n = len(data)
             m[:n] = data
+            self._offset += n
         else:
             n = 0
 

@@ -15,16 +15,16 @@ from seeq.spy.workbooks._workbook import Workbook, WorkbookList
 
 @Status.top_level_spy_function(no_session=True)
 def save(
-    workbooks: Union[Workbook, List[Workbook], WorkbookList],
-    folder_or_zipfile: Optional[Union[str, Path]] = None,
-    *,
-    datasource_map_folder: Optional[Union[str, Path]] = None,
-    include_rendered_content: bool = False,
-    pretty_print_html: bool = False,
-    overwrite: bool = False,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None
+        workbooks: Union[Workbook, List[Workbook], WorkbookList],
+        folder_or_zipfile: Optional[Union[str, Path]] = None,
+        *,
+        datasource_map_folder: Optional[Union[str, Path]] = None,
+        include_rendered_content: bool = False,
+        pretty_print_html: bool = False,
+        overwrite: bool = False,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None
 ):
     """
 
@@ -85,66 +85,62 @@ def save(
 
     folder_or_zipfile = os.path.normpath(folder_or_zipfile)
 
+    if not isinstance(workbooks, list):
+        workbooks = [workbooks]
+
+    if folder_or_zipfile is None:
+        folder_or_zipfile = os.getcwd()
+
+    if not os.path.isabs(folder_or_zipfile):
+        folder_or_zipfile = util.safe_abspath(folder_or_zipfile)
+
+    zip_it = folder_or_zipfile.lower().endswith('.zip')
+
+    datasource_maps = None if datasource_map_folder is None else Workbook.load_datasource_maps(
+        datasource_map_folder)
+
+    if util.safe_isfile(folder_or_zipfile):
+        if overwrite:
+            util.safe_remove(folder_or_zipfile)
+        else:
+            raise SPyRuntimeError(
+                f'"{folder_or_zipfile}" already exists. Use overwrite=True to overwrite.')
+
+    save_folder = None
     try:
-        if not isinstance(workbooks, list):
-            workbooks = [workbooks]
+        save_folder = tempfile.mkdtemp() if zip_it else folder_or_zipfile
 
-        if folder_or_zipfile is None:
-            folder_or_zipfile = os.getcwd()
+        for workbook in workbooks:  # type: Workbook
+            if not isinstance(workbook, Workbook):
+                raise SPyTypeError('workbooks argument must be a list of Workbook objects')
 
-        if not os.path.isabs(folder_or_zipfile):
-            folder_or_zipfile = util.safe_abspath(folder_or_zipfile)
+            workbook_folder_name = '%s (%s)' % (workbook.name, workbook.id)
+            workbook_folder = os.path.join(save_folder, util.cleanse_filename(workbook_folder_name))
+            workbook_folder = util.cleanse_path(workbook_folder)
 
-        zip_it = folder_or_zipfile.lower().endswith('.zip')
+            if datasource_maps is not None:
+                workbook.datasource_maps = datasource_maps
 
-        datasource_maps = None if datasource_map_folder is None else Workbook.load_datasource_maps(
-            datasource_map_folder)
+            status.update('Saving to "%s"' % workbook_folder, Status.RUNNING)
+            workbook.save(workbook_folder, include_rendered_content=include_rendered_content,
+                          pretty_print_html=pretty_print_html, overwrite=overwrite)
 
-        if util.safe_isfile(folder_or_zipfile):
-            if overwrite:
-                util.safe_remove(folder_or_zipfile)
-            else:
-                raise SPyRuntimeError(
-                    f'"{folder_or_zipfile}" already exists. Use overwrite=True to overwrite.')
+        if zip_it:
+            status.update('Zipping "%s"' % folder_or_zipfile, Status.RUNNING)
+            util.safe_makedirs(os.path.dirname(folder_or_zipfile), exist_ok=True)
+            with zipfile.ZipFile(util.handle_long_filenames(folder_or_zipfile),
+                                 "w", zipfile.ZIP_DEFLATED) as z:
+                for root, dirs, files in util.safe_walk(save_folder):
+                    for file in files:
+                        filename = os.path.join(root, file)
+                        if util.safe_isfile(filename):  # regular files only
+                            archive_name = os.path.join(util.safe_relpath(root, save_folder), file)
+                            _common.print_output('Archiving %s' % archive_name)
+                            # noinspection PyTypeChecker
+                            z.write(filename, archive_name)
 
-        save_folder = None
-        try:
-            save_folder = tempfile.mkdtemp() if zip_it else folder_or_zipfile
+    finally:
+        if save_folder and zip_it:
+            util.safe_rmtree(save_folder)
 
-            for workbook in workbooks:  # type: Workbook
-                if not isinstance(workbook, Workbook):
-                    raise SPyTypeError('workbooks argument must be a list of Workbook objects')
-
-                workbook_folder_name = '%s (%s)' % (workbook.name, workbook.id)
-                workbook_folder = os.path.join(save_folder, util.cleanse_filename(workbook_folder_name))
-                workbook_folder = util.cleanse_path(workbook_folder)
-
-                if datasource_maps is not None:
-                    workbook.datasource_maps = datasource_maps
-
-                status.update('Saving to "%s"' % workbook_folder, Status.RUNNING)
-                workbook.save(workbook_folder, include_rendered_content=include_rendered_content,
-                              pretty_print_html=pretty_print_html, overwrite=overwrite)
-
-            if zip_it:
-                status.update('Zipping "%s"' % folder_or_zipfile, Status.RUNNING)
-                util.safe_makedirs(os.path.dirname(folder_or_zipfile), exist_ok=True)
-                with zipfile.ZipFile(util.handle_long_filenames(folder_or_zipfile),
-                                     "w", zipfile.ZIP_DEFLATED) as z:
-                    for root, dirs, files in util.safe_walk(save_folder):
-                        for file in files:
-                            filename = os.path.join(root, file)
-                            if util.safe_isfile(filename):  # regular files only
-                                archive_name = os.path.join(util.safe_relpath(root, save_folder), file)
-                                _common.print_output('Archiving %s' % archive_name)
-                                # noinspection PyTypeChecker
-                                z.write(filename, archive_name)
-
-        finally:
-            if save_folder and zip_it:
-                util.safe_rmtree(save_folder)
-
-        status.update('Success', Status.SUCCESS)
-
-    except KeyboardInterrupt:
-        status.update('Save canceled', Status.CANCELED)
+    status.update('Success', Status.SUCCESS)

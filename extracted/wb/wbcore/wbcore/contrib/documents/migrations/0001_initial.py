@@ -4,9 +4,10 @@ import uuid
 
 import django.db.models.deletion
 import mptt.fields
-import wbcore.contrib.documents.models.documents
 from django.conf import settings
 from django.db import migrations, models
+
+import wbcore.contrib.documents.models.documents
 
 
 class Migration(migrations.Migration):

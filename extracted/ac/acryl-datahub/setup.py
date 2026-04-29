@@ -65,9 +65,10 @@ framework_common = {
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
     "packaging<26.0.0",
-    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
-    # Minimum version enforced in Docker builds via docker/snippets/ingestion/constraints.txt
-    # (not enforced here due to Airflow constraint file conflicts in CI)
+    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; patched releases are >=3.13.3.
+    # Minimum patch is enforced for Docker via docker/snippets/ingestion/constraints.txt only —
+    # do not add a lower bound here: Airflow 2.7.x constraints pin aiohttp==3.8.6 and
+    # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
     "ijson<4.0.0",
@@ -276,6 +277,7 @@ datacatalog_lineage_common = {
 
 dataplex_common = {
     "google-cloud-dataplex<3.0.0",
+    "google-cloud-resource-manager<2.0.0",
     *datacatalog_lineage_common,
     "tenacity>=8.0.1,<9.0.0",
 }
@@ -393,7 +395,6 @@ s3_base = {
     # overflow/infinite loop GHSA-c8rr-9gxc-jprv). Keep <6 until major API review.
     "ujson>=5.12.0,<6.0.0",
     "smart-open[s3]>=5.2.1,<8.0.0",
-    "moto[s3]>=5.0.0,<6.0.0",
     *path_spec_common,
     # cachetools is used by operation_config which is imported by profiling config
     *cachetools_lib,
@@ -480,7 +481,8 @@ mysql_common = sql_common | mysql | aws_common
 sac = {
     "requests<3.0.0",
     "pyodata>=1.11.1,<2.0.0",
-    "Authlib>=1.6.7,<2.0.0",
+    # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
+    "Authlib>=1.6.11,<2.0.0",
 }
 
 superset_common = {
@@ -866,6 +868,9 @@ mypy_stubs = {
 
 
 test_api_requirements = {
+    # Do not raise the lower bound to pytest 9.x here: airflow-plugin CI installs
+    # acryl-datahub[testing-utils] with Airflow's constraints-*.txt, which pin pytest 7.x.
+    # Current pytest is pinned in constraints.txt / uv.lock for the standalone dev venv.
     "pytest>=6.2.2,<10.0.0",
     "pytest-timeout<3.0.0",
     # Missing numpy requirement in 8.0.0
@@ -891,6 +896,8 @@ base_dev_requirements = {
     *framework_common,
     *mypy_stubs,
     *s3_base,
+    # moto: AWS mocks for S3 / Dynamo / secrets tests only, not a runtime S3 source dependency
+    "moto[s3]>=5.0.0,<6.0.0",
     *lint_requirements,
     *test_api_requirements,
     "coverage>=5.1,<8.0.0",

@@ -33,7 +33,11 @@ from textual.widgets._toast import (
     Toast as _Toast,  # noqa: PLC2701  # for Toast click routing
 )
 
-from deepagents_cli import theme
+# Applied as an import-time side effect; must come before any App is created.
+from deepagents_cli import (
+    _textual_patches,  # noqa: F401
+    theme,
+)
 from deepagents_cli._cli_context import CLIContext
 from deepagents_cli._git import (
     read_git_branch_from_filesystem,
@@ -6370,6 +6374,24 @@ class DeepAgentsApp(App):
             model_spec = model_spec.removeprefix(":")
 
             if not self._remote_agent():
+                if self._connecting:
+                    from functools import partial
+
+                    self._defer_action(
+                        DeferredAction(
+                            kind="model_switch",
+                            execute=partial(
+                                self._switch_model,
+                                model_spec,
+                                extra_kwargs=extra_kwargs,
+                            ),
+                        )
+                    )
+                    self.notify(
+                        "Model will switch once the session is ready.",
+                        timeout=3,
+                    )
+                    return
                 await self._mount_message(
                     ErrorMessage("Model switching requires a server-backed session.")
                 )

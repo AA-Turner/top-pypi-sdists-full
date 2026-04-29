@@ -320,7 +320,7 @@ class MetagraphMixin(ABC):
         return self.stake
 
     @property
-    def I(self) -> Tensor:
+    def I(self) -> Tensor:  #  noqa: E743
         """
         Incentive values of neurons represent the rewards they receive for their contributions to the network.
         The Bittensor network employs an incentive mechanism that rewards neurons based on their

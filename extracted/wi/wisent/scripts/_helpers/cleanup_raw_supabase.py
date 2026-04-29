@@ -12,7 +12,7 @@ from huggingface_hub import HfApi
 # Config
 hf_repo_id = "wisent-ai/activations"
 hf_repo_type = "dataset"
-hf_token = os.environ.get("HF_TOKEN") or "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"
+hf_token = os.environ["HF_TOKEN"]
 
 db_host = "db.rbqjqnouluslojmmnuqi.supabase.co"
 db_port = 5432

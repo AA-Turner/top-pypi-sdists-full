@@ -43,13 +43,18 @@ class GetPriceForContractRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CONTRACT_ID_FIELD_NUMBER: builtins.int
+    USAGE_START_WATERMARK_TS_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
+    @property
+    def usage_start_watermark_ts(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     def __init__(
         self,
         *,
         contract_id: builtins.int = ...,
+        usage_start_watermark_ts: google.protobuf.timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> None: ...
 
 global___GetPriceForContractRequest = GetPriceForContractRequest
 
@@ -152,6 +157,7 @@ class UsagePricerResponse(google.protobuf.message.Message):
     SHARED_BUDGET_SUMMARIES_FIELD_NUMBER: builtins.int
     LINE_ITEM_SUMMARIES_FIELD_NUMBER: builtins.int
     SHARED_LINE_ITEM_SUMMARIES_FIELD_NUMBER: builtins.int
+    LAST_USAGE_TS_FIELD_NUMBER: builtins.int
     @property
     def sku_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SKUUsageSummary]:
         """use line_item_summaries"""
@@ -164,6 +170,8 @@ class UsagePricerResponse(google.protobuf.message.Message):
     def line_item_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemUsageSummary]: ...
     @property
     def shared_line_item_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SharedLineItemUsageSummary]: ...
+    @property
+    def last_usage_ts(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     def __init__(
         self,
         *,
@@ -171,7 +179,9 @@ class UsagePricerResponse(google.protobuf.message.Message):
         shared_budget_summaries: collections.abc.Iterable[global___SharedBudgetUsageSummary] | None = ...,
         line_item_summaries: collections.abc.Iterable[global___LineItemUsageSummary] | None = ...,
         shared_line_item_summaries: collections.abc.Iterable[global___SharedLineItemUsageSummary] | None = ...,
+        last_usage_ts: google.protobuf.timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["line_item_summaries", b"line_item_summaries", "shared_budget_summaries", b"shared_budget_summaries", "shared_line_item_summaries", b"shared_line_item_summaries", "sku_summaries", b"sku_summaries"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["last_usage_ts", b"last_usage_ts"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["last_usage_ts", b"last_usage_ts", "line_item_summaries", b"line_item_summaries", "shared_budget_summaries", b"shared_budget_summaries", "shared_line_item_summaries", b"shared_line_item_summaries", "sku_summaries", b"sku_summaries"]) -> None: ...
 
 global___UsagePricerResponse = UsagePricerResponse

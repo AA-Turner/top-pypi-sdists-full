@@ -3,6 +3,8 @@ from typing import OrderedDict
 import pytest
 
 from pygitguardian.models import (
+    AIDiscovery,
+    AIDiscoverySchema,
     APITokensResponse,
     APITokensResponseSchema,
     Detail,
@@ -16,6 +18,10 @@ from pygitguardian.models import (
     HoneytokenWithContextResponseSchema,
     Match,
     MatchSchema,
+    MCPActivityRequest,
+    MCPActivityRequestSchema,
+    MCPActivityResponse,
+    MCPActivityResponseSchema,
     MultiScanResult,
     MultiScanResultSchema,
     PolicyBreak,
@@ -471,6 +477,55 @@ class TestModel:
                         "url": "https://github.com/GitGuardian/py-gitguardian",
                     },
                     "tags": ["FROM_HISTORICAL_SCAN"],
+                },
+            ),
+            (
+                AIDiscoverySchema,
+                AIDiscovery,
+                {
+                    "user": {
+                        "user_email": "toto@gitguardian.com",
+                        "hostname": "toto-laptop",
+                        "username": "toto",
+                        "machine_id": "1234567890",
+                    },
+                    "discovery_duration": 10.0,
+                    "servers": [
+                        {
+                            "name": "mcp-server",
+                            "url": "https://mcp-server.com",
+                        },
+                        {
+                            "name": "mcp-server",
+                            "url": "https://mcp-server.com",
+                        },
+                    ],
+                },
+            ),
+            (
+                MCPActivityRequestSchema,
+                MCPActivityRequest,
+                {
+                    "user": {
+                        "user_email": "toto@gitguardian.com",
+                        "machine_id": "1234567890",
+                        "hostname": "toto-laptop",
+                        "username": "toto",
+                    },
+                    "tool": "list-todos",
+                    "server": "https://mcp-server.com",
+                    "agent": "cursor",
+                    "model": "gpt-4o",
+                    "cwd": "/home/user/project",
+                    "input": {"key": "value"},
+                },
+            ),
+            (
+                MCPActivityResponseSchema,
+                MCPActivityResponse,
+                {
+                    "allowed": True,
+                    "reason": "test",
                 },
             ),
         ],

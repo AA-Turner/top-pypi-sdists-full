@@ -2,6 +2,7 @@
 from .._impl import (
     scout_template_api_CommitTemplateRequest as CommitTemplateRequest,
     scout_template_api_CreateTemplateRequest as CreateTemplateRequest,
+    scout_template_api_DuplicateTemplateRequest as DuplicateTemplateRequest,
     scout_template_api_GetAllLabelsAndPropertiesResponse as GetAllLabelsAndPropertiesResponse,
     scout_template_api_MergeToMainRequest as MergeToMainRequest,
     scout_template_api_SaveTemplateRequest as SaveTemplateRequest,
@@ -21,6 +22,7 @@ from .._impl import (
 __all__ = [
     'CommitTemplateRequest',
     'CreateTemplateRequest',
+    'DuplicateTemplateRequest',
     'GetAllLabelsAndPropertiesResponse',
     'MergeToMainRequest',
     'SaveTemplateRequest',

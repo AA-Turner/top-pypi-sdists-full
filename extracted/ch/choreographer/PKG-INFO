@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: choreographer
-Version: 1.2.1
+Version: 1.3.0
 Summary: Devtools Protocol implementation for chrome.
 Author-email: Andrew Pikul <ajpikul@gmail.com>, Neyberson Atencio <neyberatencio@gmail.com>
 Maintainer-email: Andrew Pikul <ajpikul@gmail.com>
@@ -35,6 +35,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: logistro>=2.0.1
+Requires-Dist: platformdirs>=4.3.6
 Requires-Dist: simplejson>=3.19.3
 Dynamic: license-file
 

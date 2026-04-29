@@ -48,6 +48,7 @@ class Subnets:
         self.min_allowed_weights = subtensor.min_allowed_weights
         self.recycle = subtensor.recycle
         self.register = subtensor.register
+        self.register_limit = subtensor.register_limit
         self.register_subnet = subtensor.register_subnet
         self.set_subnet_identity = subtensor.set_subnet_identity
         self.start_call = subtensor.start_call

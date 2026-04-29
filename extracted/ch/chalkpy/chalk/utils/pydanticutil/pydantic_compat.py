@@ -40,7 +40,7 @@ def get_pydantic_output_structure(model: type[BaseModel]) -> str:
         return json.dumps(model.model_json_schema())  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def parse_pydantic_model(model: type[BaseModel], json_str: str) -> BaseModel:
+def parse_pydantic_model(model: type[BaseModel], json_str: str | bytes) -> BaseModel:
     if is_pydantic_v1 or _is_pydantic_v1_basemodel(model):
         return model.parse_raw(json_str)
     else:

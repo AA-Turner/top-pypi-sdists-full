@@ -1,0 +1,56 @@
+"""MCP integration for AI-Parrot."""
+
+from .integration import (
+    MCPEnabledMixin,
+    MCPServerConfig,
+    MCPClient,
+    create_local_mcp_server,
+    create_http_mcp_server,
+    create_api_key_mcp_server,
+)
+from .config import AuthMethod
+from .oauth import APIKeyStore, ExternalOAuthValidator, APIKeyRecord
+from .client import AuthScheme, AuthCredential
+from .context import (
+    ReadonlyContext,
+    MCPSessionManager,
+    TransientMCPError,
+    retry_on_errors,
+)
+from .registry import (
+    MCPServerRegistry,
+    MCPServerDescriptor,
+    MCPServerParam,
+    MCPParamType,
+    UserMCPServerConfig,
+    ActivateMCPServerRequest,
+    get_factory_map,
+)
+
+__all__ = [
+    "MCPEnabledMixin",
+    "MCPServerConfig",
+    "MCPClient",
+    "create_local_mcp_server",
+    "create_http_mcp_server",
+    "create_api_key_mcp_server",
+    "AuthMethod",
+    "APIKeyStore",
+    "ExternalOAuthValidator",
+    "APIKeyRecord",
+    # New exports
+    "AuthScheme",
+    "AuthCredential",
+    "ReadonlyContext",
+    "MCPSessionManager",
+    "TransientMCPError",
+    "retry_on_errors",
+    # MCP Server Registry
+    "MCPServerRegistry",
+    "MCPServerDescriptor",
+    "MCPServerParam",
+    "MCPParamType",
+    "UserMCPServerConfig",
+    "ActivateMCPServerRequest",
+    "get_factory_map",
+]

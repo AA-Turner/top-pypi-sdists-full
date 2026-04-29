@@ -41,8 +41,6 @@ class TestStateConstants:
     def test_default_state_schema(self):
         assert isinstance(_DEFAULT_STATE, dict)
         assert "created_at" in _DEFAULT_STATE
-        assert "user_id" in _DEFAULT_STATE
-        assert "email" in _DEFAULT_STATE
         assert "nr_prompts" in _DEFAULT_STATE
         assert "last_prompted_at" in _DEFAULT_STATE
 
@@ -311,7 +309,6 @@ class TestLoadState:
             with patch(name, return_value=non_existent_path):
                 result = load_state()
                 assert "created_at" in result
-                assert result["user_id"] is None
 
 
 class TestSaveState:

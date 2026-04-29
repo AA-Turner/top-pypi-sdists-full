@@ -2822,6 +2822,7 @@ class ChalkClient:
         env_overrides: Optional[Mapping[str, str]] = None,
         enable_profiling: bool = False,
         max_retries: int = 0,
+        train_script: Optional[str] = None,
     ) -> CreateModelTrainingJobResponse:
         """Train a model using a provided training function.
 
@@ -2846,6 +2847,12 @@ class ChalkClient:
             Whether to enable profiling for the training job.
         max_retries : int
             Maximum number of retries for the training job.
+        train_script : Optional[str]
+            Optional raw Python source to ship to the trainer. If provided it is used
+            verbatim (after validating it compiles and defines a top-level function
+            matching ``train_fn.__name__``). When omitted: inside a Jupyter notebook
+            the client reconstructs the script from executed cells; outside a
+            notebook it reads the full ``.py`` file in which ``train_fn`` is defined.
 
         Returns
         -------

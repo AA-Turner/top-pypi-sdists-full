@@ -22,7 +22,8 @@ def init_machine_config(machine: MachineSpec,
                         config: ConfigParser,
                         outpath: List[str],
                         outenv: Dict[str, str],
-                        outdir: Path):
+                        outdir: Path,
+                        apple_min_os: Optional[Dict[str, str]] = None):
     allow_undefined_symbols = machine.os == "freebsd"
 
     options = config["built-in options"]
@@ -109,7 +110,10 @@ def init_machine_config(machine: MachineSpec,
     if cc is not None \
             and machine.os == "windows" \
             and machine.toolchain_is_msvc:
-        linker_flavor = detect_linker_flavor(cc)
+        try:
+            linker_flavor = detect_linker_flavor(cc)
+        except LinkerDetectionError:
+            pass
         detected_wrong_toolchain = linker_flavor != "msvc"
         if detected_wrong_toolchain:
             cc = None

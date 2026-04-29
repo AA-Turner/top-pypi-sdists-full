@@ -11,9 +11,9 @@ structure of available Subtensor operations.
 
 import os
 from bittensor import Subtensor
-from bittensor.extras.dev_framework.calls.sudo_calls import *  # noqa: F401
-from bittensor.extras.dev_framework.calls.non_sudo_calls import *  # noqa: F401
-from bittensor.extras.dev_framework.calls.pallets import *  # noqa: F401
+from bittensor.extras.dev_framework.calls.sudo_calls import *  #  noqa: F403
+from bittensor.extras.dev_framework.calls.non_sudo_calls import *  #  noqa: F403
+from bittensor.extras.dev_framework.calls.pallets import *  #  noqa: F403
 
 HEADER = '''"""
 This file is auto-generated. Do not edit manually.

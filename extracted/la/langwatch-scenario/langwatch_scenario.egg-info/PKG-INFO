@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langwatch-scenario
-Version: 0.7.25
+Version: 0.7.26
 Summary: The end-to-end agent testing library
 Author-email: LangWatch Team <support@langwatch.ai>
 License: Apache-2.0

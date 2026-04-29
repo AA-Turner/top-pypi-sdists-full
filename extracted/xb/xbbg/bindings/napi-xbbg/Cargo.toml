@@ -1,0 +1,31 @@
+[package]
+name = "napi-xbbg"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "N-API (Node.js) bindings for xbbg Bloomberg engine"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "3", features = ["async", "tokio_rt", "serde-json", "napi4"] }
+napi-derive = "3"
+arrow = { version = "58.1.0", default-features = false, features = ["ipc"] }
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+serde_json = "1.0"
+tokio = { version = "1.48", features = ["sync"] }
+xbbg_core = { path = "../../crates/xbbg-core", default-features = false }
+xbbg-async = { path = "../../crates/xbbg-async", default-features = false }
+xbbg-log = { path = "../../crates/xbbg-log" }
+xbbg-ext = { path = "../../crates/xbbg-ext" }
+xbbg-recipes = { path = "../../crates/xbbg-recipes", default-features = false }
+
+[features]
+default = ["live"]
+live = ["xbbg_core/live", "xbbg-async/live", "xbbg-recipes/live"]
+
+[build-dependencies]
+napi-build = "2"

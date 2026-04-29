@@ -1,22 +1,22 @@
-//! Subscription state with Arrow builders for real-time data.
+//! Update-first subscription state for real-time data.
 //!
-//! Extracts subscription messages directly from Bloomberg Elements
-//! without JSON intermediate serialization. Uses dynamic type dispatch
-//! to preserve all Bloomberg types (string, int, float, datetime, etc.).
+//! Extracts Bloomberg subscription messages into native `SubscriptionUpdate`s
+//! without constructing Arrow on the hot path. Arrow conversion is an explicit
+//! compatibility adapter in `update_arrow`.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
-use arrow::array::{ArrayRef, StringBuilder, TimestampMicrosecondBuilder};
-use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
-use arrow::record_batch::RecordBatch;
 use tokio::sync::mpsc;
 
-use xbbg_core::{BlpError, DataType as BlpDataType, Message, Value};
+use xbbg_core::{BlpError, DataType as BlpDataType, Message, Name};
 
 use super::super::OverflowPolicy;
-use super::typed_builder::{ArrowType, TypedBuilder};
+use super::update::{
+    FieldIndex, FieldKind, FieldLayout, FieldMeta, SubscriptionUpdate, TopicId, UpdateField,
+    UpdateValue,
+};
 
 pub struct SubscriptionMetrics {
     pub messages_received: Arc<AtomicU64>,
@@ -28,37 +28,47 @@ pub struct SubscriptionMetrics {
     pub last_data_loss_us: Arc<AtomicU64>,
 }
 
+#[derive(Clone, Copy)]
+enum AllFieldSlot {
+    Captured {
+        key: usize,
+        idx: FieldIndex,
+        datatype: BlpDataType,
+    },
+    Skipped {
+        key: usize,
+    },
+}
+
 /// State for a single subscription, owned by PumpA.
 pub struct SubscriptionState {
     /// Topic string (e.g., "IBM US Equity")
     pub topic: Arc<str>,
-    /// Field names as strings (for schema and lookup)
-    pub field_strings: Vec<String>,
-    /// Fast lookup from field name to column index.
-    field_indices: HashMap<String, usize>,
-    /// Timestamp builder (event time)
-    pub timestamp_builder: TimestampMicrosecondBuilder,
-    /// Topic builder (repeated for each row)
-    pub topic_builder: StringBuilder,
-    /// Field value builders — None until type is inferred from first non-null value.
-    /// This preserves Bloomberg's native types (Int32, Int64, Float64, String, Date, etc.)
-    /// instead of forcing everything through Float64.
-    pub field_builders: Vec<Option<TypedBuilder>>,
-    /// Stream to send RecordBatches (or errors for subscription failures)
-    pub stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
-    /// Number of pending rows before flush
-    pub pending_count: usize,
-    /// Flush threshold
+    topic_id: TopicId,
+    /// Field names as strings for layout, logs, and compatibility schemas.
+    pub field_strings: Vec<Arc<str>>,
+    /// Pre-interned field names for requested-field hot-path lookup.
+    field_names: Vec<Name>,
+    /// Fast dynamic-field lookup keyed by Bloomberg's interned Name pointer.
+    field_name_keys: HashMap<usize, FieldIndex>,
+    /// Per-field flag for Bloomberg date-or-time fields that cannot be read safely.
+    invalid_dateortime_fields: Vec<bool>,
+    /// Per-position allFields cache for stable Bloomberg subscription schemas.
+    all_field_slots: Vec<Option<AllFieldSlot>>,
+    field_kinds: Vec<FieldKind>,
+    layout_version: u32,
+    layout: Arc<FieldLayout>,
+    /// Stream to send native updates (or errors for subscription failures).
+    pub stream: mpsc::Sender<Result<SubscriptionUpdate, BlpError>>,
+    /// Retained for option/status compatibility. Updates are emitted immediately.
     pub flush_threshold: usize,
     /// Slow consumer flag (DATALOSS received)
     pub slow_consumer: bool,
     /// Overflow policy for slow consumers
     pub overflow_policy: OverflowPolicy,
-    /// Dropped batch count (for metrics)
+    /// Dropped update count (keeps historical field name for stats compatibility)
     pub dropped_batches: u64,
     pub metrics: Arc<SubscriptionMetrics>,
-    /// Cached schema — invalidated when a field type is first inferred.
-    cached_schema: Option<Arc<Schema>>,
     /// Whether at least one data message has been observed.
     has_received_data: bool,
     /// Suppress stream-closed warnings during expected shutdown paths.
@@ -70,12 +80,15 @@ pub struct SubscriptionState {
 impl SubscriptionState {
     const EVENT_METADATA_FIELDS: [&'static str; 2] =
         ["MKTDATA_EVENT_TYPE", "MKTDATA_EVENT_SUBTYPE"];
+    // Bloomberg can publish date-or-time values here with invalid date parts;
+    // any typed/string getter makes the SDK emit warnings, so capture nulls.
+    const INVALID_DATEORTIME_FIELDS: [&'static str; 1] = ["LAST_UPDATE_ALL_SESSIONS_RT"];
 
     /// Create a new subscription state with default overflow policy.
     pub fn new(
         topic: String,
         fields: Vec<String>,
-        stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
+        stream: mpsc::Sender<Result<SubscriptionUpdate, BlpError>>,
         flush_threshold: usize,
         capture_all_fields: bool,
     ) -> Self {
@@ -93,31 +106,41 @@ impl SubscriptionState {
     pub fn with_policy(
         topic: String,
         fields: Vec<String>,
-        stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
+        stream: mpsc::Sender<Result<SubscriptionUpdate, BlpError>>,
         flush_threshold: usize,
         overflow_policy: OverflowPolicy,
         capture_all_fields: bool,
     ) -> Self {
         let mut field_strings =
             Vec::with_capacity(fields.len() + Self::EVENT_METADATA_FIELDS.len());
-        let mut field_indices =
+        let mut field_names = Vec::with_capacity(fields.len() + Self::EVENT_METADATA_FIELDS.len());
+        let mut field_name_keys =
             HashMap::with_capacity(fields.len() + Self::EVENT_METADATA_FIELDS.len());
+        let mut invalid_dateortime_fields =
+            Vec::with_capacity(fields.len() + Self::EVENT_METADATA_FIELDS.len());
+        let mut field_kinds = Vec::with_capacity(fields.len() + Self::EVENT_METADATA_FIELDS.len());
+
         for field in fields {
-            if !field_indices.contains_key(&field) {
-                let idx = field_strings.len();
-                field_indices.insert(field.clone(), idx);
-                field_strings.push(field);
-            }
+            Self::push_field_if_new(
+                &mut field_strings,
+                &mut field_names,
+                &mut field_name_keys,
+                &mut invalid_dateortime_fields,
+                &mut field_kinds,
+                field.into(),
+            );
         }
         for field in Self::EVENT_METADATA_FIELDS {
-            if !field_indices.contains_key(field) {
-                let idx = field_strings.len();
-                let field_name = field.to_string();
-                field_indices.insert(field_name.clone(), idx);
-                field_strings.push(field_name);
-            }
+            Self::push_field_if_new(
+                &mut field_strings,
+                &mut field_names,
+                &mut field_name_keys,
+                &mut invalid_dateortime_fields,
+                &mut field_kinds,
+                Arc::from(field),
+            );
         }
-        let field_builders = field_strings.iter().map(|_| None).collect();
+
         let metrics = Arc::new(SubscriptionMetrics {
             messages_received: Arc::new(AtomicU64::new(0)),
             dropped_batches: Arc::new(AtomicU64::new(0)),
@@ -127,58 +150,83 @@ impl SubscriptionState {
             last_message_us: Arc::new(AtomicU64::new(0)),
             last_data_loss_us: Arc::new(AtomicU64::new(0)),
         });
+        let layout = Self::build_layout(1, &field_strings, &field_kinds);
 
         Self {
-            topic: topic.into(),
+            topic: Arc::from(topic),
+            topic_id: 0,
             field_strings,
-            field_indices,
-            timestamp_builder: TimestampMicrosecondBuilder::new(),
-            topic_builder: StringBuilder::new(),
-            field_builders,
+            field_names,
+            field_name_keys,
+            invalid_dateortime_fields,
+            all_field_slots: Vec::new(),
+            field_kinds,
+            layout_version: 1,
+            layout,
             stream,
-            pending_count: 0,
             flush_threshold,
             slow_consumer: false,
             overflow_policy,
             dropped_batches: 0,
             metrics,
-            cached_schema: None,
             has_received_data: false,
             suppress_closed_warning: false,
             capture_all_fields,
         }
     }
 
+    pub fn set_topic_id(&mut self, topic_id: TopicId) {
+        self.topic_id = topic_id;
+    }
+
+    fn push_field_if_new(
+        field_strings: &mut Vec<Arc<str>>,
+        field_names: &mut Vec<Name>,
+        field_name_keys: &mut HashMap<usize, FieldIndex>,
+        invalid_dateortime_fields: &mut Vec<bool>,
+        field_kinds: &mut Vec<FieldKind>,
+        field: Arc<str>,
+    ) -> FieldIndex {
+        let name = Name::get_or_intern(&field);
+        let key = name.as_ptr() as usize;
+        if let Some(&idx) = field_name_keys.get(&key) {
+            return idx;
+        }
+        let idx = field_strings.len() as FieldIndex;
+        field_name_keys.insert(key, idx);
+        invalid_dateortime_fields.push(Self::is_invalid_dateortime_field(&field));
+        field_kinds.push(FieldKind::Unknown);
+        field_names.push(name);
+        field_strings.push(field);
+        idx
+    }
+
+    fn build_layout(version: u32, names: &[Arc<str>], kinds: &[FieldKind]) -> Arc<FieldLayout> {
+        Arc::new(FieldLayout::new(
+            version,
+            names
+                .iter()
+                .zip(kinds.iter())
+                .enumerate()
+                .map(|(idx, (name, kind))| FieldMeta::new(name.clone(), idx as FieldIndex, *kind))
+                .collect(),
+        ))
+    }
+
     /// Process a SUBSCRIPTION_DATA message using Element API.
-    ///
-    /// Uses dynamic type dispatch (`get_value`) to preserve Bloomberg's native types.
-    /// Field types are inferred on first non-null value and locked in for the
-    /// lifetime of the subscription. String, Date, Datetime, Bool, Int, Float
-    /// are all preserved — no more Float64-only extraction.
     ///
     /// Timestamps use Bloomberg SDK receive time when available (requires
     /// `setRecordSubscriptionDataReceiveTimes(true)`), falling back to
     /// `SystemTime::now()` if not enabled.
     pub fn on_message(&mut self, msg: &Message) -> bool {
-        // Use Bloomberg SDK receive time if available, fallback to system time
-        let timestamp = msg.time_received_us().unwrap_or_else(|| {
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_micros() as i64)
-                .unwrap_or(0)
-        });
-
-        self.timestamp_builder.append_value(timestamp);
-        self.topic_builder.append_value(self.topic.as_ref());
-
+        let timestamp = msg.time_received_us().unwrap_or_else(Self::system_time_us);
         let elem = msg.elements();
-        if self.capture_all_fields {
-            self.append_all_fields(&elem);
+        let values = if self.capture_all_fields {
+            self.extract_all_fields(&elem)
         } else {
-            self.append_requested_fields(&elem);
-        }
+            self.extract_requested_fields(&elem)
+        };
 
-        self.pending_count += 1;
         self.metrics
             .messages_received
             .fetch_add(1, Ordering::Relaxed);
@@ -189,55 +237,123 @@ impl SubscriptionState {
         let first_message = !self.has_received_data;
         self.has_received_data = true;
 
-        // Auto-flush if threshold reached
-        if self.pending_count >= self.flush_threshold {
-            self.flush();
-        }
+        let update = SubscriptionUpdate {
+            timestamp_us: timestamp,
+            topic_id: self.topic_id,
+            topic: self.topic.clone(),
+            layout: self.layout.clone(),
+            values: values.into_boxed_slice(),
+        };
+        self.send_update(update);
 
         first_message
     }
 
-    fn append_requested_fields(&mut self, elem: &xbbg_core::Element<'_>) {
-        for idx in 0..self.field_strings.len() {
-            let field_name = &self.field_strings[idx];
-            if let Some(field_elem) = elem.get_by_str(field_name) {
-                self.append_value_at(idx, field_elem.get_value(0));
-            } else {
-                self.append_missing_at(idx);
-            }
-        }
+    fn system_time_us() -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_micros() as i64)
+            .unwrap_or(0)
     }
 
-    fn append_all_fields(&mut self, elem: &xbbg_core::Element<'_>) {
-        let mut seen = vec![false; self.field_strings.len()];
+    fn extract_requested_fields(&mut self, elem: &xbbg_core::Element<'_>) -> Vec<UpdateField> {
+        let mut values = Vec::with_capacity(self.field_names.len());
+        for idx in 0..self.field_names.len() {
+            let value = if self.invalid_dateortime_fields[idx] {
+                UpdateValue::Null
+            } else if let Some(field) = elem.get(&self.field_names[idx]) {
+                let datatype = field.datatype();
+                let value = UpdateValue::from_blp(field.get_value_fast_with_datatype(0, datatype));
+                if matches!(value, UpdateValue::Null) {
+                    self.observe_field_kind(
+                        idx as FieldIndex,
+                        FieldKind::from_blp_datatype(datatype),
+                    );
+                }
+                value
+            } else {
+                UpdateValue::Null
+            };
+            self.observe_kind(idx as FieldIndex, &value);
+            values.push(UpdateField {
+                index: idx as FieldIndex,
+                value,
+            });
+        }
+        values
+    }
 
+    fn extract_all_fields(&mut self, elem: &xbbg_core::Element<'_>) -> Vec<UpdateField> {
+        let mut values = Vec::with_capacity(elem.num_children());
         for child_idx in 0..elem.num_children() {
             let Some(child) = elem.get_at(child_idx) else {
                 continue;
             };
-            if !Self::should_capture_field(&child) {
+
+            let key = child.name_key();
+            if let Some(Some(slot)) = self.all_field_slots.get(child_idx).copied() {
+                match slot {
+                    AllFieldSlot::Captured {
+                        key: cached_key,
+                        idx,
+                        datatype,
+                    } if cached_key == key => {
+                        let value = self.extract_child_value(idx, &child, datatype);
+                        self.observe_kind(idx, &value);
+                        values.push(UpdateField { index: idx, value });
+                        continue;
+                    }
+                    AllFieldSlot::Skipped { key: cached_key } if cached_key == key => continue,
+                    _ => {}
+                }
+            }
+
+            let datatype = child.datatype();
+            if !Self::should_capture_datatype(datatype) {
+                self.cache_all_field_slot(child_idx, AllFieldSlot::Skipped { key });
                 continue;
             }
 
-            let field_name = child.name().as_str().to_string();
-            let idx = self.ensure_field(&field_name);
-            if idx >= seen.len() {
-                seen.resize(self.field_strings.len(), false);
-            }
-            seen[idx] = true;
-            self.append_value_at(idx, child.get_value(0));
+            let idx = self.ensure_field_for_child(&child, key);
+            self.cache_all_field_slot(child_idx, AllFieldSlot::Captured { key, idx, datatype });
+            let value = self.extract_child_value(idx, &child, datatype);
+            self.observe_kind(idx, &value);
+            values.push(UpdateField { index: idx, value });
         }
+        values
+    }
 
-        for (idx, was_seen) in seen.iter().enumerate() {
-            if !*was_seen {
-                self.append_missing_at(idx);
-            }
+    fn extract_child_value(
+        &self,
+        idx: FieldIndex,
+        child: &xbbg_core::Element<'_>,
+        datatype: BlpDataType,
+    ) -> UpdateValue {
+        if self.invalid_dateortime_fields[idx as usize] {
+            UpdateValue::Null
+        } else {
+            UpdateValue::from_blp(child.get_value_fast_with_datatype(0, datatype))
         }
     }
 
-    fn should_capture_field(field: &xbbg_core::Element<'_>) -> bool {
+    fn observe_kind(&mut self, idx: FieldIndex, value: &UpdateValue) {
+        self.observe_field_kind(idx, FieldKind::from_value(value));
+    }
+
+    fn observe_field_kind(&mut self, idx: FieldIndex, observed: FieldKind) {
+        let idx = idx as usize;
+        let merged = self.field_kinds[idx].merge_observed(observed);
+        if merged != self.field_kinds[idx] {
+            self.field_kinds[idx] = merged;
+            self.layout_version = self.layout_version.wrapping_add(1).max(1);
+            self.layout =
+                Self::build_layout(self.layout_version, &self.field_strings, &self.field_kinds);
+        }
+    }
+
+    fn should_capture_datatype(datatype: BlpDataType) -> bool {
         !matches!(
-            field.datatype(),
+            datatype,
             BlpDataType::Sequence
                 | BlpDataType::Choice
                 | BlpDataType::ByteArray
@@ -245,43 +361,39 @@ impl SubscriptionState {
         )
     }
 
-    fn ensure_field(&mut self, field_name: &str) -> usize {
-        if let Some(&idx) = self.field_indices.get(field_name) {
+    fn cache_all_field_slot(&mut self, child_idx: usize, slot: AllFieldSlot) {
+        if child_idx >= self.all_field_slots.len() {
+            self.all_field_slots.resize(child_idx + 1, None);
+        }
+        self.all_field_slots[child_idx] = Some(slot);
+    }
+
+    fn ensure_field_for_child(
+        &mut self,
+        field: &xbbg_core::Element<'_>,
+        field_key: usize,
+    ) -> FieldIndex {
+        if let Some(&idx) = self.field_name_keys.get(&field_key) {
             return idx;
         }
 
-        let idx = self.field_strings.len();
-        self.field_strings.push(field_name.to_string());
-        self.field_builders.push(None);
-        self.field_indices.insert(field_name.to_string(), idx);
-        self.cached_schema = None;
+        let field_name = Arc::<str>::from(field.name_str());
+        let idx = self.field_strings.len() as FieldIndex;
+        let name = Name::get_or_intern(&field_name);
+        self.field_strings.push(field_name.clone());
+        self.field_names.push(name);
+        self.field_name_keys.insert(field_key, idx);
+        self.invalid_dateortime_fields
+            .push(Self::is_invalid_dateortime_field(&field_name));
+        self.field_kinds.push(FieldKind::Unknown);
+        self.layout_version = self.layout_version.wrapping_add(1).max(1);
+        self.layout =
+            Self::build_layout(self.layout_version, &self.field_strings, &self.field_kinds);
         idx
     }
 
-    fn append_value_at(&mut self, idx: usize, value: Option<Value<'_>>) {
-        if let Some(builder) = &mut self.field_builders[idx] {
-            builder.append_value(value);
-            return;
-        }
-
-        if let Some(ref v) = value {
-            if !matches!(v, Value::Null) {
-                let arrow_type = ArrowType::from_value(v);
-                let mut builder = TypedBuilder::new(arrow_type);
-                for _ in 0..self.pending_count {
-                    builder.append_null();
-                }
-                builder.append_value(value);
-                self.field_builders[idx] = Some(builder);
-                self.cached_schema = None;
-            }
-        }
-    }
-
-    fn append_missing_at(&mut self, idx: usize) {
-        if let Some(builder) = &mut self.field_builders[idx] {
-            builder.append_null();
-        }
+    fn is_invalid_dateortime_field(field_name: &str) -> bool {
+        Self::INVALID_DATEORTIME_FIELDS.contains(&field_name)
     }
 
     /// Handle DATALOSS indicator.
@@ -307,103 +419,19 @@ impl SubscriptionState {
         self.suppress_closed_warning = true;
     }
 
-    /// Flush pending rows as a RecordBatch.
-    pub fn flush(&mut self) {
-        if self.pending_count == 0 {
-            return;
-        }
-
-        // Build fixed arrays
-        let timestamp_array = self.timestamp_builder.finish().with_timezone("UTC");
-        let topic_array = self.topic_builder.finish();
-
-        // Build field arrays — use TypedBuilder where available, String nulls otherwise
-        let field_arrays: Vec<ArrayRef> = self
-            .field_builders
-            .iter_mut()
-            .map(|builder_opt| {
-                if let Some(builder) = builder_opt {
-                    builder.finish()
-                } else {
-                    // Field was never non-null in this batch — produce Utf8 column of all nulls
-                    let mut sb = StringBuilder::new();
-                    for _ in 0..self.pending_count {
-                        sb.append_null();
-                    }
-                    Arc::new(sb.finish()) as ArrayRef
-                }
-            })
-            .collect();
-
-        // Get or build schema (cached after first build)
-        let schema = self.get_or_build_schema();
-
-        // Build columns
-        let mut columns: Vec<Arc<dyn arrow::array::Array>> =
-            vec![Arc::new(timestamp_array), Arc::new(topic_array)];
-        columns.extend(field_arrays);
-
-        // Create RecordBatch
-        match RecordBatch::try_new(schema, columns) {
-            Ok(batch) => {
-                self.send_batch(batch);
-            }
-            Err(e) => {
-                xbbg_log::error!(topic = %self.topic, error = %e, "failed to create RecordBatch");
-            }
-        }
-
-        self.pending_count = 0;
-    }
-
-    /// Get or build the Arrow schema, caching it for reuse.
-    ///
-    /// The schema is invalidated whenever a new field type is inferred
-    /// (when a previously-null field gets its first non-null value).
-    fn get_or_build_schema(&mut self) -> Arc<Schema> {
-        if let Some(ref schema) = self.cached_schema {
-            return schema.clone();
-        }
-
-        let mut fields = vec![
-            Field::new(
-                "timestamp",
-                DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
-                false,
-            ),
-            Field::new("topic", DataType::Utf8, false),
-        ];
-
-        for (i, name) in self.field_strings.iter().enumerate() {
-            let dt = self.field_builders[i]
-                .as_ref()
-                .map(|b| b.data_type())
-                .unwrap_or(DataType::Utf8); // Unknown fields default to string
-            fields.push(Field::new(name.as_str(), dt, true));
-        }
-
-        let schema = Arc::new(Schema::new(fields));
-        self.cached_schema = Some(schema.clone());
-        schema
-    }
+    /// Native updates are emitted immediately. This remains for existing worker
+    /// shutdown/drop callsites that previously flushed Arrow builders.
+    pub fn flush(&mut self) {}
 
     /// Send an error to the consumer.
-    ///
-    /// Used for subscription failures, session termination, etc.
-    /// Uses try_send to avoid blocking the worker thread.
     pub fn fail(&self, error: BlpError) {
         let _ = self.stream.try_send(Err(error));
     }
 
-    /// Send a batch according to the configured overflow policy.
-    ///
-    /// `Block` uses `blocking_send` to apply backpressure.
-    fn send_batch(&mut self, batch: RecordBatch) {
+    fn send_update(&mut self, update: SubscriptionUpdate) {
         match self.overflow_policy {
             OverflowPolicy::Block => {
-                // blocking_send is designed for sync contexts (subscription worker thread).
-                // Blocks until space is available or the receiver is dropped.
-                if self.stream.blocking_send(Ok(batch)).is_err() {
+                if self.stream.blocking_send(Ok(update)).is_err() {
                     if !self.suppress_closed_warning {
                         xbbg_log::warn!(topic = %self.topic, "stream closed");
                     }
@@ -411,37 +439,78 @@ impl SubscriptionState {
                     self.metrics.batches_sent.fetch_add(1, Ordering::Relaxed);
                 }
             }
-            OverflowPolicy::DropNewest => {
-                // try_send: drop newest batch when buffer is full
-                match self.stream.try_send(Ok(batch)) {
-                    Ok(()) => {
-                        self.metrics.batches_sent.fetch_add(1, Ordering::Relaxed);
-                    }
-                    Err(mpsc::error::TrySendError::Full(_)) => {
-                        self.dropped_batches += 1;
-                        self.metrics.dropped_batches.fetch_add(1, Ordering::Relaxed);
-                        let policy_label = "DropNewest";
-                        xbbg_log::warn!(
-                            topic = %self.topic,
-                            dropped = self.dropped_batches,
-                            policy = policy_label,
-                            "stream full - dropping batch"
-                        );
-                    }
-                    Err(mpsc::error::TrySendError::Closed(_)) => {
-                        if !self.suppress_closed_warning {
-                            xbbg_log::warn!(topic = %self.topic, "stream closed");
-                        }
+            OverflowPolicy::DropNewest => match self.stream.try_send(Ok(update)) {
+                Ok(()) => {
+                    self.metrics.batches_sent.fetch_add(1, Ordering::Relaxed);
+                }
+                Err(mpsc::error::TrySendError::Full(_)) => {
+                    self.dropped_batches += 1;
+                    self.metrics.dropped_batches.fetch_add(1, Ordering::Relaxed);
+                    xbbg_log::warn!(
+                        topic = %self.topic,
+                        dropped = self.dropped_batches,
+                        policy = "DropNewest",
+                        "stream full - dropping update"
+                    );
+                }
+                Err(mpsc::error::TrySendError::Closed(_)) => {
+                    if !self.suppress_closed_warning {
+                        xbbg_log::warn!(topic = %self.topic, "stream closed");
                     }
                 }
-            }
+            },
         }
     }
 }
 
-impl Drop for SubscriptionState {
-    fn drop(&mut self) {
-        // Flush any remaining rows
-        self.flush();
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn field_names_stay_aligned_with_requested_fields() {
+        let (tx, _rx) = mpsc::channel(1);
+        let state = SubscriptionState::new(
+            "AAPL US Equity".to_string(),
+            vec!["LAST_PRICE".to_string(), "LAST_PRICE".to_string()],
+            tx,
+            10,
+            false,
+        );
+
+        assert_eq!(
+            state
+                .field_strings
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
+            vec![
+                "LAST_PRICE".to_string(),
+                "MKTDATA_EVENT_TYPE".to_string(),
+                "MKTDATA_EVENT_SUBTYPE".to_string(),
+            ]
+        );
+        assert_eq!(state.field_names.len(), state.field_strings.len());
+        assert_eq!(
+            state.invalid_dateortime_fields.len(),
+            state.field_strings.len()
+        );
+        for (field, name) in state.field_strings.iter().zip(state.field_names.iter()) {
+            assert_eq!(name.as_str(), field.as_ref());
+        }
+    }
+
+    #[test]
+    fn invalid_dateortime_guard_is_preserved_in_layout() {
+        let (tx, _rx) = mpsc::channel(1);
+        let state = SubscriptionState::new(
+            "AAPL US Equity".to_string(),
+            vec!["LAST_UPDATE_ALL_SESSIONS_RT".to_string()],
+            tx,
+            1,
+            false,
+        );
+
+        assert!(state.invalid_dateortime_fields[0]);
     }
 }

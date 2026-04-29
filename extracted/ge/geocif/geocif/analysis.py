@@ -198,7 +198,8 @@ class Geoanalysis:
         """
         for i, row in df.iterrows():
             # Get the latest stage
-            stage = row["Stage Name"].split("-")[0]
+            sname = row["Stage Name"]
+            stage = sname.split("-")[0] if "-" in sname and not sname.startswith(("Pre-Season", "In-Season")) else sname
             df.loc[i, "Date"] = stage
 
         return df
@@ -988,7 +989,10 @@ class Geoanalysis:
                 # Use overall latest stage label for filenames
                 all_stages = df_harvest_year["Stage Name"].unique()
                 time_period = all_stages[-1]
-                time_period_label = time_period.split("-")[0].strip()
+                if "-" in time_period and not time_period.startswith(("Pre-Season", "In-Season")):
+                    time_period_label = time_period.split("-")[0].strip()
+                else:
+                    time_period_label = time_period.replace(" ", "_")
                 if True:
                     #
                     #                 """ % of total area """
@@ -1101,7 +1105,10 @@ class Geoanalysis:
                         df_country = df_harvest_year[df_harvest_year["Country"] == country_key]
                         # Use this country's own latest stage for the label
                         country_latest_stage = df_country["Stage Name"].unique()[-1]
-                        country_time_label = country_latest_stage.split("-")[0].strip()
+                        if "-" in country_latest_stage and not country_latest_stage.startswith(("Pre-Season", "In-Season")):
+                            country_time_label = country_latest_stage.split("-")[0].strip()
+                        else:
+                            country_time_label = country_latest_stage.replace(" ", "_")
                         fname = f"predicted_yield_{country_key}_{self.crop}_{model}_{country_time_label}_{year}.png"
                         plot.plot_map(
                             self.dg,  # dataframe containing adm1 name and polygon

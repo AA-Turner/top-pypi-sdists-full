@@ -69,7 +69,8 @@ def generate_machine_configs(build_machine: MachineSpec,
                              host_sdk_prefix: Optional[Path],
                              call_selected_meson: Callable,
                              default_library: DefaultLibrary,
-                             outdir: Path) -> Tuple[MachineConfig, MachineConfig]:
+                             outdir: Path,
+                             apple_min_os: Optional[Dict[str, str]] = None) -> Tuple[MachineConfig, MachineConfig]:
     is_cross_build = host_machine != build_machine
 
     if is_cross_build:
@@ -86,7 +87,8 @@ def generate_machine_configs(build_machine: MachineSpec,
                                     build_sdk_prefix,
                                     call_selected_meson,
                                     default_library,
-                                    outdir)
+                                    outdir,
+                                    apple_min_os)
 
     if is_cross_build:
         host_config = generate_machine_config(host_machine,
@@ -97,7 +99,8 @@ def generate_machine_configs(build_machine: MachineSpec,
                                               host_sdk_prefix,
                                               call_selected_meson,
                                               default_library,
-                                              outdir)
+                                              outdir,
+                                              apple_min_os)
     else:
         host_config = build_config
 
@@ -112,7 +115,8 @@ def generate_machine_config(machine: MachineSpec,
                             sdk_prefix: Optional[Path],
                             call_selected_meson: Callable,
                             default_library: DefaultLibrary,
-                            outdir: Path) -> MachineConfig:
+                            outdir: Path,
+                            apple_min_os: Optional[Dict[str, str]] = None) -> MachineConfig:
     config = ConfigParser(dict_type=OrderedDict)
     config["constants"] = OrderedDict()
     config["binaries"] = OrderedDict()
@@ -152,7 +156,8 @@ def generate_machine_config(machine: MachineSpec,
                              config,
                              outpath,
                              outenv,
-                             outdir)
+                             outdir,
+                             apple_min_os=apple_min_os)
 
     if machine.toolchain_is_msvc:
         builtin_options["b_vscrt"] = str_to_meson(machine.config)
@@ -186,34 +191,45 @@ def generate_machine_config(machine: MachineSpec,
             if tool_path is not None:
                 binaries[tool_name] = strv_to_meson([str(tool_path)])
 
-        pkg_config_binary = toolchain_bindir / f"pkg-config{exe_suffix}"
-        if not pkg_config_binary.exists():
-            pkg_config_binary = shutil.which("pkg-config")
+        if machine == build_machine:
+            pkg_config_binary = find_usable_system_pkg_config()
+        else:
+            pkg_config_binary = None
+        if pkg_config_binary is None:
+            pkg_config_binary = toolchain_bindir / f"pkg-config{exe_suffix}"
+            if not pkg_config_binary.exists():
+                pkg_config_binary = None
         if pkg_config_binary is not None:
             pkg_config = [
                 str(pkg_config_binary),
             ]
-            if default_library == "static":
-                pkg_config += ["--static"]
             if sdk_prefix is not None:
+                if default_library == "static":
+                    pkg_config += ["--static"]
                 pkg_config += [f"--define-variable=frida_sdk_prefix={sdk_prefix}"]
-            binaries["pkg-config"] = strv_to_meson(pkg_config)
 
         vala_compiler = detect_toolchain_vala_compiler(toolchain_prefix, build_machine)
 
     pkg_config_path = shlex.split(environ.get("PKG_CONFIG_PATH", "").replace("\\", "\\\\"))
+    pkg_config_libdir = None
 
     if sdk_prefix is not None:
         builtin_options["vala_args"] = strv_to_meson([
             "--vapidir=" + str(sdk_prefix / "share" / "vala" / "vapi")
         ])
 
-        pkg_config_path += [str(sdk_prefix / machine.libdatadir / "pkgconfig")]
+        pkg_config_libdir = str(sdk_prefix / machine.libdatadir / "pkgconfig")
 
         sdk_bindir = sdk_prefix / "bin" / build_machine.os_dash_arch
         if sdk_bindir.exists():
             for f in sdk_bindir.iterdir():
                 binaries[f.stem] = strv_to_meson([str(f)])
+
+    if pkg_config is not None:
+        wrapper = outdir / f"frida-pkg-config-{machine.identifier}.py"
+        wrapper.write_text(make_pkg_config_wrapper(pkg_config, pkg_config_path, pkg_config_libdir), encoding="utf-8")
+        pkg_config = [sys.executable, str(wrapper)]
+        binaries["pkg-config"] = strv_to_meson(pkg_config)
 
     if vala_compiler is not None:
         valac, vapidir = vala_compiler
@@ -222,8 +238,6 @@ def generate_machine_config(machine: MachineSpec,
             f"--vapidir={vapidir}",
         ]
         if pkg_config is not None:
-            wrapper = outdir / "frida-pkg-config.py"
-            wrapper.write_text(make_pkg_config_wrapper(pkg_config, pkg_config_path), encoding="utf-8")
             vala += [f"--pkg-config={quote(sys.executable)} {quote(str(wrapper))}"]
         binaries["vala"] = strv_to_meson(vala)
 
@@ -297,8 +311,25 @@ def find_exe_wrapper(machine: MachineSpec,
     return [qemu_binary, "-L", qemu_sysroot]
 
 
-def make_pkg_config_wrapper(pkg_config: List[str], pkg_config_path: List[str]) -> str:
-    return "\n".join([
+def find_usable_system_pkg_config() -> Optional[str]:
+    binary = shutil.which("pkg-config")
+    if binary is None:
+        return None
+    try:
+        helptext = subprocess.run([binary, "--help"],
+                                  capture_output=True,
+                                  text=True,
+                                  timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    is_strawberry_perl_stub = "Pure-Perl" in helptext
+    if is_strawberry_perl_stub:
+        return None
+    return binary
+
+
+def make_pkg_config_wrapper(pkg_config: List[str], pkg_config_path: List[str], pkg_config_libdir: Optional[str] = None) -> str:
+    lines = [
         "import os",
         "import subprocess",
         "import sys",
@@ -307,13 +338,20 @@ def make_pkg_config_wrapper(pkg_config: List[str], pkg_config_path: List[str]) -
         f" {pprint.pformat(pkg_config, indent=4)[1:-1]},",
         "    *sys.argv[1:],",
         "]",
-        "env = {",
-        "    **os.environ,",
-        f"    'PKG_CONFIG_PATH': {repr(os.pathsep.join(pkg_config_path))},",
-        "}",
-        f"p = subprocess.run(args, env=env)",
-        "sys.exit(p.returncode)"
-    ])
+        "env = {**os.environ}",
+    ]
+    if pkg_config_path:
+        joined = os.pathsep.join(pkg_config_path)
+        sep = os.pathsep
+        lines.append(f"env['PKG_CONFIG_PATH'] = {joined!r} + {sep!r}"
+                     f" + env.get('PKG_CONFIG_PATH', '')")
+    if pkg_config_libdir is not None:
+        lines.append(f"env['PKG_CONFIG_LIBDIR'] = {pkg_config_libdir!r}")
+    lines += [
+        "p = subprocess.run(args, env=env)",
+        "sys.exit(p.returncode)",
+    ]
+    return "\n".join(lines)
 
 
 def detect_toolchain_vala_compiler(toolchain_prefix: Path,

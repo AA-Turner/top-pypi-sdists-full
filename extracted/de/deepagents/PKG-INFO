@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents
-Version: 0.5.3
+Version: 0.5.4
 Summary: General purpose 'deep agent' with sub-agent spawning, todo list capabilities, and mock file system. Built on LangGraph.
 License: MIT
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
@@ -24,9 +24,9 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0,>=3.11
 Description-Content-Type: text/markdown
 Requires-Dist: langchain-core<2.0.0,>=1.2.27
-Requires-Dist: langsmith>=0.3.0
+Requires-Dist: langsmith>=0.7.35
 Requires-Dist: langchain<2.0.0,>=1.2.15
-Requires-Dist: langchain-anthropic<2.0.0,>=1.4.0
+Requires-Dist: langchain-anthropic<2.0.0,>=1.4.2
 Requires-Dist: langchain-google-genai<5.0.0,>=4.2.1
 Requires-Dist: wcmatch
 
@@ -56,7 +56,7 @@ Using an LLM to call tools in a loop is the simplest form of an agent. This arch
 
 Applications like "Deep Research", "Manus", and "Claude Code" have gotten around this limitation by implementing a combination of four things: a **planning tool**, **sub agents**, access to a **file system**, and a **detailed prompt**.
 
-`deepagents` is a Python package that implements these in a general purpose way so that you can easily create a Deep Agent for your application. For a full overview and quickstart of Deep Agents, the best resource is our [docs](https://docs.langchain.com/oss/python/deepagents/overview).
+`deepagents` is a Python package that implements these in a general purpose way so that you can easily create a deep agent for your application. For a full overview and quickstart of Deep Agents, the best resource is our [docs](https://docs.langchain.com/oss/python/deepagents/overview).
 
 **Acknowledgements: This project was primarily inspired by Claude Code, and initially was largely an attempt to see what made Claude Code general purpose, and make it even more so.**
 

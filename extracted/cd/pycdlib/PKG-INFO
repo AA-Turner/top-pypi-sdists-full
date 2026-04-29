@@ -1,17 +1,22 @@
 Metadata-Version: 2.4
 Name: pycdlib
-Version: 1.15.0
+Version: 1.16.0
 Summary: Pure python ISO manipulation library
 Home-page: http://github.com/clalancette/pycdlib
 Author: Chris Lalancette
 Author-email: clalancette@gmail.com
-License: LGPLv2
+License: LGPL-2.1-only
 Keywords: iso9660 iso ecma119 rockridge joliet eltorito udf
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 License-File: COPYING
 Dynamic: author
 Dynamic: author-email
@@ -21,6 +26,7 @@ Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
+Dynamic: requires-python
 Dynamic: summary
 
 PyCdlib is a pure python library to parse, write (master), and create ISO9660 files, suitable for writing to a CD or USB.

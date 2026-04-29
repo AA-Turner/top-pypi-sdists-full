@@ -23,6 +23,7 @@ import re
 import struct
 import sys
 import time
+from typing import TYPE_CHECKING
 
 from pycdlib import pycdlibexception
 
@@ -36,9 +37,8 @@ if sys.platform == "win32":
     except ImportError:
         pass
 
-# For mypy annotations
-if False:  # pylint: disable=using-constant-test
-    from typing import Any, BinaryIO, Generator, IO, List, Optional, Tuple  # NOQA pylint: disable=unused-import
+if TYPE_CHECKING:
+    from typing import Any, BinaryIO, Generator, IO, List, Optional, Tuple  # noqa: F401
 
 
 def swab_32bit(x):
@@ -449,6 +449,8 @@ class Win32RawDevice:
     It deals with getting the full size, allowing full access to all sectors,
     and alignment with the discs sector size.
     """
+    __slots__ = ('target', 'sector_size', 'disc_size', 'position', 'handle',
+                 'geometry')
 
     def __init__(self, target):
         # type: (str) -> None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: angr
-Version: 9.2.212
+Version: 9.2.213
 Summary: A multi-architecture binary analysis toolkit, with the ability to perform dynamic symbolic execution and various static analyses on binaries
 License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://angr.io/
@@ -17,12 +17,12 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cxxheaderparser
 Requires-Dist: GitPython
-Requires-Dist: archinfo==9.2.212
+Requires-Dist: archinfo==9.2.213
 Requires-Dist: cachetools
 Requires-Dist: capstone==5.0.6
 Requires-Dist: cffi>=1.14.0
-Requires-Dist: claripy==9.2.212
-Requires-Dist: cle==9.2.212
+Requires-Dist: claripy==9.2.213
+Requires-Dist: cle==9.2.213
 Requires-Dist: lmdb==2.1.1
 Requires-Dist: msgspec; implementation_name == "cpython"
 Requires-Dist: mulpyplexer
@@ -32,7 +32,7 @@ Requires-Dist: psutil
 Requires-Dist: pycparser~=3.0
 Requires-Dist: pydemumble
 Requires-Dist: pypcode<4.0,>=3.2.1
-Requires-Dist: pyvex==9.2.212
+Requires-Dist: pyvex==9.2.213
 Requires-Dist: rich>=13.1.0
 Requires-Dist: sortedcontainers
 Requires-Dist: sympy

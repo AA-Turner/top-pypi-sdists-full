@@ -292,6 +292,10 @@ def _build_node_feature(
     if pypi_options:
         feat["pypi-options"] = pypi_options
 
+    sys_reqs = cfg.pixi_passthrough.get("system-requirements")
+    if sys_reqs:
+        feat["system-requirements"] = copy.deepcopy(sys_reqs)
+
     return feat
 
 
@@ -367,6 +371,7 @@ def build_workspace_toml(
     chosen_cuda: Optional[str] = None,
     chosen_torch_short: Optional[str] = None,
     chosen_python: Optional[str] = None,
+    root_conda_deps: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Assemble the full workspace pixi.toml as a dict.
 
@@ -396,19 +401,42 @@ def build_workspace_toml(
     for name, cfg in node_configs:
         _validate_node_config(name, cfg)
 
-    out: Dict[str, Any] = {
-        "workspace": {
-            "name": "comfy-env",
-            "version": "0.1.0",
-            "channels": ["conda-forge"],
-            "platforms": [current_platform],
-        }
+    # Collect channels: start with conda-forge, then merge any extra channels
+    # declared by node configs in [workspace].channels.
+    channels: List[str] = ["conda-forge"]
+    for _, cfg in node_configs:
+        for ch in cfg.pixi_passthrough.get("workspace", {}).get("channels", []):
+            if ch not in channels:
+                channels.append(ch)
+
+    workspace: Dict[str, Any] = {
+        "name": "comfy-env",
+        "version": "0.1.0",
+        "channels": channels,
+        "platforms": [current_platform],
     }
+
+    out: Dict[str, Any] = {"workspace": workspace}
 
     # comfyui baseline feature
     comfyui_pypi = parse_comfyui_requirements(comfyui_dir, torch_index, log)
     _pin_torch_family(comfyui_pypi, torch_pin, log)
     feature_comfyui: Dict[str, Any] = {}
+
+    # Auto-detect host glibc so pixi accepts wheels matching the real system.
+    # Put on the comfyui feature (not top-level) because all envs use
+    # no-default-feature and include comfyui — top-level system-requirements
+    # would be ignored.
+    import platform as _platform
+    libc_family, libc_version = _platform.libc_ver()
+    if libc_family == "glibc" and libc_version:
+        feature_comfyui["system-requirements"] = {
+            "libc": {"family": "glibc", "version": libc_version},
+        }
+        log(f"[comfy-env] Host glibc {libc_version} -> comfyui feature system-requirements")
+    if root_conda_deps:
+        feature_comfyui["dependencies"] = copy.deepcopy(root_conda_deps)
+        log(f"[comfy-env] Root conda deps injected into comfyui feature: {list(root_conda_deps.keys())}")
     if comfyui_pypi:
         feature_comfyui["pypi-dependencies"] = comfyui_pypi
     # Conda-forge MKL pulls Intel libiomp5md.dll; pip-installed torch ships
@@ -452,30 +480,39 @@ def build_workspace_toml(
     # Resolve cuda-wheel URLs for each per-node feature so pixi installs them
     # as part of `pixi install --all` (rather than a slow post-step pip pass).
     from .cuda_wheels import get_wheel_url as _get_wheel_url
-    can_resolve_urls = bool(chosen_cuda and chosen_torch_short and chosen_python)
+    can_resolve_urls = bool(chosen_cuda and chosen_torch_short)
+
+    # Collect cuda-wheel URLs per env for post-pixi `uv pip install --no-deps`.
+    # These are NOT inlined into pixi.toml because pixi's resolver cannot handle
+    # --no-deps semantics and will try to resolve/build their declared dependencies.
+    cuda_urls_by_env: Dict[str, Dict[str, str]] = {}
 
     for env_name, cfg in node_configs:
         cuda_only = [p for p in cfg.cuda_packages if p not in _PYTORCH_PACKAGES]
-        feat_urls: Optional[Dict[str, str]] = None
-        if cuda_only and can_resolve_urls:
+        env_python = cfg.python or host_py
+        if cuda_only and can_resolve_urls and env_python:
             urls: Dict[str, str] = {}
             for pkg in cuda_only:
                 url = _get_wheel_url(
-                    pkg, chosen_torch_short, chosen_cuda, chosen_python, log=log,
+                    pkg, chosen_torch_short, chosen_cuda, env_python, log=log,
                 )
                 if not url:
                     raise RuntimeError(
                         f"cuda-wheel {pkg!r} unavailable for "
-                        f"cu{chosen_cuda}/torch{chosen_torch_short}/cp{chosen_python}; "
+                        f"cu{chosen_cuda}/torch{chosen_torch_short}/cp{env_python}; "
                         f"_resolve_wheel_combo should have caught this earlier."
                     )
                 urls[pkg] = url
-            feat_urls = urls
+            if urls:
+                cuda_urls_by_env[env_name] = urls
+                log(
+                    f"[comfy-env] {env_name}: cuda-wheels deferred for post-pixi install "
+                    f"({', '.join(urls.keys())})"
+                )
 
         feat = _build_node_feature(
             cfg, env_name, log,
             auto_overrides=override_map if cuda_only else None,
-            cuda_wheel_urls=feat_urls,
         )
         if feat:
             out["feature"][env_name] = feat
@@ -507,7 +544,7 @@ def build_workspace_toml(
         }
     out["environments"] = environments
 
-    return out
+    return out, cuda_urls_by_env
 
 
 # ---------------------------------------------------------------------------
@@ -528,12 +565,17 @@ def write_workspace_pixi_toml(
     chosen_cuda: Optional[str] = None,
     chosen_torch_short: Optional[str] = None,
     chosen_python: Optional[str] = None,
+    root_conda_deps: Optional[Dict[str, Any]] = None,
 ) -> Path:
-    """Generate `<workspace_dir>/pixi.toml` from the parts above. Returns the file path."""
+    """Generate `<workspace_dir>/pixi.toml` from the parts above.
+
+    Returns (pixi_toml_path, cuda_urls_by_env) where cuda_urls_by_env is
+    ``{env_name: {pkg: wheel_url}}`` for post-pixi ``uv pip install --no-deps``.
+    """
     tomli_w = _require_tomli_w()
     workspace_dir.mkdir(parents=True, exist_ok=True)
     pixi_toml = workspace_dir / "pixi.toml"
-    data = build_workspace_toml(
+    data, cuda_urls_by_env = build_workspace_toml(
         comfyui_dir, torch_index, cuda_major, node_configs,
         bootstrap_python=bootstrap_python,
         torch_pin=torch_pin,
@@ -543,11 +585,12 @@ def write_workspace_pixi_toml(
         chosen_cuda=chosen_cuda,
         chosen_torch_short=chosen_torch_short,
         chosen_python=chosen_python,
+        root_conda_deps=root_conda_deps,
     )
     with open(pixi_toml, "wb") as f:
         tomli_w.dump(data, f)
     log(f"Generated {pixi_toml}")
-    return pixi_toml
+    return pixi_toml, cuda_urls_by_env
 
 
 # ---------------------------------------------------------------------------

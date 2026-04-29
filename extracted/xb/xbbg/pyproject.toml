@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xbbg"
-description = "Intuitive Bloomberg data API"
+description = "Independent client for Bloomberg-connected data workflows"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10,<3.15"
 license = "Apache-2.0"
@@ -32,18 +32,32 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
   "narwhals>=2.0",
-  "pyarrow>=22.0.0",
 ]
 
 [project.optional-dependencies]
-# Minimal extras for downstream consumers; dev tooling is managed by pixi.
-test = ["pytest", "pytest-cov", "pytest-asyncio"]
+# Runtime stays minimal; extras opt into optional conversion/test surfaces.
+pyarrow = ["pyarrow>=22.0.0"]
+pandas = ["pandas>=2.0"]
+polars = ["polars>=0.20"]
+duckdb = ["duckdb>=1.0"]
+test = [
+  "pytest>=8.4",
+  "pytest-cov",
+  "pytest-asyncio>=0.24",
+  "pyarrow>=22.0.0",
+  "pandas>=2.0",
+  "polars>=0.20",
+  "duckdb>=1.0",
+]
 
 [project.urls]
-Homepage = "https://github.com/alpha-xone/xbbg"
-Documentation = "https://alpha-xone.github.io/xbbg"
+Homepage = "https://xbbg.org/"
+Documentation = "https://xbbg.org/"
 Source = "https://github.com/alpha-xone/xbbg"
 Issues = "https://github.com/alpha-xone/xbbg/issues"
+
+[project.entry-points."narwhals.plugins"]
+xbbg = "xbbg._narwhals_plugin"
 
 # ── pyo3-stub-gen configuration (reuses maturin keys for compatibility) ───────
 [tool.maturin]
@@ -54,6 +68,11 @@ python-source = "py-xbbg/src"
 [tool.setuptools_scm]
 tag_regex = '^(?:v|xbbg==)?(?P<version>\d+\.\d+\.\d+(?:(?:a|b|rc|alpha|beta)\d+)?)$'
 fallback_version = "0+unknown"
+
+# Restrict git describe to Python release tags. JS-only tags use `js-vX.Y.Z` and
+# must not participate in Python package version inference.
+[tool.setuptools_scm.scm.git]
+describe_command = 'git describe --dirty --tags --long --match "v[0-9]*" --match "xbbg==[0-9]*"'
 
 # ── Rust extension via setuptools-rust ───────────────────────────────────────
 [[tool.setuptools-rust.ext-modules]]
@@ -69,7 +88,7 @@ include = ["xbbg*"]
 target-version = "py310"
 line-length = 120
 exclude = [
-  "docs/_build",
+  "archive/docs/_build",
   "dist",
   "venv",
   ".venv",
@@ -133,8 +152,8 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"benchmarks/**" = ["E402", "D", "I001", "F841", "B007"]
-"codegen/**" = ["D103"]
+"py-xbbg/benchmarks/**" = ["E402", "D", "I001", "F841", "B007"]
+"defs/codegen/**" = ["D103"]
 "py-xbbg/src/xbbg/__init__.py" = ["F401", "E402"]
 "py-xbbg/src/xbbg/**/__init__.py" = ["F401"]
 "py-xbbg/tests/live/**" = ["D", "B007", "B905", "F841", "B023", "RUF001"]

@@ -1,20 +1,19 @@
 Metadata-Version: 2.4
 Name: mcp-hydrolix
-Version: 0.2.4
+Version: 0.2.6
 Summary: An MCP server for Hydrolix.
 Project-URL: Home, https://github.com/hydrolix/mcp-hydrolix
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: >=3.13
-Requires-Dist: certifi>=2026.1.4
 Requires-Dist: clickhouse-connect<0.16,>=0.15
 Requires-Dist: fastmcp<3.3,>=3.0.2
 Requires-Dist: gunicorn<24.0,>=23.0
-Requires-Dist: pip-system-certs<5.0,>=4.0
 Requires-Dist: prometheus-client<1.0,>=0.21
 Requires-Dist: pyjwt<2.13,>=2.10
 Requires-Dist: python-dotenv<1.2,>=1.1
 Requires-Dist: sqlglot<27.0,>=26.0
+Requires-Dist: truststore>=0.10
 Requires-Dist: uvicorn-worker<0.5,>=0.4.0
 Provides-Extra: dev
 Requires-Dist: mcp-clickhouse==0.1.13; extra == 'dev'

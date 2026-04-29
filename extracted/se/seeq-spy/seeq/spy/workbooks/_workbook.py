@@ -38,7 +38,7 @@ from seeq.spy.workbooks._item import Item, ItemList, Reference, ItemExists
 from seeq.spy.workbooks._item_map import ItemMap
 from seeq.spy.workbooks._user import ItemWithOwnerAndAcl
 from seeq.spy.workbooks._worksheet import (Worksheet, AnalysisWorksheet, WorksheetForAnalysisOrRoom, TopicDocument,
-                                             WorksheetList, RoomView)
+                                           WorksheetList, RoomView)
 
 
 class ItemJSONEncoder(json.JSONEncoder):
@@ -1225,10 +1225,6 @@ class Workbook(ItemWithOwnerAndAcl):
                 '"path" argument is empty; the workbook will stay where it is (if it has already been pushed once)')
             return None
 
-        if path == _folder.MY_FOLDER:
-            status.log('"path" argument is spy.workbooks.MY_FOLDER; using user\'s home folder')
-            return folders_api.get_folder(folder_id='mine').id
-
         workbook_path = _common.path_string_to_list(path)
 
         status.log(f'Creating folder path "{path}" if it does not already exist')
@@ -1243,16 +1239,30 @@ class Workbook(ItemWithOwnerAndAcl):
             existing_content_id = None
             content_name = workbook_path[i]
 
-            if content_name in [_folder.SHARED, _folder.ALL, _folder.USERS]:
+            if content_name in [_folder.PUBLIC, _folder.SHARED_OR_PUBLIC, _folder.SHARED, _folder.ALL, _folder.USERS]:
                 raise SPyRuntimeError(f'"path" argument cannot contain {content_name} folder in "{path}"')
 
             if content_name == _folder.CORPORATE:
                 if not session.corporate_folder:
                     raise SPyRuntimeError(f'Attempting to push to Corporate folder but user does not have access')
 
+                if i > 0:
+                    raise SPyRuntimeError(f'"{content_name}" is an illegal name for a subfolder')
+
                 parent_id = session.corporate_folder.id
                 folder_id = session.corporate_folder.id
                 folder_filter = 'corporate'
+                continue
+            elif content_name == _folder.MY_FOLDER:
+                if i > 0:
+                    raise SPyRuntimeError(f'"{content_name}" is an illegal name for a subfolder')
+
+                if owner_id == session.user.id:
+                    parent_id = session.my_folder.id
+                else:
+                    parent_id = session.get_user_folder(owner_id).id
+
+                folder_id = parent_id
                 continue
 
             kwargs = {
@@ -1295,6 +1305,7 @@ class Workbook(ItemWithOwnerAndAcl):
                 folder_input.parent_folder_id = parent_id
 
                 if not context.dry_run:
+                    _folder.check_for_reserved_folder_name(folder_input.name)
                     folder_output = safely(lambda: folders_api.create_folder(body=folder_input),
                                            action_description=f'create Folder {folder_input.name}',
                                            status=status)  # type: FolderOutputV1
@@ -1353,7 +1364,8 @@ class Workbook(ItemWithOwnerAndAcl):
                         raise SPyRuntimeError(f'Attempting to push to Corporate folder but user does not have access')
                     status.log(f'Mapping {ancestor_id} to Corporate folder')
                     parent_folder_id = session.corporate_folder.id
-                elif ancestor_id in (_folder.SHARED, _folder.PUBLIC, _folder.MY_FOLDER):
+                elif ancestor_id in (_folder.ALL, _folder.SHARED_OR_PUBLIC, _folder.SHARED,
+                                     _folder.PUBLIC, _folder.MY_FOLDER):
                     status.log(f'Root folder is {ancestor_id}; mapping to user home folder')
                     continue
                 elif ancestor_id == _folder.USERS:

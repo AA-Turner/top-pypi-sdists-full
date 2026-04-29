@@ -4,10 +4,14 @@
 # license information.
 # --------------------------------------------------------------------------
 """Data driver base class."""
+
+from __future__ import annotations
+
 import abc
 from abc import ABC
 from collections import defaultdict
-from typing import Any, Dict, Iterable, Optional, Set, Tuple, Union
+from collections.abc import Iterable
+from typing import Any
 
 import pandas as pd
 
@@ -35,7 +39,7 @@ class DriverProps:
     MAX_PARALLEL = "max_parallel"
     FILTER_ON_CONNECT = "filter_queries_on_connect"
 
-    PROPERTY_TYPES: Dict[str, Any] = {
+    PROPERTY_TYPES: dict[str, Any] = {
         PUBLIC_ATTRS: dict,
         FORMATTERS: dict,
         USE_QUERY_PATHS: bool,
@@ -86,8 +90,8 @@ class DriverBase(ABC):
         # self.has_driver_queries = False
         self._previous_connection = False
         self.data_environment = kwargs.get("data_environment")
-        self._query_filter: Dict[str, Set[str]] = defaultdict(set)
-        self._instance: Optional[str] = None
+        self._query_filter: dict[str, set[str]] = defaultdict(set)
+        self._instance: str | None = None
 
         self.properties = DriverProps.defaults()
         self.set_driver_property(
@@ -145,7 +149,7 @@ class DriverBase(ABC):
         return self._connected
 
     @property
-    def instance(self) -> Optional[str]:
+    def instance(self) -> str | None:
         """
         Return instance name, if one is set.
 
@@ -159,7 +163,7 @@ class DriverBase(ABC):
         return self._instance
 
     @property
-    def schema(self) -> Dict[str, Dict]:
+    def schema(self) -> dict[str, dict]:
         """
         Return current data schema of connection.
 
@@ -172,7 +176,7 @@ class DriverBase(ABC):
         return {}
 
     @abc.abstractmethod
-    def connect(self, connection_str: Optional[str] = None, **kwargs):
+    def connect(self, connection_str: str | None = None, **kwargs):
         """
         Connect to data source.
 
@@ -185,8 +189,8 @@ class DriverBase(ABC):
 
     @abc.abstractmethod
     def query(
-        self, query: str, query_source: Optional[QuerySource] = None, **kwargs
-    ) -> Union[pd.DataFrame, Any]:
+        self, query: str, query_source: QuerySource | None = None, **kwargs
+    ) -> pd.DataFrame | Any:
         """
         Execute query string and return DataFrame of results.
 
@@ -212,7 +216,7 @@ class DriverBase(ABC):
         """
 
     @abc.abstractmethod
-    def query_with_results(self, query: str, **kwargs) -> Tuple[pd.DataFrame, Any]:
+    def query_with_results(self, query: str, **kwargs) -> tuple[pd.DataFrame, Any]:
         """
         Execute query string and return DataFrame plus native results.
 
@@ -229,7 +233,7 @@ class DriverBase(ABC):
         """
 
     @property
-    def service_queries(self) -> Tuple[Dict[str, str], str]:
+    def service_queries(self) -> tuple[dict[str, str], str]:
         """
         Return queries retrieved from the service after connecting.
 
@@ -243,7 +247,7 @@ class DriverBase(ABC):
         return {}, ""
 
     @property
-    def driver_queries(self) -> Iterable[Dict[str, Any]]:
+    def driver_queries(self) -> Iterable[dict[str, Any]]:
         """
         Return queries retrieved from the service after connecting.
 
@@ -257,11 +261,11 @@ class DriverBase(ABC):
         return [{}]
 
     @property
-    def query_attach_spec(self) -> Dict[str, Set[str]]:
+    def query_attach_spec(self) -> dict[str, set[str]]:
         """Parameters that determine whether a query is relevant for the driver."""
         return self._query_filter
 
-    def add_query_filter(self, name: str, query_filter: Union[str, Iterable]):
+    def add_query_filter(self, name: str, query_filter: str | Iterable):
         """Add an expression to the query attach filter."""
         allowed_names = {"data_environments", "data_families", "data_sources"}
         if name not in allowed_names:
@@ -294,10 +298,10 @@ class DriverBase(ABC):
 
     # Read values from configuration
     @staticmethod
-    def _get_config_settings(prov_name) -> Dict[Any, Any]:
+    def _get_config_settings(prov_name) -> dict[Any, Any]:
         """Get config from msticpyconfig."""
         data_provs = get_provider_settings(config_section="DataProviders")
-        splunk_settings: Optional[ProviderSettings] = data_provs.get(prov_name)
+        splunk_settings: ProviderSettings | None = data_provs.get(prov_name)
         return getattr(splunk_settings, "args", {})
 
     @staticmethod
@@ -307,6 +311,25 @@ class DriverBase(ABC):
             title=f"not connected to {prov_name}.",
             help_uri="https://msticpy.readthedocs.io/en/latest/DataProviders.html",
         )
+
+    def _ensure_connected(self, provider_name: str | None = None) -> None:
+        """
+        Check connection state and raise error if not connected.
+
+        Parameters
+        ----------
+        provider_name : str, optional
+            The name of the provider to use in error message.
+            If not provided, uses the class name.
+
+        Raises
+        ------
+        MsticpyNotConnectedError
+            If the driver is not connected.
+
+        """
+        if not self.connected:
+            raise self._create_not_connected_err(provider_name or self.__class__.__name__)
 
     @staticmethod
     def get_http_timeout(**kwargs):

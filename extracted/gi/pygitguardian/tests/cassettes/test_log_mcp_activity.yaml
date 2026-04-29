@@ -1,0 +1,61 @@
+interactions:
+  - request:
+      body: '{"user": {"hostname": "toto-laptop", "username": "toto", "machine_id":
+        "1234567890", "user_email": "toto@gitguardian.com"}, "tool": "toto", "server":
+        "https://mcp-server-1.com", "agent": "cursor", "model": "composer-2", "cwd":
+        "/home/user/project", "input": {"foo": "bar"}}'
+      headers:
+        Accept:
+          - '*/*'
+        Accept-Encoding:
+          - gzip, deflate
+        Connection:
+          - keep-alive
+        Content-Length:
+          - '273'
+        Content-Type:
+          - application/json
+        User-Agent:
+          - pygitguardian/1.29.0 (Linux;py3.11.15)
+      method: POST
+      uri: https://api.gitguardian.com/v1/nhi/ai/mcp-activity
+    response:
+      body:
+        string: '{"allowed":true,"reason":""}'
+      headers:
+        Access-Control-Expose-Headers:
+          - X-App-Version
+        Allow:
+          - POST, OPTIONS
+        Connection:
+          - keep-alive
+        Content-Length:
+          - '28'
+        Content-Security-Policy:
+          - frame-ancestors 'none'
+        Content-Type:
+          - application/json
+        Cross-Origin-Opener-Policy:
+          - same-origin
+        Date:
+          - Tue, 21 Apr 2026 09:57:44 GMT
+        Referrer-Policy:
+          - same-origin
+        Server:
+          - nginx/1.29.1
+        Vary:
+          - Cookie
+        X-App-Version:
+          - dev
+        X-Content-Type-Options:
+          - nosniff
+        X-Frame-Options:
+          - DENY
+        X-Request-ID:
+          - 0b5ebf3512d3af02d66646406b48180d
+        X-Secrets-Engine-Version:
+          - 2.161.0
+      status:
+        code: 200
+        message: OK
+version: 1

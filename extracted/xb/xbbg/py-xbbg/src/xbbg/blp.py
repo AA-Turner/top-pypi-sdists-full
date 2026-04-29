@@ -1,11 +1,11 @@
-"""High-level Bloomberg data API: reference, historical, intraday.
+"""High-level xbbg request API: reference, historical, intraday.
 
-This module provides the xbbg-compatible API using the Rust backend,
+This module provides the xbbg-compatible API for authorized Bloomberg environments,
 with support for multiple DataFrame backends via narwhals.
 
 API Design:
 - Async-first: Core implementation uses async/await (abdp, abdh, etc.)
-- Sync wrappers: Convenience functions (bdp, bdh, etc.) wrap async with asyncio.run()
+- Sync wrappers: Convenience functions wrap async with asyncio.run(), with a notebook bridge for one-shot requests
 - Generic API: arequest() and request() for power users and arbitrary Bloomberg requests
 - Users can use either style based on their needs
 """
@@ -15,20 +15,20 @@ from __future__ import annotations
 import asyncio
 import atexit
 from collections.abc import Awaitable, Callable, Sequence
+import concurrent.futures
 import contextvars
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import functools
 import inspect
 import logging
+import re
 import threading
 import time
 from typing import TYPE_CHECKING, Any, TypeAlias, cast
 import warnings
 
 import narwhals.stable.v1 as nw
-from narwhals.typing import IntoFrame
-import pyarrow as pa
 
 from xbbg.services import (
     ExtractorHint,
@@ -40,13 +40,13 @@ from xbbg.services import (
 )
 
 from ._exports import BLP_MODULE_EXPORTS
-from .backend import Backend
+from .backend import Backend, get_default_backend
 
-# Type alias for backend conversion return types
-# Covers: nw.DataFrame, nw.LazyFrame (narwhals wrappers) + IntoFrame (all native types)
-DataFrameResult: TypeAlias = nw.DataFrame | nw.LazyFrame | IntoFrame
+# Type alias for backend conversion return types.
+DataFrameResult: TypeAlias = Any
 
 logger = logging.getLogger(__name__)
+_native_narwhals_fallback_warned = False
 
 
 __all__ = list(BLP_MODULE_EXPORTS)
@@ -64,7 +64,7 @@ _REMOVED_LEGACY_ATTRS: dict[str, str] = {
         "        auth_method='app',\n"
         "        app_name='my-app',\n"
         "    )\n\n"
-        "See https://alpha-xone.github.io/xbbg/guides/migration/#connection-setup"
+        "See https://xbbg.org/python/guides/migration/#connection-setup"
     ),
     "disconnect": (
         "blp.disconnect() was removed in xbbg 1.0. The engine lifecycle is managed "
@@ -87,22 +87,185 @@ def __getattr__(name: str):
 
 
 # Generated sync wrappers are installed dynamically by _install_generated_endpoints().
-# Define placeholders so static analysis recognizes these exported names.
 if TYPE_CHECKING:
-    bdp: Callable[..., Any]
-    bdh: Callable[..., Any]
-    bds: Callable[..., Any]
-    bdib: Callable[..., Any]
-    bdtick: Callable[..., Any]
-    bql: Callable[..., Any]
-    bsrch: Callable[..., Any]
-    bqr: Callable[..., Any]
-    bflds: Callable[..., Any]
-    beqs: Callable[..., Any]
-    blkp: Callable[..., Any]
-    bport: Callable[..., Any]
-    bcurves: Callable[..., Any]
-    bgovts: Callable[..., Any]
+    # ``DateLike`` is also imported lazily below alongside ``_fmt_date``; the
+    # second copy here keeps the static stubs visible to type-checkers / IDEs.
+    from xbbg.ext._utils import DateLike
+
+    def bdp(
+        tickers: str | Sequence[str],
+        flds: str | Sequence[str] | None = None,
+        *,
+        backend: Backend | str | None = None,
+        format: Format | str | None = None,
+        field_types: dict[str, str] | None = None,
+        include_security_errors: bool = False,
+        validate_fields: bool | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg reference data (BDP). See ``abdp`` for details."""
+        ...
+
+    def bdh(
+        tickers: str | Sequence[str],
+        flds: str | Sequence[str] | None = None,
+        start_date: DateLike = None,
+        end_date: DateLike = "today",
+        *,
+        backend: Backend | str | None = None,
+        format: Format | str | None = None,
+        field_types: dict[str, str] | None = None,
+        validate_fields: bool | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg historical data (BDH). See ``abdh`` for details."""
+        ...
+
+    def bds(
+        tickers: str | Sequence[str],
+        flds: str,
+        *,
+        backend: Backend | str | None = None,
+        validate_fields: bool | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg bulk data (BDS). See ``abds`` for details."""
+        ...
+
+    def bdib(
+        ticker: str,
+        dt: DateLike = None,
+        session: str = "allday",
+        typ: str = "TRADE",
+        *,
+        start_datetime: DateLike = None,
+        end_datetime: DateLike = None,
+        interval: int = 1,
+        backend: Backend | str | None = None,
+        request_tz: str | None = None,
+        output_tz: str | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg intraday bar data (BDIB). See ``abdib`` for details."""
+        ...
+
+    def bdtick(
+        ticker: str,
+        start_datetime: DateLike,
+        end_datetime: DateLike,
+        *,
+        event_types: Sequence[str] | None = None,
+        backend: Backend | str | None = None,
+        request_tz: str | None = None,
+        output_tz: str | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg tick data (BDTICK). See ``abdtick`` for details."""
+        ...
+
+    def bql(
+        expression: str,
+        *,
+        backend: Backend | str | None = None,
+    ) -> DataFrameResult:
+        """Sync Bloomberg Query Language (BQL) request. See ``abql`` for details."""
+        ...
+
+    def bsrch(
+        domain: str,
+        *,
+        backend: Backend | str | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg Search (BSRCH) request. See ``absrch`` for details."""
+        ...
+
+    def bqr(
+        ticker: str,
+        date_offset: str | None = None,
+        start_date: DateLike = None,
+        end_date: DateLike = None,
+        *,
+        event_types: Sequence[str] | None = None,
+        include_broker_codes: bool = False,
+        include_spread_price: bool = False,
+        include_yield: bool = False,
+        include_condition_codes: bool = False,
+        include_exchange_codes: bool = False,
+        backend: Backend | str | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg Quote Request (BQR). See ``abqr`` for details."""
+        ...
+
+    def bflds(
+        fields: str | list[str] | None = None,
+        *,
+        search_spec: str | None = None,
+        backend: Backend | str | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg field metadata lookup (BFLDS). See ``abflds`` for details."""
+        ...
+
+    def beqs(
+        screen: str,
+        *,
+        asof: str | None = None,
+        screen_type: str = "PRIVATE",
+        group: str = "General",
+        backend: Backend | str | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg Equity Screening (BEQS) request. See ``abeqs`` for details."""
+        ...
+
+    def blkp(
+        query: str,
+        *,
+        yellowkey: str = "YK_FILTER_NONE",
+        language: str = "LANG_OVERRIDE_NONE",
+        max_results: int = 20,
+        backend: Backend | str | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg security lookup (BLKP) request. See ``ablkp`` for details."""
+        ...
+
+    def bport(
+        portfolio: str,
+        fields: str | Sequence[str],
+        *,
+        backend: Backend | str | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg portfolio data (BPORT) request. See ``abport`` for details."""
+        ...
+
+    def bcurves(
+        *,
+        country: str | None = None,
+        currency: str | None = None,
+        curve_type: str | None = None,
+        subtype: str | None = None,
+        curveid: str | None = None,
+        bbgid: str | None = None,
+        backend: Backend | str | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg yield curve list (BCURVES) request. See ``abcurves`` for details."""
+        ...
+
+    def bgovts(
+        query: str | None = None,
+        *,
+        partial_match: bool = True,
+        backend: Backend | str | None = None,
+        **kwargs: Any,
+    ) -> DataFrameResult:
+        """Sync Bloomberg government securities list (BGOVTS) request. See ``abgovts`` for details."""
+        ...
+
 else:
     (bdp, bdh, bds, bdib, bdtick, bql, bsrch, bqr, bflds, beqs, blkp, bport, bcurves, bgovts) = (None,) * 14
 
@@ -119,6 +282,11 @@ _engine_lock = threading.Lock()
 
 # Scoped engine for multi-engine routing (async-safe via contextvars)
 _active_engine: contextvars.ContextVar[Engine | None] = contextvars.ContextVar("_active_engine", default=None)
+
+_NOTEBOOK_SYNC_BRIDGE_NAMES = frozenset({"bdp", "bdh", "bds", "bdib", "bdtick", "request"})
+_notebook_sync_loop: asyncio.AbstractEventLoop | None = None
+_notebook_sync_loop_thread: threading.Thread | None = None
+_notebook_sync_loop_lock = threading.Lock()
 
 
 class Engine:
@@ -198,14 +366,15 @@ class RequestContext:
     params: RequestParams
     params_dict: dict[str, Any]
     backend: Backend | str | None
+    raw: bool
     securities: list[str]
     fields: list[str]
     environment: RequestEnvironment
     metadata: dict[str, Any] = field(default_factory=dict)
     started_at: float = field(default_factory=time.perf_counter)
     elapsed_ms: float | None = None
-    batch: pa.RecordBatch | None = None
-    table: pa.Table | None = None
+    batch: Any | None = None
+    table: Any | None = None
     frame: DataFrameResult | None = None
     error: Exception | None = None
 
@@ -291,6 +460,12 @@ def _atexit_cleanup() -> None:
         except Exception:
             logger.debug("Exception during atexit cleanup (ignored)", exc_info=True)
         _engine = None
+    stop_bridge = globals().get("_stop_notebook_sync_loop")
+    if stop_bridge is not None:
+        try:
+            stop_bridge()
+        except Exception:
+            logger.debug("Exception stopping notebook sync bridge (ignored)", exc_info=True)
 
 
 # Register cleanup handler
@@ -525,14 +700,15 @@ def set_backend(backend: Backend | str | None) -> None:
 
     Args:
         backend: The backend to use. Can be a Backend enum or string:
-            - Backend.NARWHALS / "narwhals": Return narwhals DataFrame (default)
+            - Backend.NATIVE / "native": Return xbbg native Arrow carrier object
+            - Backend.PYARROW / "pyarrow": Return pyarrow Table
+            - Backend.NARWHALS / "narwhals": Return narwhals DataFrame
             - Backend.NARWHALS_LAZY / "narwhals_lazy": Return narwhals LazyFrame
             - Backend.PANDAS / "pandas": Return pandas DataFrame
             - Backend.POLARS / "polars": Return polars DataFrame
             - Backend.POLARS_LAZY / "polars_lazy": Return polars LazyFrame
-            - Backend.PYARROW / "pyarrow": Return pyarrow Table
             - Backend.DUCKDB / "duckdb": Return DuckDB relation (lazy)
-            - None: Same as Backend.NARWHALS
+            - None: Auto-select the first available default backend
 
     Example::
 
@@ -674,8 +850,367 @@ def _normalize_fields(fields: str | Sequence[str] | None) -> list[str]:
     return list(fields)
 
 
+_SUBSCRIPTION_IDENTIFIER_PREFIXES = ("ticker/", "figi/", "isin/", "cusip/", "sedol/")
+
+
+def _normalize_service_topic(service: Service, ticker: str, label: str) -> str:
+    """Normalize a security identifier into an explicit Bloomberg service topic."""
+    topic = ticker.strip()
+    service_uri = service.value
+    if topic.startswith("//"):
+        if not topic.startswith(f"{service_uri}/"):
+            raise ValueError(f"{label} topic must start with {service_uri}/, got {ticker!r}")
+        return topic
+    if topic.startswith("/"):
+        return f"{service_uri}{topic}"
+
+    lower_topic = topic.lower()
+    if lower_topic.startswith(_SUBSCRIPTION_IDENTIFIER_PREFIXES):
+        return f"{service_uri}/{topic}"
+
+    return f"{service_uri}/ticker/{topic}"
+
+
+def _normalize_service_topics(service: Service, tickers: str | Sequence[str], label: str) -> list[str]:
+    """Normalize identifiers into explicit Bloomberg service topics."""
+    return [_normalize_service_topic(service, ticker, label) for ticker in _normalize_tickers(tickers)]
+
+
+def _normalize_mktbar_topics(tickers: str | Sequence[str]) -> list[str]:
+    """Normalize market-bar identifiers into explicit service topics."""
+    return _normalize_service_topics(Service.MKTBAR, tickers, "market-bar")
+
+
+def _normalize_mktvwap_topics(tickers: str | Sequence[str]) -> list[str]:
+    """Normalize market-VWAP identifiers into explicit service topics."""
+    return _normalize_service_topics(Service.MKTVWAP, tickers, "market-VWAP")
+
+
+def _get_subscription_option(options: Sequence[str] | None, name: str) -> str | None:
+    """Return a subscription option value by case-insensitive option name."""
+    for option in options or []:
+        key, separator, value = option.partition("=")
+        if key.strip().lower() != name.lower():
+            continue
+        if not separator or not value.strip():
+            raise ValueError(f"{name} option must be provided as {name}=<value>")
+        return value.strip()
+    return None
+
+
+def _subscription_option_key(option: str) -> str:
+    """Return the case-insensitive key for a Bloomberg subscription option."""
+    return option.strip().lstrip("&").partition("=")[0].strip().lower()
+
+
+def _normalize_subscription_options(
+    options: Sequence[str] | None,
+    *,
+    conflate: bool = False,
+    service: str | None = None,
+) -> list[str] | None:
+    """Normalize high-level subscription options before passing them to Bloomberg."""
+    if options is None and not conflate:
+        return None
+
+    normalized: list[str] = []
+    for option in options or []:
+        clean_option = option.strip()
+        if not clean_option:
+            continue
+        if clean_option.startswith("&"):
+            clean_option = clean_option[1:].strip()
+        normalized.append(clean_option)
+
+    if conflate:
+        effective_service = service or Service.MKTDATA.value
+        if effective_service != Service.MKTDATA.value:
+            raise ValueError("conflate=True is only supported for //blp/mktdata subscriptions")
+        if any(_subscription_option_key(option) == "interval" for option in normalized):
+            raise ValueError(
+                "conflate=True cannot be combined with interval options; intervalization overrides conflation"
+            )
+        if not any(_subscription_option_key(option) == "conflate" for option in normalized):
+            normalized.append("conflate")
+
+    return normalized
+
+
+def _validate_mktbar_bar_size(bar_size: int) -> None:
+    """Validate Bloomberg's documented market-bar interval bounds."""
+    if not 1 <= bar_size <= 1440:
+        raise ValueError("bar_size must be between 1 and 1440 minutes")
+
+
+def _validate_mktbar_options(options: Sequence[str] | None) -> None:
+    """Validate Bloomberg's required market-bar subscription options."""
+    raw_bar_size = _get_subscription_option(options, "bar_size")
+    if raw_bar_size is None:
+        raise ValueError("//blp/mktbar subscriptions require a bar_size option")
+    try:
+        bar_size = int(raw_bar_size)
+    except ValueError as exc:
+        raise ValueError("bar_size must be an integer number of minutes") from exc
+    _validate_mktbar_bar_size(bar_size)
+
+
 # Cache for valid request elements per (service, operation)
 _VALID_ELEMENTS_CACHE: dict[tuple[str, str], set[str]] = {}
+
+_ELEMENT_KEY_ALIASES: dict[str, str] = {
+    # Bloomberg request element aliases inherited from xbbg 0.x / Excel BDH conventions.
+    "PeriodAdj": "periodicityAdjustment",
+    "PerAdj": "periodicityAdjustment",
+    "Period": "periodicitySelection",
+    "Per": "periodicitySelection",
+    "Currency": "currency",
+    "Curr": "currency",
+    "FX": "currency",
+    "Days": "nonTradingDayFillOption",
+    "Fill": "nonTradingDayFillMethod",
+    "Points": "maxDataPoints",
+    "Quote": "overrideOption",
+    "QuoteType": "pricingOption",
+    "QtTyp": "pricingOption",
+    "CshAdjNormal": "adjustmentNormal",
+    "CshAdjAbnormal": "adjustmentAbnormal",
+    "CapChg": "adjustmentSplit",
+    "UseDPDF": "adjustmentFollowDPDF",
+    "Calendar": "calendarCodeOverride",
+    # v1 additions requested in issue #301.
+    "BarSz": "interval",
+    "BarSize": "interval",
+    "BarTp": "eventType",
+    "BarType": "eventType",
+    "IncludeExchangeCodes": "includeExchangeCodes",
+}
+
+_PRESENTATION_KEY_ALIASES: dict[str, str] = {
+    # Excel-only output-shape controls. These do not map to Bloomberg request
+    # elements; typed endpoints consume them before request routing and apply
+    # the shape change locally after Bloomberg returns raw data.
+    "Dts": "show_date",
+    "Dates": "show_date",
+    "DtFmt": "date_format",
+    "DateFormat": "date_format",
+    "Sort": "sort",
+    "Orientation": "orientation",
+    "Direction": "orientation",
+    "Dir": "orientation",
+}
+
+_PRESENTATION_VALUE_ALIASES: dict[str, dict[Any, Any]] = {
+    "show_date": {
+        "Show": True,
+        "S": True,
+        True: True,
+        "True": True,
+        "Hide": False,
+        "H": False,
+        False: False,
+        "False": False,
+    },
+    "date_format": {
+        "B": "BOTH",
+        "Both": "BOTH",
+        "P": "PERIODIC",
+        "Periodic": "PERIODIC",
+        "D": "DATE",
+        "Date": "DATE",
+    },
+    "sort": {
+        "C": "ASCENDING",
+        "A": "ASCENDING",
+        "Ascend": "ASCENDING",
+        "Chronological": "ASCENDING",
+        False: "ASCENDING",
+        "False": "ASCENDING",
+        "R": "DESCENDING",
+        "D": "DESCENDING",
+        "Descend": "DESCENDING",
+        "Reverse": "DESCENDING",
+        True: "DESCENDING",
+        "True": "DESCENDING",
+    },
+    "orientation": {
+        "H": "HORIZONTAL",
+        "Horizontal": "HORIZONTAL",
+        "V": "VERTICAL",
+        "Vertical": "VERTICAL",
+    },
+}
+
+_ELEMENT_VALUE_ALIASES: dict[str, dict[Any, Any]] = {
+    "periodicityAdjustment": {
+        "A": "ACTUAL",
+        "C": "CALENDAR",
+        "F": "FISCAL",
+    },
+    "periodicitySelection": {
+        "D": "DAILY",
+        "W": "WEEKLY",
+        "M": "MONTHLY",
+        "Q": "QUARTERLY",
+        "S": "SEMI_ANNUALLY",
+        "Y": "YEARLY",
+    },
+    "nonTradingDayFillOption": {
+        "N": "NON_TRADING_WEEKDAYS",
+        "W": "NON_TRADING_WEEKDAYS",
+        "Weekdays": "NON_TRADING_WEEKDAYS",
+        "C": "ALL_CALENDAR_DAYS",
+        "A": "ALL_CALENDAR_DAYS",
+        "All": "ALL_CALENDAR_DAYS",
+        "T": "ACTIVE_DAYS_ONLY",
+        "Trading": "ACTIVE_DAYS_ONLY",
+    },
+    "nonTradingDayFillMethod": {
+        "C": "PREVIOUS_VALUE",
+        "P": "PREVIOUS_VALUE",
+        "Previous": "PREVIOUS_VALUE",
+        "B": "NIL_VALUE",
+        "Blank": "NIL_VALUE",
+        "NA": "NIL_VALUE",
+    },
+    "overrideOption": {
+        "A": "OVERRIDE_OPTION_GPA",
+        "G": "OVERRIDE_OPTION_GPA",
+        "Average": "OVERRIDE_OPTION_GPA",
+        "C": "OVERRIDE_OPTION_CLOSE",
+        "Close": "OVERRIDE_OPTION_CLOSE",
+    },
+    "pricingOption": {
+        "P": "PRICING_OPTION_PRICE",
+        "Price": "PRICING_OPTION_PRICE",
+        "Y": "PRICING_OPTION_YIELD",
+        "Yield": "PRICING_OPTION_YIELD",
+    },
+    "eventType": {
+        "B": "BID",
+        "Bid": "BID",
+        "A": "ASK",
+        "Ask": "ASK",
+        "T": "TRADE",
+        "Trade": "TRADE",
+    },
+}
+
+_KNOWN_ALIAS_ELEMENT_KEYS = frozenset(_ELEMENT_KEY_ALIASES) | frozenset(_ELEMENT_KEY_ALIASES.values())
+
+
+def _normalize_element_alias(key: str, value: Any) -> tuple[str, Any]:
+    """Return canonical Bloomberg element key and enum value for a caller alias."""
+    canonical_key = _ELEMENT_KEY_ALIASES.get(key, key)
+    value_aliases = _ELEMENT_VALUE_ALIASES.get(canonical_key, {})
+    try:
+        routed_value = value_aliases.get(value, value)
+    except TypeError:
+        routed_value = value
+    return canonical_key, routed_value
+
+
+def _is_alias_element_key(original_key: str, canonical_key: str) -> bool:
+    """Return whether a key is part of the supported request-element alias table."""
+    return original_key in _ELEMENT_KEY_ALIASES or canonical_key in _KNOWN_ALIAS_ELEMENT_KEYS
+
+
+def _is_presentation_alias_key(key: str) -> bool:
+    """Return whether a key is an Excel-only presentation alias, not a Bloomberg element."""
+    return key in _PRESENTATION_KEY_ALIASES or key in _PRESENTATION_KEY_ALIASES.values()
+
+
+@dataclass(frozen=True, slots=True)
+class _PresentationOptions:
+    show_date: bool | None = None
+    date_format: str | None = None
+    sort: str | None = None
+    orientation: str | None = None
+
+    @property
+    def enabled(self) -> bool:
+        return any(value is not None for value in (self.show_date, self.date_format, self.sort, self.orientation))
+
+
+def _pop_element_alias(kwargs: dict[str, Any], canonical_key: str) -> Any | None:
+    """Pop the first kwarg alias that resolves to *canonical_key*, returning its normalized value."""
+    for key in list(kwargs):
+        routed_key, routed_value = _normalize_element_alias(key, kwargs[key])
+        if routed_key == canonical_key:
+            kwargs.pop(key)
+            return routed_value
+    return None
+
+
+def _normalize_presentation_value(key: str, value: Any) -> Any:
+    """Return canonical value for a presentation-layer option."""
+    value_aliases = _PRESENTATION_VALUE_ALIASES.get(key, {})
+    try:
+        if value in value_aliases:
+            return value_aliases[value]
+    except TypeError:
+        return value
+
+    if isinstance(value, str):
+        value_lower = value.lower()
+        for alias, normalized in value_aliases.items():
+            if isinstance(alias, str) and alias.lower() == value_lower:
+                return normalized
+
+    return value
+
+
+def _normalize_presentation_alias(key: str, value: Any) -> tuple[str, Any]:
+    canonical_key = _PRESENTATION_KEY_ALIASES.get(key, key)
+    return canonical_key, _normalize_presentation_value(canonical_key, value)
+
+
+def _pop_presentation_aliases(kwargs: dict[str, Any]) -> _PresentationOptions:
+    """Remove presentation aliases from kwargs and return normalized options."""
+    options: dict[str, Any] = {}
+    for key in list(kwargs):
+        canonical_key, value = _normalize_presentation_alias(key, kwargs[key])
+        if canonical_key in _PRESENTATION_VALUE_ALIASES:
+            kwargs.pop(key)
+            options[canonical_key] = value
+
+    return _PresentationOptions(
+        show_date=options.get("show_date"),
+        date_format=options.get("date_format"),
+        sort=options.get("sort"),
+        orientation=options.get("orientation"),
+    )
+
+
+def _periodicity_selection(elements: Sequence[tuple[str, Any]]) -> str | None:
+    for key, value in elements:
+        if key == "periodicitySelection":
+            return str(value)
+    return None
+
+
+def _presentation_format(fmt: Format | None, presentation: _PresentationOptions) -> Format | None:
+    if fmt is not None:
+        return fmt
+    if presentation.orientation == "HORIZONTAL":
+        return Format.SEMI_LONG
+    if presentation.orientation == "VERTICAL":
+        return Format.LONG
+    return fmt
+
+
+def _apply_historical_presentation(
+    table: Any,
+    presentation: _PresentationOptions,
+    *,
+    periodicity: str | None,
+) -> Any:
+    """Apply Excel-style BDH presentation options through native Arrow operations."""
+    return table.apply_historical_presentation(
+        presentation.show_date,
+        presentation.date_format,
+        presentation.sort,
+        periodicity,
+    )
 
 
 async def _aget_valid_elements(service: str, operation: str) -> set[str]:
@@ -697,6 +1232,51 @@ async def _aget_valid_elements(service: str, operation: str) -> set[str]:
     except Exception:
         logger.debug("Schema lookup failed for %s/%s, using empty set", service, operation, exc_info=True)
         return set()
+
+
+# ISO date pattern for the override-path value-based normalizer. Matches the
+# canonical wire formats Bloomberg accepts on date-typed override fields:
+# ``YYYY-MM-DD`` and ``YYYYMMDD``. Anything else (US ``MM/DD/YYYY`` etc.) is
+# left untouched here; dedicated typed parameters reject ambiguous strings.
+_OVERRIDE_DATE_VALUE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}|\d{8})$")
+
+
+def _normalize_override_value(value: Any) -> str:
+    """Normalize a Bloomberg override value with date-aware duck typing.
+
+    The override path passes user kwargs through to Bloomberg without per-field
+    type metadata, so we inspect the *value* shape:
+
+    - ``datetime.date`` / ``datetime.datetime`` -> formatted as ``YYYYMMDD``.
+    - duck-typed ``pd.Timestamp`` (``hasattr(value, "to_pydatetime")``)
+      -> coerced and formatted.
+    - ``str`` matching ISO date or Bloomberg-native: normalized to
+      ``YYYYMMDD`` so callers can pass either form interchangeably.
+    - anything else: ``str(value)`` (existing behaviour).
+
+    Bool is intentionally short-circuited so that ``True``/``False`` survive as
+    ``"True"`` / ``"False"`` (some Bloomberg overrides expect those literals).
+    """
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, (date, datetime)):
+        formatted = _fmt_date(value)
+        return formatted if formatted is not None else str(value)
+    if hasattr(value, "to_pydatetime"):
+        try:
+            formatted = _fmt_date(value)
+        except (TypeError, ValueError):
+            return str(value)
+        if formatted is not None:
+            return formatted
+    if isinstance(value, str) and _OVERRIDE_DATE_VALUE_RE.match(value.strip()):
+        try:
+            formatted = _fmt_date(value)
+        except (TypeError, ValueError):
+            return value
+        if formatted is not None:
+            return formatted
+    return str(value)
 
 
 async def _aroute_kwargs(
@@ -730,91 +1310,169 @@ async def _aroute_kwargs(
     elements: list[tuple[str, Any]] = []
     overrides: list[tuple[str, str]] = []
 
-    # Handle explicit overrides dict first
-    if "overrides" in kwargs:
-        ovrd = kwargs.pop("overrides")
-        if isinstance(ovrd, dict):
-            overrides.extend((k, str(v)) for k, v in ovrd.items())
-        elif isinstance(ovrd, list):
-            overrides.extend((str(k), str(v)) for k, v in ovrd)
+    def route_candidate(key: Any, value: Any) -> None:
+        original_key = str(key)
+        if _is_presentation_alias_key(original_key):
+            warnings.warn(
+                f"Presentation alias '{original_key}' controls Excel-style output shape and is not "
+                "a Bloomberg request element; typed endpoints such as bdh() handle it locally, "
+                "while low-level request routing skips it.",
+                stacklevel=4,
+            )
+            return
 
-    # Route remaining kwargs
-    for key in list(kwargs.keys()):
-        value = kwargs.pop(key)
+        canonical_key, routed_value = _normalize_element_alias(original_key, value)
 
-        if key in valid_elements:
-            # Schema-recognized request element
-            elements.append((key, value))
-        elif key.isupper() or (len(key) > 2 and key[0].isupper() and "_" in key):
-            # Looks like a Bloomberg field override (UPPERCASE or Mixed_Case_Field)
-            overrides.append((key, str(value)))
+        if canonical_key in valid_elements or _is_alias_element_key(original_key, canonical_key):
+            elements.append((canonical_key, routed_value))
+        elif original_key.isupper() or (len(original_key) > 2 and original_key[0].isupper() and "_" in original_key):
+            # Looks like a Bloomberg field override (UPPERCASE or Mixed_Case_Field).
+            # Normalize date-typed values to Bloomberg-native YYYYMMDD via duck-typing
+            # so callers can pass e.g. ``USER_LOCAL_TRADE_DATE=date(2023, 1, 17)``.
+            overrides.append((original_key, _normalize_override_value(value)))
         elif valid_elements:
             # Schema available but key not recognized - warn and pass as element
             warnings.warn(
-                f"Unknown parameter '{key}' for {op} - passing to Bloomberg. "
+                f"Unknown parameter '{original_key}' for {op} - passing to Bloomberg. "
                 f"Valid elements: {sorted(valid_elements)[:10]}{'...' if len(valid_elements) > 10 else ''}",
                 stacklevel=4,
             )
-            elements.append((key, value))
+            elements.append((canonical_key, routed_value))
         else:
             # No schema available - pass as element (Bloomberg will validate)
-            elements.append((key, value))
+            elements.append((canonical_key, routed_value))
+
+    # Handle explicit overrides dict first. Entries that are actually request-element
+    # aliases (for example Points -> maxDataPoints) are routed as elements, matching 0.x.
+    if "overrides" in kwargs:
+        ovrd = kwargs.pop("overrides")
+        if isinstance(ovrd, dict):
+            for key, value in ovrd.items():
+                route_candidate(key, value)
+        elif isinstance(ovrd, list):
+            for key, value in ovrd:
+                route_candidate(key, value)
+
+    # Route remaining kwargs
+    for key in list(kwargs.keys()):
+        route_candidate(key, kwargs.pop(key))
 
     return elements, overrides
 
 
-def _fmt_date(dt: str | None, fmt: str = "%Y%m%d") -> str:
-    """Format date to string."""
-    if dt is None:
-        return datetime.now().strftime(fmt)
-    if isinstance(dt, str):
-        if dt.lower() == "today":
-            return datetime.now().strftime(fmt)
-        # Try to parse and reformat
+from xbbg.ext._utils import (  # noqa: E402  (must follow services imports)
+    DateLike,
+    _fmt_date,
+    _fmt_datetime,
+)
+
+
+def _core_arrow_table_class() -> type[Any]:
+    from xbbg._core import ArrowTable
+
+    return ArrowTable
+
+
+def _is_arrow_table(value: Any) -> bool:
+    return value.__class__.__name__ == "ArrowTable" and hasattr(value, "__arrow_c_stream__")
+
+
+def _is_arrow_record_batch(value: Any) -> bool:
+    return value.__class__.__name__ == "ArrowRecordBatch" and hasattr(value, "__arrow_c_array__")
+
+
+def _ensure_arrow_table(frame: Any) -> Any:
+    if _is_arrow_table(frame):
+        return frame
+    if _is_arrow_record_batch(frame):
+        return frame.to_table()
+    raise TypeError(f"Expected xbbg ArrowTable or ArrowRecordBatch, got {type(frame).__name__}")
+
+
+def _to_pyarrow_table(table: Any) -> Any:
+    import pyarrow as pa
+
+    return pa.table(table)
+
+
+def _to_pandas_frame(table: Any) -> Any:
+    import pandas as pd
+
+    return pd.DataFrame.from_records(table.to_pylist(), columns=table.column_names)
+
+
+def _to_polars_frame(table: Any) -> Any:
+    import polars as pl
+
+    try:
+        return pl.from_arrow(_to_pyarrow_table(table))
+    except ModuleNotFoundError as exc:
+        if "pyarrow" not in str(exc):
+            raise
+        return pl.DataFrame(table.to_pylist(), schema=table.column_names)
+
+
+def _warn_native_narwhals_fallback() -> None:
+    global _native_narwhals_fallback_warned
+    if _native_narwhals_fallback_warned:
+        return
+    _native_narwhals_fallback_warned = True
+    warnings.warn(
+        "No optional dataframe backend is installed for xbbg's Narwhals output; "
+        "falling back to the limited xbbg native ArrowTable plugin. "
+        "Install `xbbg[pyarrow]`, `xbbg[pandas]`, or `xbbg[polars]` for full dataframe behavior, "
+        "or request `backend='native'` explicitly if the raw xbbg ArrowTable is intended.",
+        RuntimeWarning,
+        stacklevel=3,
+    )
+
+
+def _best_narwhals_native(table: Any) -> Any:
+    """Return the richest installed native object for Narwhals wrapping.
+
+    The Rust engine always produces the xbbg native Arrow carrier.  For the
+    public Narwhals default, prefer mature dataframe/Arrow implementations
+    when they are installed so existing Narwhals expressions keep their old
+    behavior instead of falling through to the intentionally small xbbg plugin.
+    """
+    for convert in (_to_pyarrow_table, _to_pandas_frame, _to_polars_frame):
         try:
-            return datetime.fromisoformat(dt).strftime(fmt)
-        except (ValueError, TypeError):
-            # Try common formats
-            for parse_fmt in ("%Y-%m-%d", "%Y%m%d", "%Y/%m/%d"):
-                try:
-                    return datetime.strptime(dt, parse_fmt).strftime(fmt)
-                except ValueError:
-                    continue
-            return dt
-    return dt.strftime(fmt)
+            return convert(table)
+        except ImportError:
+            continue
+    _warn_native_narwhals_fallback()
+    return table
 
 
 def _convert_backend(
     frame: Any,
     backend: Backend | str | None,
 ) -> DataFrameResult:
-    """Convert a frame to the requested backend via pa.Table as canonical form.
+    """Convert an xbbg ArrowTable to the requested public backend."""
+    effective = _resolve_backend(backend) or get_default_backend()
+    table = _ensure_arrow_table(frame)
 
-    Fast path: when ``frame`` is already a ``pa.Table`` (the common case from
-    the Rust engine), dispatch directly to the target backend via a single
-    zero-copy primitive. Slow path: unwrap narwhals or other native inputs to
-    ``pa.Table`` first via ``nw.from_native(frame).to_arrow()``.
-    """
-    effective = _resolve_backend(backend)
-    table = frame if isinstance(frame, pa.Table) else nw.from_native(frame).to_arrow()
-
-    if effective == Backend.PYARROW:
+    if effective == Backend.NATIVE:
         return table
+    if effective == Backend.PYARROW:
+        return _to_pyarrow_table(table)
     if effective == Backend.PANDAS:
-        return table.to_pandas()
+        return _to_pandas_frame(table)
     if effective == Backend.POLARS:
-        import polars as pl
-
-        return pl.from_arrow(table)
+        return _to_polars_frame(table)
     if effective == Backend.POLARS_LAZY:
-        import polars as pl
-
-        return pl.from_arrow(table).lazy()
+        return _to_polars_frame(table).lazy()
+    if effective == Backend.NARWHALS:
+        return nw.from_native(_best_narwhals_native(table))
     if effective == Backend.NARWHALS_LAZY:
-        return nw.from_native(table).lazy()
+        return nw.from_native(_best_narwhals_native(table)).lazy()
     if effective == Backend.DUCKDB:
-        return nw.from_native(table).lazy(backend="duckdb")
-    return nw.from_native(table)  # NARWHALS or None default
+        import duckdb
+
+        con = duckdb.connect()
+        con.register("xbbg_arrow", table)
+        return con.sql("select * from xbbg_arrow")
+    return nw.from_native(table)
 
 
 async def _execute_request_terminal(context: RequestContext) -> DataFrameResult:
@@ -842,7 +1500,7 @@ async def _execute_request_terminal(context: RequestContext) -> DataFrameResult:
         context.fields or None,
     )
 
-    context.table = pa.Table.from_batches([batch])
+    context.table = batch.to_table()
     context.frame = context.table
     return context.table
 
@@ -862,10 +1520,10 @@ async def arequest(
     fields: str | Sequence[str] | None = None,
     overrides: dict[str, Any] | Sequence[tuple[str, str]] | None = None,
     elements: Sequence[tuple[str, Any]] | None = None,
-    start_date: str | None = None,
-    end_date: str | None = None,
-    start_datetime: str | None = None,
-    end_datetime: str | None = None,
+    start_date: DateLike = None,
+    end_date: DateLike = None,
+    start_datetime: DateLike = None,
+    end_datetime: DateLike = None,
     event_type: str | None = None,
     event_types: Sequence[str] | None = None,
     interval: int | None = None,
@@ -901,10 +1559,16 @@ async def arequest(
         overrides: Field overrides as dict or list of (name, value) tuples.
         elements: Additional request elements as list of (name, value) tuples.
             Used for schema-driven parameters like intervalHasSeconds, periodicitySelection.
-        start_date: Start date for historical requests (YYYYMMDD format).
-        end_date: End date for historical requests (YYYYMMDD format).
-        start_datetime: Start datetime for intraday requests (ISO format).
-        end_datetime: End datetime for intraday requests (ISO format).
+        start_date: Start date for historical requests. Accepts ISO 8601 string,
+            ``YYYYMMDD`` string, ``"today"``, ``datetime.date``,
+            ``datetime.datetime``, or duck-typed ``pd.Timestamp``.
+        end_date: End date for historical requests. Same accepted shapes as
+            ``start_date``.
+        start_datetime: Start datetime for intraday requests. Accepts ISO 8601
+            string (with or without tz), ``datetime.datetime`` (naive or
+            tz-aware), or ``pd.Timestamp``. Naive values use ``request_tz``.
+        end_datetime: End datetime for intraday requests. Same accepted shapes
+            as ``start_datetime``.
         request_tz: For intraday requests, how naive datetimes are interpreted before
             sending to Bloomberg (``UTC``, ``local``, ``exchange``, aliases, or IANA).
             Resolved and converted to UTC in the Rust engine.
@@ -1015,10 +1679,10 @@ async def arequest(
         fields=fields_list,
         overrides=overrides_list,
         elements=elements_list,
-        start_date=start_date,
-        end_date=end_date,
-        start_datetime=start_datetime,
-        end_datetime=end_datetime,
+        start_date=_fmt_date(start_date),
+        end_date=_fmt_date(end_date),
+        start_datetime=_fmt_datetime(start_datetime, default_tz=None),
+        end_datetime=_fmt_datetime(end_datetime, default_tz=None),
         event_type=event_type,
         event_types=list(event_types) if event_types else None,
         interval=interval,
@@ -1042,6 +1706,7 @@ async def arequest(
         params=params,
         params_dict=params_dict,
         backend=backend,
+        raw=_raw,
         securities=list(securities_list or []),
         fields=list(fields_list or []),
         environment=_snapshot_request_environment(),
@@ -1052,12 +1717,16 @@ async def arequest(
     except Exception as exc:
         context.error = exc
         raise
-    # Only auto-convert the default terminal output (pa.Table). If a middleware
-    # short-circuited with any other type (e.g. a cache returning a list), the
-    # middleware owns the return contract — leave it alone.
-    if _raw or not isinstance(result, pa.Table):
+    # Low-level arequest() defaults to the raw Arrow output requested by OutputMode.ARROW.
+    # High-level generated endpoints call arequest(_raw=True) and then apply their own
+    # public backend conversion, so their default remains the Narwhals dataframe contract.
+    if _raw or not _is_arrow_table(result):
         return result
-    context.frame = _convert_backend(result, backend)
+    effective_backend = _resolve_backend(backend)
+    if effective_backend is None and params.output == OutputMode.ARROW:
+        context.frame = result
+        return result
+    context.frame = _convert_backend(result, effective_backend)
     return context.frame
 
 
@@ -1118,8 +1787,8 @@ async def abdp(
 async def abdh(
     tickers: str | Sequence[str],
     flds: str | Sequence[str] | None = None,
-    start_date: str | None = None,
-    end_date: str = "today",
+    start_date: DateLike = None,
+    end_date: DateLike = "today",
     *,
     backend: Backend | str | None = None,
     format: Format | str | None = None,
@@ -1186,7 +1855,10 @@ async def abds(
         **kwargs: Bloomberg overrides and infrastructure options.
 
     Returns:
-        DataFrame with bulk data, multiple rows per ticker.
+        DataFrame with one row per Bloomberg bulk row. The only xbbg-added
+        columns are ``ticker`` and ``field``; bulk subfield columns preserve
+        Bloomberg's labels exactly as emitted, including spaces, punctuation,
+        and case. Higher-level helpers must rename their own semantic outputs.
 
     Example::
 
@@ -1198,12 +1870,12 @@ async def abds(
 
 async def abdib(
     ticker: str,
-    dt: str | None = None,
+    dt: DateLike = None,
     session: str = "allday",
     typ: str = "TRADE",
     *,
-    start_datetime: str | None = None,
-    end_datetime: str | None = None,
+    start_datetime: DateLike = None,
+    end_datetime: DateLike = None,
     interval: int = 1,
     backend: Backend | str | None = None,
     request_tz: str | None = None,
@@ -1227,8 +1899,8 @@ async def abdib(
             or an IANA zone. Conversion to UTC is done in the Rust engine.
         output_tz: Relabel the ``time`` column to this zone (same instants; Rust engine).
         **kwargs: Additional Bloomberg options (e.g., intervalHasSeconds,
-            gapFillInitialBar). Pass field overrides via ``overrides={"Points": 1}``
-            (dict) or ``overrides=[("Points", 1)]`` (list of tuples).
+            gapFillInitialBar, or 0.x request-element aliases such as ``Points=1``).
+            Pass true Bloomberg field overrides via ``overrides={...}``.
 
     Returns:
         DataFrame with intraday bar data.
@@ -1254,8 +1926,8 @@ async def abdib(
 
 async def abdtick(
     ticker: str,
-    start_datetime: str,
-    end_datetime: str,
+    start_datetime: DateLike,
+    end_datetime: DateLike,
     *,
     event_types: Sequence[str] | None = None,
     backend: Backend | str | None = None,
@@ -1274,10 +1946,10 @@ async def abdtick(
         backend: DataFrame backend to return. If None, uses global default.
         request_tz: How naive datetimes are interpreted before Bloomberg (see ``abdib``).
         output_tz: Relabel ``time`` column (same instants; Rust engine).
-        **kwargs: Additional Bloomberg options. Pass field overrides via
-            ``overrides={"Points": 1}`` (dict) or ``overrides=[("Points", 1)]``
-            (list of tuples). Schema-recognized request elements may be passed
-            as individual keyword arguments.
+        **kwargs: Additional Bloomberg options. Schema-recognized request elements
+            and 0.x request-element aliases such as ``Points=1`` may be passed as
+            individual keyword arguments. Pass true Bloomberg field overrides via
+            ``overrides={...}``.
 
     Returns:
         DataFrame with tick data.
@@ -1328,11 +2000,132 @@ def _strip_signature_annotations(func: Callable[..., Any]) -> str:
     return str(stripped)
 
 
+def _is_notebook_context() -> bool:
+    """Return True when running in an IPykernel-backed notebook shell."""
+    try:
+        from IPython import get_ipython
+    except Exception:
+        return False
+
+    shell = get_ipython()
+    if shell is None:
+        return False
+
+    shell_module = shell.__class__.__module__
+    if shell_module.startswith("ipykernel."):
+        return True
+
+    config = getattr(shell, "config", None)
+    return bool(config is not None and "IPKernelApp" in config)
+
+
+def _ensure_notebook_sync_loop() -> asyncio.AbstractEventLoop:
+    global _notebook_sync_loop, _notebook_sync_loop_thread
+
+    with _notebook_sync_loop_lock:
+        if (
+            _notebook_sync_loop is not None
+            and not _notebook_sync_loop.is_closed()
+            and _notebook_sync_loop.is_running()
+            and _notebook_sync_loop_thread is not None
+            and _notebook_sync_loop_thread.is_alive()
+        ):
+            return _notebook_sync_loop
+
+        ready = threading.Event()
+        loop_holder: dict[str, asyncio.AbstractEventLoop] = {}
+        error_holder: list[Exception] = []
+
+        def run_loop() -> None:
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop_holder["loop"] = loop
+                loop.call_soon(ready.set)
+                loop.run_forever()
+                pending = asyncio.all_tasks(loop)
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                loop.run_until_complete(loop.shutdown_asyncgens())
+                loop.close()
+            except Exception as exc:
+                error_holder.append(exc)
+                ready.set()
+
+        thread = threading.Thread(
+            target=run_loop,
+            name="xbbg-notebook-sync-bridge",
+            daemon=True,
+        )
+        thread.start()
+        ready.wait()
+
+        if error_holder:
+            raise RuntimeError("Failed to start xbbg notebook sync bridge") from error_holder[0]
+
+        _notebook_sync_loop = loop_holder["loop"]
+        _notebook_sync_loop_thread = thread
+        return _notebook_sync_loop
+
+
+def _stop_notebook_sync_loop() -> None:
+    global _notebook_sync_loop, _notebook_sync_loop_thread
+
+    with _notebook_sync_loop_lock:
+        loop = _notebook_sync_loop
+        thread = _notebook_sync_loop_thread
+        _notebook_sync_loop = None
+        _notebook_sync_loop_thread = None
+
+    if loop is not None and loop.is_running():
+        loop.call_soon_threadsafe(loop.stop)
+    if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+        thread.join(timeout=1.0)
+
+
+def _run_in_notebook_sync_bridge(
+    async_func: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> Any:
+    if _notebook_sync_loop_thread is threading.current_thread():
+        raise RuntimeError("xbbg notebook sync bridge cannot be re-entered from its own event-loop thread")
+
+    loop = _ensure_notebook_sync_loop()
+    caller_context = contextvars.copy_context()
+    result: concurrent.futures.Future = concurrent.futures.Future()
+
+    def schedule() -> None:
+        try:
+            task = asyncio.ensure_future(async_func(*args, **kwargs))
+        except Exception as exc:
+            result.set_exception(exc)
+            return
+
+        def complete(task: asyncio.Future) -> None:
+            if result.cancelled():
+                return
+            try:
+                result.set_result(task.result())
+            except asyncio.CancelledError as exc:
+                result.set_exception(exc)
+            except Exception as exc:
+                result.set_exception(exc)
+
+        task.add_done_callback(complete)
+
+    loop.call_soon_threadsafe(schedule, context=caller_context)
+    return result.result()
+
+
 def _build_sync_wrapper(
     sync_name: str,
     async_func: Callable[..., Any],
     *,
     template: Callable[..., Any] | None = None,
+    allow_notebook_bridge: bool = False,
 ) -> Callable[..., Any]:
     template_func = template if template is not None else async_func
 
@@ -1341,15 +2134,16 @@ def _build_sync_wrapper(
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            pass  # No running loop — asyncio.run() is safe
-        else:
-            raise RuntimeError(
-                f"{sync_name}() cannot be used inside an async context "
-                f"(FastAPI, Jupyter, etc.). "
-                f"Use 'await a{sync_name}()' instead, "
-                f"or use xbbg.Engine(...) for scoped async engines."
-            )
-        return asyncio.run(async_func(*args, **kwargs))
+            return asyncio.run(async_func(*args, **kwargs))
+
+        if allow_notebook_bridge and _is_notebook_context():
+            return _run_in_notebook_sync_bridge(async_func, args, kwargs)
+
+        raise RuntimeError(
+            f"{sync_name}() cannot be used inside an async context. "
+            f"Use 'await a{sync_name}()' instead, "
+            f"or use xbbg.Engine(...) for scoped async engines."
+        )
 
     wrapped.__name__ = sync_name
     wrapped.__qualname__ = sync_name
@@ -1409,7 +2203,12 @@ def _install_generated_endpoint(spec: _GeneratedEndpointSpec) -> None:
     generated_async = _build_generated_async(spec, async_template)
     globals()[spec.async_name] = generated_async
 
-    globals()[spec.sync_name] = _build_sync_wrapper(spec.sync_name, generated_async, template=async_template)
+    globals()[spec.sync_name] = _build_sync_wrapper(
+        spec.sync_name,
+        generated_async,
+        template=async_template,
+        allow_notebook_bridge=spec.sync_name in _NOTEBOOK_SYNC_BRIDGE_NAMES,
+    )
 
 
 def _install_generated_endpoints() -> None:
@@ -1460,8 +2259,8 @@ class Subscription:
         sub = await xbbg.asubscribe(["AAPL US Equity"], ["LAST_PRICE", "BID"])
 
         async for batch in sub:
-            # batch is pyarrow.RecordBatch
-            print(batch.to_pandas())
+            # batch is xbbg.ArrowRecordBatch
+            print(batch.to_pylist())
 
             if should_add_msft:
                 await sub.add(["MSFT US Equity"])
@@ -1469,7 +2268,14 @@ class Subscription:
         await sub.unsubscribe()
     """
 
-    def __init__(self, py_sub, raw: bool, backend: Backend | None, tick_mode: bool = False):
+    def __init__(
+        self,
+        py_sub,
+        raw: bool,
+        backend: Backend | None,
+        tick_mode: bool = False,
+        topic_normalizer: Callable[[str | Sequence[str]], list[str]] | None = None,
+    ):
         """Initialize subscription wrapper.
 
         Args:
@@ -1477,28 +2283,28 @@ class Subscription:
             raw: If True, yield raw Arrow batches
             backend: DataFrame backend for conversion (if not raw)
             tick_mode: If True, convert batches to dicts (implies raw=True)
+            topic_normalizer: Normalizes add/remove inputs to subscribed Bloomberg topics
         """
         self._sub = py_sub
         self._raw = raw
         self._backend = backend
         self._tick_mode = tick_mode
+        self._topic_normalizer = topic_normalizer or _normalize_tickers
 
     def __aiter__(self):
         return self
 
-    async def __anext__(self) -> pa.RecordBatch | nw.DataFrame | dict[str, Any]:
-        """Get next batch of data."""
-        batch = await self._sub.__anext__()
-
-        # Tick mode: convert RecordBatch to dict
+    async def __anext__(self) -> Any:
         if self._tick_mode:
-            return {field.name: batch.column(i)[0].as_py() for i, field in enumerate(batch.schema)}
+            return await self._sub.__anext_tick_dict__()
+
+        batch = await self._sub.__anext__()
 
         if self._raw:
             return batch
 
-        # Dispatch pa.Table directly to the requested backend.
-        return _convert_backend(pa.Table.from_batches([batch]), self._backend)
+        # Dispatch xbbg ArrowTable directly to the requested backend.
+        return _convert_backend(batch.to_table(), self._backend)
 
     async def add(self, tickers: str | list[str]) -> None:
         """Add tickers to subscription dynamically.
@@ -1506,7 +2312,7 @@ class Subscription:
         Args:
             tickers: Single ticker or list of tickers to add
         """
-        ticker_list = _normalize_tickers(tickers)
+        ticker_list = self._topic_normalizer(tickers)
         logger.debug("subscription add: %s", ticker_list)
         await self._sub.add(ticker_list)
 
@@ -1516,7 +2322,7 @@ class Subscription:
         Args:
             tickers: Single ticker or list of tickers to remove
         """
-        ticker_list = _normalize_tickers(tickers)
+        ticker_list = self._topic_normalizer(tickers)
         logger.debug("subscription remove: %s", ticker_list)
         await self._sub.remove(ticker_list)
 
@@ -1628,7 +2434,7 @@ class Subscription:
         """
         return self._sub.stats
 
-    async def unsubscribe(self, drain: bool = False) -> list[pa.RecordBatch] | None:
+    async def unsubscribe(self, drain: bool = False) -> list[Any] | None:
         """Close subscription and optionally drain remaining data.
 
         Args:
@@ -1657,12 +2463,14 @@ async def asubscribe(
     raw: bool = False,
     all_fields: bool = False,
     backend: Backend | str | None = None,
-    service: str | None = None,
+    service: str | Service | None = None,
     options: list[str] | None = None,
+    conflate: bool = False,
     tick_mode: bool = False,
     flush_threshold: int | None = None,
     stream_capacity: int | None = None,
     overflow_policy: str | None = None,
+    output: str | None = None,
 ) -> Subscription:
     """Create an async subscription to real-time market data.
 
@@ -1680,9 +2488,13 @@ async def asubscribe(
         raw: If True, yield raw Arrow RecordBatches for max performance
         all_fields: If True, expose all top-level scalar Bloomberg subscription fields
         backend: DataFrame backend for batch conversion (ignored if raw=True)
-        service: Bloomberg service (e.g., '//blp/mktdata'). If provided, uses subscribe_with_options
+        service: Bloomberg service (e.g., '//blp/mktdata'). For BPS services
+            such as ``//blp/mktbar`` and ``//blp/mktvwap``, tickers are
+            normalized to explicit service topics.
         options: List of subscription options. If provided, uses subscribe_with_options
-        tick_mode: If True, convert batches to dicts (implies raw=True)
+        conflate: If True, request Bloomberg conflated market data for //blp/mktdata.
+            Quote updates are conflated by Bloomberg; trades are still delivered as received.
+        tick_mode: If True, return native dict ticks without building Arrow (implies raw=True)
         flush_threshold: Batch flush threshold (validation only in Wave 1)
         stream_capacity: Stream channel capacity (validation only in Wave 1)
         overflow_policy: Overflow policy for stream (validation only in Wave 1)
@@ -1720,6 +2532,15 @@ async def asubscribe(
         async for tick_dict in sub:
             print(tick_dict)  # {'ticker': 'AAPL US Equity', 'LAST_PRICE': 150.25, ...}
     """
+    if output is not None:
+        normalized_output = output.lower()
+        if normalized_output not in ("record_batch", "backend", "dict", "tick"):
+            raise ValueError(f"output must be one of 'record_batch', 'backend', 'dict', 'tick', got {output!r}")
+        if normalized_output in ("dict", "tick"):
+            tick_mode = True
+        elif normalized_output == "record_batch":
+            raw = True
+
     # Validate config parameters
     if flush_threshold is not None and flush_threshold < 1:
         raise ValueError("flush_threshold must be >= 1")
@@ -1735,18 +2556,38 @@ async def asubscribe(
         )
         flush_threshold = 1
 
-    ticker_list = _normalize_tickers(tickers)
+    subscription_service = service.value if isinstance(service, Service) else service
+    effective_subscription_service = subscription_service or Service.MKTDATA.value
+    subscription_options = _normalize_subscription_options(
+        options,
+        conflate=conflate,
+        service=effective_subscription_service,
+    )
+    if subscription_service == Service.MKTBAR.value:
+        topic_normalizer = _normalize_mktbar_topics
+    elif subscription_service == Service.MKTVWAP.value:
+        topic_normalizer = _normalize_mktvwap_topics
+    else:
+        topic_normalizer = _normalize_tickers
+
+    ticker_list = topic_normalizer(tickers)
     field_list = _normalize_fields(fields)
+    if subscription_service == Service.MKTBAR.value:
+        if field_list != ["LAST_PRICE"]:
+            raise ValueError("//blp/mktbar subscriptions must request only LAST_PRICE")
+        _validate_mktbar_options(subscription_options)
+    elif subscription_service == Service.MKTVWAP.value and field_list != ["VWAP"]:
+        raise ValueError("//blp/mktvwap subscriptions must request only VWAP")
 
     effective_backend = _resolve_backend(backend)
 
     engine = _get_engine()
     logger.debug("subscribe: tickers=%s fields=%s", ticker_list, field_list)
 
-    # Use subscribe_with_options if service, options, or config params provided
+    # Use subscribe_with_options if service, subscription options, or config params provided
     if (
-        service is not None
-        or options is not None
+        subscription_service is not None
+        or subscription_options is not None
         or flush_threshold is not None
         or stream_capacity is not None
         or overflow_policy is not None
@@ -1762,16 +2603,22 @@ async def asubscribe(
             if v is not None
         }
         py_sub = await engine.subscribe_with_options(
-            service or "//blp/mktdata",
+            subscription_service or "//blp/mktdata",
             ticker_list,
             field_list,
-            options or [],
+            subscription_options or [],
             **opt_kwargs,
         )
     else:
         py_sub = await engine.subscribe(ticker_list, field_list, all_fields=all_fields)
 
-    return Subscription(py_sub, raw=raw or tick_mode, backend=effective_backend, tick_mode=tick_mode)
+    return Subscription(
+        py_sub,
+        raw=raw or tick_mode,
+        backend=effective_backend,
+        tick_mode=tick_mode,
+        topic_normalizer=topic_normalizer,
+    )
 
 
 async def astream(
@@ -1781,8 +2628,9 @@ async def astream(
     raw: bool = False,
     all_fields: bool = False,
     backend: Backend | str | None = None,
-    callback: Callable[[pa.RecordBatch | nw.DataFrame | dict[str, Any]], None] | None = None,
+    callback: Callable[[Any], None] | None = None,
     tick_mode: bool = False,
+    conflate: bool = False,
     flush_threshold: int | None = None,
     stream_capacity: int | None = None,
     overflow_policy: str | None = None,
@@ -1800,6 +2648,7 @@ async def astream(
         backend: DataFrame backend for batch conversion
         callback: Optional callback function to invoke on each batch
         tick_mode: If True, convert batches to dicts
+        conflate: If True, request Bloomberg conflated market data for //blp/mktdata.
 
     Yields:
         Batches of market data (RecordBatch, DataFrame, or dict)
@@ -1827,6 +2676,7 @@ async def astream(
         all_fields=all_fields,
         backend=backend,
         tick_mode=tick_mode,
+        conflate=conflate,
         flush_threshold=flush_threshold,
         stream_capacity=stream_capacity,
         overflow_policy=overflow_policy,
@@ -1847,8 +2697,9 @@ def stream(
     raw: bool = False,
     all_fields: bool = False,
     backend: Backend | str | None = None,
-    callback: Callable[[pa.RecordBatch | nw.DataFrame | dict[str, Any]], None] | None = None,
+    callback: Callable[[Any], None] | None = None,
     tick_mode: bool = False,
+    conflate: bool = False,
     flush_threshold: int | None = None,
     stream_capacity: int | None = None,
     overflow_policy: str | None = None,
@@ -1866,6 +2717,7 @@ def stream(
         backend: DataFrame backend for batch conversion
         callback: Optional callback function to invoke on each batch
         tick_mode: If True, convert batches to dicts
+        conflate: If True, request Bloomberg conflated market data for //blp/mktdata.
 
     Yields:
         Batches of market data
@@ -1893,6 +2745,7 @@ def stream(
                 backend=backend,
                 callback=callback,
                 tick_mode=tick_mode,
+                conflate=conflate,
                 flush_threshold=flush_threshold,
                 stream_capacity=stream_capacity,
                 overflow_policy=overflow_policy,
@@ -1931,53 +2784,45 @@ def stream(
 
 async def avwap(
     tickers: str | list[str],
-    fields: str | list[str] | None = None,
     *,
     start_time: str | None = None,
     end_time: str | None = None,
     raw: bool = False,
-    all_fields: bool = False,
+    all_fields: bool = True,
     backend: Backend | str | None = None,
 ) -> Subscription:
-    """Subscribe to real-time VWAP data (//blp/mktvwap).
+    """Subscribe to real-time VWAP data.
 
-    Provides streaming Volume Weighted Average Price calculations.
+    Uses Bloomberg's ``//blp/mktvwap`` service. Bloomberg requires explicit
+    Market VWAP topics (for example, ``//blp/mktvwap/ticker/IBM US Equity``)
+    and ``VWAP`` as the single requested field. Security identifiers passed
+    here are normalized to those explicit topics.
 
     Args:
-        tickers: Securities to subscribe to
-        fields: Fields to subscribe to (default: RT_PX_VWAP, RT_VWAP_VOLUME)
-        start_time: VWAP calculation start time (e.g., "09:30")
-        end_time: VWAP calculation end time (e.g., "16:00")
-        raw: If True, yield raw Arrow RecordBatches for max performance
-        all_fields: If True, expose all top-level scalar Bloomberg subscription fields
-        backend: DataFrame backend for batch conversion (ignored if raw=True)
+        tickers: Security identifier(s). Plain tickers use the ``ticker`` topic type;
+            already-qualified ``//blp/mktvwap/...`` topics pass through unchanged.
+        start_time: Optional VWAP calculation start time (e.g., "09:30").
+        end_time: Optional VWAP calculation end time (e.g., "16:00").
+        raw: If True, yield raw Arrow RecordBatches for max performance.
+        all_fields: If True, expose the full top-level VWAP payload.
+        backend: DataFrame backend for batch conversion (ignored if raw=True).
 
     Returns:
-        Subscription handle for iteration and control
+        Subscription handle for iteration and control.
 
     Example::
 
         # Basic usage - subscribe to VWAP
-        sub = await xbbg.avwap(["AAPL US Equity"])
+        sub = await xbbg.avwap("IBM US Equity")
         async for batch in sub:
             print(batch)
         await sub.unsubscribe()
 
         # With custom time window
-        sub = await xbbg.avwap(["AAPL US Equity", "MSFT US Equity"], start_time="09:30", end_time="16:00")
-
-        # With specific fields
-        sub = await xbbg.avwap("AAPL US Equity", ["RT_PX_VWAP", "RT_VWAP_VOLUME", "RT_VWAP_TURNOVER"])
+        sub = await xbbg.avwap(["IBM US Equity", "MSFT US Equity"], start_time="09:30", end_time="16:00")
     """
-    ticker_list = _normalize_tickers(tickers)
+    ticker_list = _normalize_mktvwap_topics(tickers)
 
-    # Default fields if not provided
-    if fields is None:
-        field_list = ["RT_PX_VWAP", "RT_VWAP_VOLUME"]
-    else:
-        field_list = _normalize_fields(fields)
-
-    # Build subscription options
     options: list[str] = []
     if start_time:
         options.append(f"VWAP_START_TIME={start_time}")
@@ -1990,12 +2835,12 @@ async def avwap(
     py_sub = await engine.subscribe_with_options(
         Service.MKTVWAP.value,
         ticker_list,
-        field_list,
+        ["VWAP"],
         options if options else None,
         all_fields=all_fields,
     )
 
-    return Subscription(py_sub, raw=raw, backend=effective_backend)
+    return Subscription(py_sub, raw=raw, backend=effective_backend, topic_normalizer=_normalize_mktvwap_topics)
 
 
 # =============================================================================
@@ -2006,25 +2851,29 @@ async def avwap(
 async def amktbar(
     tickers: str | list[str],
     *,
-    interval: int = 1,
+    bar_size: int = 1,
     start_time: str | None = None,
     end_time: str | None = None,
     raw: bool = False,
-    all_fields: bool = False,
+    all_fields: bool = True,
     backend: Backend | str | None = None,
 ) -> Subscription:
     """Subscribe to real-time streaming OHLC bars.
 
-    Like bdib but streaming instead of historical. Provides real-time
-    bar updates as they form during the trading day.
+    Uses Bloomberg's ``//blp/mktbar`` service. Bloomberg requires explicit
+    market-bar topics (for example, ``//blp/mktbar/ticker/ES1 Index``),
+    ``LAST_PRICE`` as the only requested field, and ``bar_size`` as the bar
+    interval option. Security identifiers passed here are normalized to those
+    explicit topics.
 
     Args:
-        tickers: Security identifier(s).
-        interval: Bar interval in minutes (default: 1).
+        tickers: Security identifier(s). Plain tickers use the ``ticker`` topic type;
+            identifiers like ``/figi/...`` keep their identifier type.
+        bar_size: Bar interval in minutes (default: 1).
         start_time: Optional start time in HH:MM format.
         end_time: Optional end time in HH:MM format.
-        raw: If True, return raw pyarrow RecordBatch (default: False).
-        all_fields: If True, expose all top-level scalar Bloomberg subscription fields
+        raw: If True, return raw xbbg ArrowRecordBatch (default: False).
+        all_fields: If True, expose the full top-level market-bar payload.
         backend: DataFrame backend to return. If None, uses global default.
 
     Returns:
@@ -2033,39 +2882,38 @@ async def amktbar(
     Example::
 
         # Subscribe to 5-minute bars
-        async with await amktbar("AAPL US Equity", interval=5) as sub:
+        async with await amktbar("AAPL US Equity", bar_size=5) as sub:
             async for batch in sub:
                 print(batch)
 
         # Multiple securities
-        sub = await amktbar(["AAPL US Equity", "MSFT US Equity"], interval=1)
+        sub = await amktbar(["AAPL US Equity", "MSFT US Equity"], bar_size=1)
         async for batch in sub:
             print(batch)
     """
-    logger.debug("amktbar: tickers=%s interval=%d", tickers, interval)
+    _validate_mktbar_bar_size(bar_size)
 
-    # Normalize inputs
-    ticker_list = _normalize_tickers(tickers)
+    logger.debug("amktbar: tickers=%s bar_size=%d", tickers, bar_size)
+
+    ticker_list = _normalize_mktbar_topics(tickers)
     effective_backend = _resolve_backend(backend)
 
-    # Build subscription options
-    options: list[str] = [f"interval={interval}"]
+    options: list[str] = [f"bar_size={bar_size}"]
     if start_time:
-        options.append(f"START_TIME={start_time}")
+        options.append(f"start_time={start_time}")
     if end_time:
-        options.append(f"END_TIME={end_time}")
+        options.append(f"end_time={end_time}")
 
-    # Get engine and subscribe
     engine = _get_engine()
     py_sub = await engine.subscribe_with_options(
         Service.MKTBAR.value,
         ticker_list,
-        ["OPEN", "HIGH", "LOW", "CLOSE", "VOLUME", "NUM_TRADES"],
-        options if options else None,
+        ["LAST_PRICE"],
+        options,
         all_fields=all_fields,
     )
 
-    return Subscription(py_sub, raw=raw, backend=effective_backend)
+    return Subscription(py_sub, raw=raw, backend=effective_backend, topic_normalizer=_normalize_mktbar_topics)
 
 
 # =============================================================================
@@ -2083,15 +2931,15 @@ async def adepth(
     """Subscribe to Level 2 market depth / order book data.
 
     .. warning::
-        **Requires Bloomberg B-PIPE license.** This feature is not available
-        with standard Terminal connections.
+        **Requires a Bloomberg B-PIPE environment and applicable service entitlements.**
+        This feature is not available with Terminal-only connections.
 
     Provides real-time order book updates with bid/ask prices and sizes
     at multiple levels.
 
     Args:
         tickers: Security identifier(s).
-        raw: If True, return raw pyarrow RecordBatch (default: False).
+        raw: If True, return raw xbbg ArrowRecordBatch (default: False).
         all_fields: If True, expose all top-level scalar Bloomberg subscription fields
         backend: DataFrame backend to return. If None, uses global default.
 
@@ -2099,7 +2947,7 @@ async def adepth(
         Subscription object for async iteration.
 
     Raises:
-        BlpBPipeError: If B-PIPE license is not available.
+        BlpBPipeError: If a B-PIPE environment or service entitlement is unavailable.
 
     Example::
 
@@ -2129,7 +2977,9 @@ async def adepth(
     except Exception as e:
         # Check for B-PIPE related errors
         if "MKTDEPTHDATA" in str(e).upper() or "SERVICE" in str(e).upper():
-            raise BlpBPipeError("Level 2 market depth requires Bloomberg B-PIPE license.") from e
+            raise BlpBPipeError(
+                "Level 2 market depth requires a Bloomberg B-PIPE environment and applicable service entitlements."
+            ) from e
         raise
 
     return Subscription(py_sub, raw=raw, backend=effective_backend)
@@ -2151,8 +3001,8 @@ async def achains(
     """Subscribe to option or futures chain updates.
 
     .. warning::
-        **Requires Bloomberg B-PIPE license.** This feature is not available
-        with standard Terminal connections.
+        **Requires a Bloomberg B-PIPE environment and applicable service entitlements.**
+        This feature is not available with Terminal-only connections.
 
     Provides real-time updates for option chains or futures chains
     on a given underlying security.
@@ -2160,7 +3010,7 @@ async def achains(
     Args:
         underlying: Underlying security identifier.
         chain_type: Type of chain - "OPTIONS" or "FUTURES" (default: "OPTIONS").
-        raw: If True, return raw pyarrow RecordBatch (default: False).
+        raw: If True, return raw xbbg ArrowRecordBatch (default: False).
         all_fields: If True, expose all top-level scalar Bloomberg subscription fields
         backend: DataFrame backend to return. If None, uses global default.
 
@@ -2168,7 +3018,7 @@ async def achains(
         Subscription object for async iteration.
 
     Raises:
-        BlpBPipeError: If B-PIPE license is not available.
+        BlpBPipeError: If a B-PIPE environment or service entitlement is unavailable.
 
     Example::
 
@@ -2202,7 +3052,9 @@ async def achains(
     except Exception as e:
         # Check for B-PIPE related errors
         if "MKTLIST" in str(e).upper() or "SERVICE" in str(e).upper():
-            raise BlpBPipeError("Option/futures chains require Bloomberg B-PIPE license.") from e
+            raise BlpBPipeError(
+                "Option/futures chains require a Bloomberg B-PIPE environment and applicable service entitlements."
+            ) from e
         raise
 
     return Subscription(py_sub, raw=raw, backend=effective_backend)
@@ -2417,8 +3269,9 @@ async def abta(
     Args:
         tickers: Security or list of securities
         study: Study type (e.g., 'sma', 'rsi', 'macd', 'boll', 'atr')
-        start_date: Start date (YYYYMMDD format)
-        end_date: End date (YYYYMMDD format)
+        start_date: Start date. Accepts ISO 8601 / ``YYYYMMDD`` string,
+            ``datetime.date``, ``datetime.datetime``, or ``pd.Timestamp``.
+        end_date: End date. Same accepted shapes as ``start_date``.
         periodicity: Data periodicity ('DAILY', 'WEEKLY', 'MONTHLY', 'INTRADAY')
         interval: Intraday interval in minutes (only for periodicity='INTRADAY')
         **study_params: Study-specific parameters (e.g., period=20 for SMA period)
@@ -2460,7 +3313,7 @@ async def abta(
     ticker_list = _normalize_tickers(tickers)
     engine = _get_engine()
 
-    async def fetch_single(ticker: str) -> pa.RecordBatch | Exception:
+    async def fetch_single(ticker: str) -> Any | Exception:
         """Fetch TA data for a single ticker."""
         study_elements = _build_study_request(
             ticker,
@@ -2486,7 +3339,7 @@ async def abta(
     )
 
     # Filter successful results and warn about failures
-    batches: list[pa.RecordBatch] = []
+    batches: list[Any] = []
     for ticker, result in zip(ticker_list, results, strict=True):
         if isinstance(result, Exception):
             warnings.warn(f"Failed to fetch TA data for {ticker}: {result}", stacklevel=2)
@@ -2496,8 +3349,8 @@ async def abta(
     if not batches:
         raise RuntimeError("All TA requests failed")
 
-    # Combine all batches into a single table
-    table = pa.concat_tables([pa.Table.from_batches([b]) for b in batches])
+    # Combine all batches into a single native Arrow table
+    table = _core_arrow_table_class().from_batches(batches)
     return _convert_backend(table, _default_backend)
 
 
@@ -2792,76 +3645,81 @@ def _parse_date_offset(offset: str, reference: datetime) -> datetime:
     raise ValueError(f"Unknown time unit: {unit}")
 
 
-def _reshape_bqr_generic(table: pa.Table, ticker: str) -> nw.DataFrame:
-    """Reshape generic extractor output into structured BQR rows.
+def _reshape_bqr_generic(table: Any, ticker: str) -> Any:
+    """Reshape generic extractor output into structured BQR rows via native Arrow."""
+    return table.reshape_bqr_generic(ticker)
 
-    When includeBrokerCodes (or similar) is set, the Rust tick extractor
-    falls back to the generic flattener. This function groups the flat
-    path/value rows back into one row per tick with proper columns.
-    """
-    import re
 
-    if "path" not in table.column_names:
-        return nw.from_native(pa.table({"ticker": [], "time": [], "type": [], "value": [], "size": []}))
+_BQR_RENAME_MAP: dict[str, str] = {
+    "type": "event_type",
+    "value": "price",
+    "brokerBuyCode": "broker_buy",
+    "brokerSellCode": "broker_sell",
+    "spreadPrice": "spread_price",
+    "conditionCodes": "condition_codes",
+    "exchangeCode": "exchange",
+}
+_BQR_BROKER_COLUMNS = ("brokerBuyCode", "brokerSellCode", "broker_buy", "broker_sell")
+_BQR_DEALER_INPUT_EXAMPLE = "/isin/US037833FB15@MSG1 Corp"
 
-    paths = table["path"].to_pylist()
-    value_strs = table["value_str"].to_pylist() if "value_str" in table.column_names else [None] * len(paths)
-    value_nums = table["value_num"].to_pylist() if "value_num" in table.column_names else [None] * len(paths)
 
-    pattern = re.compile(r"tickData\[(\d+)\]\.(\w+)")
+def _looks_like_bqr_dealer_input(ticker: str) -> bool:
+    normalized = " ".join(ticker.strip().casefold().split())
+    return normalized.startswith("/isin/") and "@msg1 corp" in normalized
 
-    tick_values: list[tuple[str, str, Any]] = []
-    all_fields: set[str] = set()
 
-    for row_idx, path in enumerate(paths):
-        if not isinstance(path, str):
-            continue
-        match = pattern.search(path)
-        if not match:
-            continue
+def _warn_bqr_dealer_input(ticker: str, *, stacklevel: int = 3) -> None:
+    if _looks_like_bqr_dealer_input(ticker):
+        return
+    warnings.warn(
+        "BQR broker attribution is intended for fixed-income ISIN inputs with an @MSG1 Corp "
+        f"dealer quote source, for example '{_BQR_DEALER_INPUT_EXAMPLE}'. Other inputs may "
+        "return quote rows without broker_buy/broker_sell and will raise unless "
+        "include_broker_codes=False is passed explicitly.",
+        UserWarning,
+        stacklevel=stacklevel,
+    )
 
-        idx, field = match.group(1), match.group(2)
-        all_fields.add(field)
 
-        value_str = value_strs[row_idx]
-        value_num = value_nums[row_idx]
-        value = value_str if value_str not in (None, "") else value_num
-        tick_values.append((idx, field, value))
+def _bqr_has_broker_code_value(table: Any) -> bool:
+    return table.has_any_value(list(_BQR_BROKER_COLUMNS))
 
-    if not tick_values:
-        return nw.from_native(pa.table({"ticker": [], "time": [], "type": [], "value": [], "size": []}))
 
-    records_by_idx: dict[str, dict[str, Any]] = {}
-    for idx, field, value in tick_values:
-        if idx not in records_by_idx:
-            record: dict[str, Any] = {"ticker": ticker}
-            for name in all_fields:
-                record[name] = None
-            records_by_idx[idx] = record
-        records_by_idx[idx][field] = value
+def _postprocess_bqr_result(
+    result: Any,
+    *,
+    ticker: str,
+    backend: Backend | str | None,
+    enforce_broker_codes: bool,
+) -> DataFrameResult:
+    table = _ensure_arrow_table(result)
 
-    records = list(records_by_idx.values())
+    if "path" in table.column_names:
+        table = _reshape_bqr_generic(table, ticker)
 
-    result = pa.Table.from_pylist(records)
+    if enforce_broker_codes and table.num_rows > 0 and not _bqr_has_broker_code_value(table):
+        raise RuntimeError(
+            "BQR returned quote rows without broker attribution. "
+            "Use a fixed-income ticker with a dealer quote pricing source such as '@MSG1 Corp', "
+            "or pass include_broker_codes=False if raw quote ticks without dealer codes are intentional."
+        )
 
-    # Reorder: ticker first, then standard tick fields, then extras
-    cols = result.column_names
-    priority = ["ticker", "time", "type", "value", "size"]
-    ordered = [c for c in priority if c in cols]
-    ordered += [c for c in cols if c not in priority]
-    result = result.select(ordered)
+    if table.num_rows > 0 and "time" in table.column_names:
+        table = table.sort_by([("time", "ascending")])
 
-    return nw.from_native(result)
+    rename_map = {column: _BQR_RENAME_MAP[column] for column in table.column_names if column in _BQR_RENAME_MAP}
+    table = table.rename_columns(rename_map)
+    return _convert_backend(table, backend)
 
 
 async def abqr(
     ticker: str,
     date_offset: str | None = None,
-    start_date: str | None = None,
-    end_date: str | None = None,
+    start_date: DateLike = None,
+    end_date: DateLike = None,
     *,
     event_types: Sequence[str] | None = None,
-    include_broker_codes: bool = False,
+    include_broker_codes: bool = True,
     include_spread_price: bool = False,
     include_yield: bool = False,
     include_condition_codes: bool = False,
@@ -2882,7 +3740,7 @@ async def abqr(
         start_date: Start date (e.g., '2024-01-15'). Defaults to 2 days ago.
         end_date: End date (e.g., '2024-01-17'). Defaults to today.
         event_types: Event types to retrieve. Defaults to ['BID', 'ASK'].
-        include_broker_codes: Include broker/dealer codes (default False).
+        include_broker_codes: Include broker/dealer codes (default True).
         include_spread_price: Include spread price for bonds (default False).
         include_yield: Include yield data for bonds (default False).
         include_condition_codes: Include trade condition codes (default False).
@@ -2891,8 +3749,8 @@ async def abqr(
         **kwargs: Additional options.
 
     Returns:
-        DataFrame with columns: ticker, time, type, value, size,
-        plus optional brokerBuyCode, brokerSellCode, spreadPrice, etc.
+        DataFrame with columns: ticker, time, event_type, price, size,
+        plus optional broker_buy, broker_sell, spread_price, etc.
 
     Example::
 
@@ -2980,7 +3838,9 @@ async def abeqs(
 
     Args:
         screen: Screen name as saved in Bloomberg.
-        asof: As-of date for the screen (YYYYMMDD format).
+        asof: As-of date for the screen. Accepts ISO 8601 / ``YYYYMMDD``
+            string, ``datetime.date``, ``datetime.datetime``, or
+            ``pd.Timestamp``.
         screen_type: Screen type - "PRIVATE" (custom) or "GLOBAL" (Bloomberg).
         group: Group name if screen is organized into groups.
         backend: DataFrame backend to return. If None, uses global default.
@@ -3209,13 +4069,18 @@ async def _build_abdh_plan(args: dict[str, Any]) -> _EndpointPlan:
     ticker_list = _normalize_tickers(args["tickers"])
     field_list = _normalize_fields(args.get("flds"))
     kwargs = dict(args.get("kwargs", {}))
+    presentation = _pop_presentation_aliases(kwargs)
 
     fmt = Format(args["format"]) if isinstance(args.get("format"), str) else args.get("format")
+    fmt = _presentation_format(fmt, presentation)
 
     end_value = args.get("end_date", "today")
     start_value = args.get("start_date")
 
-    e_dt = _fmt_date(end_value, "%Y%m%d")
+    # ``end_date`` defaults to "today" via the public signature, but callers may
+    # explicitly pass ``end_date=None``; preserve the legacy "today" fallback in
+    # that case so default ``bdh()`` calls remain unchanged.
+    e_dt = _fmt_date(end_value, "%Y%m%d", default_today_on_none=True)
     if start_value is None:
         end_dt_parsed = datetime.strptime(e_dt, "%Y%m%d")
         s_dt = (end_dt_parsed - timedelta(weeks=8)).strftime("%Y%m%d")
@@ -3243,12 +4108,28 @@ async def _build_abdh_plan(args: dict[str, Any]) -> _EndpointPlan:
         options.append(("adjustmentSplit", "true"))
 
     elements, overrides = await _aroute_kwargs(Service.REFDATA, Operation.HISTORICAL_DATA, kwargs)
+    presentation_periodicity = _periodicity_selection(elements)
 
     resolved_types = await _get_engine().resolve_field_types(
         field_list,
         args.get("field_types"),
         "float64",
     )
+
+    backend = args.get("backend")
+    needs_presentation_postprocess = (
+        presentation.show_date is not None
+        or presentation.sort is not None
+        or presentation.date_format in {"PERIODIC", "BOTH"}
+    )
+
+    def postprocess(raw: Any) -> DataFrameResult:
+        shaped = _apply_historical_presentation(
+            raw,
+            presentation,
+            periodicity=presentation_periodicity,
+        )
+        return _convert_backend(shaped, backend)
 
     return _EndpointPlan(
         request_kwargs={
@@ -3263,8 +4144,8 @@ async def _build_abdh_plan(args: dict[str, Any]) -> _EndpointPlan:
             "format": fmt,
             "validate_fields": args.get("validate_fields"),
         },
-        backend=args.get("backend"),
-        postprocess=None,
+        backend=backend,
+        postprocess=postprocess if needs_presentation_postprocess else None,
     )
 
 
@@ -3293,21 +4174,33 @@ async def _build_abdib_plan(args: dict[str, Any]) -> _EndpointPlan:
     dt_value = args.get("dt")
 
     if start_dt is not None and end_dt is not None:
-        s_dt = datetime.fromisoformat(start_dt.replace(" ", "T")).isoformat()
-        e_dt = datetime.fromisoformat(end_dt.replace(" ", "T")).isoformat()
+        # Preserve any tz info the caller supplied; let the Rust engine
+        # handle naive strings according to ``request_tz``.
+        s_dt = _fmt_datetime(start_dt, default_tz=None)
+        e_dt = _fmt_datetime(end_dt, default_tz=None)
     elif dt_value is not None:
-        cur_dt = datetime.fromisoformat(dt_value.replace(" ", "T")).strftime("%Y-%m-%d")
+        cur_dt = _fmt_date(dt_value, "%Y-%m-%d")
         s_dt = f"{cur_dt}T00:00:00"
         e_dt = f"{cur_dt}T23:59:59"
     else:
         raise ValueError("Either dt or both start_datetime and end_datetime must be provided")
 
+    interval = args["interval"]
+    alias_interval = _pop_element_alias(kwargs, "interval")
+    if alias_interval is not None:
+        interval = int(alias_interval)
+
+    event_type = args["typ"]
+    alias_event_type = _pop_element_alias(kwargs, "eventType")
+    if alias_event_type is not None:
+        event_type = str(alias_event_type)
+
     elements, overrides = await _aroute_kwargs(Service.REFDATA, Operation.INTRADAY_BAR, kwargs)
 
     req: dict[str, Any] = {
         "security": args["ticker"],
-        "event_type": args["typ"],
-        "interval": args["interval"],
+        "event_type": event_type,
+        "interval": interval,
         "start_datetime": s_dt,
         "end_datetime": e_dt,
         "elements": elements if elements else None,
@@ -3327,12 +4220,16 @@ async def _build_abdib_plan(args: dict[str, Any]) -> _EndpointPlan:
 async def _build_abdtick_plan(args: dict[str, Any]) -> _EndpointPlan:
     kwargs = dict(args.get("kwargs", {}))
 
-    s_dt = datetime.fromisoformat(args["start_datetime"].replace(" ", "T")).isoformat()
-    e_dt = datetime.fromisoformat(args["end_datetime"].replace(" ", "T")).isoformat()
+    # Accept native datetime/date plus duck-typed pd.Timestamp; preserve any
+    # tz info the caller supplied so naive strings keep being interpreted by
+    # the Rust engine according to ``request_tz``.
+    s_dt = _fmt_datetime(args["start_datetime"], default_tz=None)
+    e_dt = _fmt_datetime(args["end_datetime"], default_tz=None)
 
+    alias_event_type = _pop_element_alias(kwargs, "eventType")
     event_types = args.get("event_types")
     if event_types is None:
-        event_types = ["TRADE"]
+        event_types = [str(alias_event_type)] if alias_event_type is not None else ["TRADE"]
 
     elements, overrides = await _aroute_kwargs(Service.REFDATA, Operation.INTRADAY_TICK, kwargs)
 
@@ -3362,7 +4259,8 @@ def _build_abql_plan(args: dict[str, Any]) -> _EndpointPlan:
     )
 
 
-def _build_abqr_plan(args: dict[str, Any]) -> _EndpointPlan:
+async def _build_abqr_plan(args: dict[str, Any]) -> _EndpointPlan:
+    kwargs = dict(args.get("kwargs", {}))
     event_types = args.get("event_types")
     if event_types is None:
         event_types = ["BID", "ASK"]
@@ -3370,7 +4268,27 @@ def _build_abqr_plan(args: dict[str, Any]) -> _EndpointPlan:
     now = datetime.now()
     time_fmt = "%Y-%m-%dT%H:%M:%S"
 
+    def fmt_bqr_datetime(value: Any, default_time: str) -> str:
+        # Native types (datetime / date / pd.Timestamp).
+        if not isinstance(value, str):
+            if isinstance(value, datetime):
+                return value.strftime(time_fmt)
+            if isinstance(value, date):
+                return _fmt_date(value, "%Y-%m-%d") + default_time
+            if hasattr(value, "to_pydatetime"):
+                coerced = value.to_pydatetime()
+                if isinstance(coerced, datetime):
+                    return coerced.strftime(time_fmt)
+                if isinstance(coerced, date):
+                    return _fmt_date(coerced, "%Y-%m-%d") + default_time
+        text = str(value).replace(" ", "T")
+        if "T" in text:
+            return datetime.fromisoformat(text).strftime(time_fmt)
+        return _fmt_date(value, "%Y-%m-%d") + default_time
+
     date_offset = args.get("date_offset")
+    start_datetime = kwargs.pop("start_datetime", None)
+    end_datetime = kwargs.pop("end_datetime", None)
     start_date = args.get("start_date")
     end_date = args.get("end_date")
 
@@ -3379,32 +4297,42 @@ def _build_abqr_plan(args: dict[str, Any]) -> _EndpointPlan:
         start_dt = _parse_date_offset(date_offset, now)
         s_dt = start_dt.strftime(time_fmt)
         e_dt = end_dt.strftime(time_fmt)
+    elif start_datetime is not None:
+        s_dt = fmt_bqr_datetime(start_datetime, "T00:00:00")
+        e_dt = fmt_bqr_datetime(end_datetime, "T23:59:59") if end_datetime is not None else now.strftime(time_fmt)
     elif start_date is not None:
-        s_dt = _fmt_date(start_date, "%Y-%m-%d") + "T00:00:00"
-        if end_date is not None:
-            e_dt = _fmt_date(end_date, "%Y-%m-%d") + "T23:59:59"
-        else:
-            e_dt = now.strftime(time_fmt)
+        s_dt = fmt_bqr_datetime(start_date, "T00:00:00")
+        e_dt = fmt_bqr_datetime(end_date, "T23:59:59") if end_date is not None else now.strftime(time_fmt)
     else:
         start_dt = now - timedelta(days=2)
         s_dt = start_dt.strftime(time_fmt)
         e_dt = now.strftime(time_fmt)
 
-    elements: list[tuple[str, Any]] = []
-    if args.get("include_broker_codes"):
-        elements.append(("includeBrokerCodes", "true"))
-    if args.get("include_spread_price"):
-        elements.append(("includeSpreadPrice", "true"))
-    if args.get("include_yield"):
-        elements.append(("includeYield", "true"))
-    if args.get("include_condition_codes"):
-        elements.append(("includeConditionCodes", "true"))
-    if args.get("include_exchange_codes"):
-        elements.append(("includeExchangeCodes", "true"))
+    elements, overrides = await _aroute_kwargs(Service.REFDATA, Operation.INTRADAY_TICK, kwargs)
 
-    has_extras = bool(elements)
+    def upsert_element(name: str, value: Any) -> None:
+        for idx, (existing_name, _) in enumerate(elements):
+            if existing_name == name:
+                elements[idx] = (name, value)
+                return
+        elements.append((name, value))
+
+    include_broker_codes = bool(args.get("include_broker_codes"))
+    if include_broker_codes:
+        upsert_element("includeBrokerCodes", "true")
+    if args.get("include_spread_price"):
+        upsert_element("includeSpreadPrice", "true")
+    if args.get("include_yield"):
+        upsert_element("includeYield", "true")
+    if args.get("include_condition_codes"):
+        upsert_element("includeConditionCodes", "true")
+    if args.get("include_exchange_codes"):
+        upsert_element("includeExchangeCodes", "true")
+
     ticker = args["ticker"]
     backend = args.get("backend")
+    if include_broker_codes:
+        _warn_bqr_dealer_input(ticker, stacklevel=4)
 
     logger.debug(
         "abqr: ticker=%s start=%s end=%s events=%s",
@@ -3415,13 +4343,13 @@ def _build_abqr_plan(args: dict[str, Any]) -> _EndpointPlan:
     )
 
     def postprocess(nw_df: Any) -> DataFrameResult:
-        logger.debug("abqr: received %d rows", len(nw_df))
-        result = nw_df
-        if has_extras:
-            table = result.to_arrow()
-            if "path" in table.column_names:
-                result = _reshape_bqr_generic(table, ticker)
-        return _convert_backend(result, backend)
+        logger.debug("abqr: received %d rows", _ensure_arrow_table(nw_df).num_rows)
+        return _postprocess_bqr_result(
+            nw_df,
+            ticker=ticker,
+            backend=backend,
+            enforce_broker_codes=include_broker_codes,
+        )
 
     return _EndpointPlan(
         request_kwargs={
@@ -3430,6 +4358,7 @@ def _build_abqr_plan(args: dict[str, Any]) -> _EndpointPlan:
             "end_datetime": e_dt,
             "event_types": list(event_types),
             "elements": elements if elements else None,
+            "overrides": overrides if overrides else None,
         },
         backend=backend,
         postprocess=postprocess,
@@ -3847,7 +4776,11 @@ def _install_manual_sync_wrappers() -> None:
         ("bops", abops),
         ("bschema", abschema),
     ):
-        globals()[sync_name] = _build_sync_wrapper(sync_name, async_func)
+        globals()[sync_name] = _build_sync_wrapper(
+            sync_name,
+            async_func,
+            allow_notebook_bridge=sync_name in _NOTEBOOK_SYNC_BRIDGE_NAMES,
+        )
 
 
 _install_manual_sync_wrappers()

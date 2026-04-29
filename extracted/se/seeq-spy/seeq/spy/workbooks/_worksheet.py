@@ -300,8 +300,7 @@ class Worksheet(Item):
     def timezone(self, value):
         self._set_timezone(value)
 
-    def _set_timezone(self, timezone):
-        # type: (str) -> None
+    def _set_timezone(self, timezone: str) -> None:
         """
         Set the timezone for the current worksheet.
 
@@ -550,7 +549,7 @@ class WorksheetForAnalysisOrRoom(Worksheet):
                                                               workstep_id=pushed_current_workstep_id),
                    action_description=f'set {pushed_workbook_id}/{worksheet_output.id}/{pushed_current_workstep_id} '
                                       f'as the current workstep',
-                   status=context.status, dry_run=context.dry_run)  # type: WorksheetOutputListV1
+                   status=context.status, dry_run=context.dry_run)
 
             if context.include_annotations and self._annotation is not None:
                 self._annotation.push(context, pushed_workbook_id, worksheet_output.id, item_map, datasource_output,

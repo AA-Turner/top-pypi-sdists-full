@@ -7,7 +7,6 @@ enable composition without fragile string parsing.
 
 import os
 import re
-import warnings
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -15,6 +14,7 @@ from typing import Any, Literal, overload
 
 import wcmatch.glob as wcglob
 
+from deepagents._api.deprecation import warn_deprecated
 from deepagents.backends.protocol import FileData, FileInfo as _FileInfo, GrepMatch as _GrepMatch, GrepResult, ReadResult
 
 EMPTY_CONTENT_WARNING = "System reminder: File exists but has empty contents"
@@ -87,10 +87,15 @@ def _normalize_content(file_data: FileData) -> str:
     """
     content = file_data["content"]
     if isinstance(content, list):
-        warnings.warn(
-            "FileData with list[str] content is deprecated. Content should be stored as a plain str.",
-            DeprecationWarning,
-            stacklevel=2,
+        warn_deprecated(
+            since="0.5.0",
+            removal="0.7.0",
+            message=(
+                "`FileData` with `list[str]` content is deprecated and will "
+                "be removed in deepagents==0.7.0. Content should be stored "
+                "as a plain `str`."
+            ),
+            package="deepagents",
         )
         return "\n".join(content)
     return content
@@ -385,6 +390,30 @@ def truncate_if_too_long(result: list[str] | str) -> list[str] | str:
     return result
 
 
+def to_posix_path(path: str) -> str:
+    r"""Normalize backslash separators to forward slashes for `PurePosixPath` use.
+
+    Backends running on Windows return OS-native paths using backslashes.
+    `PurePosixPath` treats backslashes as literal filename characters,
+    so `PurePosixPath(r"C:\a\b").name` yields the full string instead
+    of `"b"`. Normalize before constructing a `PurePosixPath`.
+
+    This is best-effort: a POSIX directory literally named with a backslash
+    will also be rewritten. That trade-off is accepted because such filenames
+    are vanishingly rare in practice and the alternative (gating on `os.sep`)
+    fails when a Windows-style path is handed to a non-Windows process.
+
+    Args:
+        path: Path string that may use backslash separators.
+
+    Returns:
+        The same path with every `\\` replaced by `/`.
+
+            Inputs that already use forward slashes are returned unchanged.
+    """
+    return path.replace("\\", "/")
+
+
 def validate_path(path: str, *, allowed_prefixes: Sequence[str] | None = None) -> str:
     r"""Validate and normalize file path for security.
 
@@ -423,7 +452,7 @@ def validate_path(path: str, *, allowed_prefixes: Sequence[str] | None = None) -
     """
     # Check for traversal as a path component (not substring) to avoid
     # false-positive rejection of legitimate filenames like "foo..bar.txt"
-    parts = PurePosixPath(path.replace("\\", "/")).parts
+    parts = PurePosixPath(to_posix_path(path)).parts
     if ".." in parts or path.startswith("~"):
         msg = f"Path traversal not allowed: {path}"
         raise ValueError(msg)

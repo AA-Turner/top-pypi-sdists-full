@@ -4,7 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 """SecurityGroup Entity class."""
-from typing import Any, Mapping, Optional
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
 
 from ..._version import VERSION
 from ...common.utility import export
@@ -53,9 +57,9 @@ class SecurityGroup(Entity):
             kw arguments.
 
         """
-        self.DistinguishedName: Optional[str] = None
-        self.SID: Optional[str] = None
-        self.ObjectGuid: Optional[str] = None
+        self.DistinguishedName: str | None = None
+        self.SID: str | None = None
+        self.ObjectGuid: str | None = None
         super().__init__(src_entity=src_entity, **kwargs)
 
     @property

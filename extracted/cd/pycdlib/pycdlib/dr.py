@@ -27,12 +27,13 @@ from pycdlib import pycdlibexception
 from pycdlib import rockridge
 from pycdlib import utils
 
-# For mypy annotations
-if False:  # pylint: disable=using-constant-test
-    from typing import Any, IO, List, Optional, Tuple, Union  # NOQA pylint: disable=unused-import
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any, IO, List, Optional, Tuple, Union  # noqa: F401
     # NOTE: these imports have to be here to avoid circular deps
-    from pycdlib import headervd  # NOQA pylint: disable=unused-import,cyclic-import
-    from pycdlib import path_table_record  # NOQA pylint: disable=unused-import
+    from pycdlib import headervd  # noqa: F401  pylint: disable=cyclic-import
+    from pycdlib import path_table_record  # noqa: F401
 
 
 class XARecord:
@@ -44,6 +45,7 @@ class XARecord:
                  '_filenum', '_pad_size')
 
     FMT = '=HHH2sB5s'
+    _FMT_SIZE = struct.calcsize(FMT)
 
     def __init__(self):
         # type: () -> None
@@ -74,7 +76,7 @@ class XARecord:
         # the XA record.
         for offset in (0, even_size):
             parse_str = xastr[offset:]
-            if len(parse_str) < struct.calcsize(self.FMT):
+            if len(parse_str) < self._FMT_SIZE:
                 return False
 
             (self._group_id, self._user_id, self._attributes, signature,
@@ -83,7 +85,14 @@ class XARecord:
                 continue
 
             if unused != b'\x00\x00\x00\x00\x00':
-                raise pycdlibexception.PyCdlibInvalidISO('Unused fields should be 0')
+                # The signature looks like 'XA', but the trailing reserved
+                # bytes aren't zero.  A real XA record always has those zero
+                # per the Yellow Book spec, so this is a false positive: SUSP
+                # payload (Rock Ridge) coincidentally containing 'XA' at the
+                # signature offset.  Fall through to the next candidate
+                # offset, then to the for-else (return False) if neither
+                # candidate validates.
+                continue
 
             self._pad_size = offset
             break
@@ -154,8 +163,9 @@ class DirectoryRecord:
                  'rr_children', 'inode', '_printable_name', 'date',
                  'index_in_parent', 'dr_len', 'xattr_len', 'file_flags',
                  'file_unit_size', 'interleave_gap_size', 'len_fi', 'isdir',
-                 'orig_extent_loc', 'data_length', 'seqnum', 'is_root',
-                 'parent', 'rock_ridge', 'xa_record', 'file_ident')
+                 'orig_extent_loc', 'data_length', 'data_extent_offset',
+                 'seqnum', 'is_root', 'parent', 'rock_ridge', 'xa_record',
+                 'file_ident', '_sort_key')
 
     FILE_FLAG_EXISTENCE_BIT = 0
     FILE_FLAG_DIRECTORY_BIT = 1
@@ -165,6 +175,7 @@ class DirectoryRecord:
     FILE_FLAG_MULTI_EXTENT_BIT = 7
 
     FMT = '<BBLLLL7sBBBHHB'
+    _FMT_SIZE = struct.calcsize(FMT)
 
     def __init__(self):
         # type: () -> None
@@ -174,6 +185,13 @@ class DirectoryRecord:
         self.extents_to_here = 1
         self.offset_to_here = 0
         self.data_continuation = None  # type: Optional[DirectoryRecord]
+        # data_extent_offset is the offset (in logical blocks) of this record's
+        # data slice from the start of its inode's allocated extent run.  It is
+        # always 0 except for the second-and-later chunks of an ISO9660
+        # multi-extent file that shares a single Inode with its sibling chunks
+        # (the UDF Bridge layout produced by _add_fp for files larger than
+        # 0xfffff800 bytes).
+        self.data_extent_offset = 0
         self.children = []  # type: List[DirectoryRecord]
         self.rr_children = []  # type: List[DirectoryRecord]
         self.index_in_parent = -1
@@ -183,8 +201,8 @@ class DirectoryRecord:
         self.xa_record = None  # type: Optional[XARecord]
         self.inode = None  # type: Optional[inode.Inode]
 
-    def parse(self, vd, record, parent):
-        # type: (headervd.PrimaryOrSupplementaryVD, bytes, Optional[DirectoryRecord]) -> str
+    def parse(self, vd, record, parent, xa=False):
+        # type: (headervd.PrimaryOrSupplementaryVD, bytes, Optional[DirectoryRecord], bool) -> str
         """
         Parse a directory record out of a string.
 
@@ -192,6 +210,11 @@ class DirectoryRecord:
          vd - The Volume Descriptor this record is part of.
          record - The string to parse for this record.
          parent - The parent of this record.
+         xa - Whether the volume declares XA (via the PVD's 'CD-XA001'
+              marker).  When False, the system-use area is not scanned for
+              an XA record; this avoids false-positive matches against
+              Rock Ridge SUSP payload that happens to contain the bytes
+              'XA' at the signature offset.
         Returns:
          The Rock Ridge version as a string if this Directory Record has Rock
          Ridge, '' otherwise.
@@ -211,7 +234,7 @@ class DirectoryRecord:
         (self.dr_len, self.xattr_len, extent_location_le, extent_location_be,
          data_length_le, data_length_be_unused, dr_date, self.file_flags,
          self.file_unit_size, self.interleave_gap_size, seqnum_le, seqnum_be,
-         self.len_fi) = struct.unpack_from(self.FMT, record[:33], 0)
+         self.len_fi) = struct.unpack_from(self.FMT, record, 0)
 
         # In theory we should have a check here that checks to make sure that
         # the length of the record we were passed in matches the data record
@@ -249,7 +272,7 @@ class DirectoryRecord:
             # However, we have seen ISOs in the wild that get this wrong, so we
             # elide a check for it.
 
-            self.file_ident = bytes(bytearray([record[33]]))
+            self.file_ident = record[33:34]
 
             # A root directory entry should always have 0 as the identifier.
             # However, we have seen ISOs in the wild that don't have this set
@@ -270,18 +293,27 @@ class DirectoryRecord:
 
         if self.is_root:
             self._printable_name = '/'.encode(vd.encoding)
+            self._sort_key = b'\x00'
         elif self.file_ident == b'\x00':
             self._printable_name = '.'.encode(vd.encoding)
+            self._sort_key = b'\x00'
         elif self.file_ident == b'\x01':
             self._printable_name = '..'.encode(vd.encoding)
+            self._sort_key = b'\x01'
         else:
             self._printable_name = self.file_ident
+            # Bisect sort key for __lt__: dot/dotdot get b'\x00'/b'\x01' so
+            # they always sort first; real names get a 0xff prefix so they
+            # stay above dotdot even for Joliet, where UCS-2 names start
+            # with a 0x00 byte and would otherwise compare lower than b'\x01'.
+            self._sort_key = b'\xff' + self.file_ident
 
         if self.parent is not None:
-            xa_rec = XARecord()
-            if xa_rec.parse(record[record_offset:], self.len_fi):
-                self.xa_record = xa_rec
-                record_offset += len(self.xa_record.record())
+            if xa:
+                xa_rec = XARecord()
+                if xa_rec.parse(record[record_offset:], self.len_fi):
+                    self.xa_record = xa_rec
+                    record_offset += len(self.xa_record.record())
 
             if len(record[record_offset:]) >= 2 and \
                record[record_offset:record_offset + 2] in (b'SP', b'RR', b'CE', b'PX', b'ER', b'ES', b'PN', b'SL', b'NM', b'CL', b'PL', b'TF', b'SF', b'RE', b'AL'):
@@ -326,8 +358,9 @@ class DirectoryRecord:
         return ret
 
     def _rr_new(self, rr_version, rr_name, rr_symlink_target, rr_relocated_child,
-                rr_relocated, rr_relocated_parent, file_mode, date_seconds):
-        # type: (str, bytes, bytes, bool, bool, bool, int, float) -> None
+                rr_relocated, rr_relocated_parent, file_mode, date_seconds,
+                creation_seconds=None):
+        # type: (str, bytes, bytes, bool, bool, bool, int, float, Optional[float]) -> None
         """
         Internal method to add Rock Ridge to a Directory Record.
 
@@ -362,7 +395,8 @@ class DirectoryRecord:
                                           file_mode, rr_symlink_target,
                                           rr_version, rr_relocated_child,
                                           rr_relocated, rr_relocated_parent,
-                                          bytes_to_skip, self.dr_len, {}, date_seconds)
+                                          bytes_to_skip, self.dr_len, {},
+                                          date_seconds, creation_seconds)
 
         # For files, we are done
         if not self.isdir:
@@ -463,7 +497,7 @@ class DirectoryRecord:
         # so we leave it at None.
         self.orig_extent_loc = None
         self.len_fi = len(self.file_ident)
-        self.dr_len = struct.calcsize(self.FMT) + self.len_fi
+        self.dr_len = self._FMT_SIZE + self.len_fi
 
         # From Ecma-119, 9.1.6, the file flag bits are:
         #
@@ -496,20 +530,24 @@ class DirectoryRecord:
 
         if self.is_root:
             self._printable_name = '/'.encode(vd.encoding)
+            self._sort_key = b'\x00'
         elif self.file_ident == b'\x00':
             self._printable_name = '.'.encode(vd.encoding)
+            self._sort_key = b'\x00'
         elif self.file_ident == b'\x01':
             self._printable_name = '..'.encode(vd.encoding)
+            self._sort_key = b'\x01'
         else:
             self._printable_name = self.file_ident
+            self._sort_key = b'\xff' + self.file_ident
 
         self.vd = vd
 
         self.initialized = True
 
     def new_symlink(self, vd, name, parent, rr_target, seqnum, rock_ridge,
-                    rr_name, xa, date_seconds):
-        # type: (headervd.PrimaryOrSupplementaryVD, bytes, DirectoryRecord, bytes, int, str, bytes, bool, float) -> None
+                    rr_name, xa, date_seconds, creation_seconds=None):
+        # type: (headervd.PrimaryOrSupplementaryVD, bytes, DirectoryRecord, bytes, int, str, bytes, bool, float, Optional[float]) -> None
         """
         Create a new symlink Directory Record.  This implies that the new
         record will be Rock Ridge.
@@ -525,6 +563,8 @@ class DirectoryRecord:
          xa - True if this is an Extended Attribute record.
          date_seconds - Time and date, in seconds since the epoch, to use for
                         this symlink.
+         creation_seconds - Optional creation time, in seconds since the epoch,
+                            for the Rock Ridge TF record.
         Returns:
          Nothing.
         """
@@ -534,11 +574,11 @@ class DirectoryRecord:
         self._new(vd, name, parent, seqnum, False, 0, xa, date_seconds)
         if rock_ridge:
             self._rr_new(rock_ridge, rr_name, rr_target, False, False, False,
-                         0o0120555, date_seconds)
+                         0o0120555, date_seconds, creation_seconds)
 
     def new_file(self, vd, length, isoname, parent, seqnum, rock_ridge, rr_name,
-                 xa, file_mode, date_seconds):
-        # type: (headervd.PrimaryOrSupplementaryVD, int, bytes, DirectoryRecord, int, str, bytes, bool, int, float) -> None
+                 xa, file_mode, date_seconds, creation_seconds=None):
+        # type: (headervd.PrimaryOrSupplementaryVD, int, bytes, DirectoryRecord, int, str, bytes, bool, int, float, Optional[float]) -> None
         """
         Create a new file Directory Record.
 
@@ -554,6 +594,8 @@ class DirectoryRecord:
          file_mode - The POSIX file mode for this entry.
          date_seconds - Time and date, in seconds since the epoch, to use for
                         this file.
+         creation_seconds - Optional creation time, in seconds since the epoch,
+                            for the Rock Ridge TF record.
         Returns:
          Nothing.
         """
@@ -563,7 +605,7 @@ class DirectoryRecord:
         self._new(vd, isoname, parent, seqnum, False, length, xa, date_seconds)
         if rock_ridge:
             self._rr_new(rock_ridge, rr_name, b'', False, False, False,
-                         file_mode, date_seconds)
+                         file_mode, date_seconds, creation_seconds)
 
     def new_root(self, vd, seqnum, log_block_size, date_seconds):
         # type: (headervd.PrimaryOrSupplementaryVD, int, int, float) -> None
@@ -642,8 +684,8 @@ class DirectoryRecord:
 
     def new_dir(self, vd, name, parent, seqnum, rock_ridge, rr_name,
                 log_block_size, rr_relocated_child, rr_relocated, xa, file_mode,
-                date_seconds):
-        # type: (headervd.PrimaryOrSupplementaryVD, bytes, DirectoryRecord, int, str, bytes, int, bool, bool, bool, int, float) -> None
+                date_seconds, creation_seconds=None):
+        # type: (headervd.PrimaryOrSupplementaryVD, bytes, DirectoryRecord, int, str, bytes, int, bool, bool, bool, int, float, Optional[float]) -> None
         """
         Create a new directory Directory Record.
 
@@ -661,6 +703,8 @@ class DirectoryRecord:
          file_mode - The POSIX file mode to set for this directory.
          date_seconds - Time and date, in seconds since the epoch, to use for
                         this directory record.
+         creation_seconds - Optional creation time, in seconds since the epoch,
+                            for the Rock Ridge TF record.
         Returns:
          Nothing.
         """
@@ -671,7 +715,8 @@ class DirectoryRecord:
                   date_seconds)
         if rock_ridge:
             self._rr_new(rock_ridge, rr_name, b'', rr_relocated_child,
-                         rr_relocated, False, file_mode, date_seconds)
+                         rr_relocated, False, file_mode, date_seconds,
+                         creation_seconds)
             if rr_relocated_child and self.rock_ridge:
                 # Relocated Rock Ridge entries are not exactly treated as
                 # directories, so fix things up here.
@@ -767,6 +812,11 @@ class DirectoryRecord:
                     if not allow_duplicate:
                         raise pycdlibexception.PyCdlibInvalidInput('Failed adding duplicate name to parent')
 
+                    # For multi-extent files (3+ chunks), there can already be
+                    # multiple contiguous duplicates here.  Walk forward to the
+                    # last one so we link onto the tail of the existing chain.
+                    while index + 1 < len(self.children) and self.children[index + 1].file_ident == child.file_ident:
+                        index += 1
                     self.children[index].data_continuation = child
                     self.children[index].file_flags |= (1 << self.FILE_FLAG_MULTI_EXTENT_BIT)
                     index += 1
@@ -1075,7 +1125,7 @@ class DirectoryRecord:
         if not self.initialized:
             raise pycdlibexception.PyCdlibInternalError('Directory Record not initialized')
 
-        padlen = struct.calcsize(self.FMT) + self.len_fi
+        padlen = self._FMT_SIZE + self.len_fi
         padstr = b'\x00' * (padlen % 2)
 
         extent_loc = self._extent_location()
@@ -1225,36 +1275,14 @@ class DirectoryRecord:
     ############# END BACKWARDS COMPATIBILITY #################################
 
     def __lt__(self, other):
-        # This method is used for the bisect.insort_left() when adding a child.
-        # It needs to return whether self is less than other.  Here we use the
-        # ISO9660 sorting order which is essentially:
-        #
-        # 1.  The \x00 is always the 'dot' record, and is always first.
-        # 2.  The \x01 is always the 'dotdot' record, and is always second.
-        # 3.  Other entries are sorted lexically; this does not exactly match
-        #     the sorting method specified in Ecma-119, but does OK for now.
-        #
-        # Ecma-119 Section 9.3 specifies that we need to pad out the shorter of
-        # the two files with 0x20 (spaces), then compare byte-by-byte until
-        # they differ.  However, we can more easily just do the string equality
-        # comparison, since it will always be the case that 0x20 will be less
-        # than any of the other allowed characters in the strings.
-        if self.file_ident == b'\x00':
-            if other.file_ident == b'\x00':
-                return False
-            return True
-        if other.file_ident == b'\x00':
-            return False
-
-        if self.file_ident == b'\x01':
-            if other.file_ident == b'\x00':
-                return False
-            return True
-
-        if other.file_ident == b'\x01':
-            # If self.file_ident was '\x00', it would have been caught above.
-            return False
-        return self.file_ident < other.file_ident
+        # Used by bisect.bisect_left() in _add_child().  Both records carry a
+        # precomputed _sort_key (set when file_ident is finalized) that
+        # encodes the ECMA-119 ordering: dot first, then dotdot, then real
+        # names — see the _sort_key assignments in parse() / _new().  Real
+        # names compare bytewise; that doesn't match the strict ECMA-119
+        # 9.3 padding rule but is equivalent here, since the pad byte 0x20
+        # is less than any other allowed file-identifier character.
+        return self._sort_key < other._sort_key
 
     def __ne__(self, other):
         # type: (object) -> bool

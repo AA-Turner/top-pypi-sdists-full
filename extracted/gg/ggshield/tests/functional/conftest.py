@@ -1,16 +1,15 @@
 import abc
 import http.server
+import json
 import shutil
 import socketserver
+import subprocess
 import time
 from multiprocessing import Event, Process, Value
 from pathlib import Path
 from typing import Generator
-from urllib.parse import urlparse
 
 import pytest
-import requests
-from pygitguardian.config import DEFAULT_BASE_URI
 
 from tests.repository import Repository
 
@@ -22,7 +21,27 @@ FUNCTESTS_DATA_PATH = Path(__file__).parent / "data"
 # Path to the root of ggshield repository
 REPO_PATH = Path(__file__).parent.parent.parent
 
-HAS_DOCKER = shutil.which("docker") is not None
+
+def _has_working_docker() -> bool:
+    docker = shutil.which("docker")
+    if docker is None:
+        return False
+
+    try:
+        subprocess.run(
+            [docker, "info"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+    return True
+
+
+HAS_DOCKER = _has_working_docker()
 
 HOOK_CONTENT = """#!/usr/bin/env sh
 ggshield {} scan pre-receive
@@ -33,8 +52,42 @@ ggshield {} scan pre-receive --all
 """
 
 
-# Use this as a decorator for tests which call the `docker` binary
-requires_docker = pytest.mark.skipif(not HAS_DOCKER, reason="This test requires Docker")
+# Use this as a decorator for tests which call the `docker` binary and need a
+# working daemon.
+requires_docker = pytest.mark.skipif(
+    not HAS_DOCKER,
+    reason="This test requires a working Docker daemon",
+)
+
+# Fake responses for the mock GG API server, so that tests using mock fixtures
+# do not depend on the real GitGuardian API being reachable.
+_FAKE_METADATA_RESPONSE = json.dumps(
+    {
+        "version": "1.0.0",
+        "preferences": {},
+        "secret_scan_preferences": {
+            "maximum_document_size": 1048576,
+            "maximum_documents_per_scan": 20,
+        },
+        "remediation_messages": {
+            "pre_commit": "",
+            "pre_push": "",
+            "pre_receive": "",
+        },
+    }
+).encode()
+
+_FAKE_API_TOKENS_RESPONSE = json.dumps(
+    {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "name": "fake-token",
+        "workspace_id": 1,
+        "type": "personal_access_token",
+        "status": "active",
+        "created_at": "2020-01-01T00:00:00Z",
+        "scopes": ["scan"],
+    }
+).encode()
 
 
 class AbstractGGAPIHandler(http.server.BaseHTTPRequestHandler, metaclass=abc.ABCMeta):
@@ -42,26 +95,21 @@ class AbstractGGAPIHandler(http.server.BaseHTTPRequestHandler, metaclass=abc.ABC
         self.send_response(200)
 
     def do_GET(self):
-        # Forward all GET calls to the real server
-        url = DEFAULT_BASE_URI + self.path.replace("/exposed", "")
-        headers = {
-            **self.headers,
-            "Host": urlparse(url).netloc,
-        }
+        # Return fake responses so mock-based tests don't depend on the real API
+        if "metadata" in self.path:
+            content = _FAKE_METADATA_RESPONSE
+        elif "api_tokens" in self.path:
+            content = _FAKE_API_TOKENS_RESPONSE
+        else:
+            self.send_response(418)
+            self.end_headers()
+            return
 
-        response = requests.get(url, headers=headers)
-
-        self.send_response(response.status_code)
-
-        for name, value in response.headers.items():
-            if name != "content-encoding" and name != "transfer-encoding":
-                # Forward headers, but not content-encoding nor transfer-encoding
-                # because our response is not compressed and/or chunked content, even if
-                # we received it that way
-                self.send_header(name, value)
+        self.send_response(200)
+        self.send_header("content-type", "application/json")
+        self.send_header("Content-Length", str(len(content)))
         self.end_headers()
-
-        self.wfile.write(response.content)
+        self.wfile.write(content)
 
     @abc.abstractmethod
     def do_POST(self):

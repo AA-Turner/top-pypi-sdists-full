@@ -14,6 +14,8 @@ use std::fmt;
 use std::fmt::Display;
 use std::mem;
 
+use itertools::Either;
+use itertools::Itertools;
 use pyrefly_types::dimension::ShapeError;
 use pyrefly_types::dimension::canonicalize;
 use pyrefly_types::heap::TypeHeap;
@@ -384,6 +386,20 @@ enum NewBound {
     AddBound(Type),
 }
 
+/// Result of `with_snapshot`, which performs an `is_subset_eq` call with var snapshotting.
+pub enum SubsetWithSnapshotResult {
+    /// `is_subset_eq` call was successful.
+    Ok,
+    /// `is_subset_eq` call failed.
+    Err(SubsetError),
+}
+
+impl SubsetWithSnapshotResult {
+    pub fn is_ok(&self) -> bool {
+        matches!(self, SubsetWithSnapshotResult::Ok)
+    }
+}
+
 impl Solver {
     /// Create a new solver.
     pub fn new(
@@ -544,6 +560,58 @@ impl Solver {
                 }
             }
         }
+    }
+
+    /// Snapshots the given vars, calls `f`, and rolls back the vars if the call fails.
+    /// Note that this only rolls back the var state and not:
+    /// * `Ok` entries left in `subset_cache` (the rollback in `is_subset_eq_impl` only fires on
+    ///   `Err` from the speculative call, not on `Ok`-with-instantiation-errors), or
+    /// * `coinductive_assumptions_used`, which is one-way.
+    pub fn with_snapshot(
+        &self,
+        vars: &[Var],
+        f: impl FnOnce() -> Result<(), SubsetError>,
+    ) -> SubsetWithSnapshotResult {
+        if vars.is_empty() {
+            // Fast path - no var snapshotting needed.
+            return f().map_or_else(SubsetWithSnapshotResult::Err, |_| {
+                SubsetWithSnapshotResult::Ok
+            });
+        }
+        let snapshot = self.snapshot_vars(vars);
+        let res = match (f(), self.has_new_instantiation_errors(&snapshot)) {
+            (Ok(()), false) => SubsetWithSnapshotResult::Ok,
+            (Ok(()), true) => SubsetWithSnapshotResult::Err(SubsetError::Other),
+            (Err(e), _) => SubsetWithSnapshotResult::Err(e),
+        };
+        if !res.is_ok() {
+            self.restore_vars(snapshot);
+        }
+        res
+    }
+
+    // Partially sort a list of types for matching (is_subset_eq).
+    // Sort non-var elements before var elements, so that if we match a non-var, we
+    // don't pin the vars. Within var-containing members, try wrapped vars (e.g.
+    // `type[T]`) before bare vars (e.g. `T`), so that more specific patterns are
+    // tried first. This prevents cases like `T | type[T]` from incorrectly matching
+    // bare `T` when `type[T]` would produce a better (bound-satisfying) solution.
+    pub fn partial_sort_by_vars<'a>(
+        &self,
+        ts: &'a [Type],
+    ) -> impl Iterator<Item = (&'a Type, Vec<Var>)> {
+        let (vars, nonvars): (Vec<_>, Vec<_>) = ts.iter().partition_map(|t| {
+            let vs = t.collect_maybe_placeholder_vars();
+            if !vs.is_empty() {
+                Either::Left((t, vs))
+            } else {
+                Either::Right((t, vs))
+            }
+        });
+        let (bare_vars, wrapped_vars): (Vec<_>, Vec<_>) = vars
+            .into_iter()
+            .partition(|(t, _)| matches!(t, Type::Var(_)));
+        nonvars.into_iter().chain(wrapped_vars).chain(bare_vars)
     }
 
     /// Finish the type returned from a function call. This entails expanding solved variables,
@@ -1426,6 +1494,7 @@ impl Solver {
         loc: TextRange,
         tcc: &dyn Fn() -> TypeCheckContext,
         subset_error: SubsetError,
+        note: Option<String>,
     ) {
         let tcc = tcc();
         let msg = tcc.kind.format_error(
@@ -1436,6 +1505,9 @@ impl Solver {
         let mut msg_lines = vec1![msg];
         if let Some(subset_error_msg) = subset_error.to_error_msg() {
             msg_lines.push(subset_error_msg);
+        }
+        if let Some(note) = note {
+            msg_lines.push(note);
         }
         let extra_annotations = tcc.annotations;
         match tcc.context {

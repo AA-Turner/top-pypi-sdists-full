@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 import pandas as pd
 
@@ -471,7 +471,7 @@ def property_validations(session: Session, node, stage):
         ]
 
 
-def _is_node_metric_valid(stage: str, node: pd.Series, session: Session) -> (bool, str):
+def _is_node_metric_valid(stage: str, node: pd.Series, session: Session) -> tuple[bool, Optional[str]]:
     if not _common.present(node, 'Type') or 'Metric' not in _common.get(node, 'Type'):
         return True, None  # Okay because this isn't a metric
     if not _common.present(node, 'Measured Item'):

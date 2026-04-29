@@ -7,6 +7,10 @@ SDK_EXPORTS = (
 )
 
 CORE_EXPORTS = (
+    "ArrowTable",
+    "ArrowRecordBatch",
+    "ArrowSchema",
+    "ArrowField",
     "set_log_level",
     "get_log_level",
     "enable_sdk_logging",
@@ -92,6 +96,7 @@ PACKAGE_SYNC_EXPORTS = (
     "bdtick",
     "bql",
     "bsrch",
+    "bqr",
     "bflds",
     "beqs",
     "blkp",
@@ -108,6 +113,7 @@ PACKAGE_ASYNC_EXPORTS = (
     "abdtick",
     "abql",
     "absrch",
+    "abqr",
     "abflds",
     "abeqs",
     "ablkp",

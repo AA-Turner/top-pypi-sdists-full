@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: matrix-synapse
-Version: 1.151.0
+Version: 1.152.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Communications :: Chat
 Requires-Dist: jsonschema>=3.0.0
@@ -8,7 +8,7 @@ Requires-Dist: rpds-py>=0.25.0
 Requires-Dist: immutabledict>=2.0
 Requires-Dist: unpaddedbase64>=2.1.0
 Requires-Dist: canonicaljson>=2.0.0,<3.0.0
-Requires-Dist: signedjson>=1.1.0,<2.0.0
+Requires-Dist: signedjson>=1.1.4,<2.0.0
 Requires-Dist: service-identity>=18.1.0
 Requires-Dist: twisted[tls]>=21.2.0
 Requires-Dist: treq>=21.5.0
@@ -48,7 +48,7 @@ Requires-Dist: psycopg2>=2.8 ; platform_python_implementation != 'PyPy' and extr
 Requires-Dist: psycopg2cffi>=2.8 ; platform_python_implementation == 'PyPy' and extra == 'all'
 Requires-Dist: psycopg2cffi-compat==1.1 ; platform_python_implementation == 'PyPy' and extra == 'all'
 Requires-Dist: pysaml2>=4.5.0 ; extra == 'all'
-Requires-Dist: authlib>=0.15.1 ; extra == 'all'
+Requires-Dist: authlib>=1.6.11 ; extra == 'all'
 Requires-Dist: lxml>=4.6.3 ; extra == 'all'
 Requires-Dist: sentry-sdk>=0.7.2 ; extra == 'all'
 Requires-Dist: jaeger-client>=4.2.0 ; extra == 'all'
@@ -63,7 +63,7 @@ Requires-Dist: tornado>=6.0 ; extra == 'all'
 Requires-Dist: pympler>=1.0 ; extra == 'cache-memory'
 Requires-Dist: authlib ; extra == 'jwt'
 Requires-Dist: matrix-synapse-ldap3>=0.1 ; extra == 'matrix-synapse-ldap3'
-Requires-Dist: authlib>=0.15.1 ; extra == 'oidc'
+Requires-Dist: authlib>=1.6.11 ; extra == 'oidc'
 Requires-Dist: jaeger-client>=4.2.0 ; extra == 'opentracing'
 Requires-Dist: opentracing>=2.2.0 ; extra == 'opentracing'
 Requires-Dist: thrift>=0.10 ; extra == 'opentracing'

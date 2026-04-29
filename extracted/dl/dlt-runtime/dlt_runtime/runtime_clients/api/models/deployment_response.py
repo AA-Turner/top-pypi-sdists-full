@@ -22,7 +22,6 @@ class DeploymentResponse:
         date_added (datetime.datetime): datetime with the constraint that the value must have timezone info
         date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
         file_count (int): The number of files in the uploaded tarball
-        file_names (str): The names of the files in the uploaded tarball (comma-separated)
         id (UUID): The unique ID of the entity
         requirements_size (int): Size of the workspace requirements manifest blob in bytes
         size (int): The size of the uploaded tarball in bytes
@@ -35,7 +34,6 @@ class DeploymentResponse:
     date_added: datetime.datetime
     date_updated: datetime.datetime
     file_count: int
-    file_names: str
     id: UUID
     requirements_size: int
     size: int
@@ -53,8 +51,6 @@ class DeploymentResponse:
         date_updated = self.date_updated.isoformat()
 
         file_count = self.file_count
-
-        file_names = self.file_names
 
         id = str(self.id)
 
@@ -75,7 +71,6 @@ class DeploymentResponse:
                 "date_added": date_added,
                 "date_updated": date_updated,
                 "file_count": file_count,
-                "file_names": file_names,
                 "id": id,
                 "requirements_size": requirements_size,
                 "size": size,
@@ -99,8 +94,6 @@ class DeploymentResponse:
 
         file_count = d.pop("file_count")
 
-        file_names = d.pop("file_names")
-
         id = UUID(d.pop("id"))
 
         requirements_size = d.pop("requirements_size")
@@ -117,7 +110,6 @@ class DeploymentResponse:
             date_added=date_added,
             date_updated=date_updated,
             file_count=file_count,
-            file_names=file_names,
             id=id,
             requirements_size=requirements_size,
             size=size,

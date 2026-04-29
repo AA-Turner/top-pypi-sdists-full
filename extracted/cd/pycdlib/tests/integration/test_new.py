@@ -2449,6 +2449,507 @@ def test_new_rr_onefile_onetwelve():
 
     iso.close()
 
+def check_rr_onetwelve_px_in_ce(iso, filesize):
+    # The version on the ISO must reflect what we wrote: 1.12.
+    assert(iso.rock_ridge == '1.12')
+    # Sanity-check that the scenario actually exercises CE-resident PX.
+    # If a future writer change keeps PX inline even for very long names,
+    # this test would otherwise silently stop covering the bug.
+    long_name_dr = iso.pvd.root_dir_record.children[2]
+    assert(long_name_dr.rock_ridge.dr_entries.ce_record is not None)
+    assert(long_name_dr.rock_ridge.dr_entries.px_record is None)
+    assert(long_name_dr.rock_ridge.ce_entries.px_record is not None)
+
+def test_new_rr_onetwelve_px_in_ce():
+    # Regression test for https://github.com/clalancette/pycdlib/pull/138.
+    # When a Rock Ridge 1.12 record's filename is long enough to push the
+    # PX record into the SUSP CE block, the parser must defer determining
+    # the on-disk Rock Ridge version until after the CE block is read.
+    # Pre-fix, _set_rock_ridge was called with the version inferred from
+    # the directory record alone -- which sees no PX, defaults to '1.09',
+    # and then trips 'Inconsistent Rock Ridge versions on the ISO!' on
+    # the next correctly-inferred (inline-PX) record like '.' or '..'.
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.12')
+
+    aastr = b'aa\n'
+    iso.add_fp(io.BytesIO(aastr), len(aastr), '/AAAAAAAA.;1',
+               rr_name='a' * RR_MAX_FILENAME_LENGTH)
+
+    do_a_test(iso, check_rr_onetwelve_px_in_ce)
+
+    iso.close()
+
+def test_new_rr_intact_er_still_detected():
+    # Sanity: a normal Rock Ridge ISO with the canonical ER record present
+    # is still recognized as Rock Ridge after open.  Guards against the
+    # post-hoc detection in _walk_directories accidentally wiping out
+    # iso.rock_ridge for legitimate RR ISOs.
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', rr_name='foo')
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(out.getvalue()))
+    assert(iso2.rock_ridge == '1.09')
+    assert(iso2.has_rock_ridge())
+    iso2.close()
+
+def test_new_rr_missing_er_treated_as_non_rr():
+    # Regression test for https://github.com/clalancette/pycdlib/issues/123.
+    # A non-Rock-Ridge ISO can have system-use bytes that coincidentally
+    # match RR SUSP signatures (e.g. some MAC app ISOs).  Per-record
+    # opportunistic detection alone used to set iso.rock_ridge='1.09' from
+    # those false positives, and walk(rr_path=...) would later trip with
+    # "Cannot generate a Rock Ridge path on a non-Rock Ridge ISO" deep in
+    # the traversal when an individual record didn't have RR data.  The
+    # canonical RR signal is the ER record with ext_id 'RRIP_1991A' (or
+    # 'IEEE_P1282' for 1.12) -- without it, the volume is not RR.
+    #
+    # Build a real RR 1.09 ISO, then scrub the ER ext_id bytes so the ISO
+    # no longer declares RR via the canonical signal while leaving every
+    # per-record RR-shaped byte intact.
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', rr_name='foo')
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    data = bytearray(out.getvalue())
+    pos = data.find(b'RRIP_1991A')
+    assert(pos >= 0)
+    data[pos:pos + len(b'RRIP_1991A')] = b'XXXXXXXXXX'
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(bytes(data)))
+    assert(iso2.rock_ridge == '')
+    assert(not iso2.has_rock_ridge())
+    # rr_path now hits the API-boundary guard with a clear message
+    # instead of tripping deep inside walk().
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        list(iso2.walk(rr_path='/'))
+    assert(str(excinfo.value) == 'Cannot fetch a rr_path from a non-Rock Ridge ISO')
+    iso2.close()
+
+def test_new_rr_onetwelve_missing_er_treated_as_non_rr():
+    # Same as test_new_rr_missing_er_treated_as_non_rr but for Rock Ridge
+    # 1.12, whose ER ext_id is IEEE_P1282 instead of RRIP_1991A.
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.12')
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', rr_name='foo')
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    data = bytearray(out.getvalue())
+    pos = data.find(b'IEEE_P1282')
+    assert(pos >= 0)
+    data[pos:pos + len(b'IEEE_P1282')] = b'XXXXXXXXXX'
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(bytes(data)))
+    assert(iso2.rock_ridge == '')
+    assert(not iso2.has_rock_ridge())
+    iso2.close()
+
+def test_new_modify_file_in_place_unsorted_dir_records():
+    # Regression test for https://github.com/clalancette/pycdlib/issues/122.
+    # modify_file_in_place used to compute the on-disk byte offset of a
+    # directory record from extents_to_here / offset_to_here -- both
+    # derived from pycdlib's in-memory sorted order of children.  When
+    # the actual on-disk order doesn't match (some writers don't emit
+    # records strictly sorted), the write lands on the wrong byte range
+    # and silently corrupts whatever sibling actually sat at that offset.
+    # The fix rewrites the parent's full child list instead of trusting
+    # the per-record offset.
+    #
+    # Construct the on-disk vs in-memory skew by building a sorted ISO
+    # with three same-length-name files and swapping two of the records
+    # in the bytes.
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b'AAA\n'), 4, '/AAA.;1')
+    iso.add_fp(io.BytesIO(b'BBB\n'), 4, '/BBB.;1')
+    iso.add_fp(io.BytesIO(b'CCC\n'), 4, '/CCC.;1')
+
+    out = io.BytesIO()
+    iso.write_fp(out)
+    root_extent = iso.pvd.root_dir_record.extent_location()
+    iso.close()
+
+    # Locate the AAA and BBB records inside the root directory extent
+    # (layout: dot, dotdot, AAA, BBB, CCC) and swap their bytes so the
+    # on-disk order becomes dot, dotdot, BBB, AAA, CCC.
+    data = bytearray(out.getvalue())
+    pos = root_extent * 2048
+    pos += data[pos]   # skip dot
+    pos += data[pos]   # skip dotdot
+    aaa_pos = pos
+    aaa_len = data[aaa_pos]
+    bbb_pos = aaa_pos + aaa_len
+    bbb_len = data[bbb_pos]
+    assert(aaa_len == bbb_len)
+    aaa_bytes = bytes(data[aaa_pos:aaa_pos + aaa_len])
+    bbb_bytes = bytes(data[bbb_pos:bbb_pos + bbb_len])
+    data[aaa_pos:aaa_pos + aaa_len] = bbb_bytes
+    data[bbb_pos:bbb_pos + bbb_len] = aaa_bytes
+
+    # Re-open the patched ISO and modify AAA in place.  pycdlib reads
+    # records in on-disk order (BBB, AAA, CCC) but stores them sorted in
+    # memory (AAA, BBB, CCC) -- the divergence that triggers the bug.
+    fp = io.BytesIO(bytes(data))
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(fp)
+    iso2.modify_file_in_place(io.BytesIO(b'aaa\n'), 4, '/AAA.;1')
+    iso2.close()
+
+    # All three files must still be readable with their expected contents.
+    # Pre-fix, BBB or CCC would be corrupted by AAA's write hitting the
+    # wrong byte range.
+    iso3 = pycdlib.PyCdlib()
+    iso3.open_fp(fp)
+    for path, expected in [('/AAA.;1', b'aaa\n'),
+                           ('/BBB.;1', b'BBB\n'),
+                           ('/CCC.;1', b'CCC\n')]:
+        buf = io.BytesIO()
+        iso3.get_file_from_iso_fp(buf, iso_path=path)
+        assert(buf.getvalue() == expected)
+    iso3.close()
+
+def test_new_udf_boot_descriptor_parsed():
+    # Coverage for the UDF BOOT2 (Boot Descriptor) dispatch in
+    # _parse_volume_descriptors.  pycdlib's writer doesn't emit BOOT2 on
+    # its own, so build a real UDF ISO and overwrite the BEA01 extent
+    # with a synthetic BOOT2 descriptor.  Re-open and verify the BOOT2
+    # was parsed and stashed in iso.udf_boots.  (Replacing BEA01 also
+    # disables the rest of the UDF parse path -- _has_udf is only set
+    # when BEA01 is seen -- so we don't need the rest of the UDF
+    # machinery to remain functional for this test.)
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', udf_path='/foo')
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    # Bytes copied from the existing UDFBootDescriptor.parse unit test
+    # in test_udf.py: structure_type=0, ident='BOOT2', version=1,
+    # reserved1=0, then 32-byte architecture_type and boot_ident
+    # (zero-init UDFEntityIDs), then boot_extent_loc/len/load/start (24
+    # zero bytes), then a valid 12-byte UDFTimestamp, flags=0,
+    # reserved2 = 32 zeros, boot_use = 1906 zeros.
+    boot2 = (b'\x00BOOT2\x01\x00'
+             + b'\x00' * 32
+             + b'\x00' * 32
+             + b'\x00' * 24
+             + b'\x00\x00\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00'
+             + b'\x00\x00'
+             + b'\x00' * 32
+             + b'\x00' * 1906)
+    assert(len(boot2) == 2048)
+    data = bytearray(out.getvalue())
+    bea01_byte = data.find(b'BEA01')
+    assert(bea01_byte >= 0)
+    extent_start = (bea01_byte // 2048) * 2048
+    data[extent_start:extent_start + 2048] = boot2
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(bytes(data)))
+    assert(len(iso2.udf_boots) == 1)
+    iso2.close()
+
+def test_new_udf_creation_time_forces_efe_round_trip():
+    # Regression test for https://github.com/clalancette/pycdlib/issues/94.
+    # When the user supplies creation_time on add_directory/add_file for a
+    # UDF path, pycdlib must emit an Extended File Entry (tag 266) for that
+    # entry, since regular File Entries (tag 261) have no on-disk slot for
+    # creation_time.  Round-trip the resulting ISO and verify the
+    # creation_time, the EFE on-disk format, and that an unstamped child
+    # mirrors its EFE parent.
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+    # An explicit creation_time forces EFE for /dir1.
+    creation_secs = 1234567890.0
+    iso.add_directory('/DIR1', udf_path='/dir1', creation_time=creation_secs)
+    # No creation_time on this child -- it must mirror the EFE parent.
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', udf_path='/dir1/foo')
+
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(out.getvalue()))
+
+    # The root was created without creation_time, parent=None, so it
+    # should still be a regular File Entry.
+    assert(iso2.udf_root is not None)
+    assert(type(iso2.udf_root) is pycdlib.udf.UDFFileEntry)
+    assert(iso2.udf_root.desc_tag.tag_ident == 261)
+
+    sub = iso2._find_udf_record(b'/dir1')[1]
+    assert(isinstance(sub, pycdlib.udf.UDFExtendedFileEntry))
+    assert(sub.desc_tag.tag_ident == 266)
+    # creation_time round-tripped (granularity is whole seconds).
+    assert(sub.creation_time.year == 2009)
+    assert(sub.creation_time.month == 2)
+    assert(sub.creation_time.day == 13)
+
+    foo = iso2._find_udf_record(b'/dir1/foo')[1]
+    # Mirroring: parent /dir1 is EFE, so /dir1/foo is EFE too even though
+    # the caller didn't supply a creation_time for it.
+    assert(isinstance(foo, pycdlib.udf.UDFExtendedFileEntry))
+    assert(foo.desc_tag.tag_ident == 266)
+
+    buf = io.BytesIO()
+    iso2.get_file_from_iso_fp(buf, udf_path='/dir1/foo')
+    assert(buf.getvalue() == b'foo\n')
+
+    iso2.close()
+
+def test_new_udf_no_creation_time_keeps_fe():
+    # Sibling test: if no creation_time is supplied, every UDF entry stays
+    # in the regular File Entry format (tag 261), matching the parent.
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+    iso.add_directory('/DIR1', udf_path='/dir1')
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', udf_path='/foo')
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(out.getvalue()))
+    assert(type(iso2.udf_root) is pycdlib.udf.UDFFileEntry)
+    sub = iso2._find_udf_record(b'/dir1')[1]
+    assert(type(sub) is pycdlib.udf.UDFFileEntry)
+    foo = iso2._find_udf_record(b'/foo')[1]
+    assert(type(foo) is pycdlib.udf.UDFFileEntry)
+    iso2.close()
+
+def test_new_creation_time_no_compatible_storage_errors():
+    # creation_time has nowhere to live on plain ISO9660 / Joliet (the DR
+    # has no creation-time field), so passing it without RR or UDF raises.
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.add_fp(io.BytesIO(b'x'), 1, '/X.;1', creation_time=0.0)
+    assert('creation_time' in str(excinfo.value))
+    iso.close()
+
+def test_new_rock_ridge_creation_time_round_trip():
+    # On a Rock Ridge ISO, creation_time should land in the TF record's
+    # CREATION timestamp (bit 0).  Verify by re-opening and inspecting
+    # the parsed RRTFRecord.
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+    creation_secs = 1234567890.0
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', rr_name='foo',
+               creation_time=creation_secs)
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(out.getvalue()))
+    rec = iso2.get_record(rr_path='/foo')
+    assert(rec.rock_ridge is not None)
+    tf = rec.rock_ridge.dr_entries.tf_record
+    if tf is None:
+        tf = rec.rock_ridge.ce_entries.tf_record
+    assert(tf is not None)
+    assert(tf.creation_time is not None)
+    assert(tf.creation_time.years_since_1900 == 109)  # 2009
+    assert(tf.creation_time.month == 2)
+    assert(tf.creation_time.day_of_month == 13)
+    iso2.close()
+
+def test_new_add_symlink_creation_time_forces_efe():
+    # add_symlink with creation_time on a UDF symlink path forces the
+    # EFE format for the symlink's UDF File Entry.
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+    iso.add_symlink(udf_symlink_path='/lnk', udf_target='target',
+                    creation_time=1234567890.0)
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(out.getvalue()))
+    rec = iso2._find_udf_record(b'/lnk')[1]
+    assert(isinstance(rec, pycdlib.udf.UDFExtendedFileEntry))
+    assert(rec.creation_time.year == 2009)
+    iso2.close()
+
+def test_new_add_hard_link_creation_time_round_trip_rr():
+    # Rock Ridge hard links get their own DR (and own TF record) per link,
+    # so creation_time on the new link round-trips cleanly without
+    # disturbing the original DR.
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', rr_name='foo')
+    iso.add_hard_link(iso_old_path='/FOO.;1', iso_new_path='/FOO2.;1',
+                      rr_name='foo2', creation_time=1234567890.0)
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(out.getvalue()))
+    rec = iso2.get_record(rr_path='/foo2')
+    tf = rec.rock_ridge.dr_entries.tf_record
+    if tf is None:
+        tf = rec.rock_ridge.ce_entries.tf_record
+    assert(tf is not None)
+    assert(tf.creation_time is not None)
+    assert(tf.creation_time.years_since_1900 == 109)
+    # The original link's DR keeps its default flags (no creation_time).
+    rec_orig = iso2.get_record(rr_path='/foo')
+    tf_orig = rec_orig.rock_ridge.dr_entries.tf_record
+    if tf_orig is None:
+        tf_orig = rec_orig.rock_ridge.ce_entries.tf_record
+    assert(tf_orig is not None)
+    assert(tf_orig.creation_time is None)
+    iso2.close()
+
+def test_new_add_hard_link_creation_time_udf_rejected():
+    # UDF hard links share a single File Entry in pycdlib, so a per-link
+    # creation_time can't be honored -- we must reject it.
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', udf_path='/foo')
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.add_hard_link(udf_old_path='/foo', udf_new_path='/foo2',
+                          creation_time=0.0)
+    assert('UDF hard links' in str(excinfo.value))
+    iso.close()
+
+def test_new_add_directory_creation_time_no_storage_errors():
+    # creation_time on add_directory must error if neither RR nor UDF can
+    # store it.
+    iso = pycdlib.PyCdlib()
+    iso.new(joliet=3)
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.add_directory(joliet_path='/dir1', creation_time=0.0)
+    assert('creation_time' in str(excinfo.value))
+    iso.close()
+
+def test_new_dir_subextent_data_length_opens():
+    # Regression test: real-world ISOs (Windows XP / 2003 install media,
+    # PS2 GT4) declare a directory data_length that ends inside an
+    # extent, with the trailing partial extent zero-padded.  The parser
+    # used to demand a *full* logical-block-sized run of zeros after a
+    # zero-length DR, which fails when data_length runs out partway
+    # through.  Build a small ISO, byte-patch root's data_length to
+    # claim an extra 100 bytes that fall in the zero pad past the real
+    # content, and check that re-opening still works.
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    # Force root into multiple extents so there's a zero-padded tail
+    # past the last DR but still inside the directory's extents on
+    # disk.  We can then patch root.data_length to claim 100 of those
+    # zero bytes without colliding with file data.
+    for i in range(80):
+        name = '/F%03d.;1' % i
+        iso.add_fp(io.BytesIO(b'x'), 1, name)
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    data = bytearray(out.getvalue())
+
+    # PVD root_directory_record lives at offset 156 within the PVD
+    # (extent 16).  DR layout: byte 0=dr_len, byte 1=xattr_len,
+    # bytes 2-9=extent_le|extent_be, bytes 10-17=data_length_le|be.
+    pvd_root_dr_off = 16 * 2048 + 156
+    root_extent_le, _root_extent_be, root_data_length_le, _root_data_length_be = \
+        struct.unpack_from('<LLLL', data, pvd_root_dr_off + 2)
+    # Need root to span more than one extent so there's zero-pad space
+    # past the last DR but before the next ISO descriptor.
+    assert(root_data_length_le > 2048)
+    assert(root_data_length_le % 2048 == 0)
+
+    # Extend data_length by 100 bytes.  The 100 extra bytes need to be
+    # zero -- they live in what would otherwise be the directory's
+    # zero-pad tail past the last DR.  Force them to be zero (they
+    # generally already are from pycdlib's writer, but being explicit
+    # keeps the test stable against writer changes).
+    extra = 100
+    new_dl = root_data_length_le + extra
+    pad_start = root_extent_le * 2048 + root_data_length_le
+    for i in range(extra):
+        data[pad_start + i] = 0
+
+    def patch_data_length(off):
+        struct.pack_into('<L', data, off + 10, new_dl)
+        # The big-endian copy lives at offset+14, computed via swab.
+        be = ((new_dl & 0xff) << 24) | ((new_dl & 0xff00) << 8) | \
+             ((new_dl & 0xff0000) >> 8) | ((new_dl >> 24) & 0xff)
+        struct.pack_into('<L', data, off + 14, be)
+
+    # 1. PVD root DR.
+    patch_data_length(pvd_root_dr_off)
+    # 2. Root's dot DR (first DR at start of root extent).
+    root_extent_off = root_extent_le * 2048
+    patch_data_length(root_extent_off)
+    # 3. Root's dotdot DR (second DR; for root's parent-is-self, this
+    # also reports root's data_length).  Dot DR is dr_len=34.
+    patch_data_length(root_extent_off + 34)
+
+    # Verify it opens.
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(bytes(data)))
+    # Sanity: round-trip through pycdlib once more to confirm we
+    # didn't just paper over a parse error -- the rewritten ISO
+    # should still be coherent.
+    out2 = io.BytesIO()
+    iso2.write_fp(out2)
+    iso2.close()
+    iso3 = pycdlib.PyCdlib()
+    iso3.open_fp(io.BytesIO(out2.getvalue()))
+    iso3.close()
+
+def test_new_walk_with_non_utf8_directory_name():
+    # Regression test for https://github.com/clalancette/pycdlib/issues/109.
+    # The 1.15.0 walk encoding work decoded the file/directory names that
+    # walk() yields, but full_path_from_dirrecord still hardcoded UTF-8
+    # for ISO9660 records and tripped UnicodeDecodeError when walk
+    # recursed into a sub-directory whose on-disk name isn't UTF-8.
+    # In addition, the descended walk() iteration used to look up the
+    # directory via list_children(iso_path=relpath), which re-encoded
+    # the path through hardcoded UTF-8 and failed to find the record.
+    # Build a small ISO and byte-patch a directory's file_ident to be
+    # the shift_jis bytes for the character 'せ' (which are *not* valid
+    # UTF-8) to exercise both code paths.
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_directory('/AA')
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/AA/FOO.;1')
+    out = io.BytesIO()
+    iso.write_fp(out)
+    root_extent = iso.pvd.root_dir_record.extent_location()
+    iso.close()
+
+    data = bytearray(out.getvalue())
+    ext_off = root_extent * 2048
+    pos = data.find(b'AA', ext_off, ext_off + 2048)
+    assert(pos >= 0)
+    data[pos:pos + 2] = b'\x82\xb9'  # shift_jis for 'せ'; not valid UTF-8
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(bytes(data)))
+    walked = list(iso2.walk(iso_path='/', encoding='shift_jis'))
+    assert(walked == [
+        ('/', ['せ'], []),
+        ('/せ', [], ['FOO.;1']),
+    ])
+    iso2.close()
+
 def test_new_set_hidden_file():
     iso = pycdlib.PyCdlib()
     iso.new()
@@ -4417,6 +4918,140 @@ def test_new_udf_very_large(tmpdir):
 
     iso.close()
 
+def test_new_udf_above_multi_extent_threshold(tmpdir):
+    # Regression test for issue #65: a UDF file larger than the ISO9660
+    # multi-extent boundary (0xfffff800 ~= 4 GiB) used to leave the UDF
+    # File Entry pointing at only the last fragment's inode while the
+    # earlier fragments became orphaned inodes.  Use a sparse input and
+    # verify the in-memory state without writing the (~4 GiB) ISO out.
+    indir = tmpdir.mkdir('udfabovemulti')
+    largefile = os.path.join(str(indir), 'foo')
+
+    SIZE = 0xfffff800 + 1
+    with open(largefile, 'wb') as outfp:
+        outfp.truncate(SIZE)
+
+    iso = pycdlib.PyCdlib()
+    iso.new(interchange_level=3, udf='2.60')
+    iso.add_file(largefile, udf_path='/foo')
+
+    fe = iso.udf_root.fi_descs[1].file_entry
+    assert(fe.info_len == SIZE)
+    assert(sum(ad.extent_length for ad in fe.alloc_descs) == SIZE)
+    assert(fe.inode is not None)
+    assert(fe.inode.data_length == SIZE)
+    assert(fe.inode.fp_offset == 0)
+    # Exactly one inode should be tracked: the full-file UDF inode.  Without
+    # the fix, the splitting loop would also leave an orphaned per-chunk
+    # inode behind.
+    assert(len(iso.inodes) == 1)
+    assert(iso.inodes[0] is fe.inode)
+    assert(len(fe.inode.linked_records) == 1)
+
+    iso.close()
+
+@pytest.mark.slow
+def test_new_udf_above_multi_extent_threshold_roundtrip(tmpdir):
+    # Round-trip companion to test_new_udf_above_multi_extent_threshold:
+    # write a >4 GiB UDF file to a real ISO and read it back to verify the
+    # data on either side of the multi-extent boundary survives intact.
+    indir = tmpdir.mkdir('udfabovemultirt')
+    largefile = os.path.join(str(indir), 'foo')
+    output_iso = os.path.join(str(indir), 'udfabovemulti.iso')
+    extracted = os.path.join(str(indir), 'extracted')
+
+    SIZE = 0xfffff800 + 4096
+    boundary = 0xfffff800
+    with open(largefile, 'wb') as outfp:
+        outfp.truncate(SIZE)
+        outfp.seek(0)
+        outfp.write(b'\xaa' * 16)
+        outfp.seek(boundary - 8)
+        outfp.write(b'\xbb' * 16)
+        outfp.seek(SIZE - 16)
+        outfp.write(b'\xcc' * 16)
+
+    iso = pycdlib.PyCdlib()
+    iso.new(interchange_level=3, udf='2.60')
+    iso.add_file(largefile, udf_path='/foo')
+    iso.write(output_iso)
+    iso.close()
+
+    newiso = pycdlib.PyCdlib()
+    newiso.open(output_iso)
+    newiso.get_file_from_iso(extracted, udf_path='/foo')
+    newiso.close()
+
+    assert(os.stat(extracted).st_size == SIZE)
+    with open(extracted, 'rb') as fp:
+        assert(fp.read(16) == b'\xaa' * 16)
+        fp.seek(boundary - 8)
+        assert(fp.read(16) == b'\xbb' * 16)
+        fp.seek(SIZE - 16)
+        assert(fp.read(16) == b'\xcc' * 16)
+
+@pytest.mark.slow
+def test_new_udf_bridge_above_multi_extent_threshold(tmpdir):
+    # UDF Bridge round-trip for a file larger than 0xfffff800 bytes.  Both
+    # the ISO9660 and UDF views must point at the same physical extents
+    # (single copy of the file data on disc, per ECMA-167) and both must
+    # extract identical content.
+    indir = tmpdir.mkdir('bridgeabovemultirt')
+    largefile = os.path.join(str(indir), 'foo')
+    output_iso = os.path.join(str(indir), 'bridge.iso')
+    extracted_iso = os.path.join(str(indir), 'extracted_iso')
+    extracted_udf = os.path.join(str(indir), 'extracted_udf')
+
+    SIZE = 0xfffff800 + 4096
+    boundary = 0xfffff800
+    with open(largefile, 'wb') as outfp:
+        outfp.truncate(SIZE)
+        outfp.seek(0)
+        outfp.write(b'\xaa' * 16)
+        outfp.seek(boundary - 8)
+        outfp.write(b'\xbb' * 16)
+        outfp.seek(SIZE - 16)
+        outfp.write(b'\xcc' * 16)
+
+    iso = pycdlib.PyCdlib()
+    iso.new(interchange_level=3, udf='2.60')
+    iso.add_file(largefile, '/FOO.;1', udf_path='/foo')
+
+    # Single shared inode across the ISO9660 multi-extent chunks and the UDF
+    # File Entry: confirm we don't have separate per-chunk inodes for the
+    # ISO9660 view.
+    file_inodes = [ino for ino in iso.inodes if ino.data_length > 0]
+    assert(len(file_inodes) == 1)
+    assert(file_inodes[0].data_length == SIZE)
+    # 2 ISO9660 multi-extent chunks + 1 UDF File Entry = 3 linked records.
+    assert(len(file_inodes[0].linked_records) == 3)
+
+    iso.write(output_iso)
+    iso.close()
+
+    # The on-disc file should contain a single copy of the data.  An
+    # over-budget bound: header/metadata extents + ceil(SIZE/2048) data
+    # extents + a small slack for trailing UDF anchors and padding.  If the
+    # data were duplicated, the size would balloon by roughly another SIZE.
+    iso_size = os.stat(output_iso).st_size
+    data_extents = (SIZE + 2047) // 2048
+    assert(iso_size < (data_extents + 4096) * 2048)
+
+    newiso = pycdlib.PyCdlib()
+    newiso.open(output_iso)
+    newiso.get_file_from_iso(extracted_iso, iso_path='/FOO.;1')
+    newiso.get_file_from_iso(extracted_udf, udf_path='/foo')
+    newiso.close()
+
+    for extracted in (extracted_iso, extracted_udf):
+        assert(os.stat(extracted).st_size == SIZE)
+        with open(extracted, 'rb') as fp:
+            assert(fp.read(16) == b'\xaa' * 16)
+            fp.seek(boundary - 8)
+            assert(fp.read(16) == b'\xbb' * 16)
+            fp.seek(SIZE - 16)
+            assert(fp.read(16) == b'\xcc' * 16)
+
 def test_new_lookup_after_rmdir():
     iso = pycdlib.PyCdlib()
     iso.new()
@@ -6286,6 +6921,100 @@ def test_new_open_file_from_iso_readinto_past_eof():
 
     iso.close()
 
+def _build_two_file_iso():
+    """Build an ISO containing two files whose contents are easy to tell
+    apart byte-wise.  Returns the freshly-opened PyCdlib object."""
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b'A' * 4096), 4096, '/A.;1')
+    iso.add_fp(io.BytesIO(b'B' * 4096), 4096, '/B.;1')
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(io.BytesIO(out.getvalue()))
+    return iso2
+
+def test_new_open_file_from_iso_concurrent_reads_dont_corrupt():
+    # Regression test: PyCdlibIO.read used to issue a bare
+    # self._fp.read(n) without seeking first, relying on _cdfp's position
+    # being whatever __enter__ left it.  But _cdfp is shared with the
+    # rest of pycdlib, so opening (and reading) a second file on the same
+    # ISO would silently shift _cdfp to the second file's data and the
+    # next read() on the first PyCdlibIO would return the second file's
+    # bytes instead of the first file's continuation.
+    iso = _build_two_file_iso()
+
+    with iso.open_file_from_iso(iso_path='/A.;1') as fa:
+        first = fa.read(100)
+        assert(first == b'A' * 100)
+
+        # Opening and reading from B mutates the shared _cdfp position.
+        with iso.open_file_from_iso(iso_path='/B.;1') as fb:
+            assert(fb.read(100) == b'B' * 100)
+
+        # fa.read must continue at A[100:200], not at B[100:200].
+        second = fa.read(100)
+        assert(second == b'A' * 100)
+
+    iso.close()
+
+def test_new_open_file_from_iso_concurrent_open_no_read_dont_corrupt():
+    # Same hazard, weaker trigger: merely entering the second file's
+    # context manager seeks the shared _cdfp to that file's start (in
+    # InodeOpenData.__enter__), even if no read happens.  fa's next
+    # read must still return A's continuation.
+    iso = _build_two_file_iso()
+
+    with iso.open_file_from_iso(iso_path='/A.;1') as fa:
+        assert(fa.read(100) == b'A' * 100)
+
+        with iso.open_file_from_iso(iso_path='/B.;1') as fb_unused:
+            pass
+
+        assert(fa.read(100) == b'A' * 100)
+
+    iso.close()
+
+def test_new_open_file_from_iso_concurrent_readinto_dont_corrupt():
+    # readinto has the same bare-read hazard; verify the regression case
+    # against it directly.
+    iso = _build_two_file_iso()
+
+    with iso.open_file_from_iso(iso_path='/A.;1') as fa:
+        buf = bytearray(100)
+        assert(fa.readinto(buf) == 100)
+        assert(bytes(buf) == b'A' * 100)
+
+        with iso.open_file_from_iso(iso_path='/B.;1') as fb:
+            buf2 = bytearray(100)
+            assert(fb.readinto(buf2) == 100)
+            assert(bytes(buf2) == b'B' * 100)
+
+        buf3 = bytearray(100)
+        assert(fa.readinto(buf3) == 100)
+        assert(bytes(buf3) == b'A' * 100)
+
+    iso.close()
+
+def test_new_open_file_from_iso_concurrent_readall_dont_corrupt():
+    # readall has the same bare-read hazard.  Read part of A, then poke
+    # _cdfp by opening B, then readall the rest of A.
+    iso = _build_two_file_iso()
+
+    with iso.open_file_from_iso(iso_path='/A.;1') as fa:
+        first = fa.read(100)
+        assert(first == b'A' * 100)
+
+        with iso.open_file_from_iso(iso_path='/B.;1') as fb:
+            assert(fb.read(100) == b'B' * 100)
+
+        rest = fa.readall()
+        assert(rest == b'A' * (4096 - 100))
+
+    iso.close()
+
 def test_new_udf_cyrillic():
     iso = pycdlib.PyCdlib()
     iso.new(udf='2.60')
@@ -6492,6 +7221,47 @@ def test_new_udf_eltorito_multi_boot_rm_file():
     assert(str(excinfo.value) == "Cannot remove a file that is referenced by El Torito; use 'rm_eltorito' to remove El Torito, or use 'rm_hard_link' to hide the entry")
 
     iso.close()
+
+def test_new_udf_anchor_after_shrink():
+    # Create a UDF ISO with a small file and a large file, write it, reopen,
+    # remove the large file, add a different small file, write again, then
+    # reopen.  The removal makes the reshuffled layout more compact than the
+    # original pvd.space_size, which (before the fix) caused the second UDF
+    # anchor to be placed at an extent the parser wouldn't check.
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+
+    foostr = b'foo\n'
+    iso.add_fp(io.BytesIO(foostr), len(foostr), '/FOO.;1', udf_path='/foo')
+
+    bigstr = b'x' * 102400
+    iso.add_fp(io.BytesIO(bigstr), len(bigstr), '/BIG.;1', udf_path='/big')
+
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(out)
+
+    iso2.rm_file(iso_path='/BIG.;1', udf_path='/big')
+
+    barstr = b'bar\n'
+    iso2.add_fp(io.BytesIO(barstr), len(barstr), '/BAR.;1', udf_path='/bar')
+
+    out2 = io.BytesIO()
+    iso2.write_fp(out2)
+
+    check_udf_anchor_after_shrink(iso2, len(out2.getvalue()))
+
+    iso2.close()
+
+    # The critical check: reopen the twice-written ISO and verify it parses
+    # correctly, confirming both UDF anchors are at locations the parser finds.
+    iso3 = pycdlib.PyCdlib()
+    iso3.open_fp(out2)
+    check_udf_anchor_after_shrink(iso3, len(out2.getvalue()))
+    iso3.close()
 
 def test_new_rr_file_mode():
     iso = pycdlib.PyCdlib()

@@ -49,6 +49,59 @@ def _sql_operation(sql: str) -> str:
     return stripped.split(None, 1)[0].upper()
 
 
+def _is_readonly_sql(sql: str) -> bool:
+    """Return True for statements that can safely bypass the store write lock."""
+    operation = _sql_operation(sql)
+    return operation in {"SELECT", "EXPLAIN"}
+
+
+def _load_tags_json(
+    raw: Any,
+    *,
+    table: str = "documents",
+    doc_id: str = "",
+    collection: str = "",
+) -> dict[str, Any]:
+    """Decode a stored ``tags_json`` value, tolerating NULL or malformed JSON.
+
+    The schema declares ``tags_json TEXT NOT NULL DEFAULT '{}'`` for every
+    table that stores tags, so the only way ``raw`` can be ``None`` or a
+    non-JSON string is if a row predates a schema constraint, was written by
+    something bypassing the helpers, or got corrupted.  Reads should not
+    propagate a JSON decode error to callers because every read path treats a
+    missing tag map as benign — it's better to log once and continue with an
+    empty mapping than to break ``get`` for a single bad row.
+    """
+    if raw is None or raw == "":
+        logger.warning(
+            "%s.tags_json is empty for %s/%s; treating as empty tag map",
+            table,
+            collection or "?",
+            doc_id or "?",
+        )
+        return {}
+    try:
+        decoded = json.loads(raw)
+    except (json.JSONDecodeError, TypeError) as exc:
+        logger.warning(
+            "%s.tags_json is invalid JSON for %s/%s (%s); treating as empty",
+            table,
+            collection or "?",
+            doc_id or "?",
+            exc,
+        )
+        return {}
+    if not isinstance(decoded, dict):
+        logger.warning(
+            "%s.tags_json is not an object for %s/%s; treating as empty",
+            table,
+            collection or "?",
+            doc_id or "?",
+        )
+        return {}
+    return decoded
+
+
 @dataclass
 class VersionInfo:
     """Information about a document version.
@@ -109,7 +162,10 @@ class DocumentStore:
         store_path: Path to SQLite database file.
         """
         self._db_path = store_path
-        self._conn: Optional[sqlite3.Connection] = None
+        self._local = threading.local()
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.RLock()
+        self._closed = False
         self._lock = threading.RLock()
         self._fts_available = False
         self._stopwords: Optional[frozenset[str]] = None
@@ -122,17 +178,121 @@ class DocumentStore:
                 self._recover_malformed()
             else:
                 raise
+
+    def _open_connection(self) -> sqlite3.Connection:
+        """Open a SQLite connection for the current thread."""
+        conn = sqlite3.connect(
+            str(self._db_path),
+            check_same_thread=False,
+            isolation_level=None,
+        )
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
+        return conn
+
+    @property
+    def _conn(self) -> sqlite3.Connection:
+        """Thread-local SQLite connection.
+
+        The daemon serves requests from multiple threads. Python's sqlite3
+        connection object is not safe for concurrent use, even when
+        ``check_same_thread`` is disabled, so each thread gets its own handle.
+        """
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            if self._closed:
+                raise sqlite3.ProgrammingError("DocumentStore is closed")
+            conn = self._open_connection()
+            self._local.conn = conn
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
+
+    @_conn.setter
+    def _conn(self, conn: Optional[sqlite3.Connection]) -> None:
+        """Replace or discard only this thread's connection handle."""
+        old = getattr(self._local, "conn", None)
+        if old is not None:
+            with self._connections_lock:
+                self._connections.discard(old)
+        self._local.conn = conn
+        if conn is not None:
+            with self._connections_lock:
+                self._connections.add(conn)
+
+    def _close_all_connections(self, *, mark_closed: bool) -> None:
+        with self._connections_lock:
+            connections = list(self._connections)
+            self._connections.clear()
+        for conn in connections:
+            try:
+                conn.close()
+            except Exception:
+                logger.debug(
+                    "Failed to close SQLite connection for %s",
+                    self._db_path,
+                    exc_info=True,
+                )
+        self._local.conn = None
+        if mark_closed:
+            self._closed = True
     
     def _execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
-        """Execute SQL with thread-safety via the instance lock.
+        """Execute SQL with thread-safety.
 
-        sqlite3 connections are NOT safe for concurrent use from multiple
-        threads (``check_same_thread=False`` only disables the Python-level
-        check).  This helper serialises all access through ``self._lock``.
+        Each thread uses its own sqlite3 connection. Mutating statements and
+        transactions still serialize through ``self._lock``; simple reads can
+        run concurrently on their thread-local connections.
         """
         # Keep SQL text out of traces; statements can contain note content.
         with get_tracer("document_store").start_as_current_span(
             "document_store.execute",
+            attributes={
+                "db.system": "sqlite",
+                "db.operation": _sql_operation(sql),
+                "db.params_count": len(params),
+            },
+        ):
+            if _is_readonly_sql(sql):
+                return self._conn.execute(sql, params)
+            with self._lock:
+                return self._conn.execute(sql, params)
+
+    def _fetchone(self, sql: str, params: tuple = ()) -> sqlite3.Row | None:
+        """Execute SQL and materialize one row within the chosen lock scope."""
+        with get_tracer("document_store").start_as_current_span(
+            "document_store.fetchone",
+            attributes={
+                "db.system": "sqlite",
+                "db.operation": _sql_operation(sql),
+                "db.params_count": len(params),
+            },
+        ):
+            if _is_readonly_sql(sql):
+                return self._conn.execute(sql, params).fetchone()
+            with self._lock:
+                return self._conn.execute(sql, params).fetchone()
+
+    def _fetchall(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
+        """Execute SQL and materialize all rows within the chosen lock scope."""
+        with get_tracer("document_store").start_as_current_span(
+            "document_store.fetchall",
+            attributes={
+                "db.system": "sqlite",
+                "db.operation": _sql_operation(sql),
+                "db.params_count": len(params),
+            },
+        ):
+            if _is_readonly_sql(sql):
+                return self._conn.execute(sql, params).fetchall()
+            with self._lock:
+                return self._conn.execute(sql, params).fetchall()
+
+    def _execute_write(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
+        """Execute a mutating statement under the store write lock."""
+        with get_tracer("document_store").start_as_current_span(
+            "document_store.execute_write",
             attributes={
                 "db.system": "sqlite",
                 "db.operation": _sql_operation(sql),
@@ -162,13 +322,8 @@ class DocumentStore:
     def _init_db(self) -> None:
         """Initialize the SQLite database."""
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self._db_path), check_same_thread=False, isolation_level=None)
-        self._conn.row_factory = sqlite3.Row
-
-        # Enable WAL mode for better concurrent access across processes
-        self._execute("PRAGMA journal_mode=WAL")
-        # Wait up to 5 seconds for locks instead of failing immediately
-        self._execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
+        self._closed = False
+        self._conn = self._open_connection()
 
         self._execute("""
             CREATE TABLE IF NOT EXISTS documents (
@@ -189,7 +344,7 @@ class DocumentStore:
         self._ensure_fts_schema()
 
         # Quick integrity check for existing databases
-        result = self._execute("PRAGMA quick_check").fetchone()
+        result = self._fetchone("PRAGMA quick_check")
         if result[0] != "ok":
             raise sqlite3.DatabaseError("database disk image is malformed")
 
@@ -205,10 +360,10 @@ class DocumentStore:
 
     def _fts_object_exists(self, name: str) -> bool:
         """Return whether a SQLite object exists."""
-        row = self._execute(
+        row = self._fetchone(
             "SELECT 1 FROM sqlite_master WHERE name = ? LIMIT 1",
             (name,),
-        ).fetchone()
+        )
         return row is not None
 
     def _drop_orphaned_fts_schema(self, prefix: str) -> None:
@@ -486,7 +641,7 @@ class DocumentStore:
             WHERE tags_json LIKE '%bundled_hash%'
         """)
         for row in cursor.fetchall():
-            tags = json.loads(row["tags_json"])
+            tags = _load_tags_json(row["tags_json"])
             bh = tags.get("bundled_hash")
             if bh and len(bh) > 10:
                 tags["bundled_hash"] = bh[-10:]
@@ -924,7 +1079,7 @@ class DocumentStore:
                     "collection": row["collection"],
                     "part_num": row["part_num"],
                     "summary": row["migrated_summary"],
-                    "tags": json.loads(row["tags_json"]),
+                    "tags": _load_tags_json(row["tags_json"]),
                 }
                 for row in changed_rows
             ]
@@ -1159,13 +1314,8 @@ class DocumentStore:
         db_path = str(self._db_path)
         corrupt_path = db_path + ".corrupt"
 
-        # Close any existing connection
-        if self._conn is not None:
-            try:
-                self._conn.close()
-            except Exception:
-                pass
-            self._conn = None
+        # Close any existing per-thread connections before moving files.
+        self._close_all_connections(mark_closed=False)
 
         # Try to dump data from the corrupt database
         try:
@@ -1214,19 +1364,18 @@ class DocumentStore:
         """
         with self._lock:
             try:
-                if self._conn is not None:
-                    try:
-                        result = self._conn.execute("PRAGMA quick_check").fetchone()
-                    except sqlite3.DatabaseError as quick_check_err:
-                        if not is_malformed_db_error(quick_check_err):
-                            raise
-                    else:
-                        if result and result[0] == "ok":
-                            logger.info(
-                                "Runtime recovery skipped; database already healthy: %s",
-                                self._db_path,
-                            )
-                            return True
+                try:
+                    result = self._conn.execute("PRAGMA quick_check").fetchone()
+                except sqlite3.DatabaseError as quick_check_err:
+                    if not is_malformed_db_error(quick_check_err):
+                        raise
+                else:
+                    if result and result[0] == "ok":
+                        logger.info(
+                            "Runtime recovery skipped; database already healthy: %s",
+                            self._db_path,
+                        )
+                        return True
 
                 logger.warning(
                     "Runtime database malformation detected, attempting recovery: %s",
@@ -1249,14 +1398,12 @@ class DocumentStore:
 
         With RLock, this can safely use _execute (re-entrant).
         """
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT id, collection, summary, tags_json, created_at, updated_at,
                    content_hash, content_hash_full, accessed_at
             FROM documents
             WHERE id = ? AND collection = ?
         """, (id, collection))
-
-        row = cursor.fetchone()
         if row is None:
             return None
 
@@ -1264,7 +1411,7 @@ class DocumentStore:
             id=row["id"],
             collection=row["collection"],
             summary=row["summary"],
-            tags=json.loads(row["tags_json"]),
+            tags=_load_tags_json(row["tags_json"], doc_id=row["id"], collection=row["collection"]),
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             content_hash=row["content_hash"],
@@ -1556,7 +1703,7 @@ class DocumentStore:
         # targets can now be labeled refs. We have to parse_ref() each value in
         # Python before storing the canonical target_id.
         for row in rows:
-            tags = json.loads(row["tags_json"]) if row["tags_json"] else {}
+            tags = _load_tags_json(row["tags_json"])
             for key in tags:
                 if key.startswith("_"):
                     continue
@@ -1715,7 +1862,7 @@ class DocumentStore:
 
                 version = row["version"]
                 summary = row["summary"]
-                tags = normalize_tag_map(json.loads(row["tags_json"]))
+                tags = normalize_tag_map(_load_tags_json(row["tags_json"]))
                 content_hash = row["content_hash"]
                 created_at = row["created_at"]
 
@@ -1825,12 +1972,11 @@ class DocumentStore:
         Returns:
             The version number, or None if not found.
         """
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT version FROM document_versions
             WHERE id = ? AND collection = ? AND content_hash = ?
             ORDER BY version ASC LIMIT 1
         """, (id, collection, content_hash))
-        row = cursor.fetchone()
         return row["version"] if row else None
 
     def get_latest_version_info_by_content_hash(
@@ -1840,20 +1986,19 @@ class DocumentStore:
         content_hash: str,
     ) -> Optional[VersionInfo]:
         """Return the newest archived version matching *content_hash*."""
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT version, summary, tags_json, content_hash, created_at
             FROM document_versions
             WHERE id = ? AND collection = ? AND content_hash = ?
             ORDER BY version DESC
             LIMIT 1
         """, (id, collection, content_hash))
-        row = cursor.fetchone()
         if row is None:
             return None
         return VersionInfo(
             version=row["version"],
             summary=row["summary"],
-            tags=json.loads(row["tags_json"]) if row["tags_json"] else {},
+            tags=_load_tags_json(row["tags_json"]),
             created_at=row["created_at"],
             content_hash=row["content_hash"],
         )
@@ -2018,7 +2163,7 @@ class DocumentStore:
                     all_versions.append(VersionInfo(
                         version=row["version"],
                         summary=row["summary"],
-                        tags=json.loads(row["tags_json"]),
+                        tags=_load_tags_json(row["tags_json"]),
                         created_at=row["created_at"],
                         content_hash=row["content_hash"],
                     ))
@@ -2172,14 +2317,12 @@ class DocumentStore:
         Returns:
             DocumentRecord if found, None otherwise
         """
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT id, collection, summary, tags_json, created_at, updated_at,
                    content_hash, content_hash_full, accessed_at
             FROM documents
             WHERE id = ? AND collection = ?
         """, (id, collection))
-
-        row = cursor.fetchone()
         if row is None:
             return None
 
@@ -2187,7 +2330,7 @@ class DocumentStore:
             id=row["id"],
             collection=row["collection"],
             summary=row["summary"],
-            tags=json.loads(row["tags_json"]),
+            tags=_load_tags_json(row["tags_json"], doc_id=row["id"], collection=row["collection"]),
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             content_hash=row["content_hash"],
@@ -2223,22 +2366,20 @@ class DocumentStore:
 
         # Use OFFSET query to handle gaps in version numbering.
         # offset=1 → OFFSET 0 (newest archived), offset=2 → OFFSET 1, etc.
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT version, summary, tags_json, content_hash, created_at
             FROM document_versions
             WHERE id = ? AND collection = ?
             ORDER BY version DESC
             LIMIT 1 OFFSET ?
         """, (id, collection, offset - 1))
-
-        row = cursor.fetchone()
         if row is None:
             return None
 
         return VersionInfo(
             version=row["version"],
             summary=row["summary"],
-            tags=json.loads(row["tags_json"]),
+            tags=_load_tags_json(row["tags_json"]),
             created_at=row["created_at"],
             content_hash=row["content_hash"],
         )
@@ -2250,20 +2391,18 @@ class DocumentStore:
         version: int,
     ) -> Optional[VersionInfo]:
         """Get a specific archived version by version number."""
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT version, summary, tags_json, content_hash, created_at
             FROM document_versions
             WHERE id = ? AND collection = ? AND version = ?
         """, (id, collection, version))
-
-        row = cursor.fetchone()
         if row is None:
             return None
 
         return VersionInfo(
             version=row["version"],
             summary=row["summary"],
-            tags=json.loads(row["tags_json"]),
+            tags=_load_tags_json(row["tags_json"]),
             created_at=row["created_at"],
             content_hash=row["content_hash"],
         )
@@ -2288,7 +2427,7 @@ class DocumentStore:
         """
         # limit <= 0 means no limit (SQLite LIMIT -1 = unlimited)
         effective_limit = limit if limit > 0 else -1
-        cursor = self._execute("""
+        rows = self._fetchall("""
             SELECT version, summary, tags_json, content_hash, created_at
             FROM document_versions
             WHERE id = ? AND collection = ?
@@ -2297,11 +2436,11 @@ class DocumentStore:
         """, (id, collection, effective_limit))
 
         versions = []
-        for row in cursor:
+        for row in rows:
             versions.append(VersionInfo(
                 version=row["version"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]),
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
                 content_hash=row["content_hash"],
             ))
@@ -2322,7 +2461,7 @@ class DocumentStore:
             return {}
 
         placeholders = ",".join("?" * len(ids))
-        cursor = self._execute(f"""
+        rows = self._fetchall(f"""
             SELECT id, version, summary, tags_json, content_hash, created_at
             FROM document_versions
             WHERE collection = ? AND id IN ({placeholders})
@@ -2330,11 +2469,11 @@ class DocumentStore:
         """, (collection, *ids))
 
         versions_by_id: dict[str, list[VersionInfo]] = {}
-        for row in cursor:
+        for row in rows:
             versions_by_id.setdefault(row["id"], []).append(VersionInfo(
                 version=row["version"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]),
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
                 content_hash=row["content_hash"],
             ))
@@ -2354,7 +2493,7 @@ class DocumentStore:
         number, useful for showing surrounding context when a version is hit
         during search.
         """
-        cursor = self._execute("""
+        rows = self._fetchall("""
             SELECT version, summary, tags_json, content_hash, created_at
             FROM document_versions
             WHERE id = ? AND collection = ? AND version BETWEEN ? AND ?
@@ -2364,10 +2503,10 @@ class DocumentStore:
         return [VersionInfo(
             version=row["version"],
             summary=row["summary"],
-            tags=json.loads(row["tags_json"]),
+            tags=_load_tags_json(row["tags_json"]),
             created_at=row["created_at"],
             content_hash=row["content_hash"],
-        ) for row in cursor]
+        ) for row in rows]
 
     def get_version_nav(
         self,
@@ -2399,33 +2538,31 @@ class DocumentStore:
             # Viewing an old version: get prev (N-1) and next (N+1)
             # Previous version (older)
             if current_version > 1:
-                cursor = self._execute("""
+                row = self._fetchone("""
                     SELECT version, summary, tags_json, content_hash, created_at
                     FROM document_versions
                     WHERE id = ? AND collection = ? AND version = ?
                 """, (id, collection, current_version - 1))
-                row = cursor.fetchone()
                 if row:
                     result["prev"] = [VersionInfo(
                         version=row["version"],
                         summary=row["summary"],
-                        tags=json.loads(row["tags_json"]),
+                        tags=_load_tags_json(row["tags_json"]),
                         created_at=row["created_at"],
                         content_hash=row["content_hash"],
                     )]
 
             # Next version (newer)
-            cursor = self._execute("""
+            row = self._fetchone("""
                 SELECT version, summary, tags_json, content_hash, created_at
                 FROM document_versions
                 WHERE id = ? AND collection = ? AND version = ?
             """, (id, collection, current_version + 1))
-            row = cursor.fetchone()
             if row:
                 result["next"] = [VersionInfo(
                     version=row["version"],
                     summary=row["summary"],
-                    tags=json.loads(row["tags_json"]),
+                    tags=_load_tags_json(row["tags_json"]),
                     created_at=row["created_at"],
                     content_hash=row["content_hash"],
                 )]
@@ -2440,29 +2577,29 @@ class DocumentStore:
 
     def version_count(self, collection: str, id: str) -> int:
         """Count archived versions for a document."""
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT COUNT(*) FROM document_versions
             WHERE id = ? AND collection = ?
         """, (id, collection))
-        return cursor.fetchone()[0]
+        return row[0]
 
     def max_version(self, collection: str, id: str) -> int:
         """Return the highest archived version number, or 0 if none."""
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT COALESCE(MAX(version), 0) FROM document_versions
             WHERE id = ? AND collection = ?
         """, (id, collection))
-        return cursor.fetchone()[0]
+        return row[0]
 
     def count_versions_from(
         self, collection: str, id: str, from_version: int
     ) -> int:
         """Count archived versions with version >= from_version."""
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT COUNT(*) FROM document_versions
             WHERE id = ? AND collection = ? AND version >= ?
         """, (id, collection, from_version))
-        return cursor.fetchone()[0]
+        return row[0]
 
     def copy_record(
         self, collection: str, from_id: str, to_id: str
@@ -2524,7 +2661,7 @@ class DocumentStore:
                 id=row["id"],
                 collection=row["collection"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]),
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
                 content_hash=row["content_hash"],
@@ -2535,11 +2672,11 @@ class DocumentStore:
 
     def exists(self, collection: str, id: str) -> bool:
         """Check if a document exists."""
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT 1 FROM documents
             WHERE id = ? AND collection = ?
         """, (id, collection))
-        return cursor.fetchone() is not None
+        return row is not None
 
     def insert_if_absent(
         self,
@@ -2589,7 +2726,7 @@ class DocumentStore:
         When limit=1 (default), returns a single DocumentRecord or None
         for backwards compatibility.  When limit>1, returns a list.
         """
-        cursor = self._execute("""
+        rows = self._fetchall("""
             SELECT id, collection, summary, tags_json, created_at,
                    updated_at, content_hash, content_hash_full, accessed_at
             FROM documents
@@ -2597,7 +2734,7 @@ class DocumentStore:
             LIMIT ?
         """, (collection, content_hash, exclude_id, limit))
         results: list[DocumentRecord] = []
-        for row in cursor.fetchall():
+        for row in rows:
             # Verify full hash if both sides have one
             if content_hash_full and row["content_hash_full"]:
                 if content_hash_full != row["content_hash_full"]:
@@ -2606,7 +2743,7 @@ class DocumentStore:
                 id=row["id"],
                 collection=row["collection"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]),
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
                 content_hash=row["content_hash"],
@@ -2688,7 +2825,7 @@ class DocumentStore:
                 id=row["id"],
                 collection=row["collection"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]),
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
                 content_hash=row["content_hash"],
@@ -2741,7 +2878,7 @@ class DocumentStore:
 
         records = []
         for row in cursor:
-            tags = json.loads(row["tags_json"])
+            tags = _load_tags_json(row["tags_json"])
             offset = row["version_offset"]
             if offset > 0:
                 tags["_version"] = str(offset)
@@ -2760,24 +2897,24 @@ class DocumentStore:
 
     def count(self, collection: str) -> int:
         """Count documents in a collection."""
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT COUNT(*) FROM documents
             WHERE collection = ?
         """, (collection,))
-        return cursor.fetchone()[0]
+        return row[0]
     
     def count_all(self) -> int:
         """Count total documents across all collections."""
-        cursor = self._execute("SELECT COUNT(*) FROM documents")
-        return cursor.fetchone()[0]
+        row = self._fetchone("SELECT COUNT(*) FROM documents")
+        return row[0]
 
     def count_versions(self, collection: str) -> int:
         """Count archived versions in a collection."""
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT COUNT(*) FROM document_versions
             WHERE collection = ?
         """, (collection,))
-        return cursor.fetchone()[0]
+        return row[0]
 
     def query_by_id_prefix(
         self,
@@ -2814,15 +2951,15 @@ class DocumentStore:
                 sql += " LIMIT -1"  # SQLite requires LIMIT before OFFSET
             sql += " OFFSET ?"
             params += (offset,)
-        cursor = self._execute(sql, params)
+        rows = self._fetchall(sql, params)
 
         results = []
-        for row in cursor:
+        for row in rows:
             results.append(DocumentRecord(
                 id=row["id"],
                 collection=row["collection"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]) if row["tags_json"] else {},
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
                 content_hash=row["content_hash"],
@@ -2836,9 +2973,9 @@ class DocumentStore:
             return self._stopwords
         # Check for user override in the store
         try:
-            row = self._execute(
+            row = self._fetchone(
                 "SELECT summary FROM documents WHERE id = '.stop' LIMIT 1"
-            ).fetchone()
+            )
             if row and row[0].strip():
                 words = set()
                 for line in row[0].splitlines():
@@ -2957,7 +3094,7 @@ class DocumentStore:
                         doc_params.extend([f"$.{k}", v])
             doc_sql += " ORDER BY f.rank LIMIT ?"
             doc_params.append(limit)
-            doc_rows = self._execute(doc_sql, doc_params).fetchall()
+            doc_rows = self._fetchall(doc_sql, tuple(doc_params))
 
             # --- Search parts (summary only) ---
             part_sql = """
@@ -3001,7 +3138,7 @@ class DocumentStore:
                     part_params.extend(tag_params)
             part_sql += " ORDER BY f.rank LIMIT ?"
             part_params.append(limit)
-            part_rows = self._execute(part_sql, part_params).fetchall()
+            part_rows = self._fetchall(part_sql, tuple(part_params))
 
             # --- Search versions ---
             ver_sql = """
@@ -3023,7 +3160,7 @@ class DocumentStore:
                         ver_params.extend([f"$.{k}", v])
             ver_sql += " ORDER BY f.rank LIMIT ?"
             ver_params.append(limit)
-            ver_rows = self._execute(ver_sql, ver_params).fetchall()
+            ver_rows = self._fetchall(ver_sql, tuple(ver_params))
 
             # Merge by BM25 rank (more negative = better), take top `limit`
             combined = [(row[0], row[1], row[2]) for row in doc_rows]
@@ -3094,7 +3231,7 @@ class DocumentStore:
                         doc_params.extend([f"$.{k}", v])
             doc_sql += " ORDER BY f.rank LIMIT ?"
             doc_params.append(limit)
-            doc_rows = self._execute(doc_sql, doc_params).fetchall()
+            doc_rows = self._fetchall(doc_sql, tuple(doc_params))
 
             # --- Search parts ---
             part_sql = f"""
@@ -3134,7 +3271,7 @@ class DocumentStore:
                     part_params.extend(tag_params)
             part_sql += " ORDER BY f.rank LIMIT ?"
             part_params.append(limit)
-            part_rows = self._execute(part_sql, part_params).fetchall()
+            part_rows = self._fetchall(part_sql, tuple(part_params))
 
             # --- Search versions ---
             ver_sql = f"""
@@ -3157,7 +3294,7 @@ class DocumentStore:
                         ver_params.extend([f"$.{k}", v])
             ver_sql += " ORDER BY f.rank LIMIT ?"
             ver_params.append(limit)
-            ver_rows = self._execute(ver_sql, ver_params).fetchall()
+            ver_rows = self._fetchall(ver_sql, tuple(ver_params))
 
             combined = [(row[0], row[1], row[2]) for row in doc_rows]
             combined.extend((row[0], row[1], row[2]) for row in part_rows)
@@ -3205,15 +3342,15 @@ class DocumentStore:
                 sql += " LIMIT -1"
             sql += " OFFSET ?"
             params += (offset,)
-        cursor = self._execute(sql, params)
+        rows = self._fetchall(sql, params)
 
         results = []
-        for row in cursor:
+        for row in rows:
             results.append(DocumentRecord(
                 id=row["id"],
                 collection=row["collection"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]),
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
                 content_hash=row["content_hash"],
@@ -3267,15 +3404,15 @@ class DocumentStore:
             LIMIT ?
         """
         params.append(limit)
-        cursor = self._execute(sql, tuple(params))
+        rows = self._fetchall(sql, tuple(params))
 
         results = []
-        for row in cursor:
+        for row in rows:
             results.append(DocumentRecord(
                 id=row["id"],
                 collection=row["collection"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]) if row["tags_json"] else {},
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
                 content_hash=row["content_hash"],
@@ -3385,20 +3522,18 @@ class DocumentStore:
         Returns:
             PartInfo if found, None otherwise
         """
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT part_num, summary, tags_json, created_at
             FROM document_parts
             WHERE id = ? AND collection = ? AND part_num = ?
         """, (id, collection, part_num))
-
-        row = cursor.fetchone()
         if row is None:
             return None
 
         return PartInfo(
             part_num=row["part_num"],
             summary=row["summary"],
-            tags=json.loads(row["tags_json"]),
+            tags=_load_tags_json(row["tags_json"]),
             created_at=row["created_at"],
         )
 
@@ -3416,7 +3551,7 @@ class DocumentStore:
         Returns:
             List of PartInfo, ordered by part_num
         """
-        cursor = self._execute("""
+        rows = self._fetchall("""
             SELECT part_num, summary, tags_json, created_at
             FROM document_parts
             WHERE id = ? AND collection = ?
@@ -3427,10 +3562,10 @@ class DocumentStore:
             PartInfo(
                 part_num=row["part_num"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]),
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
             )
-            for row in cursor
+            for row in rows
         ]
 
     def list_parts_many(
@@ -3443,7 +3578,7 @@ class DocumentStore:
             return {}
 
         placeholders = ",".join("?" * len(ids))
-        cursor = self._execute(f"""
+        rows = self._fetchall(f"""
             SELECT id, part_num, summary, tags_json, created_at
             FROM document_parts
             WHERE collection = ? AND id IN ({placeholders})
@@ -3451,11 +3586,11 @@ class DocumentStore:
         """, (collection, *ids))
 
         parts_by_id: dict[str, list[PartInfo]] = {}
-        for row in cursor:
+        for row in rows:
             parts_by_id.setdefault(row["id"], []).append(PartInfo(
                 part_num=row["part_num"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]),
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
             ))
 
@@ -3463,19 +3598,19 @@ class DocumentStore:
 
     def part_count(self, collection: str, id: str) -> int:
         """Count parts for a document."""
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT COUNT(*) FROM document_parts
             WHERE id = ? AND collection = ?
         """, (id, collection))
-        return cursor.fetchone()[0]
+        return row[0]
 
     def max_part_num(self, collection: str, id: str) -> int:
         """Return the highest part_num for a document, or 0 if none."""
-        cursor = self._execute("""
+        row = self._fetchone("""
             SELECT COALESCE(MAX(part_num), 0) FROM document_parts
             WHERE id = ? AND collection = ?
         """, (id, collection))
-        return cursor.fetchone()[0]
+        return row[0]
 
     def delete_parts(self, collection: str, id: str) -> int:
         """Delete all parts for a document.
@@ -3650,7 +3785,7 @@ class DocumentStore:
                 id=row["id"],
                 collection=row["collection"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]),
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
                 content_hash=row["content_hash"],
@@ -3704,7 +3839,7 @@ class DocumentStore:
                 id=row["id"],
                 collection=row["collection"],
                 summary=row["summary"],
-                tags=json.loads(row["tags_json"]) if row["tags_json"] else {},
+                tags=_load_tags_json(row["tags_json"]),
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
                 content_hash=row["content_hash"],
@@ -3897,7 +4032,7 @@ class DocumentStore:
         created: str,
     ) -> None:
         """Insert or replace an edge row."""
-        self._execute(
+        self._execute_write(
             """
             INSERT OR REPLACE INTO edges
                 (source_id, collection, predicate, target_id, inverse, created)
@@ -3974,12 +4109,12 @@ class DocumentStore:
     ) -> int:
         """Delete edge rows for source/predicate, optionally one target."""
         if target_id is None:
-            cur = self._execute(
+            cur = self._execute_write(
                 "DELETE FROM edges WHERE source_id = ? AND collection = ? AND predicate = ?",
                 (source_id, collection, predicate),
             )
         else:
-            cur = self._execute(
+            cur = self._execute_write(
                 """
                 DELETE FROM edges
                 WHERE source_id = ? AND collection = ? AND predicate = ? AND target_id = ?
@@ -3991,7 +4126,7 @@ class DocumentStore:
 
     def delete_edges_for_source(self, collection: str, source_id: str) -> int:
         """Delete all edges originating from *source_id*."""
-        cur = self._execute(
+        cur = self._execute_write(
             "DELETE FROM edges WHERE collection = ? AND source_id = ?",
             (collection, source_id),
         )
@@ -4000,7 +4135,7 @@ class DocumentStore:
 
     def delete_edges_for_target(self, collection: str, target_id: str) -> int:
         """Delete all edges pointing at *target_id*."""
-        cur = self._execute(
+        cur = self._execute_write(
             "DELETE FROM edges WHERE collection = ? AND target_id = ?",
             (collection, target_id),
         )
@@ -4009,7 +4144,7 @@ class DocumentStore:
 
     def delete_edges_for_predicate(self, collection: str, predicate: str) -> int:
         """Delete all edges with a given predicate (used when _inverse is removed)."""
-        cur = self._execute(
+        cur = self._execute_write(
             "DELETE FROM edges WHERE collection = ? AND predicate = ?",
             (collection, predicate),
         )
@@ -4020,7 +4155,7 @@ class DocumentStore:
         self, collection: str, source_id: str, version: int, predicate: str,
     ) -> int:
         """Delete one materialized version edge row."""
-        cur = self._execute(
+        cur = self._execute_write(
             """
             DELETE FROM version_edges
             WHERE collection = ? AND source_id = ? AND version = ? AND predicate = ?
@@ -4032,7 +4167,7 @@ class DocumentStore:
 
     def delete_version_edges_for_source(self, collection: str, source_id: str) -> int:
         """Delete all materialized version edges from *source_id*."""
-        cur = self._execute(
+        cur = self._execute_write(
             """
             DELETE FROM version_edges
             WHERE collection = ? AND source_id = ?
@@ -4055,7 +4190,7 @@ class DocumentStore:
 
     def delete_version_edges_for_target(self, collection: str, target_id: str) -> int:
         """Delete all materialized version edges pointing at *target_id*."""
-        cur = self._execute(
+        cur = self._execute_write(
             """
             DELETE FROM version_edges
             WHERE collection = ? AND target_id = ?
@@ -4067,7 +4202,7 @@ class DocumentStore:
 
     def delete_version_edges_for_predicate(self, collection: str, predicate: str) -> int:
         """Delete all materialized version edges with a given predicate."""
-        cur = self._execute(
+        cur = self._execute_write(
             """
             DELETE FROM version_edges
             WHERE collection = ? AND predicate = ?
@@ -4113,7 +4248,7 @@ class DocumentStore:
                 ).fetchall()
                 inserted = 0
                 for row in rows:
-                    tags = json.loads(row["tags_json"]) if row["tags_json"] else {}
+                    tags = _load_tags_json(row["tags_json"])
 
                     # Evaluate _when condition against this version's tags
                     if when_source:
@@ -4162,7 +4297,7 @@ class DocumentStore:
         Returns list of (inverse, source_id, created) ordered by inverse
         then created descending.
         """
-        rows = self._execute(
+        rows = self._fetchall(
             """
             SELECT inverse, source_id, created
             FROM edges
@@ -4170,7 +4305,7 @@ class DocumentStore:
             ORDER BY inverse, created DESC
             """,
             (collection, target_id),
-        ).fetchall()
+        )
         return [(r["inverse"], r["source_id"], r["created"]) for r in rows]
 
     def find_by_inverse_edge(
@@ -4189,7 +4324,7 @@ class DocumentStore:
 
         Uses idx_edges_inverse_source for efficient lookup.
         """
-        rows = self._execute(
+        rows = self._fetchall(
             """
             SELECT DISTINCT target_id
             FROM edges
@@ -4197,7 +4332,7 @@ class DocumentStore:
             LIMIT ?
             """,
             (collection, inverse, source_id, limit),
-        ).fetchall()
+        )
         return [r["target_id"] for r in rows]
 
     def get_inverse_version_edges(
@@ -4210,7 +4345,7 @@ class DocumentStore:
         """Return inverse edges from materialized archived-version edge rows."""
         if not target_id:
             return []
-        rows = self._execute(
+        rows = self._fetchall(
             """
             SELECT inverse, source_id, MAX(created) AS created
             FROM version_edges
@@ -4221,7 +4356,7 @@ class DocumentStore:
             LIMIT ?
             """,
             (collection, target_id, limit),
-        ).fetchall()
+        )
         return [(r["inverse"], r["source_id"], r["created"]) for r in rows]
 
     def get_forward_version_edges(
@@ -4238,7 +4373,7 @@ class DocumentStore:
         """
         if not source_id:
             return []
-        rows = self._execute(
+        rows = self._fetchall(
             """
             SELECT version, predicate, target_id, created
             FROM version_edges
@@ -4248,7 +4383,7 @@ class DocumentStore:
             LIMIT ?
             """,
             (collection, source_id, limit),
-        ).fetchall()
+        )
         return [
             (r["version"], r["predicate"], r["target_id"], r["created"])
             for r in rows
@@ -4262,7 +4397,7 @@ class DocumentStore:
         Returns list of (predicate, target_id, created) ordered by predicate
         then created descending.
         """
-        rows = self._execute(
+        rows = self._fetchall(
             """
             SELECT predicate, target_id, created
             FROM edges
@@ -4270,7 +4405,7 @@ class DocumentStore:
             ORDER BY predicate, created DESC
             """,
             (collection, source_id),
-        ).fetchall()
+        )
         return [(r["predicate"], r["target_id"], r["created"]) for r in rows]
 
     def find_supernode_candidates(
@@ -4291,7 +4426,7 @@ class DocumentStore:
         """
         # Single query: join edges with documents to get fan-in counts
         # and the _supernode_reviewed timestamp from tags.
-        rows = self._execute(
+        rows = self._fetchall(
             """
             SELECT
                 e.target_id AS id,
@@ -4307,7 +4442,7 @@ class DocumentStore:
             LIMIT ?
             """,
             (collection, min_fan_in, limit * 3),  # overfetch for scoring
-        ).fetchall()
+        )
 
         import json as _json
 
@@ -4329,13 +4464,13 @@ class DocumentStore:
 
             # Count new refs since last review
             if last_reviewed:
-                new_row = self._execute(
+                new_row = self._fetchone(
                     """
                     SELECT COUNT(1) AS c FROM edges
                     WHERE collection = ? AND target_id = ? AND created > ?
                     """,
                     (collection, item_id, str(last_reviewed)),
-                ).fetchone()
+                )
                 new_refs = int(new_row["c"]) if new_row else 0
             else:
                 new_refs = fan_in  # never reviewed — all refs are new
@@ -4373,10 +4508,10 @@ class DocumentStore:
         if not query:
             return []
         query_lower = query.lower()
-        rows = self._execute(
+        rows = self._fetchall(
             "SELECT DISTINCT target_id FROM edges WHERE collection = ?",
             (collection,),
-        ).fetchall()
+        )
         hits = []
         for (target_id,) in rows:
             # Match target_id as a standalone token in the query.
@@ -4393,31 +4528,31 @@ class DocumentStore:
 
     def has_edges(self, collection: str) -> bool:
         """Return True if *collection* has any edges at all."""
-        row = self._execute(
+        row = self._fetchone(
             "SELECT 1 FROM edges WHERE collection = ? LIMIT 1",
             (collection,),
-        ).fetchone()
+        )
         return row is not None
 
     def backfill_exists(self, collection: str, predicate: str) -> bool:
         """Return True if a backfill record exists (pending or completed)."""
-        row = self._execute(
+        row = self._fetchone(
             "SELECT 1 FROM edge_backfill WHERE collection = ? AND predicate = ?",
             (collection, predicate),
-        ).fetchone()
+        )
         return row is not None
 
     def get_backfill_status(
         self, collection: str, predicate: str,
     ) -> Optional[str]:
         """Return the completed timestamp for a backfill, or None if not found."""
-        row = self._execute(
+        row = self._fetchone(
             """
             SELECT completed FROM edge_backfill
             WHERE collection = ? AND predicate = ?
             """,
             (collection, predicate),
-        ).fetchone()
+        )
         if row is None:
             return None
         return row["completed"]
@@ -4430,7 +4565,7 @@ class DocumentStore:
         completed: Optional[str] = None,
     ) -> None:
         """Insert or update a backfill tracking record."""
-        self._execute(
+        self._execute_write(
             """
             INSERT OR REPLACE INTO edge_backfill
                 (collection, predicate, inverse, completed)
@@ -4442,7 +4577,7 @@ class DocumentStore:
 
     def delete_backfill(self, collection: str, predicate: str) -> None:
         """Delete a backfill record (used when _inverse is removed from tagdoc)."""
-        self._execute(
+        self._execute_write(
             "DELETE FROM edge_backfill WHERE collection = ? AND predicate = ?",
             (collection, predicate),
         )
@@ -4455,9 +4590,9 @@ class DocumentStore:
     _OUTBOX_STALE_SECONDS = 300  # 5 minutes
 
     def _outbox_depth(self, table: str) -> int:
-        row = self._execute(
+        row = self._fetchone(
             f"SELECT COUNT(*) FROM {table} WHERE claimed_by IS NULL"
-        ).fetchone()
+        )
         return row[0] if row else 0
 
     def _dequeue_named_outbox(
@@ -4486,7 +4621,7 @@ class DocumentStore:
                 (now, self._OUTBOX_STALE_SECONDS),
             )
 
-            rows = self._execute(
+            rows = self._fetchall(
                 f"""
                 SELECT outbox_id, mutation, entity_id, collection,
                        payload_json, created_at
@@ -4496,7 +4631,7 @@ class DocumentStore:
                 LIMIT ?
                 """,
                 (limit,),
-            ).fetchall()
+            )
 
             if not rows:
                 self._conn.commit()
@@ -4583,9 +4718,9 @@ class DocumentStore:
 
     def sync_outbox_bounds(self) -> tuple[int | None, int | None]:
         """Return the oldest and newest markdown-sync outbox IDs."""
-        row = self._execute(
+        row = self._fetchone(
             "SELECT MIN(outbox_id), MAX(outbox_id) FROM sync_outbox",
-        ).fetchone()
+        )
         if row is None:
             return None, None
         oldest, newest = row
@@ -4600,7 +4735,7 @@ class DocumentStore:
         """List markdown-sync outbox rows newer than ``after_outbox_id``."""
         if limit <= 0:
             return []
-        rows = self._execute(
+        rows = self._fetchall(
             """
             SELECT outbox_id, mutation, entity_id, collection,
                    payload_json, created_at
@@ -4610,7 +4745,7 @@ class DocumentStore:
             LIMIT ?
             """,
             (after_outbox_id, limit),
-        ).fetchall()
+        )
         return [
             {
                 "outbox_id": r[0],
@@ -4644,11 +4779,9 @@ class DocumentStore:
     # -------------------------------------------------------------------------
     
     def close(self) -> None:
-        """Close the database connection."""
+        """Close all thread-local database connections owned by this store."""
         with self._lock:
-            if self._conn is not None:
-                self._conn.close()
-                self._conn = None
+            self._close_all_connections(mark_closed=True)
     
     def __enter__(self):
         return self

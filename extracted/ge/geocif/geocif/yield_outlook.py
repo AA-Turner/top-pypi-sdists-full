@@ -539,11 +539,24 @@ def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
 
 
 def _stage_sort_key(name):
-    """Sort stage names chronologically by window length."""
+    """Sort stage names chronologically by window length.
+
+    Pre-Season stages sort first (before any in-season stage), ordered
+    by their init month: "Pre-Season (init Jan)" < "Pre-Season (init Feb)" < ...
+    """
     _month_order = {
         "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
         "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
     }
+    if name.startswith("Pre-Season") or name.startswith("In-Season"):
+        import re
+        match = re.search(r"init (\w+)", name)
+        if match:
+            m = _month_order.get(match.group(1), 0)
+            # Pre-season months wrap around the year boundary:
+            # Sep(-15) < Oct(-14) < ... < Feb(-10) < Mar(-9=in-season)
+            return m - 24 if m >= 7 else m - 12
+        return -1
     parts = name.split("-")
     if len(parts) == 2:
         s = _month_order.get(parts[0].strip().split()[0], 0)
@@ -647,6 +660,14 @@ def _plot_metric_progression(df, stages_sorted, metric_col, ylabel, title,
         friendly_labels = [friendly_stage_label(s) for s in stages_sorted]
         ax.set_xticks(range(len(stages_sorted)))
         ax.set_xticklabels(friendly_labels, rotation=45, ha="right", fontsize=8)
+
+        # Dashed vertical line at the boundary between pre-season and in-season/normal
+        n_pre = sum(1 for s in stages_sorted if s.startswith("Pre-Season"))
+        if 0 < n_pre < len(stages_sorted):
+            ax.axvline(x=n_pre - 0.5, color="gray", linestyle="--", linewidth=1.2, zorder=5)
+            ax.text(n_pre - 0.5, ax.get_ylim()[1] * 0.97, " Start of planting",
+                    fontsize=7, color="gray", ha="left", va="top")
+
         ax.set_xlabel("")
         ax.set_ylabel(ylabel)
         ax.set_title(title)
@@ -1191,10 +1212,43 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             params.append((f"  {c} yield file", yf))
         ut.display_run_summary("GeoCIF Yield Outlook", params, wait=10)
 
-        if pool_countries_flag:
-            gc.execute_models(inputs, logger_obj, parser, loop_fn=gc.loop_execute_pooled)
+        run_time_steps = parser.get("ML", "run_time_steps", fallback="latest")
+        loop_fn = gc.loop_execute_pooled if pool_countries_flag else None
+
+        # Check if use_cids is forecast-only (FLDAS/S2S)
+        try:
+            _use_cids = ast.literal_eval(parser.get("DEFAULT", "use_cids", fallback="['all']"))
+        except (ValueError, SyntaxError):
+            _use_cids = ["all"]
+        _forecast_only = (
+            "all" not in _use_cids
+            and all(c in ("FLDAS", "S2S") for c in _use_cids)
+        )
+
+        if run_time_steps == "auto":
+            if _forecast_only:
+                # Forecast-only: single pass covering pre-season + in-season
+                # using init-month rows for ALL months.
+                parser.set("ML", "run_time_steps", "pre_season")
+                logger.info("Auto mode (forecast-only): single pass pre-season + in-season")
+                gc.execute_models(inputs, logger_obj, parser,
+                                  loop_fn=loop_fn, desc="Forecast models (pre+in-season)")
+            else:
+                # Full CIDs: two passes — pre-season (forecast only) then in-season (all CIDs)
+                parser.set("ML", "run_time_steps", "pre_season")
+                logger.info("Auto mode — Pass 1: Pre-season (FLDAS/S2S leads only)")
+                gc.execute_models(inputs, logger_obj, parser,
+                                  loop_fn=loop_fn, desc="Pre-season models")
+
+                parser.set("ML", "run_time_steps", "all")
+                logger.info("Auto mode — Pass 2: In-season (all time steps)")
+                gc.execute_models(inputs, logger_obj, parser,
+                                  loop_fn=loop_fn, desc="In-season models")
+
+            # Restore
+            parser.set("ML", "run_time_steps", "auto")
         else:
-            gc.execute_models(inputs, logger_obj, parser)
+            gc.execute_models(inputs, logger_obj, parser, loop_fn=loop_fn)
 
         # Restore original config values
         for country, orig in originals.items():
@@ -1248,12 +1302,19 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             # Store raw predictions for diagnostics
             df_pred_store[(country, crop, model)] = df
 
-            # Determine which stages to produce maps for
-            available_stages = sorted(df_current["Stage Name"].dropna().unique())
-            if use_latest_stage or len(available_stages) <= 1:
-                stages_to_map = [available_stages[-1]] if available_stages else []
+            # Determine which stages to produce maps for (outlook maps
+            # are only meaningful for in-season stages, not pre-season)
+            available_stages = sorted(
+                df_current["Stage Name"].dropna().unique(), key=_stage_sort_key
+            )
+            in_season_stages = [
+                s for s in available_stages
+                if not s.startswith("Pre-Season") and not s.startswith("In-Season")
+            ]
+            if use_latest_stage or len(in_season_stages) <= 1:
+                stages_to_map = [in_season_stages[-1]] if in_season_stages else []
             else:
-                stages_to_map = available_stages
+                stages_to_map = in_season_stages
 
             for stage_name in stages_to_map:
                 # Filter to this stage across all years
@@ -1293,6 +1354,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 if len(available_stages) > 1:
                     dir_model = dir_model / stage_safe
                 os.makedirs(dir_model, exist_ok=True)
+                _countries_str = "_".join(map_countries)
                 _generate_outlook_map(
                     dg,
                     df_outlook,
@@ -1306,56 +1368,55 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     stage_name=stage_name,
                     annotate_regions=False,
                 )
-                _countries_str = "_".join(map_countries)
                 logger.info(
                     f"Map saved: {dir_model / f'yield_outlook_{_countries_str}_{crop}_{model}_{stage_name}_{current_year}.png'}"
                 )
 
-            # Absolute predicted-yield choropleth (sequential, tn/ha).
-            # Complements the diverging outlook-index map by showing the
-            # raw forecast value per region rather than a % departure.
-            df_pred_map = df_outlook[[
-                "Country", "Region", "Country Region", "current_predicted",
-            ]].rename(columns={"current_predicted": "Predicted Yield (tn per ha)"})
-            pred_fname = (
-                f"predicted_yield_{_countries_str}_{crop}_{model}"
-                f"_{stage_name}_{current_year}.png"
-            )
-            plot.plot_map(
-                dg,
-                df_pred_map,
-                merge_col="Country Region",
-                name_country=[c.title().replace("_", " ") for c in map_countries],
-                name_col="Predicted Yield (tn per ha)",
-                dir_out=dir_model,
-                fname=pred_fname,
-                label=f"Predicted yield (tn/ha)\n{crop.title()}, {current_year}, {friendly_stage_label(stage_name)}",
-                vmin=float(df_pred_map["Predicted Yield (tn per ha)"].min()),
-                vmax=float(df_pred_map["Predicted Yield (tn per ha)"].max()),
-                cmap=pal.scientific.sequential.Bamako_20_r,
-                series="sequential",
-                annotate_regions=False,
-                loc_legend="lower left",
-            )
+                # Absolute predicted-yield choropleth (sequential, tn/ha).
+                # Complements the diverging outlook-index map by showing the
+                # raw forecast value per region rather than a % departure.
+                df_pred_map = df_outlook[[
+                    "Country", "Region", "Country Region", "current_predicted",
+                ]].rename(columns={"current_predicted": "Predicted Yield (tn per ha)"})
+                pred_fname = (
+                    f"predicted_yield_{_countries_str}_{crop}_{model}"
+                    f"_{stage_name}_{current_year}.png"
+                )
+                plot.plot_map(
+                    dg,
+                    df_pred_map,
+                    merge_col="Country Region",
+                    name_country=[c.title().replace("_", " ") for c in map_countries],
+                    name_col="Predicted Yield (tn per ha)",
+                    dir_out=dir_model,
+                    fname=pred_fname,
+                    label=f"Predicted yield (tn/ha)\n{crop.title()}, {current_year}, {friendly_stage_label(stage_name)}",
+                    vmin=float(df_pred_map["Predicted Yield (tn per ha)"].min()),
+                    vmax=float(df_pred_map["Predicted Yield (tn per ha)"].max()),
+                    cmap=pal.scientific.sequential.Bamako_20_r,
+                    series="sequential",
+                    annotate_regions=False,
+                    loc_legend="lower left",
+                )
 
-            # Observed-baseline anomaly maps (matching analysis.py: 2013-2017, 2018-2022, 10yr)
-            for period_label, df_obs in obs_baselines.items():
-                df_anom = df_outlook[["Country", "Region", "Country Region", "current_predicted"]].merge(
-                    df_obs, on="Region", how="left"
-                )
-                df_anom["obs_anomaly"] = np.where(
-                    df_anom["obs_mean"] != 0,
-                    (df_anom["current_predicted"] - df_anom["obs_mean"]) / df_anom["obs_mean"] * 100,
-                    np.nan,
-                )
-                dir_obs = dir_model / "obs_anomaly" / period_label
-                os.makedirs(dir_obs, exist_ok=True)
-                _generate_outlook_map(
-                    dg, df_anom, map_countries, crop, model, current_year,
-                    n_years, aggregation, dir_obs,
-                    col="obs_anomaly",
-                    col_label=f"% departure from {period_label} observed mean\n{crop.title()}, {current_year}",
-                )
+                # Observed-baseline anomaly maps (matching analysis.py: 2013-2017, 2018-2022, 10yr)
+                for period_label, df_obs in obs_baselines.items():
+                    df_anom = df_outlook[["Country", "Region", "Country Region", "current_predicted"]].merge(
+                        df_obs, on="Region", how="left"
+                    )
+                    df_anom["obs_anomaly"] = np.where(
+                        df_anom["obs_mean"] != 0,
+                        (df_anom["current_predicted"] - df_anom["obs_mean"]) / df_anom["obs_mean"] * 100,
+                        np.nan,
+                    )
+                    dir_obs = dir_model / "obs_anomaly" / period_label
+                    os.makedirs(dir_obs, exist_ok=True)
+                    _generate_outlook_map(
+                        dg, df_anom, map_countries, crop, model, current_year,
+                        n_years, aggregation, dir_obs,
+                        col="obs_anomaly",
+                        col_label=f"% departure from {period_label} observed mean\n{crop.title()}, {current_year}",
+                    )
 
             # Per-(country, crop, model) diagnostic plots
             from .viz import diagnostics as diag
@@ -1591,10 +1652,6 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                         col_label=f"% departure from {period_label} observed mean\n{crop_val.title()}, {current_year}",
                     )
 
-        # Diagnostic plots: scatter, MAPE bar, MAPE map per (country, crop, model)
-        _generate_diagnostics(df_pred_store, dg, dir_outlook,
-                              current_year=current_year, dict_config=dict_config)
-
         # Long-format CSV
         df_long = pd.concat([df_all] + ([df_ensemble] if df_ensemble is not None else []), ignore_index=True)
         csv_path = dir_outlook / f"yield_outlook_{scope}_{crops_str}_{current_year}.csv"
@@ -1615,6 +1672,12 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         logger.info(f"Wide-format CSV saved to {csv_wide}")
     else:
         logger.warning("No outlook data generated — check DB has predictions.")
+
+    # Diagnostic plots: scatter, MAPE bar, progression — always run if we
+    # have predictions, even when outlook index computation fails.
+    if df_pred_store:
+        _generate_diagnostics(df_pred_store, dg, dir_outlook,
+                              current_year=current_year, dict_config=dict_config)
 
     # Optional PDF report
     generate_report_flag = parser.getboolean("ML", "generate_report", fallback=False)

@@ -221,7 +221,7 @@ class RuntimeAuthService:
 
     def fetch_user_info(self) -> UserInfo:
         """Fetch user info including all accessible workspaces from /me endpoint."""
-        error_message = "Failed to get your user info from the Runtime API. Try logging out and in again"
+        error_message = "Failed to get your user info from the Runtime API. Run 'dlt runtime login' to re-authenticate"
         client = get_api_client(self)
         with handle_client_exceptions(error_message):
             me_response = me.sync_detailed(client=client)

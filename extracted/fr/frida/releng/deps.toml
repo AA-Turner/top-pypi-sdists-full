@@ -114,7 +114,7 @@ dependencies = [
 [libdwarf]
 when = "machine.os in {'linux', 'android', 'freebsd', 'qnx'}"
 name = "libdwarf"
-version = "50e3115b340c6a58d2f61af96f120a9d111ac024"
+version = "61ff154ae803d2b0202dbc1bf385cda1ac3ece54"
 url = "https://github.com/frida/libdwarf.git"
 options = [
     "-Ddecompression=false",
@@ -196,7 +196,7 @@ dependencies = [
 [glib-networking]
 when = "machine.os != 'none'"
 name = "glib-networking"
-version = "af4b017028e695528951c749a7096e96359521d8"
+version = "5c9331ba47790ee4f541185f3ca0971fe84fcfc2"
 url = "https://github.com/frida/glib-networking.git"
 options = [
     "-Dgnutls=disabled",
@@ -213,12 +213,12 @@ dependencies = [
 [libnice]
 when = "machine.os != 'none'"
 name = "libnice"
-version = "e12567b0a16a0c2eb5dfe5e0782baba8496772ff"
+version = "9a3da6e3e5bbcf935fd85b6b8557ff8c7dd9032c"
 url = "https://github.com/frida/libnice.git"
 options = [
     "-Dgupnp=disabled",
     "-Dgstreamer=disabled",
-    "-Dcrypto-library=openssl",
+    "-Dcrypto-library=auto",
     "-Dexamples=disabled",
     "-Dtests=disabled",
     "-Dintrospection=disabled",
@@ -254,7 +254,7 @@ dependencies = [
 [usrsctp]
 when = "machine.os != 'none'"
 name = "usrsctp"
-version = "f459ae9d3700c06e59d709901e92c08e31c6e623"
+version = "377fecfe06bb766c69cc0e1e1f6d5c72cf7704e6"
 url = "https://github.com/frida/usrsctp.git"
 options = [
     "-Dsctp_inet=false",
@@ -314,7 +314,7 @@ options = [
 [ngtcp2]
 when = "machine.os != 'none'"
 name = "ngtcp2"
-version = "828dcaed498b40954e1b496664a3309796968db6"
+version = "5b21d4418ff668d9b5ddc4f744b7a28af4196abf"
 url = "https://github.com/frida/ngtcp2.git"
 dependencies = [
     "openssl",

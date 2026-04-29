@@ -3,6 +3,7 @@ name = "tabpfn-common-utils"
 dynamic = ["version"]
 description = "Utilities shared between TabPFN codebases"
 readme = "README.md"
+license = { file = "LICENSE" }
 authors = [
     {name = "Prior Labs", email = "hello@priorlabs.ai"}
 ]
@@ -11,6 +12,7 @@ maintainers = [
 ]
 keywords = ["tabpfn", "utilities", "machine-learning"]
 classifiers = [
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",

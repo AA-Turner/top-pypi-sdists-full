@@ -8,28 +8,30 @@ description = "Async worker-pool engine over xbbg-core for Bloomberg API request
 publish = false
 
 [dependencies]
-xbbg_core = { path = "../xbbg-core" }
+xbbg_core = { path = "../xbbg-core", default-features = false }
 xbbg-ext = { path = "../xbbg-ext" }
 thiserror = "2.0"
 tokio = { version = "1.48", features = ["rt-multi-thread", "macros", "sync", "time"] }
 xbbg-log = { path = "../xbbg-log" }
 once_cell = "1.19"
 slab = "0.4"
-arrow = "57.1.0"
+arrow-array = { version = "58.1.0", default-features = false, features = ["chrono-tz"] }
+arrow-schema = "58.1.0"
 indexmap = "2.7"
 chrono = "0.4"
 chrono-tz = "0.10"
 iana-time-zone = "0.1"
 parking_lot = "0.12"
 arc-swap = "1.9"
-dashmap = "6.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+itoa = "1.0"
+ryu = "1.0"
 
 [features]
 default = ["live"]
-mock = ["xbbg_core/mock"]
 live = ["xbbg_core/live"]
+bench-internals = []
 
 # cargo-udeps false positives (xbbg-log re-exports tracing macros)
 [package.metadata.cargo-udeps.ignore]

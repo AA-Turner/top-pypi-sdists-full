@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: monday
-Version: 2.1.1
+Version: 2.2.0
 Summary: A Python client library for Monday.com
 Home-page: https://github.com/ProdPerfect/monday
 Author: Christina D'Astolfo
@@ -15,7 +15,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8
 License-File: LICENSE
-Requires-Dist: requests>=2.30.0
+Requires-Dist: urllib3>=2.6.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -38,6 +38,7 @@ For an overview of the Monday API, [click here](https://developer.monday.com/api
 
 #### Requirements
 - Python >= 3.11
+- urllib3 >= 2.6.0
 
 #### Getting started
 `pip install monday`
@@ -84,6 +85,3 @@ monday.items.create_item(board_id='12345678', group_id='today', item_name='Do a 
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
-
-### Bug Reports
-TBD

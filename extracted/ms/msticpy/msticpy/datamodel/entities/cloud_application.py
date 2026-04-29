@@ -4,7 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 """CloudApplication Entity class."""
-from typing import Any, Mapping, Optional
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
 
 from ..._version import VERSION
 from ...common.utility import export
@@ -53,9 +57,9 @@ class CloudApplication(Entity):
             kw arguments.
 
         """
-        self.Name: Optional[str] = None
-        self.AppId: Optional[str] = None
-        self.InstanceName: Optional[str] = None
+        self.Name: str | None = None
+        self.AppId: str | None = None
+        self.InstanceName: str | None = None
         super().__init__(src_entity=src_entity, **kwargs)
 
     @property

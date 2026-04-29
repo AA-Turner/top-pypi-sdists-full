@@ -39,10 +39,10 @@ class TestSession:
         session = client.tool_router.session.create(
             user_id="user_123456789",
             auth_configs={
-                "gmail": "ac_1223434343",
-                "slack": "ac_23343434343434",
+                "gmail": "ac_1a2b3c4d5e6f",
+                "slack": "ac_7g8h9i0j1k2l",
             },
-            connected_accounts={"github": "ca_34454545454545"},
+            connected_accounts={"github": "ca_3m4n5o6p7q8r"},
             experimental={
                 "assistive_prompt_config": {"user_timezone": "America/New_York"},
                 "custom_toolkits": [
@@ -90,6 +90,7 @@ class TestSession:
                 "max_accounts_per_toolkit": 5,
                 "require_explicit_selection": False,
             },
+            preload={"tools": ["GMAIL_FETCH_EMAILS", "SLACK_SEND_MESSAGE"]},
             tags={
                 "disable": ["destructiveHint"],
                 "enable": ["openWorldHint"],
@@ -98,7 +99,7 @@ class TestSession:
             tools={
                 "gmail": {"enable": ["GMAIL_SEND_EMAIL", "GMAIL_FETCH_EMAILS"]},
                 "slack": {"disable": ["SLACK_ADD_EMOJI"]},
-                "slack_bot": {
+                "slackbot": {
                     "tags": {
                         "disable": ["openWorldHint"],
                         "enable": ["destructiveHint"],
@@ -109,6 +110,7 @@ class TestSession:
                 "auto_offload_threshold": 20000,
                 "enable": True,
                 "enable_proxy_execution": True,
+                "sandbox_size": "standard",
             },
         )
         assert_matches_type(SessionCreateResponse, session, path=["response"])
@@ -140,14 +142,14 @@ class TestSession:
     @parametrize
     def test_method_retrieve(self, client: Composio) -> None:
         session = client.tool_router.session.retrieve(
-            "trs_123456789",
+            "trs_1a2b3c4d5e6f",
         )
         assert_matches_type(SessionRetrieveResponse, session, path=["response"])
 
     @parametrize
     def test_raw_response_retrieve(self, client: Composio) -> None:
         response = client.tool_router.session.with_raw_response.retrieve(
-            "trs_123456789",
+            "trs_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -158,7 +160,7 @@ class TestSession:
     @parametrize
     def test_streaming_response_retrieve(self, client: Composio) -> None:
         with client.tool_router.session.with_streaming_response.retrieve(
-            "trs_123456789",
+            "trs_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -518,14 +520,14 @@ class TestSession:
     @parametrize
     def test_method_toolkits(self, client: Composio) -> None:
         session = client.tool_router.session.toolkits(
-            session_id="trs_123456789",
+            session_id="trs_1a2b3c4d5e6f",
         )
         assert_matches_type(SessionToolkitsResponse, session, path=["response"])
 
     @parametrize
     def test_method_toolkits_with_all_params(self, client: Composio) -> None:
         session = client.tool_router.session.toolkits(
-            session_id="trs_123456789",
+            session_id="trs_1a2b3c4d5e6f",
             cursor="cursor",
             is_connected=True,
             limit=1,
@@ -537,7 +539,7 @@ class TestSession:
     @parametrize
     def test_raw_response_toolkits(self, client: Composio) -> None:
         response = client.tool_router.session.with_raw_response.toolkits(
-            session_id="trs_123456789",
+            session_id="trs_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -548,7 +550,7 @@ class TestSession:
     @parametrize
     def test_streaming_response_toolkits(self, client: Composio) -> None:
         with client.tool_router.session.with_streaming_response.toolkits(
-            session_id="trs_123456789",
+            session_id="trs_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -621,10 +623,10 @@ class TestAsyncSession:
         session = await async_client.tool_router.session.create(
             user_id="user_123456789",
             auth_configs={
-                "gmail": "ac_1223434343",
-                "slack": "ac_23343434343434",
+                "gmail": "ac_1a2b3c4d5e6f",
+                "slack": "ac_7g8h9i0j1k2l",
             },
-            connected_accounts={"github": "ca_34454545454545"},
+            connected_accounts={"github": "ca_3m4n5o6p7q8r"},
             experimental={
                 "assistive_prompt_config": {"user_timezone": "America/New_York"},
                 "custom_toolkits": [
@@ -672,6 +674,7 @@ class TestAsyncSession:
                 "max_accounts_per_toolkit": 5,
                 "require_explicit_selection": False,
             },
+            preload={"tools": ["GMAIL_FETCH_EMAILS", "SLACK_SEND_MESSAGE"]},
             tags={
                 "disable": ["destructiveHint"],
                 "enable": ["openWorldHint"],
@@ -680,7 +683,7 @@ class TestAsyncSession:
             tools={
                 "gmail": {"enable": ["GMAIL_SEND_EMAIL", "GMAIL_FETCH_EMAILS"]},
                 "slack": {"disable": ["SLACK_ADD_EMOJI"]},
-                "slack_bot": {
+                "slackbot": {
                     "tags": {
                         "disable": ["openWorldHint"],
                         "enable": ["destructiveHint"],
@@ -691,6 +694,7 @@ class TestAsyncSession:
                 "auto_offload_threshold": 20000,
                 "enable": True,
                 "enable_proxy_execution": True,
+                "sandbox_size": "standard",
             },
         )
         assert_matches_type(SessionCreateResponse, session, path=["response"])
@@ -722,14 +726,14 @@ class TestAsyncSession:
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncComposio) -> None:
         session = await async_client.tool_router.session.retrieve(
-            "trs_123456789",
+            "trs_1a2b3c4d5e6f",
         )
         assert_matches_type(SessionRetrieveResponse, session, path=["response"])
 
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncComposio) -> None:
         response = await async_client.tool_router.session.with_raw_response.retrieve(
-            "trs_123456789",
+            "trs_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -740,7 +744,7 @@ class TestAsyncSession:
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncComposio) -> None:
         async with async_client.tool_router.session.with_streaming_response.retrieve(
-            "trs_123456789",
+            "trs_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1100,14 +1104,14 @@ class TestAsyncSession:
     @parametrize
     async def test_method_toolkits(self, async_client: AsyncComposio) -> None:
         session = await async_client.tool_router.session.toolkits(
-            session_id="trs_123456789",
+            session_id="trs_1a2b3c4d5e6f",
         )
         assert_matches_type(SessionToolkitsResponse, session, path=["response"])
 
     @parametrize
     async def test_method_toolkits_with_all_params(self, async_client: AsyncComposio) -> None:
         session = await async_client.tool_router.session.toolkits(
-            session_id="trs_123456789",
+            session_id="trs_1a2b3c4d5e6f",
             cursor="cursor",
             is_connected=True,
             limit=1,
@@ -1119,7 +1123,7 @@ class TestAsyncSession:
     @parametrize
     async def test_raw_response_toolkits(self, async_client: AsyncComposio) -> None:
         response = await async_client.tool_router.session.with_raw_response.toolkits(
-            session_id="trs_123456789",
+            session_id="trs_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -1130,7 +1134,7 @@ class TestAsyncSession:
     @parametrize
     async def test_streaming_response_toolkits(self, async_client: AsyncComposio) -> None:
         async with async_client.tool_router.session.with_streaming_response.toolkits(
-            session_id="trs_123456789",
+            session_id="trs_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"

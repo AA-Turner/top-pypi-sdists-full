@@ -24,45 +24,115 @@ from typing import TYPE_CHECKING
 
 import narwhals.stable.v1 as nw
 
-# Import Rust ext utilities for max performance
-from xbbg._core import (
-    ext_build_earning_header_rename,
-    ext_build_etf_holdings_query,
-    ext_calculate_level_percentages,
-    ext_default_turnover_dates,
-    ext_filter_equity_tickers,
-    ext_get_dvd_type,
-    ext_rename_dividend_columns,
+from xbbg.ext._utils import DateLike, _fmt_date, _syncify
+
+_NATIVE_IMPORT_ERROR_MARKERS = (
+    "DLL load failed",
+    "cannot open shared object file",
+    "image not found",
+    "Library not loaded",
 )
-from xbbg.ext._utils import _fmt_date, _syncify
+
+
+def _is_native_import_error(error: ImportError) -> bool:
+    message = str(error)
+    native_loader_error = any(marker in message for marker in _NATIVE_IMPORT_ERROR_MARKERS) and (
+        "_core" in message or "xbbg" in message
+    )
+    return (
+        error.name == "xbbg._core"
+        or "No module named 'xbbg._core'" in message
+        or ("xbbg._core" in message and "cannot import name 'ext_" in message)
+        or native_loader_error
+    )
+
+
+try:
+    # Import Rust helper for turnover defaults. This helper has a faithful
+    # Python fallback so offline tests can import and exercise turnover paths.
+    from xbbg._core import ext_default_turnover_dates
+except ImportError as exc:
+    if not _is_native_import_error(exc):
+        raise
+
+    from datetime import date as _date, timedelta as _timedelta
+
+    def _parse_iso_date(value: str | None) -> _date | None:
+        if value is None:
+            return None
+        try:
+            return _date.fromisoformat(value)
+        except ValueError:
+            return None
+
+    def ext_default_turnover_dates(start_date: str | None, end_date: str | None) -> tuple[str, str]:
+        end = _parse_iso_date(end_date) or (_date.today() - _timedelta(days=1))
+        start = _parse_iso_date(start_date) or (end - _timedelta(days=30))
+        return start.isoformat(), end.isoformat()
+
+
+def _missing_native_helper(name: str, source: ImportError):
+    def missing(*_args, **_kwargs):
+        raise ImportError(f"xbbg.ext.historical.{name} requires xbbg._core native helpers") from source
+
+    missing.__name__ = name
+    return missing
+
+
+try:
+    # Import Rust ext utilities for production transformations. These helpers
+    # do not have local approximations; failing clearly is safer than returning
+    # plausible but wrong transformed data when native helpers are unavailable.
+    from xbbg._core import (
+        ext_build_earning_header_rename,
+        ext_build_etf_holdings_query,
+        ext_calculate_level_percentages,
+        ext_filter_equity_tickers,
+        ext_get_dvd_type,
+        ext_rename_dividend_columns,
+    )
+except ImportError as exc:
+    if not _is_native_import_error(exc):
+        raise
+
+    ext_filter_equity_tickers = _missing_native_helper("ext_filter_equity_tickers", exc)
+    ext_get_dvd_type = _missing_native_helper("ext_get_dvd_type", exc)
+    ext_rename_dividend_columns = _missing_native_helper("ext_rename_dividend_columns", exc)
+    ext_build_earning_header_rename = _missing_native_helper("ext_build_earning_header_rename", exc)
+    ext_calculate_level_percentages = _missing_native_helper("ext_calculate_level_percentages", exc)
+    ext_build_etf_holdings_query = _missing_native_helper("ext_build_etf_holdings_query", exc)
+
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from datetime import date
-
     from narwhals.typing import IntoDataFrame
 
 
 def _get_empty_dataframe() -> IntoDataFrame:
     """Return empty DataFrame using configured backend."""
+    from xbbg.backend import get_default_backend
     from xbbg.blp import Backend, get_backend
 
-    backend = get_backend()
+    backend = get_backend() or get_default_backend()
     if backend == Backend.PANDAS:
         import pandas as pd
 
         return pd.DataFrame()
-    elif backend == Backend.PYARROW:
+    if backend == Backend.NATIVE:
+        from xbbg._core import ArrowTable
+
+        return ArrowTable.empty([])
+    if backend == Backend.PYARROW:
         import pyarrow as pa
 
         return pa.table({})
-    elif backend == Backend.DUCKDB:
+    if backend == Backend.DUCKDB:
         import duckdb
 
         return duckdb.query("SELECT 1 WHERE FALSE")
     else:
-        # Default to polars for POLARS, POLARS_LAZY, NARWHALS, NARWHALS_LAZY, or None
+        # Default to polars for POLARS, POLARS_LAZY, NARWHALS, NARWHALS_LAZY, or distributed dataframe backends.
         import polars as pl
 
         return pl.DataFrame()
@@ -77,8 +147,8 @@ async def adividend(
     tickers: str | list[str],
     typ: str = "all",
     *,
-    start_date: str | date | None = None,
-    end_date: str | date | None = None,
+    start_date: DateLike = None,
+    end_date: DateLike = None,
     **kwargs,
 ) -> IntoDataFrame:
     """Async get dividend and split history for securities.
@@ -369,8 +439,8 @@ async def aearnings(
 
 async def _calc_turnover_from_volume(
     missing_tickers: list[str],
-    start_date: str | date,
-    end_date: str | date,
+    start_date: DateLike,
+    end_date: DateLike,
     nw_df: nw.DataFrame,
     **kwargs,
 ) -> tuple[nw.DataFrame, IntoDataFrame]:
@@ -392,9 +462,9 @@ async def _calc_turnover_from_volume(
     Returns:
         Tuple of (updated narwhals DataFrame, updated native DataFrame).
     """
-    from xbbg import abdh
+    import xbbg
 
-    vol_data = await abdh(
+    vol_data = await xbbg.abdh(
         tickers=missing_tickers,
         flds=["eqy_weighted_avg_px", "volume"],
         start_date=start_date,
@@ -409,6 +479,8 @@ async def _calc_turnover_from_volume(
     # LONG format: {ticker, date, field, value}
     # For each ticker+date, get vwap and volume, compute turnover
     new_rows: list[dict[str, str]] = []
+    malformed_rows = 0
+    malformed_examples: list[str] = []
     for t in missing_tickers:
         tk_rows = vol_nw.filter(nw.col("ticker") == t)
         if len(tk_rows) == 0:
@@ -432,7 +504,16 @@ async def _calc_turnover_from_volume(
                     turnover = float(vwap_str) * float(vol_str)
                     new_rows.append({"ticker": t, "date": dt, "field": "turnover", "value": str(turnover)})
                 except (ValueError, TypeError):
-                    pass
+                    malformed_rows += 1
+                    if len(malformed_examples) < 3:
+                        malformed_examples.append(f"{t}/{dt}: vwap={vwap_str!r}, volume={vol_str!r}")
+
+    if malformed_rows:
+        logger.warning(
+            "Turnover volume fallback skipped malformed_rows=%s examples=%s",
+            malformed_rows,
+            malformed_examples,
+        )
 
     if new_rows:
         # Build a new narwhals DataFrame from the turnover rows and concat
@@ -457,8 +538,8 @@ async def _calc_turnover_from_volume(
 async def aturnover(
     tickers: str | list[str],
     *,
-    start_date: str | date | None = None,
-    end_date: str | date | None = None,
+    start_date: DateLike = None,
+    end_date: DateLike = None,
     ccy: str = "USD",
     factor: float = 1e6,
     **kwargs,
@@ -499,7 +580,7 @@ async def aturnover(
 
         asyncio.run(main())
     """
-    from xbbg import abdh
+    import xbbg
     from xbbg.ext.currency import aconvert_ccy
 
     # Compute default date range using Rust (handles yesterday/30-day defaults)
@@ -514,7 +595,7 @@ async def aturnover(
         tickers_list = list(tickers)
 
     # Get turnover data - returns DataFrame in configured backend format
-    data = await abdh(
+    data = await xbbg.abdh(
         tickers=tickers_list,
         flds="Turnover",
         start_date=start_date,

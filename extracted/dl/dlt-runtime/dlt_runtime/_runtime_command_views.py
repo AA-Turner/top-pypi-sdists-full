@@ -4,17 +4,29 @@ from typing import Any, Optional
 import humanize
 from dlt._workspace.cli import echo as fmt
 from dlt._workspace.deployment._job_ref import format_job_label
+
+from dlt_runtime.exceptions import RuntimeClientException
 from tabulate import tabulate
 
 from dlt_runtime.runtime import WorkspaceInfo
 from dlt_runtime.runtime_clients.api.models.log_line import LogLine
 from dlt_runtime.runtime_clients.api.types import Unset
+from dlt_runtime.strings import (
+    TRIGGER_CONCURRENCY_ONE_MESSAGE,
+    TRIGGER_CONCURRENCY_OPEN_LINE,
+    TRIGGER_CONCURRENCY_SUGGESTIONS,
+    TRIGGER_REFRESH_HINT,
+    TRIGGER_STATUS_MESSAGES,
+)
 from dlt_runtime.typing import (
     ConnectInfo,
+    FileDelta,
     LoginResult,
     RuntimeInfo,
     SwitchedWorkspaceInfo,
+    SyncLoggingLevel,
     SyncResult,
+    TriggerSkipInfo,
 )
 
 
@@ -177,20 +189,86 @@ def _print_login_result(result: LoginResult, minimal_logging: bool) -> None:
         fmt.echo("  dltHub Runtime Web UI: %s" % fmt.bold(result["web_ui_url"]))
 
 
-def _print_sync_result(label: str, result: SyncResult) -> None:
+def _format_file_delta_counts(delta: FileDelta) -> str:
+    """Render '(N added, M updated, K deleted)' for the MINIMAL line."""
+    return (
+        f"({len(delta['added'])} added, {len(delta['updated'])} updated, "
+        f"{len(delta['deleted'])} deleted)"
+    )
+
+
+def _print_files_manifest_diff(delta: FileDelta) -> None:
+    """Render the FULL-mode file delta tree (mirrors _print_deploy_result)."""
+    fmt.echo("")
+    fmt.echo("Files:")
+    for p in delta["added"]:
+        fmt.secho(f"  + {p}", fg="green")
+    for p in delta["updated"]:
+        fmt.secho(f"  ~ {p}", fg="blue")
+    for p in delta["deleted"]:
+        fmt.secho(f"  - {p}", fg="red")
+    if delta["unchanged_count"]:
+        fmt.echo(fmt.style(f"  ({delta['unchanged_count']} unchanged)", dim=True))
+
+
+def _print_sync_result(
+    label: str,
+    result: SyncResult,
+    *,
+    level: SyncLoggingLevel = "full",
+    verbose: bool = False,
+) -> None:
     """Display sync result for deployment or configuration."""
-    if result["status"] == "no_changes":
+    if level == "silent":
+        return
+
+    # The "subject" the user reads: "workspace files" for deployment, "workspace
+    # configuration" for configuration. Used by minimal/dry-run lines.
+    subject = "workspace files" if label == "deployment" else "workspace configuration"
+    status = result["status"]
+    data = result.get("data") or {}
+    file_delta: FileDelta | None = data.get("file_delta")
+
+    if level == "minimal":
+        # Append "(N added, M updated, K deleted)" when the diff is available
+        # so users see what changed even on the deploy happy path.
+        suffix = f" {_format_file_delta_counts(file_delta)}" if file_delta else ""
+        if status == "created":
+            fmt.echo(f"Synced changed {subject}{suffix}")
+        elif status == "would_create":
+            fmt.echo(
+                f"{subject.capitalize()} changed{suffix}, skipping sync due to dry run"
+            )
+        # no_changes → quiet on minimal so `deploy` happy path stays clean
+        return
+
+    # level == "full": resource-level `deployment sync` / `configuration sync`.
+    # The full per-file tree only renders when --verbose is set; default FULL
+    # output is the tabulate row + counts, no tree.
+    if status == "no_changes":
         fmt.echo(f"No changes detected in the {label}, skipping file upload")
-    elif result["status"] == "created":
+    elif status == "created":
         headers = DEPLOYMENT_HEADERS if label == "deployment" else CONFIGURATION_HEADERS
-        fmt.echo(tabulate([_humanize_row(result.get("data", {}))], headers=headers))
+        # Tabulate skips the file_delta key (not a header column)
+        row = {k: v for k, v in data.items() if k != "file_delta"}
+        fmt.echo(tabulate([_humanize_row(row)], headers=headers))
+        if file_delta is not None:
+            fmt.echo(f"Files: {_format_file_delta_counts(file_delta)}")
+            if verbose:
+                _print_files_manifest_diff(file_delta)
+    elif status == "would_create":
+        fmt.echo(f"{subject.capitalize()} would be uploaded (dry run, skipping)")
+        if file_delta is not None:
+            fmt.echo(f"Files: {_format_file_delta_counts(file_delta)}")
+            if verbose:
+                _print_files_manifest_diff(file_delta)
 
 
 def _print_connect_info(info: ConnectInfo) -> None:
     """Display workspace connection info."""
     ws_id_dim = fmt.style(info["workspace_id"], dim=True)
     if info["workspace_name"]:
-        ws_label = "%s %s" % (fmt.bold(info["workspace_name"]), ws_id_dim)
+        ws_label = "%s (%s)" % (fmt.bold(info["workspace_name"]), ws_id_dim)
     else:
         ws_label = ws_id_dim
     fmt.echo("  Connected workspace:   %s" % ws_label)
@@ -200,10 +278,9 @@ def _print_connect_info(info: ConnectInfo) -> None:
 def _prompt_workspace_selection(
     workspaces: list[WorkspaceInfo],
 ) -> Optional[WorkspaceInfo]:
-    """
-    Display an interactive menu for workspace selection.
-    Returns the selected WorkspaceResponse, or None if user chooses to create a new workspace.
-    """
+    """Interactive menu for workspace selection; None means "create new"."""
+    # In non-interactive mode (ALWAYS_CHOOSE_DEFAULT set by maybe_no_stdin)
+    # there's no default to pick — raise with re-run instructions.
     fmt.echo(f"  {fmt.bold('[0]')} Create new workspace")
     for idx, ws in enumerate(workspaces, start=1):
         ws_id_dim = fmt.style(ws.id, dim=True)
@@ -212,30 +289,79 @@ def _prompt_workspace_selection(
             fmt.echo(f"       {ws.description}")
     fmt.echo("")
 
-    while True:
-        try:
-            choice = input("Select a workspace (enter number): ")
-            choice_num = int(choice)
-            if choice_num == 0:
-                return None  # User wants to create new workspace
-            elif 1 <= choice_num <= len(workspaces):
-                return workspaces[choice_num - 1]
-            else:
-                fmt.warning(f"Please enter a number between 0 and {len(workspaces)}")
-        except ValueError:
-            fmt.warning("Please enter a valid number")
-        except (EOFError, KeyboardInterrupt):
-            raise RuntimeError("Workspace selection cancelled")
+    if fmt.ALWAYS_CHOOSE_DEFAULT and fmt.ALWAYS_CHOOSE_VALUE is None:
+        raise RuntimeClientException(
+            "Non-interactive mode: cannot prompt for workspace selection. "
+            "Run `dlt runtime login --workspace <name-or-id>` to select a "
+            "workspace, or `dlt runtime login --workspace <new-name>` to "
+            "create a new one."
+        )
+
+    choices = [str(i) for i in range(len(workspaces) + 1)]
+    try:
+        choice = fmt.prompt("Select a workspace", choices=choices)
+    except KeyboardInterrupt as e:
+        # Translate ^C to EOFError so the boundary handler treats it as
+        # "user-cancelled input" rather than re-raising the interrupt.
+        raise EOFError("Workspace selection cancelled") from e
+    choice_num = int(choice)
+    if choice_num == 0:
+        return None
+    return workspaces[choice_num - 1]
 
 
 def _prompt_new_workspace() -> tuple[str, str]:
-    """Prompt user for workspace name and description. Returns (name, description)."""
+    """Prompt user for workspace name and description. Returns (name, description).
+
+    In non-interactive mode, fall back to defaults (`default`, ``).
+    """
     fmt.echo("\nCreating a new workspace...")
-    name = input("Workspace name (leave empty for `default`): ")
-    if not name:
-        name = "default"
-    description = input("Workspace description (optional): ")
+    if fmt.ALWAYS_CHOOSE_DEFAULT:
+        fmt.echo("Using default workspace name `default` (non-interactive mode)")
+        return "default", ""
+    name = (
+        fmt.text_input("Workspace name (leave empty for `default`)", default="")
+        or "default"
+    )
+    description = fmt.text_input("Workspace description (optional)", default="")
     return name, description
+
+
+def _print_device_flow_start(
+    verification_uri: str,
+    user_code: str,
+    device_code: str,
+    *,
+    not_logged_in_hint: bool = False,
+) -> None:
+    """Phase 1 view: device flow started, print instructions for non-interactive resume."""
+    if not_logged_in_hint:
+        fmt.echo("Not logged in.")
+        fmt.echo("")
+    fmt.echo(
+        "Please go to %s and enter the code %s"
+        % (fmt.bold(verification_uri), fmt.bold(user_code))
+    )
+    fmt.echo("")
+    fmt.echo("After completing authentication in the browser, run:")
+    fmt.echo("  dlt runtime login --resume %s" % device_code)
+
+
+def _print_device_flow_interactive(
+    verification_uri: str,
+    user_code: str,
+    *,
+    not_logged_in_hint: bool = False,
+) -> None:
+    """Interactive device-flow prompt: same hint as Phase 1, but waits in-process."""
+    if not_logged_in_hint:
+        fmt.echo("Not logged in.")
+        fmt.echo("")
+    fmt.echo(
+        "Please go to %s and enter the code %s"
+        % (fmt.bold(verification_uri), fmt.bold(user_code))
+    )
+    fmt.echo("Waiting for authentication...\n")
 
 
 def _print_workspace_switched(info: SwitchedWorkspaceInfo) -> None:
@@ -243,7 +369,7 @@ def _print_workspace_switched(info: SwitchedWorkspaceInfo) -> None:
     ws_id_dim = fmt.style(info["workspace_id"], dim=True)
     ws_name = info.get("workspace_name")
     if ws_name:
-        ws_label = "%s %s" % (fmt.bold(ws_name), ws_id_dim)
+        ws_label = "%s (%s)" % (fmt.bold(ws_name), ws_id_dim)
     else:
         ws_label = ws_id_dim
     fmt.echo("Switched to workspace: %s" % ws_label)
@@ -548,3 +674,33 @@ def _print_bulk_cancel_result(result: Any, *, dry_run: bool = False) -> None:
         fmt.echo(
             f"\n{len(result.cancelled)} run(s) {'would be cancelled' if dry_run else 'cancelled'}"
         )
+
+
+def _print_trigger_skip(info: TriggerSkipInfo, *, terse: bool = False) -> None:
+    """Render a friendly message + remediation hints for a skipped TriggerJob.
+    `terse=True` prints only the lead line
+    """
+    job_ref = info["job_ref"]
+    status = info["status"]
+
+    # Lead line: "  <job_ref>: <message>"
+    if status == "skipped_concurrency_limit" and info.get("concurrency") == 1:
+        message = TRIGGER_CONCURRENCY_ONE_MESSAGE
+    else:
+        # Fall back to the raw status if the table is missing an entry —
+        # better than silence, and surfaces unmapped codes in tests.
+        message = TRIGGER_STATUS_MESSAGES.get(status, status)
+    fmt.echo(f"  {fmt.bold(job_ref)}: {message}")
+
+    if terse:
+        return
+
+    # Status-specific suggestion lines.
+    if status == "skipped_concurrency_limit":
+        for line in TRIGGER_CONCURRENCY_SUGGESTIONS:
+            fmt.echo(line.format(job_ref=job_ref))
+        web_url = info.get("web_url")
+        if web_url:
+            fmt.echo(TRIGGER_CONCURRENCY_OPEN_LINE.format(url=web_url))
+    elif status == "skipped_fresh":
+        fmt.echo(TRIGGER_REFRESH_HINT)

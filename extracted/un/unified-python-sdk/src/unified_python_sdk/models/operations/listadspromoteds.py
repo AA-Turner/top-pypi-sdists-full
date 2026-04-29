@@ -19,6 +19,7 @@ class ListAdsPromotedsQueryParamFields(str, Enum):
     ID = "id"
     NAME = "name"
     TYPE = "type"
+    RAW = "raw"
 
 
 class ListAdsPromotedsRequestTypedDict(TypedDict):

@@ -8,7 +8,6 @@ use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
-use arrow::record_batch::RecordBatch;
 use parking_lot::Mutex;
 use slab::Slab;
 use tokio::sync::{mpsc, oneshot};
@@ -25,11 +24,11 @@ const SERVICE_OPEN_CID_TAG: i64 = 1_i64 << 62;
 const SERVICE_OPEN_TIMEOUT_MS: u64 = 10_000;
 
 use super::dispatch::DispatchKey;
-use super::state::{SubscriptionMetrics, SubscriptionState};
+use super::state::{SubscriptionMetrics, SubscriptionState, SubscriptionUpdate};
 use super::{
     start_configured_session, BlpAsyncError, EngineConfig, OverflowPolicy, SessionLifecycleState,
-    SharedSubscriptionStatus, SlabKey, SubscriptionEventLevel, SubscriptionFailureKind,
-    WorkerHealth,
+    SharedSubscriptionStatus, SlabKey, SubscriptionEventCategory, SubscriptionEventLevel,
+    SubscriptionFailureKind, WorkerHealth,
 };
 
 type SubscriptionReplyPayload = (Vec<SlabKey>, Vec<Arc<SubscriptionMetrics>>);
@@ -48,7 +47,7 @@ pub enum SubscriptionCommand {
         options: Vec<String>,
         flush_threshold: Option<usize>,
         overflow_policy: Option<OverflowPolicy>,
-        stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
+        stream: mpsc::Sender<Result<SubscriptionUpdate, BlpError>>,
         status: SharedSubscriptionStatus,
         /// Reply with slab keys for later unsubscribe.
         reply: oneshot::Sender<SubscriptionReply>,
@@ -64,7 +63,7 @@ pub enum SubscriptionCommand {
         options: Vec<String>,
         flush_threshold: Option<usize>,
         overflow_policy: Option<OverflowPolicy>,
-        stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
+        stream: mpsc::Sender<Result<SubscriptionUpdate, BlpError>>,
         status: SharedSubscriptionStatus,
         /// Reply with new slab keys.
         reply: oneshot::Sender<SubscriptionReply>,
@@ -147,14 +146,68 @@ impl SubscriptionWorker {
         reason: String,
         kind: SubscriptionFailureKind,
     ) -> Option<String> {
-        self.status
-            .as_ref()
-            .and_then(|status| status.lock().record_failure(key, reason, kind))
+        let status = self.status.as_ref()?;
+        let topic = status.load().topic_for_key(key).map(str::to_string)?;
+        status.rcu(|current| {
+            let mut next = (**current).clone();
+            next.record_failure(key, reason.clone(), kind);
+            Arc::new(next)
+        });
+        Some(topic)
     }
 
     fn clear_active_status(&mut self) {
         if let Some(status) = &self.status {
-            status.lock().clear_active();
+            status.rcu(|current| {
+                let mut next = (**current).clone();
+                next.clear_active();
+                Arc::new(next)
+            });
+        }
+    }
+
+    fn record_service_ready_if_already_open(&self, service: &str, was_open: bool) {
+        if !was_open {
+            return;
+        }
+        if let Some(status) = &self.status {
+            status.rcu(|current| {
+                let mut next = (**current).clone();
+                next.record_service_state(
+                    service.to_string(),
+                    true,
+                    "ServiceReady",
+                    Some("service available for subscription".to_string()),
+                );
+                Arc::new(next)
+            });
+        }
+    }
+
+    fn record_service_open_error(&self, service: &str, error: &BlpError) {
+        if let Some(status) = &self.status {
+            let message_type = match error {
+                BlpError::Timeout => "ServiceOpenTimeout",
+                _ => "ServiceOpenFailure",
+            };
+            let detail = Some(error.to_string());
+            status.rcu(|current| {
+                let mut next = (**current).clone();
+                let already_recorded = next.events().back().is_some_and(|event| {
+                    event.category == SubscriptionEventCategory::Service
+                        && event.topic.as_deref() == Some(service)
+                        && event.message_type == message_type
+                });
+                if !already_recorded {
+                    next.record_service_state(
+                        service.to_string(),
+                        false,
+                        message_type,
+                        detail.clone(),
+                    );
+                }
+                Arc::new(next)
+            });
         }
     }
 
@@ -237,20 +290,14 @@ impl SubscriptionWorker {
                         reply,
                     }) => {
                         self.status = Some(status);
-                        if let Some(status) = &self.status {
-                            status.lock().record_service_state(
-                                service.clone(),
-                                true,
-                                "ServiceReady",
-                                Some("service available for subscription".to_string()),
-                            );
-                        }
-                        // Ensure service is open
+                        let was_open = self.open_services.contains(&service);
                         if let Err(e) = self.ensure_service(&service) {
+                            self.record_service_open_error(&service, &e);
                             xbbg_log::error!(worker_id = self.id, service = %service, error = %e, "failed to open service");
                             let _ = reply.send(Err(e));
                             continue;
                         }
+                        self.record_service_ready_if_already_open(&service, was_open);
                         let result = self.subscribe(
                             topics,
                             fields,
@@ -275,20 +322,14 @@ impl SubscriptionWorker {
                         reply,
                     }) => {
                         self.status = Some(status);
-                        if let Some(status) = &self.status {
-                            status.lock().record_service_state(
-                                service.clone(),
-                                true,
-                                "ServiceReady",
-                                Some("service available for subscription".to_string()),
-                            );
-                        }
-                        // Ensure service is open
+                        let was_open = self.open_services.contains(&service);
                         if let Err(e) = self.ensure_service(&service) {
+                            self.record_service_open_error(&service, &e);
                             xbbg_log::error!(worker_id = self.id, service = %service, error = %e, "failed to open service");
                             let _ = reply.send(Err(e));
                             continue;
                         }
+                        self.record_service_ready_if_already_open(&service, was_open);
                         // AddTopics uses the same logic as Subscribe
                         let result = self.subscribe(
                             topics,
@@ -335,7 +376,7 @@ impl SubscriptionWorker {
         options: Vec<String>,
         flush_threshold: Option<usize>,
         overflow_policy: Option<OverflowPolicy>,
-        stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
+        stream: mpsc::Sender<Result<SubscriptionUpdate, BlpError>>,
     ) -> Result<(Vec<SlabKey>, Vec<Arc<SubscriptionMetrics>>), BlpError> {
         let mut sub_list = SubscriptionList::new();
 
@@ -357,6 +398,9 @@ impl SubscriptionWorker {
             );
             let metrics_arc = state.metrics.clone();
             let key = self.subs.insert(state);
+            if let Some(state) = self.subs.get_mut(key) {
+                state.set_topic_id(key as u32);
+            }
 
             let cid = DispatchKey::from_slab_key(key).to_correlation_id();
             if let Err(e) = sub_list.add(topic, &field_refs, &options_str, &cid) {
@@ -430,14 +474,17 @@ impl SubscriptionWorker {
             if self.subs.contains(key) {
                 self.pending_cancel.insert(key);
                 if let Some(status) = &self.status {
-                    let mut status = status.lock();
-                    let topic = status.mark_topic_unsubscribing(key);
-                    status.record_subscription_event(
-                        "SubscriptionPendingCancel",
-                        topic,
-                        None,
-                        SubscriptionEventLevel::Info,
-                    );
+                    status.rcu(|current| {
+                        let mut next = (**current).clone();
+                        let topic = next.mark_topic_unsubscribing(key);
+                        next.record_subscription_event(
+                            "SubscriptionPendingCancel",
+                            topic,
+                            None,
+                            SubscriptionEventLevel::Info,
+                        );
+                        Arc::new(next)
+                    });
                 }
                 xbbg_log::debug!(
                     worker_id = self.id,
@@ -498,13 +545,17 @@ impl SubscriptionWorker {
                                             let at_us = msg.time_received_us();
                                             state.on_dataloss(at_us);
                                             if let Some(status) = &self.status {
-                                                status.lock().record_admin_data_loss(
-                                                    Some(topic),
-                                                    Some(
-                                                        "subscription data reported DATALOSS"
-                                                            .to_string(),
-                                                    ),
-                                                );
+                                                status.rcu(|current| {
+                                                    let mut next = (**current).clone();
+                                                    next.record_admin_data_loss(
+                                                        Some(topic.clone()),
+                                                        Some(
+                                                            "subscription data reported DATALOSS"
+                                                                .to_string(),
+                                                        ),
+                                                    );
+                                                    Arc::new(next)
+                                                });
                                             }
                                             continue;
                                         }
@@ -517,14 +568,18 @@ impl SubscriptionWorker {
                     let first_message = state.on_message(msg);
                     if first_message {
                         let topic = if let Some(status) = &self.status {
-                            let mut status = status.lock();
-                            let topic = status.mark_topic_streaming(key);
-                            status.record_subscription_event(
-                                "SubscriptionStreaming",
-                                topic.clone(),
-                                None,
-                                SubscriptionEventLevel::Info,
-                            );
+                            let topic = status.load().topic_for_key(key).map(str::to_string);
+                            status.rcu(|current| {
+                                let mut next = (**current).clone();
+                                next.mark_topic_streaming(key);
+                                next.record_subscription_event(
+                                    "SubscriptionStreaming",
+                                    topic.clone(),
+                                    None,
+                                    SubscriptionEventLevel::Info,
+                                );
+                                Arc::new(next)
+                            });
                             topic
                         } else {
                             None
@@ -569,17 +624,20 @@ impl SubscriptionWorker {
                             "subscription started"
                         );
                         if let Some(status) = &self.status {
-                            let mut status = status.lock();
-                            let topic = status.mark_topic_started(key);
-                            // Bloomberg sometimes includes partial-permission details in the
-                            // `reason` element of SubscriptionStarted (e.g. "only delayed data
-                            // authorized"). Surface it via the status event so callers see it.
-                            status.record_subscription_event(
-                                "SubscriptionStarted",
-                                topic,
-                                reason.clone(),
-                                SubscriptionEventLevel::Info,
-                            );
+                            status.rcu(|current| {
+                                let mut next = (**current).clone();
+                                let topic = next.mark_topic_started(key);
+                                // Bloomberg sometimes includes partial-permission details in the
+                                // `reason` element of SubscriptionStarted (e.g. "only delayed data
+                                // authorized"). Surface it via the status event so callers see it.
+                                next.record_subscription_event(
+                                    "SubscriptionStarted",
+                                    topic,
+                                    reason.clone(),
+                                    SubscriptionEventLevel::Info,
+                                );
+                                Arc::new(next)
+                            });
                         }
                     }
                     "SubscriptionFailure" => {
@@ -591,14 +649,17 @@ impl SubscriptionWorker {
                                 let mut state = self.subs.remove(key);
                                 state.mark_closing();
                                 if let Some(status) = &self.status {
-                                    let mut status = status.lock();
-                                    let topic = status.mark_topic_unsubscribed(key);
-                                    status.record_subscription_event(
-                                        "SubscriptionCancelled",
-                                        topic,
-                                        reason.clone(),
-                                        SubscriptionEventLevel::Info,
-                                    );
+                                    status.rcu(|current| {
+                                        let mut next = (**current).clone();
+                                        let topic = next.mark_topic_unsubscribed(key);
+                                        next.record_subscription_event(
+                                            "SubscriptionCancelled",
+                                            topic,
+                                            reason.clone(),
+                                            SubscriptionEventLevel::Info,
+                                        );
+                                        Arc::new(next)
+                                    });
                                 }
                             }
                             xbbg_log::debug!(
@@ -628,12 +689,16 @@ impl SubscriptionWorker {
                                     "subscription failed for topic"
                                 );
                                 if let Some(status) = &self.status {
-                                    status.lock().record_subscription_event(
-                                        "SubscriptionFailure",
-                                        Some(topic.clone()),
-                                        Some(reason_text.clone()),
-                                        SubscriptionEventLevel::Warning,
-                                    );
+                                    status.rcu(|current| {
+                                        let mut next = (**current).clone();
+                                        next.record_subscription_event(
+                                            "SubscriptionFailure",
+                                            Some(topic.clone()),
+                                            Some(reason_text.clone()),
+                                            SubscriptionEventLevel::Warning,
+                                        );
+                                        Arc::new(next)
+                                    });
                                 }
                                 if self.subs.is_empty() && self.pending_cancel.is_empty() {
                                     state.fail(BlpError::SubscriptionFailure {
@@ -655,14 +720,17 @@ impl SubscriptionWorker {
                                 let mut state = self.subs.remove(key);
                                 state.mark_closing();
                                 if let Some(status) = &self.status {
-                                    let mut status = status.lock();
-                                    let topic = status.mark_topic_unsubscribed(key);
-                                    status.record_subscription_event(
-                                        "SubscriptionTerminated",
-                                        topic,
-                                        reason.clone(),
-                                        SubscriptionEventLevel::Info,
-                                    );
+                                    status.rcu(|current| {
+                                        let mut next = (**current).clone();
+                                        let topic = next.mark_topic_unsubscribed(key);
+                                        next.record_subscription_event(
+                                            "SubscriptionTerminated",
+                                            topic,
+                                            reason.clone(),
+                                            SubscriptionEventLevel::Info,
+                                        );
+                                        Arc::new(next)
+                                    });
                                 }
                             }
                             xbbg_log::debug!(
@@ -692,12 +760,16 @@ impl SubscriptionWorker {
                                     "subscription terminated for topic"
                                 );
                                 if let Some(status) = &self.status {
-                                    status.lock().record_subscription_event(
-                                        "SubscriptionTerminated",
-                                        Some(topic.clone()),
-                                        Some(reason_text.clone()),
-                                        SubscriptionEventLevel::Warning,
-                                    );
+                                    status.rcu(|current| {
+                                        let mut next = (**current).clone();
+                                        next.record_subscription_event(
+                                            "SubscriptionTerminated",
+                                            Some(topic.clone()),
+                                            Some(reason_text.clone()),
+                                            SubscriptionEventLevel::Warning,
+                                        );
+                                        Arc::new(next)
+                                    });
                                 }
                                 if self.subs.is_empty() && self.pending_cancel.is_empty() {
                                     state.fail(BlpError::SubscriptionFailure {
@@ -719,22 +791,32 @@ impl SubscriptionWorker {
                         self.last_streams_warn_us.remove(&key);
                         if self.subs.contains(key) {
                             if let Some(status) = &self.status {
-                                let mut status = status.lock();
-                                if let Some(topic) =
-                                    status.topic_for_key(key).map(|t| t.to_string())
-                                {
-                                    let prev = status.set_topic_streams_active(&topic, true);
-                                    // Only emit a status event on a real transition
-                                    // (avoids spamming on the initial activation which
-                                    // already fires SubscriptionStarted right before).
-                                    if prev == Some(false) {
-                                        status.record_subscription_event(
-                                            "SubscriptionStreamsActivated",
-                                            Some(topic),
-                                            reason.clone(),
-                                            SubscriptionEventLevel::Info,
-                                        );
-                                    }
+                                let snapshot = status.load();
+                                let topic = snapshot.topic_for_key(key).map(|t| t.to_string());
+                                let prev = topic.as_ref().and_then(|t| {
+                                    snapshot
+                                        .topic_statuses()
+                                        .get(t)
+                                        .map(|info| info.streams_active)
+                                });
+                                drop(snapshot);
+                                if let Some(topic) = topic {
+                                    status.rcu(|current| {
+                                        let mut next = (**current).clone();
+                                        next.set_topic_streams_active(&topic, true);
+                                        // Only emit a status event on a real transition
+                                        // (avoids spamming on the initial activation which
+                                        // already fires SubscriptionStarted right before).
+                                        if prev == Some(false) {
+                                            next.record_subscription_event(
+                                                "SubscriptionStreamsActivated",
+                                                Some(topic.clone()),
+                                                reason.clone(),
+                                                SubscriptionEventLevel::Info,
+                                            );
+                                        }
+                                        Arc::new(next)
+                                    });
                                 }
                             }
                         }
@@ -750,19 +832,29 @@ impl SubscriptionWorker {
                         // callers polling status can tell "quiet" from "dead".
                         if self.subs.contains(key) {
                             if let Some(status) = &self.status {
-                                let mut status = status.lock();
-                                if let Some(topic) =
-                                    status.topic_for_key(key).map(|t| t.to_string())
-                                {
-                                    let prev = status.set_topic_streams_active(&topic, false);
-                                    if prev != Some(false) {
-                                        status.record_subscription_event(
-                                            "SubscriptionStreamsDeactivated",
-                                            Some(topic),
-                                            reason.clone(),
-                                            SubscriptionEventLevel::Warning,
-                                        );
-                                    }
+                                let snapshot = status.load();
+                                let topic = snapshot.topic_for_key(key).map(|t| t.to_string());
+                                let prev = topic.as_ref().and_then(|t| {
+                                    snapshot
+                                        .topic_statuses()
+                                        .get(t)
+                                        .map(|info| info.streams_active)
+                                });
+                                drop(snapshot);
+                                if let Some(topic) = topic {
+                                    status.rcu(|current| {
+                                        let mut next = (**current).clone();
+                                        next.set_topic_streams_active(&topic, false);
+                                        if prev != Some(false) {
+                                            next.record_subscription_event(
+                                                "SubscriptionStreamsDeactivated",
+                                                Some(topic.clone()),
+                                                reason.clone(),
+                                                SubscriptionEventLevel::Warning,
+                                            );
+                                        }
+                                        Arc::new(next)
+                                    });
                                 }
                             }
                         }
@@ -793,11 +885,15 @@ impl SubscriptionWorker {
             "SessionStarted" => {
                 xbbg_log::info!(worker_id = self.id, "session started");
                 if let Some(status) = &self.status {
-                    status.lock().record_session_state(
-                        SessionLifecycleState::Up,
-                        "SessionStarted",
-                        None,
-                    );
+                    status.rcu(|current| {
+                        let mut next = (**current).clone();
+                        next.record_session_state(
+                            SessionLifecycleState::Up,
+                            "SessionStarted",
+                            None,
+                        );
+                        Arc::new(next)
+                    });
                 }
             }
             "SessionConnectionDown" => {
@@ -814,17 +910,22 @@ impl SubscriptionWorker {
                     "SessionConnectionDown — informational; SDK will auto-reconnect"
                 );
                 if let Some(status) = &self.status {
-                    status.lock().record_session_state(
-                        SessionLifecycleState::Down,
-                        "SessionConnectionDown",
-                        reason.or_else(|| {
-                            Some(format!(
-                                "worker={} active_subscriptions={}",
-                                self.id,
-                                self.subs.len(),
-                            ))
-                        }),
-                    );
+                    let detail = reason.or_else(|| {
+                        Some(format!(
+                            "worker={} active_subscriptions={}",
+                            self.id,
+                            self.subs.len(),
+                        ))
+                    });
+                    status.rcu(|current| {
+                        let mut next = (**current).clone();
+                        next.record_session_state(
+                            SessionLifecycleState::Down,
+                            "SessionConnectionDown",
+                            detail.clone(),
+                        );
+                        Arc::new(next)
+                    });
                 }
             }
             "AuthorizationRevoked" => {
@@ -860,11 +961,16 @@ impl SubscriptionWorker {
                 self.health
                     .store(WorkerHealth::Dead as u8, Ordering::Release);
                 if let Some(status) = &self.status {
-                    status.lock().record_session_state(
-                        SessionLifecycleState::Terminated,
-                        "AuthorizationRevoked",
-                        reason.or_else(|| Some(format!("worker={}", self.id))),
-                    );
+                    let detail = reason.or_else(|| Some(format!("worker={}", self.id)));
+                    status.rcu(|current| {
+                        let mut next = (**current).clone();
+                        next.record_session_state(
+                            SessionLifecycleState::Terminated,
+                            "AuthorizationRevoked",
+                            detail.clone(),
+                        );
+                        Arc::new(next)
+                    });
                 }
             }
             "SessionTerminated" => {
@@ -898,11 +1004,16 @@ impl SubscriptionWorker {
                 self.health
                     .store(WorkerHealth::Dead as u8, Ordering::Release);
                 if let Some(status) = &self.status {
-                    status.lock().record_session_state(
-                        SessionLifecycleState::Terminated,
-                        "SessionTerminated",
-                        reason.or_else(|| Some(format!("worker={}", self.id))),
-                    );
+                    let detail = reason.or_else(|| Some(format!("worker={}", self.id)));
+                    status.rcu(|current| {
+                        let mut next = (**current).clone();
+                        next.record_session_state(
+                            SessionLifecycleState::Terminated,
+                            "SessionTerminated",
+                            detail.clone(),
+                        );
+                        Arc::new(next)
+                    });
                 }
             }
             "SessionConnectionUp" => {
@@ -918,17 +1029,22 @@ impl SubscriptionWorker {
                     "SessionConnectionUp — informational; SDK re-established the connection"
                 );
                 if let Some(status) = &self.status {
-                    status.lock().record_session_state(
-                        SessionLifecycleState::Up,
-                        "SessionConnectionUp",
-                        reason.or_else(|| {
-                            Some(format!(
-                                "worker={} active_subscriptions={}",
-                                self.id,
-                                self.subs.len(),
-                            ))
-                        }),
-                    );
+                    let detail = reason.or_else(|| {
+                        Some(format!(
+                            "worker={} active_subscriptions={}",
+                            self.id,
+                            self.subs.len(),
+                        ))
+                    });
+                    status.rcu(|current| {
+                        let mut next = (**current).clone();
+                        next.record_session_state(
+                            SessionLifecycleState::Up,
+                            "SessionConnectionUp",
+                            detail.clone(),
+                        );
+                        Arc::new(next)
+                    });
                 }
             }
             _ => {
@@ -957,12 +1073,17 @@ impl SubscriptionWorker {
                                 entry.1 = Some(Ok(()));
                             }
                             if let Some(status) = &self.status {
-                                status.lock().record_service_state(
-                                    service_name,
-                                    true,
-                                    "ServiceOpened",
-                                    Some("service opened on demand".to_string()),
-                                );
+                                let service_name = service_name.clone();
+                                status.rcu(|current| {
+                                    let mut next = (**current).clone();
+                                    next.record_service_state(
+                                        service_name.clone(),
+                                        true,
+                                        "ServiceOpened",
+                                        Some("service opened on demand".to_string()),
+                                    );
+                                    Arc::new(next)
+                                });
                             }
                         }
                         "ServiceOpenFailure" => {
@@ -975,12 +1096,18 @@ impl SubscriptionWorker {
                                 }));
                             }
                             if let Some(status) = &self.status {
-                                status.lock().record_service_state(
-                                    service_name,
-                                    false,
-                                    "ServiceOpenFailure",
-                                    reason,
-                                );
+                                let service_name = service_name.clone();
+                                let reason = reason.clone();
+                                status.rcu(|current| {
+                                    let mut next = (**current).clone();
+                                    next.record_service_state(
+                                        service_name.clone(),
+                                        false,
+                                        "ServiceOpenFailure",
+                                        reason.clone(),
+                                    );
+                                    Arc::new(next)
+                                });
                             }
                         }
                         _ => {}
@@ -996,41 +1123,47 @@ impl SubscriptionWorker {
             .and_then(|value| value.get_str(0))
             .map(str::to_string);
         if let Some(status) = &self.status {
-            let mut status = status.lock();
             match msg_type {
                 "ServiceDown" => {
                     let service_name = service.clone().unwrap_or_else(|| "unknown".to_string());
-                    status.record_service_state(service_name.clone(), false, msg_type, None);
-                    // Emit a subscription-category warning if we have active subs so
-                    // callers polling subscription status (not just service status) see
-                    // that their streams may be affected. The SDK will auto-recover
-                    // via Streams* events; this is a loud "heads up".
-                    if !self.subs.is_empty() {
-                        status.record_subscription_event(
-                            "ServiceDownAffectsActiveSubscriptions",
-                            None,
-                            Some(format!(
-                                "service={} active_subscriptions={}",
-                                service_name,
-                                self.subs.len(),
-                            )),
-                            SubscriptionEventLevel::Warning,
-                        );
+                    let active_subs = self.subs.len();
+                    let has_active = !self.subs.is_empty();
+                    status.rcu(|current| {
+                        let mut next = (**current).clone();
+                        next.record_service_state(service_name.clone(), false, msg_type, None);
+                        // Emit a subscription-category warning if we have active subs so
+                        // callers polling subscription status (not just service status) see
+                        // that their streams may be affected. The SDK will auto-recover
+                        // via Streams* events; this is a loud "heads up".
+                        if has_active {
+                            next.record_subscription_event(
+                                "ServiceDownAffectsActiveSubscriptions",
+                                None,
+                                Some(format!(
+                                    "service={} active_subscriptions={}",
+                                    service_name, active_subs,
+                                )),
+                                SubscriptionEventLevel::Warning,
+                            );
+                        }
+                        Arc::new(next)
+                    });
+                    if has_active {
                         xbbg_log::warn!(
                             worker_id = self.id,
                             service = %service_name,
-                            active_subs = self.subs.len(),
+                            active_subs = active_subs,
                             "ServiceDown — active subscriptions may be silently quieted"
                         );
                     }
                 }
                 "ServiceUp" | "ServiceOpened" => {
-                    status.record_service_state(
-                        service.unwrap_or_else(|| "unknown".to_string()),
-                        true,
-                        msg_type,
-                        None,
-                    );
+                    let service_name = service.unwrap_or_else(|| "unknown".to_string());
+                    status.rcu(|current| {
+                        let mut next = (**current).clone();
+                        next.record_service_state(service_name.clone(), true, msg_type, None);
+                        Arc::new(next)
+                    });
                 }
                 _ => {}
             }
@@ -1044,7 +1177,11 @@ impl SubscriptionWorker {
         match msg_type {
             "SlowConsumerWarning" => {
                 if let Some(status) = &self.status {
-                    status.lock().record_admin_warning(msg_type, None);
+                    status.rcu(|current| {
+                        let mut next = (**current).clone();
+                        next.record_admin_warning(msg_type, None);
+                        Arc::new(next)
+                    });
                 }
                 xbbg_log::warn!(worker_id = self.id, "slow consumer warning");
             }
@@ -1053,7 +1190,11 @@ impl SubscriptionWorker {
                     state.clear_slow_consumer();
                 }
                 if let Some(status) = &self.status {
-                    status.lock().record_admin_warning_cleared(msg_type, None);
+                    status.rcu(|current| {
+                        let mut next = (**current).clone();
+                        next.record_admin_warning_cleared(msg_type, None);
+                        Arc::new(next)
+                    });
                 }
                 xbbg_log::info!(worker_id = self.id, "slow consumer warning cleared");
             }
@@ -1062,7 +1203,11 @@ impl SubscriptionWorker {
                 let correlation_count = msg.num_correlation_ids();
                 if correlation_count == 0 {
                     if let Some(status) = &self.status {
-                        status.lock().record_admin_data_loss(None, None);
+                        status.rcu(|current| {
+                            let mut next = (**current).clone();
+                            next.record_admin_data_loss(None, None);
+                            Arc::new(next)
+                        });
                     }
                 }
                 for index in 0..correlation_count {
@@ -1076,7 +1221,11 @@ impl SubscriptionWorker {
                             let topic = state.topic.to_string();
                             state.on_dataloss(timestamp_us);
                             if let Some(status) = &self.status {
-                                status.lock().record_admin_data_loss(Some(topic), None);
+                                status.rcu(|current| {
+                                    let mut next = (**current).clone();
+                                    next.record_admin_data_loss(Some(topic.clone()), None);
+                                    Arc::new(next)
+                                });
                             }
                         }
                     }
@@ -1085,13 +1234,17 @@ impl SubscriptionWorker {
             }
             _ => {
                 if let Some(status) = &self.status {
-                    status.lock().push_event(
-                        super::SubscriptionEventCategory::Admin,
-                        SubscriptionEventLevel::Info,
-                        msg_type,
-                        None,
-                        None,
-                    );
+                    status.rcu(|current| {
+                        let mut next = (**current).clone();
+                        next.push_event(
+                            super::SubscriptionEventCategory::Admin,
+                            SubscriptionEventLevel::Info,
+                            msg_type,
+                            None,
+                            None,
+                        );
+                        Arc::new(next)
+                    });
                 }
                 xbbg_log::debug!(worker_id = self.id, msg_type = msg_type, "admin event");
             }
@@ -1113,11 +1266,11 @@ impl SubscriptionWorker {
         let now = super::timestamp_now_us();
         let warn_us = (warn_ms as i64) * 1_000;
 
-        // Collect keys to warn about without holding the status lock across the warn emission.
+        // Collect keys to warn about without holding a snapshot across the warn emission.
         let mut to_warn: Vec<(SlabKey, String, i64)> = Vec::new();
         {
-            let status = status_arc.lock();
-            for (topic, info) in status.topic_statuses().iter() {
+            let snapshot = status_arc.load();
+            for (topic, info) in snapshot.topic_statuses().iter() {
                 if info.streams_active {
                     continue;
                 }
@@ -1130,7 +1283,7 @@ impl SubscriptionWorker {
                     continue;
                 }
                 // Map back to slab key for debouncing.
-                if let Some(&key) = status.topic_to_key().get(topic) {
+                if let Some(&key) = snapshot.topic_to_key().get(topic) {
                     let last_warn = self.last_streams_warn_us.get(&key).copied().unwrap_or(0);
                     if now - last_warn >= warn_us {
                         to_warn.push((key, topic.clone(), elapsed));
@@ -1143,26 +1296,31 @@ impl SubscriptionWorker {
             return;
         }
 
-        let mut status = status_arc.lock();
-        for (key, topic, elapsed_us) in to_warn {
-            self.last_streams_warn_us.insert(key, now);
-            let detail = format!(
-                "topic has been streams-inactive for {}ms; SDK is still trying to recover",
-                elapsed_us / 1_000
-            );
+        for (key, topic, elapsed_us) in &to_warn {
+            self.last_streams_warn_us.insert(*key, now);
             xbbg_log::warn!(
                 worker_id = self.id,
                 topic = %topic,
                 elapsed_ms = elapsed_us / 1_000,
                 "subscription streams still deactivated"
             );
-            status.record_subscription_event(
-                "SubscriptionStreamsDeactivatedPersisting",
-                Some(topic),
-                Some(detail),
-                SubscriptionEventLevel::Warning,
-            );
         }
+        status_arc.rcu(|current| {
+            let mut next = (**current).clone();
+            for (_, topic, elapsed_us) in &to_warn {
+                let detail = format!(
+                    "topic has been streams-inactive for {}ms; SDK is still trying to recover",
+                    elapsed_us / 1_000
+                );
+                next.record_subscription_event(
+                    "SubscriptionStreamsDeactivatedPersisting",
+                    Some(topic.clone()),
+                    Some(detail),
+                    SubscriptionEventLevel::Warning,
+                );
+            }
+            Arc::new(next)
+        });
     }
 }
 
@@ -1199,7 +1357,7 @@ impl SubscriptionCommandHandle {
         options: Vec<String>,
         flush_threshold: Option<usize>,
         overflow_policy: Option<OverflowPolicy>,
-        stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
+        stream: mpsc::Sender<Result<SubscriptionUpdate, BlpError>>,
         status: SharedSubscriptionStatus,
     ) -> Result<(Vec<SlabKey>, Vec<Arc<SubscriptionMetrics>>), BlpAsyncError> {
         let (reply_tx, reply_rx) = oneshot::channel();
@@ -1237,7 +1395,7 @@ impl SubscriptionCommandHandle {
         options: Vec<String>,
         flush_threshold: Option<usize>,
         overflow_policy: Option<OverflowPolicy>,
-        stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
+        stream: mpsc::Sender<Result<SubscriptionUpdate, BlpError>>,
         status: SharedSubscriptionStatus,
     ) -> Result<(Vec<SlabKey>, Vec<Arc<SubscriptionMetrics>>), BlpAsyncError> {
         let (reply_tx, reply_rx) = oneshot::channel();
@@ -1272,6 +1430,15 @@ impl SubscriptionCommandHandle {
             .map_err(|_| BlpAsyncError::ChannelClosed)?;
 
         Ok(())
+    }
+
+    /// Best-effort unsubscribe for non-async drop paths.
+    fn try_unsubscribe(
+        &self,
+        keys: Vec<SlabKey>,
+    ) -> Result<(), mpsc::error::TrySendError<SubscriptionCommand>> {
+        self.cmd_tx
+            .try_send(SubscriptionCommand::Unsubscribe { keys })
     }
 
     /// Get the worker ID behind this command path.
@@ -1468,6 +1635,7 @@ impl SubscriptionSessionPool {
         Ok(SessionClaim {
             handle: Some(handle),
             pool: Arc::clone(self),
+            cleanup_status: None,
         })
     }
 
@@ -1538,6 +1706,7 @@ impl Drop for SubscriptionSessionPool {
 pub struct SessionClaim {
     handle: Option<SubscriptionWorkerHandle>,
     pool: Arc<SubscriptionSessionPool>,
+    cleanup_status: Option<SharedSubscriptionStatus>,
 }
 
 impl SessionClaim {
@@ -1572,7 +1741,7 @@ impl SessionClaim {
         options: Vec<String>,
         flush_threshold: Option<usize>,
         overflow_policy: Option<OverflowPolicy>,
-        stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
+        stream: mpsc::Sender<Result<SubscriptionUpdate, BlpError>>,
         status: SharedSubscriptionStatus,
     ) -> Result<(Vec<SlabKey>, Vec<Arc<SubscriptionMetrics>>), BlpAsyncError> {
         self.command_handle()?
@@ -1601,7 +1770,7 @@ impl SessionClaim {
         options: Vec<String>,
         flush_threshold: Option<usize>,
         overflow_policy: Option<OverflowPolicy>,
-        stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
+        stream: mpsc::Sender<Result<SubscriptionUpdate, BlpError>>,
         status: SharedSubscriptionStatus,
     ) -> Result<(Vec<SlabKey>, Vec<Arc<SubscriptionMetrics>>), BlpAsyncError> {
         self.command_handle()?
@@ -1624,6 +1793,34 @@ impl SessionClaim {
         self.command_handle()?.unsubscribe(keys).await
     }
 
+    /// Attach active-topic status so dropping a raw claim can clean up safely.
+    pub fn set_cleanup_status(&mut self, status: SharedSubscriptionStatus) {
+        self.cleanup_status = Some(status);
+    }
+
+    /// Best-effort cleanup for non-async stream drop/close paths.
+    ///
+    /// Because Drop cannot await Bloomberg's termination confirmations, a claim
+    /// released through this path must not return its worker to the reusable pool.
+    pub fn close_without_reuse(mut self, keys: Vec<SlabKey>) {
+        if let Some(handle) = self.handle.take() {
+            if !keys.is_empty() {
+                match handle.command.try_unsubscribe(keys) {
+                    Ok(()) => {}
+                    Err(mpsc::error::TrySendError::Full(_)) => {
+                        xbbg_log::warn!(
+                            worker_id = handle.id(),
+                            "subscription cleanup command queue full; discarding worker"
+                        );
+                    }
+                    Err(mpsc::error::TrySendError::Closed(_)) => {}
+                }
+            }
+            handle.signal_shutdown();
+            drop(handle);
+        }
+    }
+
     /// Get the worker ID.
     pub fn worker_id(&self) -> Option<usize> {
         self.handle.as_ref().map(SubscriptionWorkerHandle::id)
@@ -1632,8 +1829,39 @@ impl SessionClaim {
 
 impl Drop for SessionClaim {
     fn drop(&mut self) {
-        if let Some(handle) = self.handle.take() {
+        let Some(handle) = self.handle.take() else {
+            return;
+        };
+
+        let active_keys = self
+            .cleanup_status
+            .as_ref()
+            .map(|status| status.load().keys().to_vec())
+            .unwrap_or_default();
+
+        if active_keys.is_empty() {
             self.pool.release(handle);
+            return;
         }
+
+        match handle.command.try_unsubscribe(active_keys) {
+            Ok(()) => {}
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                xbbg_log::warn!(
+                    worker_id = handle.id(),
+                    "subscription cleanup command queue full; discarding worker"
+                );
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => {}
+        }
+        if let Some(status) = &self.cleanup_status {
+            status.rcu(|current| {
+                let mut next = (**current).clone();
+                next.clear_active();
+                Arc::new(next)
+            });
+        }
+        handle.signal_shutdown();
+        drop(handle);
     }
 }

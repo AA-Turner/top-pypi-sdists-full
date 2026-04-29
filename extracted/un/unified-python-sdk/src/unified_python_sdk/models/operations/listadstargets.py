@@ -18,8 +18,9 @@ from unified_python_sdk.utils import (
 class ListAdsTargetsQueryParamFields(str, Enum):
     ID = "id"
     NAME = "name"
-    VALUE = "value"
     TYPE = "type"
+    IS_ACTIVE = "is_active"
+    PARENT_ID = "parent_id"
     RAW = "raw"
 
 

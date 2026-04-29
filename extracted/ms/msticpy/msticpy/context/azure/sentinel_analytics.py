@@ -4,15 +4,23 @@
 # license information.
 # --------------------------------------------------------------------------
 """Mixin Classes for Sentinel Analytics Features."""
+
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
 import pandas as pd
-from azure.common.exceptions import CloudError
+from azure.core.exceptions import (
+    ClientAuthenticationError,
+    HttpResponseError,
+    ResourceExistsError,
+    ResourceNotFoundError,
+    ResourceNotModifiedError,
+)
 from IPython.display import display
 from typing_extensions import Self
 
@@ -48,9 +56,7 @@ class SentinelHuntingMixin(SentinelUtilsMixin):
             item_type="ss_path",
             api_version="2020-08-01",
         )
-        return saved_query_df[
-            saved_query_df["properties.category"] == "Hunting Queries"
-        ]
+        return saved_query_df[saved_query_df["properties.category"] == "Hunting Queries"]
 
     get_hunting_queries: Callable[..., pd.DataFrame] = list_hunting_queries
 
@@ -190,7 +196,11 @@ class SentinelAnalyticsMixin(SentinelUtilsMixin):
         ------
         MsticpyUserError
             If template provided isn't found.
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If the API returns an error.
 
         """
@@ -198,9 +208,7 @@ class SentinelAnalyticsMixin(SentinelUtilsMixin):
         if template:
             template_id: str = self._get_template_id(template)
             templates: pd.DataFrame = self.list_analytic_templates()
-            template_details: pd.Series = templates[
-                templates["name"] == template_id
-            ].iloc[0]
+            template_details: pd.Series = templates[templates["name"] == template_id].iloc[0]
             name = template_details["properties.displayName"]
             query = template_details["properties.query"]
             query_frequency = template_details["properties.queryFrequency"]
@@ -252,7 +260,18 @@ class SentinelAnalyticsMixin(SentinelUtilsMixin):
             timeout=get_http_timeout(),
         )
         if not response.is_success:
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = f"Received HTTP return code {response.status_code}: {response.text}"
+                    raise HttpResponseError(err_msg)
         logger.info("Analytic Created.")
         return response.json().get("name")
 
@@ -307,7 +326,10 @@ class SentinelAnalyticsMixin(SentinelUtilsMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        HttpResponseError
             If the API returns an error.
 
         """
@@ -325,7 +347,16 @@ class SentinelAnalyticsMixin(SentinelUtilsMixin):
             timeout=get_http_timeout(),
         )
         if response.is_error:
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case _:
+                    err_msg = f"Received HTTP return code {response.status_code}: {response.text}"
+                    raise HttpResponseError(err_msg)
         logger.info("Analytic Deleted.")
 
     def list_analytic_templates(self) -> pd.DataFrame:
@@ -339,7 +370,11 @@ class SentinelAnalyticsMixin(SentinelUtilsMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If a valid result is not returned.
 
         """

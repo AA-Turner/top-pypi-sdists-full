@@ -5,6 +5,7 @@ from django.contrib.postgres.fields import RangeField
 from django_filters.constants import EMPTY_VALUES
 from django_filters.utils import get_model_field
 
+from wbcore.filters.fields.mixins import RangeMixin
 from wbcore.filters.mixins import WBCoreFilterMixin
 from wbcore.forms import DateRangeField, DateTimeRangeField
 from wbcore.utils.date import financial_performance_shortcuts
@@ -38,7 +39,7 @@ class ShortcutAndPerformanceMixin(WBCoreFilterMixin):
         return representation, lookup_expr
 
 
-class DateRangeFilter(ShortcutAndPerformanceMixin, django_filters.Filter):
+class DateRangeFilter(RangeMixin, ShortcutAndPerformanceMixin, django_filters.Filter):
     field_class = DateRangeField
     filter_type = "daterange"
     initial_format = "%Y-%m-%d"

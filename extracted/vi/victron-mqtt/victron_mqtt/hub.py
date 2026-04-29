@@ -89,6 +89,7 @@ class Hub:
         operation_mode: OperationMode = OperationMode.FULL,
         device_type_exclude_filter: list[DeviceType] | None = None,
         update_frequency_seconds: int | None = None,
+        update_frequency_overrides: dict[str, int] | None = None,
     ) -> None:
         """
         Initialize a Hub instance for communicating with a Venus OS MQTT broker.
@@ -127,6 +128,14 @@ class Hub:
             if None = Update only when source data change
             if 0 = Update as new mqtt data received
             if > 0 = Update no more than specified interval (in seconds)
+        update_frequency_overrides: dict[str, int] | None
+            Optional per-topic update frequency overrides. Maps topic short_id
+            (resolved or generic template) to a frequency in seconds.
+            Overrides take precedence over `update_frequency_seconds` for
+            matching metrics. Use the resolved short_id (e.g. "grid_power_l1")
+            to override a specific metric, or the generic template short_id
+            (e.g. "grid_power_{phase}") to override all metrics from that
+            template.
 
         Behavior
         --------
@@ -161,7 +170,7 @@ class Hub:
         if not 0 < port < 65536:
             raise ValueError("port must be an integer between 1 and 65535")
         _LOGGER.info(
-            "Initializing Hub[ID: %d](host=%s, port=%d, username=%s, use_ssl=%s, installation_id=%s, model_name=%s, topic_prefix=%s, operation_mode=%s, device_type_exclude_filter=%s, update_frequency_seconds=%s, topic_log_info=%s)",
+            "Initializing Hub[ID: %d](host=%s, port=%d, username=%s, use_ssl=%s, installation_id=%s, model_name=%s, topic_prefix=%s, operation_mode=%s, device_type_exclude_filter=%s, update_frequency_seconds=%s, update_frequency_overrides=%s, topic_log_info=%s)",
             self._instance_id,
             host,
             port,
@@ -173,6 +182,7 @@ class Hub:
             operation_mode,
             device_type_exclude_filter,
             update_frequency_seconds,
+            update_frequency_overrides,
             topic_log_info,
         )
         self._model_name = model_name
@@ -182,7 +192,7 @@ class Hub:
         self.serial = serial
         self.use_ssl = use_ssl
         self.port = port
-        self._installation_id = installation_id
+        self._expected_installation_id = installation_id
         self._topic_prefix = topic_prefix
         self._devices: dict[str, Device] = {}
         self._first_refresh_event: asyncio.Event = asyncio.Event()
@@ -196,6 +206,9 @@ class Hub:
         self._operation_mode = operation_mode
         self._device_type_exclude_filter = device_type_exclude_filter
         self._update_frequency_seconds = update_frequency_seconds
+        self._update_frequency_overrides: dict[str, int] = (
+            dict(update_frequency_overrides) if update_frequency_overrides else {}
+        )
         # The client ID is generated using a random string and the instance ID. It has to be unique between all clients connected to the same mqtt server. If not, they may reset each other connection.
         random_string = "".join(random.choices(string.ascii_letters + string.digits, k=8))
         self._client_id = f"victron_mqtt-{random_string}-{self._instance_id}"
@@ -214,6 +227,7 @@ class Hub:
         self._periodic_full_publish_triggered_once = False
         self._firmware_version: float = 0.0
         self._connect_failed_since: float = 0.0
+        self._installation_id: str | None = None
 
         # Filter the active topics
         metrics_active_topics: list[TopicDescriptor] = []
@@ -378,9 +392,8 @@ class Hub:
         if self._connect_failed_reason is not None:
             reraise_same_exception(self._connect_failed_reason)
         _LOGGER.info("Successfully connected to MQTT broker at %s:%d", self.host, self.port)
-        if self._installation_id is None:
-            _LOGGER.info("No installation ID provided, attempting to read from device")
-            self._installation_id = await self._read_installation_id()
+        await self._wait_for_installation_id(expected_id=self._expected_installation_id)
+        assert self._installation_id is not None
         # First we need to replace the installation ID in the subscription topics
         new_list: list[str] = []
         for topic in self._subscription_list:
@@ -904,9 +917,7 @@ class Hub:
         Should not be used in conjunction with initialize_devices_and_metrics()."""
         _LOGGER.info("Creating full raw snapshot of device state")
         self._snapshot = {}
-        if self._installation_id is None:
-            _LOGGER.debug("No installation ID, reading from device")
-            self._installation_id = await self._read_installation_id()
+        await self._wait_for_installation_id(expected_id=self._expected_installation_id)
         assert self._client is not None
         self._first_refresh_event.clear()
         self._client.on_message = self._on_snapshot_message
@@ -944,41 +955,37 @@ class Hub:
         except Exception as exc:
             _LOGGER.exception("Error processing snapshot message: %s", exc)
 
-    def _on_installation_id_message(
-        self,
-        _client: MQTTClient,
-        _userdata: Any,
-        message: mqtt.MQTTMessage,
-    ) -> None:
-        """Handle installation ID messages synchronously."""
-        try:
-            topic = self._remove_topic_prefix(message.topic)
-            topic_parts = topic.split("/")
-            if len(topic_parts) == 5 and topic_parts[2:5] == ["system", "0", "Serial"]:
-                payload_json = json.loads(message.payload.decode())
-                self._installation_id = payload_json.get("value")
-                _LOGGER.info("Installation ID received: %s", self._installation_id)
-                self._schedule_threadsafe(self._installation_id_event.set)
-        except Exception as exc:
-            _LOGGER.error("Error processing installation ID message: %s", exc)
+    async def _wait_for_installation_id(self, expected_id: str | None) -> None:
+        """Read the installation id for the Victron installation.
 
-    async def _read_installation_id(self) -> str:
-        """Read the installation id for the Victron installation."""
-        _LOGGER.info("Reading installation ID")
+        Parameters
+        ----------
+        expected_id : str | None
+            If provided, subscribe to the specific topic for this installation ID
+            instead of the wildcard. Raises InvalidInstallationIdError on timeout
+            if the expected ID is not found on the broker.
+        """
+        _LOGGER.info("Reading installation ID (expected=%s)", expected_id)
         if not self._client.is_connected():
             _LOGGER.error("Cannot read installation ID - client not connected")
             raise NotConnectedError
 
-        self._subscribe(TOPIC_INSTALLATION_ID)
+        subscribe_topic = (
+            TOPIC_INSTALLATION_ID.replace("+", expected_id) if expected_id is not None else TOPIC_INSTALLATION_ID
+        )
+        self._subscribe(subscribe_topic)
         try:
             async with asyncio.timeout(60):
                 await self._installation_id_event.wait()
         except TimeoutError:
-            _LOGGER.error("Timeout waiting for installation ID")
-            raise
-        self._unsubscribe(TOPIC_INSTALLATION_ID)
+            _LOGGER.error("Installation ID '%s' not found on broker", expected_id)
+            if expected_id is not None:
+                raise InvalidInstallationIdError(
+                    f"Provided installation_id '{expected_id}' was not found on the MQTT broker."
+                ) from None
+            raise InvalidInstallationIdError("Broker didn't send any installation ID.") from None
+        self._unsubscribe(subscribe_topic)
         _LOGGER.info("Installation ID read successfully: %s", self.installation_id)
-        return str(self.installation_id)
 
     @staticmethod
     def _remove_placeholders(topic: str) -> str:
@@ -1253,3 +1260,7 @@ class TopicNotFoundError(Exception):
 
 class AuthenticationError(CannotConnectError):
     """Authentication failed."""
+
+
+class InvalidInstallationIdError(CannotConnectError):
+    """The provided installation ID was not found on the broker."""

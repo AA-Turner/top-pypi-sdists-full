@@ -24,10 +24,12 @@ class TExecuteSpec:
     """
     Attributes:
         concurrency (Union[None, Unset, int]):
+        intercept_signals (Union[Unset, bool]):
         timeout (Union['TTimeoutSpec', None, Unset]):
     """
 
     concurrency: Union[None, Unset, int] = UNSET
+    intercept_signals: Union[Unset, bool] = UNSET
     timeout: Union["TTimeoutSpec", None, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -39,6 +41,8 @@ class TExecuteSpec:
             concurrency = UNSET
         else:
             concurrency = self.concurrency
+
+        intercept_signals = self.intercept_signals
 
         timeout: Union[None, Unset, dict[str, Any]]
         if isinstance(self.timeout, Unset):
@@ -53,6 +57,8 @@ class TExecuteSpec:
         field_dict.update({})
         if concurrency is not UNSET:
             field_dict["concurrency"] = concurrency
+        if intercept_signals is not UNSET:
+            field_dict["intercept_signals"] = intercept_signals
         if timeout is not UNSET:
             field_dict["timeout"] = timeout
 
@@ -73,6 +79,8 @@ class TExecuteSpec:
 
         concurrency = _parse_concurrency(d.pop("concurrency", UNSET))
 
+        intercept_signals = d.pop("intercept_signals", UNSET)
+
         def _parse_timeout(data: object) -> Union["TTimeoutSpec", None, Unset]:
             if data is None:
                 return data
@@ -92,6 +100,7 @@ class TExecuteSpec:
 
         t_execute_spec = cls(
             concurrency=concurrency,
+            intercept_signals=intercept_signals,
             timeout=timeout,
         )
 

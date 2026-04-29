@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: FalkorDB
-Version: 1.6.0
+Version: 1.6.1
 Summary: Python client for interacting with FalkorDB database
 Project-URL: Homepage, http://falkordb-py.readthedocs.io
 Project-URL: Repository, http://github.com/falkorDB/falkordb-py

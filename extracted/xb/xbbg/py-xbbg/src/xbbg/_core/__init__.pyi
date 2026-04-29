@@ -4,6 +4,11 @@
 import builtins
 import typing
 __all__ = [
+    "ArrowColumn",
+    "ArrowField",
+    "ArrowRecordBatch",
+    "ArrowSchema",
+    "ArrowTable",
     "PyEngine",
     "PyEngineConfig",
     "PySubscription",
@@ -70,6 +75,26 @@ __all__ = [
 ]
 
 @typing.final
+class ArrowColumn:
+    ...
+
+@typing.final
+class ArrowField:
+    ...
+
+@typing.final
+class ArrowRecordBatch:
+    ...
+
+@typing.final
+class ArrowSchema:
+    ...
+
+@typing.final
+class ArrowTable:
+    ...
+
+@typing.final
 class PyEngine:
     r"""
     Python wrapper for the xbbg Engine.
@@ -104,7 +129,7 @@ class PyEngine:
         r"""
         Generic async Bloomberg request.
         
-        Accepts a dictionary of parameters and returns a PyArrow RecordBatch.
+        Accepts a dictionary of parameters and returns an xbbg ArrowRecordBatch.
         
         Required keys:
         - service: Bloomberg service URI (e.g., "//blp/refdata")
@@ -255,9 +280,9 @@ class PyEngine:
         ```python
         sub = await engine.subscribe_with_options(
             '//blp/mktvwap',
-            ['AAPL US Equity'],
-            ['RT_PX_VWAP', 'RT_VWAP_VOLUME'],
-            ['VWAP_START_TIME=09:30', 'VWAP_END_TIME=16:00']
+            ['//blp/mktvwap/ticker/IBM US Equity'],
+            ['VWAP'],
+            ['VWAP_START_TIME=10:00', 'VWAP_END_TIME=16:00']
         )
         async for batch in sub:
             print(batch)
@@ -317,7 +342,7 @@ class PyEngineConfig:
         Multiple servers for failover: list of (host, port) tuples. Overrides host/port when set.
         """
     @servers.setter
-    def servers(self, value: builtins.list[tuple[builtins.str, builtins.int]]) -> None:
+    def servers(self, value: typing.Sequence[tuple[builtins.str, builtins.int]]) -> None:
         r"""
         Multiple servers for failover: list of (host, port) tuples. Overrides host/port when set.
         """
@@ -411,7 +436,7 @@ class PyEngineConfig:
         Services to pre-warm on startup (default: ["//blp/refdata", "//blp/apiflds"])
         """
     @warmup_services.setter
-    def warmup_services(self, value: builtins.list[builtins.str]) -> None:
+    def warmup_services(self, value: typing.Sequence[builtins.str]) -> None:
         r"""
         Services to pre-warm on startup (default: ["//blp/refdata", "//blp/apiflds"])
         """
@@ -649,7 +674,7 @@ class PySubscription:
     - Context manager (`async with`)
     
     Data arrives as `Result<RecordBatch, BlpError>`:
-    - `Ok(batch)` — yields a PyArrow RecordBatch
+    - `Ok(batch)` — yields an xbbg ArrowRecordBatch
     - `Err(error)` — raises a Python exception (BlpRequestError, BlpInternalError, etc.)
     
     Design: Uses separate locks for rx (data receiving) vs stream (metadata snapshots),
@@ -707,9 +732,13 @@ class PySubscription:
         Get next batch of data.
         Only locks the rx, not the stream - so add/remove can run concurrently.
         
-        Returns a PyArrow RecordBatch on success.
+        Returns an xbbg ArrowRecordBatch on success.
         Raises a Python exception (BlpRequestError, BlpInternalError, etc.) on error.
         Raises StopAsyncIteration when the subscription is closed.
+        """
+    def __anext_tick_dict__(self) -> typing.Any:
+        r"""
+        Get next update as a Python dict without building Arrow.
         """
     def add(self, tickers: typing.Sequence[builtins.str]) -> typing.Any:
         r"""
@@ -956,7 +985,7 @@ def ext_infer_timezone(country_iso: builtins.str) -> typing.Optional[builtins.st
     Infer timezone from country ISO code.
     """
 
-def ext_is_long_format(batch: typing.Any) -> builtins.bool:
+def ext_is_long_format(batch: ArrowRecordBatch) -> builtins.bool:
     r"""
     Check if a RecordBatch is in long format (ticker, field, value).
     """
@@ -997,12 +1026,12 @@ def ext_parse_ticker(ticker: builtins.str) -> tuple[builtins.str, builtins.int, 
     Returns: (prefix, index, asset, exchange)
     """
 
-def ext_pivot_to_wide(batch: typing.Any) -> typing.Any:
+def ext_pivot_to_wide(batch: ArrowRecordBatch) -> typing.Any:
     r"""
-    Pivot a PyArrow RecordBatch from long to wide format.
+    Pivot an xbbg ArrowRecordBatch from long to wide format.
     
-    Input: RecordBatch with columns (ticker, field, value)
-    Output: RecordBatch with columns (ticker, field1, field2, ...)
+    Input: ArrowRecordBatch with columns (ticker, field, value)
+    Output: ArrowRecordBatch with columns (ticker, field1, field2, ...)
     """
 
 def ext_previous_cdx_series(ticker: builtins.str) -> typing.Optional[builtins.str]:
@@ -1175,7 +1204,7 @@ def recipe_yas(engine: PyEngine, tickers: typing.Sequence[builtins.str], fields:
     YAS (Yield & Spread Analysis) recipe.
     
     Retrieves Bloomberg YAS data with optional yield type and pricing parameters.
-    Returns a PyArrow RecordBatch.
+    Returns an xbbg ArrowRecordBatch.
     
     Args:
         engine: Bloomberg engine instance

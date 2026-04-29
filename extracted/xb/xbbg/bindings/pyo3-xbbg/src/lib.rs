@@ -45,16 +45,19 @@ use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-use chrono::NaiveDate;
+use chrono::{DateTime, Datelike, NaiveDate, Timelike};
 use pyo3::exceptions::{PyRuntimeError, PyStopAsyncIteration, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyDate, PyDateTime, PyDict, PyTime, PyTzInfo};
 use pyo3_async_runtimes::tokio::future_into_py;
+#[cfg(feature = "stub-gen")]
 use pyo3_stub_gen::{define_stub_info_gatherer, derive::*};
 use tokio::sync::{watch, Mutex};
 use xbbg_log::{debug, info, warn};
 
-use xbbg_async::engine::state::SubscriptionMetrics;
+use xbbg_async::engine::state::{
+    subscription_update_to_record_batch, SubscriptionMetrics, SubscriptionUpdate, UpdateValue,
+};
 use xbbg_async::engine::{
     AdminStatusInfo, Engine, EngineConfig, ExtractorType, RequestParams, RetryPolicy, ServerAddr,
     ServiceStatusInfo, SessionStatusInfo, Socks5Proxy, SubscriptionCommandHandle,
@@ -66,9 +69,10 @@ use xbbg_ext::{ExchangeInfo, MarketInfo, MarketTiming};
 
 mod ext;
 mod markets;
+mod native_arrow;
 mod recipes;
 
-type StreamBatchResult = Result<arrow::record_batch::RecordBatch, BlpError>;
+type StreamBatchResult = Result<SubscriptionUpdate, BlpError>;
 type StreamSender = tokio::sync::mpsc::Sender<StreamBatchResult>;
 type StreamReceiver = tokio::sync::mpsc::Receiver<StreamBatchResult>;
 type SharedStreamReceiver = Arc<Mutex<Option<StreamReceiver>>>;
@@ -376,8 +380,8 @@ fn format_error_msg(
 ///
 /// The defaults are derived from `EngineConfig::default()` in xbbg-async, so they
 /// stay in sync automatically.
-#[gen_stub_pyclass]
-#[pyclass]
+#[cfg_attr(feature = "stub-gen", gen_stub_pyclass)]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyEngineConfig {
     /// Bloomberg server host (default: "localhost")
@@ -495,7 +499,7 @@ pub struct PyEngineConfig {
     pub socks5_port: Option<u16>,
 }
 
-#[gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", gen_stub_pymethods)]
 #[pymethods]
 impl PyEngineConfig {
     /// Create a new configuration with defaults.
@@ -908,13 +912,13 @@ impl TryFrom<&PyEngineConfig> for EngineConfig {
 }
 
 /// Python wrapper for the xbbg Engine.
-#[gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", gen_stub_pyclass)]
 #[pyclass]
 struct PyEngine {
     engine: Arc<Engine>,
 }
 
-#[gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", gen_stub_pymethods)]
 #[pymethods]
 impl PyEngine {
     /// Create a new Engine with optional host/port configuration.
@@ -974,7 +978,7 @@ impl PyEngine {
 
     /// Generic async Bloomberg request.
     ///
-    /// Accepts a dictionary of parameters and returns a PyArrow RecordBatch.
+    /// Accepts a dictionary of parameters and returns an xbbg ArrowRecordBatch.
     ///
     /// Required keys:
     /// - service: Bloomberg service URI (e.g., "//blp/refdata")
@@ -1024,7 +1028,7 @@ impl PyEngine {
 
             debug!(num_rows = batch.num_rows(), "PyEngine: request completed");
 
-            Python::attach(|py| record_batch_to_pyarrow(py, batch))
+            Python::attach(|py| native_arrow::record_batch_to_arrow_record_batch(py, batch))
         })
     }
 
@@ -1450,9 +1454,9 @@ impl PyEngine {
     /// ```python
     /// sub = await engine.subscribe_with_options(
     ///     '//blp/mktvwap',
-    ///     ['AAPL US Equity'],
-    ///     ['RT_PX_VWAP', 'RT_VWAP_VOLUME'],
-    ///     ['VWAP_START_TIME=09:30', 'VWAP_END_TIME=16:00']
+    ///     ['//blp/mktvwap/ticker/IBM US Equity'],
+    ///     ['VWAP'],
+    ///     ['VWAP_START_TIME=10:00', 'VWAP_END_TIME=16:00']
     /// )
     /// async for batch in sub:
     ///     print(batch)
@@ -1606,13 +1610,13 @@ impl PyEngine {
 /// - Context manager (`async with`)
 ///
 /// Data arrives as `Result<RecordBatch, BlpError>`:
-/// - `Ok(batch)` — yields a PyArrow RecordBatch
+/// - `Ok(batch)` — yields an xbbg ArrowRecordBatch
 /// - `Err(error)` — raises a Python exception (BlpRequestError, BlpInternalError, etc.)
 ///
 /// Design: Uses separate locks for rx (data receiving) vs stream (metadata snapshots),
 /// plus a dedicated operation lock to serialize add/remove/unsubscribe without holding
 /// the stream metadata lock across Bloomberg awaits.
-#[gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", gen_stub_pyclass)]
 #[pyclass]
 pub struct PySubscription {
     /// Receiver for incoming data - separate lock so iteration doesn't block add/remove
@@ -1669,10 +1673,10 @@ impl SubscriptionStreamHandle {
         let command = claim.command_handle().map_err(blp_async_error_to_pyerr)?;
 
         let mut seen_topics = HashSet::new();
-        let status = self.status.lock();
+        let snapshot = self.status.load();
         let new_topics: Vec<String> = tickers
             .into_iter()
-            .filter(|t| !status.topic_to_key().contains_key(t) && seen_topics.insert(t.clone()))
+            .filter(|t| !snapshot.topic_to_key().contains_key(t) && seen_topics.insert(t.clone()))
             .collect();
 
         if new_topics.is_empty() {
@@ -1699,9 +1703,11 @@ impl SubscriptionStreamHandle {
         new_keys: Vec<usize>,
         new_metrics: Vec<Arc<SubscriptionMetrics>>,
     ) {
-        self.status
-            .lock()
-            .add_active(topics, &new_keys, new_metrics);
+        self.status.rcu(|current| {
+            let mut next = (**current).clone();
+            next.add_active(topics, &new_keys, new_metrics.clone());
+            Arc::new(next)
+        });
     }
 
     fn prepare_remove(&self, tickers: Vec<String>) -> PyResult<Option<PendingRemove>> {
@@ -1714,10 +1720,10 @@ impl SubscriptionStreamHandle {
         let mut seen_keys = HashSet::new();
         let mut topics = Vec::new();
         let mut keys = Vec::new();
-        let status = self.status.lock();
+        let snapshot = self.status.load();
 
         for ticker in tickers {
-            if let Some(&key) = status.topic_to_key().get(&ticker) {
+            if let Some(&key) = snapshot.topic_to_key().get(&ticker) {
                 if seen_keys.insert(key) {
                     topics.push(ticker);
                     keys.push(key);
@@ -1737,10 +1743,13 @@ impl SubscriptionStreamHandle {
     }
 
     fn apply_remove(&mut self, topics: &[String]) {
-        let mut status = self.status.lock();
-        for topic in topics {
-            status.remove_topic(topic);
-        }
+        self.status.rcu(|current| {
+            let mut next = (**current).clone();
+            for topic in topics {
+                next.remove_topic(topic);
+            }
+            Arc::new(next)
+        });
     }
 }
 
@@ -1774,7 +1783,7 @@ impl PySubscription {
         let guard = stream.blocking_lock();
         match guard.as_ref() {
             Some(handle) => {
-                let status = handle.status.lock();
+                let snapshot = handle.status.load();
                 let (
                     messages_received,
                     dropped_batches,
@@ -1783,21 +1792,21 @@ impl PySubscription {
                     data_loss_events,
                     last_message_us,
                     last_data_loss_us,
-                ) = subscription_metrics_totals(status.fields_metrics());
+                ) = subscription_metrics_totals(snapshot.fields_metrics());
                 let mut topic_states: Vec<TopicStatusInfo> =
-                    status.topic_statuses().values().cloned().collect();
+                    snapshot.topic_statuses().values().cloned().collect();
                 topic_states.sort_by(|left, right| left.topic.cmp(&right.topic));
 
                 let mut services: Vec<ServiceStatusInfo> =
-                    status.services().values().cloned().collect();
+                    snapshot.services().values().cloned().collect();
                 services.sort_by(|left, right| left.service.cmp(&right.service));
 
                 SubscriptionSnapshot {
                     present: true,
-                    topics: status.topics().to_vec(),
+                    topics: snapshot.topics().to_vec(),
                     fields: handle.fields.clone(),
-                    is_active: status.has_active_topics() && handle.claim.is_some(),
-                    all_failed: !status.has_active_topics() && !status.failures().is_empty(),
+                    is_active: snapshot.has_active_topics() && handle.claim.is_some(),
+                    all_failed: !snapshot.has_active_topics() && !snapshot.failures().is_empty(),
                     messages_received,
                     dropped_batches,
                     batches_sent,
@@ -1805,12 +1814,12 @@ impl PySubscription {
                     data_loss_events,
                     last_message_us,
                     last_data_loss_us,
-                    failures: status.failures().to_vec(),
+                    failures: snapshot.failures().to_vec(),
                     topic_states,
-                    session: status.session().clone(),
+                    session: snapshot.session().clone(),
                     services,
-                    admin: status.admin().clone(),
-                    events: status.events().iter().cloned().collect(),
+                    admin: snapshot.admin().clone(),
+                    events: snapshot.events().iter().cloned().collect(),
                     effective_overflow_policy: match handle
                         .overflow_policy
                         .unwrap_or(OverflowPolicy::DropNewest)
@@ -1830,7 +1839,7 @@ impl PySubscription {
     }
 }
 
-#[gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", gen_stub_pymethods)]
 #[pymethods]
 impl PySubscription {
     /// Async iterator protocol.
@@ -1841,7 +1850,7 @@ impl PySubscription {
     /// Get next batch of data.
     /// Only locks the rx, not the stream - so add/remove can run concurrently.
     ///
-    /// Returns a PyArrow RecordBatch on success.
+    /// Returns an xbbg ArrowRecordBatch on success.
     /// Raises a Python exception (BlpRequestError, BlpInternalError, etc.) on error.
     /// Raises StopAsyncIteration when the subscription is closed.
     fn __anext__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -1864,8 +1873,42 @@ impl PySubscription {
             };
 
             match item {
-                Ok(Some(Ok(batch))) => {
-                    try_attach_or_suspend(|py| record_batch_to_pyarrow(py, batch)).await
+                Ok(Some(Ok(update))) => {
+                    try_attach_or_suspend(|py| {
+                        subscription_update_to_arrow_record_batch(py, update)
+                    })
+                    .await
+                }
+                Ok(Some(Err(blp_err))) => Err(blp_error_to_pyerr(blp_err)),
+                Ok(None) => Err(PyStopAsyncIteration::new_err("subscription ended")),
+                Err(()) => Err(PyStopAsyncIteration::new_err("subscription closed")),
+            }
+        })
+    }
+
+    /// Get next update as a Python dict without building Arrow.
+    fn __anext_tick_dict__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let rx = self.rx.clone();
+        let close_signal = self.close_signal.clone();
+        let mut engine_shutdown_rx = self.engine_shutdown.clone();
+
+        future_into_py(py, async move {
+            let mut close_rx = close_signal.subscribe();
+            let item = {
+                let mut guard = rx.lock().await;
+                let rx_ref = guard
+                    .as_mut()
+                    .ok_or_else(|| PyStopAsyncIteration::new_err("subscription closed"))?;
+                tokio::select! {
+                    item = rx_ref.recv() => Ok(item),
+                    _ = wait_for_subscription_close(&mut close_rx) => Err(()),
+                    _ = engine_shutdown_rx.changed() => Err(()),
+                }
+            };
+
+            match item {
+                Ok(Some(Ok(update))) => {
+                    try_attach_or_suspend(|py| subscription_update_to_pydict(py, update)).await
                 }
                 Ok(Some(Err(blp_err))) => Err(blp_error_to_pyerr(blp_err)),
                 Ok(None) => Err(PyStopAsyncIteration::new_err("subscription ended")),
@@ -2136,7 +2179,7 @@ impl PySubscription {
 
             let mut remaining = Vec::new();
 
-            // Drain remaining batches if requested (skip errors)
+            // Drain remaining updates if requested (skip errors)
             if drain {
                 let rx = {
                     let mut guard = rx_arc.lock().await;
@@ -2144,29 +2187,38 @@ impl PySubscription {
                 };
                 if let Some(mut rx) = rx {
                     while let Ok(item) = rx.try_recv() {
-                        if let Ok(batch) = item {
-                            remaining.push(batch);
+                        if let Ok(update) = item {
+                            remaining.push(update);
                         }
                     }
                 }
             }
 
-            // Unsubscribe from Bloomberg
+            // Unsubscribe from Bloomberg. Only clear status after Bloomberg accepts
+            // termination so SessionClaim::Drop can safely return the worker to the pool.
             if let Some(mut h) = handle {
                 if let Some(claim) = h.claim.take() {
-                    let keys = h.status.lock().keys().to_vec();
+                    let keys = h.status.load().keys().to_vec();
                     if !keys.is_empty() {
-                        let _ = claim.unsubscribe(keys).await;
+                        claim
+                            .unsubscribe(keys)
+                            .await
+                            .map_err(blp_async_error_to_pyerr)?;
+                        h.status.rcu(|current| {
+                            let mut next = (**current).clone();
+                            next.clear_active();
+                            Arc::new(next)
+                        });
                     }
-                    // claim is dropped here, returning session to pool
+                    // claim drops here; cleared status means a clean worker lease can be reused.
                 }
             }
 
             if !remaining.is_empty() {
                 try_attach_or_suspend(|py| {
                     let list = pyo3::types::PyList::empty(py);
-                    for batch in remaining {
-                        let py_batch = record_batch_to_pyarrow(py, batch)?;
+                    for update in remaining {
+                        let py_batch = subscription_update_to_arrow_record_batch(py, update)?;
                         list.append(py_batch)?;
                     }
                     Ok(list.into_any().unbind())
@@ -2401,29 +2453,102 @@ fn market_info_to_pydict(py: Python<'_>, info: &MarketInfo) -> PyResult<Py<PyAny
     Ok(dict.into_any().unbind())
 }
 
-/// Convert Arrow RecordBatch to PyArrow RecordBatch using zero-copy FFI.
-///
-/// Uses Arrow's C Data Interface via ToPyArrow for zero-copy conversion.
-pub(crate) fn record_batch_to_pyarrow(
+fn subscription_update_to_arrow_record_batch(
     py: Python<'_>,
-    batch: arrow::record_batch::RecordBatch,
+    update: SubscriptionUpdate,
 ) -> PyResult<Py<PyAny>> {
-    use arrow::pyarrow::ToPyArrow;
-
-    // Zero-copy conversion via Arrow C Data Interface
-    batch
-        .to_pyarrow(py)
-        .map(|b| b.unbind())
-        .map_err(|e| PyRuntimeError::new_err(format!("Arrow FFI conversion failed: {e}")))
+    let batch = subscription_update_to_record_batch(&update).map_err(blp_error_to_pyerr)?;
+    native_arrow::record_batch_to_arrow_record_batch(py, batch)
 }
 
-#[gen_stub_pyfunction]
+fn date32_to_py(py: Python<'_>, days: i32) -> PyResult<Py<PyAny>> {
+    let Some(epoch) = NaiveDate::from_ymd_opt(1970, 1, 1) else {
+        return Ok(py.None());
+    };
+    let Some(date) = epoch.checked_add_signed(chrono::Duration::days(days as i64)) else {
+        return Ok(py.None());
+    };
+    Ok(
+        PyDate::new(py, date.year(), date.month() as u8, date.day() as u8)?
+            .into_any()
+            .unbind(),
+    )
+}
+
+fn time64_micros_to_py(py: Python<'_>, micros: i64) -> PyResult<Py<PyAny>> {
+    if !(0..86_400_000_000).contains(&micros) {
+        return Ok(py.None());
+    }
+    let seconds = micros / 1_000_000;
+    let microsecond = (micros % 1_000_000) as u32;
+    let hour = (seconds / 3_600) as u8;
+    let minute = ((seconds % 3_600) / 60) as u8;
+    let second = (seconds % 60) as u8;
+    Ok(PyTime::new(py, hour, minute, second, microsecond, None)?
+        .into_any()
+        .unbind())
+}
+
+fn timestamp_micros_to_py(py: Python<'_>, micros: i64) -> PyResult<Py<PyAny>> {
+    let Some(dt) = DateTime::from_timestamp_micros(micros) else {
+        return Ok(py.None());
+    };
+    let utc = PyTzInfo::utc(py)?;
+    Ok(PyDateTime::new(
+        py,
+        dt.year(),
+        dt.month() as u8,
+        dt.day() as u8,
+        dt.hour() as u8,
+        dt.minute() as u8,
+        dt.second() as u8,
+        dt.timestamp_subsec_micros(),
+        Some(&utc),
+    )?
+    .into_any()
+    .unbind())
+}
+
+fn subscription_update_to_pydict(
+    py: Python<'_>,
+    update: SubscriptionUpdate,
+) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    dict.set_item(
+        "timestamp",
+        timestamp_micros_to_py(py, update.timestamp_us)?,
+    )?;
+    dict.set_item("topic", update.topic.as_ref())?;
+    for field in update.values.iter() {
+        let Some(meta) = update.layout.fields.get(field.index as usize) else {
+            continue;
+        };
+        match &field.value {
+            UpdateValue::Null => dict.set_item(meta.name.as_ref(), py.None())?,
+            UpdateValue::Bool(v) => dict.set_item(meta.name.as_ref(), *v)?,
+            UpdateValue::I32(v) => dict.set_item(meta.name.as_ref(), *v)?,
+            UpdateValue::I64(v) => dict.set_item(meta.name.as_ref(), *v)?,
+            UpdateValue::F64(v) => dict.set_item(meta.name.as_ref(), *v)?,
+            UpdateValue::Str(v) => dict.set_item(meta.name.as_ref(), v.as_ref())?,
+            UpdateValue::Date32(v) => dict.set_item(meta.name.as_ref(), date32_to_py(py, *v)?)?,
+            UpdateValue::Time64Micros(v) => {
+                dict.set_item(meta.name.as_ref(), time64_micros_to_py(py, *v)?)?
+            }
+            UpdateValue::TimestampMicros(v) => {
+                dict.set_item(meta.name.as_ref(), timestamp_micros_to_py(py, *v)?)?
+            }
+        }
+    }
+    Ok(dict.into_any().unbind())
+}
+
+#[cfg_attr(feature = "stub-gen", gen_stub_pyfunction)]
 #[pyfunction]
 fn version() -> String {
     xbbg_core::version().to_string()
 }
 
-#[gen_stub_pyfunction]
+#[cfg_attr(feature = "stub-gen", gen_stub_pyfunction)]
 #[pyfunction]
 fn sdk_version() -> (i32, i32, i32, i32) {
     xbbg_core::sdk_version()
@@ -2455,6 +2580,7 @@ fn _core(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", pkg_version)?;
     m.add_function(wrap_pyfunction!(version, m)?)?;
     m.add_function(wrap_pyfunction!(sdk_version, m)?)?;
+    native_arrow::register(m)?;
     m.add_class::<PyEngine>()?;
     m.add_class::<PyEngineConfig>()?;
     m.add_class::<PySubscription>()?;
@@ -2497,7 +2623,7 @@ fn _core(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 ///
 /// This sets an atomic integer — no GIL is held on the logging hot path.
 /// For per-crate control, use the RUST_LOG environment variable instead.
-#[gen_stub_pyfunction]
+#[cfg_attr(feature = "stub-gen", gen_stub_pyfunction)]
 #[pyfunction]
 fn set_log_level(level: &str) -> PyResult<()> {
     let lvl = xbbg_log::parse_level(level).ok_or_else(|| {
@@ -2511,7 +2637,7 @@ fn set_log_level(level: &str) -> PyResult<()> {
 }
 
 /// Get the current Rust log level as a string.
-#[gen_stub_pyfunction]
+#[cfg_attr(feature = "stub-gen", gen_stub_pyfunction)]
 #[pyfunction]
 fn get_log_level() -> &'static str {
     match xbbg_log::current_level() {
@@ -2523,7 +2649,7 @@ fn get_log_level() -> &'static str {
     }
 }
 
-#[gen_stub_pyfunction]
+#[cfg_attr(feature = "stub-gen", gen_stub_pyfunction)]
 #[pyfunction]
 fn enable_sdk_logging(level: &str) -> PyResult<()> {
     let lvl: xbbg_async::sdk_logging::SdkLogLevel = level
@@ -2533,6 +2659,7 @@ fn enable_sdk_logging(level: &str) -> PyResult<()> {
     Ok(())
 }
 
+#[cfg(feature = "stub-gen")]
 define_stub_info_gatherer!(stub_info);
 
 #[cfg(test)]
@@ -2681,6 +2808,19 @@ mod tests {
 
             let params = dict_to_request_params(&dict).expect("request params");
             assert_eq!(params.request_id.as_deref(), Some("req-123"));
+        });
+    }
+
+    #[test]
+    fn timestamp_micros_to_py_returns_utc_aware_datetime() {
+        Python::initialize();
+        Python::attach(|py| {
+            let value = timestamp_micros_to_py(py, 1_704_067_200_123_456).expect("timestamp");
+            let dt = value.bind(py);
+            let tzinfo = dt.getattr("tzinfo").expect("tzinfo");
+            assert!(tzinfo
+                .eq(PyTzInfo::utc(py).expect("utc"))
+                .expect("tz equality"));
         });
     }
 }

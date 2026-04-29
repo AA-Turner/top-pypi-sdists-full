@@ -4,9 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 """Module for timeseries analysis functions."""
+
+from __future__ import annotations
+
 import inspect
 from datetime import datetime
-from typing import Dict, List, Optional
 
 import pandas as pd
 
@@ -272,8 +274,8 @@ def ts_anomalies_stl(data: pd.DataFrame, **kwargs) -> pd.DataFrame:
     data = data[[data_column]]
 
     # STL method does Season-Trend decomposition using LOESS.
-    # Accepts timeseries dataframe
-    stl = STL(data[data_column].values, seasonal=seasonal, period=period)
+    # Accepts 1D timeseries data (pandas Series)
+    stl = STL(data[data_column], seasonal=seasonal, period=period)
     # Fitting the data - Estimate season, trend and residuals components.
     res = stl.fit()
     result = data.copy()
@@ -290,13 +292,12 @@ def ts_anomalies_stl(data: pd.DataFrame, **kwargs) -> pd.DataFrame:
     # this column does not contain seasonal/trend components
     result["score"] = stats.zscore(result["residual"])
     # create spikes(1) and dips(-1) based on threshold and seasonal columns
-    result.loc[
-        (result["score"] > score_threshold) & (result["seasonal"] > 0), "anomalies"
-    ] = 1
+    # Initialize anomalies to 0 (default for no anomaly)
+    result["anomalies"] = 0
+    result.loc[(result["score"] > score_threshold) & (result["seasonal"] > 0), "anomalies"] = 1
     result.loc[
         (result["score"] > score_threshold) & (result["seasonal"] < 0), "anomalies"
     ] = -1
-    result.loc[(result["score"] < score_threshold), "anomalies"] = 0
     # Datatype casting
     result["anomalies"] = result["anomalies"].astype("int64")
 
@@ -313,7 +314,7 @@ def extract_anomaly_periods(
     period: str = "1h",
     pos_only: bool = True,
     anomalies_column: str = "anomalies",
-) -> Dict[datetime, datetime]:
+) -> dict[datetime, datetime]:
     """
     Return dictionary of anomaly periods, merging adjacent ones.
 
@@ -360,12 +361,10 @@ def extract_anomaly_periods(
         if not end_period:
             # If we're not already in an anomaly period
             # create start/end for a new one
-            start_period = time - pd.Timedelta(period)  # type: ignore
-            end_period = time + pd.Timedelta(period)  # type: ignore
+            start_period = time - pd.Timedelta(period)
+            end_period = time + pd.Timedelta(period)
             periods[start_period] = end_period
-        elif (time - end_period) <= pd.Timedelta(
-            period
-        ) * 2 and start_period is not None:
+        elif (time - end_period) <= pd.Timedelta(period) * 2 and start_period is not None:
             # if the current time is less than 2x the period away
             # from our current end_period time, update the end_time
             periods[start_period] = time + pd.Timedelta(period)
@@ -383,7 +382,7 @@ def find_anomaly_periods(
     period: str = "1h",
     pos_only: bool = True,
     anomalies_column: str = "anomalies",
-) -> List[TimeSpan]:
+) -> list[TimeSpan]:
     """
     Return list of anomaly period as TimeSpans.
 
@@ -421,7 +420,7 @@ def find_anomaly_periods(
     ]
 
 
-def create_time_period_kqlfilter(periods: Dict[datetime, datetime]) -> str:
+def create_time_period_kqlfilter(periods: dict[datetime, datetime]) -> str:
     """
     Return KQL time filter expression from anomaly periods.
 
@@ -448,7 +447,7 @@ def create_time_period_kqlfilter(periods: Dict[datetime, datetime]) -> str:
 def set_new_anomaly_threshold(
     data: pd.DataFrame,
     threshold: float,
-    threshold_low: Optional[float] = None,
+    threshold_low: float | None = None,
     anomalies_column: str = "anomalies",
 ) -> pd.DataFrame:
     """

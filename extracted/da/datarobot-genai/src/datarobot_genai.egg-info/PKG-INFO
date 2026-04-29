@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.15.17
+Version: 0.15.22
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -24,6 +24,7 @@ Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "co
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "core"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "core"
 Requires-Dist: pyarrow==21.0.0; extra == "core"
+Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "core"
 Provides-Extra: crewai
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "crewai"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "crewai"
@@ -39,6 +40,7 @@ Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "cr
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "crewai"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "crewai"
 Requires-Dist: pyarrow==21.0.0; extra == "crewai"
+Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "crewai"
 Requires-Dist: anthropic<1.0.0,~=0.71.0; extra == "crewai"
 Requires-Dist: azure-ai-inference<2.0.0,>=1.0.0b9; extra == "crewai"
 Requires-Dist: crewai[litellm]>=1.11.0; extra == "crewai"
@@ -62,6 +64,7 @@ Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "la
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "langgraph"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "langgraph"
 Requires-Dist: pyarrow==21.0.0; extra == "langgraph"
+Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "langgraph"
 Requires-Dist: langchain-mcp-adapters<0.2.0,>=0.1.12; extra == "langgraph"
 Requires-Dist: langgraph<2.0.0,>=1.0.0; extra == "langgraph"
 Requires-Dist: langgraph-prebuilt<2.0.0,>=1.0.0; extra == "langgraph"
@@ -83,6 +86,7 @@ Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "ll
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "llamaindex"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "llamaindex"
 Requires-Dist: pyarrow==21.0.0; extra == "llamaindex"
+Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "llamaindex"
 Requires-Dist: llama-index<0.15.0,>=0.14.0; extra == "llamaindex"
 Requires-Dist: llama-index-core<0.15.0,>=0.14.0; extra == "llamaindex"
 Requires-Dist: llama-index-llms-langchain<0.8.0,>=0.6.1; extra == "llamaindex"
@@ -108,6 +112,7 @@ Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "na
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "nat"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "nat"
 Requires-Dist: pyarrow==21.0.0; extra == "nat"
+Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "nat"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "nat"
 Requires-Dist: nvidia-nat==1.6.0; extra == "nat"
 Requires-Dist: nvidia-nat-a2a==1.6.0; extra == "nat"
@@ -184,6 +189,7 @@ Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "dr
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "dragent"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "dragent"
 Requires-Dist: pyarrow==21.0.0; extra == "dragent"
+Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "dragent"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "dragent"
 Requires-Dist: nvidia-nat==1.6.0; extra == "dragent"
 Requires-Dist: nvidia-nat-a2a==1.6.0; extra == "dragent"
@@ -282,6 +288,31 @@ When you introduce a backward-incompatible change, bump the minor version.
 
 ### TestPyPI
 Comment `/build` on your PR to build and publish a dev version of the package to TestPyPI.
+
+## Excluded Upstream Dependencies
+
+Several transitive dependencies pulled in by upstream packages are not used by this library at runtime.
+These are explicitly excluded via `[tool.uv] exclude-dependencies` in `pyproject.toml` to reduce install size and CVE surface area.
+
+| Package | Pulled in by | Reason excluded |
+|---------|-------------|-----------------|
+| `build` | `crewai` | Python build system; runtime unnecessary |
+| `diskcache` | `ragas` | Optional disk caching backend; not used |
+| `flask` | `nvidia-nat 1.6.0` | Web framework; not used |
+| `kubernetes` | `crewai-tools` | K8s client; not used |
+| `lancedb` | `crewai` | Optional vector DB backend; not used |
+| `langchain-milvus` | `nvidia-nat-langchain` | Milvus vector DB adapter; not used |
+| `llama-index-cli` | `llama-index` | CLI tool; not needed at runtime |
+| `openpyxl` | `crewai-tools` | Excel parser; not used |
+| `posthog` | `mem0ai` | Analytics/telemetry; not used |
+| `pymilvus` | `langchain-milvus` | Milvus client; not used |
+| `python-docx` | `crewai-tools` | Word doc parser; not used |
+| `pytube` | `crewai-tools` | YouTube downloader; not used |
+| `qdrant-client` | `mem0ai` | Optional vector DB backend; not used |
+| `scikit-network` | `ragas` | Graph analysis library; not used |
+| `stagehand` | `crewai-tools` | Playwright web automation; not used |
+| `uv` | `crewai` | Package manager bundled as a runtime dep; not needed |
+| `youtube-transcript-api` | `crewai-tools` | YouTube transcripts; not used |
 
 ## Publishing
 

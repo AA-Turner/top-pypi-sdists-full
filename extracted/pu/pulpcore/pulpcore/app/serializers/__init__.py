@@ -1,3 +1,5 @@
+# ruff: noqa: F401
+# isort: skip_file
 # Load order: base, fields, all others.
 # - fields can import directly from base if needed
 # - all can import directly from base and fields if needed

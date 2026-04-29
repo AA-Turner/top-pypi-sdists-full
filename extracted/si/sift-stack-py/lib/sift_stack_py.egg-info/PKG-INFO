@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sift_stack_py
-Version: 0.13.0
+Version: 0.14.0
 Summary: Python client library for the Sift API
 Maintainer-email: Sift Software Engineers <engineering@siftstack.com>
 License: Copyright (c) 2024 Azimuth Industries Inc.
@@ -29,6 +29,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: grpcio~=1.13
 Requires-Dist: PyYAML~=6.0
+Requires-Dist: rapidyaml~=0.11
 Requires-Dist: pandas<3.1,>=2.0
 Requires-Dist: protobuf>=5.0
 Requires-Dist: pydantic~=2.10
@@ -42,6 +43,8 @@ Requires-Dist: types-PyYAML~=6.0
 Requires-Dist: types-protobuf>=5.0
 Requires-Dist: typing-extensions~=4.6
 Requires-Dist: types-requests~=2.25
+Requires-Dist: googleapis-common-protos>=1.60
+Requires-Dist: protoc-gen-openapiv2>=0.0.1
 Provides-Extra: all
 Requires-Dist: cffi~=1.14; extra == "all"
 Requires-Dist: h5py~=3.11; extra == "all"

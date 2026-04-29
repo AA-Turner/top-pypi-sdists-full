@@ -37,9 +37,14 @@ from .models_utils import (
 )
 
 
+class DocumentLocationSchema(BaseSchema):
+    url = fields.Url(required=True, schemes={"http", "https"})
+
+
 class DocumentSchema(BaseSchema):
     filename = fields.String(validate=validate.Length(max=256), allow_none=True)
     document = fields.String(required=True)
+    location = fields.Nested(DocumentLocationSchema, allow_none=True, load_default=None)
 
     @staticmethod
     def validate_size(document: Dict[str, Any], maximum_size: int) -> None:
@@ -84,15 +89,24 @@ class Document(Base):
     Attributes:
         filename (optional,str): filename for filename evaluation
         document (str): text content
+        location (optional,dict): origin of the document, with a required http/https url key
     """
 
     SCHEMA = DocumentSchema()
 
-    def __init__(self, document: str, filename: Optional[str] = None, **kwargs: Any):
+    def __init__(
+        self,
+        document: str,
+        filename: Optional[str] = None,
+        location: Optional[Dict[str, str]] = None,
+        **kwargs: Any,
+    ):
         super().__init__()
         self.document = document
         if filename:
             self.filename = filename
+        if location:
+            self.location = location
 
     def __repr__(self) -> str:
         return f"filename:{self.filename}, document:{self.document}"
@@ -762,6 +776,7 @@ class TokenScope(str, Enum):
     AUDIT_LOGS_READ = "audit_logs:read"
     HONEYTOKENS_READ = "honeytokens:read"
     HONEYTOKENS_WRITE = "honeytokens:write"
+    HONEYTOKENS_CHECK = "honeytokens:check"
     API_TOKENS_READ = "api_tokens:read"
     API_TOKENS_WRITE = "api_tokens:write"
     IP_ALLOWLIST_READ = "ip_allowlist:read"
@@ -1478,7 +1493,6 @@ class TeamSourceParameters(PaginationParameter, SearchParameter, ToDictMixin):
     last_scan_status: Optional[ScanStatus] = None
     type: Optional[str] = None
     health: Optional[SourceHealth] = None
-    type: Optional[str] = None
     ordering: Optional[Literal["last_scan_date", "-last_scan_date"]] = None
     visibility: Optional[str] = None
     external_id: Optional[str] = None
@@ -1577,3 +1591,262 @@ class CreateInvitationSchema(BaseSchema):
 
 
 CreateInvitation.SCHEMA = CreateInvitationSchema()
+
+
+@dataclass
+class MCPArgumentInfo(FromDictMixin, ToDictMixin):
+    name: str
+    type: str
+    description: Optional[str] = None
+    required: bool = False
+
+
+class MCPArgumentInfoSchema(BaseSchema):
+    name = fields.Str(required=True)
+    type = fields.Str(required=True)
+    description = fields.Str(load_default=None, dump_default=None)
+    required = fields.Bool(load_default=False, dump_default=False)
+
+    @post_load
+    def make_mcp_argument_info(self, data: Dict[str, Any], **kwargs: Any):
+        return MCPArgumentInfo(**data)
+
+
+MCPArgumentInfo.SCHEMA = MCPArgumentInfoSchema()
+
+
+@dataclass
+class MCPToolInfo(FromDictMixin, ToDictMixin):
+    name: str
+    description: Optional[str] = None
+    arguments: Optional[List[MCPArgumentInfo]] = None
+
+
+class MCPToolInfoSchema(BaseSchema):
+    name = fields.Str(required=True)
+    description = fields.Str(load_default=None, dump_default=None)
+    arguments = fields.List(
+        fields.Nested(MCPArgumentInfoSchema), load_default=None, dump_default=None
+    )
+
+    @post_load
+    def make_mcp_tool_info(self, data: Dict[str, Any], **kwargs: Any):
+        return MCPToolInfo(**data)
+
+
+MCPToolInfo.SCHEMA = MCPToolInfoSchema()
+
+
+@dataclass
+class MCPResourceInfo(FromDictMixin, ToDictMixin):
+    uri: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+    mime_type: Optional[str] = None
+
+
+class MCPResourceInfoSchema(BaseSchema):
+    uri = fields.Str(required=True)
+    name = fields.Str(load_default=None, dump_default=None)
+    description = fields.Str(load_default=None, dump_default=None)
+    mime_type = fields.Str(load_default=None, dump_default=None)
+
+    @post_load
+    def make_mcp_resource_info(self, data: Dict[str, Any], **kwargs: Any):
+        return MCPResourceInfo(**data)
+
+
+MCPResourceInfo.SCHEMA = MCPResourceInfoSchema()
+
+
+@dataclass
+class MCPPromptInfo(FromDictMixin, ToDictMixin):
+    name: str
+    description: Optional[str] = None
+
+
+class MCPPromptInfoSchema(BaseSchema):
+    name = fields.Str(required=True)
+    description = fields.Str(load_default=None, dump_default=None)
+
+    @post_load
+    def make_mcp_prompt_info(self, data: Dict[str, Any], **kwargs: Any):
+        return MCPPromptInfo(**data)
+
+
+MCPPromptInfo.SCHEMA = MCPPromptInfoSchema()
+
+
+@dataclass
+class MCPConfiguration(FromDictMixin, ToDictMixin):
+    class Transport(str, Enum):
+        STDIO = "stdio"
+        HTTP = "http"
+        SSE = "sse"
+
+    class Scope(str, Enum):
+        USER = "user"
+        PROJECT = "project"
+
+    name: str
+    agent: str
+    scope: Scope
+    transport: Transport
+    project: Optional[str] = None
+    # stdio fields
+    command: Optional[str] = None
+    args: List[str] = field(default_factory=list)
+    env: Dict[str, str] = field(default_factory=dict)
+    # remote fields
+    url: Optional[str] = None
+    headers: Dict[str, str] = field(default_factory=dict)
+
+
+class MCPConfigurationSchema(BaseSchema):
+    name = fields.Str(required=True)
+    agent = fields.Str(required=True)
+    scope = fields.Enum(MCPConfiguration.Scope, by_value=True, required=True)
+    transport = fields.Enum(MCPConfiguration.Transport, by_value=True, required=True)
+    project = fields.Str(load_default=None, dump_default=None)
+    command = fields.Str(load_default=None, dump_default=None)
+    args = fields.List(fields.Str(), load_default=[], dump_default=[])
+    env = fields.Dict(
+        keys=fields.Str(), values=fields.Str(), load_default={}, dump_default={}
+    )
+    url = fields.Str(load_default=None, dump_default=None)
+    headers = fields.Dict(
+        keys=fields.Str(), values=fields.Str(), load_default={}, dump_default={}
+    )
+
+    @post_load
+    def make_mcp_configuration(self, data: Dict[str, Any], **kwargs: Any):
+        return MCPConfiguration(**data)
+
+
+MCPConfiguration.SCHEMA = MCPConfigurationSchema()
+
+
+@dataclass
+class MCPServer(FromDictMixin, ToDictMixin):
+    name: str
+    # We don't expect display_name to be set by ggshield, it will be set by us
+    # and sent back to ggshield.
+    display_name: Optional[str] = None
+    tools: List[MCPToolInfo] = field(default_factory=list)
+    resources: List[MCPResourceInfo] = field(default_factory=list)
+    prompts: List[MCPPromptInfo] = field(default_factory=list)
+    configurations: List[MCPConfiguration] = field(default_factory=list)
+
+
+class MCPServerSchema(BaseSchema):
+    name = fields.Str(required=True)
+    display_name = fields.Str(load_default=None, dump_default=None)
+    tools = fields.List(
+        fields.Nested(MCPToolInfoSchema), load_default=[], dump_default=[]
+    )
+    resources = fields.List(
+        fields.Nested(MCPResourceInfoSchema), load_default=[], dump_default=[]
+    )
+    prompts = fields.List(
+        fields.Nested(MCPPromptInfoSchema), load_default=[], dump_default=[]
+    )
+    configurations = fields.List(
+        fields.Nested(MCPConfigurationSchema), load_default=[], dump_default=[]
+    )
+
+    @post_load
+    def make_mcp_server(self, data: Dict[str, Any], **kwargs: Any):
+        return MCPServer(**data)
+
+
+MCPServer.SCHEMA = MCPServerSchema()
+
+
+@dataclass
+class UserInfo(FromDictMixin, ToDictMixin):
+    hostname: str
+    username: str
+    machine_id: str
+    user_email: Optional[str] = None
+
+
+class UserInfoSchema(BaseSchema):
+    hostname = fields.Str(required=True)
+    username = fields.Str(required=True)
+    machine_id = fields.Str(required=True)
+    user_email = fields.Str(load_default=None, dump_default=None)
+
+    @post_load
+    def make_user_info(self, data: Dict[str, Any], **kwargs: Any):
+        return UserInfo(**data)
+
+
+UserInfo.SCHEMA = UserInfoSchema()
+
+
+@dataclass
+class AIDiscovery(FromDictWithBase):
+    user: UserInfo
+    discovery_duration: float  # in seconds
+    servers: List[MCPServer] = field(default_factory=list)
+
+
+class AIDiscoverySchema(BaseSchema):
+    user = fields.Nested(UserInfoSchema, required=True)
+    discovery_duration = fields.Float(required=True)
+    servers = fields.List(
+        fields.Nested(MCPServerSchema), load_default=[], dump_default=[]
+    )
+
+    @post_load
+    def make_ai_discovery(self, data: Dict[str, Any], **kwargs: Any):
+        return AIDiscovery(**data)
+
+
+AIDiscovery.SCHEMA = AIDiscoverySchema()
+
+
+@dataclass
+class MCPActivityRequest(FromDictMixin, ToDictMixin):
+    user: UserInfo
+    tool: str
+    server: str
+    agent: str
+    model: str
+    cwd: str
+    input: Dict[str, Any]
+
+
+class MCPActivityRequestSchema(BaseSchema):
+    user = fields.Nested(UserInfoSchema, required=True)
+    tool = fields.Str(required=True)
+    server = fields.Str(required=True)
+    agent = fields.Str(required=True)
+    model = fields.Str(required=True)
+    cwd = fields.Str(required=True)
+    input = fields.Dict(keys=fields.Str(), values=fields.Raw(), required=True)
+
+    @post_load
+    def make_mcp_activity_request(self, data: Dict[str, Any], **kwargs: Any):
+        return MCPActivityRequest(**data)
+
+
+MCPActivityRequest.SCHEMA = MCPActivityRequestSchema()
+
+
+@dataclass
+class MCPActivityResponse(FromDictWithBase):
+    allowed: bool
+    reason: str
+
+
+class MCPActivityResponseSchema(BaseSchema):
+    allowed = fields.Bool(required=True)
+    reason = fields.Str(required=True)
+
+    @post_load
+    def make_mcp_activity_response(self, data: Dict[str, Any], **kwargs: Any):
+        return MCPActivityResponse(**data)
+
+
+MCPActivityResponse.SCHEMA = MCPActivityResponseSchema()

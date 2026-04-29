@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import getpass
+import logging
 import os
 import socket
+import subprocess
+import tempfile
 import traceback
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -31,16 +35,78 @@ if TYPE_CHECKING:
 
     from sift_client.client import SiftClient
 
+logger = logging.getLogger(__name__)
+
+
+def log_replay_instructions(log_file: str | Path | None) -> None:
+    """Log instructions for manually replaying a test result log file.
+
+    Used when an import/replay attempt fails so the user can retry against the same file.
+    """
+    if log_file is None:
+        return
+    logger.error(
+        f"Error replaying log file: {log_file}.\n"
+        f"  Can replay with `replay-test-result-log {log_file}`."
+    )
+
+
+@contextmanager
+def _quiet_fork_stderr():
+    """Redirect fd 2 to /dev/null across a ``fork()`` to discard gRPC's prefork notices.
+
+    Redirecting fd 2 at the fd level (``os.dup2``) is what gRPC's handlers actually
+    write to, so wrapping a fork-site in this context manager reliably swallows those
+    notices without touching gRPC's global state. Scope the ``with`` block as tightly
+    as possible since it affects every thread in the process while active.
+    """
+    saved_fd = os.dup(2)
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(devnull_fd, 2)
+        os.close(devnull_fd)
+        yield
+    finally:
+        os.dup2(saved_fd, 2)
+        os.close(saved_fd)
+
+
+def _git_metadata() -> dict[str, str] | None:
+    """Return git branch and commit hash, or None if not in a git repo."""
+    try:
+        with _quiet_fork_stderr():
+            branch = subprocess.check_output(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+            commit = subprocess.check_output(
+                ["git", "describe", "--always", "--dirty", "--exclude", "*"],
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+            repo = subprocess.check_output(
+                ["git", "remote", "get-url", "origin"],
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+        return {"git_repo": repo, "git_branch": branch, "git_commit": commit}
+    except Exception:
+        return None
+
 
 class ReportContext(AbstractContextManager):
     """Context manager for a new TestReport. See usage example in __init__.py."""
 
     report: TestReport
+    client: SiftClient
+    log_file: Path | None
     step_is_open: bool
     step_stack: list[TestStep]
     step_number_at_depth: dict[int, int]
     open_step_results: dict[str, bool]
     any_failures: bool
+    _import_proc: subprocess.Popen | None = None
 
     def __init__(
         self,
@@ -49,6 +115,8 @@ class ReportContext(AbstractContextManager):
         test_system_name: str | None = None,
         system_operator: str | None = None,
         test_case: str | None = None,
+        log_file: str | Path | bool | None = None,
+        include_git_metadata: bool = False,
     ):
         """Initialize a new report context.
 
@@ -58,12 +126,25 @@ class ReportContext(AbstractContextManager):
             test_system_name: The name of the test system. Will default to the hostname if not provided.
             system_operator: The operator of the test system. Will default to the current user if not provided.
             test_case: The name of the test case. Will default to the basename of the file containing the test if not provided.
+            log_file: If True, create a temp log file. If a path, use that path.
+                All create/update operations will be logged to this file.
+            include_git_metadata: If True, include git metadata in the report.
         """
+        self.client = client
         self.step_is_open = False
         self.step_stack = []
         self.step_number_at_depth = {}
         self.open_step_results = {}
         self.any_failures = False
+
+        if log_file is True:
+            tmp = tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False)
+            self.log_file = Path(tmp.name)
+            logger.info(f"Created temporary log file: {self.log_file}")
+        elif log_file:
+            self.log_file = Path(log_file)
+        else:
+            self.log_file = None
 
         # Create the report.
         test_case = test_case if test_case else os.path.basename(__file__)
@@ -77,10 +158,33 @@ class ReportContext(AbstractContextManager):
             end_time=datetime.now(timezone.utc),
             status=TestStatus.IN_PROGRESS,
             system_operator=system_operator,
+            metadata=_git_metadata() if include_git_metadata else None,  # type: ignore
         )
-        self.report = client.test_results.create(create)
+        self.report = client.test_results.create(create, log_file=self.log_file)
+
+    def _open_import_proc(self):
+        """Open a subprocess to import the log file."""
+        with _quiet_fork_stderr():
+            self._import_proc = subprocess.Popen(
+                [
+                    "import-test-result-log",
+                    "--incremental",
+                    str(self.log_file),
+                    "--grpc-url",
+                    self.client.grpc_client._config.uri,
+                    "--rest-url",
+                    self.client.rest_client._config.base_url,
+                    "--api-key",
+                    self.client.grpc_client._config.api_key,
+                ],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
 
     def __enter__(self):
+        if self.log_file:
+            self._open_import_proc()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -91,7 +195,18 @@ class ReportContext(AbstractContextManager):
             update["status"] = TestStatus.FAILED
         else:
             update["status"] = TestStatus.PASSED
-        self.report.update(update)
+        self.report.update(update, log_file=self.log_file)
+
+        if self._import_proc is not None:
+            try:
+                self._import_proc.communicate(timeout=1)
+            except subprocess.TimeoutExpired:
+                logger.error("Import process did not exit in 10s, killing it")
+                self._import_proc.kill()
+                self._import_proc.wait()
+                log_replay_instructions(self.log_file)
+                raise
+
         return True
 
     def new_step(
@@ -126,7 +241,7 @@ class ReportContext(AbstractContextManager):
         step_path = self.get_next_step_path()
         parent_step = self.step_stack[-1] if self.step_stack else None
 
-        step = self.report.client.test_results.create_step(
+        step = self.client.test_results.create_step(
             TestStepCreate(
                 test_report_id=str(self.report.id_),
                 name=name,
@@ -137,7 +252,8 @@ class ReportContext(AbstractContextManager):
                 end_time=datetime.now(timezone.utc),
                 description=description,
                 parent_step_id=parent_step.id_ if parent_step else None,
-            )
+            ),
+            log_file=self.log_file,
         )
 
         # Update the step tracking structures.
@@ -217,7 +333,7 @@ class NewStep(AbstractContextManager):
             assertion_as_fail_not_error: Mark steps with assertion errors as failed instead of error+traceback (some users want assertions to work as simple failures especially when using pytest).
         """
         self.report_context = report_context
-        self.client = report_context.report.client
+        self.client = report_context.client
         self.current_step = self.report_context.create_step(name, description)
         self.assertion_as_fail_not_error = assertion_as_fail_not_error
 
@@ -275,7 +391,8 @@ class NewStep(AbstractContextManager):
                 "status": status,
                 "end_time": datetime.now(timezone.utc),
                 "error_info": error_info,
-            }
+            },
+            log_file=self.report_context.log_file,
         )
 
         return result
@@ -322,7 +439,9 @@ class NewStep(AbstractContextManager):
             unit=unit,
         )
         evaluate_measurement_bounds(create, value, bounds)
-        measurement = self.client.test_results.create_measurement(create)
+        measurement = self.client.test_results.create_measurement(
+            create, log_file=self.report_context.log_file
+        )
         self.report_context.record_step_outcome(measurement.passed, self.current_step)
 
         return measurement.passed

@@ -36,8 +36,16 @@ def get_all_docs_from_task(task: Any) -> Tuple[List[Dict[str, Any]], Dict[str, i
         ("fewshot_docs", "has_fewshot_docs"),
     ]
 
+    import time
+    import random
     for docs_method, has_method in split_methods:
-        if hasattr(task, has_method):
+        if not hasattr(task, has_method):
+            continue
+        # Retry transients: the wisent fleet's 20+ parallel agents
+        # saturate HF's 1000-req-per-5-min ceiling. Jittered backoff so
+        # 20 agents that all 429'd at the same instant don't all wake at
+        # the same instant for the next attempt — that just re-saturates.
+        for attempt in range(8):
             try:
                 has_docs = getattr(task, has_method)
                 if callable(has_docs) and has_docs():
@@ -47,9 +55,24 @@ def get_all_docs_from_task(task: Any) -> Tuple[List[Dict[str, Any]], Dict[str, i
                         if docs:
                             split_counts[docs_method] = len(docs)
                             all_docs.extend(docs)
-            except Exception:
-                # Skip splits that fail to load
-                continue
+                break
+            except Exception as exc:
+                msg = str(exc)
+                lower = msg.lower()
+                is_transient = (
+                    "429" in msg
+                    or "too many requests" in lower
+                    or "rate limit" in lower
+                    or "couldn't find cache" in lower
+                    or "couldn't reach" in lower
+                    or "connection" in lower and ("timed out" in lower or "reset" in lower)
+                )
+                if is_transient and attempt < 7:
+                    base = 30 * (2 ** min(attempt, 5))  # 30,60,120,240,480,960,960,960
+                    jitter = random.uniform(0, base)
+                    time.sleep(min(base + jitter, 600))
+                    continue
+                break
 
     return all_docs, split_counts
 

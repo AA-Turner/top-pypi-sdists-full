@@ -204,7 +204,7 @@ from chalk.utils.duration import parse_chalk_duration, timedelta_to_duration
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
-from chalk.utils.notebook import parse_notebook_into_script
+from chalk.utils.notebook import resolve_train_script
 from chalk.utils.pandas_utils import is_pandas_dataframe, require_pandas
 from chalk.utils.retry import retry_call, retry_if_exception_message, wait_exponential_jitter
 from chalk.utils.string import s
@@ -6123,6 +6123,7 @@ https://docs.chalk.ai/cli/apply
         env_overrides: Optional[Mapping[str, str]] = None,
         enable_profiling: bool = False,
         max_retries: int = 0,
+        train_script: Optional[str] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> CreateModelTrainingJobResponse:
         from chalk.client.client_grpc import ChalkGRPCClient
@@ -6148,7 +6149,7 @@ https://docs.chalk.ai/cli/apply
             except TypeError as e:
                 raise ValueError("config must be JSON serializable.") from e
 
-        script = parse_notebook_into_script(train_fn, config is not None)
+        script = resolve_train_script(train_fn, train_script, takes_argument=config is not None)
 
         client_grpc = ChalkGRPCClient(
             client_id=self._client_id,

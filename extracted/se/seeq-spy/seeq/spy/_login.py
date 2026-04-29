@@ -35,24 +35,24 @@ AUTOMATIC_PROXY_DETECTION = '__auto__'
 
 @Status.top_level_spy_function(validate_login=False)
 def login(
-    username: Optional[str] = None,
-    password: Optional[str] = None,
-    *,
-    access_key: Optional[str] = None,
-    url: Optional[str] = None,
-    directory: str = 'Seeq',
-    ignore_ssl_errors: bool = False,
-    proxy: str = AUTOMATIC_PROXY_DETECTION,
-    credentials_file: Optional[Union[str, Path]] = None,
-    force: bool = True,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None,
-    private_url: Optional[str] = None,
-    auth_token: Optional[str] = None,
-    csrf_token: Optional[str] = None,
-    request_origin_label: Optional[str] = None,
-    request_origin_url: Optional[str] = None
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        *,
+        access_key: Optional[str] = None,
+        url: Optional[str] = None,
+        directory: str = 'Seeq',
+        ignore_ssl_errors: bool = False,
+        proxy: str = AUTOMATIC_PROXY_DETECTION,
+        credentials_file: Optional[Union[str, Path]] = None,
+        force: bool = True,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None,
+        private_url: Optional[str] = None,
+        auth_token: Optional[str] = None,
+        csrf_token: Optional[str] = None,
+        request_origin_label: Optional[str] = None,
+        request_origin_url: Optional[str] = None
 ) -> None:
     """
     Establishes a connection with Seeq Server and logs in with a set of
@@ -252,6 +252,8 @@ def _login(
             # This can happen in cases where the user does not have access rights to the Corporate folder
             session.corporate_folder = None
 
+        session.my_folder = folders_api.get_folder(folder_id='mine')
+
     except Exception:
         with suppress(Exception):
             # The logout can fail if they weren't actually logged in to start with. Skip this exception so the
@@ -431,9 +433,9 @@ def _client_login(
 
 @Status.top_level_spy_function(validate_login=False)
 def logout(
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
 ) -> None:
     """
     Logs you out of your current session.

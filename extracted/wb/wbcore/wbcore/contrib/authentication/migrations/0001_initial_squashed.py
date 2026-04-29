@@ -5,9 +5,10 @@ import uuid
 import django.contrib.auth.models
 import django.db.models.deletion
 import django.utils.timezone
-import wbcore.contrib.authentication.models
 from django.conf import settings
 from django.db import migrations, models
+
+import wbcore.contrib.authentication.models
 
 
 class Migration(migrations.Migration):

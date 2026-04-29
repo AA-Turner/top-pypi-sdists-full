@@ -1,5 +1,6 @@
-from gettext import gettext as _
 import http.client
+from gettext import gettext as _
+
 from pulpcore.exceptions import PulpException
 
 
@@ -135,5 +136,5 @@ class DuplicateContentInRepositoryError(ValidationError):
     def __str__(self):
         return f"[{self.error_code}] " + _(
             "Found {n} duplicate contents in repository version"
-            "(see the logs (cid={cid}) for details).".format(n=self.dup_count, cid=self.cid)
-        )
+            "(see the logs (cid={cid}) for details)."
+        ).format(n=self.dup_count, cid=self.cid)

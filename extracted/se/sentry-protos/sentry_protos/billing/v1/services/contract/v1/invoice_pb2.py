@@ -12,17 +12,18 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n;sentry_protos/billing/v1/services/contract/v1/invoice.proto\x12-sentry_protos.billing.v1.services.contract.v1\"Q\n\x0fInvoiceLineItem\x12\x14\n\x0c\x61mount_cents\x18\x01 \x01(\x03\x12\x18\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x0e\n\x0c_description\"\x88\x01\n\x07Invoice\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x12R\n\nline_items\x18\x02 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\x12\x15\n\ramount_billed\x18\x03 \x01(\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n;sentry_protos/billing/v1/services/contract/v1/invoice.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"Q\n\x0fInvoiceLineItem\x12\x14\n\x0c\x61mount_cents\x18\x01 \x01(\x03\x12\x18\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x0e\n\x0c_description\"\xed\x01\n\x07Invoice\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x12R\n\nline_items\x18\x02 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\x12\x15\n\ramount_billed\x18\x03 \x01(\x04\x12\x17\n\x0forganization_id\x18\x04 \x01(\x04\x12\x0c\n\x04paid\x18\x05 \x01(\x08\x12.\n\ndate_added\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0c\n\x04guid\x18\x07 \x01(\tb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.invoice_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_INVOICELINEITEM']._serialized_start=110
-  _globals['_INVOICELINEITEM']._serialized_end=191
-  _globals['_INVOICE']._serialized_start=194
-  _globals['_INVOICE']._serialized_end=330
+  _globals['_INVOICELINEITEM']._serialized_start=143
+  _globals['_INVOICELINEITEM']._serialized_end=224
+  _globals['_INVOICE']._serialized_start=227
+  _globals['_INVOICE']._serialized_end=464
 # @@protoc_insertion_point(module_scope)

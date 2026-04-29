@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-cffi"
-version = "2.0.0.20260408"
+version = "2.0.0.20260429"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for cffi"
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
+[`e4d32e01bee44241a5e7c33298c261175b9f1bdb`](https://github.com/python/typeshed/commit/e4d32e01bee44241a5e7c33298c261175b9f1bdb).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

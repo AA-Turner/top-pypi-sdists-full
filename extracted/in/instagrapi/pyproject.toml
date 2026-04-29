@@ -4,23 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "instagrapi"
-version = "2.4.4"
+version = "2.5.11"
 authors = [
     {name = "Mark Subzeroid", email = "143403577+subzeroid@users.noreply.github.com"}
 ]
 description = "Fast and effective Instagram Private API wrapper"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = "MIT"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 keywords = [
     "instagram private api",
@@ -51,10 +51,9 @@ keywords = [
     "instagram-note",
 ]
 dependencies = [
-    "requests==2.32.5; python_version < '3.10'",
-    "requests==2.33.0; python_version >= '3.10'",
+    "requests==2.33.0",
     "PySocks==1.7.1",
-    "pydantic==2.13.2",
+    "pydantic==2.13.3",
     "moviepy==1.0.3",
     "pycryptodomex==3.23.0",
 ]
@@ -66,19 +65,18 @@ Repository = "https://github.com/subzeroid/instagrapi"
 [project.optional-dependencies]
 test = [
     "flake8==7.3.0",
-    "Pillow==11.3.0; python_version < '3.10'",
-    "Pillow==12.2.0; python_version >= '3.10'",
-    "isort==6.1.0; python_version < '3.10'",
-    "isort==7.0.0; python_version >= '3.10'",
+    "Pillow==12.2.0",
+    "isort==7.0.0",
     "bandit==1.8.6",
     "mike==2.2.0",
+    # mike implicitly imports pkg_resources from setuptools — see
+    # https://github.com/jimporter/mike/issues/148
+    "setuptools==82.0.1",
     "markdown-include==0.8.1",
     "mkdocs-material==9.7.6",
-    "mkdocs-minify-html-plugin>=0.3.1",
-    "mkdocstrings==0.30.1",
+    "mkdocstrings[python]==1.0.4",
     "pytest-xdist==3.8.0",
-    "pytest==8.4.2; python_version < '3.10'",
-    "pytest==9.0.3; python_version >= '3.10'",
+    "pytest==9.0.3",
 ]
 
 [tool.setuptools]

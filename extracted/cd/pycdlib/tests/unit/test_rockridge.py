@@ -740,11 +740,16 @@ def test_rrnmrecord_parse_invalid_flag():
         nm.parse(b'NM\x05\x01\x03')
     assert(str(excinfo.value) == 'Invalid Rock Ridge NM flags')
 
-def test_rrnmrecord_parse_invalid_flag_with_name():
+def test_rrnmrecord_parse_flag_with_name_accepted():
+    # Regression test for issue #130: VirtualBox Guest Additions ISOs
+    # set the CURRENT (0x2) flag *and* include a name.  Per spec the two
+    # are mutually exclusive, but the name is the writer's clear intent;
+    # accept it rather than raising.  Pre-fix this raised
+    # 'Invalid name in Rock Ridge NM entry (0x2 1)'.
     nm = pycdlib.rockridge.RRNMRecord()
-    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
-        nm.parse(b'NM\x06\x01\x02a')
-    assert(str(excinfo.value) == 'Invalid name in Rock Ridge NM entry (0x2 1)')
+    nm.parse(b'NM\x06\x01\x02a')
+    assert(nm.posix_name == b'a')
+    assert(nm.posix_name_flags == 0x2)
 
 def test_rrnmrecord_new_double_initialized():
     nm = pycdlib.rockridge.RRNMRecord()
@@ -882,6 +887,25 @@ def test_rrtfrecord_record_not_initialized():
 
 def test_rrtfrecord_length_use_vol_desc_dates():
     assert(pycdlib.rockridge.RRTFRecord.length(0x81) == 0x16)
+
+def test_rrtfrecord_new_creation_seconds_forces_creation_bit():
+    # Passing creation_seconds adds the creation_time bit (0x01) on top of
+    # whatever flags were requested, and the field is populated from the
+    # creation_seconds value rather than from date_seconds.
+    tf = pycdlib.rockridge.RRTFRecord()
+    tf.new(pycdlib.rockridge.TF_FLAGS, 0.0, creation_seconds=1234567890.0)
+    assert(tf.time_flags & 0x01)
+    assert(tf.creation_time is not None)
+    assert(tf.creation_time.years_since_1900 == 109)
+    assert(tf.creation_time.month == 2)
+    assert(tf.creation_time.day_of_month == 13)
+
+def test_rrtfrecord_new_no_creation_seconds_keeps_flags():
+    tf = pycdlib.rockridge.RRTFRecord()
+    tf.new(pycdlib.rockridge.TF_FLAGS, 0.0)
+    # No creation_seconds -> creation_time bit stays off, no field set.
+    assert(not (tf.time_flags & 0x01))
+    assert(tf.creation_time is None)
 
 # SF record
 def test_rrsfrecord_parse_double_initialized():
@@ -1103,6 +1127,15 @@ def test_rr_parse_invalid_sp_record():
         rr.parse(b'SP\x01\x01', False, 0, False, b'')
     assert(str(excinfo.value) == 'Invalid SUSP SP record')
 
+def test_rr_parse_sp_record_in_non_root_dr():
+    # Regression test for issue #130: VirtualBox Guest Additions ISOs put
+    # SP records in dot/dotdot DRs of non-root directories, not only in
+    # the root's first DR.  Pre-fix this raised 'Invalid SUSP SP record'
+    # whenever is_first_dir_record_of_root was False.
+    rr = pycdlib.rockridge.RockRidge()
+    rr.parse(b'SP\x07\x01\xbe\xef\x00', False, 0, False, b'')
+    assert(rr.dr_entries.sp_record is not None)
+
 def test_rr_parse_double_ce_record():
     rr = pycdlib.rockridge.RockRidge()
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
@@ -1295,6 +1328,105 @@ def test_rr_copy_file_links_not_initialized():
         rr.copy_file_links(None)
     assert(str(excinfo.value) == 'Rock Ridge extension not initialized')
 
+# Bookkeeping coverage for nlinks: the integration suite no longer asserts
+# the exact posix_file_links value on directory records (the value comes
+# from genisoimage's stat() call on the source dir, which is filesystem-
+# dependent -- e.g. btrfs reports 1 for any directory).  These unit tests
+# pin the pure increment/decrement/copy semantics directly.
+
+def test_rr_add_to_file_links_increments():
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    # A freshly-created PX record starts at 1 link.
+    assert(rr.dr_entries.px_record.posix_file_links == 1)
+    rr.add_to_file_links()
+    assert(rr.dr_entries.px_record.posix_file_links == 2)
+    rr.add_to_file_links()
+    rr.add_to_file_links()
+    assert(rr.dr_entries.px_record.posix_file_links == 4)
+
+def test_rr_remove_from_file_links_decrements():
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    rr.add_to_file_links()
+    rr.add_to_file_links()
+    assert(rr.dr_entries.px_record.posix_file_links == 3)
+    rr.remove_from_file_links()
+    assert(rr.dr_entries.px_record.posix_file_links == 2)
+    rr.remove_from_file_links()
+    rr.remove_from_file_links()
+    assert(rr.dr_entries.px_record.posix_file_links == 0)
+
+def test_rr_copy_file_links_overrides():
+    src = pycdlib.rockridge.RockRidge()
+    src.new(False, b'src', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    src.add_to_file_links()
+    src.add_to_file_links()
+    src.add_to_file_links()
+    assert(src.dr_entries.px_record.posix_file_links == 4)
+
+    dst = pycdlib.rockridge.RockRidge()
+    dst.new(False, b'dst', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    assert(dst.dr_entries.px_record.posix_file_links == 1)
+    dst.copy_file_links(src)
+    assert(dst.dr_entries.px_record.posix_file_links == 4)
+
+def test_rr_add_to_file_links_uses_ce_entries_when_dr_lacks_px():
+    # When the PX record lives in the SUSP CE block (because the DR was
+    # too full), add_to_file_links must operate on the CE-resident PX.
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    # Move the PX record into the CE entries to mimic the spilled layout.
+    rr.ce_entries.px_record = rr.dr_entries.px_record
+    rr.dr_entries.px_record = None
+    rr.add_to_file_links()
+    assert(rr.ce_entries.px_record.posix_file_links == 2)
+    rr.remove_from_file_links()
+    rr.remove_from_file_links()
+    assert(rr.ce_entries.px_record.posix_file_links == 0)
+
+def test_rr_add_to_file_links_no_px_record():
+    # If neither dr_entries nor ce_entries holds a PX record, the method
+    # cannot do anything sensible and must raise.
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    rr.dr_entries.px_record = None
+    rr.ce_entries.px_record = None
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        rr.add_to_file_links()
+    assert(str(excinfo.value) == 'No Rock Ridge file links')
+
+def test_rr_remove_from_file_links_no_px_record():
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    rr.dr_entries.px_record = None
+    rr.ce_entries.px_record = None
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        rr.remove_from_file_links()
+    assert(str(excinfo.value) == 'No Rock Ridge file links')
+
+def test_rr_copy_file_links_no_px_record_in_src():
+    src = pycdlib.rockridge.RockRidge()
+    src.new(False, b'src', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    src.dr_entries.px_record = None
+    src.ce_entries.px_record = None
+    dst = pycdlib.rockridge.RockRidge()
+    dst.new(False, b'dst', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        dst.copy_file_links(src)
+    assert(str(excinfo.value) == 'No Rock Ridge file links')
+
+def test_rr_copy_file_links_no_px_record_in_dst():
+    src = pycdlib.rockridge.RockRidge()
+    src.new(False, b'src', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    dst = pycdlib.rockridge.RockRidge()
+    dst.new(False, b'dst', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    dst.dr_entries.px_record = None
+    dst.ce_entries.px_record = None
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        dst.copy_file_links(src)
+    assert(str(excinfo.value) == 'No Rock Ridge file links')
+
 def test_rr_get_file_mode_not_initialized():
     rr = pycdlib.rockridge.RockRidge()
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInternalError) as excinfo:
@@ -1403,6 +1535,66 @@ def test_rr_update_ce_block_not_initialized():
         rr.update_ce_block(None)
     assert(str(excinfo.value) == 'Rock Ridge extension not initialized')
 
+def test_rr_parse_continuation_does_not_downgrade_version():
+    # Regression test: RockRidge.parse() runs once for the inline DR area
+    # and a second time (with continuation=True) for the CE block.  Each
+    # call recomputes its own rr_version from the records it sees in
+    # that buffer.  Before the fix, the second call would unconditionally
+    # overwrite self.rr_version, so an ISO whose 44-byte (RR 1.12) PX
+    # was inline but whose CE block carried only NM/SL/etc. would end
+    # up with rr_version demoted back to '1.09'.  On write, that
+    # produced a 36-byte PX (8 bytes shorter than the dr_len field
+    # claimed) and the next round-trip would fail with "Invalid RR
+    # version 0!" parsing the resulting 8 bytes of trailing slop.
+    def le_be(val):
+        return struct.pack('<L', val) + struct.pack('>L', val)
+
+    ts7 = b'\x00\x00\x01\x01\x01\x01\x00'  # valid 7-byte DirectoryRecordDate
+
+    # Inline RR: SP + RR + PX (44-byte / 1.12 form) + TF + CE.
+    sp = b'SP\x07\x01\xbe\xef\x00'
+    rr_rec = b'RR\x05\x01\x81'
+    px_1_12 = (b'PX\x2c\x01' + le_be(0o100644) + le_be(1)
+               + le_be(0) + le_be(0) + le_be(0))
+    tf = b'TF\x1a\x01\x0e' + ts7 * 3
+    ce = b'CE\x1c\x01' + le_be(0) + le_be(0) + le_be(0)
+    inline = sp + rr_rec + px_1_12 + tf + ce
+    assert(len(inline) == 110)  # sanity
+
+    # Continuation block: a single NM record.  No PX, no SF, no ES, no
+    # ER -- nothing that signals 1.12.
+    nm = b'NM\x06\x01\x00X'
+
+    rr = pycdlib.rockridge.RockRidge()
+    rr.parse(inline, True, 0, False, b'.')
+    assert(rr.rr_version == '1.12')
+
+    rr.parse(nm, False, 0, True, b'.')
+    assert(rr.rr_version == '1.12')
+
+def test_rr_parse_continuation_can_upgrade_version():
+    # Inverse of the above: if the inline area has no 1.12 signals but
+    # the continuation does, rr_version should escalate to '1.12'.
+    def le_be(val):
+        return struct.pack('<L', val) + struct.pack('>L', val)
+
+    ts7 = b'\x00\x00\x01\x01\x01\x01\x00'
+
+    # Inline: just SP and CE (no PX), so rr_version starts at '1.09'.
+    inline = (b'SP\x07\x01\xbe\xef\x00'
+              + b'CE\x1c\x01' + le_be(0) + le_be(0) + le_be(0))
+
+    # Continuation carries a 44-byte PX (1.12 signal).
+    px_1_12 = (b'PX\x2c\x01' + le_be(0o100644) + le_be(1)
+               + le_be(0) + le_be(0) + le_be(0))
+
+    rr = pycdlib.rockridge.RockRidge()
+    rr.parse(inline, True, 0, False, b'.')
+    assert(rr.rr_version == '1.09')
+
+    rr.parse(px_1_12, False, 0, True, b'.')
+    assert(rr.rr_version == '1.12')
+
 # RockRidgeContinuationBlock and RockRidgeContinuationEntry
 def test_rrcontentry_track_into_empty():
     rr = pycdlib.rockridge.RockRidgeContinuationBlock(24, 2048)
@@ -1441,6 +1633,16 @@ def test_rrcontentry_track_overlap():
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
         rr.track_entry(22, 33)
     assert(str(excinfo.value) == 'Overlapping CE regions on the ISO')
+
+def test_rrcontentry_track_exact_duplicate_idempotent():
+    # Regression test for issue #130: ISOs (e.g. VirtualBox Guest Additions)
+    # share a single CE region across many DRs to save space, so the parser
+    # sees the same (offset, length) registered repeatedly.  Treat
+    # exact-match re-registrations as idempotent rather than overlapping.
+    rr = pycdlib.rockridge.RockRidgeContinuationBlock(24, 2048)
+    rr.track_entry(0, 23)
+    rr.track_entry(0, 23)
+    assert(len(rr._entries) == 1)
 
 def test_rrcontentry_track_rest():
     rr = pycdlib.rockridge.RockRidgeContinuationBlock(24, 2048)

@@ -4,8 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 """Azure Resource Graph Driver class."""
+
+from __future__ import annotations
+
 import warnings
-from typing import Any, Tuple, Union
+from typing import Any
 
 import pandas as pd
 
@@ -16,7 +19,7 @@ from pandas.core.frame import DataFrame
 from ..._version import VERSION
 from ...auth.azure_auth import AzureCloudConfig, az_connect
 from ...auth.azure_auth_core import only_interactive_cred
-from ...common.exceptions import MsticpyImportExtraError, MsticpyNotConnectedError
+from ...common.exceptions import MsticpyImportExtraError
 from ...common.utility import export
 from .driver_base import DriverBase, QuerySource
 
@@ -103,7 +106,7 @@ class ResourceGraphDriver(DriverBase):
 
     def query(
         self, query: str, query_source: QuerySource = None, **kwargs
-    ) -> Union[pd.DataFrame, Any]:
+    ) -> pd.DataFrame | Any:
         """
         Execute Resource Graph query and retrieve results.
 
@@ -133,7 +136,7 @@ class ResourceGraphDriver(DriverBase):
 
         return result
 
-    def query_with_results(self, query: str, **kwargs) -> Tuple[pd.DataFrame, Any]:
+    def query_with_results(self, query: str, **kwargs) -> tuple[pd.DataFrame, Any]:
         """
         Execute query string and return DataFrame of results.
 
@@ -151,10 +154,7 @@ class ResourceGraphDriver(DriverBase):
         """
         if not self.connected:
             self.connect()
-        if not self.connected:
-            raise MsticpyNotConnectedError(
-                "Source is not connected. ", "Please call connect() and retry."
-            )
+        self._ensure_connected()
 
         result_truncated = False
 
@@ -162,7 +162,7 @@ class ResourceGraphDriver(DriverBase):
 
         request_options = QueryRequestOptions(
             top=top,
-            result_format=ResultFormat.OBJECT_ARRAY,  # type: ignore
+            result_format=ResultFormat.OBJECT_ARRAY,
         )
 
         request = QueryRequest(
@@ -185,6 +185,7 @@ class ResourceGraphDriver(DriverBase):
                 "Some resources may be missing from the results. "
                 "To rewrite the query and enable paging, "
                 "see the docs for an example: https://aka.ms/arg-results-truncated",
+                stacklevel=2,
             )
 
         return pd.json_normalize(response.data), response

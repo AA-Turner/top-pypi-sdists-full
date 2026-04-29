@@ -125,9 +125,10 @@ def standardize_dataframe(df: pd.DataFrame, vi_var: str) -> pd.DataFrame:
     df = df[df["crop_cal"] != " "]
     df = df[df["crop_cal"] != ""]
 
-    # Convert crop_cal to float; keep only known stages
+    # Convert crop_cal to float; keep only known stages (+ pre-season rows if present)
     df["crop_cal"] = df["crop_cal"].astype(float)
-    df = df[df["crop_cal"].isin(di.PHENOLOGICAL_STAGES)]
+    valid_stages = list(di.PHENOLOGICAL_STAGES) + [0]  # include pre-season (crop_cal=0)
+    df = df[df["crop_cal"].isin(valid_stages)]
 
     # Convert the date columns properly
     if "time" not in df.columns:
@@ -166,8 +167,8 @@ def standardize_dataframe(df: pd.DataFrame, vi_var: str) -> pd.DataFrame:
         if df[vi_var].max() > 1:
             df[vi_var] = (df[vi_var] - 50) / 200
 
-    # HACK Exclude seasons before 2001
-    df = df[df["Season"] >= 2001]
+    # Exclude seasons before 2001 (keep pre-season rows where Season is NaN)
+    df = df[(df["Season"] >= 2001) | df["Season"].isna()]
 
     return df
 
@@ -456,6 +457,12 @@ class CIDs:
         else:
             self.suppress_icclim_logs = False
 
+        # Pre-season mode: extract FLDAS/S2S from init-month rows for all leads.
+        # "auto" also needs pre-season extraction (alongside in-season CIDs).
+        self.pre_season_mode: bool = (
+            self.parser.get("ML", "run_time_steps", fallback="latest") in ("pre_season", "auto")
+        )
+
     def get_unique_country_name(
         self,
         df: pd.DataFrame = None,
@@ -529,6 +536,12 @@ class CIDs:
         # If you want to filter out future times:
         df_filtered = df_filtered[df_filtered["time"] <= pd.to_datetime("today")]
 
+        # Exclude pre-season synthetic rows (monthly, crop_cal=0) from
+        # in-season extraction — they cause icclim frequency mismatches.
+        # Pre-season extraction reads from df_country_crop directly.
+        if "crop_cal" in df_filtered.columns:
+            df_filtered = df_filtered[df_filtered["crop_cal"] != 0]
+
         return df_filtered
 
     def prepare_directories(self) -> None:
@@ -601,6 +614,201 @@ class CIDs:
                 logger.error(f"Error in process_group for {key}: {e}")
 
         return regions_written
+
+    def process_data_pre_season(self, init_month: int) -> int:
+        """Extract FLDAS/S2S features for pre-season mode (no stage windows).
+
+        For each region, reads the single row whose ``Month == init_month``
+        and extracts every FLDAS and S2S lead column value as an individual
+        CID row with ``Stage = "PS"``.
+
+        Args:
+            init_month: Calendar month (1-12) to use as the forecast
+                initialization month.
+
+        Returns:
+            Number of regions that produced results.
+        """
+        regions_written = 0
+        groups = list(self.df_country_crop.groupby(["adm0_name", "adm1_name"]))
+
+        pbar = tqdm(groups, desc=f"Pre-season {self.harvest_year}", unit="rgn",
+                    leave=False, disable=not self.show_progress, mininterval=5)
+        for key, df_group in pbar:
+            pbar.set_description(f"Pre-season {self.harvest_year} | {key[1]}")
+            try:
+                df_result = self._extract_pre_season_features(key, init_month)
+                if not df_result.empty:
+                    self._append_csv(df_result)
+                    regions_written += 1
+            except Exception as e:
+                logger.error(f"Error in pre-season extraction for {key}: {e}")
+
+        return regions_written
+
+    def _extract_pre_season_features(
+        self,
+        key,
+        init_month: int,
+    ) -> pd.DataFrame:
+        """Extract all FLDAS/S2S lead values from a single init-month row.
+
+        Args:
+            key: (country_name, region_name).
+            init_month: Calendar month to read forecast data from.
+
+        Returns:
+            DataFrame with one row per (variable, lead) in standard CID format.
+        """
+        # For pre-season, read from the FULL dataset (not harvest-year
+        # filtered) because pre-season months fall outside the crop calendar
+        # and won't appear in df_harvest_year.
+        df_region = self.df_country_crop[self.df_country_crop["adm1_name"] == key[1]]
+        if df_region.empty:
+            logger.debug(f"Pre-season: no data for region {key[1]}")
+            return pd.DataFrame()
+
+        if "Month" not in df_region.columns:
+            logger.debug(f"Pre-season: no Month column for {key[1]}")
+            return pd.DataFrame()
+
+        # Determine the correct calendar year for this init month.
+        # Walk the pre-season month list chronologically, starting at
+        # harvest_year-1 and incrementing when crossing Dec→Jan.
+        # This handles both same-year (Togo: Sep-Feb → Mar) and
+        # cross-year (Malawi: Apr-Sep → Oct) seasons correctly.
+        import arrow as ar
+        pre_months = self._get_pre_season_months(ar.utcnow().month)
+        year = self.harvest_year - 1
+        prev_m = pre_months[0] if pre_months else init_month
+        month_to_year = {}
+        for m in pre_months:
+            if m < prev_m:  # crossed Dec→Jan boundary
+                year += 1
+            month_to_year[m] = year
+            prev_m = m
+        target_year = month_to_year.get(init_month, self.harvest_year)
+
+        df_init = df_region[
+            (df_region["Month"] == init_month) &
+            (df_region["time"].dt.year == target_year)
+        ]
+        if df_init.empty:
+            # Fallback: try without year filter
+            df_init = df_region[df_region["Month"] == init_month]
+        if df_init.empty:
+            logger.debug(
+                f"Pre-season: no data for month {init_month} "
+                f"(year {target_year}) in {key[1]}, harvest_year {self.harvest_year}"
+            )
+            return pd.DataFrame()
+
+        # Use latest row by time if multiple rows exist for the month
+        if "time" in df_init.columns:
+            latest_idx = df_init["time"].idxmax()
+        else:
+            latest_idx = df_init.index[0]
+        row = df_init.loc[latest_idx]
+
+        area = df_region["Area"].unique()[0] if "Area" in df_region.columns else 0
+
+        rows = []
+        # FLDAS features
+        for iname, (itype, idesc) in di.dict_fldas.items():
+            col_name = di.fldas_col_map.get(iname)
+            if col_name and col_name in row.index:
+                val = float(row[col_name])
+                rows.append({
+                    "Description": idesc,
+                    "CID": val,
+                    "Country": key[0].replace("_", " ").title(),
+                    "Region": key[1].replace("_", " ").title(),
+                    "Area": area,
+                    "Crop": self.crop.replace("_", " ").title(),
+                    "Season": self.season,
+                    "Method": self.method,
+                    "Stage": f"PS_{init_month}",
+                    "Harvest Year": self.harvest_year,
+                    "Index": iname,
+                    "Type": itype,
+                })
+
+        # S2S features
+        for iname, (itype, idesc) in di.dict_s2s.items():
+            col_name = di.s2s_col_map.get(iname)
+            if col_name and col_name in row.index:
+                val = float(row[col_name])
+                rows.append({
+                    "Description": idesc,
+                    "CID": val,
+                    "Country": key[0].replace("_", " ").title(),
+                    "Region": key[1].replace("_", " ").title(),
+                    "Area": area,
+                    "Crop": self.crop.replace("_", " ").title(),
+                    "Season": self.season,
+                    "Method": self.method,
+                    "Stage": f"PS_{init_month}",
+                    "Harvest Year": self.harvest_year,
+                    "Index": iname,
+                    "Type": itype,
+                })
+
+        return pd.DataFrame(rows)
+
+    def _get_planting_month(self) -> int:
+        """Return the planting month (first in-season month) from the data."""
+        if "crop_cal" in self.df_country_crop.columns:
+            in_season = self.df_country_crop[
+                self.df_country_crop["crop_cal"].isin([1, 2, 3])
+            ]
+            if "Month" in in_season.columns and not in_season.empty:
+                return int(in_season["Month"].min())
+        if "Month" in self.df_country_crop.columns:
+            in_season = self.df_country_crop[self.df_country_crop["Season"].notna()]
+            if not in_season.empty:
+                return int(in_season["Month"].min())
+        return 1
+
+    def _get_pre_season_months(self, current_month: int) -> list[int]:
+        """Return list of init months for pre-season (and in-season if forecast-only).
+
+        When use_cids is forecast-only (FLDAS/S2S), extends through current
+        month so in-season months also get PS-style init-month rows.
+        Otherwise stops before planting month.
+        """
+        planting_month = self._get_planting_month()
+
+        # Check if use_cids is forecast-only
+        import ast
+        try:
+            use_cids = ast.literal_eval(
+                self.parser.get("DEFAULT", "use_cids", fallback="['all']")
+            )
+        except (ValueError, SyntaxError):
+            use_cids = ["all"]
+        forecast_only = (
+            "all" not in use_cids
+            and all(c in ("FLDAS", "S2S") for c in use_cids)
+        )
+
+        max_lead = 6
+        earliest = (planting_month - max_lead - 1) % 12 + 1
+
+        if forecast_only:
+            stop_month = current_month
+        else:
+            stop_month = (planting_month - 1) if planting_month > 1 else 12
+
+        months = []
+        m = earliest
+        while True:
+            months.append(m)
+            if m == stop_month:
+                break
+            m = m % 12 + 1
+            if len(months) > 12:
+                break
+        return months
 
     def _canonical_season_months(self, key: tuple[str, str]) -> set:
         """
@@ -1090,7 +1298,27 @@ def _run_one_year(obj: "CIDs") -> None:
     if out_path.exists():
         out_path.unlink()
 
-    regions_written = obj.process_data_by_region_and_stage()
+    rts = obj.parser.get("ML", "run_time_steps", fallback="latest")
+    regions_written = 0
+
+    if obj.pre_season_mode:
+        import arrow as ar
+        current_month = ar.utcnow().month
+        init_months = obj._get_pre_season_months(current_month)
+        planting = obj._get_planting_month()
+        n_preseason_rows = len(obj.df_country_crop[obj.df_country_crop["crop_cal"] == 0])
+        logger.info(
+            f"Pre-season extraction: planting_month={planting}, "
+            f"init_months={init_months}, "
+            f"pre-season rows in data={n_preseason_rows}, "
+            f"total rows={len(obj.df_country_crop)}"
+        )
+        for init_month in init_months:
+            regions_written += obj.process_data_pre_season(init_month)
+
+    # In-season CIDs: always extract unless run_time_steps is pre_season only
+    if rts != "pre_season":
+        regions_written += obj.process_data_by_region_and_stage()
     if regions_written:
         logger.info(f"Saved CID results to {out_path} ({regions_written} regions)")
     else:
@@ -1174,7 +1402,24 @@ def process_task(args: ProcessTaskArgs) -> tuple:
         return ("", pd.DataFrame(), task_desc)
 
     try:
-        df_result = obj.process_group(df_group, args.region)
+        rts = args.parser.get("ML", "run_time_steps", fallback="latest")
+        frames = []
+
+        if obj.pre_season_mode:
+            import arrow as ar
+            current_month = ar.utcnow().month
+            for init_month in obj._get_pre_season_months(current_month):
+                df_ps = obj._extract_pre_season_features(args.region, init_month)
+                if not df_ps.empty:
+                    frames.append(df_ps)
+
+        # In-season CIDs: always extract unless pre_season only
+        if rts != "pre_season":
+            df_insn = obj.process_group(df_group, args.region)
+            if not df_insn.empty:
+                frames.append(df_insn)
+
+        df_result = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     except Exception as e:
         logger.error(
             f"Error in process_task for {args.file_name} yr {args.year} rgn {adm1}: {e}"

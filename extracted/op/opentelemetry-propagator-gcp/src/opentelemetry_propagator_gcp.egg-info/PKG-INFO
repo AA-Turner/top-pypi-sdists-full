@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-propagator-gcp
-Version: 1.11.0
+Version: 1.12.0
 Summary: Google Cloud propagator for OpenTelemetry
 Home-page: https://github.com/GoogleCloudPlatform/opentelemetry-operations-python/tree/main/opentelemetry-propagator-gcp
 Author: Google

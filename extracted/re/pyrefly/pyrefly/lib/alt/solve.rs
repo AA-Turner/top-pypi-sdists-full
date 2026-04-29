@@ -63,7 +63,7 @@ use crate::alt::types::decorated_function::UndecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
 use crate::alt::types::yields::YieldResult;
-use crate::alt::unwrap::HintRefOld;
+use crate::alt::unwrap::HintRef;
 use crate::binding::binding::AnnAssignHasValue;
 use crate::binding::binding::AnnotationStyle;
 use crate::binding::binding::AnnotationTarget;
@@ -3477,7 +3477,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.heap.mk_none()
             }
         } else if x.is_generator {
-            let hint = hint.and_then(|ty| self.decompose_generator(&ty).map(|(_, _, r)| r));
+            let hint = hint.as_ref().map(HintRef::soft).and_then(|hint| {
+                let hints = self.decompose_hint(hint, |hint| {
+                    self.decompose_generator(hint).map(|(_, _, r)| r)
+                });
+                (!hints.is_empty()).then(|| self.unions(hints))
+            });
             let annot_range = x.annot.and_then(|k| self.annotation_range(k));
             let tcc: &dyn Fn() -> TypeCheckContext = &|| {
                 TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn)
@@ -3718,7 +3723,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 })
             });
             let iterable =
-                self.expr_infer_with_hint(e, infer_hint.as_ref().map(HintRefOld::soft), errors);
+                self.expr_infer_with_hint(e, infer_hint.as_ref().map(HintRef::soft), errors);
             self.async_iterate(&iterable, e.range(), errors)
         } else {
             let infer_hint = ann.clone().and_then(|x| {
@@ -3726,7 +3731,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .map(|ty| self.heap.mk_class_type(self.stdlib.iterable(ty.clone())))
             });
             let iterable =
-                self.expr_infer_with_hint(e, infer_hint.as_ref().map(HintRefOld::soft), errors);
+                self.expr_infer_with_hint(e, infer_hint.as_ref().map(HintRef::soft), errors);
             self.iterate(&iterable, e.range(), errors, None)
         };
         let value = self.get_produced_type(iterables);
@@ -4707,7 +4712,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) {
         if is_async && is_generator {
-            if self.decompose_async_generator(annotation).is_none() {
+            let hints = self.decompose_hint(HintRef::soft(annotation), |hint| {
+                self.decompose_async_generator(hint)
+            });
+            if hints.is_empty() {
                 self.error(
                     errors,
                     range,
@@ -4716,12 +4724,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             }
         } else if is_generator {
-            if let Some((_, _, return_ty)) = self.decompose_generator(annotation) {
-                self.check_type(implicit_return.ty(), &return_ty, range, errors, &|| {
-                    TypeCheckContext::of_kind(TypeCheckKind::ImplicitFunctionReturn(
-                        has_explicit_returns,
-                    ))
-                });
+            let hint = HintRef::soft(annotation);
+            let return_tys = self.decompose_hint(hint, |hint| {
+                self.decompose_generator(hint).map(|(_, _, r)| r)
+            });
+            if !return_tys.is_empty() {
+                self.check_type(
+                    implicit_return.ty(),
+                    &self.unions(return_tys),
+                    range,
+                    errors,
+                    &|| {
+                        TypeCheckContext::of_kind(TypeCheckKind::ImplicitFunctionReturn(
+                            has_explicit_returns,
+                        ))
+                    },
+                );
             } else {
                 self.error(
                     errors,
@@ -5110,22 +5128,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BindingYield::Yield(annot, x) => {
                 // TODO: Keep track of whether the function is async in the binding, decompose hint
                 // appropriately instead of just trying both.
-                let annot = annot.map(|k| self.get_idx(k));
-                let hint = annot
-                    .as_ref()
-                    .and_then(|x| x.ty(self.heap, self.stdlib))
-                    .and_then(|ty| {
-                        if let Some((yield_ty, send_ty, _)) = self.decompose_generator(&ty) {
+                let annot = annot
+                    .map(|k| self.get_idx(k))
+                    .and_then(|x| x.ty(self.heap, self.stdlib));
+                let hints = annot.as_ref().map(HintRef::soft).and_then(|hint| {
+                    let hints = self.decompose_hint(hint, |ty| {
+                        if let Some((yield_ty, send_ty, _)) = self.decompose_generator(ty) {
                             Some((yield_ty, send_ty))
                         } else {
-                            self.decompose_async_generator(&ty)
+                            self.decompose_async_generator(ty)
                         }
                     });
-                if let Some((yield_hint, send_ty)) = hint {
+                    (!hints.is_empty()).then_some(hints)
+                });
+                if let Some(hints) = hints {
+                    let (yield_hints, send_tys) = hints.into_iter().unzip();
                     let yield_ty = if let Some(expr) = x.value.as_ref() {
                         self.expr(
                             expr,
-                            Some((&yield_hint, &|| {
+                            Some((&self.unions(yield_hints), &|| {
                                 TypeCheckContext::of_kind(TypeCheckKind::YieldValue)
                             })),
                             errors,
@@ -5133,13 +5154,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     } else {
                         self.check_and_return_type(
                             self.heap.mk_none(),
-                            &yield_hint,
+                            &self.unions(yield_hints),
                             x.range,
                             errors,
                             &|| TypeCheckContext::of_kind(TypeCheckKind::UnexpectedBareYield),
                         )
                     };
-                    Arc::new(YieldResult { yield_ty, send_ty })
+                    Arc::new(YieldResult {
+                        yield_ty,
+                        send_ty: self.unions(send_tys),
+                    })
                 } else {
                     let yield_ty = if let Some(expr) = x.value.as_ref() {
                         self.expr_infer(expr, errors)
@@ -5192,11 +5216,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         "Invalid `yield from` in async function".to_owned(),
                     );
                 }
-                let annot = annot.map(|k| self.get_idx(k));
-                let want = annot
-                    .as_ref()
-                    .and_then(|x| x.ty(self.heap, self.stdlib))
-                    .and_then(|ty| self.decompose_generator(&ty));
 
                 let mut ty = self.expr_infer(&x.value, errors);
                 let res = if let Some(generator) = self.unwrap_generator(&ty) {
@@ -5208,11 +5227,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // with a `None` send type.
                     // TODO: This might cause confusing type errors.
                     let none = self.heap.mk_none();
-                    ty = self.heap.mk_class_type(self.stdlib.generator(
-                        yield_ty.clone(),
-                        none.clone(),
-                        none,
-                    ));
+                    ty = self.distribute_over_union(&yield_ty, |yield_ty: &Type| {
+                        self.heap.mk_class_type(self.stdlib.generator(
+                            yield_ty.clone(),
+                            none.clone(),
+                            none.clone(),
+                        ))
+                    });
                     YieldFromResult::from_iterable(self.heap, yield_ty)
                 } else {
                     ty = if is_async.is_async() {
@@ -5231,13 +5252,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     };
                     YieldFromResult::any_error(self.heap)
                 };
-                if let Some((want_yield, want_send, _)) = want {
-                    // We don't need to be compatible with the expected generator return type.
-                    let want = self.heap.mk_class_type(self.stdlib.generator(
-                        want_yield,
-                        want_send,
-                        self.heap.mk_any_implicit(),
-                    ));
+
+                let annot = annot
+                    .map(|k| self.get_idx(k))
+                    .and_then(|x| x.ty(self.heap, self.stdlib));
+                let want = annot.as_ref().map(HintRef::soft).and_then(|hint| {
+                    let hints = self.decompose_hint(hint, |hint| {
+                        self.decompose_generator(hint)
+                            .map(|(want_yield, want_send, _)| {
+                                // We don't need to be compatible with the expected generator return type.
+                                self.heap.mk_class_type(self.stdlib.generator(
+                                    want_yield,
+                                    want_send,
+                                    self.heap.mk_any_implicit(),
+                                ))
+                            })
+                    });
+                    (!hints.is_empty()).then(|| self.unions(hints))
+                });
+                if let Some(want) = want {
                     self.check_type(&ty, &want, x.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::YieldFrom)
                     });

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ggshield
-Version: 1.49.0
+Version: 1.50.0
 Summary: Detect secrets from all sources using GitGuardian's brains
 Project-URL: Homepage, https://github.com/GitGuardian/ggshield
 Author-email: GitGuardian <support@gitguardian.com>
@@ -26,20 +26,22 @@ Requires-Python: >=3.9
 Requires-Dist: charset-normalizer~=3.1.0
 Requires-Dist: click~=8.1.0
 Requires-Dist: cryptography~=43.0.1
+Requires-Dist: keyring<26,>=24.0.0
 Requires-Dist: marshmallow-dataclass~=8.5.8
-Requires-Dist: marshmallow~=3.18.0
+Requires-Dist: marshmallow<3.27,>=3.18
 Requires-Dist: notify-py>=0.3.43
 Requires-Dist: oauthlib~=3.2.1
 Requires-Dist: packaging>=22.0
-Requires-Dist: platformdirs~=3.0.0
-Requires-Dist: pygitguardian~=1.28.0
+Requires-Dist: platformdirs~=4.2
+Requires-Dist: pygitguardian~=1.30.0
 Requires-Dist: pyjwt~=2.6.0
 Requires-Dist: python-dotenv~=0.21.0
 Requires-Dist: pyyaml~=6.0.1
 Requires-Dist: requests~=2.32.0
-Requires-Dist: rich~=12.5.1
+Requires-Dist: rich~=13.0
+Requires-Dist: sigstore<4,>=3.0.0
 Requires-Dist: truststore>=0.10.1; python_version >= '3.10'
-Requires-Dist: typing-extensions~=4.12.2
+Requires-Dist: typing-extensions~=4.14
 Requires-Dist: urllib3<3,>=2.2.2
 Description-Content-Type: text/markdown
 
@@ -85,6 +87,7 @@ Only metadata such as call time, request size and scan mode is stored from scans
 - [Getting started](#getting-started)
   - [Secrets](#secrets)
 - [Integrations](#integrations)
+  - [AI coding assistants](#ai-coding-assistants)
 - [Learn more](#learn-more)
 - [Output](#output)
 - [Related open source projects](#related-open-source-projects)
@@ -214,6 +217,14 @@ You can now use `ggshield` to search for secrets:
 You can integrate `ggshield` in your [CI/CD workflow](https://docs.gitguardian.com/ggshield-docs/integrations/overview#cicd-integrations-secrets-detection-in-your-cicd-workflow).
 
 To catch errors earlier, use `ggshield` as a [pre-commit, pre-push or pre-receive Git hook](https://docs.gitguardian.com/ggshield-docs/integrations/overview#git-hooks-prevent-secrets-from-reaching-your-vcs).
+
+## AI coding assistants
+
+`ggshield` can [scan interactions](https://docs.gitguardian.com/ggshield-docs/integrations/ai-coding-tools/secret-scanning-for-ai-coding-tools) between you and your AI coding assistant in real time, blocking actions that contain secrets before they are executed.
+
+You can install the hooks with the `ggshield install` command.
+
+Supported tools: **Cursor**, **Claude Code**, and **Copilot Chat**.
 
 # Learn more
 

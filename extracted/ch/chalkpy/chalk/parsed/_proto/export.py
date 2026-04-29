@@ -2,7 +2,15 @@ import collections
 import os
 from datetime import timedelta
 from pathlib import Path
-from typing import Collection, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Collection, Iterable, List, Optional, Sequence, Tuple
+
+if TYPE_CHECKING:
+    from chalk.features.feature_set import Features
+    from chalk.ml.model_reference import ModelReference
+    from chalk.queries.named_query import NamedQuery
+    from chalk.queries.scheduled_aggregate_backfill import ScheduledAggregateBackfill
+    from chalk.queries.scheduled_query import ScheduledQuery
+    from chalk.stores.online_store_config import OnlineStoreConfig
 
 import chalk._gen.chalk.artifacts.v1.export_pb2 as export_pb
 from chalk._gen.chalk.artifacts.v1 import chart_pb2 as chart_pb
@@ -20,7 +28,7 @@ from chalk.client import ChalkError, ChalkException, ErrorCode, ErrorCodeCategor
 from chalk.client.serialization.protos import ChalkErrorConverter
 from chalk.config.project_config import ProjectSettings, load_project_config
 from chalk.features import FeatureSetBase
-from chalk.features.resolver import RESOLVER_REGISTRY
+from chalk.features.resolver import RESOLVER_REGISTRY, ResolverRegistry
 from chalk.importer import CHALK_IMPORTER, import_all_files
 from chalk.ml.model_reference import MODEL_REFERENCE_REGISTRY
 from chalk.parsed._proto.global_variables import (
@@ -165,7 +173,10 @@ def get_lsp_proto(
     return lsp
 
 
-def _features_with_inline_backfill_schedule(fqns: list[str]) -> list[str]:
+def _features_with_inline_backfill_schedule(
+    fqns: list[str],
+    features_registry: "dict[str, type[Features]]",
+) -> list[str]:
     """Return the subset of feature FQNs that already have an inline backfill_schedule set."""
     conflicts = []
     for fqn in fqns:
@@ -173,7 +184,7 @@ def _features_with_inline_backfill_schedule(fqns: list[str]) -> list[str]:
         if len(parts) != 2:
             continue
         namespace, feature_name = parts
-        feature_class = FeatureSetBase.registry.get(namespace)
+        feature_class = features_registry.get(namespace)
         if feature_class is None:
             continue
         for feature in feature_class.features:
@@ -191,6 +202,44 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
     we can use this function in places where import is already
     done, like the engine.
     """
+    return export_from_registries(
+        features_registry=FeatureSetBase.registry,
+        resolver_registry=RESOLVER_REGISTRY,
+        sql_source_registry=BaseSQLSource.registry,
+        sql_source_group_registry=SQLSourceGroup.registry,
+        stream_source_registry=StreamSource.registry,
+        named_query_registry=NAMED_QUERY_REGISTRY,
+        model_reference_registry=MODEL_REFERENCE_REGISTRY,
+        online_store_config_registry=ONLINE_STORE_CONFIG_REGISTRY,
+        cron_query_registry=CRON_QUERY_REGISTRY,
+        scheduled_aggregate_backfill_registry=SCHEDULED_AGGREGATE_BACKFILL_REGISTRY,
+        chart_registry=_Chart.registry,
+        include_captured_global_values=include_captured_global_values,
+    )
+
+
+def export_from_registries(
+    *,
+    features_registry: "dict[str, type[Features]]",
+    resolver_registry: "ResolverRegistry",
+    sql_source_registry: Sequence[BaseSQLSource],
+    sql_source_group_registry: Sequence[SQLSourceGroup],
+    stream_source_registry: Sequence[StreamSource],
+    named_query_registry: "dict[tuple[str, Optional[str]], NamedQuery]",
+    model_reference_registry: "dict[tuple[str, str], ModelReference]",
+    online_store_config_registry: "dict[str, OnlineStoreConfig]",
+    cron_query_registry: "dict[str, ScheduledQuery]",
+    scheduled_aggregate_backfill_registry: "dict[str, ScheduledAggregateBackfill]",
+    chart_registry: Iterable[_Chart],
+    include_captured_global_values: bool = False,
+) -> export_pb.Export:
+    """Build an Export proto from explicit registry inputs.
+
+    `export_from_registry` is the production wrapper that pulls from the
+    process-wide globals; this entrypoint exists so tests (and other callers
+    that already have isolated registries) can drive the full export pipeline
+    without inheriting whatever else is registered in the process.
+    """
     failed_protos: List[export_pb.FailedImport] = []
 
     # Validate registries BEFORE conversion to catch errors early
@@ -199,8 +248,8 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
 
     try:
         validate_all_from_registries(
-            features_registry=FeatureSetBase.registry,
-            resolver_registry=RESOLVER_REGISTRY,
+            features_registry=features_registry,
+            resolver_registry=resolver_registry,
         )
     except Exception as e:
         # If validation fails, add to failed_protos but continue
@@ -212,18 +261,18 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
             failed_protos.append(build_failed_import(e, "validation"))
 
     graph_res = ToProtoConverter.convert_graph(
-        features_registry=FeatureSetBase.registry,
-        resolver_registry=RESOLVER_REGISTRY.get_all_resolvers(),
-        sql_source_registry=BaseSQLSource.registry,
-        sql_source_group_registry=SQLSourceGroup.registry,
-        stream_source_registry=StreamSource.registry,
-        named_query_registry=NAMED_QUERY_REGISTRY,
-        model_reference_registry=MODEL_REFERENCE_REGISTRY,
-        online_store_config_registry=ONLINE_STORE_CONFIG_REGISTRY,
+        features_registry=features_registry,
+        resolver_registry=resolver_registry.get_all_resolvers(),
+        sql_source_registry=sql_source_registry,
+        sql_source_group_registry=sql_source_group_registry,
+        stream_source_registry=stream_source_registry,
+        named_query_registry=named_query_registry,
+        model_reference_registry=model_reference_registry,
+        online_store_config_registry=online_store_config_registry,
     )
 
     crons: List[CronQuery] = []
-    for cron in CRON_QUERY_REGISTRY.values():
+    for cron in cron_query_registry.values():
         if cron.errors:
             failed_protos.append(
                 build_failed_import(
@@ -288,7 +337,7 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
         )
 
     cron_aggregate_backfills: List[cron_aggregate_backfill_pb.CronAggregateBackfill] = []
-    for backfill in SCHEDULED_AGGREGATE_BACKFILL_REGISTRY.values():
+    for backfill in scheduled_aggregate_backfill_registry.values():
         if backfill.errors:
             failed_protos.append(
                 build_failed_import(
@@ -298,7 +347,7 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
             )
             continue
 
-        inline_conflicts = _features_with_inline_backfill_schedule(backfill.features)
+        inline_conflicts = _features_with_inline_backfill_schedule(backfill.features, features_registry)
         if inline_conflicts:
             failed_protos.append(
                 build_failed_import(
@@ -338,14 +387,14 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
         )
 
     charts: List[chart_pb.Chart] = []
-    for chart in _Chart.registry:
+    for chart in chart_registry:
         try:
             charts.append(convert_chart(chart))
         except Exception as e:
             failed_protos.append(build_failed_import(e, f"chart ' {chart.name}'"))
 
     integration_name_to_tables = collections.defaultdict(list)
-    for source in BaseSQLSource.registry:
+    for source in sql_source_registry:
         if isinstance(source, TableIngestMixIn):
             for schema_dot_table, preferences in source.ingested_tables.items():
                 if preferences.cdc is True:

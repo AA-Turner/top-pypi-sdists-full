@@ -14,8 +14,11 @@ set -e
 ggshield secret scan pre-receive
 """
 
+PRERECEIVE_TEST_TIMEOUT = "15"
 
-def test_scan_prereceive(tmp_path: Path) -> None:
+
+@pytest.mark.uses_gitguardian_api
+def test_scan_prereceive(tmp_path: Path, monkeypatch) -> None:
     # GIVEN a remote repository
     remote_repo = Repository.create(tmp_path / "remote", bare=True)
 
@@ -34,6 +37,10 @@ def test_scan_prereceive(tmp_path: Path) -> None:
     local_repo.add("secret.conf")
     local_repo.create_commit()
 
+    # Increase the timeout for package-build functests, which can be slower on CI
+    # than the default prereceive timeout.
+    monkeypatch.setenv("GITGUARDIAN_TIMEOUT", PRERECEIVE_TEST_TIMEOUT)
+
     # WHEN I try to push
     # THEN the hook prevents the push
     with pytest.raises(CalledProcessError) as exc:
@@ -44,7 +51,10 @@ def test_scan_prereceive(tmp_path: Path) -> None:
     assert recreate_censored_content(secret_content, GG_VALID_TOKEN) in stderr
 
 
-def test_scan_prereceive_branch_without_new_commits(tmp_path: Path) -> None:
+@pytest.mark.uses_gitguardian_api
+def test_scan_prereceive_branch_without_new_commits(
+    tmp_path: Path, monkeypatch
+) -> None:
     # GIVEN a remote repository
     remote_repo = Repository.create(tmp_path / "remote", bare=True)
 
@@ -65,12 +75,15 @@ def test_scan_prereceive_branch_without_new_commits(tmp_path: Path) -> None:
     branch_name = "topic"
     local_repo.create_branch(branch_name)
 
+    monkeypatch.setenv("GITGUARDIAN_TIMEOUT", PRERECEIVE_TEST_TIMEOUT)
+
     # WHEN I try to push the branch
     # THEN the hook does not crash
     local_repo.push("-u", "origin", branch_name)
 
 
-def test_scan_prereceive_push_force(tmp_path: Path) -> None:
+@pytest.mark.uses_gitguardian_api
+def test_scan_prereceive_push_force(tmp_path: Path, monkeypatch) -> None:
     # GIVEN a remote repository
     remote_repo = Repository.create(tmp_path / "remote", bare=True)
 
@@ -96,6 +109,8 @@ def test_scan_prereceive_push_force(tmp_path: Path) -> None:
     secret_file.write_text("password = $FROM_ENV")
     local_repo.add("secret.conf")
     local_repo.create_commit()
+
+    monkeypatch.setenv("GITGUARDIAN_TIMEOUT", PRERECEIVE_TEST_TIMEOUT)
 
     # WHEN I push force to overwrite the commit with the secret
     # THEN the push is accepted because the commit containing the secret has not been
@@ -129,6 +144,7 @@ def test_scan_prereceive_timeout(
     with caplog.at_level(logging.WARNING):
         monkeypatch.setenv("GITGUARDIAN_API_URL", slow_gitguardian_api)
         monkeypatch.delenv("GITGUARDIAN_INSTANCE", raising=False)
+        monkeypatch.setenv("GITGUARDIAN_API_KEY", "dummy")
         local_repo.push()
 
     # AND the error message contains timeout message

@@ -5,18 +5,19 @@ import os
 import resource
 import signal
 import sys
+import tempfile
 import threading
 import time
-import tempfile
 from gettext import gettext as _
 
 from django.conf import settings
-from django.db import connection, transaction, IntegrityError
+from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 from django_guid import set_guid
 from django_guid.utils import generate_guid
-from pulpcore.app.models import Artifact, Content, Task, TaskSchedule, ProfileArtifact
+
+from pulpcore.app.models import Artifact, Content, ProfileArtifact, Task, TaskSchedule
 from pulpcore.app.util import (
     configure_analytics,
     configure_cleanup,
@@ -300,6 +301,8 @@ def dispatch_scheduled_tasks():
             with transaction.atomic():
                 task_schedule.last_task = dispatch(
                     task_schedule.task_name,
+                    args=task_schedule.task_args,
+                    kwargs=task_schedule.task_kwargs,
                 )
                 task_schedule.save(update_fields=["next_dispatch", "last_task"])
 

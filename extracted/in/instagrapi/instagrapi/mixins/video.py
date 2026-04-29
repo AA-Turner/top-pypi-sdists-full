@@ -1,3 +1,4 @@
+import contextlib
 import random
 import time
 from pathlib import Path
@@ -14,7 +15,6 @@ from instagrapi.exceptions import (
     VideoNotDownload,
     VideoNotUpload,
 )
-from instagrapi.extractors import extract_direct_message, extract_media_v1
 from instagrapi.types import (
     DirectMessage,
     Location,
@@ -319,9 +319,12 @@ class UploadVideoMixin:
                 raise e
             else:
                 if configured:
-                    media = configured.get("media")
                     self.expose()
-                    return extract_media_v1(media)
+                    return self._extract_configured_media_or_raise(
+                        configured,
+                        VideoConfigureError,
+                        "Video upload",
+                    )
         raise VideoConfigureError(response=self.last_response, **self.last_json)
 
     def video_upload_to_cutout_sticker(
@@ -508,8 +511,12 @@ class UploadVideoMixin:
                     continue
                 raise e
             if configured:
-                media = configured.get("media")
                 self.expose()
+                media = self._extract_configured_media_or_raise(
+                    configured,
+                    VideoConfigureStoryError,
+                    "Video story upload",
+                )
                 return Story(
                     links=links,
                     mentions=mentions,
@@ -518,7 +525,7 @@ class UploadVideoMixin:
                     stickers=stickers,
                     medias=medias,
                     polls=polls,
-                    **extract_media_v1(media).dict(),
+                    **media.dict(),
                 )
         raise VideoConfigureStoryError(response=self.last_response, **self.last_json)
 
@@ -959,7 +966,11 @@ class UploadVideoMixin:
                     continue
                 raise e
             if configured and thread_ids:
-                return extract_direct_message(configured.get("message_metadata", [])[0])
+                return self._extract_configured_direct_message_or_raise(
+                    configured,
+                    VideoConfigureStoryError,
+                    "Video direct upload",
+                )
         raise VideoConfigureStoryError(response=self.last_response, **self.last_json)
 
 
@@ -989,15 +1000,12 @@ def analyze_video(path: Path, thumbnail: Path = None) -> tuple:
             raise Exception("Please install moviepy>=1.0.3 and retry")
 
     print(f'Analyzing video file "{path}"')
-    video = mp.VideoFileClip(str(path))
-    width, height = video.size
-    if not thumbnail:
-        thumbnail = f"{path}.jpg"
-        print(f'Generating thumbnail "{thumbnail}"...')
-        video.save_frame(thumbnail, t=(video.duration / 2))
-    # duration = round(video.duration + 0.001, 3)
-    try:
-        video.close()
-    except AttributeError:
-        pass
+    with contextlib.ExitStack() as stack:
+        video = mp.VideoFileClip(str(path))
+        stack.enter_context(contextlib.closing(video))
+        width, height = video.size
+        if not thumbnail:
+            thumbnail = f"{path}.jpg"
+            print(f'Generating thumbnail "{thumbnail}"...')
+            video.save_frame(thumbnail, t=(video.duration / 2))
     return width, height, video.duration, thumbnail

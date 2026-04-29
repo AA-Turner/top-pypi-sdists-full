@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents-cli
-Version: 0.0.41
+Version: 0.0.42
 Summary: Terminal interface for Deep Agents - interactive AI agent with file operations, shell access, and sub-agent capabilities.
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
 Project-URL: Documentation, https://reference.langchain.com/python/deepagents/
@@ -27,9 +27,9 @@ Classifier: Topic :: Terminals
 Requires-Python: <4.0,>=3.11
 Requires-Dist: aiosqlite<1.0.0,>=0.19.0
 Requires-Dist: deepagents-acp>=0.0.4
-Requires-Dist: deepagents==0.5.3
+Requires-Dist: deepagents==0.5.4
 Requires-Dist: httpx<1.0.0,>=0.28.1
-Requires-Dist: langchain-anthropic<2.0.0,>=1.4.0
+Requires-Dist: langchain-anthropic<2.0.0,>=1.4.2
 Requires-Dist: langchain-google-genai<5.0.0,>=4.2.1
 Requires-Dist: langchain-mcp-adapters<1.0.0,>=0.2.0
 Requires-Dist: langchain-openai<2.0.0,>=1.1.12
@@ -57,7 +57,7 @@ Requires-Dist: uuid-utils<1.0.0,>=0.10.0
 Provides-Extra: agentcore
 Requires-Dist: langchain-agentcore-codeinterpreter>=0.0.1; extra == 'agentcore'
 Provides-Extra: all-providers
-Requires-Dist: langchain-anthropic<2.0.0,>=1.4.0; extra == 'all-providers'
+Requires-Dist: langchain-anthropic<2.0.0,>=1.4.2; extra == 'all-providers'
 Requires-Dist: langchain-aws<2.0.0,>=1.0.0; extra == 'all-providers'
 Requires-Dist: langchain-baseten<1.0.0,>=0.1.9; extra == 'all-providers'
 Requires-Dist: langchain-cohere<1.0.0,>=0.5.0; extra == 'all-providers'
@@ -82,7 +82,7 @@ Requires-Dist: langchain-daytona>=0.0.4; extra == 'all-sandboxes'
 Requires-Dist: langchain-modal>=0.0.2; extra == 'all-sandboxes'
 Requires-Dist: langchain-runloop>=0.0.3; extra == 'all-sandboxes'
 Provides-Extra: anthropic
-Requires-Dist: langchain-anthropic<2.0.0,>=1.4.0; extra == 'anthropic'
+Requires-Dist: langchain-anthropic<2.0.0,>=1.4.2; extra == 'anthropic'
 Provides-Extra: baseten
 Requires-Dist: langchain-baseten<1.0.0,>=0.1.9; extra == 'baseten'
 Provides-Extra: bedrock

@@ -162,6 +162,48 @@ class PlainBufferBuilder(object):
         return stream.get_buffer()
 
     @staticmethod
+    def serialize_primary_key_value_without_length_prefix(value, pk_type=None):
+        """
+        序列化主键值，不包含 TAG_CELL_VALUE 标签和长度前缀。
+        用于 PartitionRange 的 begin/end 序列化（与 Java SDK 的 buildPrimaryKeyValueWithoutLengthPrefix 对应）。
+        
+        :param value: 主键值
+        :param pk_type: 主键类型，如 'INTEGER', 'STRING', 'BINARY'，用于区分 STRING 和 BINARY
+        """
+        from tablestore.metadata import INF_MIN, INF_MAX
+        import struct
+        import six
+        
+        stream = PlainBufferOutputStream(32)  # 足够大的缓冲区
+        
+        if value is INF_MIN:
+            stream.write_raw_byte(const.VT_INF_MIN)
+        elif value is INF_MAX:
+            stream.write_raw_byte(const.VT_INF_MAX)
+        elif isinstance(value, int):
+            stream.write_raw_byte(const.VT_INTEGER)
+            stream.write_raw_little_endian64(value)
+        elif isinstance(value, six.text_type):
+            # STRING 类型
+            string_value = value.encode('utf-8')
+            stream.write_raw_byte(const.VT_STRING)
+            stream.write_raw_little_endian32(len(string_value))
+            stream.write_bytes(string_value)
+        elif isinstance(value, (six.binary_type, bytearray)):
+            # BINARY 类型使用 VT_BLOB，STRING 类型使用 VT_STRING
+            # 通过 pk_type 参数来区分，默认为 BINARY（因为 bytes 通常用于 BINARY 主键）
+            if pk_type == 'STRING':
+                stream.write_raw_byte(const.VT_STRING)
+            else:
+                stream.write_raw_byte(const.VT_BLOB)
+            stream.write_raw_little_endian32(len(value))
+            stream.write_bytes(value)
+        else:
+            raise OTSClientError("Unsupported primary key type: " + str(type(value)))
+        
+        return stream.get_buffer()
+
+    @staticmethod
     def serialize_column_value(value):
         buf_size = PlainBufferBuilder.compute_variant_value_size(value)
         stream = PlainBufferOutputStream(buf_size)

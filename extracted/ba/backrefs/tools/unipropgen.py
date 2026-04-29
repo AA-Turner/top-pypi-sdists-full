@@ -502,7 +502,11 @@ def gen_enum(
         obj[name] = sorted(s)
 
     if notexplicit:
-        not_explicitly_defined(obj, notexplicit, is_bytes=ascii_props)
+        not_explicitly_defined(
+            obj,
+            aliases.get(format_name(obj_name), {}).get(notexplicit, notexplicit),
+            is_bytes=ascii_props
+        )
 
     # Convert characters values to ranges
     char2range(obj, is_bytes=ascii_props)
@@ -1149,7 +1153,7 @@ def gen_properties(output, files, aliases, ascii_props=False, append=False):
 
     print('Building: Joining Group')
     gen_enum(
-        'DerivedJoiningGroup.txt', 'joining_group', files['jg'], notexplicit='nonjoining',
+        'DerivedJoiningGroup.txt', 'joining_group', files['jg'], notexplicit='nojoininggroup',
         ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
@@ -1221,8 +1225,6 @@ def gen_properties(output, files, aliases, ascii_props=False, append=False):
     if not append:
         with open(os.path.join(output, '__init__.py'), 'w') as f:
             f.write(HEADER.format(UNIVERSION, ''))
-            for x in sorted(files):
-                f.write('from .%s import *  # noqa\n' % os.path.basename(files[x])[:-3])
 
 
 def build_unicode_property_table(output, files, aliases):

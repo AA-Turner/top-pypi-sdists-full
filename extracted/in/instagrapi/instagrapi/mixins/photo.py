@@ -15,7 +15,6 @@ from instagrapi.exceptions import (
     PhotoConfigureStoryError,
     PhotoNotUpload,
 )
-from instagrapi.extractors import extract_media_v1
 from instagrapi.image_util import prepare_image
 from instagrapi.types import (
     Location,
@@ -288,9 +287,12 @@ class UploadPhotoMixin:
                 location,
                 extra_data=extra_data,
             ):
-                media = self.last_json.get("media")
                 self.expose()
-                return extract_media_v1(media)
+                return self._extract_configured_media_or_raise(
+                    self.last_json,
+                    PhotoConfigureError,
+                    "Photo upload",
+                )
         raise PhotoConfigureError(response=self.last_response, **self.last_json)
 
     def photo_configure(
@@ -433,8 +435,12 @@ class UploadPhotoMixin:
                 polls,
                 extra_data=extra_data,
             ):
-                media = self.last_json.get("media")
                 self.expose()
+                media = self._extract_configured_media_or_raise(
+                    self.last_json,
+                    PhotoConfigureStoryError,
+                    "Photo story upload",
+                )
                 return Story(
                     links=links,
                     mentions=mentions,
@@ -443,7 +449,7 @@ class UploadPhotoMixin:
                     stickers=stickers,
                     medias=medias,
                     polls=polls,
-                    **extract_media_v1(media).dict(),
+                    **media.dict(),
                 )
         raise PhotoConfigureStoryError(response=self.last_response, **self.last_json)
 

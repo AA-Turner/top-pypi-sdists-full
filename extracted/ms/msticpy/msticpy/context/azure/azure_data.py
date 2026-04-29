@@ -5,17 +5,19 @@
 # license information.
 # --------------------------------------------------------------------------
 """Uses the Azure Python SDK to collect and return details related to Azure."""
+
 from __future__ import annotations
 
 import datetime
 import logging
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
 from importlib.metadata import version
-from typing import TYPE_CHECKING, Any, Callable, Iterable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
-from packaging.version import Version, parse
+from packaging.version import Version, parse  # pylint: disable=no-name-in-module
 from typing_extensions import Self
 
 from ..._version import VERSION
@@ -34,11 +36,10 @@ from ...common.exceptions import (
 )
 
 try:
-    from azure.common.exceptions import CloudError
-    from azure.core.exceptions import ClientAuthenticationError
+    from azure.core.exceptions import ClientAuthenticationError, HttpResponseError
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.resource import ResourceManagementClient
-    from azure.mgmt.resource.subscriptions import SubscriptionClient
+    from azure.mgmt.subscription import SubscriptionClient
 
     if parse(version("azure.mgmt.monitor")) > Version("1.0.1"):
         # Try new version but keep backward compat with 1.0.1
@@ -103,8 +104,8 @@ class Items:  # pylint:disable=too-many-instance-attributes
     properties: Any = None
     kind: str | None = None
     managed_by: str | None = None
-    sku: str | None = None
-    identity: str | None = None
+    sku: Any = None
+    identity: Any = None
     state: Any = None
 
 
@@ -196,7 +197,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
             If no valid credentials are found or if subscription client can't be created
 
         See Also
@@ -218,7 +219,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
         )
         if not self.credentials:
             err_msg: str = "Could not obtain credentials."
-            raise CloudError(err_msg)
+            raise ClientAuthenticationError(err_msg)
         if only_interactive_cred(self.credentials.modern) and not silent:
             logger.warning("Check your default browser for interactive sign-in prompt.")
 
@@ -229,7 +230,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
         )
         if not self.sub_client:
             err_msg = "Could not create a Subscription client."
-            raise CloudError(err_msg)
+            raise ClientAuthenticationError(err_msg)
         logger.info("Connected to Azure Subscription Client")
         self.connected = True
 
@@ -249,9 +250,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
 
         """
         if self.connected is False:
-            err_msg: str = (
-                "You need to connect to the service before using this function."
-            )
+            err_msg: str = "You need to connect to the service before using this function."
             raise MsticpyNotConnectedError(
                 err_msg,
                 help_uri=MsticpyAzureConfigError.DEF_HELP_URI,
@@ -306,9 +305,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
 
         """
         if self.connected is False:
-            err_msg: str = (
-                "You need to connect to the service before using this function."
-            )
+            err_msg: str = "You need to connect to the service before using this function."
             raise MsticpyNotConnectedError(
                 err_msg,
                 help_uri=MsticpyAzureConfigError.DEF_HELP_URI,
@@ -412,9 +409,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
         """
         # Check if connection and client required are already present
         if self.connected is False:
-            err_msg: str = (
-                "You need to connect to the service before using this function."
-            )
+            err_msg: str = "You need to connect to the service before using this function."
             raise MsticpyNotConnectedError(
                 err_msg,
                 help_uri=MsticpyAzureConfigError.DEF_HELP_URI,
@@ -458,7 +453,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
                         "2019-08-01",
                     ).properties
 
-                except CloudError:
+                except HttpResponseError:
                     props = self.resource_client.resources.get_by_id(
                         resource.id,
                         self._get_api(resource_id=resource.id, sub_id=sub_id),
@@ -519,9 +514,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
         """
         # Check if connection and client required are already present
         if self.connected is False:
-            err_msg: str = (
-                "You need to connect to the service before using this function."
-            )
+            err_msg: str = "You need to connect to the service before using this function."
             raise MsticpyNotConnectedError(
                 err_msg,
                 help_uri=MsticpyAzureConfigError.DEF_HELP_URI,
@@ -671,9 +664,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
         """
         # Check if connection and client required are already present
         if self.connected is False:
-            err_msg: str = (
-                "You need to connect to the service before using this function."
-            )
+            err_msg: str = "You need to connect to the service before using this function."
             raise MsticpyNotConnectedError(
                 err_msg,
                 help_uri=MsticpyAzureConfigError.DEF_HELP_URI,
@@ -706,14 +697,12 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
             )
 
         # Get first API version that isn't in preview
-        if not resource_types:
+        if not resource_types or not resource_types.api_versions:
             err_msg = "Resource provider not found"
             raise MsticpyResourceError(err_msg)
 
-        api_version = [
-            v for v in resource_types.api_versions if "preview" not in v.lower()
-        ]
-        if api_version is None or not api_version:
+        api_version = [v for v in resource_types.api_versions if "preview" not in v.lower()]
+        if not api_version:
             api_ver = resource_types.api_versions[0]
         else:
             api_ver = api_version[0]
@@ -742,9 +731,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
         """
         # Check if connection and client required are already present
         if self.connected is False:
-            err_msg: str = (
-                "You need to connect to the service before using this function."
-            )
+            err_msg: str = "You need to connect to the service before using this function."
             raise MsticpyNotConnectedError(
                 err_msg,
                 help_uri=MsticpyAzureConfigError.DEF_HELP_URI,
@@ -793,9 +780,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
                     ),
                     subnet=ip_addr.subnet.name if ip_addr.subnet else None,
                     subnet_nsg=(
-                        ip_addr.subnet.network_security_group
-                        if ip_addr.subnet
-                        else None
+                        ip_addr.subnet.network_security_group if ip_addr.subnet else None
                     ),
                     subnet_route_table=(
                         ip_addr.subnet.route_table if ip_addr.subnet else None
@@ -818,7 +803,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
             )
             nsg_rules = []
             if nsg_details is not None:
-                for nsg in nsg_details.default_security_rules:  # type: ignore
+                for nsg in nsg_details.default_security_rules:  # type: ignore[union-attr]
                     rules = asdict(
                         NsgItems(
                             rule_name=nsg.name,
@@ -951,9 +936,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
 
         """
         if self.connected is False:
-            err_msg: str = (
-                "You need to connect to the service before using this function."
-            )
+            err_msg: str = "You need to connect to the service before using this function."
             raise MsticpyNotConnectedError(
                 err_msg,
                 help_uri=MsticpyAzureConfigError.DEF_HELP_URI,
@@ -1010,18 +993,20 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
                 | MonitorManagementClient
                 | ComputeManagementClient
             ] = _CLIENT_MAPPING[client_name]
-            if sub_id is None:
-                if issubclass(client, SubscriptionClient):
+            if issubclass(client, SubscriptionClient):
+                if sub_id is None:
                     setattr(
                         self,
                         client_name,
-                        client(
+                        SubscriptionClient(
                             self.credentials.modern,
                             base_url=self.az_cloud_config.resource_manager,
-                            credential_scopes=[self.az_cloud_config.token_uri],
+                            credential_scopes=[
+                                self.az_cloud_config.token_uri,
+                            ],
                         ),
                     )
-            else:
+            elif sub_id is not None:
                 setattr(
                     self,
                     client_name,
@@ -1029,13 +1014,15 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
                         self.credentials.modern,
                         subscription_id=sub_id,
                         base_url=self.az_cloud_config.resource_manager,
-                        credential_scopes=[self.az_cloud_config.token_uri],
+                        credential_scopes=[
+                            self.az_cloud_config.token_uri,
+                        ],
                     ),
                 )
 
         if getattr(self, client_name) is None:
             err_msg = "Could not create client"
-            raise CloudError(err_msg)
+            raise ClientAuthenticationError(err_msg)
 
     def _legacy_auth(self: Self, client_name: str, sub_id: str | None = None) -> None:
         """
@@ -1050,9 +1037,7 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
 
         """
         if not self.credentials:
-            err_msg: str = (
-                "Credentials must be provided for legacy authentication to work."
-            )
+            err_msg: str = "Credentials must be provided for legacy authentication to work."
             raise ValueError(err_msg)
         client: type[
             SubscriptionClient
@@ -1061,18 +1046,20 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
             | MonitorManagementClient
             | ComputeManagementClient
         ] = _CLIENT_MAPPING[client_name]
-        if sub_id is None:
-            if issubclass(client, SubscriptionClient):
+        if issubclass(client, SubscriptionClient):
+            if sub_id is None:
                 setattr(
                     self,
                     client_name,
-                    client(
+                    SubscriptionClient(
                         self.credentials.legacy,  # type:ignore[arg-type]
                         base_url=self.az_cloud_config.resource_manager,
-                        credential_scopes=[self.az_cloud_config.token_uri],
+                        credential_scopes=[
+                            self.az_cloud_config.token_uri,
+                        ],
                     ),
                 )
-        else:
+        elif sub_id is not None:
             setattr(
                 self,
                 client_name,
@@ -1080,7 +1067,9 @@ class AzureData:  # pylint:disable=too-many-instance-attributes
                     self.credentials.legacy,  # type:ignore[arg-type]
                     subscription_id=sub_id,
                     base_url=self.az_cloud_config.resource_manager,
-                    credential_scopes=[self.az_cloud_config.token_uri],
+                    credential_scopes=[
+                        self.az_cloud_config.token_uri,
+                    ],
                 ),
             )
 

@@ -1,15 +1,15 @@
-from gettext import gettext as _
 import logging
+from collections import defaultdict
+from gettext import gettext as _
+from typing import NamedTuple
 
 from django.db.models import Q
+from django_guid import get_guid
 
 from pulpcore.app.files import validate_file_paths
 from pulpcore.app.models import Content, ContentArtifact
 from pulpcore.app.util import batch_qs
 from pulpcore.exceptions import DuplicateContentInRepositoryError
-from collections import defaultdict
-from django_guid import get_guid
-from typing import NamedTuple
 
 _logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def remove_duplicates(repository_version):
             continue
 
         if new_content_qs.count() and existing_content.count():
-            _logger.debug(_("Removing duplicates for type: {}".format(type_obj.get_pulp_type())))
+            _logger.debug(_("Removing duplicates for type: {}").format(type_obj.get_pulp_type()))
 
             for batch in batch_qs(new_content_qs):
                 find_dup_qs = Q()

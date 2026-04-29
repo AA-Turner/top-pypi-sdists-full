@@ -18,22 +18,28 @@ from flask_admin._types import T_TRANSLATABLE, T_ITER_CHOICES
 text_type = str
 string_types = (str,)
 
+K = t.TypeVar("K")
+V = t.TypeVar("V")
 
-def itervalues(d: dict) -> t.Iterator[t.Any]:
+
+def itervalues(d: dict[t.Any, V]) -> t.Iterator[V]:
     return iter(d.values())
 
 
 def iteritems(
-    d: dict | MappingProxyType[str, t.Any] | t.Mapping[str, t.Any],
-) -> t.Iterator[tuple[t.Any, t.Any]]:
+    d: dict[K, V] | MappingProxyType[K, V] | t.Mapping[K, V],
+) -> t.Iterator[tuple[K, V]]:
     return iter(d.items())
 
 
-def filter_list(f: t.Callable, l: list) -> list[t.Any]:
+T = t.TypeVar("T")
+
+
+def filter_list(f: t.Callable[[t.Any], bool], l: t.Sequence[T]) -> list[T]:
     return list(filter(f, l))
 
 
-def as_unicode(s: str | bytes | int) -> str:
+def as_unicode(s: t.Any) -> str:
     if isinstance(s, bytes):
         return s.decode("utf-8")
 

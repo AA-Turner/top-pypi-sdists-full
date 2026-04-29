@@ -4100,6 +4100,61 @@ def array_agg(expr: Underscore | Any):
     return UnderscoreFunction("array_agg", expr)
 
 
+def set_agg(expr: Underscore | Any):
+    """Extract a single-column `DataFrame` into a list of distinct values for that column.
+
+    Parameters
+    ----------
+    expr
+        The expression to extract into a list of distinct values.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk import DataFrame
+    >>> from chalk.features import _, features
+    >>> @features
+    >>> class Merchant:
+    ...     id: str
+    ...     events: "DataFrame[FraudEvent]"
+    ...     distinct_tags: list[str] = F.set_agg(_.events[_.tag])
+    >>> @features
+    >>> class FraudEvent:
+    ...     id: int
+    ...     tag: str
+    ...     mer_id: Merchant.id
+    """
+    return UnderscoreFunction("set_agg", expr)
+
+
+def set_union(expr: Underscore | Any):
+    """Aggregate a list-typed column into the distinct union of all elements across rows.
+
+    Parameters
+    ----------
+    expr
+        A list-typed expression. Returns a list of the distinct elements
+        appearing in any input list.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk import DataFrame
+    >>> from chalk.features import _, features
+    >>> @features
+    >>> class Merchant:
+    ...     id: str
+    ...     events: "DataFrame[FraudEvent]"
+    ...     all_tags: list[str] = F.set_union(_.events[_.tags])
+    >>> @features
+    >>> class FraudEvent:
+    ...     id: int
+    ...     tags: list[str]
+    ...     mer_id: Merchant.id
+    """
+    return UnderscoreFunction("set_union", expr)
+
+
 def array_join(arr: Underscore | list[Any], delimiter: str):
     """
     Concatenate the elements of an array into a single string with a delimiter.
@@ -6507,6 +6562,8 @@ __all__ = (
     "secure_random",
     "sequence",
     "sequence_matcher_ratio",
+    "set_agg",
+    "set_union",
     "shuffle",
     "sha1",
     "sha256",

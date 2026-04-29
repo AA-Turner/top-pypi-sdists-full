@@ -50,6 +50,7 @@ class Session:
     _user_folders: Optional[Dict[str, FolderOutputV1]] = None
     supported_units: Optional[set] = None
     corporate_folder: Optional[FolderOutputV1] = None
+    my_folder: Optional[FolderOutputV1] = None
     auth_providers: Optional[List[DatasourceOutputV1]] = None
     https_verify_ssl: bool = True
     https_key_file: Optional[str] = None
@@ -159,6 +160,7 @@ class Session:
         self.server_version = None
         self.supported_units = None
         self.corporate_folder = None
+        self.my_folder = None
         self.auth_providers = None
         self.datasource_output_cache = dict()
         self.https_verify_ssl = True

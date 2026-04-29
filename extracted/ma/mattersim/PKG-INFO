@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mattersim
-Version: 1.2.2
+Version: 1.2.3
 Summary: MatterSim: A Deep Learning Atomistic Model Across Elements, Temperatures and Pressures.
 Author-email: Han Yang <hanyang@microsoft.com>, Hongxia Hao <hongxiahao@microsoft.com>, Jielan Li <jielanli@microsoft.com>, Ziheng Lu <zihenglu@microsoft.com>
 Project-URL: Homepage, https://github.com/microsoft/mattersim
@@ -29,6 +29,7 @@ Requires-Dist: pydantic>=2.9.2
 Requires-Dist: pymatgen
 Requires-Dist: seekpath
 Requires-Dist: phonopy
+Requires-Dist: phono3py
 Requires-Dist: torch-ema>=0.3
 Requires-Dist: torch>=2.2.0
 Requires-Dist: torch_geometric>=2.5.3

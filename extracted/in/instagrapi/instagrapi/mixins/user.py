@@ -12,6 +12,9 @@ from instagrapi.exceptions import (
     ClientJSONDecodeError,
     ClientLoginRequired,
     ClientNotFoundError,
+    InvalidTargetUser,
+    RelatedProfileRequired,
+    UnknownError,
     UserNotFound,
 )
 from instagrapi.extractors import extract_user_gql, extract_user_short, extract_user_v1
@@ -733,16 +736,18 @@ class UserMixin:
         unique_set = set()
         users = []
         while True:
+            params = {
+                "count": max_amount or MAX_USER_COUNT,
+                "rank_token": self.rank_token,
+                "search_surface": "follow_list_page",
+                "query": "",
+                "enable_groups": "true",
+            }
+            if max_id:
+                params["max_id"] = max_id
             result = self.private_request(
                 f"friendships/{user_id}/following/",
-                params={
-                    "max_id": max_id,
-                    "count": max_amount or MAX_USER_COUNT,
-                    "rank_token": self.rank_token,
-                    "search_surface": "follow_list_page",
-                    "query": "",
-                    "enable_groups": "true",
-                },
+                params=params,
             )
             for user in result["users"]:
                 user = extract_user_short(user)
@@ -908,16 +913,18 @@ class UserMixin:
         unique_set = set()
         users = []
         while True:
+            params = {
+                "count": max_amount or MAX_USER_COUNT,
+                "rank_token": self.rank_token,
+                "search_surface": "follow_list_page",
+                "query": "",
+                "enable_groups": "true",
+            }
+            if max_id:
+                params["max_id"] = max_id
             result = self.private_request(
                 f"friendships/{user_id}/followers/",
-                params={
-                    "max_id": max_id,
-                    "count": max_amount or MAX_USER_COUNT,
-                    "rank_token": self.rank_token,
-                    "search_surface": "follow_list_page",
-                    "query": "",
-                    "enable_groups": "true",
-                },
+                params=params,
             )
             for user in result["users"]:
                 user = extract_user_short(user)
@@ -1441,3 +1448,346 @@ class UserMixin:
         creator_info = result.get("user", {}).pop("creator_info", {})
         user = extract_user_short(result.get("user", {}))
         return (user, creator_info)
+
+    def chaining(self, user_id: str) -> dict:
+        """
+        Get suggested users for a target user_id.
+
+        Hits Instagram's private ``discover/chaining/`` endpoint — the
+        same surface the official app uses to render the "Suggested
+        for you" carousel under a profile. Returns the raw payload so
+        the caller can decide what shape it wants (typically passed
+        straight into :meth:`fetch_suggestion_details` for the
+        expanded form).
+
+        Parameters
+        ----------
+        user_id: str
+            Target user pk.
+
+        Returns
+        -------
+        dict
+            Raw ``discover/chaining/`` response.
+
+        Raises
+        ------
+        InvalidTargetUser
+            Instagram refused chaining for this target ("Not eligible
+            for chaining."). Common on locked-down / private accounts
+            and recently-flagged users.
+        """
+        params = {
+            "module": "profile",
+            "target_id": str(user_id),
+            "profile_chaining_check": "false",
+            "eligible_for_threads_cta": "false",
+        }
+        try:
+            return self.private_request("discover/chaining/", params=params)
+        except UnknownError as e:
+            if str(e) == "Not eligible for chaining.":
+                raise InvalidTargetUser("Not eligible for chaining.") from e
+            raise
+
+    def fetch_suggestion_details(self, user_id: str, chained_ids: str) -> dict:
+        """
+        Fetch expanded details for chained suggestion ids.
+
+        Companion to :meth:`chaining`. Pass a comma-separated list of
+        user pks (typically the ``pk`` field of every entry in
+        ``chaining()['users']``) and Instagram returns the same users
+        with social-context fields filled in (mutual followers,
+        verification, friendship state, etc.).
+
+        Parameters
+        ----------
+        user_id: str
+            Target user pk that produced the chained ids.
+        chained_ids: str
+            Comma-separated list of suggested user pks.
+
+        Returns
+        -------
+        dict
+            Raw ``discover/fetch_suggestion_details/`` response.
+        """
+        params = {
+            "target_id": str(user_id),
+            "chained_ids": chained_ids,
+            "include_social_context": "1",
+        }
+        return self.private_request(
+            "discover/fetch_suggestion_details/",
+            params=params,
+        )
+
+    def user_stream_by_username_v1(self, username: str) -> dict:
+        """
+        Get the streamed profile envelope by username.
+
+        ``POST /users/{username}/usernameinfo_stream/`` — IG's app-side
+        surface for a profile fetch keyed by username. Returns the
+        streamed envelope (typically with ``stream_rows``).
+
+        Parameters
+        ----------
+        username: str
+            Target IG username.
+
+        Returns
+        -------
+        dict
+            Parsed JSON response.
+
+        Raises
+        ------
+        UserNotFound
+            On 404 / unknown ClientError.
+        """
+        username = str(username).lower()
+        data = {
+            "is_prefetch": False,
+            "entry_point": "profile",
+            "from_module": "feed_timeline",
+        }
+        try:
+            return self.private_request(
+                f"users/{username}/usernameinfo_stream/", data=data
+            )
+        except ClientNotFoundError as e:
+            raise UserNotFound(e, username=username, **self.last_json)
+        except ClientError as e:
+            raise UserNotFound(e, username=username, **self.last_json)
+
+    def user_stream_by_id_v1(self, user_id: str) -> dict:
+        """
+        Get the streamed profile envelope by pk (mirror of
+        :meth:`user_stream_by_username_v1`).
+
+        ``POST /users/{user_id}/info_stream/`` — IG's app-side surface
+        for a profile fetch initiated from within the feed-timeline
+        flow. Returns the same streamed envelope as the username
+        variant.
+
+        Parameters
+        ----------
+        user_id: str
+            Target user pk.
+
+        Returns
+        -------
+        dict
+            Parsed JSON response (typically with ``stream_rows``).
+
+        Raises
+        ------
+        UserNotFound
+            On 404 / unknown ClientError.
+        """
+        data = {
+            "is_prefetch": False,
+            "entry_point": "profile",
+            "from_module": "feed_timeline",
+        }
+        try:
+            return self.private_request(f"users/{user_id}/info_stream/", data=data)
+        except (ClientNotFoundError, ClientError) as e:
+            logger.exception(
+                "Client error user_stream_by_id_v1, exception: %r, user_id %r",
+                e,
+                user_id,
+            )
+            raise UserNotFound("User not found")
+
+    def _user_stream_collector(self, resp, id=None, username=None):
+        """
+        Collapse a ``stream_rows`` envelope into a single flat user dict.
+
+        Each row in ``stream_rows`` carries a partial ``user`` payload;
+        this merges them in order so later rows override earlier ones.
+        Falls back to one extra fetch if the first response was empty
+        (defensive behaviour matching observed IG quirks).
+        """
+        data = {}
+        for urow in resp.get("stream_rows", []):
+            data.update(urow.get("user", {}))
+        if data:
+            data["pk"] = data.get("pk", data.get("pk_id"))
+            return data
+        logger.error("user_stream_collector: empty stream_rows, falling back: %r", resp)
+        if username:
+            self.user_stream_by_username_v1(username)
+        elif id:
+            self.user_stream_by_id_v1(id)
+        else:
+            raise UserNotFound(code_error=1257)
+        return self.last_json
+
+    def user_stream_by_id_flat(self, user_id: str) -> dict:
+        """
+        Flatten the streamed profile envelope for a target user pk
+        into a single user dict.
+
+        Convenience wrapper: calls :meth:`user_stream_by_id_v1` and
+        merges all ``stream_rows[*].user`` partial payloads in order.
+
+        Parameters
+        ----------
+        user_id: str
+            Target user pk.
+
+        Returns
+        -------
+        dict
+            Merged user dict (with ``pk`` resolved from ``pk`` or
+            ``pk_id`` whichever IG provided).
+        """
+        resp = self.user_stream_by_id_v1(user_id)
+        return self._user_stream_collector(resp, id=user_id)
+
+    def user_stream_by_username_flat(self, username: str) -> dict:
+        """
+        Flatten the streamed profile envelope for a target username
+        into a single user dict.
+
+        Convenience wrapper: calls :meth:`user_stream_by_username_v1`
+        and merges all ``stream_rows[*].user`` partial payloads in
+        order.
+
+        Parameters
+        ----------
+        username: str
+            Target IG username.
+
+        Returns
+        -------
+        dict
+            Merged user dict.
+        """
+        resp = self.user_stream_by_username_v1(username)
+        return self._user_stream_collector(resp, username=username)
+
+    def user_web_profile_info_v1(self, username: str) -> dict:
+        """
+        Web-scraper-style profile fetch via the private API.
+
+        ``GET /users/web_profile_info/?username={username}`` — the same
+        payload shape as the public ``api/v1/users/web_profile_info/``
+        endpoint, but routed through the private host so it can carry
+        a logged-in session and bypass some of the public-side rate
+        limiting. Returns the inner ``data`` block (already unwrapped).
+
+        Parameters
+        ----------
+        username: str
+            Target IG username.
+
+        Returns
+        -------
+        dict
+            The user payload (from ``response['data']``).
+
+        Raises
+        ------
+        UserNotFound
+            ``data`` is missing from the response or the request 404'd.
+        """
+        try:
+            result = self.private_request(
+                "users/web_profile_info/",
+                params={"username": username},
+            )
+        except (ClientNotFoundError, ClientError) as e:
+            raise UserNotFound(e, username=username, **self.last_json)
+        if data := result.get("data", {}):
+            return data
+        raise UserNotFound("Username not found", username=username, **self.last_json)
+
+    def discover_recommended_accounts_for_category_v1(self, user_id: str) -> dict:
+        """
+        Get business-category-similar accounts for a target user.
+
+        Two-step call:
+
+        1. Fetch the target's profile via :meth:`user_stream_by_id_v1`
+           to extract ``category_id`` from the streamed payload.
+        2. Hit ``GET /discover/recommended_accounts_for_category/``
+           with that ``category_id`` to get IG's "similar businesses"
+           recommendations for that category.
+
+        Parameters
+        ----------
+        user_id: str
+            Target user pk.
+
+        Returns
+        -------
+        dict
+            Raw recommended-accounts payload. ``category_id`` will be
+            ``None`` if the target has no business category — IG
+            still returns a payload (typically with empty ``users``)
+            in that case.
+        """
+        user_info = self.user_stream_by_id_v1(user_id)
+        category_id = next(
+            (
+                cid
+                for row in user_info.get("stream_rows", [])
+                if (cid := row.get("user", {}).get("category_id")) is not None
+            ),
+            None,
+        )
+        return self.private_request(
+            "discover/recommended_accounts_for_category/",
+            params={"target_id": user_id, "category_id": category_id},
+        )
+
+    def user_related_profiles_gql(self, user_id: str) -> List[UserShort]:
+        """
+        Get related profiles for a target user via the public GraphQL
+        ``edge_chaining`` field.
+
+        Hits the legacy ``query_hash="ad99dd9d3646cc3c0dda65debcd266a7"``
+        — IG has been gating this query_hash more aggressively over
+        time; it may raise ``ClientGraphqlError`` on logged-out or
+        rate-limited callers. For a more reliable mobile-app-style
+        suggestion list, use :meth:`chaining` (private API).
+
+        Parameters
+        ----------
+        user_id: str
+            Target user pk.
+
+        Returns
+        -------
+        List[UserShort]
+            Related profiles. Empty list if IG returned no edges.
+
+        Raises
+        ------
+        UserNotFound
+            GraphQL response had no ``user`` block.
+        RelatedProfileRequired
+            Empty result and the caller had ``self.num_retry`` set
+            below 4 (opt-in retry signal — set ``client.num_retry``
+            yourself to enable).
+        """
+        variables = {
+            "user_id": str(user_id),
+            "include_chaining": True,
+        }
+        data = self.public_graphql_request(
+            variables, query_hash="ad99dd9d3646cc3c0dda65debcd266a7"
+        )
+        if not data.get("user"):
+            raise UserNotFound("User not found")
+        edges = json_value(data, "user", "edge_chaining", "edges", default=[])
+        res = [extract_user_short(e["node"]) for e in edges if "node" in e]
+        if (
+            not res
+            and getattr(self, "num_retry", None) is not None
+            and self.num_retry < 4
+        ):
+            raise RelatedProfileRequired
+        return res

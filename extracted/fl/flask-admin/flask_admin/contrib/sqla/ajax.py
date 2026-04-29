@@ -12,8 +12,9 @@ from flask_admin.model.ajax import AjaxModelLoader
 from flask_admin.model.ajax import DEFAULT_PAGE_SIZE
 
 from ..._types import T_SQLALCHEMY_MODEL
-from ..._types import T_SQLALCHEMY_QUERY
-from ..._types import T_SQLALCHEMY_SESSION
+from ._compat import _get_deprecated_session
+from ._types import T_SESSION_OR_DB
+from ._types import T_SQLALCHEMY_QUERY
 from .tools import get_primary_key
 from .tools import has_multiple_pks
 from .tools import is_association_proxy
@@ -24,7 +25,7 @@ class QueryAjaxModelLoader(AjaxModelLoader):
     def __init__(
         self,
         name: str,
-        session: T_SQLALCHEMY_SESSION,
+        session: T_SESSION_OR_DB,
         model: type[T_SQLALCHEMY_MODEL],
         **options: t.Any,
     ) -> None:
@@ -59,7 +60,7 @@ class QueryAjaxModelLoader(AjaxModelLoader):
 
         self.pk: str = t.cast(str, get_primary_key(model))
 
-    def _process_fields(self) -> list:
+    def _process_fields(self) -> list[t.Any]:
         remote_fields = []
 
         for field in self.fields:  # type: ignore[union-attr]
@@ -76,19 +77,21 @@ class QueryAjaxModelLoader(AjaxModelLoader):
 
         return remote_fields
 
-    def format(self, model: None | str | bytes) -> tuple[t.Any, str] | None:
+    def format(self, model: T_SQLALCHEMY_MODEL | None) -> tuple[t.Any, str] | None:
         if not model:
             return None
 
         return getattr(model, self.pk), as_unicode(model)
 
     def get_query(self) -> T_SQLALCHEMY_QUERY:
-        return self.session.query(self.model)
+        session = _get_deprecated_session(self.session)
+        return session.query(self.model)
 
     def get_one(self, pk: t.Any) -> t.Any:
+        session = _get_deprecated_session(self.session)
         # prevent autoflush from occuring during populate_obj
-        with self.session.no_autoflush:
-            return self.session.get(self.model, pk)
+        with session.no_autoflush:
+            return session.get(self.model, pk)
 
     def get_list(
         self, term: str, offset: int = 0, limit: int = DEFAULT_PAGE_SIZE
@@ -119,7 +122,7 @@ class QueryAjaxModelLoader(AjaxModelLoader):
 
 def create_ajax_loader(
     model: t.Any,
-    session: T_SQLALCHEMY_SESSION,
+    session: T_SESSION_OR_DB,
     name: str,
     field_name: str,
     options: dict[str, t.Any],

@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 """Mixin Classes for Sentinel Analytics Features."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -11,7 +12,13 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import httpx
-from azure.common.exceptions import CloudError
+from azure.core.exceptions import (
+    ClientAuthenticationError,
+    HttpResponseError,
+    ResourceExistsError,
+    ResourceNotFoundError,
+    ResourceNotModifiedError,
+)
 from typing_extensions import Self
 
 from ..._version import VERSION
@@ -161,7 +168,11 @@ class SentinelTIMixin(SentinelUtilsMixin):
         ------
         MsticpyUserError
             If invalid ioc_type or confidence value provided
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If API call fails
 
         """
@@ -216,7 +227,18 @@ class SentinelTIMixin(SentinelUtilsMixin):
             timeout=get_http_timeout(),
         )
         if response.status_code not in (200, 201):
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = f"Received HTTP return code {response.status_code}: {response.text}"
+                    raise HttpResponseError(err_msg)
         if not silent:
             logger.info("Indicator created.")
 
@@ -254,7 +276,13 @@ class SentinelTIMixin(SentinelUtilsMixin):
                     confidence=confidence,
                     silent=True,
                 )
-            except CloudError:
+            except (
+                ClientAuthenticationError,
+                ResourceNotFoundError,
+                ResourceExistsError,
+                ResourceNotModifiedError,
+                HttpResponseError,
+            ):
                 logger.exception(
                     "Error creating indicator %s",
                     row[1][indicator_column],
@@ -277,7 +305,11 @@ class SentinelTIMixin(SentinelUtilsMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If API call fails.
 
         """
@@ -294,7 +326,18 @@ class SentinelTIMixin(SentinelUtilsMixin):
             timeout=get_http_timeout(),
         )
         if not response.is_success:
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = f"Received HTTP return code {response.status_code}: {response.text}"
+                    raise HttpResponseError(err_msg)
         return response.json()
 
     def update_indicator(  # pylint:disable=too-many-arguments,too-many-locals #noqa:PLR0913
@@ -341,7 +384,11 @@ class SentinelTIMixin(SentinelUtilsMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If API call fails
 
         """
@@ -379,7 +426,18 @@ class SentinelTIMixin(SentinelUtilsMixin):
             timeout=get_http_timeout(),
         )
         if response.status_code not in (200, 201):
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = f"Received HTTP return code {response.status_code}: {response.text}"
+                    raise HttpResponseError(err_msg)
         logger.info("Indicator updated.")
 
     def add_tag(self: Self, indicator_id: str, tag: str) -> None:
@@ -412,7 +470,11 @@ class SentinelTIMixin(SentinelUtilsMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If API call fails
 
         """
@@ -429,10 +491,21 @@ class SentinelTIMixin(SentinelUtilsMixin):
             timeout=get_http_timeout(),
         )
         if response.status_code not in (200, 204):
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = f"Received HTTP return code {response.status_code}: {response.text}"
+                    raise HttpResponseError(err_msg)
         logger.info("Indicator deleted.")
 
-    def query_indicators(  # pylint:disable=too-many-arguments, too-many-locals #noqa:PLR0913
+    def query_indicators(  # pylint:disable=too-many-arguments, too-many-locals, too-many-branches #noqa:PLR0913
         self: Self,
         *,
         include_disabled: bool = False,
@@ -484,7 +557,11 @@ class SentinelTIMixin(SentinelUtilsMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If API call fails
 
         """
@@ -523,7 +600,18 @@ class SentinelTIMixin(SentinelUtilsMixin):
             timeout=get_http_timeout(),
         )
         if not response.is_success:
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = f"Received HTTP return code {response.status_code}: {response.text}"
+                    raise HttpResponseError(err_msg)
         return _azs_api_result_to_df(response)
 
 

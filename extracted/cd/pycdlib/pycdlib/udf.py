@@ -16,6 +16,7 @@
 
 """Classes to support UDF."""
 
+import binascii
 import io
 import logging
 import random
@@ -25,62 +26,12 @@ import time
 from pycdlib import pycdlibexception
 from pycdlib import utils
 
-# For mypy annotations
-if False:  # pylint: disable=using-constant-test
-    from typing import List, Optional, Tuple, Type, Union  # NOQA pylint: disable=unused-import
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import List, Optional, Tuple, Type, Union  # noqa: F401
     # NOTE: this import has to be here to avoid circular deps
-    from pycdlib import inode  # NOQA pylint: disable=unused-import
-
-# This is the CRC CCITT table generated with a polynomial of 0x11021 and
-# 16-bits.  The following code will re-generate the table:
-#
-# def _bytecrc(crc, poly, n):
-#    mask = 1<<(n-1)
-#    for i in range(8):
-#        if crc & mask:
-#            crc = (crc << 1) ^ poly
-#        else:
-#            crc = crc << 1
-#    mask = (1<<n) - 1
-#    crc = crc & mask
-#    return crc
-#
-# def _mkTable(poly, n):
-#    mask = (1<<n) - 1
-#    poly = poly & mask
-#    table = [_bytecrc(i<<(n-8),poly,n) for i in range(256)]
-#    return table
-
-crc_ccitt_table = (0, 4129, 8258, 12387, 16516, 20645, 24774, 28903, 33032,
-                   37161, 41290, 45419, 49548, 53677, 57806, 61935, 4657, 528,
-                   12915, 8786, 21173, 17044, 29431, 25302, 37689, 33560, 45947,
-                   41818, 54205, 50076, 62463, 58334, 9314, 13379, 1056, 5121,
-                   25830, 29895, 17572, 21637, 42346, 46411, 34088, 38153,
-                   58862, 62927, 50604, 54669, 13907, 9842, 5649, 1584, 30423,
-                   26358, 22165, 18100, 46939, 42874, 38681, 34616, 63455, 59390,
-                   55197, 51132, 18628, 22757, 26758, 30887, 2112, 6241, 10242,
-                   14371, 51660, 55789, 59790, 63919, 35144, 39273, 43274, 47403,
-                   23285, 19156, 31415, 27286, 6769, 2640, 14899, 10770, 56317,
-                   52188, 64447, 60318, 39801, 35672, 47931, 43802, 27814, 31879,
-                   19684, 23749, 11298, 15363, 3168, 7233, 60846, 64911, 52716,
-                   56781, 44330, 48395, 36200, 40265, 32407, 28342, 24277, 20212,
-                   15891, 11826, 7761, 3696, 65439, 61374, 57309, 53244, 48923,
-                   44858, 40793, 36728, 37256, 33193, 45514, 41451, 53516, 49453,
-                   61774, 57711, 4224, 161, 12482, 8419, 20484, 16421, 28742,
-                   24679, 33721, 37784, 41979, 46042, 49981, 54044, 58239, 62302,
-                   689, 4752, 8947, 13010, 16949, 21012, 25207, 29270, 46570,
-                   42443, 38312, 34185, 62830, 58703, 54572, 50445, 13538, 9411,
-                   5280, 1153, 29798, 25671, 21540, 17413, 42971, 47098, 34713,
-                   38840, 59231, 63358, 50973, 55100, 9939, 14066, 1681, 5808,
-                   26199, 30326, 17941, 22068, 55628, 51565, 63758, 59695,
-                   39368, 35305, 47498, 43435, 22596, 18533, 30726, 26663, 6336,
-                   2273, 14466, 10403, 52093, 56156, 60223, 64286, 35833, 39896,
-                   43963, 48026, 19061, 23124, 27191, 31254, 2801, 6864, 10931,
-                   14994, 64814, 60687, 56684, 52557, 48554, 44427, 40424, 36297,
-                   31782, 27655, 23652, 19525, 15522, 11395, 7392, 3265, 61215,
-                   65342, 53085, 57212, 44955, 49082, 36825, 40952, 28183, 32310,
-                   20053, 24180, 11923, 16050, 3793, 7920)
-
+    from pycdlib import inode  # noqa: F401
 
 _logger = logging.getLogger('pycdlib')
 
@@ -95,11 +46,11 @@ def crc_ccitt(data):
     Returns:
      The CCITT CRC of the data.
     """
-    crc = 0
-    for x in data:
-        crc = crc_ccitt_table[x ^ ((crc >> 8) & 0xFF)] ^ ((crc << 8) & 0xFF00)
-
-    return crc
+    # The UDF CRC is CCITT-16 with polynomial 0x1021 and init value 0,
+    # which is exactly what binascii.crc_hqx computes when called with
+    # an init value of 0.  Delegate to the C-implemented stdlib helper
+    # rather than running a per-byte loop in Python.
+    return binascii.crc_hqx(data, 0)
 
 
 def _ostaunicode(src):
@@ -610,17 +561,18 @@ def _compute_csum(data):
     """
     Compute a simple checksum over the given data.
 
+    The checksum is the sum (mod 256) of every byte except the byte at
+    offset 4, which is the checksum slot itself.  We compute it as
+    sum(all) - data[4] rather than as two slice-sums, since sum() on
+    bytes is C-implemented and a single pass is faster than building a
+    pair of slice copies in Python.
+
     Parameters:
      data - The data to compute the checksum over.
     Returns:
      The checksum.
     """
-    csum = 0
-    for byte in data:
-        csum += byte
-    csum -= data[4]
-
-    return csum % 256
+    return (sum(data) - data[4]) % 256
 
 
 class UDFTag:
@@ -675,7 +627,7 @@ class UDFTag:
         if (len(data) - 16) < self.desc_crc_length:
             raise pycdlibexception.PyCdlibInternalError('Not enough bytes to compute CRC')
 
-        if desc_crc != crc_ccitt(data[16:16 + self.desc_crc_length]):
+        if desc_crc != crc_ccitt(memoryview(data)[16:16 + self.desc_crc_length]):
             raise pycdlibexception.PyCdlibInvalidISO('Tag CRC does not match!')
 
         self._initialized = True
@@ -702,7 +654,7 @@ class UDFTag:
         # and then setting that record back as usual.
         rec = struct.pack(self.FMT, self.tag_ident, self.desc_version,
                           0, 0, self.tag_serial_number,
-                          crc_ccitt(crc_bytes[:crc_byte_len]),
+                          crc_ccitt(memoryview(crc_bytes)[:crc_byte_len]),
                           crc_byte_len, self.tag_location)
         csum = _compute_csum(rec)
 
@@ -3370,11 +3322,11 @@ class UDFLogicalVolumeIntegrityDescriptor:
 
         end_offset = 0
         for part_unused in range(0, self.num_partitions):
-            free_space, = struct.unpack_from('<L', end[:end_offset + 4], end_offset)
+            free_space, = struct.unpack_from('<L', end, end_offset)
             self.free_space_tables.append(free_space)
             end_offset += 4
         for part_unused in range(0, self.num_partitions):
-            size, = struct.unpack_from('<L', end[:end_offset + 4], end_offset)
+            size, = struct.unpack_from('<L', end, end_offset)
             self.size_tables.append(size)
             end_offset += 4
 
@@ -3828,6 +3780,7 @@ class UDFFileEntry:
                  'impl_ident', 'extended_attrs', 'file_ident', 'inode')
 
     FMT = '<16s20sLLLHBBLQQ12s12s12sL16s32sQLL'
+    _FMT_SIZE = struct.calcsize(FMT)
 
     def __init__(self):
         # type: () -> None
@@ -3894,7 +3847,7 @@ class UDFFileEntry:
         self.impl_ident = UDFEntityID()
         self.impl_ident.parse(impl_ident)
 
-        offset = struct.calcsize(self.FMT)
+        offset = self._FMT_SIZE
         self.extended_attrs = data[offset:offset + self.len_extended_attrs]
 
         offset += self.len_extended_attrs
@@ -4376,6 +4329,7 @@ class UDFFileIdentifierDescriptor:
                  'encoding', 'parent')
 
     FMT = '<16sHBB16sH'
+    _FMT_SIZE = struct.calcsize(FMT)
 
     def __init__(self):
         # type: () -> None
@@ -4403,7 +4357,7 @@ class UDFFileIdentifierDescriptor:
         """
         if namelen > 0:
             namelen += 1
-        to_add = struct.calcsize(cls.FMT) + namelen
+        to_add = cls._FMT_SIZE + namelen
         return to_add + UDFFileIdentifierDescriptor.pad(to_add)
 
     @staticmethod
@@ -4455,7 +4409,7 @@ class UDFFileIdentifierDescriptor:
         self.icb = UDFLongAD()
         self.icb.parse(icb)
 
-        start = struct.calcsize(self.FMT)
+        start = self._FMT_SIZE
         end = start + self.len_impl_use
         self.impl_use = data[start:end]
 
@@ -4466,10 +4420,10 @@ class UDFFileIdentifierDescriptor:
         # encode with 'latin-1' or with 'utf-16_be'.  We save that off because
         # we have to write the correct thing out when we record.
         if not self.isparent:
-            encoding = bytes(bytearray([data[start]]))
-            if encoding == b'\x08':
+            encoding = data[start]
+            if encoding == 0x08:
                 self.encoding = 'latin-1'
-            elif encoding == b'\x10':
+            elif encoding == 0x10:
                 self.encoding = 'utf-16_be'
             else:
                 raise pycdlibexception.PyCdlibInvalidISO('Only UDF File Identifier Descriptor Encodings 8 or 16 are supported')
@@ -4541,7 +4495,7 @@ class UDFFileIdentifierDescriptor:
         rec = struct.pack(self.FMT, b'\x00' * 16, 1,
                           self.file_characteristics, self.len_fi,
                           self.icb.record(),
-                          self.len_impl_use) + self.impl_use + fi + b'\x00' * UDFFileIdentifierDescriptor.pad(struct.calcsize(self.FMT) + self.len_impl_use + self.len_fi)
+                          self.len_impl_use) + self.impl_use + fi + b'\x00' * UDFFileIdentifierDescriptor.pad(self._FMT_SIZE + self.len_impl_use + self.len_fi)
         return self.desc_tag.record(rec[16:]) + rec[16:]
 
     def extent_location(self):
@@ -4603,6 +4557,16 @@ class UDFFileIdentifierDescriptor:
             except UnicodeEncodeError:
                 self.fi = bytename.encode('utf-16_be')
                 self.encoding = 'utf-16_be'
+            # OSTA UDF 2.60 section 2.3.4.2 limits L_FI (length of File
+            # Identifier, including the 1-byte compression-ID prefix) to 254.
+            # In latin-1 that's 253 chars; in utf-16_be it's 126 chars.
+            # Without this check, struct.pack in record() fails much later
+            # with an opaque "'B' format requires 0 <= number <= 255".
+            if len(self.fi) + 1 > 254:
+                max_chars = 253 if self.encoding == 'latin-1' else 126
+                raise pycdlibexception.PyCdlibInvalidInput(
+                    'UDF filename too long: max %d characters in %s' % (
+                        max_chars, self.encoding))
             self.len_fi = len(self.fi) + 1
 
         self.parent = parent
@@ -5307,50 +5271,64 @@ class UDFPartitionIntegrityEntry:
         self._initialized = True
 
 
-class UDFExtendedFileEntry:
-    """A class representing a UDF Extended File Entry (ECMA-167, Part 4, 14.17)."""
-    __slots__ = ('_initialized', 'uid', 'gid', 'permissions', 'file_link_count',
-                 'record_format', 'record_display_attrs', 'record_len',
-                 'info_len', 'obj_size', 'log_blocks_recorded',
-                 'access_time', 'mod_time', 'creation_time', 'impl_ident',
-                 'attr_time', 'checkpoint', 'extended_attr_icb',
-                 'stream_icb', 'extended_attrs', 'unique_id', 'alloc_descs',
-                 'len_extended_attrs', 'icb_tag', 'desc_tag')
+class UDFExtendedFileEntry(UDFFileEntry):
+    """A class representing a UDF Extended File Entry (ECMA-167, Part 4, 14.17).
+
+    Extended File Entry is a superset of regular File Entry (14.9) per the
+    spec, allowed since UDF 2.00.  This class inherits the entire runtime
+    interface (extent_location, add_file_ident_desc, is_dir, ...) and only
+    overrides parse() and record() for the distinct on-disk layout, plus
+    extends __slots__ for the EFE-only fields.
+    """
+    __slots__ = ('obj_size', 'creation_time', 'stream_icb')
 
     FMT = '<16s20sLLLHBBLQQQ12s12s12s12sL4s16s16s32sQLL'
+    _FMT_SIZE = struct.calcsize(FMT)
 
     def __init__(self):
         # type: () -> None
-        self.alloc_descs = []  # type: List[Union[UDFShortAD, UDFLongAD, UDFInlineAD]]
-        self._initialized = False
+        UDFFileEntry.__init__(self)
+        self.obj_size = 0
+        self.creation_time = UDFTimestamp()
+        self.stream_icb = UDFLongAD()
 
-    def parse(self, data, extent, desc_tag):
-        # type: (bytes, int, UDFTag) -> None
+    def parse(self, data, extent, parent, desc_tag):
+        # type: (bytes, int, Optional[UDFFileEntry], UDFTag) -> None
         """
         Parse the passed in data into a UDF Extended File Entry.
 
         Parameters:
          data - The data to parse.
-         extent - The extent this Extended File Entry lives at.
-         desc_tag - The UDF Tag associated with this UDF Extended File Entry.
+         extent - The extent that this descriptor currently lives at.
+         parent - The parent File Entry for this file (may be None).
+         desc_tag - A UDFTag object that represents the Descriptor Tag.
         Returns:
          Nothing.
         """
         if self._initialized:
             raise pycdlibexception.PyCdlibInternalError('UDF Extended File Entry already initialized')
 
-        (tag_unused, icb_tag, self.uid, self.gid, self.permissions,
-         self.file_link_count, self.record_format, self.record_display_attrs,
-         self.record_len, self.info_len, self.obj_size, self.log_blocks_recorded,
-         access_time, mod_time, creation_time, attr_time,
-         self.checkpoint, reserved_unused, extended_attr_icb, stream_icb,
-         impl_ident, self.unique_id, self.len_extended_attrs,
+        (tag_unused, icb_tag, self.uid, self.gid, self.perms,
+         self.file_link_count, record_format, record_display_attrs,
+         record_len, self.info_len, self.obj_size, self.log_block_recorded,
+         access_time, mod_time, creation_time, attr_time, checkpoint,
+         reserved_unused, extended_attr_icb, stream_icb, impl_ident,
+         self.unique_id, self.len_extended_attrs,
          len_alloc_descs) = struct.unpack_from(self.FMT, data, 0)
 
         self.desc_tag = desc_tag
 
         self.icb_tag = UDFICBTag()
         self.icb_tag.parse(icb_tag)
+
+        if record_format != 0:
+            raise pycdlibexception.PyCdlibInvalidISO('File Entry record format is not 0')
+
+        if record_display_attrs != 0:
+            raise pycdlibexception.PyCdlibInvalidISO('File Entry record display attributes is not 0')
+
+        if record_len != 0:
+            raise pycdlibexception.PyCdlibInvalidISO('File Entry record length is not 0')
 
         self.access_time = UDFTimestamp()
         self.access_time.parse(access_time)
@@ -5364,6 +5342,9 @@ class UDFExtendedFileEntry:
         self.attr_time = UDFTimestamp()
         self.attr_time.parse(attr_time)
 
+        if checkpoint != 1:
+            raise pycdlibexception.PyCdlibInvalidISO('Only DVD Read-only disks supported')
+
         self.extended_attr_icb = UDFLongAD()
         self.extended_attr_icb.parse(extended_attr_icb)
 
@@ -5373,7 +5354,7 @@ class UDFExtendedFileEntry:
         self.impl_ident = UDFEntityID()
         self.impl_ident.parse(impl_ident)
 
-        offset = struct.calcsize(self.FMT)
+        offset = self._FMT_SIZE
         self.extended_attrs = data[offset:offset + self.len_extended_attrs]
 
         offset += self.len_extended_attrs
@@ -5382,6 +5363,9 @@ class UDFExtendedFileEntry:
                                                          data[offset:],
                                                          len_alloc_descs,
                                                          offset, extent)
+        self.orig_extent_loc = extent
+
+        self.parent = parent
 
         self._initialized = True
 
@@ -5404,101 +5388,54 @@ class UDFExtendedFileEntry:
 
         rec = struct.pack(self.FMT, b'\x00' * 16,
                           self.icb_tag.record(), self.uid, self.gid,
-                          self.permissions, self.file_link_count,
-                          self.record_format, self.record_display_attrs,
-                          self.record_len, self.info_len, self.obj_size,
-                          self.log_blocks_recorded, self.access_time.record(),
-                          self.mod_time.record(), self.creation_time.record(),
-                          self.attr_time.record(), self.checkpoint, b'\x00' * 4,
+                          self.perms, self.file_link_count, 0, 0, 0,
+                          self.info_len, self.obj_size,
+                          self.log_block_recorded,
+                          self.access_time.record(),
+                          self.mod_time.record(),
+                          self.creation_time.record(),
+                          self.attr_time.record(), 1, b'\x00' * 4,
                           self.extended_attr_icb.record(),
-                          self.stream_icb.record(), self.impl_ident.record(),
-                          self.unique_id, self.len_extended_attrs,
-                          len_alloc_descs)[16:]
+                          self.stream_icb.record(),
+                          self.impl_ident.record(), self.unique_id,
+                          self.len_extended_attrs, len_alloc_descs)[16:]
         rec += self.extended_attrs
         for desc in self.alloc_descs:
             rec += desc.record()
 
         return self.desc_tag.record(rec) + rec
 
-    def new(self, file_type, length, log_block_size):
-        # type: (str, int, int) -> None
+    def new(self, length, file_type, parent, log_block_size, creation_seconds=None):
+        # type: (int, str, Optional[UDFFileEntry], int, Optional[float]) -> None
         """
-        Create a new UDF Extended File Entry.
+        Create a new UDF Extended File Entry.  Reuses UDFFileEntry.new() for
+        the shared fields, then overrides the descriptor tag to be 266 and
+        initializes the EFE-only fields.
 
         Parameters:
-         file_type - The type that this UDF Space Entry represents; one of
-                     'dir', 'file', or 'symlink'.
          length - The (starting) length of this UDF File Entry; this is ignored
                   if this is a symlink.
+         file_type - The type that this UDF File entry represents; one of 'dir',
+                     'file', or 'symlink'.
+         parent - The parent UDF File Entry for this UDF File Entry.
          log_block_size - The logical block size for extents.
+         creation_seconds - Time and date, in seconds since the epoch, to use
+                            for the EFE creation_time field.  Defaults to the
+                            current time when omitted.
         Returns:
          Nothing.
         """
-        if self._initialized:
-            raise pycdlibexception.PyCdlibInternalError('UDF Extended File Entry already initialized')
-
+        UDFFileEntry.new(self, length, file_type, parent, log_block_size)
         self.desc_tag = UDFTag()
         self.desc_tag.new(266)  # FIXME: let the user set serial_number
 
-        self.icb_tag = UDFICBTag()
-        self.icb_tag.new(file_type)
-
-        self.uid = 4294967295  # Really -1, which means unset
-        self.gid = 4294967295  # Really -1, which means unset
-        if file_type == 'dir':
-            self.permissions = 5285
-            self.file_link_count = 0
-            self.info_len = 0
-            self.log_blocks_recorded = 1
-            # The position is bogus, but will get set
-            # properly once reshuffle_extents is called.
-            short_ad = UDFShortAD()
-            short_ad.new(length)
-            self.alloc_descs.append(short_ad)
-        else:
-            self.permissions = 4228
-            self.file_link_count = 1
-            self.info_len = length
-            self.log_blocks_recorded = utils.ceiling_div(length, log_block_size)
-            len_left = length
-            while len_left > 0:
-                # According to Ecma-167 14.14.1.1, the least-significant 30 bits
-                # of the allocation descriptor length field specify the length
-                # (the most significant two bits are properties which we don't
-                # currently support).  In theory we should then split files
-                # into 2^30 = 0x40000000, but all implementations I've seen
-                # split it into smaller.  cdrkit/cdrtools uses 0x3ffff800, and
-                # Windows uses 0x3ff00000.  To be more compatible with cdrkit,
-                # we'll choose their number of 0x3ffff800.
-                alloc_len = min(len_left, 0x3ffff800)
-                # The position is bogus, but will get set
-                # properly once reshuffle_extents is called.
-                short_ad = UDFShortAD()
-                short_ad.new(alloc_len)
-                self.alloc_descs.append(short_ad)
-                len_left -= alloc_len
-
-        self.access_time = UDFTimestamp()
-        self.access_time.new(time.time())
-
-        self.mod_time = UDFTimestamp()
-        self.mod_time.new(time.time())
-
-        self.attr_time = UDFTimestamp()
-        self.attr_time.new(time.time())
-
-        self.extended_attr_icb = UDFLongAD()
-        self.extended_attr_icb.new(0, 0)
-
-        self.impl_ident = UDFEntityID()
-        self.impl_ident.new(0, b'*pycdlib')
-
-        self.unique_id = 0  # this will get set later
-        self.len_extended_attrs = 0  # FIXME: let the user set this
-
-        self.extended_attrs = b''
-
-        self._initialized = True
+        self.obj_size = self.info_len
+        self.creation_time = UDFTimestamp()
+        if creation_seconds is None:
+            creation_seconds = time.time()
+        self.creation_time.new(creation_seconds)
+        self.stream_icb = UDFLongAD()
+        self.stream_icb.new(0, 0)
 
 
 def symlink_to_bytes(symlink_target):
@@ -5844,8 +5781,11 @@ def parse_file_set(file_set_and_term_data, current_extent, logical_block_size):
 def parse_file_entry(icbdata, abs_file_entry_extent, icb_log_block_num, parent):
     # type: (bytes, int, int, Optional[UDFFileEntry]) -> Optional[UDFFileEntry]
     """
-    An internal method to parse a single UDF File Entry and return the
-    corresponding object.
+    An internal method to parse a single UDF File Entry or Extended File
+    Entry and return the corresponding object.  The on-disk format is
+    chosen by the descriptor tag identifier: 261 maps to UDFFileEntry
+    (ECMA-167 14.9), 266 maps to UDFExtendedFileEntry (ECMA-167 14.17,
+    a subclass of UDFFileEntry).
 
     Parameters:
      icbdata - The data to parse.
@@ -5853,7 +5793,8 @@ def parse_file_entry(icbdata, abs_file_entry_extent, icb_log_block_num, parent):
      icb_log_block_num - The ICB logical block number.
      parent - The parent of the UDF File Entry.
     Returns:
-     A UDF File Entry object corresponding to the on-disk File Entry.
+     A UDFFileEntry object corresponding to the on-disk file entry, or
+     a UDFExtendedFileEntry (which is-a UDFFileEntry) for tag 266.
     """
     if all(v == 0 for v in bytearray(icbdata)):
         # We have seen ISOs in the wild (Windows 2008 Datacenter Enterprise
@@ -5864,12 +5805,14 @@ def parse_file_entry(icbdata, abs_file_entry_extent, icb_log_block_num, parent):
 
     desc_tag = UDFTag()
     desc_tag.parse(icbdata, icb_log_block_num)
-    if desc_tag.tag_ident != 261:
-        raise pycdlibexception.PyCdlibInvalidISO('UDF File Entry Tag identifier not 261')
+    if desc_tag.tag_ident == 261:
+        file_entry = UDFFileEntry()  # type: UDFFileEntry
+    elif desc_tag.tag_ident == 266:
+        file_entry = UDFExtendedFileEntry()
+    else:
+        raise pycdlibexception.PyCdlibInvalidISO('UDF File Entry Tag identifier not 261 or 266')
 
-    file_entry = UDFFileEntry()
     file_entry.parse(icbdata, abs_file_entry_extent, parent, desc_tag)
-
     return file_entry
 
 

@@ -1,7 +1,7 @@
 """CLI command for steering direction discovery."""
 
 import os
-# NUMBA_NUM_THREADS deliberately not set here — see runner.py.
+os.environ["NUMBA_NUM_THREADS"] = "1"
 
 import json
 import random

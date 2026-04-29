@@ -8,7 +8,6 @@ from instagrapi.exceptions import (
     AlbumNotDownload,
     AlbumUnknownFormat,
 )
-from instagrapi.extractors import extract_media_v1
 from instagrapi.types import Location, Media, Usertag
 from instagrapi.utils import date_time_original, dumps
 
@@ -178,10 +177,12 @@ class UploadAlbumMixin:
         Media
             An object of Media class
         """
+        if not paths:
+            raise AlbumUnknownFormat("Album upload requires at least one media path.")
         children = []
         for path in paths:
             path = Path(path)
-            if path.suffix.lower() in (".jpg", ".jpeg", ".webp"):
+            if path.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp"):
                 upload_id, width, height = self.photo_rupload(path, to_album=True)
                 children.append(
                     {
@@ -221,7 +222,9 @@ class UploadAlbumMixin:
                 )
                 self.photo_rupload(thumbnail, upload_id)
             else:
-                raise AlbumUnknownFormat()
+                raise AlbumUnknownFormat(
+                    f'Unsupported album media format "{path.suffix}" for "{path.name}".'
+                )
 
         for attempt in range(50):
             self.logger.debug(f"Attempt #{attempt} to configure Album: {paths}")
@@ -241,9 +244,12 @@ class UploadAlbumMixin:
                 raise e
             else:
                 if configured:
-                    media = configured.get("media")
                     self.expose()
-                    return extract_media_v1(media)
+                    return self._extract_configured_media_or_raise(
+                        configured,
+                        configure_exception or AlbumConfigureError,
+                        "Album upload",
+                    )
         raise (configure_exception or AlbumConfigureError)(
             response=self.last_response, **self.last_json
         )

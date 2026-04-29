@@ -4,7 +4,10 @@
 # license information.
 # --------------------------------------------------------------------------
 """Component edit utility functions."""
-from typing import Any, Dict, List, Optional, Tuple, Union
+
+from __future__ import annotations
+
+from typing import Any
 
 import httpx
 import ipywidgets as widgets
@@ -60,8 +63,8 @@ _TEXT_WIDGETS = (widgets.Text, widgets.Textarea, widgets.Label, widgets.Select)
 
 
 # pylint: disable=too-many-return-statements
-def py_to_widget(
-    value: Any, ctrl: Optional[widgets.Widget] = None, val_type: Optional[str] = None
+def py_to_widget(  # noqa: PLR0911
+    value: Any, ctrl: widgets.Widget | None = None, val_type: str | None = None
 ) -> Any:
     """
     Adjust type and format to suit target widget.
@@ -94,11 +97,7 @@ def py_to_widget(
     """
     if ctrl is None and val_type is None:
         raise ValueError("Must specify either a target control or expected val_type.")
-    if (
-        isinstance(ctrl, widgets.Checkbox)
-        or val_type == "bool"
-        or isinstance(value, bool)
-    ):
+    if isinstance(ctrl, widgets.Checkbox) or val_type == "bool" or isinstance(value, bool):
         if isinstance(value, str):
             return value.casefold() == "true"
         return bool(value)
@@ -117,7 +116,7 @@ def py_to_widget(
     return value
 
 
-def widget_to_py(ctrl: Union[widgets.Widget, SettingsControl]) -> Any:
+def widget_to_py(ctrl: widgets.Widget | SettingsControl) -> Any:  # noqa: PLR0911
     """
     Adjust type and format of value returned from `ctrl.value`.
 
@@ -172,9 +171,7 @@ def get_subscription_metadata(sub_id: str) -> dict:
     """
     az_cloud_config = AzureCloudConfig()
     res_mgmt_uri = az_cloud_config.resource_manager
-    get_sub_url = (
-        f"{res_mgmt_uri}/subscriptions/{{subscriptionid}}?api-version=2021-04-01"
-    )
+    get_sub_url = f"{res_mgmt_uri}/subscriptions/{{subscriptionid}}?api-version=2021-04-01"
     headers = mp_ua_header()
     sub_url = get_sub_url.format(subscriptionid=sub_id)
     resp = httpx.get(sub_url, headers=headers)
@@ -184,8 +181,7 @@ def get_subscription_metadata(sub_id: str) -> dict:
         return {}
 
     hdr_dict = {
-        item.split("=")[0]: item.split("=")[1].strip('"')
-        for item in www_header.split(", ")
+        item.split("=")[0]: item.split("=")[1].strip('"') for item in www_header.split(", ")
     }
     tenant_path = hdr_dict.get("Bearer authorization_uri", "").split("/")
 
@@ -204,7 +200,7 @@ def get_subscription_metadata(sub_id: str) -> dict:
         return {"tenantId": tenant_id}
 
 
-def get_def_tenant_id(sub_id: str) -> Optional[str]:
+def get_def_tenant_id(sub_id: str) -> str | None:
     """
     Get the tenant ID for a subscription.
 
@@ -227,7 +223,7 @@ def get_def_tenant_id(sub_id: str) -> Optional[str]:
     return sub_metadata.get("tenantId", None)
 
 
-def get_managed_tenant_id(sub_id: str) -> Optional[List[str]]:  # type: ignore
+def get_managed_tenant_id(sub_id: str) -> list[str] | None:
     """
     Get the tenant IDs that are managing a subscription.
 
@@ -247,7 +243,7 @@ def get_managed_tenant_id(sub_id: str) -> Optional[List[str]]:  # type: ignore
     return tenant_ids if tenant_ids else None
 
 
-def txt_to_dict(txt_val: str) -> Dict[str, Any]:
+def txt_to_dict(txt_val: str) -> dict[str, Any]:
     """
     Return dict from string of "key:val; key2:val2" pairs.
 
@@ -270,12 +266,10 @@ def txt_to_dict(txt_val: str) -> Dict[str, Any]:
         for kv_pair in txt_val.split("\n")
         if kv_pair.strip()
     ]
-    return {
-        kval[0].strip(): kval[1].strip() if len(kval) > 1 else None for kval in kvpairs
-    }
+    return {kval[0].strip(): kval[1].strip() if len(kval) > 1 else None for kval in kvpairs}
 
 
-def dict_to_txt(dict_val: Union[str, Dict[str, Any]]) -> str:
+def dict_to_txt(dict_val: str | dict[str, Any]) -> str:
     """
     Return string as "key:val; key2:val2" pairs from `dict_val`.
 
@@ -309,8 +303,8 @@ def dict_to_txt(dict_val: Union[str, Dict[str, Any]]) -> str:
 def get_wgt_ctrl(
     setting_path: str,
     var_name: str,
-    mp_controls: "MpConfigControls",  # type: ignore
-    wgt_style: Optional[Dict[str, Any]] = None,
+    mp_controls: MpConfigControls,  # type: ignore  # pylint: disable=undefined-variable
+    wgt_style: dict[str, Any] | None = None,
     instance_name: str = None,
 ) -> widgets.Widget:
     """
@@ -390,7 +384,7 @@ def get_wgt_ctrl(
             ctrl = widgets.Textarea(
                 description=var_name, value=dict_to_txt(curr_val) or "", **wgt_style
             )
-            setattr(ctrl, "tag", "txt_dict")
+            ctrl.tag = "txt_dict"
         elif st_type == "list":
             ctrl = widgets.Textarea(
                 description=var_name,
@@ -398,7 +392,7 @@ def get_wgt_ctrl(
                 **(wgt_style or TEXT_AREA_LAYOUT),
                 # tooltip="Enter each item as 'key:value'. Separate items with new lines.",
             )
-            setattr(ctrl, "tag", "list")
+            ctrl.tag = "list"
         else:
             ctrl = widgets.Text(
                 description=var_name,
@@ -412,7 +406,7 @@ def get_wgt_ctrl(
     return ctrl
 
 
-def get_defn_or_default(defn: Union[Tuple[str, Any], Any]) -> Tuple[str, Dict]:
+def get_defn_or_default(defn: tuple[str, Any] | Any) -> tuple[str, dict]:
     """
     Return the type and options (or a default) for the setting definition.
 
@@ -435,9 +429,9 @@ def get_defn_or_default(defn: Union[Tuple[str, Any], Any]) -> Tuple[str, Dict]:
 
 # flake8: noqa: F821
 def get_or_create_mpc_section(
-    mp_controls: "MpConfigControls",  # type: ignore[name-defined]
+    mp_controls: MpConfigControls,  # type: ignore[name-defined]  # pylint: disable=undefined-variable
     section: str,
-    subkey: Optional[str] = None,  # type: ignore
+    subkey: str | None = None,
 ) -> Any:
     """
     Return (and create if it doesn't exist) a settings section.

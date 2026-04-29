@@ -4,16 +4,27 @@ to facilitate plotting of colormaps - and is mainly used in the
 documentation.
 """
 
-import numpy as np
+from collections.abc import Sequence
+from typing import Any
+
 import holoviews as hv
+import matplotlib.colors as mcolors
+import numpy as np
 from holoviews import opts
 
-from . import get_aliases, all_original_names, palette, cm
+from . import all_original_names, cm, get_aliases, palette
 from .sineramp import sineramp
 
 array = np.meshgrid(np.linspace(0, 1, 256), np.linspace(0, 1, 10))[0]
 
-def swatch(name, cmap=None, bounds=None, array=array, **kwargs):
+
+def swatch(
+    name: str,
+    cmap: Sequence[str] | mcolors.Colormap | None = None,
+    bounds: tuple[float, float, float, float] | None = None,
+    array: np.ndarray[Any, Any] = array,
+    **kwargs: Any,
+) -> hv.Image:
     """Show a color swatch for a colormap using matplotlib or bokeh via holoviews.
     Colormaps can be selected by `name`, including those in Colorcet
     along with any standard Bokeh palette or named Matplotlib colormap.
@@ -51,12 +62,20 @@ def swatch(name, cmap=None, bounds=None, array=array, **kwargs):
                              cmap=cmap or cm[name]))
     return plot.opts(opts.Image(xaxis=None, yaxis=None), opts.Image(**kwargs))
 
-def swatches(*args, group=None, not_group=None, only_aliased=False, cols=None, **kwargs):
+
+def swatches(
+    *args: str | tuple[Any, ...],
+    group: str | list[str] | None = None,
+    not_group: str | list[str] | None = None,
+    only_aliased: bool = False,
+    cols: int | None = None,
+    **kwargs: Any,
+) -> hv.Layout:
     """Show swatches for given names or names in group"""
-    args = args or all_original_names(group=group, not_group=not_group,
+    args_ = args or all_original_names(group=group, not_group=not_group,
                                       only_aliased=only_aliased)
     if not cols:
-        cols = 3 if len(args) >= 3 else 1
+        cols = 3 if len(args_) >= 3 else 1
 
     backends = hv.Store.loaded_backends()
     if 'matplotlib' in backends:
@@ -72,7 +91,7 @@ def swatches(*args, group=None, not_group=None, only_aliased=False, cols=None, *
 
     images = [swatch(arg, **kwargs) if isinstance(arg, str) else
               swatch(*arg, **kwargs) for
-              arg in args]
+              arg in args_]
 
     plot = hv.Layout(images).opts(transpose=True).cols(int(np.ceil(len(images)*1.0/cols)))
 
@@ -83,7 +102,7 @@ def swatches(*args, group=None, not_group=None, only_aliased=False, cols=None, *
 
 sine = sineramp()
 
-def sine_comb(name, cmap=None, **kwargs):
+def sine_comb(name: str, cmap: Any | None = None, **kwargs: Any) -> hv.Image:
     """Show sine_comb using matplotlib or bokeh via holoviews"""
     title = name if cmap else get_aliases(name)
     plot = hv.Image(sine, group=title)
@@ -98,13 +117,21 @@ def sine_comb(name, cmap=None, **kwargs):
 
     return plot.opts(opts.Image(xaxis=None, yaxis=None), opts.Image(**kwargs))
 
-def sine_combs(*args, group=None, not_group=None, only_aliased=False, cols=1, **kwargs):
+
+def sine_combs(
+    *args: str | tuple[Any, ...],
+    group: str | list[str] | None = None,
+    not_group: str | list[str] | None = None,
+    only_aliased: bool = False,
+    cols: int = 1,
+    **kwargs: Any,
+) -> hv.Layout:
     """Show sine_combs for given names or names in group"""
-    args = args or all_original_names(group=group, not_group=not_group,
+    args_ = args or all_original_names(group=group, not_group=not_group,
                                       only_aliased=only_aliased)
     images = [sine_comb(arg, **kwargs) if isinstance(arg, str) else
               sine_comb(*arg, **kwargs) for
-              arg in args]
+              arg in args_]
 
     plot = hv.Layout(images).opts(transpose=True).cols(int(np.ceil(len(images)*1.0/cols)))
 
@@ -121,7 +148,8 @@ xx, yy = np.meshgrid(np.arange(0,10), np.arange(0,10))
 
 data = np.array([xx, yy, zz]).transpose().reshape(100, 3)
 
-def candy_buttons(name, cmap=None, size=450, **kwargs):
+
+def candy_buttons(name: str, cmap: Any | None = None, size: int = 450, **kwargs: Any) -> hv.Points:
     if cmap is None:
         cmap = palette[name][:100]
         name = get_aliases(name)

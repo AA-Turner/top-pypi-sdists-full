@@ -949,13 +949,14 @@ class HubApi:
                 license=license,
                 chinese_name=chinese_name,
                 original_model_id=original_model_id,
-                token=token)
+                token=token,
+                endpoint=self.endpoint)
         tmp_dir = os.path.join(model_dir, TEMPORARY_FOLDER_NAME)  # make temporary folder
         git_wrapper = GitCommandWrapper()
         logger.info(f'Pushing folder {model_dir} as model {model_id}.')
         logger.info(f'Total folder size {folder_size}, this may take a while depending on actual pushing size...')
         try:
-            repo = Repository(model_dir=tmp_dir, clone_from=model_id, auth_token=token)
+            repo = Repository(model_dir=tmp_dir, clone_from=model_id, auth_token=token, endpoint=self.endpoint)
             branches = git_wrapper.get_remote_branches(tmp_dir)
             if revision not in branches:
                 logger.info(f'Creating new branch {revision}')
@@ -2216,11 +2217,12 @@ class HubApi:
                 chinese_name=chinese_name,
                 aigc_model=aigc_model,
                 token=token,
+                endpoint=endpoint,
             )
             if create_default_config:
                 with tempfile.TemporaryDirectory() as temp_cache_dir:
                     from modelscope.hub.repository import Repository
-                    repo = Repository(temp_cache_dir, repo_id, auth_token=token)
+                    repo = Repository(temp_cache_dir, repo_id, auth_token=token, endpoint=endpoint)
                     default_config = {
                         'framework': 'pytorch',
                         'task': 'text-generation',
@@ -2249,6 +2251,7 @@ class HubApi:
                 license=license,
                 visibility=visibility,
                 token=token,
+                endpoint=endpoint,
             )
             print(f'New dataset created successfully at {repo_url}.', flush=True)
 
@@ -2916,7 +2919,6 @@ class HubApi:
                         continue
 
                     results, failures = batch_tracker.wait_for_batch(batch_idx)
-                    all_results.extend(results)
 
                     if failures:
                         total_failed_files.extend(failures)
@@ -2946,6 +2948,7 @@ class HubApi:
                             revision=revision,
                         )
                         commit_infos.append(commit_info)
+                        all_results.extend(results)
                         logger.info(
                             f'Batch {batch_idx + 1}/{num_batches}: '
                             f'committed {len(results)} file(s).')
@@ -3005,7 +3008,6 @@ class HubApi:
                         logger.error(f'  Retry failed: {path_in_repo} - {e}')
                         retry_failures.append(((path_in_repo, file_path), e))
                 if retry_successes:
-                    all_results.extend(retry_successes)
                     self._track_uploaded_batch(tracker, retry_successes)
                     operations = self._build_batch_operations(
                         retry_successes, repo_type)
@@ -3020,6 +3022,7 @@ class HubApi:
                                 repo_type=repo_type,
                                 revision=revision)
                             commit_infos.append(commit_info)
+                            all_results.extend(retry_successes)
                             self._track_committed_batch(tracker, retry_successes)
                             logger.info(
                                 f'  Retry round {retry_round + 1}: '
@@ -3050,7 +3053,7 @@ class HubApi:
         print('-' * 60)
         print(f'  Total files      : {total_files}')
         print(f'  Skipped (cached) : {skipped_count}')
-        print(f'  Reused (global)  : {reused_count}')
+        print(f'  Existed (server) : {reused_count}')
         print(f'  Uploaded (PUT)   : {uploaded_count}')
         print(f'  Failed           : {failed_count}')
         committed_count = reused_count + uploaded_count
@@ -3890,7 +3893,8 @@ class HubApi:
                        collection_id: str,
                        repo_type: str = 'skill',
                        page_number: int = 1,
-                       page_size: int = 50) -> dict:
+                       page_size: int = 50,
+                       endpoint: Optional[str] = None) -> dict:
         """Get collection details and its elements.
 
         Args:
@@ -3906,12 +3910,14 @@ class HubApi:
             ValueError: If repo_type is not 'skill'.
             RequestError: If the API request fails.
         """
+        if not endpoint:
+            endpoint = self.endpoint
         if repo_type != 'skill':
             raise ValueError(
                 f'repo_type={repo_type} is not supported, '
                 'only "skill" is currently supported.')
         cookies = self.get_cookies()
-        path = f'{self.endpoint}/api/v1/collections'
+        path = f'{endpoint}/api/v1/collections'
         params = {
             'Fid': collection_id,
             'ElementType': repo_type,
@@ -3926,7 +3932,8 @@ class HubApi:
         return d[API_RESPONSE_FIELD_DATA]
 
     def download_skill(self, skill_id: str,
-                       local_dir: Optional[str] = None) -> str:
+                       local_dir: Optional[str] = None,
+                       endpoint: Optional[str] = None) -> str:
         """Download a single skill archive and extract it.
 
         Args:
@@ -3941,10 +3948,12 @@ class HubApi:
             ValueError: If skill_id format is invalid.
             RequestError: If the download request fails.
         """
+        if not endpoint:
+            endpoint = self.endpoint
         element_path, element_name = RepoUtils.validate_repo_id(skill_id)
 
         cookies = self.get_cookies()
-        url = f'{self.endpoint}/api/v1/skills/{element_path}/{element_name}/archive/zip/master'
+        url = f'{endpoint}/api/v1/skills/{element_path}/{element_name}/archive/zip/master'
 
         if local_dir is None:
             local_dir = os.getcwd()

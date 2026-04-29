@@ -1990,6 +1990,7 @@ authentication_api_AuthenticationServiceV2.__module__ = "nominal_api.authenticat
 class authentication_api_BatchPreregisterUsersRequest(ConjureBeanType):
     """Request to batch preregister users in the caller's organization.
 Only creates new users for emails that don't already exist.
+Newly created users are stored with an email claim matching their email address.
 Maximum of 1000 emails per request.
     """
 
@@ -10675,14 +10676,16 @@ If this schema is not used, will result in a failed ingestion.
         return {
             'source': ConjureFieldDefinition('source', ingest_api_IngestSource),
             'target': ConjureFieldDefinition('target', ingest_api_DatasetIngestTarget),
+            'additional_file_tags': ConjureFieldDefinition('additionalFileTags', OptionalTypeWrapper[Dict[api_TagName, api_TagValue]]),
             'timestamp_type': ConjureFieldDefinition('timestampType', OptionalTypeWrapper[ingest_api_AvroNumericTimestampType])
         }
 
-    __slots__: List[str] = ['_source', '_target', '_timestamp_type']
+    __slots__: List[str] = ['_source', '_target', '_additional_file_tags', '_timestamp_type']
 
-    def __init__(self, source: "ingest_api_IngestSource", target: "ingest_api_DatasetIngestTarget", timestamp_type: Optional["ingest_api_AvroNumericTimestampType"] = None) -> None:
+    def __init__(self, source: "ingest_api_IngestSource", target: "ingest_api_DatasetIngestTarget", additional_file_tags: Optional[Dict[str, str]] = None, timestamp_type: Optional["ingest_api_AvroNumericTimestampType"] = None) -> None:
         self._source = source
         self._target = target
+        self._additional_file_tags = additional_file_tags
         self._timestamp_type = timestamp_type
 
     @builtins.property
@@ -10692,6 +10695,12 @@ If this schema is not used, will result in a failed ingestion.
     @builtins.property
     def target(self) -> "ingest_api_DatasetIngestTarget":
         return self._target
+
+    @builtins.property
+    def additional_file_tags(self) -> Optional[Dict[str, str]]:
+        """Specifies a tag set to apply to all data in the file.
+        """
+        return self._additional_file_tags
 
     @builtins.property
     def timestamp_type(self) -> Optional["ingest_api_AvroNumericTimestampType"]:
@@ -22927,6 +22936,41 @@ Throws if you commit to an archived template.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_template_api_GetAllLabelsAndPropertiesResponse, self._return_none_for_unknown_union_types)
 
+    def duplicate(self, auth_header: str, request: "scout_template_api_DuplicateTemplateRequest", template_rid: str) -> "scout_template_api_Template":
+        """Duplicates an existing template, copying its content (layout, charts, variables)
+and optionally overriding metadata fields such as title, description, labels,
+and properties. Returns the newly created template.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'templateRid': quote(str(_conjure_encoder.default(template_rid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/template/{templateRid}/duplicate'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_template_api_Template, self._return_none_for_unknown_union_types)
+
     def merge_to_main(self, auth_header: str, request: "scout_template_api_MergeToMainRequest", template_rid: str) -> "scout_template_api_Template":
         """Merges the given branch to the "main" branch.
 Throws if the template or branch doesn't exist.
@@ -27095,6 +27139,38 @@ a file, primarily CSV.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), List[api_rids_DatasetRid], self._return_none_for_unknown_union_types)
 
+    def register_external_connection_config(self, auth_header: str, request: "scout_catalog_RegisterExternalConnectionConfigRequest") -> "scout_catalog_EnrichedDataset":
+        """Registers or updates external connection configuration for an existing dataset.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/catalog/v1/datasets/external-config'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_catalog_EnrichedDataset, self._return_none_for_unknown_union_types)
+
     def get_dataset_file(self, auth_header: str, dataset_rid: str, file_id: str) -> "scout_catalog_DatasetFile":
         _conjure_encoder = ConjureEncoder()
 
@@ -28808,14 +28884,16 @@ class scout_catalog_ExternalConnectionMetadata(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'connection_details': ConjureFieldDefinition('connectionDetails', scout_datasource_connection_api_ConnectionDetails),
-            'connection_status': ConjureFieldDefinition('connectionStatus', scout_datasource_connection_api_ConnectionStatus)
+            'connection_status': ConjureFieldDefinition('connectionStatus', scout_datasource_connection_api_ConnectionStatus),
+            'limits': ConjureFieldDefinition('limits', OptionalTypeWrapper[scout_datasource_connection_api_LimitsConfig])
         }
 
-    __slots__: List[str] = ['_connection_details', '_connection_status']
+    __slots__: List[str] = ['_connection_details', '_connection_status', '_limits']
 
-    def __init__(self, connection_details: "scout_datasource_connection_api_ConnectionDetails", connection_status: "scout_datasource_connection_api_ConnectionStatus") -> None:
+    def __init__(self, connection_details: "scout_datasource_connection_api_ConnectionDetails", connection_status: "scout_datasource_connection_api_ConnectionStatus", limits: Optional["scout_datasource_connection_api_LimitsConfig"] = None) -> None:
         self._connection_details = connection_details
         self._connection_status = connection_status
+        self._limits = limits
 
     @builtins.property
     def connection_details(self) -> "scout_datasource_connection_api_ConnectionDetails":
@@ -28824,6 +28902,10 @@ class scout_catalog_ExternalConnectionMetadata(ConjureBeanType):
     @builtins.property
     def connection_status(self) -> "scout_datasource_connection_api_ConnectionStatus":
         return self._connection_status
+
+    @builtins.property
+    def limits(self) -> Optional["scout_datasource_connection_api_LimitsConfig"]:
+        return self._limits
 
 
 scout_catalog_ExternalConnectionMetadata.__name__ = "ExternalConnectionMetadata"
@@ -29187,6 +29269,79 @@ not been initiated within 1 minute.
 scout_catalog_OriginFileUri.__name__ = "OriginFileUri"
 scout_catalog_OriginFileUri.__qualname__ = "OriginFileUri"
 scout_catalog_OriginFileUri.__module__ = "nominal_api.scout_catalog"
+
+
+class scout_catalog_RegisterExternalConnectionConfigRequest(ConjureBeanType):
+    """Attaches external connection configuration to an existing dataset.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'dataset_rid': ConjureFieldDefinition('datasetRid', api_rids_DatasetRid),
+            'connection_details': ConjureFieldDefinition('connectionDetails', scout_datasource_connection_api_ConnectionDetails),
+            'metadata': ConjureFieldDefinition('metadata', Dict[str, str]),
+            'required_tag_names': ConjureFieldDefinition('requiredTagNames', List[api_TagName]),
+            'available_tag_values': ConjureFieldDefinition('availableTagValues', OptionalTypeWrapper[Dict[api_TagName, List[api_TagValue]]]),
+            'scraping': ConjureFieldDefinition('scraping', OptionalTypeWrapper[scout_datasource_connection_api_ScrapingConfig]),
+            'should_scrape': ConjureFieldDefinition('shouldScrape', bool),
+            'limits': ConjureFieldDefinition('limits', OptionalTypeWrapper[scout_datasource_connection_api_LimitsConfig])
+        }
+
+    __slots__: List[str] = ['_dataset_rid', '_connection_details', '_metadata', '_required_tag_names', '_available_tag_values', '_scraping', '_should_scrape', '_limits']
+
+    def __init__(self, connection_details: "scout_datasource_connection_api_ConnectionDetails", dataset_rid: str, metadata: Dict[str, str], required_tag_names: List[str], should_scrape: bool, available_tag_values: Optional[Dict[str, List[str]]] = None, limits: Optional["scout_datasource_connection_api_LimitsConfig"] = None, scraping: Optional["scout_datasource_connection_api_ScrapingConfig"] = None) -> None:
+        self._dataset_rid = dataset_rid
+        self._connection_details = connection_details
+        self._metadata = metadata
+        self._required_tag_names = required_tag_names
+        self._available_tag_values = available_tag_values
+        self._scraping = scraping
+        self._should_scrape = should_scrape
+        self._limits = limits
+
+    @builtins.property
+    def dataset_rid(self) -> str:
+        return self._dataset_rid
+
+    @builtins.property
+    def connection_details(self) -> "scout_datasource_connection_api_ConnectionDetails":
+        return self._connection_details
+
+    @builtins.property
+    def metadata(self) -> Dict[str, str]:
+        """Metadata information about the external connection configuration.
+        """
+        return self._metadata
+
+    @builtins.property
+    def required_tag_names(self) -> List[str]:
+        """Additional tag names that are required to construct a fully qualified series.
+        """
+        return self._required_tag_names
+
+    @builtins.property
+    def available_tag_values(self) -> Optional[Dict[str, List[str]]]:
+        """Optional externally supplied tag values. In most cases these are indexed by scraping.
+        """
+        return self._available_tag_values
+
+    @builtins.property
+    def scraping(self) -> Optional["scout_datasource_connection_api_ScrapingConfig"]:
+        return self._scraping
+
+    @builtins.property
+    def should_scrape(self) -> bool:
+        return self._should_scrape
+
+    @builtins.property
+    def limits(self) -> Optional["scout_datasource_connection_api_LimitsConfig"]:
+        return self._limits
+
+
+scout_catalog_RegisterExternalConnectionConfigRequest.__name__ = "RegisterExternalConnectionConfigRequest"
+scout_catalog_RegisterExternalConnectionConfigRequest.__qualname__ = "RegisterExternalConnectionConfigRequest"
+scout_catalog_RegisterExternalConnectionConfigRequest.__module__ = "nominal_api.scout_catalog"
 
 
 class scout_catalog_RelativeTimestamp(ConjureBeanType):
@@ -67357,6 +67512,7 @@ class scout_compute_api_Series(ConjureUnionType):
     _log: Optional["scout_compute_api_LogSeries"] = None
     _array: Optional["scout_compute_api_ArraySeries"] = None
     _struct: Optional["scout_compute_api_StructSeries"] = None
+    _video: Optional["scout_compute_api_Reference"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -67367,7 +67523,8 @@ class scout_compute_api_Series(ConjureUnionType):
             'numeric': ConjureFieldDefinition('numeric', scout_compute_api_NumericSeries),
             'log': ConjureFieldDefinition('log', scout_compute_api_LogSeries),
             'array': ConjureFieldDefinition('array', scout_compute_api_ArraySeries),
-            'struct': ConjureFieldDefinition('struct', scout_compute_api_StructSeries)
+            'struct': ConjureFieldDefinition('struct', scout_compute_api_StructSeries),
+            'video': ConjureFieldDefinition('video', scout_compute_api_Reference)
         }
 
     def __init__(
@@ -67379,10 +67536,11 @@ class scout_compute_api_Series(ConjureUnionType):
             log: Optional["scout_compute_api_LogSeries"] = None,
             array: Optional["scout_compute_api_ArraySeries"] = None,
             struct: Optional["scout_compute_api_StructSeries"] = None,
+            video: Optional["scout_compute_api_Reference"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (raw is not None) + (boolean is not None) + (enum is not None) + (numeric is not None) + (log is not None) + (array is not None) + (struct is not None) != 1:
+            if (raw is not None) + (boolean is not None) + (enum is not None) + (numeric is not None) + (log is not None) + (array is not None) + (struct is not None) + (video is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if raw is not None:
@@ -67406,6 +67564,9 @@ class scout_compute_api_Series(ConjureUnionType):
             if struct is not None:
                 self._struct = struct
                 self._type = 'struct'
+            if video is not None:
+                self._video = video
+                self._type = 'video'
 
         elif type_of_union == 'raw':
             if raw is None:
@@ -67442,6 +67603,11 @@ class scout_compute_api_Series(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._struct = struct
             self._type = 'struct'
+        elif type_of_union == 'video':
+            if video is None:
+                raise ValueError('a union value must not be None')
+            self._video = video
+            self._type = 'video'
 
     @builtins.property
     def raw(self) -> Optional["scout_compute_api_Reference"]:
@@ -67471,6 +67637,10 @@ class scout_compute_api_Series(ConjureUnionType):
     def struct(self) -> Optional["scout_compute_api_StructSeries"]:
         return self._struct
 
+    @builtins.property
+    def video(self) -> Optional["scout_compute_api_Reference"]:
+        return self._video
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_SeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_SeriesVisitor'.format(visitor.__class__.__name__))
@@ -67488,6 +67658,8 @@ class scout_compute_api_Series(ConjureUnionType):
             return visitor._array(self.array)
         if self._type == 'struct' and self.struct is not None:
             return visitor._struct(self.struct)
+        if self._type == 'video' and self.video is not None:
+            return visitor._video(self.video)
 
 
 scout_compute_api_Series.__name__ = "Series"
@@ -67523,6 +67695,10 @@ class scout_compute_api_SeriesVisitor:
 
     @abstractmethod
     def _struct(self, struct: "scout_compute_api_StructSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _video(self, video: "scout_compute_api_Reference") -> Any:
         pass
 
 
@@ -88101,39 +88277,6 @@ The Connection Service is responsible for creating, updating, and retrieving dat
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_datasource_connection_api_Connection, self._return_none_for_unknown_union_types)
 
-    def register_external_connection_config(self, auth_header: str, request: "scout_datasource_connection_api_RegisterExternalConnectionConfigRequest") -> "scout_datasource_connection_api_Connection":
-        """Registers or updates external connection configuration for an existing dataset and returns the
-compatibility connection resource that shares the dataset UUID.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(request)
-
-        _path = '/data-source/connection/v1/external-config'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), scout_datasource_connection_api_Connection, self._return_none_for_unknown_union_types)
-
     def update_connection(self, auth_header: str, request: "scout_datasource_connection_api_UpdateConnectionRequest", rid: str) -> "scout_datasource_connection_api_Connection":
         """Updates an existing connection.
         """
@@ -90162,80 +90305,6 @@ class scout_datasource_connection_api_PopulateSeriesRequest(ConjureBeanType):
 scout_datasource_connection_api_PopulateSeriesRequest.__name__ = "PopulateSeriesRequest"
 scout_datasource_connection_api_PopulateSeriesRequest.__qualname__ = "PopulateSeriesRequest"
 scout_datasource_connection_api_PopulateSeriesRequest.__module__ = "nominal_api.scout_datasource_connection_api"
-
-
-class scout_datasource_connection_api_RegisterExternalConnectionConfigRequest(ConjureBeanType):
-    """Internal compatibility request that attaches external connection configuration to an existing dataset.
-The dataset remains the public resource; the returned connection is a legacy compatibility view.
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'dataset_rid': ConjureFieldDefinition('datasetRid', api_rids_DatasetRid),
-            'connection_details': ConjureFieldDefinition('connectionDetails', scout_datasource_connection_api_ConnectionDetails),
-            'metadata': ConjureFieldDefinition('metadata', Dict[str, str]),
-            'required_tag_names': ConjureFieldDefinition('requiredTagNames', List[api_TagName]),
-            'available_tag_values': ConjureFieldDefinition('availableTagValues', OptionalTypeWrapper[Dict[api_TagName, List[api_TagValue]]]),
-            'scraping': ConjureFieldDefinition('scraping', OptionalTypeWrapper[scout_datasource_connection_api_ScrapingConfig]),
-            'should_scrape': ConjureFieldDefinition('shouldScrape', bool),
-            'limits': ConjureFieldDefinition('limits', OptionalTypeWrapper[scout_datasource_connection_api_LimitsConfig])
-        }
-
-    __slots__: List[str] = ['_dataset_rid', '_connection_details', '_metadata', '_required_tag_names', '_available_tag_values', '_scraping', '_should_scrape', '_limits']
-
-    def __init__(self, connection_details: "scout_datasource_connection_api_ConnectionDetails", dataset_rid: str, metadata: Dict[str, str], required_tag_names: List[str], should_scrape: bool, available_tag_values: Optional[Dict[str, List[str]]] = None, limits: Optional["scout_datasource_connection_api_LimitsConfig"] = None, scraping: Optional["scout_datasource_connection_api_ScrapingConfig"] = None) -> None:
-        self._dataset_rid = dataset_rid
-        self._connection_details = connection_details
-        self._metadata = metadata
-        self._required_tag_names = required_tag_names
-        self._available_tag_values = available_tag_values
-        self._scraping = scraping
-        self._should_scrape = should_scrape
-        self._limits = limits
-
-    @builtins.property
-    def dataset_rid(self) -> str:
-        return self._dataset_rid
-
-    @builtins.property
-    def connection_details(self) -> "scout_datasource_connection_api_ConnectionDetails":
-        return self._connection_details
-
-    @builtins.property
-    def metadata(self) -> Dict[str, str]:
-        """Metadata information about the external connection configuration.
-        """
-        return self._metadata
-
-    @builtins.property
-    def required_tag_names(self) -> List[str]:
-        """Additional tag names that are required to construct a fully qualified series.
-        """
-        return self._required_tag_names
-
-    @builtins.property
-    def available_tag_values(self) -> Optional[Dict[str, List[str]]]:
-        """Optional externally supplied tag values. In most cases these are indexed by scraping.
-        """
-        return self._available_tag_values
-
-    @builtins.property
-    def scraping(self) -> Optional["scout_datasource_connection_api_ScrapingConfig"]:
-        return self._scraping
-
-    @builtins.property
-    def should_scrape(self) -> bool:
-        return self._should_scrape
-
-    @builtins.property
-    def limits(self) -> Optional["scout_datasource_connection_api_LimitsConfig"]:
-        return self._limits
-
-
-scout_datasource_connection_api_RegisterExternalConnectionConfigRequest.__name__ = "RegisterExternalConnectionConfigRequest"
-scout_datasource_connection_api_RegisterExternalConnectionConfigRequest.__qualname__ = "RegisterExternalConnectionConfigRequest"
-scout_datasource_connection_api_RegisterExternalConnectionConfigRequest.__module__ = "nominal_api.scout_datasource_connection_api"
 
 
 class scout_datasource_connection_api_ScrapingConfig(ConjureUnionType):
@@ -104541,6 +104610,94 @@ the user's organization, if the default workspace for the organization is config
 scout_template_api_CreateTemplateRequest.__name__ = "CreateTemplateRequest"
 scout_template_api_CreateTemplateRequest.__qualname__ = "CreateTemplateRequest"
 scout_template_api_CreateTemplateRequest.__module__ = "nominal_api.scout_template_api"
+
+
+class scout_template_api_DuplicateTemplateRequest(ConjureBeanType):
+    """Request to duplicate a template. All content fields (layout, content) are copied from the
+source template. Metadata fields can be optionally overridden; if not provided, they default
+to the source template's values (except isPublished, which defaults to false).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
+            'title_suffix': ConjureFieldDefinition('titleSuffix', OptionalTypeWrapper[str]),
+            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
+            'is_published': ConjureFieldDefinition('isPublished', OptionalTypeWrapper[bool]),
+            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid]),
+            'labels': ConjureFieldDefinition('labels', OptionalTypeWrapper[List[api_Label]]),
+            'properties': ConjureFieldDefinition('properties', OptionalTypeWrapper[Dict[api_PropertyName, api_PropertyValue]]),
+            'preview_image': ConjureFieldDefinition('previewImage', OptionalTypeWrapper[api_ThemeAwareImage])
+        }
+
+    __slots__: List[str] = ['_title', '_title_suffix', '_description', '_is_published', '_workspace', '_labels', '_properties', '_preview_image']
+
+    def __init__(self, description: Optional[str] = None, is_published: Optional[bool] = None, labels: Optional[List[str]] = None, preview_image: Optional["api_ThemeAwareImage"] = None, properties: Optional[Dict[str, str]] = None, title: Optional[str] = None, title_suffix: Optional[str] = None, workspace: Optional[str] = None) -> None:
+        self._title = title
+        self._title_suffix = title_suffix
+        self._description = description
+        self._is_published = is_published
+        self._workspace = workspace
+        self._labels = labels
+        self._properties = properties
+        self._preview_image = preview_image
+
+    @builtins.property
+    def title(self) -> Optional[str]:
+        """Override the title of the duplicated template. If not provided, generates a copy title
+from the source using the titleSuffix.
+        """
+        return self._title
+
+    @builtins.property
+    def title_suffix(self) -> Optional[str]:
+        """Custom suffix for generating the copy title (e.g., "v2").
+Defaults to "copy". Ignored if title is explicitly provided.
+        """
+        return self._title_suffix
+
+    @builtins.property
+    def description(self) -> Optional[str]:
+        """Override description. Defaults to the source template's description.
+        """
+        return self._description
+
+    @builtins.property
+    def is_published(self) -> Optional[bool]:
+        """Override published status. Defaults to false.
+        """
+        return self._is_published
+
+    @builtins.property
+    def workspace(self) -> Optional[str]:
+        """The workspace for the duplicated template. If not provided, the template will be created
+in the default workspace for the user's organization.
+        """
+        return self._workspace
+
+    @builtins.property
+    def labels(self) -> Optional[List[str]]:
+        """Override labels. Defaults to the source template's labels.
+        """
+        return self._labels
+
+    @builtins.property
+    def properties(self) -> Optional[Dict[str, str]]:
+        """Override properties. Defaults to the source template's properties.
+        """
+        return self._properties
+
+    @builtins.property
+    def preview_image(self) -> Optional["api_ThemeAwareImage"]:
+        """Override preview image. Defaults to the source template's preview image.
+        """
+        return self._preview_image
+
+
+scout_template_api_DuplicateTemplateRequest.__name__ = "DuplicateTemplateRequest"
+scout_template_api_DuplicateTemplateRequest.__qualname__ = "DuplicateTemplateRequest"
+scout_template_api_DuplicateTemplateRequest.__module__ = "nominal_api.scout_template_api"
 
 
 class scout_template_api_GetAllLabelsAndPropertiesResponse(ConjureBeanType):

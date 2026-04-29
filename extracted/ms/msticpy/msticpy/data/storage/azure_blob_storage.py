@@ -4,12 +4,15 @@
 # license information.
 # --------------------------------------------------------------------------
 """Uses the Azure Python SDK to interact with Azure Blob Storage."""
+
+from __future__ import annotations
+
 import datetime
-from typing import Any, List, Optional
+from typing import Any
 
 import pandas as pd
-from azure.common.exceptions import CloudError
 from azure.core.exceptions import (
+    ClientAuthenticationError,
     ResourceExistsError,
     ResourceNotFoundError,
     ServiceRequestError,
@@ -19,6 +22,7 @@ from azure.storage.blob import BlobServiceClient, generate_blob_sas
 from ..._version import VERSION
 from ...auth.azure_auth import az_connect
 from ...auth.azure_auth_core import AzCredentials, AzureCloudConfig
+from ...common.exceptions import MsticpyParameterError, MsticpyResourceError
 
 __version__ = VERSION
 __author__ = "Pete Bryan"
@@ -37,28 +41,26 @@ class AzureBlobStorage:
         self.connected = False
         self.abs_site = f"{abs_name}.blob.core.windows.net"
         self.connection_string = abs_connection_string
-        self.credentials: Optional[AzCredentials] = None
-        self.abs_client: Optional[BlobServiceClient] = None
+        self.credentials: AzCredentials | None = None
+        self.abs_client: BlobServiceClient | None = None
         if connect:
             self.connect()
 
     def connect(
         self,
-        auth_methods: List = None,
+        auth_methods: list = None,
         silent: bool = False,
     ):
         """Authenticate with the SDK."""
         self.credentials = az_connect(auth_methods=auth_methods, silent=silent)
         if not self.credentials:
-            raise CloudError("Could not obtain credentials.")
+            raise ClientAuthenticationError("Could not obtain credentials.")
         if not self.connection_string:
             self.abs_client = BlobServiceClient(self.abs_site, self.credentials.modern)
         else:
             self.abs_client = BlobServiceClient.from_connection_string(
-                self.connection_string
+                self.connection_string,
             )
-        if not self.abs_client:
-            raise CloudError("Could not create a Blob Storage client.")
         self.connected = True
 
     def containers(self) -> pd.DataFrame:
@@ -66,13 +68,11 @@ class AzureBlobStorage:
         try:
             container_list = self.abs_client.list_containers()  # type:ignore
         except ServiceRequestError as err:
-            raise CloudError(
+            raise MsticpyParameterError(
                 "Unable to connect check the Azure Blob Store account name"
             ) from err
         return (
-            _parse_returned_items(  # type:ignore
-                container_list, remove_list=["lease", "encryption_scope"]
-            )
+            _parse_returned_items(container_list, remove_list=["lease", "encryption_scope"])
             if container_list
             else None
         )
@@ -96,13 +96,15 @@ class AzureBlobStorage:
         try:
             new_container = self.abs_client.create_container(  # type: ignore
                 container_name, **kwargs
-            )  # type:ignore
+            )
         except ResourceExistsError as err:
-            raise CloudError(f"Container {container_name} already exists.") from err
+            raise MsticpyParameterError(
+                f"Container {container_name} already exists.",
+            ) from err
         properties = new_container.get_container_properties()
         return _parse_returned_items([properties], ["encryption_scope", "lease"])
 
-    def blobs(self, container_name: str) -> Optional[pd.DataFrame]:
+    def blobs(self, container_name: str) -> pd.DataFrame | None:
         """
         Get a list of blobs in a container.
 
@@ -119,7 +121,7 @@ class AzureBlobStorage:
         """
         container_client = self.abs_client.get_container_client(  # type: ignore[union-attr]
             container_name
-        )  # type: ignore
+        )
         blobs = list(container_client.list_blobs())
         return _parse_returned_items(blobs) if blobs else None
 
@@ -147,14 +149,14 @@ class AzureBlobStorage:
             )
             upload = blob_client.upload_blob(blob, overwrite=overwrite)
         except ResourceNotFoundError as err:
-            raise CloudError(
+            raise MsticpyParameterError(
                 "Unknown container, check container name or create it first."
             ) from err
         if not upload["error_code"]:
             print("Upload complete")
         else:
-            raise CloudError(
-                f"There was a problem uploading the blob: {upload['error_code']}"
+            raise MsticpyResourceError(
+                f"There was a problem uploading the blob: {upload['error_code']}",
             )
         return True
 
@@ -179,7 +181,9 @@ class AzureBlobStorage:
             container=container_name, blob=blob_name
         )
         if not blob_client.exists():
-            raise CloudError(f"The blob {blob_name} does not exist in {container_name}")
+            raise MsticpyResourceError(
+                f"The blob {blob_name} does not exist in {container_name}",
+            )
         data_stream = blob_client.download_blob()
         return data_stream.content_as_bytes()
 
@@ -207,7 +211,9 @@ class AzureBlobStorage:
         if blob_client.exists():
             blob_client.delete_blob(delete_snapshots="include")
         else:
-            raise CloudError(f"The blob {blob_name} does not exist in {container_name}")
+            raise MsticpyResourceError(
+                f"The blob {blob_name} does not exist in {container_name}",
+            )
 
         return True
 

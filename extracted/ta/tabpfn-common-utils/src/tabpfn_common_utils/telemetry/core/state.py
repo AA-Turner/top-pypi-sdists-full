@@ -31,10 +31,6 @@ FILENAME = "state.json"
 _DEFAULT_STATE: dict[str, Any] = {
     # Date and time when state file was created
     "created_at": None,
-    # Anonymous user ID, only with consent
-    "user_id": None,
-    # Email address, only with consent
-    "email": None,
     # Number of times prompts were shown
     "nr_prompts": 0,
     # Date and time when last prompt was shown

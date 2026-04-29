@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-core
-Version: 0.46.0
+Version: 0.47.0
 Summary: Open edX Core: Foundational Packages for a Teaching & Learning Platform
 Home-page: https://github.com/openedx/openedx-core
 Author: David Ormsbee
@@ -17,15 +17,15 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.12
 License-File: LICENSE.txt
-Requires-Dist: openedx-events
-Requires-Dist: Django
-Requires-Dist: tomlkit
-Requires-Dist: attrs
-Requires-Dist: djangorestframework<4.0
-Requires-Dist: edx-drf-extensions
-Requires-Dist: rules<4.0
-Requires-Dist: celery
 Requires-Dist: edx-organizations
+Requires-Dist: djangorestframework<4.0
+Requires-Dist: attrs
+Requires-Dist: rules<4.0
+Requires-Dist: tomlkit
+Requires-Dist: openedx-events
+Requires-Dist: edx-drf-extensions
+Requires-Dist: Django
+Requires-Dist: celery
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -95,7 +95,6 @@ Code Overview
 * ``./src/``: All published code. Packages are importable relative to this directory (e.g., ``import openedx_content``). See ``readme.rst`` in each sub-folder.
 * ``./tests/``: Unit tests (not published).
 * ``./test_utils/``: Internal helpers for unit tests (not published).
-* ``./olx_importer/``: Internal utility for importing data for development (not published).
 
 License
 -------

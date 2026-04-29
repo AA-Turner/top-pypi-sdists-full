@@ -5,7 +5,7 @@ import types
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,7 @@ from seeq.spy._errors import *
 from seeq.spy._redaction import safely, request_safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
-from seeq.spy.workbooks._folder import SYNTHETIC_FOLDERS, synthetic_folder_to_content_filter
+from seeq.spy.workbooks import _folder
 
 
 @dataclass
@@ -73,7 +73,7 @@ def search(
         quiet: Optional[bool] = None,
         status: Optional[Status] = None,
         session: Optional[Session] = None
-):
+) -> pd.DataFrame:
     """
     Issues a query to the Seeq Server to retrieve metadata for workbooks.
     This metadata can be used to pull workbook definitions into memory.
@@ -149,8 +149,27 @@ def search(
     Returns
     -------
     pandas.DataFrame
-        A DataFrame with rows for each workbook found and columns for each
-        property.
+        A DataFrame with rows for each work product found and columns for each
+        property. Column details:
+
+        ================ ===================================================
+        Column           Description
+        ================ ===================================================
+        ID               The ID of the item.
+        Type             Either "Folder", "Workbook", or "Project".
+        Workbook Type    For workbooks, either "Analysis", "Topic"
+                         or "Vantage". For folders, this is NaN.
+        Root             The root folder that the item is in, from this
+                         user's perspective. Will be '__My_Folder__',
+                         '__Corporate__', '__Shared__' or '__Users__' (if
+                         current user is an admin).
+        Path             The path to the item through the folder hierarchy.
+        Name             The name of the item.
+        Search Folder ID The folder ID that was used as the "root" for the
+                         search, usually as dictated by the "Path" query
+                         parameter. This is used later by spy.workbooks.push
+                         to determine relative paths when pushing.
+        ================ ===================================================
 
     """
     input_args = locals()
@@ -162,6 +181,8 @@ def search(
         'Total Processed': 0,
         'Total Returned': 0
     }])
+
+    content_filter = content_filter.upper()
 
     try:
         # We don't use status.execute_jobs() here because this can be a recursive operation that adds more jobs
@@ -180,19 +201,15 @@ def search(
             # Call post_message() to ensure that the status message is initialized
             context.post_message()
 
-            _search(context, query, content_filter.upper())
+            _search(context, query, content_filter)
 
             while not context.futures_queue.empty():
                 # Call Future.result() so that we wait for the thread and raise any exceptions that may have occurred
                 context.futures_queue.get().result()
                 context.drain_queues()
 
-    except KeyboardInterrupt:
+    finally:
         context.drain_queues()
-        status.update('Search canceled.', Status.CANCELED)
-        return
-
-    context.drain_queues()
 
     output_df = pd.DataFrame.from_dict(context.results, orient='index')
     output_df.reset_index(inplace=True, drop=True)
@@ -232,17 +249,23 @@ def _search(context: WorkbookSearchContext, query: dict, content_filter, *, pare
         if workbook_output is None:
             return
 
-        content_dict = {
+        old_style_path = _common.path_list_to_string([a.name for a in workbook_output.ancestors])
+
+        content_dict: Dict[str, Any] = {
             'ID': workbook_output.id,
             'Type': 'Workbook',
             'Workbook Type': workbook_output.type,
-            'Path': _common.path_list_to_string([a.name for a in workbook_output.ancestors]),
+        }
+
+        content_dict.update(_ancestors_to_column_values(context, workbook_output.ancestors, old_style_path))
+
+        content_dict.update({
             'Name': workbook_output.name,
             'Archived': workbook_output.is_archived,
             'Pinned': workbook_output.marked_as_favorite,
             'Created At': _common.smart_pd_to_datetime(workbook_output.created_at),
             'Updated At': _common.smart_pd_to_datetime(workbook_output.updated_at)
-        }
+        })
 
         if workbook_output.owner:
             content_dict['Owner Name'] = workbook_output.owner.name
@@ -268,18 +291,23 @@ def _search(context: WorkbookSearchContext, query: dict, content_filter, *, pare
 
     # We want the predefined synthetic folders like workbooks.CORPORATE and workbooks.MY_FOLDER to
     # work as root directories when specified at the beginning of Path
-    if path_start in SYNTHETIC_FOLDERS:
+    if path_start in _folder.SYNTHETIC_FOLDERS:
         path_start_no_underscore = path_start.replace('__', '').replace('_', ' ')
         warning_message = f'The content_filter {content_filter} was overwritten, and the searched directory was ' \
                           f'set to {path_start_no_underscore} based on the provided path.'
 
-        new_content_filter = synthetic_folder_to_content_filter(path_start)
+        new_content_filter = _folder.synthetic_folder_to_content_filter(path_start)
 
         if content_filter != new_content_filter and context.status is not None:
             context.status.warn(warning_message)
         # Apply the corresponding content_filter and use the rest of the path
         content_filter = new_content_filter
         path_filter_parts.pop(0)
+
+    if not context.session.options.wants_compatibility_with(200):
+        if search_folder_id is None and len(path_filter_parts) == 0:
+            # If the user didn't specify a Path in the query, use the content filter to derive a root folder
+            search_folder_id = _folder.content_filter_to_synthetic_folder(content_filter)
 
     contents: list[WorkbenchSearchResultPreviewV1] = list()
 
@@ -310,6 +338,22 @@ def _search(context: WorkbookSearchContext, query: dict, content_filter, *, pare
             context.executor.submit(_process_content, context, content, content_filter,
                                     parent_path, path_filter_parts, search_folder_id)
         )
+
+
+def _ancestors_to_column_values(
+        context: WorkbookSearchContext, ancestors: List[ItemPreviewV1], old_style_path: Optional[str]
+) -> Dict[str, Optional[str]]:
+    if context.session.options.wants_compatibility_with(200):
+        return {'Path': old_style_path}
+
+    column_values = {'Root': None}
+    ancestors = ancestors.copy()
+    if len(ancestors) > 0:
+        if ancestors[0].translation_key is not None:
+            column_values['Root'] = getattr(_folder, ancestors[0].translation_key)
+            ancestors.pop(0)
+    column_values['Path'] = _common.path_list_to_string([a.name for a in ancestors])
+    return column_values
 
 
 def _process_content(context: WorkbookSearchContext, content: WorkbenchSearchResultPreviewV1, content_filter: str,
@@ -349,13 +393,17 @@ def _process_content(context: WorkbookSearchContext, content: WorkbenchSearchRes
             'ID': content.id or np.nan,
             'Type': _type,
             'Workbook Type': workbook_type,
-            'Path': absolute_path,
+        }
+
+        content_dict.update(_ancestors_to_column_values(context, content.ancestors, absolute_path))
+
+        content_dict.update({
             'Name': content.name or np.nan,
             'Archived': content.is_archived or np.nan,
             'Pinned': content.is_pinned or np.nan,
             'Created At': pd.to_datetime(_common.smart_pd_to_datetime(content.created_at)),
             'Updated At': pd.to_datetime(_common.smart_pd_to_datetime(content.updated_at))
-        }
+        })
 
         if content.owner:
             content_dict['Owner Name'] = content.owner.name

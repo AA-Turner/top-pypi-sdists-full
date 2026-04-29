@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Flask-Admin
-Version: 2.0.2
+Version: 2.1.0
 Summary: Simple and extensible admin interface framework for Flask
 Maintainer-email: Pallets Ecosystem <contact@palletsprojects.com>
 Requires-Python: >=3.10
@@ -26,6 +26,7 @@ Requires-Dist: werkzeug>=2.0
 Requires-Dist: wtforms>=2.3
 Requires-Dist: typing_extensions; python_version < '3.11'
 Requires-Dist: Flask-Admin[sqlalchemy] ; extra == "all"
+Requires-Dist: Flask-Admin[sqlalchemy-lite] ; extra == "all"
 Requires-Dist: Flask-Admin[sqlalchemy-with-utils] ; extra == "all"
 Requires-Dist: Flask-Admin[geoalchemy] ; extra == "all"
 Requires-Dist: Flask-Admin[pymongo] ; extra == "all"
@@ -51,6 +52,7 @@ Requires-Dist: redis>=4.0.0 ; extra == "rediscli"
 Requires-Dist: boto3>=1.33 ; extra == "s3"
 Requires-Dist: flask-sqlalchemy>=3 ; extra == "sqlalchemy"
 Requires-Dist: sqlalchemy>=1.4 ; extra == "sqlalchemy"
+Requires-Dist: flask-sqlalchemy-lite ; extra == "sqlalchemy-lite"
 Requires-Dist: Flask-Admin[sqlalchemy] ; extra == "sqlalchemy-with-utils"
 Requires-Dist: sqlalchemy_utils>=0.38.0 ; extra == "sqlalchemy-with-utils"
 Requires-Dist: sqlalchemy-citext>=1.8.0 ; extra == "sqlalchemy-with-utils"
@@ -73,6 +75,7 @@ Provides-Extra: pymongo
 Provides-Extra: rediscli
 Provides-Extra: s3
 Provides-Extra: sqlalchemy
+Provides-Extra: sqlalchemy-lite
 Provides-Extra: sqlalchemy-with-utils
 Provides-Extra: translation
 
@@ -101,12 +104,13 @@ package, but implemented in such a way that the developer has total
 control over the look, feel, functionality and user experience of the resulting
 application.
 
-<img width="1242" height="596" alt="image" src="https://github.com/user-attachments/assets/177c1ffd-1f55-4c0d-88a8-abce0d3371f6" />
+<img alt="image" src="https://github.com/user-attachments/assets/177c1ffd-1f55-4c0d-88a8-abce0d3371f6" />
 
 
 Out-of-the-box, Flask-Admin plays nicely with various ORM\'s, including
 
-- [SQLAlchemy](https://www.sqlalchemy.org/)
+- [SQLAlchemy](https://www.sqlalchemy.org/) (via either [Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/) or
+  [Flask-SQLAlchemy-Lite](https://flask-sqlalchemy-lite.readthedocs.io/))
 - [pymongo](https://pymongo.readthedocs.io/)
 - [MongoEngine](https://mongoengine.org/)
 - and [Peewee](https://github.com/coleifer/peewee).

@@ -4,16 +4,23 @@
 # license information.
 # --------------------------------------------------------------------------
 """Mixin Classes for Sentinel Utilties."""
+
 from __future__ import annotations
 
 import logging
 from collections import Counter
 from dataclasses import dataclass
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 import httpx
 import pandas as pd
-from azure.common.exceptions import CloudError
+from azure.core.exceptions import (
+    ClientAuthenticationError,
+    HttpResponseError,
+    ResourceExistsError,
+    ResourceNotFoundError,
+    ResourceNotModifiedError,
+)
 from azure.mgmt.core import tools as az_tools
 
 # pylint: disable=import-error, no-name-in-module
@@ -87,7 +94,7 @@ class SentinelUtilsMixin(AzureData):
             timeout=get_http_timeout(),
         )
 
-    def _list_items(  # noqa:PLR0913
+    def _list_items(  # noqa:PLR0913 #pylint: disable=too-many-locals
         self: Self,
         item_type: str,
         api_version: str = "2020-01-01",
@@ -119,7 +126,11 @@ class SentinelUtilsMixin(AzureData):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If a valid result is not returned.
 
         """
@@ -133,7 +144,18 @@ class SentinelUtilsMixin(AzureData):
         if response.is_success:
             results_df: pd.DataFrame = _azs_api_result_to_df(response)
         else:
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = f"Received HTTP return code {response.status_code}: {response.text}"
+                    raise HttpResponseError(err_msg)
         j_resp: dict[str, Any] = response.json()
         results: list[pd.DataFrame] = [results_df]
         # If nextLink in response, go get that data as well
@@ -223,8 +245,7 @@ class SentinelUtilsMixin(AzureData):
         """Check that Sentinel workspace is connected."""
         if not self.connected:
             err_msg: str = (
-                "Not connected to Sentinel, ensure you run `.connect`"
-                "before calling functions."
+                "Not connected to Sentinel, ensure you run `.connect`before calling functions."
             )
             raise MsticpyAzureConnectionError(err_msg)
 
@@ -314,7 +335,7 @@ def extract_sentinel_response(
 
     """
     data_body: dict[str, dict[str, str]] = {"properties": {}}
-    for key in items:
+    for key in items:  # noqa: PLC0206
         if key in ["severity", "status", "title", "message", "searchResults"] or props:
             data_body["properties"].update({key: items[key]})
         else:
@@ -342,7 +363,7 @@ def parse_resource_id(res_id: str) -> dict[str, Any]:
     if not res_id.startswith("/"):
         res_id = f"/{res_id}"
     res_id_parts: dict[str, str] = cast(
-        Dict[str, str], az_tools.parse_resource_id(res_id)
+        dict[str, str], az_tools.parse_resource_id(res_id)
     )
     workspace_name: str | None = None
     if (

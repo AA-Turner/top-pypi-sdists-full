@@ -61,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ '3.9' ] # corresponding to abi3-py39 in Cargo.toml
+        python-version: [ '3.12' ] # corresponding to abi3-py312 in Cargo.toml
         conf:
           - { os: ubuntu-latest, target: x86_64,  target-triple: x86_64-unknown-linux-gnu,  manylinux: auto }
           - { os: ubuntu-latest, target: aarch64,  target-triple: aarch64-unknown-linux-gnu,  manylinux: '2_28' }
@@ -76,7 +76,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Build wheel with maturin
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b
         with:
           command: build
           target: ${{ matrix.conf.target }}
@@ -104,7 +104,7 @@ jobs:
           python-version: "3.12"
 
       - name: Build sdist with maturin
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b
         with:
           command: sdist
           args: --out ${{ env.DIST_DIR }}

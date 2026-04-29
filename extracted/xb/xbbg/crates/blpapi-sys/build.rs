@@ -2,6 +2,8 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+mod libclang;
+
 fn main() {
     // Ensure rebuilds when env changes
     println!("cargo:rerun-if-env-changed=BLPAPI_INCLUDE_DIR");
@@ -9,6 +11,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=BLPAPI_ROOT");
     println!("cargo:rerun-if-env-changed=BLPAPI_PREGENERATED_BINDINGS");
     println!("cargo:rerun-if-env-changed=BLPAPI_BINDINGS_EXPORT_PATH");
+    println!("cargo:rerun-if-env-changed=CONDA_PREFIX");
 
     // Resolve include and lib directories from environment (precedence order)
     let (include_dir, lib_dir) =
@@ -57,6 +60,9 @@ fn main() {
 
         return;
     }
+
+    libclang::prepare_windows_libclang_alias(&out_dir)
+        .unwrap_or_else(|e| panic!("blpapi-sys: {}", e));
 
     // Build bindgen wrapper that includes all blpapi_*.h headers found
     let wrapper =
@@ -112,20 +118,42 @@ fn copy_bindings(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn resolve_env_path(value: std::ffi::OsString) -> PathBuf {
+    let path = PathBuf::from(value);
+    if path.is_absolute() || path.exists() {
+        return path;
+    }
+
+    if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+        let mut dir = PathBuf::from(manifest_dir);
+        loop {
+            let candidate = dir.join(&path);
+            if candidate.exists() {
+                return candidate;
+            }
+            if !dir.pop() {
+                break;
+            }
+        }
+    }
+
+    path
+}
+
 fn resolve_include_and_lib_dirs() -> Result<(PathBuf, PathBuf), String> {
     // 1) Explicit include/lib
     let include = env::var_os("BLPAPI_INCLUDE_DIR");
     let lib = env::var_os("BLPAPI_LIB_DIR");
     if let (Some(inc), Some(lib)) = (include, lib) {
-        let inc = PathBuf::from(inc);
-        let lib = PathBuf::from(lib);
+        let inc = resolve_env_path(inc);
+        let lib = resolve_env_path(lib);
         validate_header_exists(&inc)?;
         return Ok((inc, lib));
     }
 
     // 2) Root
     if let Some(root) = env::var_os("BLPAPI_ROOT") {
-        let root = PathBuf::from(root);
+        let root = resolve_env_path(root);
         let (inc, lib) = resolve_sdk_layout(&root)?;
         validate_header_exists(&inc)?;
         return Ok((inc, lib));

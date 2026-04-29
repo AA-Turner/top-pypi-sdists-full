@@ -13,6 +13,9 @@ if TYPE_CHECKING:
     import pandas as pd
     import pyarrow as pa
 
+    from sift_client._internal.low_level_wrappers.test_results import (
+        ReplayResult,
+    )
     from sift_client.client import SiftClient
     from sift_client.sift_types.asset import Asset, AssetUpdate
     from sift_client.sift_types.calculated_channel import (
@@ -21,6 +24,10 @@ if TYPE_CHECKING:
         CalculatedChannelUpdate,
     )
     from sift_client.sift_types.channel import Channel
+    from sift_client.sift_types.data_import import (
+        DataTypeKey,
+        ImportConfig,
+    )
     from sift_client.sift_types.export import ExportOutputFormat
     from sift_client.sift_types.file_attachment import (
         FileAttachment,
@@ -593,7 +600,7 @@ class DataExportAPI:
         You cannot provide both ``runs`` and ``assets`` at the same time.
 
         Args:
-            output_format: The file format for the export (CSV or Sun/WinPlot).
+            output_format: The file format for the export (CSV, Parquet, or Sun/WinPlot).
             runs: One or more Run objects or run IDs to export data from.
             assets: One or more Asset objects or asset IDs to export data from.
             start_time: Start of the time range to export. Required when using
@@ -618,6 +625,169 @@ class DataExportAPI:
 
         Returns:
             A Job handle for the pending export.
+        """
+        ...
+
+class DataImportAPI:
+    """Sync counterpart to `DataImportAPIAsync`.
+
+    High-level API for importing data into Sift.
+    """
+
+    def __init__(self, sift_client: SiftClient):
+        """Initialize the DataImportAPI.
+
+        Args:
+            sift_client: The Sift client to use.
+        """
+        ...
+
+    def _run(self, coro): ...
+    def detect_config(
+        self, file_path: str | Path, data_type: DataTypeKey | None = None
+    ) -> ImportConfig:
+        """Auto-detect import configuration from a file.
+
+        Reads a sample of the file, sends it to the server's DetectConfig
+        endpoint, and returns the detected configuration. The file format
+        is inferred from the file extension when ``data_type`` is not
+        provided.
+
+        CSV, Parquet, HDF5, and TDMS files are supported for
+        auto-detection.
+
+        For CSV files, the server scans the first two rows for an optional
+        JSON metadata row. Row 1 is checked first; row 2 is checked only
+        if row 1 is not valid metadata. A row qualifies as metadata when
+        every cell contains valid JSON that describes either a time column
+        or a data column. When present, ``first_data_row`` in the returned
+        config is set to the row after the metadata row.
+
+        Each data column cell is a JSON ``ChannelConfig``::
+
+            {"name": "speed", "units": "m/s", "dataType": "CHANNEL_DATA_TYPE_DOUBLE"}
+
+        The time column cell is a JSON ``CsvTimeColumn``::
+
+            {"format": "TIME_FORMAT_ABSOLUTE_RFC3339"}
+
+        Enum type definitions and bit field elements can also be specified
+        in the metadata row; they are applied server-side during import
+        but are not included in the returned config.
+
+        For file types with multiple layouts (e.g. Parquet), ``data_type``
+        must be specified explicitly.
+
+        Args:
+            file_path: Path to the file to analyze.
+            data_type: Explicit data type key. Required for formats like
+                Parquet where the extension alone is ambiguous.
+
+        Returns:
+            The detected import config.
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            ValueError: If the file extension is unsupported or no
+                supported configuration could be detected.
+        """
+        ...
+
+    def get_run(self, data_import_id: str) -> Run:
+        """Get the run associated with a data import.
+
+        The ``data_import_id`` is available on the job returned by
+        ``import_from_path`` via ``job.job_details.data_import_id``.
+        For a more ergonomic approach, use ``job.get_import_run()``
+        which calls this method internally.
+
+        Args:
+            data_import_id: The ID of the data import.
+
+        Returns:
+            The Run created by or associated with the import.
+
+        Raises:
+            ValueError: If the data import has no associated run.
+        """
+        ...
+
+    def import_from_path(
+        self,
+        file_path: str | Path,
+        *,
+        asset: Asset | str | None = None,
+        config: ImportConfig | None = None,
+        data_type: DataTypeKey | None = None,
+        run: Run | str | None = None,
+        run_name: str | None = None,
+        show_progress: bool | None = None,
+    ) -> Job:
+        """Import data from a local file.
+
+        Creates a data import on the server, uploads the file, and returns
+        a ``Job`` handle after uploading the file. The import processes
+        server-side and typically completes shortly after upload. Use
+        ``job.wait_until_complete()`` only if you need to confirm
+        completion before proceeding.
+
+        When ``config`` is omitted the file format is auto-detected via
+        ``detect_config`` (CSV, Parquet, HDF5, and TDMS).
+        When ``asset`` is provided it overrides the config value;
+        otherwise the config's ``asset_name`` is used.
+        If neither ``run`` nor ``run_name`` is provided (and none is
+        set on the config), ``run_name`` defaults to the filename.
+
+        Examples:
+            Import a CSV file with auto-detected config:
+
+                job = client.data_imports.import_from_path(
+                    "data.csv",
+                    asset=my_asset,
+                )
+
+            Auto-detect config, inspect and patch before importing:
+
+                config = client.data_imports.detect_config("data.csv")
+
+                # Fix a column data type
+                config["temperature"].data_type = ChannelDataType.FLOAT
+
+                # Remove an unwanted column
+                config.data_columns = [
+                    dc for dc in config.data_columns if dc.name != "internal_id"
+                ]
+
+                job = client.data_imports.import_from_path(
+                    "data.csv",
+                    asset=my_asset,
+                    config=config,
+                )
+
+        Args:
+            file_path: Path to the local file to import.
+            asset: Asset object or asset name to import data into. Optional
+                when ``config`` already has ``asset_name`` set.
+            config: Import configuration describing the file format and column
+                mapping. When provided, ``data_type`` is ignored. If omitted,
+                the config is auto-detected via ``detect_config``. You can
+                call ``detect_config`` yourself to inspect and modify the
+                config before passing it here.
+            data_type: Explicit data type key. Required for formats like
+                Parquet where the extension alone is ambiguous. Only used
+                when ``config`` is not provided.
+            run: ``Run`` object or run ID string to import into an existing
+                run. Mutually exclusive with ``run_name``.
+            run_name: Name for a new run. Defaults to the filename if
+                neither ``run`` nor ``run_name`` is set.
+            show_progress: If True, display a progress spinner during upload.
+                Defaults to True for sync, False for async.
+
+        Returns:
+            A ``Job`` handle for the pending import.
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
         """
         ...
 
@@ -859,6 +1029,7 @@ class JobsAPI:
         timeout_secs: int | None = None,
         output_dir: str | Path | None = None,
         extract: bool = True,
+        show_progress: bool | None = None,
     ) -> list[Path]:
         """Wait for a job to complete and download the result files.
 
@@ -875,6 +1046,10 @@ class JobsAPI:
                 extract it and delete the archive, returning paths to the
                 extracted files. Non-zip files are returned as-is regardless
                 of this flag.
+            show_progress: If True, display an animated progress spinner
+                while waiting and a download progress bar. Defaults to True
+                for sync, False for async. Use ``sift_client.config.show_progress = False``
+                to disable globally for sync.
 
         Returns:
             List of paths to the downloaded/extracted files.
@@ -886,7 +1061,12 @@ class JobsAPI:
         ...
 
     def wait_until_complete(
-        self, job: Job | str, *, polling_interval_secs: int = 5, timeout_secs: int | None = None
+        self,
+        job: Job | str,
+        *,
+        polling_interval_secs: int = 5,
+        timeout_secs: int | None = None,
+        show_progress: bool | None = None,
     ) -> Job:
         """Wait until the job is complete or the timeout is reached.
 
@@ -898,6 +1078,10 @@ class JobsAPI:
             polling_interval_secs: Seconds between status polls. Defaults to 5s.
             timeout_secs: Maximum seconds to wait. If None, polls indefinitely.
                 Defaults to None (indefinite).
+            show_progress: If True, display an animated progress spinner alongside
+                the job status while polling. Defaults to True for sync, False
+                for async. Use ``sift_client.config.show_progress = False`` to disable
+                globally for sync.
 
         Returns:
             The Job in the completed state.
@@ -1689,11 +1873,14 @@ class TestResultsAPI:
         """
         ...
 
-    def create(self, test_report: TestReportCreate | dict) -> TestReport:
+    def create(
+        self, test_report: TestReportCreate | dict, log_file: str | Path | None = None
+    ) -> TestReport:
         """Create a new test report.
 
         Args:
             test_report: The test report to create (can be TestReport or TestReportCreate).
+            log_file: If set, log the request to this file and return a simulated response.
 
         Returns:
             The created TestReport.
@@ -1701,13 +1888,17 @@ class TestResultsAPI:
         ...
 
     def create_measurement(
-        self, test_measurement: TestMeasurementCreate | dict, update_step: bool = False
+        self,
+        test_measurement: TestMeasurementCreate | dict,
+        update_step: bool = False,
+        log_file: str | Path | None = None,
     ) -> TestMeasurement:
         """Create a new test measurement.
 
         Args:
             test_measurement: The test measurement to create (can be TestMeasurement or TestMeasurementCreate).
             update_step: Whether to update the step to failed if the measurement is being created is failed.
+            log_file: If set, log the request to this file and return a simulated response.
 
         Returns:
             The created TestMeasurement.
@@ -1715,23 +1906,27 @@ class TestResultsAPI:
         ...
 
     def create_measurements(
-        self, test_measurements: list[TestMeasurementCreate]
+        self, test_measurements: list[TestMeasurementCreate], log_file: str | Path | None = None
     ) -> tuple[int, list[str]]:
         """Create multiple test measurements in a single request.
 
         Args:
             test_measurements: The test measurements to create.
+            log_file: If set, log the request to this file and return a simulated response.
 
         Returns:
             A tuple of (measurements_created_count, measurement_ids).
         """
         ...
 
-    def create_step(self, test_step: TestStepCreate | dict) -> TestStep:
+    def create_step(
+        self, test_step: TestStepCreate | dict, log_file: str | Path | None = None
+    ) -> TestStep:
         """Create a new test step.
 
         Args:
             test_step: The test step to create (can be TestStep or TestStepCreate).
+            log_file: If set, log the request to this file and return a simulated response.
 
         Returns:
             The created TestStep.
@@ -1801,6 +1996,22 @@ class TestResultsAPI:
 
         Returns:
             The imported TestReport.
+        """
+        ...
+
+    def import_log_file(self, log_file: str | Path, incremental: bool = False) -> ReplayResult:
+        """Replay a log file by parsing each entry, simulating the results, then creating for real.
+
+        This method reads a log file created by the simulation logging, reconstructs
+        all the objects via simulation, and then creates them via the actual API.
+        IDs are mapped from simulated to real during the creation process.
+
+        Args:
+            log_file: Path to the log file to import.
+            incremental: (internal tooling) If True, goes line by line and calls API every event -- keeps track of last line sent so it can be called after some updates and be additive vs. replaying the entire log file each time(i.e. when False, reads the entire log file, building a test report in memory, then sends the calls for each step/measurement to the API).
+
+        Returns:
+            A ReplayResult containing the created report, steps, and measurements.
         """
         ...
 
@@ -1943,12 +2154,18 @@ class TestResultsAPI:
         """
         ...
 
-    def update(self, test_report: str | TestReport, update: TestReportUpdate | dict) -> TestReport:
+    def update(
+        self,
+        test_report: str | TestReport,
+        update: TestReportUpdate | dict,
+        log_file: str | Path | None = None,
+    ) -> TestReport:
         """Update a TestReport.
 
         Args:
             test_report: The TestReport or test report ID to update.
             update: Updates to apply to the TestReport.
+            log_file: If set, log the request to this file and return a simulated response.
 
         Returns:
             The updated TestReport.
@@ -1960,6 +2177,7 @@ class TestResultsAPI:
         test_measurement: TestMeasurement,
         update: TestMeasurementUpdate | dict,
         update_step: bool = False,
+        log_file: str | Path | None = None,
     ) -> TestMeasurement:
         """Update a TestMeasurement.
 
@@ -1967,18 +2185,25 @@ class TestResultsAPI:
             test_measurement: The TestMeasurement or measurement ID to update.
             update: Updates to apply to the TestMeasurement.
             update_step: Whether to update the step to failed if the measurement is being updated to failed.
+            log_file: If set, log the request to this file and return a simulated response.
 
         Returns:
             The updated TestMeasurement.
         """
         ...
 
-    def update_step(self, test_step: str | TestStep, update: TestStepUpdate | dict) -> TestStep:
+    def update_step(
+        self,
+        test_step: str | TestStep,
+        update: TestStepUpdate | dict,
+        log_file: str | Path | None = None,
+    ) -> TestStep:
         """Update a TestStep.
 
         Args:
             test_step: The TestStep or test step ID to update.
             update: Updates to apply to the TestStep.
+            log_file: If set, log the request to this file and return a simulated response.
 
         Returns:
             The updated TestStep.

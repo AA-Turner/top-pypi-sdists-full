@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
-from ..exceptions import ConfigValidationError, ExecutionError, PoeException
+from ..exceptions import ConfigValidationError, ExecutionError
 from .base import PoeTask, TaskContext
 
 if TYPE_CHECKING:
@@ -199,11 +199,8 @@ class SwitchTask(PoeTask):
     async def _handle_run(
         self, context: RunContext, env: TaskEnv, task_state: PoeTaskRun
     ):
-        named_arg_values, _ = self.get_parsed_arguments(env)
-        env.register_task_args(named_arg_values)
-
-        if not named_arg_values and any(arg.strip() for arg in self.invocation[1:]):
-            raise PoeException(f"Switch task {self.name!r} does not accept arguments")
+        named_arg_values, extra_args = self.get_parsed_arguments(env)
+        env.register_task_args(named_arg_values, extra_args)
 
         # Indicate on the global context that there are multiple stages to this task
         context.multistage = True

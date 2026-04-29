@@ -4,7 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 """CloudApplication Entity class."""
-from typing import Any, Mapping, Optional
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
 
 from ..._version import VERSION
 from ...common.utility import export
@@ -62,10 +66,10 @@ class CloudLogonSession(Entity):
             kw arguments.
 
         """
-        self.SessionId: Optional[str] = None
-        self.Account: Optional[str] = None
-        self.UserAgent: Optional[str] = None
-        self.StartTime: Optional[str] = None
+        self.SessionId: str | None = None
+        self.Account: str | None = None
+        self.UserAgent: str | None = None
+        self.StartTime: str | None = None
         super().__init__(src_entity=src_entity, **kwargs)
         if src_event:
             self._create_from_event(src_event)

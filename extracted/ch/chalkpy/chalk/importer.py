@@ -96,6 +96,8 @@ supported_aggs = (
     "max",
     "mean",
     "min",
+    "set_agg",
+    "set_union",
     "std",
     "std_sample",
     "stddev",
@@ -180,6 +182,8 @@ def _check_types(
         "min_by_n",
         "max_by_n",
         "array_agg",
+        "set_agg",
+        "set_union",
         "vector_sum",
         "vector_mean",
     }:

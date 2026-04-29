@@ -3,8 +3,9 @@
 import uuid
 
 import django.db.models.deletion
-import wbcore.contrib.io.models
 from django.db import migrations, models
+
+import wbcore.contrib.io.models
 
 
 class Migration(migrations.Migration):

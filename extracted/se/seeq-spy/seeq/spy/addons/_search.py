@@ -19,13 +19,13 @@ from seeq.spy.addons import _permissions
 
 @Status.top_level_spy_function()
 def search(
-    query: Union[pd.DataFrame, pd.Series, dict, list, str],
-    *,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None
-):
+        query: Union[pd.DataFrame, pd.Series, dict, list, str],
+        *,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
+) -> pd.DataFrame:
     """
     Issues a query to the Seeq Server to retrieve metadata for Add-on tools.
     This metadata can be used to update or uninstall Add-on tools.
@@ -136,14 +136,6 @@ def search(
     """
     input_args = locals()
 
-    try:
-        return _search(session, query, status, input_args=input_args)
-
-    except KeyboardInterrupt:
-        status.update('Search canceled', Status.CANCELED)
-
-
-def _search(session: Session, query, status: Status, *, input_args=None):
     system_api = SystemApi(session.client)
     tools = system_api.get_add_on_tools().add_on_tools
     if len(tools) == 0:

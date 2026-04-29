@@ -6,13 +6,12 @@ import os
 import pathlib
 import re
 import shutil
+import sys
 import tempfile
+import time
 import warnings
 from inspect import stack
-from typing import Union
-
-import sys
-import time
+from typing import Optional, Union
 
 
 def remove_regex_capture_group_names(regex):
@@ -126,6 +125,41 @@ def get_home_dir(user=None):
     return home
 
 
+g_long_paths_enabled: Optional[bool] = None
+
+
+def is_long_paths_enabled() -> bool:
+    """
+    Returns True if long paths are enabled (LongPathsEnabled = 1),
+    False otherwise. On non-Windows systems, always returns True.
+    """
+    if sys.platform != "win32":
+        return True  # Not applicable outside Windows
+
+    try:
+        import winreg
+    except ImportError:
+        return False  # Very unusual, but safe fallback
+
+    try:
+        global g_long_paths_enabled
+        if g_long_paths_enabled is not None:
+            return bool(g_long_paths_enabled)
+
+        with winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"SYSTEM\CurrentControlSet\Control\FileSystem"
+        ) as key:
+            value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
+            g_long_paths_enabled = (value == 1)
+            return g_long_paths_enabled
+    except FileNotFoundError:
+        return False
+    except PermissionError:
+        # Can't read HKLM without proper permissions → assume not enabled
+        return False
+
+
 def get_test_with_file():
     return os.path.normpath(
         os.path.join(os.path.dirname(__file__), '..', 'sdk', 'test-with.txt'))
@@ -183,11 +217,12 @@ def safe_open(filename, *args, **kwargs):
 
 def safe_makedirs(filename, *args, **kwargs):
     filename = handle_long_filenames(filename)
-    # Empirically, it looks like os.makedirs() cannot handle long filenames, so throw a half-decent exception
-    if len(filename) > 260:
+    if len(filename) > 260 and not is_long_paths_enabled():
+        # Empirically, it looks like os.makedirs() cannot handle long filenames without the magic reg key set,
+        # so throw a half-decent exception
         raise RuntimeError(f'Filename "{filename}" is too long.  Windows has a 260 character limit.')
 
-    return os.makedirs(handle_long_filenames(filename), *args, **kwargs)
+    return os.makedirs(filename, *args, **kwargs)
 
 
 def safe_walk(filename, *args, **kwargs):

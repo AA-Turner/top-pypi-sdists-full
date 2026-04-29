@@ -6032,6 +6032,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    EC2_APPLICATION_STATUS_CHECKS_SERVICE_ROLE_POLICY = "EC2_APPLICATION_STATUS_CHECKS_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

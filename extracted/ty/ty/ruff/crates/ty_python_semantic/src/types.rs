@@ -85,8 +85,8 @@ pub use crate::types::variance::TypeVarVariance;
 use crate::types::variance::VarianceInferable;
 use crate::types::visitor::any_over_type;
 use crate::{Db, FxOrderSet, Program};
-pub use class::KnownClass;
 pub(crate) use class::{ClassLiteral, ClassType, GenericAlias, StaticClassLiteral};
+pub use class::{KnownClass, MethodDecorator};
 use instance::Protocol;
 pub use instance::{NominalInstanceType, ProtocolInstanceType};
 pub(crate) use literal::{
@@ -1535,7 +1535,7 @@ impl<'db> Type<'db> {
         }
     }
 
-    pub(crate) const fn as_function_literal(self) -> Option<FunctionType<'db>> {
+    pub const fn as_function_literal(self) -> Option<FunctionType<'db>> {
         match self {
             Type::FunctionLiteral(function_type) => Some(function_type),
             _ => None,
@@ -3654,7 +3654,7 @@ impl<'db> Type<'db> {
             TypeContext::default(),
         ) {
             Ok(bindings) => bindings.return_type(db),
-            Err(CallDunderError::PossiblyUnbound(bindings)) => bindings.return_type(db),
+            Err(CallDunderError::PossiblyUnbound { bindings, .. }) => bindings.return_type(db),
 
             // TODO: emit a diagnostic
             Err(CallDunderError::MethodNotAvailable) => return None,
@@ -4774,36 +4774,12 @@ impl<'db> Type<'db> {
         tcx: TypeContext<'db>,
         policy: MemberLookupPolicy,
     ) -> Result<Bindings<'db>, CallDunderError<'db>> {
-        // For intersection types, call the dunder on each element separately and combine
-        // the results. This avoids intersecting bound methods (which often collapses to Never)
-        // and instead intersects the return types.
-        //
-        // TODO: we might be able to remove this after fixing
-        // https://github.com/astral-sh/ty/issues/2428.
         if let Type::Intersection(intersection) = self {
-            // Using `positive()` rather than `positive_elements_or_object()` is safe
-            // here because `object` does not define any of the dunders that are called
-            // through this path without `MRO_NO_OBJECT_FALLBACK` (e.g. `__await__`,
-            // `__iter__`, `__enter__`, `__bool__`).
-            let positive = intersection.positive(db);
+            return intersection.try_call_dunder_with_policy(db, name, argument_types, tcx, policy);
+        }
 
-            let mut successful_bindings = Vec::with_capacity(positive.len());
-            let mut last_error = None;
-
-            for element in positive {
-                match element.try_call_dunder_with_policy(db, name, argument_types, tcx, policy) {
-                    Ok(bindings) => successful_bindings.push(bindings),
-                    Err(err) => last_error = Some(err),
-                }
-            }
-
-            if successful_bindings.is_empty() {
-                // TODO we are only showing one of the errors here; should we aggregate them
-                // somehow or show all of them?
-                return Err(last_error.unwrap_or(CallDunderError::MethodNotAvailable));
-            }
-
-            return Ok(Bindings::from_intersection(self, successful_bindings));
+        if let Type::Union(union) = self {
+            return union.try_call_dunder_with_policy(db, name, argument_types, tcx, policy);
         }
 
         // Implicit calls to dunder methods never access instance members, so we pass
@@ -4828,7 +4804,10 @@ impl<'db> Type<'db> {
                     .check_types(db, &constraints, argument_types, tcx, &[])?;
 
                 if boundness == Definedness::PossiblyUndefined {
-                    return Err(CallDunderError::PossiblyUnbound(Box::new(bindings)));
+                    return Err(CallDunderError::PossiblyUnbound {
+                        bindings: Box::new(bindings),
+                        unbound_on: None,
+                    });
                 }
                 Ok(bindings)
             }
@@ -4863,7 +4842,10 @@ impl<'db> Type<'db> {
                     .check_types(db, &constraints, argument_types, tcx, &[])?;
 
                 if boundness == Definedness::PossiblyUndefined {
-                    return Err(CallDunderError::PossiblyUnbound(Box::new(bindings)));
+                    return Err(CallDunderError::PossiblyUnbound {
+                        bindings: Box::new(bindings),
+                        unbound_on: None,
+                    });
                 }
                 Ok(bindings)
             }
@@ -6220,16 +6202,18 @@ impl<'db> Type<'db> {
                 KnownInstanceType::TypeAliasType(type_alias) => {
                     Some(TypeDefinition::TypeAlias(type_alias.definition(db)))
                 }
-                KnownInstanceType::NewType(newtype) => Some(TypeDefinition::NewType(newtype.definition(db))),
+                KnownInstanceType::NewType(newtype) => {
+                    Some(TypeDefinition::NewType(newtype.definition(db)))
+                }
                 _ => None,
             },
 
             Self::SubclassOf(subclass_of_type) => match subclass_of_type.subclass_of() {
                 SubclassOfInner::Dynamic(_) => None,
                 SubclassOfInner::Class(class) => class.type_definition(db),
-                SubclassOfInner::TypeVar(bound_typevar) => {
-                    Some(TypeDefinition::TypeVar(bound_typevar.typevar(db).definition(db)?))
-                }
+                SubclassOfInner::TypeVar(bound_typevar) => Some(TypeDefinition::TypeVar(
+                    bound_typevar.typevar(db).definition(db)?,
+                )),
             },
 
             Self::TypeAlias(alias) => alias.value_type(db).definition(db),
@@ -6239,17 +6223,27 @@ impl<'db> Type<'db> {
                 .getter(db)
                 .and_then(|getter| getter.definition(db))
                 .or_else(|| property.setter(db).and_then(|setter| setter.definition(db)))
-                .or_else(|| property.deleter(db).and_then(|deleter| deleter.definition(db))),
+                .or_else(|| {
+                    property
+                        .deleter(db)
+                        .and_then(|deleter| deleter.definition(db))
+                }),
 
-            Self::LiteralValue(_)
-            // TODO: For enum literals, it would be even better to jump to the definition of the specific member
-            | Self::KnownBoundMethod(_)
+            Self::LiteralValue(literal) => literal
+                .as_enum()
+                .and_then(|enum_lit| enum_lit.definition(db))
+                .map(TypeDefinition::EnumMember)
+                .or_else(|| self.to_meta_type(db).definition(db)),
+
+            Self::KnownBoundMethod(_)
             | Self::WrapperDescriptor(_)
             | Self::DataclassDecorator(_)
             | Self::DataclassTransformer(_)
             | Self::BoundSuper(_) => self.to_meta_type(db).definition(db),
 
-            Self::TypeVar(bound_typevar) => Some(TypeDefinition::TypeVar(bound_typevar.typevar(db).definition(db)?)),
+            Self::TypeVar(bound_typevar) => Some(TypeDefinition::TypeVar(
+                bound_typevar.typevar(db).definition(db)?,
+            )),
 
             Self::ProtocolInstance(protocol) => match protocol.inner {
                 Protocol::FromClass(class) => class.type_definition(db),
@@ -6262,8 +6256,12 @@ impl<'db> Type<'db> {
 
             Self::SpecialForm(special_form) => special_form.definition(db),
             Self::Never => Type::SpecialForm(SpecialFormType::Never).definition(db),
-            Self::Dynamic(DynamicType::Any) => Type::SpecialForm(SpecialFormType::Any).definition(db),
-            Self::Dynamic(DynamicType::Unknown | DynamicType::UnknownGeneric(_)) => Type::SpecialForm(SpecialFormType::Unknown).definition(db),
+            Self::Dynamic(DynamicType::Any) => {
+                Type::SpecialForm(SpecialFormType::Any).definition(db)
+            }
+            Self::Dynamic(DynamicType::Unknown | DynamicType::UnknownGeneric(_)) => {
+                Type::SpecialForm(SpecialFormType::Unknown).definition(db)
+            }
             Self::AlwaysTruthy => Type::SpecialForm(SpecialFormType::AlwaysTruthy).definition(db),
             Self::AlwaysFalsy => Type::SpecialForm(SpecialFormType::AlwaysFalsy).definition(db),
 
@@ -6275,7 +6273,7 @@ impl<'db> Type<'db> {
                 | DynamicType::TodoStarredExpression
                 | DynamicType::TodoTypeVarTuple
                 | DynamicType::InvalidConcatenateUnknown
-                | DynamicType::UnspecializedTypeVar
+                | DynamicType::UnspecializedTypeVar,
             )
             | Self::Callable(_)
             | Self::TypeIs(_)
@@ -6377,6 +6375,121 @@ impl<'db> Type<'db> {
             Truthiness::AlwaysFalse => Type::bool_literal(false),
             Truthiness::Ambiguous => KnownClass::Bool.to_instance(db),
         }
+    }
+}
+
+impl<'db> IntersectionType<'db> {
+    // Calls the dunder on each element separately and combines the results.
+    // This avoids intersecting bound methods (which often collapses to Never)
+    // and instead intersects the return types.
+    //
+    // TODO: we might be able to remove this after fixing
+    // https://github.com/astral-sh/ty/issues/2428.
+    fn try_call_dunder_with_policy(
+        self,
+        db: &'db dyn Db,
+        name: &str,
+        argument_types: &mut CallArguments<'_, 'db>,
+        tcx: TypeContext<'db>,
+        policy: MemberLookupPolicy,
+    ) -> Result<Bindings<'db>, CallDunderError<'db>> {
+        // Using `positive()` rather than `positive_elements_or_object()` is safe
+        // here because `object` does not define any of the dunders that are called
+        // through this path without `MRO_NO_OBJECT_FALLBACK` (e.g. `__await__`,
+        // `__iter__`, `__enter__`, `__bool__`).
+        let positive = self.positive(db);
+        let mut successful_bindings = Vec::with_capacity(positive.len());
+        let mut last_error = None;
+
+        for element in positive {
+            match element.try_call_dunder_with_policy(db, name, argument_types, tcx, policy) {
+                Ok(bindings) => successful_bindings.push(bindings),
+                Err(err) => last_error = Some(err),
+            }
+        }
+
+        if successful_bindings.is_empty() {
+            // TODO we are only showing one of the errors here; should we aggregate
+            // them somehow or show all of them?
+            return Err(last_error.unwrap_or(CallDunderError::MethodNotAvailable));
+        }
+
+        Ok(Bindings::from_intersection(
+            Type::Intersection(self),
+            successful_bindings,
+        ))
+    }
+}
+
+impl<'db> UnionType<'db> {
+    // Performs a lookup for the dunder on each union member separately, then
+    // aggregates the results.
+    //
+    // This alternative to aggregating the dunder lookups with
+    // `UnionType.map_with_boundness_and_qualifiers` preserves the information
+    // necessary to emit more precise diagnostics for "possibly unbound" errors.
+    fn try_call_dunder_with_policy(
+        self,
+        db: &'db dyn Db,
+        name: &str,
+        argument_types: &mut CallArguments<'_, 'db>,
+        tcx: TypeContext<'db>,
+        policy: MemberLookupPolicy,
+    ) -> Result<Bindings<'db>, CallDunderError<'db>> {
+        let elements = self.elements(db);
+        let mut builder = UnionBuilder::new(db);
+        let mut unbound_on: Vec<Type<'db>> = Vec::new();
+        let mut any_defined = false;
+        let mut possibly_undefined = false;
+
+        for element in elements {
+            match element
+                .member_lookup_with_policy(
+                    db,
+                    name.into(),
+                    policy | MemberLookupPolicy::NO_INSTANCE_FALLBACK,
+                )
+                .place
+            {
+                Place::Defined(DefinedPlace {
+                    ty,
+                    definedness: Definedness::PossiblyUndefined,
+                    ..
+                }) => {
+                    builder = builder.add(ty);
+                    any_defined = true;
+                    possibly_undefined = true;
+                }
+                Place::Defined(DefinedPlace { ty, .. }) => {
+                    builder = builder.add(ty);
+                    any_defined = true;
+                }
+                Place::Undefined => {
+                    unbound_on.push(*element);
+                    possibly_undefined = true;
+                }
+            }
+        }
+
+        if !any_defined {
+            return Err(CallDunderError::MethodNotAvailable);
+        }
+
+        let dunder_callable = builder.build();
+        let constraints = ConstraintSetBuilder::new();
+        let bindings = dunder_callable
+            .bindings(db)
+            .match_parameters(db, argument_types)
+            .check_types(db, &constraints, argument_types, tcx, &[])?;
+
+        if possibly_undefined {
+            return Err(CallDunderError::PossiblyUnbound {
+                bindings: Box::new(bindings),
+                unbound_on: (!unbound_on.is_empty()).then(|| unbound_on.into_boxed_slice()),
+            });
+        }
+
+        Ok(bindings)
     }
 }
 
@@ -7305,8 +7418,19 @@ impl<'db> AwaitError<'db> {
                     );
                 }
             }
-            Self::Call(CallDunderError::PossiblyUnbound(bindings)) => {
+            Self::Call(CallDunderError::PossiblyUnbound {
+                bindings,
+                unbound_on,
+            }) => {
                 diag.info("`__await__` may be missing");
+                if let Some(unbound_on) = unbound_on {
+                    for ty in unbound_on {
+                        diag.info(format_args!(
+                            "`{}` does not implement `__await__`",
+                            ty.display(db)
+                        ));
+                    }
+                }
                 if let Some(definition_spans) = bindings.callable_type().function_spans(db) {
                     diag.annotate(
                         Annotation::secondary(definition_spans.signature)

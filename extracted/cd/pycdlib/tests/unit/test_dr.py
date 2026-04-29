@@ -24,10 +24,21 @@ def test_xa_parse_initialized_twice():
     assert(str(excinfo.value) == 'This XARecord is already initialized')
 
 def test_xa_parse_bad_reserved():
+    # Regression test for issue #136 (FreeBSD 14.3-BETA1).  When the bytes
+    # at the signature offset coincidentally equal 'XA' but the trailing
+    # reserved bytes are not all zero, this is not a real XA record (the
+    # Yellow Book spec mandates zero reserved bytes); it's Rock Ridge SUSP
+    # payload that happens to look like one.  Treat as not-XA, do not raise.
     xa = pycdlib.dr.XARecord()
-    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
-        xa.parse(b'\x00\x00\x00\x00\x00\x00\x58\x41\x00\x00\x00\x00\x00\x01', 1)
-    assert(str(excinfo.value) == 'Unused fields should be 0')
+    assert(not xa.parse(b'\x00\x00\x00\x00\x00\x00\x58\x41\x00\x00\x00\x00\x00\x01', 1))
+    assert(not xa._initialized)
+
+def test_xa_parse_no_signature():
+    # When neither candidate offset has the 'XA' signature, parse() returns
+    # False without initializing the record.
+    xa = pycdlib.dr.XARecord()
+    assert(not xa.parse(b'\x00' * 14, 1))
+    assert(not xa._initialized)
 
 def test_xa_parse_padding():
     xa = pycdlib.dr.XARecord()
@@ -77,6 +88,66 @@ def test_dr_bad_seqnum():
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
         dr.parse(None, b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' + b'\x00'*7 + b'\x00\x00\x00\x01\x00\x00\x02\x00\x00', None)
     assert(str(excinfo.value) == 'Little-endian and big-endian seqnum disagree')
+
+# A 33-byte directory record header for a non-root entry, plus a 1-byte
+# file_ident -- the same shape used by the dotdot tests above.  Length is
+# patched per-test to match the system-use payload that follows.
+_DR_HEADER_TEMPLATE = (
+    b'\x30'                                # dr_len (patched per-test)
+    b'\x00'                                # xattr_len
+    b'\x17\x00\x00\x00\x00\x00\x00\x17'    # extent_le / extent_be (swab)
+    b'\x00\x08\x00\x00\x00\x00\x08\x00'    # data_le / data_be (swab)
+    b'\x78\x09\x0d\x0d\x07\x15\xf0'        # date
+    b'\x02'                                # file_flags (DIR)
+    b'\x00\x00'                            # file_unit_size, interleave_gap_size
+    b'\x01\x00\x00\x01'                    # seqnum_le / seqnum_be (swab)
+    b'\x01'                                # len_fi=1
+    b'\x01'                                # file_ident (dotdot)
+)
+
+# 14 bytes that XARecord.parse will see at slice offset 0: bytes 6-7 are
+# 'XA' (signature match), bytes 9-13 are non-zero (would have raised the
+# old "Unused fields should be 0" error).  Bytes 0-1 (\xaa\xbb) are not
+# any known SUSP signature, so Rock Ridge detection is also skipped.
+_FAKE_XA_SYSUSE = b'\xaa\xbb\xcc\xdd\xee\xff' + b'XA' + b'\x00' + b'\x01\x02\x03\x04\x05'
+
+def _root_dr(pvd):
+    rec = pycdlib.dr.DirectoryRecord()
+    rec.parse(pvd, b'\x22\x00\x17\x00\x00\x00\x00\x00\x00\x17\x00\x08\x00\x00\x00\x00\x08\x00\x78\x09\x0d\x0d\x07\x15\xf0\x02\x00\x00\x01\x00\x00\x01\x01\x00', None)
+    return rec
+
+def test_dr_xa_skipped_when_no_marker():
+    # Regression test for issue #136 (FreeBSD 14.3-BETA1).  When the volume
+    # does not carry the 'CD-XA001' marker in the PVD application_use area,
+    # the parser must skip XA detection entirely.  Without the gate, a
+    # non-XA system-use payload that happens to contain 'XA' at the XA
+    # signature offset (byte 6 of the candidate slice) is misread as a
+    # malformed XA record and aborts the parse.
+    pvd = pycdlib.headervd.pvd_factory(b'', b'', 0, 0, 0, b'', b'', b'', b'', b'', b'', b'', 0.0, b'', False)
+    root = _root_dr(pvd)
+
+    record = _DR_HEADER_TEMPLATE + _FAKE_XA_SYSUSE
+
+    rec = pycdlib.dr.DirectoryRecord()
+    rec.parse(pvd, record, root, False)
+    assert(rec.xa_record is None)
+    assert(rec.rock_ridge is None)
+
+def test_dr_xa_marker_set_with_false_positive():
+    # Defensive layer beneath the architectural gate: even when the volume
+    # declares XA, a candidate slice whose signature bytes match 'XA' but
+    # whose trailing reserved bytes are not all zero must be treated as
+    # not-XA (per the Yellow Book spec, real XA records always have the
+    # reserved bytes zero), not as a malformed XA that aborts the parse.
+    pvd = pycdlib.headervd.pvd_factory(b'', b'', 0, 0, 0, b'', b'', b'', b'', b'', b'', b'', 0.0, b'', False)
+    root = _root_dr(pvd)
+
+    record = _DR_HEADER_TEMPLATE + _FAKE_XA_SYSUSE
+
+    rec = pycdlib.dr.DirectoryRecord()
+    rec.parse(pvd, record, root, True)
+    assert(rec.xa_record is None)
+    assert(rec.rock_ridge is None)
 
 def test_dr_bad_rr_parent():
     pvd = pycdlib.headervd.pvd_factory(b'', b'', 0, 0, 0, b'', b'', b'', b'', b'', b'', b'', 0.0, b'', False)
@@ -377,3 +448,48 @@ def test_dr_file_too_big():
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
         dr.new_file(pvd, 2**32, b'', None, 1, '', b'', False, 0, 0)
     assert(str(excinfo.value) == 'Maximum supported file length is 2^32-1')
+
+def test_dr_add_child_multi_extent_chain():
+    # Regression test for issue #134.  Files larger than ~8.6 GiB are split
+    # into 3+ multi-extent chunks (max 0xfffff800 bytes per chunk).  All
+    # chunks share the same file_ident, so bisect_left returns the leftmost
+    # duplicate when each new chunk is added.  The previous logic always
+    # linked data_continuation onto self.children[index] (the leftmost
+    # duplicate), which (a) overwrote the prior continuation pointer once
+    # there were 3+ chunks and (b) inserted new chunks between the head and
+    # earlier chunks, scrambling the on-disk order.  The fix walks forward
+    # to the last existing duplicate before linking.
+    pvd = pycdlib.headervd.pvd_factory(b'', b'', 0, 0, 0, b'', b'', b'', b'', b'', b'', b'', 0.0, b'', False)
+    root_dr = pycdlib.dr.DirectoryRecord()
+    root_dr.new_root(pvd, 1, 2048, time.time())
+
+    chunks = []
+    for i in range(6):
+        chunk = pycdlib.dr.DirectoryRecord()
+        chunk.new_file(pvd, 1024, b'BIG.TAR;1', root_dr, 1, '', b'', False, 0,
+                       time.time())
+        chunks.append(chunk)
+
+    # The first chunk uses add_child (raises on duplicate); subsequent chunks
+    # need allow_duplicate=True, mirroring the parser's behavior for very
+    # large files.
+    root_dr.add_child(chunks[0], 2048)
+    for chunk in chunks[1:]:
+        root_dr.add_child(chunk, 2048, True)
+
+    # Children must remain in insertion order.
+    big_children = [c for c in root_dr.children if c.file_ident == b'BIG.TAR;1']
+    assert(big_children == chunks)
+
+    # data_continuation must form a single chain in insertion order.
+    walked = []
+    cur = chunks[0]
+    while cur is not None:
+        walked.append(cur)
+        cur = cur.data_continuation
+    assert(walked == chunks)
+
+    # The multi-extent bit is set on every chunk except the last.
+    for chunk in chunks[:-1]:
+        assert(chunk.file_flags & (1 << pycdlib.dr.DirectoryRecord.FILE_FLAG_MULTI_EXTENT_BIT))
+    assert(not (chunks[-1].file_flags & (1 << pycdlib.dr.DirectoryRecord.FILE_FLAG_MULTI_EXTENT_BIT)))

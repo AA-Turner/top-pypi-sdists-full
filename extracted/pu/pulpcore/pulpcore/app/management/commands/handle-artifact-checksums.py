@@ -1,10 +1,11 @@
+import logging
 import os
-
 from gettext import gettext as _
 
 from django.conf import settings
 from django.core.management import BaseCommand, CommandError
 from django.db.models import Q, Sum
+
 from pulpcore import constants
 from pulpcore.app import pulp_hashlib
 from pulpcore.plugin.models import (
@@ -14,8 +15,6 @@ from pulpcore.plugin.models import (
     RemoteArtifact,
     RepositoryVersion,
 )
-
-import logging
 
 log = logging.getLogger("")
 
@@ -136,7 +135,7 @@ class Command(BaseCommand):
                                 restored = True
                                 break
                 if not restored:
-                    self.stdout.write(_("Deleting unrepairable file {}".format(file_path)))
+                    self.stdout.write(_("Deleting unrepairable file {}").format(file_path))
                     artifact.file.delete(save=False)
             else:
                 break

@@ -402,7 +402,6 @@ class TestModelLoadEvent:
         assert isinstance(event.tabpfn_version, str)
         assert isinstance(event.timestamp, datetime)
         assert event.source == "sdk"
-        assert isinstance(event.install_id, str)
 
     def test_model_load_event_properties_method(self):
         """Test ModelLoadEvent properties method"""
@@ -420,7 +419,6 @@ class TestModelLoadEvent:
         assert props["failure_reason"] == "Download timeout"
         assert "python_version" in props
         assert "tabpfn_version" in props
-        assert "install_id" in props
 
 
 class TestExtensionEntryEvent:

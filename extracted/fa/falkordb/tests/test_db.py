@@ -1,4 +1,7 @@
+from unittest.mock import patch
+
 import pytest
+import redis.exceptions
 
 from falkordb import FalkorDB
 
@@ -57,6 +60,82 @@ def test_connect_via_url():
     assert one == 1
     assert header[0][0] == 1
     assert header[0][1] == "1"
+
+
+def test_from_url():
+    """Test that from_url uses the correct host/port from URL"""
+    # Test basic connection with just host
+    db = FalkorDB.from_url("falkor://localhost")
+    g = db.select_graph("db")
+    one = g.query("RETURN 1").result_set[0][0]
+    assert one == 1
+    db.close()
+
+    # Test connection with host and port
+    db = FalkorDB.from_url("falkor://localhost:6379")
+    g = db.select_graph("db")
+    qr = g.query("RETURN 1")
+    one = qr.result_set[0][0]
+    header = qr.header
+    assert one == 1
+    assert header[0][0] == 1
+    assert header[0][1] == "1"
+    db.close()
+
+    # Test SSL URL parsing (falkors:// scheme)
+    with pytest.raises(
+        (redis.exceptions.ConnectionError, ConnectionRefusedError, OSError)
+    ) as exc_info:
+        FalkorDB.from_url("falkors://nonexistent-ssl.example.com:6380")
+    error_str = str(exc_info.value)
+    assert "nonexistent-ssl.example.com" in error_str or "6380" in error_str, (
+        f"Error should mention SSL host: {error_str}"
+    )
+
+    # Test that from_url fails with correct host when connecting
+    # to non-existent host (not localhost)
+    with pytest.raises(
+        (redis.exceptions.ConnectionError, ConnectionRefusedError, OSError)
+    ) as exc_info:
+        FalkorDB.from_url("falkor://nonexistent.example.com:1234")
+    error_str = str(exc_info.value)
+    assert "nonexistent.example.com" in error_str or "1234" in error_str, (
+        f"Error should mention correct host: {error_str}"
+    )
+    assert "localhost" not in error_str, (
+        f"Error should not mention localhost: {error_str}"
+    )
+
+
+@patch("falkordb.falkordb.Is_Cluster", return_value=False)
+@patch("falkordb.falkordb.Is_Sentinel", return_value=False)
+def test_from_url_unix_socket(mock_sentinel, mock_cluster):
+    """Test that from_url correctly parses unix:// socket URLs."""
+    db = FalkorDB.from_url("unix:///tmp/falkordb.sock")
+    pool = db.connection.connection_pool
+
+    from redis.connection import UnixDomainSocketConnection
+
+    assert pool.connection_class is UnixDomainSocketConnection
+    assert pool.connection_kwargs.get("path") == "/tmp/falkordb.sock"
+    db.close()
+
+
+@patch("falkordb.falkordb.Is_Cluster", return_value=False)
+@patch("falkordb.falkordb.Is_Sentinel", return_value=False)
+def test_from_url_unix_socket_with_password(mock_sentinel, mock_cluster):
+    """Test that from_url handles unix:// URLs with credentials."""
+    db = FalkorDB.from_url("unix://myuser:mypass@/tmp/falkordb.sock?db=2")
+    pool = db.connection.connection_pool
+
+    from redis.connection import UnixDomainSocketConnection
+
+    assert pool.connection_class is UnixDomainSocketConnection
+    assert pool.connection_kwargs.get("path") == "/tmp/falkordb.sock"
+    assert pool.connection_kwargs.get("username") == "myuser"
+    assert pool.connection_kwargs.get("password") == "mypass"
+    assert pool.connection_kwargs.get("db") == 2
+    db.close()
 
 
 def test_udf_load(client):

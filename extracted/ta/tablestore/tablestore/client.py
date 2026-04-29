@@ -257,6 +257,122 @@ class OTSClient(BaseOTSClient):
         res_body_json['requestId'] = request_id
         return res_body_json
 
+    def _validate_split_points(self, split_points, pk_type):
+        """
+        验证 split_points 的有效性
+        
+        :param split_points: 分区点列表
+        :param pk_type: 第一个主键的类型，如 'INTEGER', 'STRING', 'BINARY'
+        """
+        from tablestore.metadata import INF_MIN, INF_MAX
+        
+        if not split_points:
+            raise OTSClientError("The split-point list cannot be empty.")
+        
+        # 检查不能是 INF_MIN/INF_MAX
+        for point in split_points:
+            if point is INF_MIN or point is INF_MAX:
+                raise OTSClientError("The split-point can't be set as an INF value.")
+        
+        # 检查类型与主键类型一致
+        for point in split_points:
+            if pk_type == 'INTEGER':
+                if not isinstance(point, int):
+                    raise OTSClientError(
+                        "The split-point's type doesn't match the partition key's type. "
+                        "Expected INTEGER, but got {}.".format(type(point).__name__)
+                    )
+            elif pk_type == 'STRING':
+                if not isinstance(point, str):
+                    raise OTSClientError(
+                        "The split-point's type doesn't match the partition key's type. "
+                        "Expected STRING, but got {}.".format(type(point).__name__)
+                    )
+            elif pk_type == 'BINARY':
+                if not isinstance(point, (bytes, bytearray)):
+                    raise OTSClientError(
+                        "The split-point's type doesn't match the partition key's type. "
+                        "Expected BINARY, but got {}.".format(type(point).__name__)
+                    )
+        
+        # 检查严格递增
+        for i in range(1, len(split_points)):
+            if split_points[i-1] >= split_points[i]:
+                raise OTSClientError("The split-point list isn't strictly increasing.")
+
+    def _create_table_ex(self, table_meta, table_options, reserved_throughput, secondary_indexes=None, sse_spec=None,
+                         split_points=None):
+        """
+        内部方法：创建表并预分区（支持不传 split_points 创建普通表）
+
+        ``table_meta`` is an instance of the ``tablestore.metadata.TableMeta`` class.
+        ``table_options`` is an instance of the ``tablestore.metadata.TableOptions`` class.
+        ``reserved_throughput`` is an instance of the ``tablestore.metadata.ReservedThroughput`` class.
+        ``secondary_indexes`` is an array of ``tablestore.metadata.SecondaryIndexMeta`` instances.
+        ``sse_spec`` is an instance of the ``tablestore.metadata.SSESpecification`` class.
+        ``split_points`` is a list of partition points, optional. If not provided,
+            is None, or is empty, this method is equivalent to ``create_table()`` and
+            will create a normal single-partition table.
+
+        Constraints on ``split_points``:
+            1. Element type must match the first primary key type:
+               INTEGER -> int, STRING -> str, BINARY -> bytes or bytearray.
+            2. The list must be strictly increasing.
+            3. Must not contain ``INF_MIN`` or ``INF_MAX``.
+            4. The number of points must not exceed the representable range of
+               the primary key type (e.g., at most 255 for 1-byte BINARY).
+
+        :return: None
+        :raises OTSClientError: If parameters are invalid or split_points violate constraints.
+
+        Example:
+
+            schema_of_primary_key = [('gid', 'INTEGER'), ('uid', 'INTEGER')]
+            table_meta = TableMeta('myTable', schema_of_primary_key)
+            table_options = TableOptions()
+            reserved_throughput = ReservedThroughput(CapacityUnit(0, 0))
+            split_points = [100, 200, 300]
+            client._create_table_ex(
+                table_meta, table_options, reserved_throughput, split_points=split_points
+            )
+
+        SplitPointFactory can be used to generate split points for different primary key types:
+
+            from tablestore.split_point_factory import SplitPointFactory
+
+            # INTEGER primary key: generate 3 split points in range [0, 999]
+            split_points = SplitPointFactory._get_digit(3, 0, 999)
+            # Returns: [250, 500, 750]
+
+            # STRING primary key: generate 3 lowercase hex split points with length 8
+            split_points = SplitPointFactory._get_lower_hex_string(3, 8)
+            # Returns: ['40000000', '80000000', 'c0000000']
+
+            # STRING primary key: generate 3 uppercase hex split points with length 8
+            split_points = SplitPointFactory._get_upper_hex_string(3, 8)
+            # Returns: ['40000000', '80000000', 'C0000000']
+
+            # BINARY primary key: generate 3 binary split points with 4 bytes
+            split_points = SplitPointFactory._get_binary(3, 4)
+            # Returns: [b'\x40\x00\x00\x00', b'\x80\x00\x00\x00', b'\xc0\x00\x00\x00']
+        """
+        # 1. 先判断有没有 split_points
+        if not split_points:
+            # 无分区点时，退化为普通建表
+            return self.create_table(table_meta, table_options, reserved_throughput,
+                                     secondary_indexes, sse_spec)
+
+        # 2. 有分区点时，处理二级索引
+        if secondary_indexes is None:
+            secondary_indexes = []
+
+        # 3. 预分区建表
+        pk_type = table_meta.schema_of_primary_key[0][1]
+        self._validate_split_points(split_points, pk_type)
+
+        self._request_helper('CreateTable', table_meta, table_options,
+                             reserved_throughput, sse_spec, secondary_indexes, split_points)
+
     def create_table(self, table_meta, table_options, reserved_throughput, secondary_indexes=None, sse_spec=None):
         """
         Description: Creates a table based on the table information.

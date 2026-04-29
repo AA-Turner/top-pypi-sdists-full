@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tabcompleter
-Version: 1.4.0
+Version: 1.4.1
 Summary: tabcompleter --- Autocompletion in the Python console.
 Home-page: https://github.com/mdmintz/tabcompleter
 Author: Michael Mintz
@@ -33,6 +33,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering
@@ -46,6 +47,19 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyreadline3; platform_system == "Windows"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: platform
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # tabcompleter (📃) [![](https://img.shields.io/pypi/v/tabcompleter.svg)](https://pypi.python.org/pypi/tabcompleter)
 

@@ -854,6 +854,7 @@ class ReplyMessage(TypesBaseModel):
     story_share: Optional[dict] = None
     felix_share: Optional[dict] = None
     xma_share: Optional[MediaXma] = None
+    generic_xma: Optional[List[MediaXma]] = None
     clip: Optional[Media] = None
     placeholder: Optional[dict] = None
 
@@ -878,6 +879,7 @@ class DirectMessage(TypesBaseModel):
     story_share: Optional[dict] = None
     felix_share: Optional[dict] = None
     xma_share: Optional[MediaXma] = None
+    generic_xma: Optional[List[MediaXma]] = None
     clip: Optional[Media] = None
     placeholder: Optional[dict] = None
     client_context: Optional[str] = None
@@ -923,11 +925,11 @@ class DirectThread(TypesBaseModel):
     mentions_muted: bool
     approval_required_for_new_members: bool
     input_mode: int
-    business_thread_folder: int
-    read_state: int
+    business_thread_folder: Optional[int] = None
+    read_state: Optional[int] = None
     is_close_friend_thread: bool = False
-    assigned_admin_id: int
-    shh_mode_enabled: bool
+    assigned_admin_id: Optional[int] = None
+    shh_mode_enabled: Optional[bool] = None
     last_seen_at: Dict[str, LastSeenInfo] = {}
 
     def is_seen(self, user_id: str):
@@ -997,6 +999,7 @@ class Track(TypesBaseModel):
     subtitle: str
     display_artist: str
     audio_cluster_id: int
+    music_canonical_id: Optional[str] = None
     artist_id: Optional[int] = None
     cover_artwork_uri: Optional[HttpUrl] = None
     cover_artwork_thumbnail_uri: Optional[HttpUrl] = None

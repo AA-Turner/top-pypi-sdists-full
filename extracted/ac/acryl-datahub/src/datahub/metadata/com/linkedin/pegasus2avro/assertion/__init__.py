@@ -15,6 +15,7 @@ from .....schema_classes import AssertionNoteClass
 from .....schema_classes import AssertionResultClass
 from .....schema_classes import AssertionResultErrorClass
 from .....schema_classes import AssertionResultErrorTypeClass
+from .....schema_classes import AssertionResultSeverityClass
 from .....schema_classes import AssertionResultTypeClass
 from .....schema_classes import AssertionRunEventClass
 from .....schema_classes import AssertionRunStatusClass
@@ -69,6 +70,7 @@ AssertionNote = AssertionNoteClass
 AssertionResult = AssertionResultClass
 AssertionResultError = AssertionResultErrorClass
 AssertionResultErrorType = AssertionResultErrorTypeClass
+AssertionResultSeverity = AssertionResultSeverityClass
 AssertionResultType = AssertionResultTypeClass
 AssertionRunEvent = AssertionRunEventClass
 AssertionRunStatus = AssertionRunStatusClass

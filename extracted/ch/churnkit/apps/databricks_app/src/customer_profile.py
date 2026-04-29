@@ -10,6 +10,7 @@ of every column on v_account_explanation so the CSM still sees the data.
 """
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import pandas as pd
@@ -23,9 +24,44 @@ from .template import DataSource, bundle_css, load_template, render_html
 
 
 def _clean(v: Any) -> Any:
-    """Convert pandas NaN to None so `{{#if x}}` handles missing values correctly."""
-    if isinstance(v, float) and pd.isna(v):
+    """Coerce a Spark/pandas/Arrow value into a Handlebars-safe Python object.
+
+    The dashboard reads via ``cur.fetchall_arrow().to_pandas()``, which lands
+    Spark ``ARRAY<STRUCT<..>>`` columns as ``numpy.ndarray`` of dicts. Pybars
+    evaluates ``{{#if account_top_shap_features}}`` by calling ``bool(arr)``,
+    and a numpy ndarray with >1 elements raises
+    ``ValueError: The truth value of an array with more than one element is
+    ambiguous`` — which kills the whole render.
+
+    Recursively coerce:
+    - ``numpy.ndarray`` -> ``list`` (each item cleaned)
+    - ``list`` / ``tuple`` -> ``list`` (each item cleaned)
+    - ``dict`` -> ``dict`` (each value cleaned) so nested struct fields work
+    - scalar NaN / NaT / ``pd.NA`` -> ``None``
+    - anything else -> as-is
+    """
+    if v is None:
         return None
+    # numpy ndarray FIRST -- bool(ndarray) is the failure mode.
+    try:
+        import numpy as _np  # noqa: PLC0415 - cheap, pandas already imports numpy
+    except ImportError:
+        _np = None
+    if _np is not None and isinstance(v, _np.ndarray):
+        return [_clean(x) for x in v.tolist()]
+    if isinstance(v, (list, tuple)):
+        return [_clean(x) for x in v]
+    if isinstance(v, dict):
+        return {k: _clean(val) for k, val in v.items()}
+    # Scalar NaN/NaT detection -- pd.isna on arrays returns an array, so we
+    # only call it after the array/list/dict branches above. Falls back to
+    # the value unchanged on TypeError (non-NA-aware types like custom
+    # objects) so we never swallow legitimate values.
+    try:
+        if pd.isna(v):
+            return None
+    except (TypeError, ValueError):
+        pass
     return v
 
 
@@ -35,6 +71,47 @@ def _row_to_context(row: pd.Series) -> dict[str, Any]:
 
 def _rows_to_context(df: pd.DataFrame) -> list[dict[str, Any]]:
     return [{k: _clean(v) for k, v in row.items()} for _, row in df.iterrows()]
+
+
+def _build_provenance_index(df: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    """Index ``v_feature_provenance`` rows by ``feature_name`` for O(1) lookup.
+
+    Empty input returns an empty dict so callers don't need to special-case
+    the missing-view path (older causal-track builds without the view).
+    """
+    if df is None or df.empty or "feature_name" not in df.columns:
+        return {}
+    return {
+        str(row["feature_name"]): _row_to_context(row)
+        for _, row in df.iterrows()
+        if row.get("feature_name") is not None
+    }
+
+
+def _enrich_shap_with_meta(
+    shap_rows: Any,
+    provenance: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Attach a ``meta`` dict to each SHAP row keyed by ``feature``.
+
+    Always returns a list of cleaned dicts. Rows whose feature has no meta
+    entry get ``meta = None`` so the template's ``{{#if this.meta}}`` short-
+    circuits cleanly.
+    """
+    if not shap_rows:
+        return []
+    cleaned: list[dict[str, Any]] = []
+    for row in shap_rows:
+        if not isinstance(row, dict):
+            row = _clean(row)
+        if not isinstance(row, dict):
+            continue
+        feature = row.get("feature")
+        meta = provenance.get(str(feature)) if feature is not None else None
+        new_row = dict(row)
+        new_row["meta"] = meta
+        cleaned.append(new_row)
+    return cleaned
 
 
 def _fetch_data_source(ds: DataSource, entity_id: str):
@@ -82,17 +159,75 @@ def render() -> None:
         return
 
     cfg = load_config()
-    template = load_template(cfg.profile_template_path or None)
+    requested_path = cfg.profile_template_path or None
+    template = load_template(requested_path)
 
     # Build the full template context: flat account_explanation columns
     # + one nested dict per declared data source.
     context: dict[str, Any] = _row_to_context(detail_df.iloc[0])
+
+    # Enrich SHAP rows with per-feature provenance so the template can render
+    # the "Feature dictionary" table beneath the bar chart. The provenance
+    # view is loaded once (cached) and looked up by feature_name. The flat
+    # ``feature_dictionary`` list is the SAME data deduped by feature so the
+    # dictionary table iterates without repeating identical rows when a
+    # feature appears more than once in the SHAP set.
+    try:
+        provenance_df = data.feature_provenance()
+    except Exception:
+        provenance_df = pd.DataFrame()
+    provenance_index = _build_provenance_index(provenance_df)
+    enriched_shap = _enrich_shap_with_meta(
+        context.get("account_top_shap_features"), provenance_index
+    )
+    context["account_top_shap_features"] = enriched_shap
+    seen: set[str] = set()
+    feature_dictionary: list[dict[str, Any]] = []
+    for row in enriched_shap:
+        feature = row.get("feature")
+        if feature is None or feature in seen or not row.get("meta"):
+            continue
+        seen.add(feature)
+        feature_dictionary.append({"feature": feature, **row["meta"]})
+    context["feature_dictionary"] = feature_dictionary
+
+    data_source_diagnostics: list[dict[str, Any]] = []
     for ds in template.data_sources:
+        ds_diag = {
+            "name": ds.name,
+            "source": ds.source,
+            "join_key": ds.join_key,
+            "as_list": ds.as_list,
+            "status": "ok",
+            "error": "",
+            "row_count": 0,
+        }
         try:
-            context[ds.name] = _fetch_data_source(ds, entity)
+            value = _fetch_data_source(ds, entity)
+            context[ds.name] = value
+            if ds.as_list:
+                ds_diag["row_count"] = len(value) if value else 0
+                ds_diag["status"] = "ok" if value else "empty"
+            else:
+                ds_diag["row_count"] = 1 if value else 0
+                ds_diag["status"] = "ok" if value else "empty"
         except Exception as exc:
-            st.warning(f"Template data source `{ds.name}` failed — leaving empty. ({exc})")
+            ds_diag["status"] = "error"
+            ds_diag["error"] = f"{type(exc).__name__}: {exc}"
             context[ds.name] = [] if ds.as_list else {}
+        data_source_diagnostics.append(ds_diag)
+
+    # Inject the load diagnostic into the template context so the empty-state
+    # panel can render it (operators sometimes can't reach the App's Logs tab).
+    context["_template_diagnostic"] = {
+        **template.diagnostic,
+        "catalog": cfg.catalog,
+        "schema": cfg.schema,
+        "data_sources": data_source_diagnostics,
+        # Show the raw env var separately so operators can tell the difference
+        # between "env var was set" and "auto-discovery picked it up".
+        "env_var_set": bool(os.environ.get("CR_PROFILE_TEMPLATE_PATH", "").strip()),
+    }
 
     # Render the template. On any render error, show a pivoted fallback so the
     # CSM still sees the raw fields.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: requests-hardened
-Version: 1.2.1
+Version: 1.2.2
 Summary: A library that overrides the default behaviors of the requests library, and adds new security features.
 License: BSD-3-Clause
 License-File: LICENSE

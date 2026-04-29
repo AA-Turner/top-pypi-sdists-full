@@ -255,7 +255,11 @@ def extract_location(data):
         if place_location:
             data = place_location
     data["pk"] = data.get("id", data.get("pk", data.get("location_id", None)))
-    data["external_id"] = data.get("external_id", data.get("facebook_places_id"))
+    external_id = data.get("external_id") or data.get("facebook_places_id")
+    if external_id in (None, "", "None"):
+        data["external_id"] = None
+    else:
+        data["external_id"] = int(external_id)
     data["external_id_source"] = data.get(
         "external_id_source", data.get("external_source")
     )
@@ -423,6 +427,10 @@ def extract_reply_message(data):
             # Instagram ¯\_(ツ)_/¯
             clip = clip.get("clip")
         data["clip"] = extract_media_v1(clip)
+    generic_xma = data.get("generic_xma", [])
+    if generic_xma:
+        items = [extract_media_v1_xma(item) for item in generic_xma]
+        data["generic_xma"] = [item for item in items if item]
     visual_media = data.get("visual_media", {})
     if visual_media:
         _convert_direct_visual_media_timestamps(visual_media)
@@ -466,6 +474,10 @@ def extract_direct_message(data):
             xma_share = extract_media_v1_xma(xma_media_share[0])
             if xma_share:
                 data["xma_share"] = xma_share
+    generic_xma = data.get("generic_xma", [])
+    if generic_xma:
+        items = [extract_media_v1_xma(item) for item in generic_xma]
+        data["generic_xma"] = [item for item in items if item]
 
     # Convert main timestamp
     data["timestamp"] = datetime.datetime.fromtimestamp(
@@ -572,6 +584,12 @@ def extract_story_v1(data):
     story["user"] = extract_user_short(story.get("user"))
     story["sponsor_tags"] = [tag["sponsor"] for tag in story.get("sponsor_tags", [])]
     story["is_paid_partnership"] = story.get("is_paid_partnership")
+    if not story.get("code"):
+        story["code"] = InstagramIdCodec.encode(story["pk"])
+    if not story.get("taken_at"):
+        story["taken_at"] = story.get("device_timestamp") or story.get(
+            "taken_at_timestamp"
+        )
     return Story(**story)
 
 

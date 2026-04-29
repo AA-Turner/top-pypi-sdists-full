@@ -14,19 +14,23 @@ Azure SDK docs: https://learn.microsoft.com/python/api/overview/
 azure/monitor-query-readme?view=azure-python
 
 """
+
 from __future__ import annotations
 
 import contextlib
 import logging
 import warnings
-from typing import Any, Iterable, cast
+from collections.abc import Iterable
+from typing import Any, cast
 
 import httpx
 import pandas as pd
 from azure.core.exceptions import HttpResponseError
 from azure.core.pipeline.policies import UserAgentPolicy
-from packaging.version import Version
-from packaging.version import parse as parse_version
+from packaging.version import Version  # pylint: disable=no-name-in-module
+from packaging.version import (
+    parse as parse_version,
+)  # pylint: disable=no-name-in-module
 
 from ..._version import VERSION
 from ...auth.azure_auth import AzureCloudConfig, az_connect
@@ -35,7 +39,6 @@ from ...common.exceptions import (
     MsticpyKqlConnectionError,
     MsticpyMissingDependencyError,
     MsticpyNoDataSourceError,
-    MsticpyNotConnectedError,
 )
 from ...common.provider_settings import get_protected_setting
 from ...common.settings import get_http_proxies, get_http_timeout
@@ -130,7 +133,8 @@ class AzureMonitorDriver(DriverBase):
         self._try_get_schema: bool = True
         self._fail_on_partial: bool = kwargs.get("fail_on_partial", False)
         self.add_query_filter(
-            "data_environments", ("MSSentinel", "LogAnalytics", "AzureSentinel")
+            "data_environments",
+            ("MSSentinel", "LogAnalytics", "AzureSentinel"),
         )
         self.set_driver_property(
             DriverProps.EFFECTIVE_ENV, DataEnvironment.MSSentinel.name
@@ -247,6 +251,24 @@ class AzureMonitorDriver(DriverBase):
 
         return self._connected
 
+    @property
+    def connected(self) -> bool:
+        """
+        Return true if at least one connection has been made.
+
+        Returns
+        -------
+        bool
+            True if a successful connection has been made.
+
+        Notes
+        -----
+        This checks both the connection flag and the presence of the
+        query client to ensure a valid connection state.
+
+        """
+        return self._connected and self._query_client is not None
+
     # pylint: disable=too-many-branches
 
     @property
@@ -289,13 +311,7 @@ class AzureMonitorDriver(DriverBase):
             the underlying provider result if an error.
 
         """
-        if not self._connected or self._query_client is None:
-            raise MsticpyNotConnectedError(
-                "Please run connect() to connect to the workspace",
-                "before running a query.",
-                title="Workspace not connected.",
-                help_uri=_HELP_URL,
-            )
+        self._ensure_connected()
         if query_source:
             self._check_table_exists(query_source)
         data, result = self.query_with_results(query, **kwargs)
@@ -320,13 +336,7 @@ class AzureMonitorDriver(DriverBase):
             Query status dictionary.
 
         """
-        if not self._connected or self._query_client is None:
-            raise MsticpyNotConnectedError(
-                "Please run connect() to connect to the workspace",
-                "before running a query.",
-                title="Workspace not connected.",
-                help_uri=_HELP_URL,
-            )
+        self._ensure_connected()
         time_span_value = self._get_time_span_value(**kwargs)
         fail_on_partial = kwargs.get(
             "fail_if_partial", kwargs.get("fail_on_partial", self._fail_on_partial)
@@ -346,10 +356,10 @@ class AzureMonitorDriver(DriverBase):
         )
         logger.info("Timeout %s", server_timeout)
         try:
-            result = self._query_client.query_workspace(
+            result = self._query_client.query_workspace(  # type: ignore[union-attr]
                 workspace_id=workspace_id,  # type: ignore[arg-type]
                 query=query,
-                timespan=time_span_value,  # type: ignore[arg-type]
+                timespan=time_span_value,
                 server_timeout=server_timeout,
                 additional_workspaces=additional_workspaces,
             )
@@ -374,10 +384,11 @@ class AzureMonitorDriver(DriverBase):
             warnings.warn(
                 "Partial results returned. This may indicate a query timeout.",
                 RuntimeWarning,
+                stacklevel=2,
             )
-            table = result.partial_data[0]  # type: ignore[attr-defined]
+            table = result.partial_data[0]
         else:
-            table = result.tables[0]  # type: ignore[attr-defined]
+            table = result.tables[0]
         data_frame = pd.DataFrame(table.rows, columns=table.columns)
         logger.info("Dataframe returned with %d rows", len(data_frame))
         return data_frame, status
@@ -420,8 +431,18 @@ class AzureMonitorDriver(DriverBase):
             return {}
         args_path = f"{self._ws_config.settings_path}.Args"
         args_settings = self._ws_config.settings.get("Args", {})
+        arg_name_map = {
+            "clientid": "client_id",
+            "clientsecret": "client_secret",
+            "certificate": "certificate_path",
+            "certificatepath": "certificate_path",
+            "certificatepassword": "password",
+            "sendcertificatechain": "send_certificate_chain",
+        }
         return {
-            name: get_protected_setting(args_path, name)
+            arg_name_map.get(name.casefold(), name): get_protected_setting(
+                args_path, name
+            )
             for name in args_settings.keys()
         }
 
@@ -441,7 +462,7 @@ class AzureMonitorDriver(DriverBase):
         ws_config: WorkspaceConfig | None = None
         connection_str = connection_str or self._def_connection_str
         if workspace_name or connection_str is None:
-            ws_config = WorkspaceConfig(workspace=workspace_name)  # type: ignore
+            ws_config = WorkspaceConfig(workspace=workspace_name)
             logger.info(
                 "WorkspaceConfig created from workspace name %s", workspace_name
             )
@@ -677,7 +698,7 @@ class AzureMonitorDriver(DriverBase):
 
 
 def _schema_format_tables(
-    ws_tables: dict[str, Iterable[dict[str, Any]]]
+    ws_tables: dict[str, Iterable[dict[str, Any]]],
 ) -> dict[str, dict[str, str]]:
     """Return a sorted dictionary of table names and column names/types."""
     table_schema = {

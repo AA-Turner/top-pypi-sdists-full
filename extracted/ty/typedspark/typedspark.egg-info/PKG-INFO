@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typedspark
-Version: 1.6.3
+Version: 1.7.0
 Summary: Column-wise type annotations for pyspark DataFrames
 Home-page: https://github.com/kaiko-ai/typedspark
 Author: Nanne Aben
@@ -9,7 +9,7 @@ License: Apache-2.0
 Keywords: pyspark spark typing type checking annotations
 Classifier: Programming Language :: Python
 Classifier: Typing :: Typed
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: typing-extensions<=4.15.0

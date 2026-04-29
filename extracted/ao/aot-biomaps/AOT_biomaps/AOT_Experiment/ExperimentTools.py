@@ -66,6 +66,12 @@ def hex_to_binary_profile(hex_string, n_piezos=192):
         return np.array([int(b) for b in binary_str])
     except ValueError:
         return np.zeros(n_piezos, dtype=int)
+    
+def binary_to_hex_profile(bits):
+    bit_string = ''.join(str(b) for b in bits)
+    bit_string = bit_string.zfill(len(bits))
+    hex_string = ''.join([f"{int(bit_string[i:i+4], 2):x}" for i in range(0, len(bit_string), 4)])
+    return hex_string
 
 def get_phase_deterministic(profile):
     """

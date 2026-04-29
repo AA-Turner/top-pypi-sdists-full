@@ -1,8 +1,11 @@
 import pytest
-import colorcet as cc
 from packaging.version import Version
 
-pytest.importorskip('matplotlib')
+import colorcet as cc
+
+mpl = pytest.importorskip('matplotlib')
+MPL_VERSION = Version(mpl.__version__).release
+MPL_GE_3_10 = MPL_VERSION >= (3, 10, 0)
 
 def test_matplotlib_colormaps_available():
     assert len(cc.cm.items()) == 420
@@ -11,17 +14,28 @@ def test_matplotlib_colormaps_available():
 
 @pytest.mark.mpl_image_compare
 def test_matplotlib():
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
     xs, _ = np.meshgrid(np.linspace(0, 1, 80), np.linspace(0, 1, 10))
     fig = plt.imshow(xs, cmap=cc.cm.colorwheel).get_figure()
     return fig
 
 
 @pytest.mark.mpl_image_compare
-def test_matplotlib_glasbey():
-    import numpy as np
+@pytest.mark.skipif(MPL_GE_3_10, reason="Only for matplotlib < 3.10")
+def test_matplotlib_glasbey_lt_3_10():
     import matplotlib.pyplot as plt
+    import numpy as np
+    xs, _ = np.meshgrid(np.linspace(0, 1, 256), np.linspace(0, 1, 10))
+    fig = plt.imshow(xs, cmap=cc.cm.glasbey).get_figure()
+    return fig
+
+@pytest.mark.mpl_image_compare
+@pytest.mark.skipif(not MPL_GE_3_10, reason="Only for matplotlib >= 3.10")
+def test_matplotlib_glasbey_ge_3_10():
+    # The interpolation_stage keyword of plt.imshow no longer defaults to `'data'` but to `'auto'`.
+    import matplotlib.pyplot as plt
+    import numpy as np
     xs, _ = np.meshgrid(np.linspace(0, 1, 256), np.linspace(0, 1, 10))
     fig = plt.imshow(xs, cmap=cc.cm.glasbey).get_figure()
     return fig
@@ -71,6 +85,6 @@ def test_register_cmap():
     cc.register_cmap(name, cmap1)
 
     # Not same values should raise an Error
-    msg = 'A colormap named "{}" is already registered'.format(name)
+    msg = f'A colormap named "{name}" is already registered'
     with pytest.raises(ValueError, match=msg):
         cc.register_cmap(name, cmap2)

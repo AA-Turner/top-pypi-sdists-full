@@ -10,10 +10,12 @@ from instagrapi.exceptions import (
     ClientError,
     ClientLoginRequired,
     ClientNotFoundError,
+    ClientUnauthorizedError,
     MediaNotFound,
     PrivateError,
 )
 from instagrapi.extractors import (
+    extract_direct_message,
     extract_location,
     extract_media_gql,
     extract_media_oembed,
@@ -30,6 +32,42 @@ class MediaMixin:
     """
 
     _medias_cache = {}  # pk -> object
+
+    def _extract_configured_media_or_raise(
+        self, configured, exception_cls, context: str
+    ):
+        media = None
+        if isinstance(configured, dict):
+            media = configured.get("media")
+        if media is None:
+            media = (
+                self.last_json.get("media")
+                if isinstance(self.last_json, dict)
+                else None
+            )
+        if media is None:
+            raise exception_cls(
+                f"{context} configure succeeded without media payload",
+                response=self.last_response,
+                **(self.last_json if isinstance(self.last_json, dict) else {}),
+            )
+        return extract_media_v1(media)
+
+    def _extract_configured_direct_message_or_raise(
+        self, configured, exception_cls, context: str
+    ):
+        message_metadata = []
+        if isinstance(configured, dict):
+            message_metadata = configured.get("message_metadata") or []
+        if not message_metadata and isinstance(self.last_json, dict):
+            message_metadata = self.last_json.get("message_metadata") or []
+        if not message_metadata:
+            raise exception_cls(
+                f"{context} configure succeeded without message_metadata payload",
+                response=self.last_response,
+                **(self.last_json if isinstance(self.last_json, dict) else {}),
+            )
+        return extract_direct_message(message_metadata[0])
 
     def media_id(self, media_pk: str) -> str:
         """
@@ -213,9 +251,12 @@ class MediaMixin:
             "parent_comment_count": 24,
             "has_threaded_comments": False,
         }
-        data = self.public_graphql_request(
-            variables, query_hash="477b65a610463740ccdb83135b2014db"
-        )
+        try:
+            data = self.public_graphql_request(
+                variables, query_hash="477b65a610463740ccdb83135b2014db"
+            )
+        except (ClientLoginRequired, ClientUnauthorizedError):
+            return self.media_info_a1(media_pk)
         if not data.get("shortcode_media"):
             raise MediaNotFound(media_pk=media_pk, **data)
         if data["shortcode_media"]["location"] and self.authorization:
@@ -247,6 +288,41 @@ class MediaMixin:
                 raise MediaNotFound(e, media_pk=media_pk, **self.last_json)
             raise e
         return extract_media_v1(result["items"].pop())
+
+    def media_info_v2(self, media_id: str) -> Media:
+        """
+        Get media via the discover-style metadata endpoint.
+
+        ``GET /discover/media_metadata/?media_id={pk}`` — alternative
+        source for media info that returns a ``media_or_ad`` payload.
+        Useful as a fallback when ``media_info_v1`` fails on certain
+        ad-tagged or sponsored media. Unlike ``media_info_v1``, this
+        endpoint expects only the numeric pk (the ``_userid`` suffix
+        is stripped automatically if you pass a full media_id).
+
+        Parameters
+        ----------
+        media_id: str
+            Media pk or full media_id (``pk_userid``).
+
+        Returns
+        -------
+        Media
+            Extracted via :func:`extract_media_v1`.
+
+        Raises
+        ------
+        MediaNotFound
+            ``media_or_ad`` was missing from the response.
+        """
+        media_id = str(media_id).split("_")[0]
+        result = self.private_request(
+            "discover/media_metadata/", params={"media_id": media_id}
+        )
+        media = result.get("media_or_ad")
+        if not media:
+            raise MediaNotFound(media_id=media_id, **(self.last_json or {}))
+        return extract_media_v1(media)
 
     def media_info(self, media_pk: str, use_cache: bool = True) -> Media:
         """
@@ -1179,7 +1255,11 @@ class MediaMixin:
             data["detect_subject"] = "true"
 
         result = self.private_request(url, data)
-        return extract_media_v1(result["media"])
+        return self._extract_configured_media_or_raise(
+            result,
+            PrivateError,
+            "Cutout sticker upload",
+        )
 
     def media_pin(self, media_pk: str, revert: bool = False):
         """

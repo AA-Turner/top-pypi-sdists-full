@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentscope
-Version: 1.0.19
+Version: 1.0.19.post1
 Summary: AgentScope: A Flexible yet Robust Multi-Agent Platform.
 Author-email: SysML team of Alibaba Tongyi Lab <gaodawei.gdw@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -41,7 +41,7 @@ Requires-Dist: sqlalchemy
 Requires-Dist: python-frontmatter
 Requires-Dist: aiofiles
 Provides-Extra: a2a
-Requires-Dist: a2a-sdk; extra == "a2a"
+Requires-Dist: a2a-sdk==0.3.26; extra == "a2a"
 Requires-Dist: httpx; extra == "a2a"
 Requires-Dist: nacos-sdk-python>=3.0.0; extra == "a2a"
 Provides-Extra: realtime

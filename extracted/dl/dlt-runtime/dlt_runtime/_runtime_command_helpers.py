@@ -6,17 +6,18 @@ Pure helpers (no service deps) and service-dependent loaders (no display).
 # Python internals
 import json
 import os
+import tarfile
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, cast
 from uuid import UUID
 
 # Other libraries
 import httpx
+import yaml
 from dlt._workspace._workspace_context import active
 from dlt._workspace.cli import echo as fmt
-from dlt._workspace.cli.exceptions import CliCommandInnerException
 from dlt._workspace.exceptions import WorkspaceRunContextNotAvailable
 from dlt._workspace.deployment import (
     DEFAULT_DEPLOYMENT_MODULE,
@@ -37,6 +38,7 @@ from dlt._workspace.deployment.exceptions import (
 )
 from dlt._workspace.deployment.manifest import compute_default_trigger, expand_triggers
 from dlt._workspace.deployment.typing import (
+    TFilesManifest,
     TJobDefinition,
     TJobRef,
     TJobsDeploymentManifest,
@@ -46,7 +48,10 @@ from dlt._workspace.deployment.file_selector import (
     ConfigurationFileSelector,
     WorkspaceFileSelector,
 )
-from dlt._workspace.deployment.package_builder import PackageBuilder
+from dlt._workspace.deployment.package_builder import (
+    DEFAULT_MANIFEST_FILE_NAME,
+    PackageBuilder,
+)
 from dlt._workspace.deployment.requirements import (
     WorkspaceRequirementsError,
     export_workspace_requirements,
@@ -55,8 +60,10 @@ from dlt._workspace.deployment.requirements import (
 from urllib.parse import urlparse
 
 from dlt_runtime.exceptions import (
+    AmbiguousJobSelector,
+    AmbiguousWorkspaceName,
     NoRunsFound,
-    RuntimeNotAuthenticated,
+    RuntimeClientException,
     RuntimeOperationNotAuthorized,
     WorkspaceNotFound,
     exception_from_response,
@@ -65,17 +72,22 @@ from dlt_runtime.exceptions import (
 from dlt_runtime.runtime import (
     RuntimeAuthService,
     UserInfo,
+    WorkspaceInfo,
 )
 from dlt_runtime.runtime_clients.api.api.configurations import (
     create_configuration,
     get_configuration,
+    get_configuration_files_manifest,
     get_latest_configuration,
+    get_latest_configuration_files_manifest,
     list_configurations,
 )
 from dlt_runtime.runtime_clients.api.api.deployments import (
     create_deployment,
     get_deployment,
+    get_deployment_files_manifest,
     get_latest_deployment,
+    get_latest_deployment_files_manifest,
     list_deployments,
 )
 from dlt_runtime.runtime_clients.api.api.runs import (
@@ -98,8 +110,11 @@ from dlt_runtime.runtime_clients.api.models.list_scripts_archived import (
     ListScriptsArchived,
 )
 from dlt_runtime.runtime_clients.api.models.log_line import LogLine
+from dlt_runtime.runtime_clients.api.models.t_files_manifest import (
+    TFilesManifest as ApiTFilesManifest,
+)
 from dlt_runtime.runtime_clients.api.types import File
-from dlt_runtime.typing import ConnectInfo, RuntimeInfo, SyncResult
+from dlt_runtime.typing import ConnectInfo, FileDelta, RuntimeInfo, SyncResult
 from dlt_runtime.version import __version__
 
 if TYPE_CHECKING:
@@ -131,11 +146,8 @@ def _to_uuid(value: Union[str, UUID]) -> UUID:
         return value
     try:
         return UUID(value)
-    except ValueError:
-        raise CliCommandInnerException(
-            cmd="runtime",
-            msg=f"Invalid UUID: {value}",
-        )
+    except ValueError as e:
+        raise ValueError(f"Invalid UUID: {value}") from e
 
 
 def _get_web_ui_url() -> str:
@@ -146,11 +158,8 @@ def _get_web_ui_url() -> str:
 
 
 def _resolve_workspace(user_info: UserInfo, workspace: str) -> str:
-    """Resolve a workspace name or ID to an owned workspace ID.
-
-    Raises `WorkspaceNotFound` if no match. Raises `CliCommandInnerException`
-    if the name is ambiguous across multiple owned workspaces.
-    """
+    """Resolve a workspace name or ID to an owned workspace ID."""
+    # Raises WorkspaceNotFound on miss; AmbiguousWorkspaceName on duplicate names.
     workspace = workspace.strip()
 
     # Exact ID match is always unambiguous — return immediately.
@@ -166,14 +175,7 @@ def _resolve_workspace(user_info: UserInfo, workspace: str) -> str:
         return matches[0].id
 
     if len(matches) > 1:
-        ids = ", ".join(ws.id for ws in matches)
-        raise CliCommandInnerException(
-            cmd="runtime",
-            msg=(
-                f"Multiple owned workspaces are named '{workspace}' ({ids}). "
-                "Pass the workspace ID instead to avoid ambiguity."
-            ),
-        )
+        raise AmbiguousWorkspaceName(workspace, matches)
 
     is_uuid = True
     try:
@@ -188,20 +190,26 @@ def _resolve_or_create_workspace(
     workspace: str,
     *,
     auth_service: "RuntimeAuthService",
-) -> str:
-    """Resolve a workspace name/ID; create by name if not found.
-
-    UUID inputs that don't match never auto-create.
-    """
+) -> tuple[str, bool]:
+    """Resolve a workspace name/ID; create by name if not found."""
+    # Return (workspace_id, was_created)
+    # UUID inputs that don't match never auto-create.
     try:
-        return _resolve_workspace(user_info, workspace)
+        return _resolve_workspace(user_info, workspace), False
     except WorkspaceNotFound as e:
         if e.is_uuid:
-            raise CliCommandInnerException(
-                cmd="runtime",
-                msg=f"Workspace '{workspace}' not found among your owned workspaces.",
+            raise LookupError(
+                f"Workspace '{workspace}' not found among your owned workspaces."
             ) from e
-        return auth_service.create_new_workspace(user_info, workspace, description=None)
+        new_id = auth_service.create_new_workspace(
+            user_info, workspace, description=None
+        )
+        # Keep user_info in sync with the just-created workspace so downstream
+        # _get_workspace_name() resolves the name without an extra round-trip.
+        user_info.workspaces.append(
+            WorkspaceInfo(id=new_id, name=workspace, description="", role="owner")
+        )
+        return new_id, True
 
 
 def _get_workspace_name(user_info: UserInfo, workspace_id: str) -> Optional[str]:
@@ -259,7 +267,7 @@ def _generate_local_manifest(
     """Generate a deployment manifest locally from a module or file.
 
     Returns (manifest, hash, api_jobs, warnings).
-    Raises CliCommandInnerException with helpful message if module not found
+    Raises ImportError / FileNotFoundError with helpful message if module not found
     or fails to import.
     """
     from dlt_runtime.runtime_clients.api.models.t_job_definition import (
@@ -283,26 +291,22 @@ def _generate_local_manifest(
             file_path = Path.cwd() / f"{name_or_path}.py"
 
         if file_path.exists():
-            # The file is there — the failure came from inside it. Surface the
-            # real error so the user can fix it instead of telling them the
-            # file is missing.
-            raise CliCommandInnerException(
-                cmd="runtime",
-                msg=f"Failed to import '{file_path.name}': {type(e).__name__}: {e}",
-            )
+            # File is there — surface the real import error so the user can
+            # fix it instead of being told the file is missing.
+            raise ImportError(
+                f"Failed to import '{file_path.name}': {type(e).__name__}: {e}"
+            ) from e
 
         if name_or_path == DEFAULT_DEPLOYMENT_MODULE:
-            raise CliCommandInnerException(
-                cmd="runtime",
-                msg=f"No '{DEFAULT_DEPLOYMENT_MODULE}.py' file found in the workspace. "
+            raise FileNotFoundError(
+                f"No '{DEFAULT_DEPLOYMENT_MODULE}.py' file found in the workspace. "
                 "Create one and import your job declarations and notebook modules into it. "
-                "See https://dlthub.com/docs/runtime/deployment for details.",
-            )
-        raise CliCommandInnerException(
-            cmd="runtime",
-            msg=f"Could not import module '{name_or_path}'. "
-            "Check that the file exists and is a valid Python module.",
-        )
+                "See https://dlthub.com/docs/runtime/deployment for details."
+            ) from e
+        raise ImportError(
+            f"Could not import module '{name_or_path}'. "
+            "Check that the file exists and is a valid Python module."
+        ) from e
 
     manifest_hash = generate_manifest_hash(manifest)
     api_jobs = [ApiTJobDefinition.from_dict(job) for job in manifest["jobs"]]
@@ -338,7 +342,8 @@ def _select_single_job(
     Expands triggers locally, matches selectors, picks a trigger for each job.
     Returns (job_def, trigger_str) for the single matched job.
 
-    Raises CliCommandInnerException if zero, multiple, or forbidden-type jobs match.
+    Raises LookupError if zero match, AmbiguousJobSelector if multiple match,
+    RuntimeClientException for forbidden-type / no-manual-jobs cases.
     """
     matched: list[tuple[TJobDefinition, str]] = []
 
@@ -373,9 +378,8 @@ def _select_single_job(
                 "interactive" if forbidden_job_type == "interactive" else "batch"
             )
             refs = ", ".join(jd["job_ref"] for jd, _ in forbidden)
-            raise CliCommandInnerException(
-                cmd="runtime",
-                msg=f"Matched jobs are {job_type_label} (not allowed here): {refs}",
+            raise RuntimeClientException(
+                f"Matched jobs are {job_type_label} (not allowed here): {refs}"
             )
         matched = allowed
 
@@ -390,33 +394,37 @@ def _select_single_job(
         ]
         glob_manual = any(s in ("manual:", "manual:*") for s in selectors)
         if specific_manual_refs:
-            raise CliCommandInnerException(
-                cmd="runtime",
-                msg=f"Job '{specific_manual_refs[0]}' does not allow manual runs. "
-                "Set expose(manual=True) in the job definition or use a different trigger.",
+            raise RuntimeClientException(
+                f"Job '{specific_manual_refs[0]}' does not allow manual runs. "
+                "Set expose(manual=True) in the job definition or use a different trigger."
             )
         if glob_manual:
-            raise CliCommandInnerException(
-                cmd="runtime",
-                msg="No jobs in this manifest allow manual runs. "
+            raise RuntimeClientException(
+                "No jobs in this manifest allow manual runs. "
                 "Set expose(manual=True) on at least one job, or use "
-                "'dlt runtime trigger <selector>' to fire jobs by their own triggers.",
+                "'dlt runtime trigger <selector>' to fire jobs by their own triggers."
             )
-        raise CliCommandInnerException(
-            cmd="runtime",
-            msg=f"No jobs matched selector(s): {selector_str}. "
-            "Check available jobs with 'dlt runtime info' or 'dlt runtime job list'.",
+        raise LookupError(
+            f"No jobs matched selector(s): {selector_str}. "
+            "Check available jobs with 'dlt runtime info' or 'dlt runtime job list'."
         )
 
     if len(matched) == 1:
         return matched[0]
 
-    # Multiple matches — show list and ask for more specific selector
-    job_list = "\n".join(f"  - {jd['job_ref']} (trigger: {t})" for jd, t in matched)
-    raise CliCommandInnerException(
-        cmd="runtime",
-        msg=f"Multiple jobs matched. Use a more specific selector or job ref:\n{job_list}",
-    )
+    raise AmbiguousJobSelector(matched)
+
+
+def _resolve_job_ref_in_manifest(
+    name_or_ref: str, manifest: TJobsDeploymentManifest
+) -> Optional[str]:
+    """Resolve a name/partial ref to canonical job_ref via manifest jobs."""
+    try:
+        return str(
+            resolve_job_ref(name_or_ref, [j["job_ref"] for j in manifest["jobs"]])
+        )
+    except (InvalidJobRef, JobRefNotFound, AmbiguousJobRef):
+        return None
 
 
 def _resolve_selector(
@@ -439,17 +447,23 @@ def _resolve_selector(
     if selector_or_job_ref is None:
         return [default_selector]
 
-    # Try to resolve as job_ref
-    try:
-        resolved = resolve_job_ref(
-            selector_or_job_ref, [j["job_ref"] for j in manifest["jobs"]]
-        )
+    resolved = _resolve_job_ref_in_manifest(selector_or_job_ref, manifest)
+    if resolved is not None:
         return [manual(resolved)]
-    except (InvalidJobRef, JobRefNotFound, AmbiguousJobRef):
-        pass
 
     # Use as-is (selector pattern)
     return [selector_or_job_ref]
+
+
+def _resolve_job_ref_locally(name_or_ref: str) -> Optional[str]:
+    """Resolve a short name against the local deployment manifest, or None."""
+    # Broad catch: a missing/broken local manifest must not break commands
+    # like `logs` — they should fall back to server-side resolution.
+    try:
+        manifest, _, _, _ = _generate_local_manifest(DEFAULT_DEPLOYMENT_MODULE)
+    except Exception:
+        return None
+    return _resolve_job_ref_in_manifest(name_or_ref, manifest)
 
 
 # ---------------------------------------------------------------------------
@@ -466,14 +480,19 @@ def _resolve_job_ref_from_server(
 ) -> str:
     """Resolve a name or partial ref to a canonical job_ref.
 
-    Refs with dots (x.y, jobs.x.y) resolve locally. Bare names need the server job list.
-    Returns the input unchanged if resolution fails.
+    Tries the local manifest first (same path as `launch`), then qualified-ref
+    local resolution, then the server job list for bare names. Returns the
+    input unchanged if every path fails.
     """
     try:
         UUID(name_or_ref)
         return name_or_ref
     except ValueError:
         pass
+
+    local_ref = _resolve_job_ref_locally(name_or_ref)
+    if local_ref is not None:
+        return local_ref
 
     if "." in name_or_ref:
         # Qualified ref — resolve locally
@@ -545,15 +564,11 @@ def _resolve_trigger_selectors(
 
 
 def _require_auth() -> tuple[RuntimeAuthService, UserInfo]:
-    """Authenticate and return (auth_service, user_info), or raise a CLI error."""
+    """Authenticate and return (auth_service, user_info)."""
+    # Propagates RuntimeNotAuthenticated; the boundary handler in
+    # commands.py:execute() routes that to Phase 1 device-flow recovery.
     auth_service = RuntimeAuthService(run_context=active())
-    try:
-        auth_service.authenticate()
-    except RuntimeNotAuthenticated:
-        raise CliCommandInnerException(
-            cmd="runtime",
-            msg="Not logged in. Run 'dlt runtime login' first.",
-        )
+    auth_service.authenticate()
     return auth_service, auth_service.fetch_user_info()
 
 
@@ -638,9 +653,8 @@ def _resolve_run_id_by_number(
     for r in runs.parsed.items:
         if r.number == run_number:
             return r.id
-    raise CliCommandInnerException(
-        cmd="runtime",
-        msg=f"Run number {run_number} not found for script/job {script_path_or_job_name}",
+    raise LookupError(
+        f"Run number {run_number} not found for script/job {script_path_or_job_name}"
     )
 
 
@@ -687,72 +701,185 @@ def _resolve_connection(
     )
 
 
+def _local_files_manifest_from_tarball(stream: BytesIO) -> TFilesManifest:
+    """Extract manifest.yaml from a just-written tarball (rewinds first)."""
+    # TODO: dlt's PackageBuilder.write_package_to_stream returns only the hash;
+    # the per-file manifest is computed but only emitted as a tarball member.
+    # Upstream a `build_manifest(file_selector)` (or a `(hash, manifest)`-returning
+    # variant) so we don't have to re-open the tarball just to read it back.
+    stream.seek(0)
+    with tarfile.open(fileobj=stream, mode="r:*") as tar:
+        f = tar.extractfile(tar.getmember(DEFAULT_MANIFEST_FILE_NAME))
+        assert f is not None
+        manifest = cast(TFilesManifest, yaml.safe_load(f))
+    return manifest
+
+
+def _diff_file_manifests(local: TFilesManifest, remote: TFilesManifest) -> FileDelta:
+    """Per-file diff: paths added/deleted; entries differing on hash/linkname → updated."""
+    # Both manifests carry per-file sha3_256 (regular files) or linkname
+    # (symlinks) in the entry dict, so dict equality is sufficient — no
+    # re-hashing needed on either side.
+    local_map = {item["relative_path"]: item for item in local["files"]}
+    remote_map = {item["relative_path"]: item for item in remote["files"]}
+
+    added = sorted(set(local_map) - set(remote_map))
+    deleted = sorted(set(remote_map) - set(local_map))
+    common = set(local_map) & set(remote_map)
+    updated = sorted(p for p in common if local_map[p] != remote_map[p])
+    unchanged_count = len(common) - len(updated)
+    return FileDelta(
+        added=added, updated=updated, deleted=deleted, unchanged_count=unchanged_count
+    )
+
+
+def _fetch_remote_files_manifest(
+    api_client: ApiClient,
+    auth_service: RuntimeAuthService,
+    kind: Literal["deployment", "configuration"],
+    ref: str = "latest",
+) -> TFilesManifest:
+    """Call GET /workspaces/{ws}/{deployments|configurations}/{ref}/files."""
+    workspace_id = _to_uuid(auth_service.workspace_id)
+    is_latest = ref == "latest"
+    # Coerce non-`latest` refs to UUID/int (the parameterized client signature).
+    parsed_ref: UUID | int | None = None
+    if not is_latest:
+        try:
+            parsed_ref = UUID(ref)
+        except ValueError:
+            parsed_ref = int(ref)
+    with handle_client_exceptions():
+        if kind == "deployment":
+            if is_latest:
+                result = get_latest_deployment_files_manifest.sync_detailed(
+                    workspace_id=workspace_id, client=api_client
+                )
+            else:
+                assert parsed_ref is not None
+                result = get_deployment_files_manifest.sync_detailed(
+                    workspace_id=workspace_id,
+                    deployment_id_or_version=parsed_ref,
+                    client=api_client,
+                )
+        else:
+            if is_latest:
+                result = get_latest_configuration_files_manifest.sync_detailed(
+                    workspace_id=workspace_id, client=api_client
+                )
+            else:
+                assert parsed_ref is not None
+                result = get_configuration_files_manifest.sync_detailed(
+                    workspace_id=workspace_id,
+                    configuration_id_or_version=parsed_ref,
+                    client=api_client,
+                )
+
+    # Only TFilesManifest carries the {"engine_version", "files"} shape we need;
+    if not isinstance(result.parsed, ApiTFilesManifest):
+        raise exception_from_response(f"Failed to get {kind} files manifest", result)
+    return cast(TFilesManifest, result.parsed.to_dict())
+
+
 def _do_sync_deployment(
     *,
     auth_service: RuntimeAuthService,
     api_client: ApiClient,
+    dry_run: bool = False,
+    compute_diff: bool = False,
 ) -> SyncResult:
-    content_stream = BytesIO()
     package_builder = PackageBuilder(context=active())
-    package_hash = package_builder.write_package_to_stream(
-        file_selector=WorkspaceFileSelector(active()), output_stream=content_stream
-    )
-    with handle_client_exceptions():
-        latest_deployment = get_latest_deployment.sync_detailed(
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            client=api_client,
+    # `with BytesIO()` ensures the content stream is closed on every exit path
+    # (early returns + raises) without scattered .close() calls.
+    with BytesIO() as content_stream:
+        package_hash = package_builder.write_package_to_stream(
+            file_selector=WorkspaceFileSelector(active()),
+            output_stream=content_stream,
         )
-    if isinstance(latest_deployment.parsed, get_latest_deployment.DeploymentResponse):
-        if latest_deployment.parsed.content_hash == package_hash:
-            content_stream.close()
-            return SyncResult(status="no_changes")
-    elif isinstance(latest_deployment.parsed, get_latest_deployment.ErrorResponse404):
-        pass  # will create below
-    else:
-        content_stream.close()
-        raise exception_from_response(
-            "Failed to get latest deployment", latest_deployment
-        )
+        with handle_client_exceptions():
+            latest_deployment = get_latest_deployment.sync_detailed(
+                workspace_id=_to_uuid(auth_service.workspace_id),
+                client=api_client,
+            )
+        # remote_version: latest version on the server (None if the workspace
+        # has never been deployed). Used for the dry-run "would create vN+1
+        # (was vN)" message; not consumed on the real-upload path.
+        remote_version: int | None = None
+        if isinstance(
+            latest_deployment.parsed, get_latest_deployment.DeploymentResponse
+        ):
+            if latest_deployment.parsed.content_hash == package_hash:
+                return SyncResult(status="no_changes")
+            remote_version = latest_deployment.parsed.version
+        elif isinstance(
+            latest_deployment.parsed, get_latest_deployment.ErrorResponse404
+        ):
+            pass  # will create below
+        else:
+            raise exception_from_response(
+                "Failed to get latest deployment", latest_deployment
+            )
 
-    # export the workspace requirements manifest alongside the code tarball
-    try:
-        manifest = export_workspace_requirements(Path(active().run_dir))
-    except WorkspaceRequirementsError as ex:
-        content_stream.close()
-        raise CliCommandInnerException(
-            "sync", f"Failed to export workspace requirements: {ex}"
-        ) from ex
-    requirements_stream = BytesIO()
-    save_requirements(manifest, requirements_stream)
-    requirements_stream.seek(0)
+        # Compute file delta when the caller will display it; for SILENT level
+        # we skip the second roundtrip entirely.
+        file_delta: FileDelta | None = None
+        if compute_diff:
+            local_manifest = _local_files_manifest_from_tarball(content_stream)
+            if remote_version is not None:
+                remote_manifest = _fetch_remote_files_manifest(
+                    api_client, auth_service, "deployment"
+                )
+            else:
+                remote_manifest = TFilesManifest(engine_version=1, files=[])
+            file_delta = _diff_file_manifests(local_manifest, remote_manifest)
 
-    with handle_client_exceptions():
-        create_deployment_result = create_deployment.sync_detailed(
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            client=api_client,
-            body=CreateDeploymentBody(
-                files=File(
-                    payload=content_stream,
-                    file_name="workspace.tar.gz",
-                    mime_type="application/x-tar",
+        if dry_run:
+            # Skip requirements export + upload entirely; the local hash already
+            # told us the upload would create a new version.
+            data: dict[str, Any] = {"package_hash": package_hash}
+            if remote_version is not None:
+                data["current_version"] = remote_version
+            if file_delta is not None:
+                data["file_delta"] = file_delta
+            return SyncResult(status="would_create", data=data)
+
+        # export the workspace requirements manifest alongside the code tarball
+        try:
+            manifest = export_workspace_requirements(Path(active().run_dir))
+        except WorkspaceRequirementsError as ex:
+            raise RuntimeClientException(
+                f"Failed to export workspace requirements: {ex}"
+            ) from ex
+        requirements_stream = BytesIO()
+        save_requirements(manifest, requirements_stream)
+        requirements_stream.seek(0)
+
+        with handle_client_exceptions():
+            create_deployment_result = create_deployment.sync_detailed(
+                workspace_id=_to_uuid(auth_service.workspace_id),
+                client=api_client,
+                body=CreateDeploymentBody(
+                    files=File(
+                        payload=content_stream,
+                        file_name="workspace.tar.gz",
+                        mime_type="application/x-tar",
+                    ),
+                    requirements=File(
+                        payload=requirements_stream,
+                        file_name="requirements.json",
+                        mime_type="application/json",
+                    ),
                 ),
-                requirements=File(
-                    payload=requirements_stream,
-                    file_name="requirements.json",
-                    mime_type="application/json",
-                ),
-            ),
-        )
-    if isinstance(
-        create_deployment_result.parsed, create_deployment.DeploymentResponse
-    ):
-        return SyncResult(
-            status="created",
-            data=_extract_keys(
+            )
+        if isinstance(
+            create_deployment_result.parsed, create_deployment.DeploymentResponse
+        ):
+            data = _extract_keys(
                 create_deployment_result.parsed.to_dict(), DEPLOYMENT_HEADERS
-            ),
-        )
-    else:
+            )
+            if file_delta is not None:
+                data["file_delta"] = file_delta
+            return SyncResult(status="created", data=data)
         raise exception_from_response(
             "Failed to create deployment", create_deployment_result
         )
@@ -762,57 +889,80 @@ def _do_sync_configuration(
     *,
     auth_service: RuntimeAuthService,
     api_client: ApiClient,
+    dry_run: bool = False,
+    compute_diff: bool = False,
 ) -> SyncResult:
-    content_stream = BytesIO()
     package_builder = PackageBuilder(context=active())
-    package_hash = package_builder.write_package_to_stream(
-        file_selector=ConfigurationFileSelector(active()), output_stream=content_stream
-    )
-
-    with handle_client_exceptions():
-        latest_configuration = get_latest_configuration.sync_detailed(
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            client=api_client,
+    with BytesIO() as content_stream:
+        package_hash = package_builder.write_package_to_stream(
+            file_selector=ConfigurationFileSelector(active()),
+            output_stream=content_stream,
         )
-    if isinstance(
-        latest_configuration.parsed, get_latest_configuration.ConfigurationResponse
-    ):
-        if latest_configuration.parsed.content_hash == package_hash:
-            content_stream.close()
-            return SyncResult(status="no_changes")
-    elif isinstance(
-        latest_configuration.parsed,
-        get_latest_configuration.ErrorResponse404,
-    ):
-        pass  # will create below
-    else:
-        content_stream.close()
-        raise exception_from_response(
-            "Failed to get latest configuration", latest_configuration
-        )
+        with handle_client_exceptions():
+            latest_configuration = get_latest_configuration.sync_detailed(
+                workspace_id=_to_uuid(auth_service.workspace_id),
+                client=api_client,
+            )
+        remote_version: int | None = None
+        if isinstance(
+            latest_configuration.parsed,
+            get_latest_configuration.ConfigurationResponse,
+        ):
+            if latest_configuration.parsed.content_hash == package_hash:
+                return SyncResult(status="no_changes")
+            remote_version = latest_configuration.parsed.version
+        elif isinstance(
+            latest_configuration.parsed,
+            get_latest_configuration.ErrorResponse404,
+        ):
+            pass  # will create below
+        else:
+            raise exception_from_response(
+                "Failed to get latest configuration", latest_configuration
+            )
 
-    with handle_client_exceptions():
-        create_configuration_result = create_configuration.sync_detailed(
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            client=api_client,
-            body=create_configuration.CreateConfigurationBody(
-                file=File(
-                    payload=content_stream,
-                    file_name="configurations.tar.gz",
-                    mime_type="application/x-tar",
+        file_delta: FileDelta | None = None
+        if compute_diff:
+            local_manifest = _local_files_manifest_from_tarball(content_stream)
+            if remote_version is not None:
+                remote_manifest = _fetch_remote_files_manifest(
+                    api_client, auth_service, "configuration"
                 )
-            ),
-        )
-    if isinstance(
-        create_configuration_result.parsed, create_configuration.ConfigurationResponse
-    ):
-        return SyncResult(
-            status="created",
-            data=_extract_keys(
-                create_configuration_result.parsed.to_dict(), CONFIGURATION_HEADERS
-            ),
-        )
-    else:
+            else:
+                remote_manifest = TFilesManifest(engine_version=1, files=[])
+            file_delta = _diff_file_manifests(local_manifest, remote_manifest)
+
+        if dry_run:
+            data: dict[str, Any] = {"package_hash": package_hash}
+            if remote_version is not None:
+                data["current_version"] = remote_version
+            if file_delta is not None:
+                data["file_delta"] = file_delta
+            return SyncResult(status="would_create", data=data)
+
+        with handle_client_exceptions():
+            create_configuration_result = create_configuration.sync_detailed(
+                workspace_id=_to_uuid(auth_service.workspace_id),
+                client=api_client,
+                body=create_configuration.CreateConfigurationBody(
+                    file=File(
+                        payload=content_stream,
+                        file_name="configurations.tar.gz",
+                        mime_type="application/x-tar",
+                    )
+                ),
+            )
+        if isinstance(
+            create_configuration_result.parsed,
+            create_configuration.ConfigurationResponse,
+        ):
+            data = _extract_keys(
+                create_configuration_result.parsed.to_dict(),
+                CONFIGURATION_HEADERS,
+            )
+            if file_delta is not None:
+                data["file_delta"] = file_delta
+            return SyncResult(status="created", data=data)
         raise exception_from_response(
             "Failed to create configuration", create_configuration_result
         )

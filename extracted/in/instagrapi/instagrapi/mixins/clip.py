@@ -1,4 +1,6 @@
+import contextlib
 import json
+import os
 import random
 import tempfile
 import time
@@ -8,7 +10,6 @@ from uuid import uuid4
 
 from instagrapi import config
 from instagrapi.exceptions import ClientError, ClipConfigureError, ClipNotUpload
-from instagrapi.extractors import extract_media_v1
 from instagrapi.types import Location, Media, Track, Usertag
 from instagrapi.utils import date_time_original
 
@@ -16,6 +17,19 @@ try:
     from PIL import Image
 except ImportError:
     raise Exception("You don't have PIL installed. Please install PIL or Pillow>=8.1.1")
+
+
+def _make_tmp_path(suffix: str) -> str:
+    """Create a uniquely-named tempfile path safely.
+
+    ``tempfile.mktemp`` is deprecated and prone to TOCTOU races. We
+    use ``mkstemp`` to atomically create the file under a unique
+    name, then close the file descriptor — the path is reserved and
+    safe for the caller to reopen.
+    """
+    fd, path = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    return path
 
 
 class DownloadClipMixin:
@@ -192,9 +206,12 @@ class UploadClipMixin:
                 raise e
             else:
                 if configured:
-                    media = self.last_json.get("media")
                     self.expose()
-                    return extract_media_v1(media)
+                    return self._extract_configured_media_or_raise(
+                        configured,
+                        ClipConfigureError,
+                        "Clip upload",
+                    )
         raise ClipConfigureError(response=self.last_response, **self.last_json)
 
     def clip_upload_as_reel_with_music(
@@ -204,7 +221,6 @@ class UploadClipMixin:
         track: Track,
         extra_data: Dict[str, str] = {},
     ) -> Media:
-
         """
         Upload CLIP as reel with music metadata.
         It also add the music under the video, therefore a mute video is required.
@@ -231,8 +247,9 @@ class UploadClipMixin:
         Media
             A Media response from the call
         """
-        tmpaudio = Path(tempfile.mktemp(".m4a"))
+        tmpaudio = Path(_make_tmp_path(".m4a"))
         tmpaudio = self.track_download_by_url(track.uri, "track", tmpaudio.parent)
+        tmpvideo = None
         try:
             highlight_start_time = track.highlight_start_times_in_ms[0]
         except IndexError:
@@ -244,30 +261,24 @@ class UploadClipMixin:
                 import moviepy as mp
             except ImportError:
                 raise Exception("Please install moviepy>=1.0.3 and retry")
-        # get all media to create the reel
-        video = mp.VideoFileClip(str(path))
-        audio_clip = mp.AudioFileClip(str(tmpaudio))
-        # set the start time of the audio and create the actual media
-        start = highlight_start_time / 1000
-        end = highlight_start_time / 1000 + video.duration
-        audio_clip = audio_clip.subclip(start, end)
-        video = video.set_audio(audio_clip)
-        # save the media in tmp folder
-        tmpvideo = Path(tempfile.mktemp(".mp4"))
-        video.write_videofile(str(tmpvideo))
-        # close the media
+        video = None
+        audio_clip = None
         try:
-            video.close()
-        except AttributeError:
-            pass
-        try:
-            audio_clip.close()
-        except AttributeError:
-            pass
-        # create the extra data to upload with it
-        data = extra_data or {}
-        data["clips_audio_metadata"] = (
-            {
+            # get all media to create the reel
+            video = mp.VideoFileClip(str(path))
+            audio_clip = mp.AudioFileClip(str(tmpaudio))
+            # set the start time of the audio and create the actual media
+            start = highlight_start_time / 1000
+            end = highlight_start_time / 1000 + video.duration
+            audio_clip = audio_clip.subclip(start, end)
+            video = video.set_audio(audio_clip)
+            video_duration = video.duration
+            # save the media in tmp folder
+            tmpvideo = Path(_make_tmp_path(".mp4"))
+            video.write_videofile(str(tmpvideo))
+            # create the extra data to upload with it
+            data = dict(extra_data or {})
+            data["clips_audio_metadata"] = {
                 "original": {"volume_level": 0.0},
                 "song": {
                     "volume_level": 1.0,
@@ -278,24 +289,33 @@ class UploadClipMixin:
                     "track_name": track.title,
                     "is_picked_precapture": "1",
                 },
-            },
-        )
-        data["music_params"] = {
-            "audio_asset_id": track.id,
-            "audio_cluster_id": track.audio_cluster_id,
-            "audio_asset_start_time_in_ms": highlight_start_time,
-            "derived_content_start_time_in_ms": 0,
-            "overlap_duration_in_ms": int(video.duration * 1000),
-            "product": "story_camera_clips_v2",
-            "song_name": track.title,
-            "artist_name": track.display_artist,
-            "alacorn_session_id": "null",
-        }
-        clip_upload = self.clip_upload(tmpvideo, caption, extra_data=data)
-        # remove the tmp files
-        tmpvideo.unlink()
-        tmpaudio.unlink()
-        return clip_upload
+            }
+            data["music_params"] = {
+                "audio_asset_id": track.id,
+                "audio_cluster_id": track.audio_cluster_id,
+                "audio_asset_start_time_in_ms": highlight_start_time,
+                "derived_content_start_time_in_ms": 0,
+                "overlap_duration_in_ms": int(video_duration * 1000),
+                "product": "story_camera_clips_v2",
+                "song_name": track.title,
+                "artist_name": track.display_artist,
+                "alacorn_session_id": "null",
+            }
+            if getattr(track, "music_canonical_id", None):
+                data["clips_audio_metadata"]["song"][
+                    "music_canonical_id"
+                ] = track.music_canonical_id
+                data["music_params"]["music_canonical_id"] = track.music_canonical_id
+            return self.clip_upload(tmpvideo, caption, extra_data=data)
+        finally:
+            for clip in (video, audio_clip):
+                with contextlib.suppress(AttributeError):
+                    if clip:
+                        clip.close()
+            for tmp_path in (tmpvideo, tmpaudio):
+                with contextlib.suppress(FileNotFoundError):
+                    if tmp_path:
+                        tmp_path.unlink()
 
     def clip_configure(
         self,
@@ -397,13 +417,15 @@ def analyze_video(path: Path, thumbnail: Path = None) -> tuple:
             raise Exception("Please install moviepy>=1.0.3 and retry")
 
     print(f'Analyzing CLIP file "{path}"')
-    video = mp.VideoFileClip(str(path))
-    width, height = video.size
-    if not thumbnail:
-        thumbnail = f"{path}.jpg"
-        print(f'Generating thumbnail "{thumbnail}"...')
-        video.save_frame(thumbnail, t=(video.duration / 2))
-        crop_thumbnail(thumbnail)
+    with contextlib.ExitStack() as stack:
+        video = mp.VideoFileClip(str(path))
+        stack.enter_context(contextlib.closing(video))
+        width, height = video.size
+        if not thumbnail:
+            thumbnail = f"{path}.jpg"
+            print(f'Generating thumbnail "{thumbnail}"...')
+            video.save_frame(thumbnail, t=(video.duration / 2))
+            crop_thumbnail(thumbnail)
     return thumbnail, width, height, video.duration
 
 

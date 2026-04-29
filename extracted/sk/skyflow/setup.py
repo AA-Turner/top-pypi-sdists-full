@@ -7,7 +7,7 @@ import sys
 
 if sys.version_info < (3, 8):
     raise RuntimeError("skyflow requires Python 3.8+")
-current_version = '2.0.0'
+current_version = '2.0.1'
 
 setup(
     name='skyflow',
@@ -33,5 +33,11 @@ setup(
         'python-dotenv~=1.0.1',
         'httpx'
     ],
+    extras_require={
+        'dev': [
+            'codespell',
+            'ruff'
+        ]
+    },
     python_requires=">=3.8",
 )

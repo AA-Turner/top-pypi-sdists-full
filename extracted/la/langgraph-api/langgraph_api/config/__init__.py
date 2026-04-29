@@ -136,7 +136,7 @@ LANGGRAPH_AES_JSON_KEYS: frozenset[str] | None = env(
 
 # redis
 # Not in public docs: infrastructure, set by platform
-REDIS_URI = env("REDIS_URI", cast=str)
+REDIS_URI = env("REDIS_URI_CUSTOM", cast=str, default="") or env("REDIS_URI", cast=str)
 REDIS_CLUSTER = env("REDIS_CLUSTER", cast=bool, default=False)
 REDIS_MAX_CONNECTIONS = env("REDIS_MAX_CONNECTIONS", cast=int, default=2000)
 REDIS_CONNECT_TIMEOUT = env("REDIS_CONNECT_TIMEOUT", cast=float, default=10.0)
@@ -144,6 +144,17 @@ REDIS_HEALTH_CHECK_INTERVAL = env(
     "REDIS_HEALTH_CHECK_INTERVAL", cast=float, default=10.0
 )
 REDIS_KEY_PREFIX = env("REDIS_KEY_PREFIX", cast=str, default="")
+# CA bundle (contents, not a path) for verifying Redis TLS. Must be
+# base64-encoded PEM (base64 sidesteps newline-handling issues in
+# env/YAML plumbing). Required for Memorystore for Redis Cluster with
+# in-transit encryption.
+REDIS_TLS_CA_CERT = env("REDIS_TLS_CA_CERT", cast=str, default="")
+# GCP service account key JSON used to obtain access tokens for IAM-authed
+# Memorystore for Redis Cluster. When set, every new Redis connection AUTHs
+# with "default" + a fresh access token minted from this key.
+REDIS_GCP_SERVICE_ACCOUNT_JSON = env(
+    "REDIS_GCP_SERVICE_ACCOUNT_JSON", cast=str, default=""
+)
 RUN_STATS_CACHE_SECONDS = env("RUN_STATS_CACHE_SECONDS", cast=int, default=60)
 
 # server

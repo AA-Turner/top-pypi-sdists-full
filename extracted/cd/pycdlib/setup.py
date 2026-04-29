@@ -4,7 +4,7 @@ from distutils.command.sdist import sdist as _sdist
 import subprocess
 import time
 
-VERSION='1.15.0'
+VERSION='1.16.0'
 RELEASE='1'
 
 class sdist(_sdist):
@@ -44,15 +44,20 @@ setuptools.setup(name='pycdlib',
                  url='http://github.com/clalancette/pycdlib',
                  author='Chris Lalancette',
                  author_email='clalancette@gmail.com',
-                 license='LGPLv2',
+                 license='LGPL-2.1-only',
                  classifiers=['Development Status :: 5 - Production/Stable',
                               'Intended Audience :: Developers',
-                              'License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)',
                               'Natural Language :: English',
-                              'Programming Language :: Python :: 3.7',
+                              'Programming Language :: Python :: 3',
+                              'Programming Language :: Python :: 3.10',
+                              'Programming Language :: Python :: 3.11',
+                              'Programming Language :: Python :: 3.12',
+                              'Programming Language :: Python :: 3.13',
+                              'Programming Language :: Python :: 3.14',
                  ],
                  keywords='iso9660 iso ecma119 rockridge joliet eltorito udf',
                  packages=['pycdlib'],
+                 python_requires='>=3.10',
                  package_data={'': ['examples/*.py'], 'pycdlib': ['py.typed']},
                  cmdclass={'sdist': sdist},
                  data_files=[('share/man/man1', ['man/pycdlib-explorer.1', 'man/pycdlib-extract-files.1', 'man/pycdlib-genisoimage.1'])],

@@ -36,7 +36,10 @@ class TriggeredJob:
             satisfied or an upstream is not completed. 'skipped_upstream_pending' — upstream being re-run in same batch.
             'skipped_out_of_interval' — point-in-time trigger outside script.interval_start/end. 'skipped_concurrency_limit'
             — active run count already at the script's concurrency limit. 'skipped_already_covered' — scheduler/cascade
-            detected prior completed run already covers the period. Default: TriggeredJobStatus.TRIGGERED.
+            detected prior completed run already covers the period. 'skipped_trial_expired' — trial period has ended for
+            this organization. 'skipped_minutes_limit' — organization has exceeded its cumulative runtime limit.
+            'skipped_org_concurrency_limit' — organization has reached its maximum number of concurrent runs. Default:
+            TriggeredJobStatus.TRIGGERED.
     """
 
     job_ref: str

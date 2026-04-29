@@ -654,6 +654,53 @@ def delete_folder(api_key, workspace_url, group_id):
 # ---------------------------------------------------------------------------
 
 
+_WORKFLOW_SPEC_KEYS = frozenset({"version", "inputs", "steps", "outputs"})
+
+
+def _normalize_workflow_config(config):
+    """Return a JSON string suitable for the backend's ``config`` field.
+
+    The backend stores the ``config`` value verbatim, and the Roboflow inference
+    server expects to parse it to ``{"specification": {...}}`` (see
+    ``inference.core.roboflow_api.get_workflow_specification``). User-facing
+    Workflows JSON — as published in docs.roboflow.com/workflows,
+    ``inference/development/workflows_examples/*``, and the web UI's "View JSON"
+    export — is the flat shape ``{"version", "inputs", "steps", "outputs"}``.
+    The web app silently wraps it in ``{"specification": ...}`` before POSTing;
+    this helper does the same for SDK/CLI callers so that users don't need to
+    know the backend's storage convention.
+
+    Behavior:
+    - ``None`` -> ``"{}"`` (preserves legacy "empty workflow" default).
+    - Anything already wrapped (``{"specification": ...}``) is passed through.
+    - Dicts or JSON strings that look like a bare workflow spec — i.e., contain
+      any of ``version``/``inputs``/``steps``/``outputs`` at the top level —
+      get wrapped.
+    - A leading UTF-8 BOM on string input is stripped before parsing AND on
+      the returned value, so files saved from Windows editors don't ship a
+      BOM to the backend (the inference server's ``json.loads`` rejects it).
+    - When a wrap happens, the result is serialized with compact separators
+      (``","``, ``":"``) to match the shape the web app writes, so audit /
+      diff tools don't see SDK-written and UI-written rows as different.
+    - Any other input is preserved as-is (stringified if needed) so callers who
+      intentionally send custom payloads aren't second-guessed.
+    """
+    if config is None:
+        return "{}"
+    if isinstance(config, str):
+        stripped = config.lstrip("\ufeff")
+        try:
+            parsed = json.loads(stripped)
+        except (ValueError, TypeError):
+            return stripped
+        if isinstance(parsed, dict) and "specification" not in parsed and _WORKFLOW_SPEC_KEYS & parsed.keys():
+            return json.dumps({"specification": parsed}, separators=(",", ":"))
+        return stripped  # preserve user-supplied string when no wrap needed (BOM stripped)
+    if isinstance(config, dict) and "specification" not in config and _WORKFLOW_SPEC_KEYS & config.keys():
+        return json.dumps({"specification": config}, separators=(",", ":"))
+    return json.dumps(config)
+
+
 def list_workflows(api_key, workspace_url):
     """GET /{ws}/workflows — list workflows."""
     response = requests.get(f"{API_URL}/{workspace_url}/workflows", params={"api_key": api_key})
@@ -689,13 +736,11 @@ def create_workflow(api_key, workspace_url, *, name, url=None, config=None, temp
         import re
 
         url = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-    if config is None:
-        config = "{}"
     if template is None:
         template = "{}"
-    # config/template must be strings (the API validates with Joi.string)
-    if not isinstance(config, str):
-        config = json.dumps(config)
+    # config must be the backend's stored shape (`{"specification": ...}`);
+    # auto-wrap bare workflow definitions so docs-shaped JSON works unchanged.
+    config = _normalize_workflow_config(config)
     if not isinstance(template, str):
         template = json.dumps(template)
     params: Dict[str, str] = {
@@ -724,10 +769,12 @@ def update_workflow(api_key, workspace_url, *, workflow_id, workflow_name, workf
         workflow_id: The workflow's internal ID.
         workflow_name: The workflow's display name.
         workflow_url: The workflow's URL slug.
-        config: JSON string (or dict) of the workflow config.
+        config: JSON string (or dict) of the workflow config. Bare workflow
+            definitions (``{"version", "inputs", "steps", "outputs"}``) are
+            auto-wrapped in ``{"specification": ...}`` to match the backend's
+            stored shape; see ``_normalize_workflow_config``.
     """
-    if not isinstance(config, str):
-        config = json.dumps(config)
+    config = _normalize_workflow_config(config)
     payload: Dict[str, str] = {
         "id": workflow_id,
         "name": workflow_name,
@@ -849,3 +896,102 @@ def search_universe(query, *, api_key=None, project_type=None, limit=12, page=1)
     if response.status_code != 200:
         raise RoboflowError(response.text)
     return response.json()
+
+
+# ---------------------------------------------------------------------------
+# Soft-delete / Trash operations
+# ---------------------------------------------------------------------------
+
+
+def _raise_for_trash_response(response):
+    """Raise RoboflowError with the cleanest message available.
+
+    Backend trash endpoints return `{"error": "..."}` JSON on non-2xx.
+    Surface that string to the caller instead of the raw response body so
+    error messages are agent-friendly. Falls back to the raw text if the
+    body isn't JSON or doesn't contain an `error` field.
+
+    The single `raise` at the end means we can't accidentally swallow the
+    intended error if a future refactor widens the except clause.
+    """
+    msg = None
+    try:
+        body = response.json()
+        if isinstance(body, dict):
+            msg = body.get("error")
+    except ValueError:
+        # Body wasn't JSON — fall through to response.text.
+        pass
+    raise RoboflowError(msg or response.text)
+
+
+def delete_project(api_key, workspace_url, project_url):
+    """DELETE /{workspace}/{project} — move a project to Trash (30-day retention).
+
+    Any in-flight training jobs for the project will be cancelled automatically.
+    The project can be restored via `restore_trash_item` within the retention
+    window; after 30 days the cleanup cron permanently removes it.
+    """
+    url = f"{API_URL}/{workspace_url}/{project_url}?api_key={api_key}"
+    response = requests.delete(url)
+    if response.status_code != 200:
+        _raise_for_trash_response(response)
+    return response.json()
+
+
+def delete_version(api_key, workspace_url, project_url, version):
+    """DELETE /{workspace}/{project}/{version} — move a version to Trash.
+
+    Any in-flight training on the version will be cancelled automatically.
+    """
+    url = f"{API_URL}/{workspace_url}/{project_url}/{version}?api_key={api_key}"
+    response = requests.delete(url)
+    if response.status_code != 200:
+        _raise_for_trash_response(response)
+    return response.json()
+
+
+def delete_workflow(api_key, workspace_url, workflow_url):
+    """DELETE /{workspace}/workflows/{workflowUrl} — move a workflow to Trash
+    (30-day retention). Restore via `restore_trash_item(..., "workflow", ...)`.
+    """
+    url = f"{API_URL}/{workspace_url}/workflows/{workflow_url}?api_key={api_key}"
+    response = requests.delete(url)
+    if response.status_code != 200:
+        _raise_for_trash_response(response)
+    return response.json()
+
+
+def list_trash(api_key, workspace_url):
+    """GET /{workspace}/trash — list items currently in Trash.
+
+    Returns a dict with `items` (flat list) and `sections` (grouped by type:
+    `datasets`, `versions`, `workflows`). Each item includes `id`, `type`,
+    `name`, `deletedAt`, `scheduledCleanupAt`, and (for versions) `parentId`.
+    """
+    url = f"{API_URL}/{workspace_url}/trash?api_key={api_key}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        _raise_for_trash_response(response)
+    return response.json()
+
+
+def restore_trash_item(api_key, workspace_url, item_type, item_id, parent_id=None):
+    """POST /{workspace}/trash/restore — restore an item from Trash.
+
+    `item_type` must be one of "project", "version", "workflow".
+    `parent_id` is required when restoring a version (the parent project id).
+    """
+    url = f"{API_URL}/{workspace_url}/trash/restore?api_key={api_key}"
+    payload = {"type": item_type, "id": item_id}
+    if parent_id is not None:
+        payload["parentId"] = parent_id
+    response = requests.post(url, json=payload)
+    if response.status_code != 200:
+        _raise_for_trash_response(response)
+    return response.json()
+
+
+# Note: permanent-delete from Trash (deleteImmediately / empty) is
+# intentionally not exposed on the public API — those actions destroy data
+# irrecoverably and are only available through the web UI's Trash view.

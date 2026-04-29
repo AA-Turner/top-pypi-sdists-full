@@ -5,9 +5,10 @@ import uuid
 import colorfield.fields
 import django.db.models.deletion
 import django_better_admin_arrayfield.models.fields
-import wbcore.markdown.models
 from django.conf import settings
 from django.db import migrations, models
+
+import wbcore.markdown.models
 
 
 class Migration(migrations.Migration):

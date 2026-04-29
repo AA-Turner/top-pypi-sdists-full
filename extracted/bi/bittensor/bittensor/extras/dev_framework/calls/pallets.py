@@ -1,5 +1,5 @@
 """ "
-Subtensor spec version: 376
+Subtensor spec version: 397
 """
 
 System = "System"

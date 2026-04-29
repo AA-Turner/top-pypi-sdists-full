@@ -5,8 +5,9 @@ import uuid
 import django.core.validators
 import django.db.models.deletion
 import django_fsm
-import wbcore.contrib.directory.models.entries
 from django.db import migrations, models
+
+import wbcore.contrib.directory.models.entries
 
 
 class Migration(migrations.Migration):

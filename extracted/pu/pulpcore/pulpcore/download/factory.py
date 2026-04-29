@@ -1,20 +1,21 @@
-from aiohttp import __version__ as aiohttp_version
 import asyncio
 import atexit
 import copy
-from gettext import gettext as _
-from multidict import MultiDict
 import platform
 import ssl
 import sys
+from gettext import gettext as _
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 
 import aiohttp
+from aiohttp import __version__ as aiohttp_version
+from multidict import MultiDict
 
 from pulpcore.app.apps import PulpAppConfig
-from .http import HttpDownloader
+
 from .file import FileDownloader
+from .http import HttpDownloader
 
 PROTOCOL_MAP = {
     "http": HttpDownloader,
@@ -176,7 +177,7 @@ class DownloaderFactory:
             builder = self._handler_map[scheme]
             download_class = self._download_class_map[scheme]
         except KeyError:
-            raise ValueError(_("URL: {u} not supported.".format(u=url)))
+            raise ValueError(_("URL: {u} not supported.").format(u=url))
         else:
             return builder(download_class, url, **kwargs)
 

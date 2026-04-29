@@ -1026,6 +1026,8 @@ def friendly_stage_label(stage_name):
     """
     if not stage_name:
         return stage_name
+    if stage_name.startswith(("Pre-Season", "In-Season")):
+        return stage_name
     parts = stage_name.split("-")
     if len(parts) != 2:
         return stage_name

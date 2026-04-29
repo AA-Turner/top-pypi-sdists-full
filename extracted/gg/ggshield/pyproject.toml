@@ -31,24 +31,26 @@ classifiers = [
 license = { text = "MIT" }
 requires-python = ">=3.9"
 dependencies = [
-    "platformdirs~=3.0.0",
+    "platformdirs~=4.2",
     "charset-normalizer~=3.1.0",
     "click~=8.1.0",
     "cryptography~=43.0.1",
-    "marshmallow~=3.18.0",
+    "marshmallow>=3.18,<3.27",
     "marshmallow-dataclass~=8.5.8",
     "oauthlib~=3.2.1",
     "packaging>=22.0",
-    "pygitguardian~=1.28.0",
+    "pygitguardian~=1.30.0",
     "pyjwt~=2.6.0",
     "python-dotenv~=0.21.0",
     "pyyaml~=6.0.1",
     "requests~=2.32.0",
-    "rich~=12.5.1",
-    "typing-extensions~=4.12.2",
+    "rich~=13.0",
+    "sigstore>=3.0.0,<4",
+    "typing-extensions~=4.14",
     "urllib3>=2.2.2,<3",
     "truststore>=0.10.1; python_version >= \"3.10\"",
     "notify-py>=0.3.43",
+    "keyring>=24.0.0,<26",
 ]
 
 [project.urls]
@@ -65,6 +67,10 @@ build-backend = "hatchling.build"
 path = "ggshield/__init__.py"
 
 [tool.uv]
+# Exclude packages released in the last 3 days to avoid pulling a freshly
+# published (and possibly malicious) version before it's had time to be vetted.
+exclude-newer = "3 days"
+exclude-newer-package = { "pygitguardian" = false }
 override-dependencies = [
     # vcrpy requires urllib3 < 2 if Python is < 3.10, but it works for us with
     # Python 3.9, so force urllib3 version.
@@ -72,6 +78,13 @@ override-dependencies = [
     # pyinstaller limits Python version to < 3.13, making it incompatible with us
     "pyinstaller==6.7.0",
 ]
+
+# Pin the default index to public PyPI so user-level uv config (e.g. an internal
+# GitLab mirror) does not leak into the resolved lock file.
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
 
 [tool.black]
 target-version = ['py36']
@@ -82,6 +95,9 @@ exclude = '/(\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\.tox|\.venv|\.svn|_build|buck
 addopts = "--pdbcls=IPython.terminal.debugger:Pdb --durations=10 --durations-min=3.0 --tb=short"
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
 testpaths = ["tests/"]
+markers = [
+    "uses_gitguardian_api: marks tests that make requests to the GitGuardian API (deselect with '-m \"not uses_gitguardian_api\"')",
+]
 
 [tool.isort]
 profile = "black"

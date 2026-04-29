@@ -2,17 +2,17 @@ from gettext import gettext as _
 from logging import getLogger
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
-from django.contrib.auth import get_user_model
 
 from pulpcore.app.models import (
     ProgressReport,
     Task,
 )
 from pulpcore.app.role_util import get_objects_for_user
-from pulpcore.app.util import get_domain, get_current_authenticated_user
-from pulpcore.constants import TASK_STATES, TASK_FINAL_STATES
+from pulpcore.app.util import get_current_authenticated_user, get_domain
+from pulpcore.constants import TASK_FINAL_STATES, TASK_STATES
 
 log = getLogger(__name__)
 
@@ -48,7 +48,7 @@ def _details_reporting(current_reports, current_details, totals_pb):
             current_reports[key].increase_by(curr_detail)
         else:
             pb = ProgressReport(
-                message=_("Purged task-objects of type {}".format(key)),
+                message=_("Purged task-objects of type {}").format(key),
                 code="purge.tasks.key.{}".format(key),
                 total=None,
                 done=curr_detail,
@@ -127,7 +127,7 @@ def purge(finished_before=None, states=None, **kwargs):
     expected_total = candidate_qs.count()
     # Build and save a progress-report for that detail
     pb = ProgressReport(
-        message=_("Purged task-objects of type {}".format(TASK_KEY)),
+        message=_("Purged task-objects of type {}").format(TASK_KEY),
         total=expected_total,
         code="purge.tasks.key.{}".format(TASK_KEY),
         done=0,

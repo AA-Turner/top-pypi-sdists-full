@@ -1,105 +1,62 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "azure-postgresql-auth"
-version = "1.0.1"
-description = "Azure Entra ID authentication extension for Python database drivers"
-readme = "README.md"
 authors = [
-  {name = "Microsoft"},
+    {name = "Microsoft Corporation", email = "azpysdkhelp@microsoft.com"},
 ]
-license = {text = "MIT"}
-requires-python = ">=3.10"
+description = "Microsoft Azure PostgreSQL Auth Library for Python"
+keywords = ["azure", "azure sdk", "postgresql", "entra"]
+requires-python = ">=3.9"
+license = "MIT"
 classifiers = [
-  "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: MIT License",
-  "Operating System :: OS Independent"
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-  "azure-identity>=1.13.0",
-  "azure-core>=1.24.0",
+    "azure-core>=1.31.0",
 ]
+dynamic = ["version", "readme"]
 
 [project.optional-dependencies]
-# psycopg3 support
 psycopg3 = [
-  "psycopg[binary]>=3.1.0",
-  "psycopg-pool>=3.1.0",
-  "aiohttp>=3.8.0"
+    "psycopg[binary]>=3.1.0",
+    "psycopg-pool>=3.1.0",
 ]
-
-# psycopg2 support
 psycopg2 = [
-  "psycopg2-binary>=2.9.0"
+    "psycopg2-binary>=2.9.0",
 ]
-
-# SQLAlchemy support
 sqlalchemy = [
-  "sqlalchemy>=2.0.0",
-  "aiohttp>=3.8.0"
+    "sqlalchemy>=2.0.0",
 ]
-
-# Development dependencies
-dev = [
-  "pytest>=7.0.0",
-  "pytest-asyncio>=0.21.0",
-  "python-dotenv>=1.0.0",
-  "mypy ~= 1.15",
-  "ruff>=0.8.0",
-  "types-psycopg2>=2.9.0",
-  "psycopg-pool>=3.1.0",
-  "testcontainers[postgres]>=3.7.0",
-  "psycopg[binary]>=3.1.0",
-  "psycopg2-binary>=2.9.0",
-  "sqlalchemy>=2.0.0"
-]
-
-# All optional dependencies combined
-all = [
-  "psycopg[binary]>=3.1.0",
-  "aiohttp>=3.8.0",
-  "psycopg2-binary>=2.9.0",
-  "sqlalchemy>=2.0.0",
-  "pytest>=7.0.0",
-  "pytest-asyncio>=0.21.0",
-  "python-dotenv>=1.0.0",
-  "mypy ~= 1.15",
-  "ruff>=0.8.0",
-  "types-psycopg2>=2.9.0",
-  "psycopg-pool>=3.1.0",
-  "testcontainers[postgres]>=3.7.0"
-]
-
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["azure_postgresql_auth*"]
 
 [project.urls]
-Homepage = "https://github.com/v-anarendra_microsoft/entra-id-integration-for-drivers"
-Issues = "https://github.com/v-anarendra_microsoft/entra-id-integration-for-drivers/issues"
+repository = "https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/postgresql/azure-postgresql-auth"
 
-# Ruff configuration
-[tool.ruff]
-line-length = 88
-target-version = "py310"
+[tool.setuptools.dynamic]
+version = {attr = "azure_postgresql_auth._version.VERSION"}
+readme = {file = ["README.md", "CHANGELOG.md"], content-type = "text/markdown"}
 
-[tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "UP", "B", "I", "N"]
-ignore = ["N806"]  # Allow mixed case variable names
+[tool.setuptools.packages.find]
+include = ["azure_postgresql_auth*"]
 
-[tool.ruff.lint.per-file-ignores]
-"tests/**/*" = ["N"]
-"samples/**/*" = ["T201"]  # Allow print statements in samples
+[tool.setuptools.package-data]
+pytyped = ["py.typed"]
 
-# Installation examples:
-# Basic package only:                        pip install -e .
-# With psycopg3 support:                     pip install -e ".[psycopg3]"
-# With psycopg2 support:                     pip install -e ".[psycopg2]" 
-# With SQLAlchemy support:                   pip install -e ".[sqlalchemy]"
-# With development tools:                    pip install -e ".[dev]"
-# Everything:                                pip install -e ".[all]"
+[tool.azure-sdk-build]
+mypy = true
+pyright = false
+black = true
+
+[tool.azure-sdk-conda]
+in_bundle = false

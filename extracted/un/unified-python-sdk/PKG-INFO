@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.57.41
+Version: 0.57.42
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -331,6 +331,8 @@ asyncio.run(main())
 * [get_ads_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#get_ads_group) - Retrieve a group
 * [get_ads_insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#get_ads_insertionorder) - Retrieve an insertionorder
 * [get_ads_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#get_ads_organization) - Retrieve an organization
+* [get_ads_promoted](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#get_ads_promoted) - Retrieve a promoted
+* [get_ads_target](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#get_ads_target) - Retrieve a target
 * [list_ads_ads](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_ads) - List all ads
 * [list_ads_campaigns](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_campaigns) - List all campaigns
 * [list_ads_creatives](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_creatives) - List all creatives
@@ -1462,6 +1464,7 @@ asyncio.run(main())
 
 ### [Promoted](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/promoted/README.md)
 
+* [get_ads_promoted](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/promoted/README.md#get_ads_promoted) - Retrieve a promoted
 * [list_ads_promoteds](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/promoted/README.md#list_ads_promoteds) - List all promoteds
 
 ### [Prompt](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/prompt/README.md)
@@ -1721,6 +1724,7 @@ asyncio.run(main())
 
 ### [Target](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/target/README.md)
 
+* [get_ads_target](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/target/README.md#get_ads_target) - Retrieve a target
 * [list_ads_targets](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/target/README.md#list_ads_targets) - List all targets
 
 ### [Task](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md)

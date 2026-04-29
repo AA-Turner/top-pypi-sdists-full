@@ -16,13 +16,13 @@ from seeq.spy.workbooks._workbook import Workbook, WorkbookList
 
 @Status.top_level_spy_function(no_session=True)
 def load(
-    folder_or_zipfile: Union[str, Path],
-    *,
-    as_template_with_label: Optional[str] = None,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None
-) -> Optional[WorkbookList]:
+        folder_or_zipfile: Union[str, Path],
+        *,
+        as_template_with_label: Optional[str] = None,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None
+) -> WorkbookList:
     """
     Loads a list of workbooks from a folder on disk into Workbook objects in
     memory.
@@ -59,31 +59,26 @@ def load(
     """
     folder_or_zipfile = os.path.normpath(folder_or_zipfile)
 
-    try:
-        if not util.safe_exists(folder_or_zipfile):
-            raise SPyRuntimeError('Folder/zipfile "%s" does not exist' % folder_or_zipfile)
+    if not util.safe_exists(folder_or_zipfile):
+        raise SPyRuntimeError('Folder/zipfile "%s" does not exist' % folder_or_zipfile)
 
-        if folder_or_zipfile.lower().endswith('.zip'):
-            with tempfile.TemporaryDirectory() as temp:
-                with zipfile.ZipFile(util.handle_long_filenames(folder_or_zipfile), "r") as z:
-                    status.update('Unzipping "%s"' % folder_or_zipfile, Status.RUNNING)
-                    z.extractall(temp)
+    if folder_or_zipfile.lower().endswith('.zip'):
+        with tempfile.TemporaryDirectory() as temp:
+            with zipfile.ZipFile(util.handle_long_filenames(folder_or_zipfile), "r") as z:
+                status.update('Unzipping "%s"' % folder_or_zipfile, Status.RUNNING)
+                z.extractall(temp)
 
-                status.update('Loading from "%s"' % temp, Status.RUNNING)
-                workbooks = _load_from_folder(temp)
-        else:
-            status.update('Loading from "%s"' % folder_or_zipfile, Status.RUNNING)
-            workbooks = _load_from_folder(folder_or_zipfile)
+            status.update('Loading from "%s"' % temp, Status.RUNNING)
+            workbooks = _load_from_folder(temp)
+    else:
+        status.update('Loading from "%s"' % folder_or_zipfile, Status.RUNNING)
+        workbooks = _load_from_folder(folder_or_zipfile)
 
-        if as_template_with_label is not None:
-            workbooks = package_as_templates(workbooks, as_template_with_label)
+    if as_template_with_label is not None:
+        workbooks = package_as_templates(workbooks, as_template_with_label)
 
-        status.update('Success', Status.SUCCESS)
-        return workbooks
-
-    except KeyboardInterrupt:
-        status.update('Load canceled', Status.CANCELED)
-        return None
+    status.update('Success', Status.SUCCESS)
+    return workbooks
 
 
 def _load_from_folder(folder):

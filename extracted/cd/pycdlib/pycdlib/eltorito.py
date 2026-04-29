@@ -22,14 +22,15 @@ import struct
 from pycdlib import pycdlibexception
 from pycdlib import utils
 
-# For mypy annotations
-if False:  # pylint: disable=using-constant-test
-    from typing import List, Union  # NOQA pylint: disable=unused-import
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import List, Union  # noqa: F401
     # NOTE: these imports have to be here to avoid circular deps
-    from pycdlib import dr  # NOQA pylint: disable=unused-import
-    from pycdlib import headervd  # NOQA pylint: disable=unused-import
-    from pycdlib import inode    # NOQA pylint: disable=unused-import
-    from pycdlib import udf as udfmod  # NOQA pylint: disable=unused-import
+    from pycdlib import dr  # noqa: F401
+    from pycdlib import headervd  # noqa: F401
+    from pycdlib import inode  # noqa: F401
+    from pycdlib import udf as udfmod  # noqa: F401
 
 
 _logger = logging.getLogger('pycdlib')
@@ -660,8 +661,8 @@ class EltoritoBootCatalog:
             self.initial_entry.parse(valstr)
             self.state = self.EXPECTING_SECTION_HEADER_OR_DONE
         else:
-            val = bytes(bytearray([valstr[0]]))
-            if val == b'\x00':
+            val = valstr[0]
+            if val == 0x00:
                 # An empty entry tells us we are done parsing El Torito.  Do
                 # some sanity checks.
                 last_section_index = len(self.sections) - 1
@@ -676,12 +677,12 @@ class EltoritoBootCatalog:
                     # have seen ISOs in the wild (FreeBSD 11.0 amd64) in which
                     # this is not the case, so we skip that check.
                 self._initialized = True
-            elif val in (b'\x90', b'\x91'):
+            elif val in (0x90, 0x91):
                 # A Section Header Entry
                 section_header = EltoritoSectionHeader()
                 section_header.parse(valstr)
                 self.sections.append(section_header)
-            elif val in (b'\x88', b'\x00'):
+            elif val in (0x88, 0x00):
                 # A Section Entry. According to El Torito 2.4, a Section Entry
                 # must follow a Section Header, but we have seen ISOs in the
                 # wild that do not follow this (Mageia 4 ISOs, for instance).
@@ -697,7 +698,7 @@ class EltoritoBootCatalog:
                     self.sections[-1].add_parsed_entry(secentry)
                 else:
                     self.standalone_entries.append(secentry)
-            elif val == b'\x44':
+            elif val == 0x44:
                 # A Section Entry Extension
                 self.sections[-1].section_entries[-1].selection_criteria += valstr[2:]
             else:
@@ -833,7 +834,7 @@ class EltoritoBootCatalog:
         Returns:
          The extent location of this Boot Catalog.
         """
-        return struct.unpack_from('<L', self.br.boot_system_use[:4], 0)[0]
+        return struct.unpack_from('<L', self.br.boot_system_use, 0)[0]
 
     def extent_location(self):
         # type: () -> int

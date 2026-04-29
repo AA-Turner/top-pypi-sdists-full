@@ -4,8 +4,12 @@
 # license information.
 # --------------------------------------------------------------------------
 """Pivot pipeline class."""
+
+from __future__ import annotations
+
 from collections import namedtuple
-from typing import Any, Dict, Iterable, List, Optional
+from collections.abc import Iterable
+from typing import Any
 
 import attr
 import pandas as pd
@@ -39,11 +43,11 @@ class PipelineStep:
 
     name: str
     step_type: str = attr.ib(validator=attr.validators.in_(_STEP_TYPES))
-    function: Optional[str] = None
-    entity: Optional[str] = None
-    comment: Optional[str] = None
-    pos_params: List[str] = Factory(list)
-    params: Dict[str, Any] = Factory(dict)
+    function: str | None = None
+    entity: str | None = None
+    comment: str | None = None
+    pos_params: list[str] = Factory(list)
+    params: dict[str, Any] = Factory(dict)
 
     def get_exec_step(self) -> PipelineExecStep:
         """
@@ -95,8 +99,7 @@ class PipelineStep:
     def _get_param_string(self) -> str:
         """Return text representation of keyword params."""
         pos_params = [
-            f"'{param}'" if isinstance(param, str) else str(param)
-            for param in self.pos_params
+            f"'{param}'" if isinstance(param, str) else str(param) for param in self.pos_params
         ]
         params_str = [
             f"{p_name}='{p_val}'"
@@ -145,8 +148,8 @@ class Pipeline:
     def __init__(
         self,
         name: str,
-        description: Optional[str] = None,
-        steps: Optional[Iterable[PipelineStep]] = None,
+        description: str | None = None,
+        steps: Iterable[PipelineStep] | None = None,
     ):
         """
         Create Pipeline instance.
@@ -163,7 +166,7 @@ class Pipeline:
         """
         self.name = name
         self.description = description
-        self.steps: List[PipelineStep] = []
+        self.steps: list[PipelineStep] = []
         if steps:
             self.steps.extend(iter(steps))
 
@@ -184,7 +187,7 @@ class Pipeline:
         )
 
     @classmethod
-    def parse_pipeline(cls, pipeline: Dict[str, Dict[str, Any]]) -> "Pipeline":
+    def parse_pipeline(cls, pipeline: dict[str, dict[str, Any]]) -> Pipeline:
         """
         Parse single pipeline from dictionary.
 
@@ -208,13 +211,11 @@ class Pipeline:
         pl_name, pl_dict = next(iter(pipeline.items()))
         if pl_dict and isinstance(pl_dict, dict):
             steps = [PipelineStep(**step) for step in pl_dict.get("steps", [])]
-            return cls(
-                name=pl_name, description=pl_dict.get("description"), steps=steps
-            )
+            return cls(name=pl_name, description=pl_dict.get("description"), steps=steps)
         raise ValueError("Dictionary could not be parsed.")
 
     @staticmethod
-    def parse_pipelines(pipelines: Dict[str, Dict[str, Any]]) -> Iterable["Pipeline"]:
+    def parse_pipelines(pipelines: dict[str, dict[str, Any]]) -> Iterable[Pipeline]:
         """
         Parse dict of pipelines.
 
@@ -233,7 +234,7 @@ class Pipeline:
             yield Pipeline.parse_pipeline({p_name: pipeline})
 
     @classmethod
-    def from_yaml(cls, yml_str: str) -> Iterable["Pipeline"]:
+    def from_yaml(cls, yml_str: str) -> Iterable[Pipeline]:
         """
         Parse pipelines from yaml string.
 
@@ -264,9 +265,7 @@ class Pipeline:
         steps = [attr.asdict(step) for step in self.steps]
         return yaml.dump({self.name: {"description": self.description, "steps": steps}})
 
-    def run(
-        self, data: pd.DataFrame, verbose: bool = True, debug: bool = False
-    ) -> Optional[Any]:
+    def run(self, data: pd.DataFrame, verbose: bool = True, debug: bool = False) -> Any | None:
         """
         Run the pipeline on the supplied DataFrame.
 
@@ -302,9 +301,7 @@ class Pipeline:
             else:
                 exec_kws = {}
             func = _get_pd_accessor_func(pipeline_result, exec_action.accessor)
-            pipeline_result = func(
-                *exec_action.pos_params, **exec_action.params, **exec_kws
-            )
+            pipeline_result = func(*exec_action.pos_params, **exec_action.params, **exec_kws)
 
         return pipeline_result
 

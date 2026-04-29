@@ -38,6 +38,7 @@ from ray.actor import ActorHandle
 from ray.util.metrics import Counter
 
 from cosmos_xenna.pipelines.private import allocator, resources
+from cosmos_xenna.pipelines.private.allocator import AllocationError  # type: ignore[attr-defined]
 from cosmos_xenna.ray_utils import monitoring, stage, stage_worker
 from cosmos_xenna.utils import grouping, stats, timing
 from cosmos_xenna.utils import python_log as logger
@@ -99,6 +100,9 @@ def _get_actor_pid_tree(actor_ref: ActorHandle) -> list[tuple[int, float | None]
 
 _REAP_GRACE_PERIOD_S = 15
 
+_GRACEFUL_SHUTDOWN_GRACE_PERIOD_S = 30.0
+_GRACEFUL_SHUTDOWN_RPC_BUFFER_S = 5.0
+
 
 @ray.remote(num_cpus=0)
 def _reap_pids(pid_entries: list[tuple[int, float | None]]) -> None:
@@ -147,11 +151,72 @@ def _reap_pids(pid_entries: list[tuple[int, float | None]]) -> None:
         logger.debug(f"_reap_pids: all {len(pid_entries)} pid(s) gone within grace period or already dead")
 
 
-def _kill_actor_and_reap(actor_ref: ActorHandle, node_id: str, label: str) -> None:
-    """Snapshot the actor's PID tree, ray.kill() it, then dispatch a cleanup task to the node."""
+def _attempt_graceful_shutdown(actor_ref: ActorHandle, label: str, grace_period_s: float) -> bool:
+    """Ask the worker to drain in-flight work before we ``ray.kill()`` it.
+
+    This is a *cooperative* pre-step: ``StageWorker.shutdown`` sets the stop
+    flag, joins its internal threads up to ``grace_period_s``, and returns
+    a bool indicating whether the join completed. We always proceed to
+    ``ray.kill()`` regardless of the outcome - a graceful drain just lets
+    the actor publish results from in-flight tasks first (continuous mode)
+    or finish a batch (batch mode); the kill is what releases Ray
+    resources.
+
+    The ``ray.get`` timeout adds ``_GRACEFUL_SHUTDOWN_RPC_BUFFER_S`` over
+    ``grace_period_s`` so that the worker's own join can finish and return
+    its bool to the caller before we abandon the wait. If the worker never
+    returns (e.g. it is wedged in C extension code), we still bound the
+    total cost at ``grace_period_s + buffer`` and continue to the kill.
+
+    Returns ``True`` if the worker reported a clean drain, ``False`` if it
+    reported timeout or if the RPC itself timed out / raised. The caller
+    uses this only for logging; the kill happens unconditionally.
+    """
+    if grace_period_s <= 0.0:
+        return False
+    try:
+        return bool(
+            ray.get(
+                actor_ref.shutdown.remote(grace_period_s),  # type: ignore[attr-defined]
+                timeout=grace_period_s + _GRACEFUL_SHUTDOWN_RPC_BUFFER_S,
+            )
+        )
+    except ray.exceptions.GetTimeoutError:
+        logger.warning(f"graceful shutdown of {label} timed out after {grace_period_s:.1f}s; will hard-kill")
+        return False
+    except Exception as e:  # noqa: BLE001 - best-effort, the kill is what guarantees cleanup
+        logger.warning(f"graceful shutdown of {label} raised {type(e).__name__}: {e}; will hard-kill")
+        return False
+
+
+def _kill_actor_and_reap(
+    actor_ref: ActorHandle,
+    node_id: str,
+    label: str,
+    grace_period_s: float = _GRACEFUL_SHUTDOWN_GRACE_PERIOD_S,
+) -> None:
+    """Drain (best-effort), snapshot, ``ray.kill()``, and dispatch a node-local reaper.
+
+    Tear-down sequence::
+
+        1. _attempt_graceful_shutdown()   - cooperative drain (bounded)
+        2. _get_actor_pid_tree()           - snapshot for the reaper
+        3. ray.kill(actor_ref)             - release Ray resources
+        4. _reap_pids.remote()             - handle ray.kill() survivors
+
+    The graceful step is cheap when it succeeds (continuous-mode stages
+    drain in well under the grace period; batch-mode stages return
+    immediately because their threads were already idle between tasks).
+    When it fails, we bound the cost and proceed to the hard kill. The
+    PID-tree snapshot taken AFTER the graceful step is intentional: a
+    well-behaved stage may have already cleaned up its child processes
+    by then, leaving the snapshot small (or empty) and saving the
+    reaper from chasing PIDs that no longer exist.
+    """
+    drained = _attempt_graceful_shutdown(actor_ref, label, grace_period_s)
     pid_entries = _get_actor_pid_tree(actor_ref)
     pids = [p for p, _ in pid_entries]
-    logger.debug(f"Killing {label} (pids={pids})")
+    logger.debug(f"Killing {label} (pids={pids}, graceful_drain={drained})")
     ray.kill(actor_ref)
     logger.debug(f"ray.kill() dispatched for {label} (pids={pids})")
     if pid_entries and _KILL_ACTOR_SURVIVORS:
@@ -243,8 +308,22 @@ class _ReadyActor(Generic[V]):
     def idle_slots(self) -> list[_Slot]:
         return [x for x in self.slots if not x.has_task]
 
-    def kill(self) -> None:
-        _kill_actor_and_reap(self.actor_ref, self.metadata.allocation.node, f"ready actor {self.metadata.worker_id}")
+    def kill(self, graceful: bool = True) -> None:
+        """Tear down this actor.
+
+        Args:
+            graceful: When True, allow a cooperative drain window before
+                ``ray.kill()``; when False, skip the drain. Re-queue
+                callers (``_try_delete_ready_actor``) pass False because
+                the drained results would be discarded.
+        """
+        grace = _GRACEFUL_SHUTDOWN_GRACE_PERIOD_S if graceful else 0.0
+        _kill_actor_and_reap(
+            self.actor_ref,
+            self.metadata.allocation.node,
+            f"ready actor {self.metadata.worker_id}",
+            grace_period_s=grace,
+        )
 
     def maybe_resize_num_slots_per_actor(self, new_slots_per_actor: int) -> None:
         if len(self.slots) == new_slots_per_actor:
@@ -677,6 +756,11 @@ class ActorPool(Generic[T, V]):
         return bool(self._task_queue) or self.num_used_slots > 0 or bool(self._completed_tasks)
 
     @property
+    def num_queued_tasks(self) -> int:
+        """Return the number of tasks queued in the pool waiting for an actor slot."""
+        return len(self._task_queue)
+
+    @property
     def num_ready_actors(self) -> int:
         return len(self._ready_actors)
 
@@ -727,7 +811,7 @@ class ActorPool(Generic[T, V]):
                 self._num_completed_tasks,
                 self._num_null_tasks,
                 self._num_dynamically_spawned_tasks,
-                len(self._task_queue),
+                self.num_queued_tasks,
                 len(self._completed_tasks) + ext_output_queue_size,
             ),
             monitoring.SlotStats(self.num_used_slots, self.num_empty_slots),
@@ -897,33 +981,107 @@ class ActorPool(Generic[T, V]):
         self._cluster_port_registry.register_port(node_id, worker.id, rendevous_params.master_port)
         return rendevous_params
 
-    def _add_worker_group(self, worker: resources.WorkerGroup) -> None:
-        if self._is_spmd:
-            rendevous_params = self._find_rendevous_params_for_worker_group(worker)
-        else:
-            rendevous_params = None
+    def _add_worker_group(self, worker: resources.WorkerGroup) -> bool:
+        """Add a worker group, allocating resources and creating actors.
 
-        logger.trace(f"Adding worker group: {worker.id}")
-        worker_group = _WorkerGroup(worker, set(), _WorkerGroupState.WAITING_FOR_SETUP, rendevous_params)
-        self._allocator.add_worker(worker)
-        if self._is_spmd:
-            logger.trace(f"Creating SPMD actors for worker group: {worker_group.worker_group.id}")
-            splits = worker.split_allocation_per_gpu()
-            # SPMD requires one actor per GPU across the cluster
-            # The autoscaler splits worker groups by node, but we need to create actors for each GPU,
-            # so we split the worker group by GPU here.
-            old_node = None
-            for idx, allocation in enumerate(splits):
-                # Every time the node name changes, we need to reset local rank
-                if allocation is not None and allocation.node != old_node:
-                    old_node = allocation.node
-                # Create actor with SPMD coordination (idx=rank, len(splits)=world_size)
-                self._create_actor_for_worker_group(worker_group, allocation, idx, len(splits))
-        else:
-            # Regular (non-SPMD) actors - single allocation per worker group
-            assert len(worker.allocations) == 1, "Non-SPMD actors should only have one allocation"
-            self._create_actor_for_worker_group(worker_group, worker.allocations[0], None, None)
-        self._worker_groups[worker_group.worker_group.id] = worker_group
+        Ordering invariant (do NOT change without considering state leaks):
+        the Rust allocator gate runs FIRST, before any SPMD-only side
+        effects - specifically the rendezvous-port registration in
+        ``self._cluster_port_registry`` and its ``ray.get`` RPC. The
+        ``_cluster_port_registry`` is only cleaned up in
+        ``_delete_worker_group``, which is unreachable for a worker
+        group that was never inserted into ``self._worker_groups``.
+        Registering the port before the allocator gate would therefore
+        permanently leak a port entry on every ``AllocationError``
+        (and waste a synchronous RPC on the hot failure path).
+
+        Symmetric guarantee: any code path between successful allocation
+        and the final ``self._worker_groups[...] = worker_group`` insertion
+        that raises an exception will roll back both the allocator
+        admission and any partial port registration via the ``finally``
+        block below. New post-allocator side effects must therefore be
+        either (a) infallible or (b) cleaned up inside this same
+        ``finally`` block.
+
+        ``AllocationError`` from the Rust ``WorkerAllocator`` (TOCTOU race
+        with stale resource snapshot) is caught and logged at WARNING level;
+        the next autoscale cycle will retry with a fresh snapshot.
+
+        Returns:
+            True if the worker group was created successfully, False if the
+            allocation was skipped due to a stale-snapshot race.
+        """
+        # Allocator gate first - short-circuit before any SPMD side effects.
+        try:
+            self._allocator.add_worker(worker)
+        except AllocationError as e:
+            logger.warning(
+                f"Skipping worker creation for {self.name}: "
+                f"worker {worker.id} "
+                f"(will retry on next autoscale cycle): {e}",
+            )
+            return False
+
+        # The allocator has accepted the worker; from here, any failure
+        # before insertion into ``self._worker_groups`` must roll back
+        # both the allocator admission and any partial port registration.
+        # ``_delete_worker_group`` is unreachable for a worker group that
+        # was never inserted, so cleanup happens in the ``finally`` below.
+        inserted = False
+        try:
+            # Only after the allocator has accepted the worker do we acquire
+            # the SPMD rendezvous params (which registers a port on the node).
+            if self._is_spmd:
+                rendevous_params = self._find_rendevous_params_for_worker_group(worker)
+            else:
+                rendevous_params = None
+
+            logger.trace(f"Adding worker group: {worker.id}")
+            worker_group = _WorkerGroup(worker, set(), _WorkerGroupState.WAITING_FOR_SETUP, rendevous_params)
+            if self._is_spmd:
+                logger.trace(f"Creating SPMD actors for worker group: {worker_group.worker_group.id}")
+                splits = worker.split_allocation_per_gpu()
+                # SPMD requires one actor per GPU across the cluster
+                # The autoscaler splits worker groups by node, but we need to create actors for each GPU,
+                # so we split the worker group by GPU here.
+                old_node = None
+                for idx, allocation in enumerate(splits):
+                    # Every time the node name changes, we need to reset local rank
+                    if allocation is not None and allocation.node != old_node:
+                        old_node = allocation.node
+                    # Create actor with SPMD coordination (idx=rank, len(splits)=world_size)
+                    self._create_actor_for_worker_group(worker_group, allocation, idx, len(splits))
+            else:
+                # Regular (non-SPMD) actors - single allocation per worker group
+                assert len(worker.allocations) == 1, "Non-SPMD actors should only have one allocation"
+                self._create_actor_for_worker_group(worker_group, worker.allocations[0], None, None)
+            self._worker_groups[worker_group.worker_group.id] = worker_group
+            inserted = True
+            return True
+        finally:
+            if not inserted:
+                # Roll back allocator admission and any partial port
+                # registration so cluster-side state matches reality.
+                # ``clear_port`` is a no-op if no port was registered,
+                # so unconditional cleanup on the SPMD path is safe.
+                logger.warning(
+                    f"Rolling back partial worker creation for {self.name}: worker {worker.id}",
+                )
+                try:
+                    self._allocator.remove_worker(worker.id)
+                except Exception as e:  # noqa: BLE001
+                    logger.error(
+                        f"Allocator rollback failed for {self.name} worker {worker.id}: {e}",
+                        exc_info=True,
+                    )
+                if self._is_spmd:
+                    try:
+                        self._cluster_port_registry.clear_port(worker.allocations[0].node, worker.id)
+                    except Exception as e:  # noqa: BLE001
+                        logger.error(
+                            f"Port registry rollback failed for {self.name} worker {worker.id}: {e}",
+                            exc_info=True,
+                        )
 
     def _add_actor_to_waiting_list(self, actor_handle: ActorHandle, metadata: resources.WorkerMetadata) -> None:
         """Adds an actor to the list waiting for node setup on its target node."""
@@ -1032,7 +1190,7 @@ class ActorPool(Generic[T, V]):
             return
 
         # Create a map from ObjectRef back to actor ID for quick lookup
-        ref_to_id_map = {ref: actor_id for ref, actor_id in zip(setup_refs, actor_ids)}
+        ref_to_id_map = {ref: actor_id for ref, actor_id in zip(setup_refs, actor_ids, strict=True)}
 
         for ready_ref in ready_refs:
             actor_id = ref_to_id_map.get(ready_ref)
@@ -1092,7 +1250,7 @@ class ActorPool(Generic[T, V]):
         if not ready_refs:
             return
 
-        ref_to_node_id_map = {ref: node_id for ref, node_id in zip(node_setup_refs, node_ids)}
+        ref_to_node_id_map = {ref: node_id for ref, node_id in zip(node_setup_refs, node_ids, strict=True)}
 
         for ready_ref in ready_refs:
             node_id = ref_to_node_id_map.get(ready_ref)
@@ -1140,6 +1298,10 @@ class ActorPool(Generic[T, V]):
         if actor_id_to_delete is not None and worker_allocation_to_restart is not None:
             logger.info(f"Restarting {actor_id_to_delete} from {self._name} after {max_running_time_m:.0f} minutes")
             deleted_worker_group = self._delete_worker_group(worker_allocation_to_restart.worker_group_id)
+            # _add_worker_group cannot fail here: the shared allocator is single-writer
+            # (this main thread), and the worker.id and its resources were freed by the
+            # preceding _delete_worker_group call, so neither DuplicateWorkerId nor
+            # OverAllocated can be raised. The bool return is intentionally ignored.
             self._add_worker_group(deleted_worker_group)
             self._last_actor_restart_time = time.time()
 
@@ -1259,11 +1421,14 @@ class ActorPool(Generic[T, V]):
         return False
 
     def _try_delete_ready_actor(self, actor_id: str) -> bool:
-        """Attempts to delete an actor from the ready state."""
+        """Re-queue in-flight tasks (front of queue), then hard-kill the actor.
+
+        The kill uses ``graceful=False``: drained results would be
+        discarded since each task now lives on ``_task_queue``.
+        """
         if actor_id in self._ready_actors:
             actor = self._ready_actors.pop(actor_id)
             logger.debug(f"Killing ready actor {actor_id}.")
-            # Return any tasks assigned to this actor back to the main queue.
             num_returned_tasks = 0
             for task_slot in actor.slots:
                 if task_slot.has_task:
@@ -1271,7 +1436,7 @@ class ActorPool(Generic[T, V]):
                     num_returned_tasks += 1
             if num_returned_tasks > 0:
                 logger.info(f"Returned {num_returned_tasks} tasks from deleted actor {actor_id} to the queue.")
-            actor.kill()
+            actor.kill(graceful=False)
             return True
         return False
 
@@ -1563,7 +1728,17 @@ class ActorPool(Generic[T, V]):
         # Only update metrics for the primary actor. This is rank=0 for spmd.
         if is_primary:
             self._task_result_metadatas.append(metadata)
-            actor.rate_estimator.update(metadata.timing.process_end_time_s - metadata.timing.process_start_time_s)
+            # Prefer worker-supplied ``rate_duration_s`` (inter-completion
+            # interval) over wall-clock per-task duration. Workers that
+            # pipeline overlapping tasks inflate wall-clock per-task by the
+            # overlap factor; the inter-completion interval is the per-slot
+            # service rate the autoscaler actually needs. Workers that
+            # process tasks serially leave ``rate_duration_s`` as ``None``
+            # and fall through to the wall-clock formula.
+            if metadata.rate_duration_s is not None:
+                actor.rate_estimator.update(metadata.rate_duration_s)
+            else:
+                actor.rate_estimator.update(metadata.timing.process_end_time_s - metadata.timing.process_start_time_s)
             # Unless told not to, ignore the data and continue on.
             if not metadata.failure_info.should_process_further:
                 self._num_null_tasks += 1
@@ -1634,6 +1809,16 @@ class ActorPool(Generic[T, V]):
 
         # TODO: Technically, we should clear up the worker groups here as well, but this is not a big deal as we do
         # not expected users to re-use instances of ActorPool.
+
+        # Surface any tasks the clear() below would otherwise drop
+        # silently. Per-origin counts let the operator attribute the
+        # loss to a specific upstream node.
+        if self._task_queue:
+            counts_by_origin = collections.Counter(t.origin_node_id for t in self._task_queue)
+            logger.warning(
+                f"ActorPool {self.name}: stop() called with {len(self._task_queue)} abandoned task(s); "
+                f"these will be dropped. Counts by origin node: {dict(counts_by_origin)}."
+            )
 
         # Clear all state dictionaries explicitly after attempting deletion
         self._pending_actors.clear()

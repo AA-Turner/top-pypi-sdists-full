@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-resourcedetector-gcp
-Version: 1.11.0a0
+Version: 1.12.0a0
 Summary: Google Cloud resource detector for OpenTelemetry
 Home-page: https://github.com/GoogleCloudPlatform/opentelemetry-operations-python/tree/main/opentelemetry-resourcedetector-gcp
 Author: Google

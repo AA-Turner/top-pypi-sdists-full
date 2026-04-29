@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyViCare
-Version: 2.59.1
+Version: 2.60.1
 Summary: Library to communicate with the Viessmann ViCare API.
 License: Apache-2.0
 License-File: LICENSE

@@ -9,7 +9,6 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::iter;
 
-use itertools::Either;
 use itertools::EitherOrBoth;
 use itertools::Itertools;
 use itertools::izip;
@@ -32,7 +31,6 @@ use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_types::typed_dict::TypedDictField;
 use pyrefly_types::types::Overload;
 use pyrefly_types::types::Union;
-use pyrefly_types::types::Var;
 use pyrefly_util::owner::Owner;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -45,6 +43,7 @@ use crate::solver::solver::OpenTypedDictSubsetError;
 use crate::solver::solver::Subset;
 use crate::solver::solver::SubsetCacheEntry;
 use crate::solver::solver::SubsetError;
+use crate::solver::solver::SubsetWithSnapshotResult;
 use crate::solver::solver::TypedDictSubsetError;
 use crate::types::callable::Function;
 use crate::types::callable::Param;
@@ -128,20 +127,6 @@ fn any<T>(
         }
     }
     Err(err.unwrap_or(SubsetError::Other))
-}
-
-/// Result of `with_snapshot`, which performs an `is_subset_eq` call with var snapshotting.
-enum SubsetWithSnapshotResult {
-    /// `is_subset_eq` call was successful.
-    Ok,
-    /// `is_subset_eq` call failed.
-    Err(SubsetError),
-}
-
-impl SubsetWithSnapshotResult {
-    fn is_ok(&self) -> bool {
-        matches!(self, SubsetWithSnapshotResult::Ok)
-    }
 }
 
 impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
@@ -1294,34 +1279,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         res
     }
 
-    /// Snapshots the given vars, calls `f`, and rolls back the vars if the call fails.
-    /// Note that this only rolls back the var state and not:
-    /// * `Ok` entries left in `subset_cache` (the rollback in `is_subset_eq_impl` only fires on
-    ///   `Err` from the speculative call, not on `Ok`-with-instantiation-errors), or
-    /// * `coinductive_assumptions_used`, which is one-way.
-    fn with_snapshot(
-        &mut self,
-        vars: &[Var],
-        f: impl FnOnce(&mut Subset<Ans>) -> Result<(), SubsetError>,
-    ) -> SubsetWithSnapshotResult {
-        if vars.is_empty() {
-            // Fast path - no var snapshotting needed.
-            return f(self).map_or_else(SubsetWithSnapshotResult::Err, |_| {
-                SubsetWithSnapshotResult::Ok
-            });
-        }
-        let snapshot = self.solver.snapshot_vars(vars);
-        let res = match (f(self), self.solver.has_new_instantiation_errors(&snapshot)) {
-            (Ok(()), false) => SubsetWithSnapshotResult::Ok,
-            (Ok(()), true) => SubsetWithSnapshotResult::Err(SubsetError::Other),
-            (Err(e), _) => SubsetWithSnapshotResult::Err(e),
-        };
-        if !res.is_ok() {
-            self.solver.restore_vars(snapshot);
-        }
-        res
-    }
-
     fn is_subset_eq_no_recursive_check(
         &mut self,
         got: &Type,
@@ -1401,8 +1358,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::Quantified(q), u)
                 if let Restriction::Bound(bound) = q.restriction()
                     && self
-                        .with_snapshot(&u.collect_maybe_placeholder_vars(), |me| {
-                            me.is_subset_eq(bound, u)
+                        .solver
+                        .with_snapshot(&u.collect_maybe_placeholder_vars(), || {
+                            self.is_subset_eq(bound, u)
                         })
                         .is_ok() =>
             {
@@ -1411,9 +1369,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::Quantified(q), u)
                 if let Restriction::Constraints(constraints) = q.restriction()
                     && self
-                        .with_snapshot(&u.collect_maybe_placeholder_vars(), |me| {
+                        .solver
+                        .with_snapshot(&u.collect_maybe_placeholder_vars(), || {
                             all(constraints.iter(), |constraint| {
-                                me.is_subset_eq(constraint, u)
+                                self.is_subset_eq(constraint, u)
                             })
                         })
                         .is_ok() =>
@@ -1521,29 +1480,16 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             },
             (l, Type::Intersect(u)) => all(u.0.iter(), |u| self.is_subset_eq(l, u)),
             (l, Type::Union(box Union { members: us, .. })) => {
-                // Check non-var elements before var elements, so that if we match a non-var, we
-                // don't pin the vars. Within var-containing members, try wrapped vars (e.g.
-                // `type[T]`) before bare vars (e.g. `T`), so that more specific patterns are
-                // tried first. This prevents cases like `T | type[T]` from incorrectly matching
-                // bare `T` when `type[T]` would produce a better (bound-satisfying) solution.
-                let (vars, nonvars): (Vec<_>, Vec<_>) = us.iter().partition_map(|u| {
-                    let vs = u.collect_maybe_placeholder_vars();
-                    if !vs.is_empty() {
-                        Either::Left((u, vs))
-                    } else {
-                        Either::Right((u, vs))
-                    }
-                });
-                let (bare_vars, wrapped_vars): (Vec<_>, Vec<_>) = vars
-                    .into_iter()
-                    .partition(|(u, _)| matches!(u, Type::Var(_)));
-                let ordered_us = nonvars.into_iter().chain(wrapped_vars).chain(bare_vars);
+                let ordered_us = self.solver.partial_sort_by_vars(us);
                 let mut error = None;
                 let l_vs = l.collect_maybe_placeholder_vars();
                 // Take the first successful match.
                 for (u, vs) in ordered_us {
                     let all_vs = l_vs.iter().copied().chain(vs).collect::<Vec<_>>();
-                    match self.with_snapshot(&all_vs, |me| me.is_subset_eq(l, u)) {
+                    match self
+                        .solver
+                        .with_snapshot(&all_vs, || self.is_subset_eq(l, u))
+                    {
                         SubsetWithSnapshotResult::Ok => return Ok(()),
                         SubsetWithSnapshotResult::Err(e) => {
                             if error.is_none() {

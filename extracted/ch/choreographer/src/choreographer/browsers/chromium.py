@@ -16,6 +16,10 @@ if platform.system() == "Windows":
     import msvcrt
 
 from choreographer.channels import Pipe
+from choreographer.cli._cli_utils import (
+    get_chrome_download_path,
+    get_old_chrome_download_path,
+)
 from choreographer.utils import TmpDirectory, get_browser_path
 
 from ._chrome_constants import chromium_based_browsers
@@ -75,13 +79,23 @@ class Chromium:
         *,
         skip_local: bool,
         skip_typical: bool = False,
+        verify_local: bool = False,
     ) -> str | None:
         """Find a chromium based browser."""
+        if not skip_local:
+            if ((p := get_chrome_download_path(mkdir=False)) and p.exists()) or (
+                (p := get_old_chrome_download_path()) and p.exists()
+            ):
+                return str(p)
+            elif verify_local:
+                raise RuntimeError("verify_local set to True, local not found.")
+        elif verify_local:
+            raise ValueError("Cannot set both skip_local and verify_local.")
+
         for name, browser_data in chromium_based_browsers.items():
             _logger.debug(f"Looking for a {name} browser.")
             path = get_browser_path(
                 executable_names=browser_data.exe_names,
-                skip_local=skip_local,
                 ms_prog_id=browser_data.ms_prog_id,
             )
             if not path and not skip_typical:
@@ -113,46 +127,6 @@ class Chromium:
         # replace the chromium timestamp because we do our own
         record.msg = _logs_parser_regex.sub("", record.msg)
 
-        return True
-
-    def _libs_ok(self) -> bool:
-        """Return true if libs ok."""
-        if self.skip_local:
-            _logger.debug(
-                "If we HAVE to skip local.",
-            )
-            return True
-        _logger.debug("Checking for libs needed.")
-        if platform.system() != "Linux":
-            _logger.debug("We're not in linux, so no need for check.")
-            return True
-        p = None
-        try:
-            _logger.debug(f"Trying ldd {self.path}")
-            p = subprocess.run(  # noqa: S603, validating run with variables
-                [  # noqa: S607 path is all we have
-                    "ldd",
-                    str(self.path),
-                ],
-                capture_output=True,
-                timeout=5,
-                check=True,
-            )
-        except Exception as e:  # noqa: BLE001
-            msg = "ldd failed."
-            stderr = p.stderr.decode() if p and p.stderr else None
-            # Log failure as INFO rather than WARNING so that it's hidden by default,
-            # since browser may succeed even if ldd fails
-            _logger.info(
-                msg  # noqa: G003 + in log
-                + f" e: {e}, stderr: {stderr}",
-            )
-            return False
-        if b"not found" in p.stdout:
-            msg = "Found deps missing in chrome"
-            _logger.debug2(msg + f" {p.stdout.decode()}")
-            return False
-        _logger.debug("No problems found with dependencies")
         return True
 
     def __init__(
@@ -200,11 +174,12 @@ class Chromium:
 
         if not self.path:
             self.path = Chromium.find_browser(skip_local=self.skip_local)
-        if not self.path:
+        if not self.path or not Path(self.path).is_file():
             raise ChromeNotFoundError(
                 "Browser not found. You can use get_chrome() or "
                 "choreo_get_chrome from bash. please see documentation. "
-                f"Local copy ignored: {self.skip_local}.",
+                f"Local copy ignored: {self.skip_local}. ",
+                f"Path calculated:: {self.path}.",
             )
         _logger.info(f"Found chromium path: {self.path}")
 
@@ -220,7 +195,6 @@ class Chromium:
             path=self._tmp_dir_path,
             sneak=self._is_isolated,
         )
-        self.missing_libs = not self._libs_ok()
         _logger.info(f"Temporary directory at: {self.tmp_dir.path}")
 
     def is_isolated(self) -> bool:
@@ -245,6 +219,8 @@ class Chromium:
             if isinstance(self._channel, Pipe):
                 args["stdin"] = self._channel.from_choreo_to_external
                 args["stdout"] = self._channel.from_external_to_choreo
+            args["start_new_session"] = True
+
         _logger.debug(f"Returning args: {args}")
         return args
 

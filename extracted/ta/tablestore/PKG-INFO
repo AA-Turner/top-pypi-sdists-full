@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tablestore
-Version: 6.4.5
+Version: 6.4.6
 Summary: Aliyun TableStore(OTS) SDK
 License: Apache-2.0
 License-File: LICENSE

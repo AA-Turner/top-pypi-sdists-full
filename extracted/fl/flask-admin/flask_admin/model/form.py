@@ -3,7 +3,6 @@ import typing as t
 import warnings
 from collections.abc import Callable
 
-from wtforms import Field
 from wtforms import Form
 from wtforms.fields import HiddenField
 from wtforms.fields.core import UnboundField
@@ -34,7 +33,7 @@ class BaseListForm(BaseForm):
 def create_editable_list_form(
     form_base_class: type[Form],
     form_class: type[Form],
-    widget: t.Callable | None = None,
+    widget: t.Callable[..., t.Any] | None = None,
 ) -> type[BaseListForm]:
     """
     Create a form class with all the fields wrapped in a FieldList.
@@ -189,7 +188,9 @@ class InlineFormAdmin(InlineBaseFormAdmin):
 
 
 class ModelConverterBase:
-    def __init__(self, converters: dict | None = None, use_mro: bool = True) -> None:
+    def __init__(
+        self, converters: dict[t.Any, t.Any] | None = None, use_mro: bool = True
+    ) -> None:
         self.use_mro = use_mro
 
         if not converters:
@@ -203,7 +204,9 @@ class ModelConverterBase:
 
         self.converters = converters
 
-    def get_converter(self, column: T_SQLALCHEMY_COLUMN) -> t.Callable | None:
+    def get_converter(
+        self, column: T_SQLALCHEMY_COLUMN
+    ) -> t.Callable[..., t.Any] | None:
         types: list[type] | tuple[type, ...]
         if self.use_mro:
             types = inspect.getmro(type(column.type))
@@ -295,5 +298,5 @@ class FieldPlaceholder:
     Field placeholder for model convertors.
     """
 
-    def __init__(self, field: Field) -> None:
+    def __init__(self, field: "UnboundField[t.Any]") -> None:
         self.field = field

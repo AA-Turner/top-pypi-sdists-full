@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: python-binary-memcached
-Version: 0.31.4
+Version: 0.32.0
 Summary: A pure python module to access memcached via its binary protocol with SASL auth support
 Home-page: https://github.com/jaysonsantos/python-binary-memcached
 Author: Jayson Reis
@@ -8,13 +8,11 @@ Author-email: santosdosreis@gmail.com
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE
 Requires-Dist: six
 Requires-Dist: uhashring
@@ -23,6 +21,7 @@ Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 
@@ -110,6 +109,14 @@ Tests Status
 
 .. _`pytest`: https://pypi.org/project/pytest/
 .. _`tox`: https://pypi.org/project/tox/
+
+v0.32.0 (2026-04-28)
+====================
+
+Docs
+----
+
+-  Add repository contribution guidelines.
 
 v0.31.2 (2022-12-14)
 ====================

@@ -4,7 +4,7 @@ from ._mainExperiment import Experiment
 from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, WaveType
 from AOT_biomaps.AOT_Acoustic.StructuredWave import StructuredWave
 from AOT_biomaps.Config import config
-from AOT_biomaps.AOT_Experiment.ExperimentTools import calc_mat_os, convert_to_hex_list, get_phase_deterministic, hex_to_binary_profile
+from AOT_biomaps.AOT_Experiment.ExperimentTools import calc_mat_os, convert_to_hex_list, get_phase_deterministic, hex_to_binary_profile, binary_to_hex_profile
 import os
 import psutil
 import numpy as np
@@ -70,29 +70,6 @@ class Tomography(Experiment):
             raise ValueError("Medium is not initialized. Please generate the medium first.")
         if self.TypeAcoustic.value == WaveType.StructuredWave.value:
             self.AcousticFields = self._generateAcousticFields_STRUCT_CPU(fieldDataPath, show_log, nameBlock)
-            # for i in range(len(self.AcousticFields)):
-            #     profile = hex_to_binary_profile(self.AcousticFields[i].getName_field()[6:-4], self.params.acoustic['probe']['num_elements'])
-            #     self.ActiveList.append(profile)
-            #     angle = self.AcousticFields[i].angle
-            #     self.theta.append(angle)
-            #     Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(angle)) * np.arange(1, self.params.acoustic['probe']['num_elements']  + 1) * self.params.acoustic['probe']['element_width']
-            #     self.DelayLaw.append(Delay - np.min(Delay))
-
-            #     if set(self.AcousticFields[i].getName_field()[6:-4].lower().replace(" ", "")) == {'f'}:
-            #         fs_key = 0.0 # fs_key est en mm^-1 (0.0 mm^-1)
-            #     else:   
-            #         ft_prof = np.fft.fft(profile)
-            #         idx_max = np.argmax(np.abs(ft_prof[1:len(profile)//2])) + 1
-            #         freqs = np.fft.fftfreq(len(profile), d=self.params.general['dx'])
-
-            #         # freqs est en m^-1 car delta_x est en mètres.
-            #         fs_m_inv = abs(freqs[idx_max]) 
-
-            #         fs_key = fs_m_inv # Fréquence spatiale en mm^-1
-
-            #     # fs = n * dfx  => n = fs / dfx with dfx = 1/(N*delta_x)
-            #     self.decimations.append(int(fs_key / (1/(len(profile)*self.params.general['dx']))))
-
         else:
             raise ValueError("Unsupported wave type.")
 
@@ -467,6 +444,10 @@ class Tomography(Experiment):
         angles = np.sort(angles)
         decimations = np.sort(decimations)
         self.DelayLaw = []
+        self.theta = []
+        self.decimations = []
+        self.ActiveList = []
+        self.patterns = []
 
         num_elements = self.params.acoustic['probe']['num_elements']
         Width = self.params.acoustic['probe']['element_width']
@@ -527,27 +508,24 @@ class Tomography(Experiment):
         for i in range(Nscans):
             angle_val = angles[i % len(angles)]
             hex_pattern = hexa_list[i]
-            pair = f"{hex_pattern}_{format_angle(angle_val)}"
-            patterns.append({"fileName": pair})
-        
-        self.decimations = decimations
-        self.theta = angles
-        for angle in angles:
-            new_Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(angle)) * np.arange(1, num_elements + 1) * self.params.acoustic['probe']['element_width']
+            fileName = f"{hex_pattern}_{format_angle(angle_val)}"
+            patterns.append({"fileName": fileName})
+            self.theta.append(getAngle(fileName))
+            profile = hex_to_binary_profile(fileName.split('_')[0], self.params.acoustic['probe']['num_elements'])
+            self.ActiveList.append(profile)
+            new_Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(self.theta[-1])) * np.arange(1, self.params.acoustic['probe']['num_elements'] + 1) * self.params.acoustic['probe']['element_width']
             self.DelayLaw.append(new_Delay - np.min(new_Delay))
+            self.decimations.append(getFrequency(fileName, self.params.acoustic['probe']['num_elements'], self.params.acoustic['probe']['element_width']))  
 
-        self.ActiveList = ActiveLIST
         return patterns
  
-    def _generate_patterns(self, N,angles = None):
-        def format_angle(a):
-            return f"{'1' if a < 0 else '0'}{abs(a):02d}"
-
-        def bits_to_hex(bits):
-            bit_string = ''.join(str(b) for b in bits)
-            bit_string = bit_string.zfill(len(bits))
-            hex_string = ''.join([f"{int(bit_string[i:i+4], 2):x}" for i in range(0, len(bit_string), 4)])
-            return hex_string
+    def generate_patterns(self, N,angles = None):
+        
+        self.DelayLaw = []
+        self.theta = []
+        self.decimations = []
+        self.ActiveList = []
+        self.patterns = []
 
         num_elements = self.params.acoustic['probe']['num_elements']
         if angles is None:
@@ -586,7 +564,7 @@ class Tomography(Experiment):
                 pattern_bits = np.roll(base_pattern, shift)
 
             # Convertir en hex et choisir un angle aléatoire
-            hex_pattern = bits_to_hex(pattern_bits)
+            hex_pattern = binary_to_hex_profile(pattern_bits)
             angle = np.random.choice(angle_choices)
             pair = f"{hex_pattern}_{format_angle(angle)}"
 
@@ -595,6 +573,13 @@ class Tomography(Experiment):
 
         # 4. Convertir en liste de dictionnaires avec la clé "fileName"
         patterns = [{"fileName": pair} for pair in unique_patterns]
+        for i in range(N):
+            self.theta.append(getAngle(patterns[i]["fileName"]))
+            profile = hex_to_binary_profile(patterns[i]["fileName"].split('_')[0], self.params.acoustic['probe']['num_elements'])
+            self.ActiveList.append(profile)
+            new_Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(self.theta[-1])) * np.arange(1, self.params.acoustic['probe']['num_elements'] + 1) * self.params.acoustic['probe']['element_width']
+            self.DelayLaw.append(new_Delay - np.min(new_Delay))
+            self.decimations.append(getFrequency(patterns[i]["fileName"], self.params.acoustic['probe']['num_elements'], self.params.acoustic['probe']['element_width']))  
 
         # 5. Retourner exactement N patterns (on a déjà vérifié la taille avec while)
         return patterns[:N]  # Par sécurité, même si len(unique_patterns) == N
@@ -872,7 +857,9 @@ class Tomography(Experiment):
             fs_m_inv = abs(freqs[idx_max]) 
             
             # *** CORRECTION 1: Conversion de f_s en mm^-1 (mm^-1 est utilisé dans iRadon) ***
-            fs_key = fs_m_inv / 1000.0 # Fréquence spatiale en mm^-1
+            fs_key = float(np.round(fs_m_inv / 1000.0, 5))
+            angle_rad = float(np.round(angle_rad, 5))
+
 
             
             if fs_key == 0: continue
@@ -932,7 +919,7 @@ class Tomography(Experiment):
             
             # Extraction Angle et Fréquence
             angle_deg = -int(angle_code[1:]) if angle_code.startswith("1") else int(angle_code)
-            angle_rad = np.round(np.deg2rad(angle_deg), 6)
+            angle_rad = np.round(np.deg2rad(angle_deg), 5)
             
             if set(hex_pattern.lower().replace(" ", "")) == {'f'}:
                 fs_key = 0.0
@@ -942,7 +929,7 @@ class Tomography(Experiment):
                 ft_prof = np.fft.fft(profile)
                 idx_max = np.argmax(np.abs(ft_prof[1:n_piezos//2])) + 1
                 freqs = np.fft.fftfreq(n_piezos, d=delta_x)
-                fs_key = np.round(abs(freqs[idx_max]) / 1000.0, 6)
+                fs_key = np.round(abs(freqs[idx_max]) / 1000.0, 5)
                 phase = get_phase_deterministic(profile)
             
             # CLÉ PLATE (fs, theta)

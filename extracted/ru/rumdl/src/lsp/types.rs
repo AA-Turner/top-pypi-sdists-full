@@ -178,7 +178,13 @@ pub fn warning_to_diagnostic(warning: &crate::rule::LintWarning) -> Diagnostic {
     }
 }
 
-/// Convert byte range to LSP range
+/// Convert a byte range into an LSP `Range`.
+///
+/// LSP positions are measured in *UTF-16 code units* by default (LSP 3.17
+/// `PositionEncodingKind::UTF16`), and rumdl does not negotiate an
+/// alternative encoding at initialize time. Each non-BMP codepoint
+/// (emoji, supplementary CJK, etc.) is therefore two units, not one.
+/// Use `char::len_utf16()` rather than incrementing by 1 per `char`.
 fn byte_range_to_lsp_range(text: &str, byte_range: std::ops::Range<usize>) -> Option<Range> {
     let mut line = 0u32;
     let mut character = 0u32;
@@ -200,7 +206,7 @@ fn byte_range_to_lsp_range(text: &str, byte_range: std::ops::Range<usize>) -> Op
             line += 1;
             character = 0;
         } else {
-            character += 1;
+            character += ch.len_utf16() as u32;
         }
 
         byte_pos += ch.len_utf8();
@@ -280,16 +286,26 @@ pub(crate) fn warning_to_code_actions_with_md013_config(
 /// Create a fix code action from a rumdl warning with fix
 fn create_fix_action(warning: &crate::rule::LintWarning, uri: &Url, document_text: &str) -> Option<CodeAction> {
     if let Some(fix) = &warning.fix {
-        // Convert fix range (byte offsets) to LSP positions
-        let range = byte_range_to_lsp_range(document_text, fix.range.clone())?;
-
-        let edit = TextEdit {
-            range,
+        // Build the primary edit plus any additional edits this fix carries.
+        // A logical fix is atomic — either every edit applies or none should.
+        // If any sub-edit's range can't be mapped to LSP positions, abort the
+        // whole code action so we don't emit a partial/inconsistent fix.
+        let primary = TextEdit {
+            range: byte_range_to_lsp_range(document_text, fix.range.clone())?,
             new_text: fix.replacement.clone(),
         };
 
+        let mut edits = Vec::with_capacity(1 + fix.additional_edits.len());
+        edits.push(primary);
+        for extra in &fix.additional_edits {
+            edits.push(TextEdit {
+                range: byte_range_to_lsp_range(document_text, extra.range.clone())?,
+                new_text: extra.replacement.clone(),
+            });
+        }
+
         let mut changes = std::collections::HashMap::new();
-        changes.insert(uri.clone(), vec![edit]);
+        changes.insert(uri.clone(), edits);
 
         let workspace_edit = WorkspaceEdit {
             changes: Some(changes),
@@ -669,6 +685,26 @@ mod tests {
     }
 
     #[test]
+    fn test_byte_range_to_lsp_range_non_bmp_counts_as_surrogate_pair() {
+        // Non-BMP codepoints (emoji, supplementary planes) are two UTF-16
+        // code units. LSP positions are measured in UTF-16 by default, so the
+        // range covering text *after* such a codepoint must reflect both
+        // surrogates — counting it as one "character" would shift every
+        // subsequent edit position by one.
+        //
+        // "🎉" is U+1F389, a non-BMP codepoint encoded as 4 UTF-8 bytes and
+        // 2 UTF-16 code units (a surrogate pair).
+        let text = "a🎉b"; // bytes: 'a'(1) + 🎉(4) + 'b'(1) = 6 bytes total
+        // Range covering only 'b' starts at byte 5.
+        let range = byte_range_to_lsp_range(text, 5..6).unwrap();
+        assert_eq!(range.start.line, 0);
+        // 'a' = 1 UTF-16 unit, '🎉' = 2 UTF-16 units → 'b' is at character 3
+        assert_eq!(range.start.character, 3);
+        assert_eq!(range.end.line, 0);
+        assert_eq!(range.end.character, 4);
+    }
+
+    #[test]
     fn test_byte_range_to_lsp_range_eof() {
         let text = "Hello";
         let range = byte_range_to_lsp_range(text, 0..5).unwrap();
@@ -725,10 +761,7 @@ mod tests {
             rule_name: Some("MD001".to_string()),
             message: "Missing space".to_string(),
             severity: Severity::Warning,
-            fix: Some(Fix {
-                range: 0..5,
-                replacement: "Fixed".to_string(),
-            }),
+            fix: Some(Fix::new(0..5, "Fixed".to_string())),
         };
 
         let uri = Url::parse("file:///test.md").unwrap();
@@ -818,10 +851,7 @@ mod tests {
             rule_name: Some("MD001".to_string()),
             message: "Multiline fix".to_string(),
             severity: Severity::Warning,
-            fix: Some(Fix {
-                range: 6..16, // "World\nTest"
-                replacement: "Fixed\nContent".to_string(),
-            }),
+            fix: Some(Fix::new(6..16, "Fixed\nContent".to_string())),
         };
 
         let uri = Url::parse("file:///test.md").unwrap();
@@ -836,6 +866,61 @@ mod tests {
         assert_eq!(edits[0].new_text, "Fixed\nContent");
         assert_eq!(edits[0].range.start.line, 1);
         assert_eq!(edits[0].range.start.character, 0);
+    }
+
+    #[test]
+    fn test_warning_to_code_action_atomic_with_additional_edits() {
+        // Models MD054 ref-emit: the warning's fix carries a primary edit
+        // (inline-link rewrite) plus an additional_edit (append ref-def at EOF).
+        // The LSP code action must surface BOTH edits as a single WorkspaceEdit
+        // so the client applies them atomically — applying only the primary
+        // would leave a dangling reference.
+        let document_text = "See [docs](https://example.com) for details.\n";
+        let primary_start = document_text.find("[docs](https://example.com)").unwrap();
+        let primary_end = document_text.find(" for details").unwrap();
+        let appended = "\n[docs]: https://example.com\n".to_string();
+
+        let warning = LintWarning {
+            line: 1,
+            column: primary_start + 1,
+            end_line: 1,
+            end_column: primary_end + 1,
+            rule_name: Some("MD054".to_string()),
+            message: "Inconsistent link style".to_string(),
+            severity: Severity::Warning,
+            fix: Some(Fix::with_additional_edits(
+                primary_start..primary_end,
+                "[docs]".to_string(),
+                vec![Fix::new(document_text.len()..document_text.len(), appended.clone())],
+            )),
+        };
+
+        let uri = Url::parse("file:///test.md").unwrap();
+        let actions = warning_to_code_actions(&warning, &uri, document_text);
+
+        let fix_action = actions
+            .iter()
+            .find(|a| a.is_preferred == Some(true))
+            .expect("expected a preferred fix code action for MD054 ref-emit warning");
+        assert_eq!(fix_action.kind, Some(CodeActionKind::QUICKFIX));
+
+        let edits = fix_action
+            .edit
+            .as_ref()
+            .and_then(|w| w.changes.as_ref())
+            .and_then(|c| c.get(&uri))
+            .expect("WorkspaceEdit should carry edits keyed by the document URI");
+
+        assert_eq!(
+            edits.len(),
+            2,
+            "atomic fix must surface primary + 1 additional edit as TWO TextEdits, got {edits:?}"
+        );
+        assert_eq!(edits[0].new_text, "[docs]");
+        assert_eq!(edits[1].new_text, appended);
+
+        // The additional EOF-insert edit is a zero-width range at end-of-document.
+        assert_eq!(edits[1].range.start, edits[1].range.end);
     }
 
     #[test]
@@ -1082,10 +1167,7 @@ mod tests {
             rule_name: Some("MD009".to_string()),
             message: "Trailing spaces".to_string(),
             severity: Severity::Warning,
-            fix: Some(Fix {
-                range: 0..5,
-                replacement: "Fixed".to_string(),
-            }),
+            fix: Some(Fix::new(0..5, "Fixed".to_string())),
         };
 
         let uri = Url::parse("file:///test.md").unwrap();
@@ -1161,10 +1243,7 @@ mod tests {
             rule_name: Some("MD001".to_string()),
             message: "Test".to_string(),
             severity: Severity::Warning,
-            fix: Some(Fix {
-                range: 0..5,
-                replacement: "Fixed".to_string(),
-            }),
+            fix: Some(Fix::new(0..5, "Fixed".to_string())),
         };
 
         let uri = Url::parse("file:///test.md").unwrap();
@@ -1191,10 +1270,7 @@ mod tests {
             rule_name: Some("MD034".to_string()),
             message: "URL without angle brackets or link formatting: 'https://example.com'".to_string(),
             severity: Severity::Warning,
-            fix: Some(Fix {
-                range: 0..20, // "https://example.com"
-                replacement: "<https://example.com>".to_string(),
-            }),
+            fix: Some(Fix::new(0..20, "<https://example.com>".to_string())),
         };
 
         let uri = Url::parse("file:///test.md").unwrap();
@@ -1240,10 +1316,7 @@ mod tests {
             rule_name: Some("MD034".to_string()),
             message: "Email address without angle brackets or link formatting: 'user@example.com'".to_string(),
             severity: Severity::Warning,
-            fix: Some(Fix {
-                range: 0..16, // "user@example.com"
-                replacement: "<user@example.com>".to_string(),
-            }),
+            fix: Some(Fix::new(0..16, "<user@example.com>".to_string())),
         };
 
         let uri = Url::parse("file:///test.md").unwrap();

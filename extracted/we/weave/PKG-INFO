@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.52.37
+Version: 0.52.38
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.ai
@@ -239,7 +239,6 @@ Requires-Dist: pydantic>=2.0.0
 Requires-Dist: sentry-sdk<3.0.0,>=2.0.0
 Requires-Dist: tenacity!=8.4.0,>=8.3.0
 Requires-Dist: tzdata; platform_system == 'Windows'
-Requires-Dist: wandb>=0.17.1
 Provides-Extra: anthropic
 Requires-Dist: anthropic>=0.18.0; extra == 'anthropic'
 Provides-Extra: autogen
@@ -259,6 +258,8 @@ Requires-Dist: crewai<=0.108.0,>=0.100.1; (python_version >= '3.10' and python_v
 Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'crewai'
 Provides-Extra: dspy
 Requires-Dist: dspy>=3.0.0; (python_version >= '3.10') and extra == 'dspy'
+Provides-Extra: gepa
+Requires-Dist: gepa>=0.1.0; (python_version >= '3.10') and extra == 'gepa'
 Provides-Extra: google-genai
 Requires-Dist: google-genai<=1.23.0,>=1.0.0; (python_version >= '3.10') and extra == 'google-genai'
 Requires-Dist: pillow>=11.1.0; extra == 'google-genai'

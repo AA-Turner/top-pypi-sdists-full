@@ -243,35 +243,25 @@ class SubtensorModule(_BasePallet):
             alpha_amount=alpha_amount,
         )
 
-    def register(
+    def register_limit(
         self,
         netuid: int,
-        coldkey: str,
         hotkey: str,
-        block_number: int,
-        nonce: int,
-        work: list[int],
+        limit_price: int,
     ) -> Call:
-        """Returns GenericCall instance for Subtensor function SubtensorModule.register.
+        """Returns GenericCall instance for Subtensor function SubtensorModule.register_limit.
 
         Parameters:
             netuid: The netuid of the subnet to register on.
-            coldkey: The coldkey SS58 address associated with the neuron.
             hotkey: The hotkey SS58 address associated with the neuron.
-            block_number: POW block number.
-            nonce: POW nonce.
-            work: List representation of POW seal.
+            limit_price: Maximum acceptable burn price in RAO. If on-chain burn exceeds this,
+                the transaction fails with RegistrationPriceLimitExceeded.
 
         Returns:
             GenericCall instance.
         """
         return self.create_composed_call(
-            netuid=netuid,
-            coldkey=coldkey,
-            hotkey=hotkey,
-            block_number=block_number,
-            nonce=nonce,
-            work=work,
+            netuid=netuid, hotkey=hotkey, limit_price=limit_price
         )
 
     def register_network(self, hotkey: str) -> Call:
@@ -360,6 +350,17 @@ class SubtensorModule(_BasePallet):
 
         Callable by the coldkey that has an active swap announcement. Marks the swap as disputed;
         the account is blocked until root calls reset_coldkey_swap.
+
+        Returns:
+            GenericCall instance.
+        """
+        return self.create_composed_call()
+
+    def clear_coldkey_swap_announcement(self) -> Call:
+        """Returns GenericCall instance for Subtensor function SubtensorModule.clear_coldkey_swap_announcement.
+
+        Callable by the coldkey that has an active swap announcement. Withdraws the announcement
+        after the reannouncement delay has elapsed past the execution block.
 
         Returns:
             GenericCall instance.

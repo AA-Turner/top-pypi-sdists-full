@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: intbitset
-Version: 4.1.0
+Version: 4.1.2
 Summary: C-based extension implementing fast integer bit sets.
 Home-page: http://github.com/inveniosoftware-contrib/intbitset/
 Author: Invenio collaboration, maintained by Philippe Ombredanne and AboutCode.org
@@ -144,8 +144,8 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public License along with
-intbitset; if not, write to the Free Software Foundation, Inc., 59 Temple
-Place, Suite 330, Boston, MA 02111-1307, USA.
+intbitset; if not, write to the Free Software Foundation, Inc., 51 Franklin
+Street, Fifth Floor, Boston, MA 02110, USA.
 
 In applying this licence, CERN does not waive the privileges and immunities
 granted to it by virtue of its status as an Intergovernmental Organization or

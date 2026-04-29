@@ -113,14 +113,24 @@ class ContractMetadata(google.protobuf.message.Message):
     ID_FIELD_NUMBER: builtins.int
     ORGANIZATION_ID_FIELD_NUMBER: builtins.int
     RULESET_VERSION_FIELD_NUMBER: builtins.int
-    PACKAGE_METADATA_FIELD_NUMBER: builtins.int
-    FEATURES_FIELD_NUMBER: builtins.int
     CUSTOM_OPTIONS_FIELD_NUMBER: builtins.int
     BILLING_FEATURES_FIELD_NUMBER: builtins.int
+    PACKAGE_UID_FIELD_NUMBER: builtins.int
+    PACKAGE_ID_FIELD_NUMBER: builtins.int
+    PACKAGE_METADATA_FIELD_NUMBER: builtins.int
+    FEATURES_FIELD_NUMBER: builtins.int
     id: builtins.int
     organization_id: builtins.int
     ruleset_version: builtins.str
     """The set of BillingRules that the BillingRulesEngine has to execute for this contract."""
+    package_uid: builtins.str
+    package_id: builtins.int
+    @property
+    def custom_options(self) -> global___MetadataOptions:
+        """Catch-all for overrides and information not covered above."""
+
+    @property
+    def billing_features(self) -> sentry_protos.billing.v1.feature_pb2.FeatureOptions: ...
     @property
     def package_metadata(self) -> global___MetadataOptions:
         """Includes information like plan ID, tier, etc."""
@@ -131,24 +141,20 @@ class ContractMetadata(google.protobuf.message.Message):
         DEPRECATED: use billing_features instead
         """
 
-    @property
-    def custom_options(self) -> global___MetadataOptions:
-        """Catch-all for overrides and information not covered above."""
-
-    @property
-    def billing_features(self) -> sentry_protos.billing.v1.feature_pb2.FeatureOptions: ...
     def __init__(
         self,
         *,
         id: builtins.int = ...,
         organization_id: builtins.int = ...,
         ruleset_version: builtins.str = ...,
-        package_metadata: global___MetadataOptions | None = ...,
-        features: global___FeatureOptions | None = ...,
         custom_options: global___MetadataOptions | None = ...,
         billing_features: sentry_protos.billing.v1.feature_pb2.FeatureOptions | None = ...,
+        package_uid: builtins.str = ...,
+        package_id: builtins.int = ...,
+        package_metadata: global___MetadataOptions | None = ...,
+        features: global___FeatureOptions | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["billing_features", b"billing_features", "custom_options", b"custom_options", "features", b"features", "package_metadata", b"package_metadata"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["billing_features", b"billing_features", "custom_options", b"custom_options", "features", b"features", "id", b"id", "organization_id", b"organization_id", "package_metadata", b"package_metadata", "ruleset_version", b"ruleset_version"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["billing_features", b"billing_features", "custom_options", b"custom_options", "features", b"features", "id", b"id", "organization_id", b"organization_id", "package_id", b"package_id", "package_metadata", b"package_metadata", "package_uid", b"package_uid", "ruleset_version", b"ruleset_version"]) -> None: ...
 
 global___ContractMetadata = ContractMetadata

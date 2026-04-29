@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flagsmith
-Version: 5.2.0
+Version: 5.3.0
 Summary: Flagsmith Python SDK
 License: BSD3
 License-File: LICENSE
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: flagsmith-flag-engine (>=10.0.3,<11.0.0)
+Requires-Dist: flagsmith-flag-engine (>=10.0.4,<11.0.0)
 Requires-Dist: iso8601 (>=2.1.0,<3.0.0) ; python_version < "3.11"
 Requires-Dist: requests (>=2.32.3,<3.0.0)
 Requires-Dist: requests-futures (>=1.0.1,<2.0.0)

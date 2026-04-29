@@ -1,30 +1,31 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: docformatter
-Version: 1.7.7
+Version: 1.7.8
 Summary: Formats docstrings to follow PEP 257
 License: Expat
+License-File: AUTHORS.rst
+License-File: LICENSE
 Keywords: PEP 257,pep257,style,formatter,docstrings
 Author: Steven Myint
 Maintainer: Doyle Rowland
 Maintainer-email: doyle.rowland@reliaqual.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Provides-Extra: tomli
 Requires-Dist: charset_normalizer (>=3.0.0,<4.0.0)
 Requires-Dist: tomli (>=2.0.0,<3.0.0) ; (python_version < "3.11") and (extra == "tomli")
-Requires-Dist: untokenize (>=0.1.1,<0.2.0)
 Project-URL: Documentation, https://docformatter.readthedocs.io/en/latest/
 Project-URL: Homepage, https://github.com/PyCQA/docformatter
 Project-URL: Repository, https://github.com/PyCQA/docformatter
@@ -145,12 +146,6 @@ this code
         This module docstring should be dedented."""
 
 
-    def launch_rocket():
-        """Launch
-    the
-    rocket. Go colonize space."""
-
-
     def factorial(x):
         '''
 
@@ -173,7 +168,7 @@ this code
         function"""
         print_factorial(5)
         if factorial(10):
-            launch_rocket()
+            print_factorial(22)
 
 
 gets formatted into this
@@ -184,14 +179,6 @@ gets formatted into this
 
     This module docstring should be dedented.
     """
-
-
-    def launch_rocket():
-        """Launch the rocket.
-
-        Go colonize space.
-        """
-
 
     def factorial(x):
         """Return x factorial.
@@ -211,7 +198,7 @@ gets formatted into this
         """Main function."""
         print_factorial(5)
         if factorial(10):
-            launch_rocket()
+            print_factorial(22)
 
 Marketing
 =========
@@ -244,6 +231,17 @@ Do you use *docformatter*?  What style docstrings do you use?  Add some badges t
 
     .. image:: https://img.shields.io/badge/%20style-google-3666d6.svg
         :target: https://google.github.io/styleguide/pyguide.html#s3.8-comments-and-docstrings
+
+Assistance
+==========
+``docformatter`` has an IRC channel on `Libera.Chat`_ in the `#docformatter`_ room.
+ .. _`Libera.Chat`: https://libera.chat
+ .. _`#docformatter`: https://web.libera.chat/#docformatter
+
+There is no ``docformatter`` channel on the Python Code Quality Discord server, but
+you can ask for help in the `# general`_ channel.
+
+ .. _`# general`: https://discord.com/channels/825463413634891776/934197425357336596
 
 Issues
 ======

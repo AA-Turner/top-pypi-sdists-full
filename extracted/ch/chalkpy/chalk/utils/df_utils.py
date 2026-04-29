@@ -6,7 +6,6 @@ import typing
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Union
 
-import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.ipc as pa_ipc
@@ -48,6 +47,55 @@ def is_binary_like(dtype: pa.DataType):
 
 def is_list_like(dtype: pa.DataType):
     return pa.types.is_list(dtype) or pa.types.is_large_list(dtype) or pa.types.is_fixed_size_list(dtype)
+
+
+def _replace_float16_with_float32(dtype: pa.DataType) -> pa.DataType:
+    if pa.types.is_float16(dtype):
+        return pa.float32()
+    if pa.types.is_fixed_size_list(dtype):
+        assert isinstance(dtype, pa.FixedSizeListType)
+        new_value_type = _replace_float16_with_float32(dtype.value_type)
+        if new_value_type == dtype.value_type:
+            return dtype
+        return pa.list_(dtype.value_field.with_type(new_value_type), list_size=dtype.list_size)
+    if pa.types.is_large_list(dtype):
+        assert isinstance(dtype, pa.LargeListType)
+        new_value_type = _replace_float16_with_float32(dtype.value_type)
+        if new_value_type == dtype.value_type:
+            return dtype
+        return pa.large_list(dtype.value_field.with_type(new_value_type))
+    if pa.types.is_list(dtype):
+        assert isinstance(dtype, pa.ListType)
+        new_value_type = _replace_float16_with_float32(dtype.value_type)
+        if new_value_type == dtype.value_type:
+            return dtype
+        return pa.list_(dtype.value_field.with_type(new_value_type))
+    if pa.types.is_struct(dtype):
+        assert isinstance(dtype, pa.StructType)
+        new_fields: list[pa.Field] = []
+        changed = False
+        for field in dtype:
+            new_field_type = _replace_float16_with_float32(field.type)
+            if new_field_type == field.type:
+                new_fields.append(field)
+            else:
+                changed = True
+                new_fields.append(field.with_type(new_field_type))
+        if not changed:
+            return dtype
+        return pa.struct(new_fields)
+    if pa.types.is_map(dtype):
+        assert isinstance(dtype, pa.MapType)
+        new_key_type = _replace_float16_with_float32(dtype.key_type)
+        new_item_type = _replace_float16_with_float32(dtype.item_type)
+        if new_key_type == dtype.key_type and new_item_type == dtype.item_type:
+            return dtype
+        return pa.map_(
+            dtype.key_field.with_type(new_key_type),
+            dtype.item_field.with_type(new_item_type),
+            keys_sorted=dtype.keys_sorted,
+        )
+    return dtype
 
 
 class PyArrowToPolarsConverter:
@@ -156,8 +204,6 @@ class PyArrowToPolarsConverter:
     def _recursive_convert_float16(cls, x: pa.Array) -> pa.Array:
         """
         Recursively replace float16 columns with float32 since Polars doesn't support float16.
-        1. If col is float16, cast to float32
-        2. If col is a fixed-size list of float16's, convert the underlying values to float32 and fill in nulls w/ lists of null values of the apprp length.
 
         Parameters
         ----------
@@ -168,49 +214,10 @@ class PyArrowToPolarsConverter:
         -------
         pa.Array
         """
-        if pa.types.is_float16(x.type):
-            return pa.array(x.to_numpy(zero_copy_only=False).astype(np.dtype("float32")))
-        if x.type.num_fields == 0:
-            # if it's not a nested type and it's not float16, return as is
+        target_type = _replace_float16_with_float32(x.type)
+        if target_type == x.type:
             return x
-
-        if pa.types.is_fixed_size_list(x.type):
-            assert isinstance(x.type, pa.FixedSizeListType)
-            if pa.types.is_float16(x.type.value_type):
-                assert isinstance(x, pa.FixedSizeListArray)
-                # We'll first expand all null elements into null lists of the correct length, and then convert to numpy
-                null_elements = x.is_null()
-                empty = pa.scalar(
-                    np.zeros((x.type.list_size,), dtype=np.dtype("float16")),
-                    pa.list_(pa.float16(), x.type.list_size),
-                )
-                x = x.fill_null(empty)
-                pa_arr = pa.FixedSizeListArray.from_arrays(
-                    x.flatten().to_numpy(zero_copy_only=False).astype(np.dtype("float32")),
-                    x.type.list_size,
-                )
-                # Replace the filled empty elements with null
-                pa_arr = pc.if_else(  # type: ignore
-                    null_elements, pa.scalar(None, pa.list_(pa.float32(), x.type.list_size)), pa_arr
-                )
-                return pa_arr
-            # TODO: nested fixed-size-lists e.g. FixedSizeList<FixedSizeList<float16>>
-        if pa.types.is_struct(x.type):
-            assert isinstance(x, pa.StructArray)
-            child_arrays = x.flatten()
-            child_arrays = [cls._recursive_convert_float16(x) for x in child_arrays]
-            child_names = [x.name for x in x.type.fields]
-            converted_struct_array = pa.StructArray.from_arrays(
-                arrays=child_arrays, names=child_names, mask=x.is_null()
-            )
-            # Apply the original null mask to new struct array
-            return pc.if_else(pc.is_null(x), None, converted_struct_array)  # type: ignore
-        if pa.types.is_list(x.type) or pa.types.is_large_list(x.type):
-            values_converted = x.flatten()
-            values_converted = cls._recursive_convert_float16(values_converted)
-            # (call class method w/ the object to get the correct sub-class)
-            return x.from_arrays(offsets=x.offsets, values=values_converted, mask=x.is_null())
-        return x
+        return x.cast(target_type)
 
     def convert(self, table: pa.Table) -> pl.DataFrame:
         import polars as pl

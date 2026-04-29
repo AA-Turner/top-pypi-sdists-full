@@ -74,7 +74,7 @@ intersphinx_mapping = {
     "torch": ("https://pytorch.org/docs/stable", None),
 }
 
-autodoc_mock_imports = ["torch", "safetensors", "transformers"]
+autodoc_mock_imports = ["torch", "safetensors", "transformers", "tvm_ffi"]
 autodoc_default_options = {
     "members": True,
     "undoc-members": True,
@@ -101,6 +101,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "README.md"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
+suppress_warnings = ["misc.highlighting_failure"]
 
 # A list of ignored prefixes for module index sorting.
 # If true, `todo` and `todoList` produce output, else they produce nothing.

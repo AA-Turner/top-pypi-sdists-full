@@ -1,3 +1,5 @@
+# ruff: noqa: F401
+# isort: skip_file
 from gettext import gettext as _
 
 import re

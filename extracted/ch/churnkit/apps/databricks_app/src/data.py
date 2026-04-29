@@ -87,13 +87,62 @@ def portfolio_by_playbook_risk_tier() -> pd.DataFrame:
 
 @st.cache_data(ttl=60, show_spinner=False)
 def portfolio_totals() -> pd.DataFrame:
+    """Per-account L1 KPI tiles for the latest scoring run.
+
+    Each tile counts ENTITIES, not snapshot rows. ``eligibility_snapshot``
+    has one row per ``(scoring_run_id, entity_id, playbook_id)`` so a row-sum
+    multi-counts accounts that match more than one play. Filtering to
+    ``policy_rank_among_eligible = 1`` collapses to the primary play per
+    entity, so ``total_eligible`` / ``total_recommended`` answer "of all
+    customers right now, how many are eligible / recommended" rather than
+    "how many account-recommendations did the model emit".
+
+    ``v_portfolio_risk_matrix`` is intentionally untouched -- its row-grain
+    semantics are correct for capacity planning charts. We just stop using
+    it as the source for the L1 tiles.
+    """
     cfg = load_config()
     return _query(cfg, f"""
-        SELECT SUM(eligible_count) AS total_eligible,
-               SUM(recommended_count) AS total_recommended,
-               SUM(total_value_at_risk) AS total_value_at_risk,
-               COUNT(DISTINCT playbook_id) AS active_playbooks
-        FROM {cfg.fqn_prefix}.v_portfolio_risk_matrix
+        WITH latest_run AS (
+            SELECT scoring_run_id
+            FROM {cfg.fqn_prefix}.eligibility_snapshot
+            WHERE as_of_date = (
+                SELECT MAX(as_of_date) FROM {cfg.fqn_prefix}.eligibility_snapshot
+            )
+            LIMIT 1
+        ),
+        primary_only AS (
+            SELECT s.entity_id, s.recommended, s.value_at_risk, s.risk_tier
+            FROM {cfg.fqn_prefix}.eligibility_snapshot s
+            JOIN latest_run lr ON s.scoring_run_id = lr.scoring_run_id
+            WHERE s.policy_rank_among_eligible = 1
+              AND COALESCE(s.is_dashboard_visible, TRUE) = TRUE
+        ),
+        active_pb AS (
+            SELECT COUNT(DISTINCT s.playbook_id) AS active_playbooks
+            FROM {cfg.fqn_prefix}.eligibility_snapshot s
+            JOIN latest_run lr ON s.scoring_run_id = lr.scoring_run_id
+            WHERE s.recommended
+        )
+        SELECT
+            COUNT(*)                                                      AS total_eligible,
+            SUM(CASE WHEN recommended           THEN 1 ELSE 0 END)         AS total_recommended,
+            SUM(COALESCE(value_at_risk, 0))                                AS total_value_at_risk,
+
+            SUM(CASE WHEN risk_tier = 'High'   THEN 1 ELSE 0 END)         AS eligible_high,
+            SUM(CASE WHEN risk_tier = 'Medium' THEN 1 ELSE 0 END)         AS eligible_medium,
+            SUM(CASE WHEN risk_tier = 'Low'    THEN 1 ELSE 0 END)         AS eligible_low,
+
+            SUM(CASE WHEN risk_tier = 'High'   AND recommended THEN 1 ELSE 0 END) AS recommended_high,
+            SUM(CASE WHEN risk_tier = 'Medium' AND recommended THEN 1 ELSE 0 END) AS recommended_medium,
+            SUM(CASE WHEN risk_tier = 'Low'    AND recommended THEN 1 ELSE 0 END) AS recommended_low,
+
+            SUM(CASE WHEN risk_tier = 'High'   THEN COALESCE(value_at_risk, 0) ELSE 0 END) AS value_at_risk_high,
+            SUM(CASE WHEN risk_tier = 'Medium' THEN COALESCE(value_at_risk, 0) ELSE 0 END) AS value_at_risk_medium,
+            SUM(CASE WHEN risk_tier = 'Low'    THEN COALESCE(value_at_risk, 0) ELSE 0 END) AS value_at_risk_low,
+
+            (SELECT active_playbooks FROM active_pb) AS active_playbooks
+        FROM primary_only
     """)
 
 
@@ -168,6 +217,21 @@ def run_context() -> pd.DataFrame:
     cfg = load_config()
     try:
         return _query(cfg, f"SELECT * FROM {cfg.fqn_prefix}.v_run_context LIMIT 1")
+    except Exception:
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def feature_provenance() -> pd.DataFrame:
+    """Per-feature lineage + business definition for the latest run.
+
+    One row per feature_name. Cached for 5 min — feature metadata is slow-
+    changing and the table is small (<10k rows). Returns an empty DataFrame
+    when ``v_feature_provenance`` is missing (e.g. older causal-track build).
+    """
+    cfg = load_config()
+    try:
+        return _query(cfg, f"SELECT * FROM {cfg.fqn_prefix}.v_feature_provenance")
     except Exception:
         return pd.DataFrame()
 

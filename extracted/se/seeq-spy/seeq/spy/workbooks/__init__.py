@@ -7,7 +7,7 @@ from seeq.spy.workbooks._data import (
     CalculatedSignal, CalculatedCondition, CalculatedScalar, Chart, Datafile, Datasource, StoredSignal, StoredCondition,
     LiteralScalar, ThresholdMetric, Asset)
 from seeq.spy.workbooks._folder import Folder, SHARED, CORPORATE, ALL, USERS, MY_FOLDER, ORIGINAL_FOLDER, \
-    SYNTHETIC_FOLDERS, PUBLIC
+    SYNTHETIC_FOLDERS, PUBLIC, SHARED_OR_PUBLIC
 from seeq.spy.workbooks._item import Item, ItemList
 from seeq.spy.workbooks._item_map import ItemMap
 from seeq.spy.workbooks._load import load
@@ -82,7 +82,8 @@ __all__ = ['search',
            'TopicDocumentTemplate',
            'AnalysisWorkstepTemplate',
            'ORIGINAL_OWNER', 'FORCE_ME_AS_OWNER',
-           'SHARED', 'CORPORATE', 'ALL', 'USERS', 'MY_FOLDER', 'ORIGINAL_OWNER', 'SYNTHETIC_FOLDERS', 'PUBLIC']
+           'SHARED', 'CORPORATE', 'ALL', 'USERS', 'MY_FOLDER', 'ORIGINAL_OWNER',
+           'SYNTHETIC_FOLDERS', 'PUBLIC', 'SHARED_OR_PUBLIC']
 
 Item.available_types = {
     'Annotation': Annotation,

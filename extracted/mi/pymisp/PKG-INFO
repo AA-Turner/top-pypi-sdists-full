@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymisp
-Version: 2.5.33.2
+Version: 2.5.34.1
 Summary: Python API for MISP.
 License-Expression: BSD-2-Clause
 License-File: LICENSE
@@ -46,7 +46,7 @@ Requires-Dist: python-dateutil (>=2.9.0.post0)
 Requires-Dist: reportlab (>=4.4.10) ; extra == "pdfexport"
 Requires-Dist: requests (>=2.33.1)
 Requires-Dist: sphinx (>=9.1.0) ; (python_version >= "3.12") and (extra == "docs")
-Requires-Dist: sphinx-autodoc-typehints (>=3.9.11) ; (python_version >= "3.12") and (extra == "docs")
+Requires-Dist: sphinx-autodoc-typehints (>=3.10.2) ; (python_version >= "3.12") and (extra == "docs")
 Requires-Dist: urllib3[broti] (>=2.6.3) ; extra == "brotli"
 Requires-Dist: validators (>=0.35.0) ; extra == "virustotal"
 Project-URL: Documentation, https://pymisp.readthedocs.io

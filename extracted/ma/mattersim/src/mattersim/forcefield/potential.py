@@ -493,8 +493,7 @@ class Potential(nn.Module):
             if self.model_name == "graphormer" or self.model_name == "geomformer":
                 raise NotImplementedError
             else:
-                graph_batch.to(self.device)
-                input = batch_to_dict(graph_batch)
+                input = batch_to_dict(graph_batch, device=self.device)
             result = self.forward(
                 input,
                 include_forces=include_forces,
@@ -552,8 +551,7 @@ class Potential(nn.Module):
             if self.model_name == "graphormer" or self.model_name == "geomformer":
                 raise NotImplementedError
             else:
-                graph_batch.to(self.device)
-                input = batch_to_dict(graph_batch)
+                input = batch_to_dict(graph_batch, device=self.device)
             if mode == "train":
                 result = self.forward(
                     input,
@@ -707,7 +705,7 @@ class Potential(nn.Module):
             raise NotImplementedError
         else:
             graph_batch.to(self.device)
-            input = batch_to_dict(graph_batch)
+            input = batch_to_dict(graph_batch, device=self.device)
         result = self.forward(
             input,
             include_forces=include_forces,
@@ -756,9 +754,7 @@ class Potential(nn.Module):
                     input["cell"],
                     (torch.eye(3, device=self.device)[None, ...] + strain),
                 )
-                strain_augment = torch.repeat_interleave(
-                    strain, input["num_atoms"], dim=0
-                )
+                strain_augment = strain[input["batch"]]
                 input["atom_pos"] = torch.einsum(
                     "bi, bij -> bj",
                     input["atom_pos"],
@@ -1076,19 +1072,24 @@ class Potential(nn.Module):
 def batch_to_dict(graph_batch, model_type="m3gnet", device="cuda"):
     if model_type == "m3gnet":
         # TODO: key_list
-        atom_pos = graph_batch.atom_pos
-        cell = graph_batch.cell
-        pbc_offsets = graph_batch.pbc_offsets
-        atom_attr = graph_batch.atom_attr
-        edge_index = graph_batch.edge_index
-        three_body_indices = graph_batch.three_body_indices
-        num_three_body = graph_batch.num_three_body
-        num_bonds = graph_batch.num_bonds
-        num_triple_ij = graph_batch.num_triple_ij
-        num_atoms = graph_batch.num_atoms
+        # Precompute scalar sums on CPU before moving tensors to device,
+        # to avoid device-to-host sync when calling int() on MPS/CUDA tensors.
+        total_num_atoms = int(graph_batch.num_atoms.sum())
+        total_num_bonds = int(graph_batch.num_bonds.sum())
+
+        atom_pos = graph_batch.atom_pos.to(device)
+        cell = graph_batch.cell.to(device)
+        pbc_offsets = graph_batch.pbc_offsets.to(device)
+        atom_attr = graph_batch.atom_attr.to(device)
+        edge_index = graph_batch.edge_index.to(device)
+        three_body_indices = graph_batch.three_body_indices.to(device)
+        num_three_body = graph_batch.num_three_body.to(device)
+        num_bonds = graph_batch.num_bonds.to(device)
+        num_triple_ij = graph_batch.num_triple_ij.to(device)
+        num_atoms = graph_batch.num_atoms.to(device)
         num_graphs = graph_batch.num_graphs
-        num_graphs = torch.tensor(num_graphs)
-        batch = graph_batch.batch
+        num_graphs = torch.tensor(num_graphs, device=device)
+        batch = graph_batch.batch.to(device)
 
         # Resemble input dictionary
         input = {}
@@ -1104,137 +1105,32 @@ def batch_to_dict(graph_batch, model_type="m3gnet", device="cuda"):
         input["num_atoms"] = num_atoms
         input["num_graphs"] = num_graphs
         input["batch"] = batch
+
+        # Precomputed derived values to avoid device-to-host sync on MPS/CUDA.
+        input["total_num_atoms"] = total_num_atoms
+        input["total_num_bonds"] = total_num_bonds
+
+        # Bond index bias for three-body offset computation
+        # (replaces repeat_interleave(cumsum, num_three_body) in m3gnet.py)
+        cumsum = torch.cumsum(num_bonds, dim=0) - num_bonds
+        input["bond_index_bias"] = torch.repeat_interleave(
+            cumsum, num_three_body, dim=0
+        ).unsqueeze(-1)
+
+        # Edge-to-three-body map for scatter in ThreeDInteraction
+        # (replaces repeat_interleave(arange, num_triple_ij) in message_passing.py)
+        total_bonds = input["total_num_bonds"]
+        index_map = torch.arange(total_bonds, device=num_triple_ij.device)
+        input["three_body_edge_map"] = torch.repeat_interleave(
+            index_map, num_triple_ij.view(-1)
+        )
+
     elif model_type == "graphormer" or model_type == "geomformer":
         raise NotImplementedError
     else:
         raise NotImplementedError
 
     return input
-
-
-@deprecated(version="1.0.0", reason="Please use MatterSimCalculator instead.")
-class DeepCalculator(Calculator):
-    """
-    Deep calculator based on ase Calculator
-    """
-
-    implemented_properties = ["energy", "free_energy", "forces", "stress"]
-
-    def __init__(
-        self,
-        potential: Potential,
-        args_dict: dict = {},
-        compute_stress: bool = True,
-        stress_weight: float = 1.0,
-        device: str = "cuda" if torch.cuda.is_available() else "cpu",
-        **kwargs,
-    ):
-        """
-        Args:
-            potential (Potential): m3gnet.models.Potential
-            compute_stress (bool): whether to calculate the stress
-            stress_weight (float): the stress weight.
-            **kwargs:
-        """
-        super().__init__(**kwargs)
-        self.potential = potential
-        self.compute_stress = compute_stress
-        self.stress_weight = stress_weight
-        self.args_dict = args_dict
-        self.device = device
-
-    @classmethod
-    def from_checkpoint(cls, load_path: str, **kwargs):
-        potential = Potential.from_checkpoint(load_path, **kwargs)
-        return cls(potential, **kwargs)
-
-    @classmethod
-    def from_potential(cls, potential: Potential, **kwargs):
-        return cls(potential, **kwargs)
-
-    def calculate(
-        self,
-        atoms: Optional[Atoms] = None,
-        properties: Optional[list] = None,
-        system_changes: Optional[list] = None,
-    ):
-        """
-        Args:
-            atoms (ase.Atoms): ase Atoms object
-            properties (list): list of properties to calculate
-            system_changes (list): monitor which properties of atoms were
-                changed for new calculation. If not, the previous calculation
-                results will be loaded.
-        Returns:
-        """
-
-        all_changes = [
-            "positions",
-            "numbers",
-            "cell",
-            "pbc",
-            "initial_charges",
-            "initial_magmoms",
-        ]
-
-        properties = properties or ["energy"]
-        system_changes = system_changes or all_changes
-        super().calculate(
-            atoms=atoms, properties=properties, system_changes=system_changes
-        )
-
-        self.args_dict["batch_size"] = 1
-        self.args_dict["only_inference"] = 1
-        cutoff = (
-            self.potential.model.model_args["cutoff"]
-            if self.potential.model_name == "m3gnet"
-            else 5.0
-        )
-        threebody_cutoff = (
-            self.potential.model.model_args["threebody_cutoff"]
-            if self.potential.model_name == "m3gnet"
-            else 4.0
-        )
-
-        dataloader = build_dataloader(
-            [atoms],
-            model_type=self.potential.model_name,
-            cutoff=cutoff,
-            threebody_cutoff=threebody_cutoff,
-            **self.args_dict,
-        )
-        for graph_batch in dataloader:
-            # Resemble input dictionary
-            if (
-                self.potential.model_name == "graphormer"
-                or self.potential.model_name == "geomformer"
-            ):
-                raise NotImplementedError
-            else:
-                graph_batch = graph_batch.to(self.device)
-                input = batch_to_dict(graph_batch)
-
-            result = self.potential.forward(
-                input, include_forces=True, include_stresses=self.compute_stress
-            )
-            if (
-                self.potential.model_name == "graphormer"
-                or self.potential.model_name == "geomformer"
-            ):
-                raise NotImplementedError
-            else:
-                self.results.update(
-                    energy=result["total_energy"].detach().cpu().numpy()[0],
-                    free_energy=result["total_energy"].detach().cpu().numpy()[0],
-                    forces=result["forces"].detach().cpu().numpy(),
-                )
-            if self.compute_stress:
-                self.results.update(
-                    stress=self.stress_weight
-                    * full_3x3_to_voigt_6_stress(
-                        result["stresses"].detach().cpu().numpy()[0]
-                    )
-                )
 
 
 class MatterSimCalculator(Calculator):
@@ -1269,6 +1165,31 @@ class MatterSimCalculator(Calculator):
         self.stress_weight = stress_weight
         self.args_dict = args_dict
         self.device = device
+
+    def __getstate__(self):
+        """Prepare state for pickling by stripping non-picklable training
+        state (EMA with weakrefs, optimizer, scheduler) from the Potential."""
+        state = self.__dict__.copy()
+        potential = state["potential"]
+
+        # Save only what's needed for inference
+        state["_model_state_dict"] = potential.model.state_dict()
+        state["_model_args"] = potential.model.model_args
+        state["_model_name"] = potential.model_name
+        del state["potential"]
+        return state
+
+    def __setstate__(self, state):
+        """Restore from pickled state by rebuilding the Potential."""
+        model_state_dict = state.pop("_model_state_dict")
+        model_args = state.pop("_model_args")
+        model_name = state.pop("_model_name")
+        self.__dict__.update(state)
+
+        # Rebuild potential for inference only
+        self.potential = Potential.from_checkpoint(device=self.device)
+        self.potential.model.load_state_dict(model_state_dict)
+        self.potential.model.eval()
 
     @classmethod
     def from_checkpoint(cls, load_path: str, **kwargs):
@@ -1369,9 +1290,7 @@ class MatterSimCalculator(Calculator):
             ):
                 raise NotImplementedError
             else:
-                graph_batch = graph_batch.to(self.device)
-                input = batch_to_dict(graph_batch)
-
+                input = batch_to_dict(graph_batch, device=self.device)
             result = self.potential.forward(
                 input, include_forces=True, include_stresses=self.compute_stress
             )

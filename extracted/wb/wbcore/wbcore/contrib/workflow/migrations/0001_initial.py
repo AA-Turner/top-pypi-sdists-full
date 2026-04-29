@@ -3,9 +3,10 @@ import uuid
 
 import django.core.serializers.json
 import django.db.models.deletion
-import wbcore.contrib.icons.models
 from django.conf import settings
 from django.db import migrations, models
+
+import wbcore.contrib.icons.models
 
 
 class Migration(migrations.Migration):

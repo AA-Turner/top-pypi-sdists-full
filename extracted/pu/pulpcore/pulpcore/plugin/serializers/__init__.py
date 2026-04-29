@@ -1,3 +1,5 @@
+# ruff: noqa: F401
+# isort: skip_file
 # Import Serializers in platform that are potentially useful to plugin writers
 from pulpcore.app.serializers import (
     AlternateContentSourceSerializer,
@@ -38,6 +40,7 @@ from pulpcore.app.serializers import (
     SingleArtifactContentSerializer,
     SingleContentArtifactField,
     TaskGroupOperationResponseSerializer,
+    TaskScheduleSerializer,
     RepositoryAddRemoveContentSerializer,
     ValidateFieldsMixin,
     validate_unknown_fields,
@@ -89,6 +92,7 @@ __all__ = [
     "SingleArtifactContentSerializer",
     "SingleContentArtifactField",
     "TaskGroupOperationResponseSerializer",
+    "TaskScheduleSerializer",
     "RepositoryAddRemoveContentSerializer",
     "ValidateFieldsMixin",
     "validate_unknown_fields",

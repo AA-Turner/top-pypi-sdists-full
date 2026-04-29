@@ -1,3 +1,5 @@
+# ruff: noqa: F401
+# isort: skip_file
 # https://docs.djangoproject.com/en/3.2/topics/db/models/#organizing-models-in-a-package
 
 # Must be imported first as other models depend on it

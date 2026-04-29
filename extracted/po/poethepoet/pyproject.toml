@@ -1,6 +1,6 @@
 [project]
 name            = "poethepoet"
-version         = "0.44.0"
+version         = "0.45.0"
 description     = "A task runner that works well with poetry and uv."
 authors         = [{ name = "Nat Noordanus", email = "n@noordan.us" }]
 requires-python = ">=3.10"
@@ -185,6 +185,7 @@ ignore_messages  = [
   "Hyperlink target \"ref-env-vars\" is not referenced.",
   "Hyperlink target \"sequence-composition\" is not referenced.",
   "Hyperlink target \"graph-composition\" is not referenced.",
+  "Hyperlink target \"forwarding-free-arguments-via-poe-extra-args\" is not referenced.",
   "No directive entry for \"autoclass\" in module \"docutils.parsers.rst.languages.en\""
 ]
 ignore_directives = [

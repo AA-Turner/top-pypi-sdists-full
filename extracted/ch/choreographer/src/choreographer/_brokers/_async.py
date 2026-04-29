@@ -22,6 +22,9 @@ if TYPE_CHECKING:
 
 _logger = logistro.getLogger(__name__)
 
+PERFS_MAX = 5000  # maximum number of entries in the perf dicts
+TRIM_SIZE = 500  # what to save after trimming it
+
 
 class UnhandledMessageWarning(UserWarning):
     pass
@@ -49,6 +52,9 @@ class Broker:
     ]
     """A mapping of session id: subscription: list[futures]"""
 
+    write_perfs: MutableMapping[protocol.MessageKey, tuple[float, float]]
+    read_perfs: MutableMapping[protocol.MessageKey, float]
+
     def __init__(self, browser: Browser, channel: ChannelInterface) -> None:
         """
         Construct a broker for a synchronous arragenment w/ both ends.
@@ -66,6 +72,8 @@ class Broker:
         # if its a user task, can cancel
         self._current_read_task: asyncio.Task[Any] | None = None
         self.futures = {}
+        self.write_perfs = {}
+        self.read_perfs = {}
         self._subscriptions_futures = {}
 
         self._write_lock = asyncio.Lock()
@@ -138,7 +146,7 @@ class Broker:
         async def read_loop() -> None:  # noqa: PLR0912, PLR0915, C901
             loop = asyncio.get_running_loop()
             fn = partial(self._channel.read_jsons, blocking=True)
-            responses = await loop.run_in_executor(
+            responses, perf = await loop.run_in_executor(
                 executor=self._executor,
                 func=fn,
             )
@@ -213,6 +221,7 @@ class Broker:
                                 event_session.unsubscribe(query)
 
                 elif key:
+                    self.read_perfs[key] = perf
                     _logger.debug(f"Have a response with key {key}")
                     if key in self.futures:
                         _logger.debug(f"Found future for key {key}")
@@ -223,6 +232,13 @@ class Broker:
                         raise RuntimeError(f"Couldn't find a future for key: {key}")
                     if not future.done():
                         future.set_result(response)
+                        if len(self.write_perfs) > PERFS_MAX:
+                            self.write_perfs = dict(
+                                list(self.write_perfs.items())[TRIM_SIZE:],
+                            )
+                            self.read_perfs = dict(
+                                list(self.read_perfs.items())[TRIM_SIZE:],
+                            )
                 else:
                     warnings.warn(
                         f"Unhandled message type:{response!s}",
@@ -236,6 +252,16 @@ class Broker:
         read_task = asyncio.create_task(read_loop())
         read_task.add_done_callback(check_read_loop_error)
         self._current_read_task = read_task
+
+    def get_perf(
+        self,
+        obj: protocol.BrowserCommand,
+    ) -> tuple[float, float, float]:
+        """Get the performance tuple for a certain BrowserCommand."""
+        key = protocol.calculate_message_key(obj)
+        if not key:
+            return (0, 0, 0)
+        return (*self.write_perfs[key], self.read_perfs[key])
 
     async def write_json(
         self,
@@ -256,11 +282,12 @@ class Broker:
         try:
             async with self._write_lock:  # this should be a queue not a lock
                 loop = asyncio.get_running_loop()
-                await loop.run_in_executor(
+                perf = await loop.run_in_executor(
                     self._executor,
                     self._channel.write_json,
                     obj,
                 )
+            self.write_perfs[key] = perf
         except (_manual_thread_pool.ExecutorClosedError, asyncio.CancelledError) as e:
             if not future.cancel() or not future.cancelled():
                 await future  # it wasn't canceled, so listen to it before raising

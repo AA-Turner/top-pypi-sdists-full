@@ -18,17 +18,23 @@ class FalkorDB:
     """
     Asynchronous FalkorDB Class for interacting with a FalkorDB server.
 
+    Supports both TCP and Unix socket connections.
+
     Usage example::
         from falkordb.asyncio import FalkorDB
         # connect to the database and select the 'social' graph
         db = FalkorDB()
         graph = db.select_graph("social")
 
+        # connect using a Unix socket
+        db = FalkorDB.from_url("unix:///path/to/redis.sock")
+        graph = db.select_graph("social")
+
         # get a single 'Person' node from the graph and print its name
         response = await graph.query("MATCH (n:Person) RETURN n LIMIT 1")
         result   = response.result_set
         person   = result[0][0]
-        print(node.properties['name'])
+        print(person.properties['name'])
     """
 
     def __init__(
@@ -142,20 +148,16 @@ class FalkorDB:
         db = FalkorDB.from_url("unix://[username@]/path/to/socket.sock?db=0[&password=password]")
         """
 
-        db = cls()
-
         # switch from redis:// to falkordb://
         if url.startswith("falkor://"):
             url = "redis://" + url[len("falkor://") :]
         elif url.startswith("falkors://"):
             url = "rediss://" + url[len("falkors://") :]
 
+        kwargs["decode_responses"] = True
         conn = redis.from_url(url, **kwargs)
-        db.connection = conn
-        db.flushdb = conn.flushdb
-        db.execute_command = conn.execute_command
 
-        return db
+        return cls(connection_pool=conn.connection_pool)
 
     def select_graph(self, graph_id: str) -> AsyncGraph:
         """

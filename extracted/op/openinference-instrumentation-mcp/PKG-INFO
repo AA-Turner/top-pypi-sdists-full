@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-mcp
-Version: 1.3.3
+Version: 2.0.0
 Summary: OpenInference MCP Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-mcp
 Author-email: OpenInference Authors <oss@arize.com>
@@ -22,7 +22,7 @@ Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation>=0.49b0
 Requires-Dist: wrapt
 Provides-Extra: instruments
-Requires-Dist: mcp>=1.8.1; extra == 'instruments'
+Requires-Dist: mcp>=1.24.0; extra == 'instruments'
 Description-Content-Type: text/markdown
 
 # OpenInference MCP Instrumentation

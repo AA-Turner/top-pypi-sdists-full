@@ -25,6 +25,7 @@ from pygitguardian.config import (
 )
 from pygitguardian.models import (
     AccessLevel,
+    AIDiscovery,
     APITokensResponse,
     CreateInvitation,
     CreateInvitationParameters,
@@ -41,6 +42,10 @@ from pygitguardian.models import (
     Invitation,
     JWTResponse,
     JWTService,
+    MCPActivityRequest,
+    MCPActivityResponse,
+    MCPConfiguration,
+    MCPServer,
     Member,
     MembersParameters,
     MultiScanResult,
@@ -58,6 +63,7 @@ from pygitguardian.models import (
     UpdateMember,
     UpdateTeam,
     UpdateTeamSource,
+    UserInfo,
 )
 from pygitguardian.models_utils import CursorPaginatedResponse
 
@@ -669,6 +675,47 @@ def test_scan_and_create_incidents_payload_structure(client: GGClient):
             {
                 "document": DOCUMENT,
                 "filename": FILENAME,
+            }
+        ],
+        "source_uuid": source_uuid,
+    }
+
+    mock_response = responses.post(
+        url=client._url_from_endpoint("scan/create-incidents", "v1"),
+        status=200,
+        match=[matchers.json_params_matcher(expected_payload)],
+        json=[
+            {
+                "policy_break_count": 0,
+                "policies": ["pol"],
+                "policy_breaks": [],
+            }
+        ],
+    )
+
+    client.scan_and_create_incidents(documents, source_uuid)
+
+    assert mock_response.call_count == 1
+
+
+@responses.activate
+def test_scan_and_create_incidents_payload_with_location(client: GGClient):
+    """
+    GIVEN a ggclient
+    WHEN calling scan_and_create_incidents with a document location
+    THEN the location is included in the payload
+    """
+
+    location = {"url": "https://wiki.example.com/my-config-page"}
+    documents = [{"filename": FILENAME, "document": DOCUMENT, "location": location}]
+    source_uuid = "123e4567-e89b-12d3-a456-426614174000"
+
+    expected_payload = {
+        "documents": [
+            {
+                "document": DOCUMENT,
+                "filename": FILENAME,
+                "location": location,
             }
         ],
         "source_uuid": source_uuid,
@@ -1858,3 +1905,68 @@ def test_delete_invitation(client: GGClient):
     result = client.delete_invitation(invitations.data[0].id)
 
     assert result is None
+
+
+@my_vcr.use_cassette("test_send_ai_discovery.yaml", ignore_localhost=False)
+def test_send_ai_discovery(client: GGClient):
+    """
+    GIVEN a client
+    WHEN calling POST /nhi/ai/discovery endpoint
+    THEN an AI discovery is sent
+    """
+
+    result = client.send_ai_discovery(
+        AIDiscovery(
+            user=UserInfo(
+                user_email="toto@gitguardian.com",
+                hostname="toto-laptop",
+                username="toto",
+                machine_id="1234567890",
+            ),
+            discovery_duration=0.5,
+            servers=[
+                MCPServer(
+                    name="mcp-server-1",
+                    configurations=[
+                        MCPConfiguration(
+                            name="mcp-configuration-1",
+                            agent="cursor",
+                            scope=MCPConfiguration.Scope.USER,
+                            transport=MCPConfiguration.Transport.HTTP,
+                            url="https://mcp-server-1.com",
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+
+    assert isinstance(result, AIDiscovery), result
+
+
+@my_vcr.use_cassette("test_log_mcp_activity.yaml", ignore_localhost=False)
+def test_log_mcp_activity(client: GGClient):
+    """
+    GIVEN a client
+    WHEN calling POST /nhi/ai/mcp-activity endpoint
+    THEN an MCP activity is logged
+    """
+
+    result = client.log_mcp_activity(
+        MCPActivityRequest(
+            user=UserInfo(
+                user_email="toto@gitguardian.com",
+                hostname="toto-laptop",
+                username="toto",
+                machine_id="1234567890",
+            ),
+            tool="toto",
+            server="https://mcp-server-1.com",
+            agent="cursor",
+            model="composer-2",
+            cwd="/home/user/project",
+            input={"foo": "bar"},
+        )
+    )
+
+    assert isinstance(result, MCPActivityResponse), result

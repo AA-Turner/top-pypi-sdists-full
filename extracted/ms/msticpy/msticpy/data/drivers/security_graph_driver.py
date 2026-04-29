@@ -4,7 +4,10 @@
 # license information.
 # --------------------------------------------------------------------------
 """Security Graph OData Driver class."""
-from typing import Any, Optional, Union
+
+from __future__ import annotations
+
+from typing import Any
 
 import pandas as pd
 
@@ -24,7 +27,7 @@ class SecurityGraphDriver(OData):
     CONFIG_NAME = "MicrosoftGraph"
     _ALT_CONFIG_NAMES = ["SecurityGraphApp"]
 
-    def __init__(self, connection_str: Optional[str] = None, **kwargs):
+    def __init__(self, connection_str: str | None = None, **kwargs):
         """
         Instantiate MSGraph driver and optionally connect.
 
@@ -40,7 +43,7 @@ class SecurityGraphDriver(OData):
         self.api_root = az_cloud_config.endpoints.get("microsoftGraphResourceId")
         self.req_body = {
             "client_id": None,
-            "client_secret": None,
+            "client_secret": None,  # nosec
             "grant_type": "client_credentials",
             "scope": f"{self.api_root}.default",
         }
@@ -53,8 +56,8 @@ class SecurityGraphDriver(OData):
             self.connect(connection_str)
 
     def query(
-        self, query: str, query_source: Optional[QuerySource] = None, **kwargs
-    ) -> Union[pd.DataFrame, Any]:
+        self, query: str, query_source: QuerySource | None = None, **kwargs
+    ) -> pd.DataFrame | Any:
         """
         Execute query string and return DataFrame of results.
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: marimo
-Version: 0.23.3
+Version: 0.23.4
 Summary: A library for making reactive notebooks and apps
 License-Expression: Apache-2.0
 License-File: LICENSE

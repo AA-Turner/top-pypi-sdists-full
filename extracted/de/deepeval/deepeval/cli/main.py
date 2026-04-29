@@ -43,7 +43,8 @@ from deepeval.test_run.test_run import (
     LATEST_TEST_RUN_FILE_PATH,
     global_test_run_manager,
 )
-from deepeval.cli.test import app as test_app
+from deepeval.cli.generate.command import generate_command
+from deepeval.cli.test.command import app as test_app
 from deepeval.cli.server import start_server
 from deepeval.cli.utils import (
     coerce_blank_to_none,
@@ -63,6 +64,7 @@ from deepeval.confident.api import (
 
 app = typer.Typer(name="deepeval", no_args_is_help=True)
 app.add_typer(test_app, name="test")
+app.command(name="generate")(generate_command)
 
 
 class Regions(Enum):
@@ -268,7 +270,6 @@ def login(
             settings = get_settings()
             save = save or settings.DEEPEVAL_DEFAULT_SAVE or "dotenv:.env.local"
             with settings.edit(save=save) as edit_ctx:
-                settings.API_KEY = key
                 settings.CONFIDENT_API_KEY = key
 
             handled, path, updated = edit_ctx.result
@@ -333,7 +334,6 @@ def logout(
     settings = get_settings()
     save = save or settings.DEEPEVAL_DEFAULT_SAVE or "dotenv:.env.local"
     with settings.edit(save=save) as edit_ctx:
-        settings.API_KEY = None
         settings.CONFIDENT_API_KEY = None
 
     handled, path, updated = edit_ctx.result

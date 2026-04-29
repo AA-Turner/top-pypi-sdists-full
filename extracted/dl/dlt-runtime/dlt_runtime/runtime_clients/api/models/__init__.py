@@ -39,6 +39,8 @@ from .organization_me_response import OrganizationMeResponse
 from .organization_member_response import OrganizationMemberResponse
 from .organization_membership_response import OrganizationMembershipResponse
 from .organization_membership_role import OrganizationMembershipRole
+from .organization_plan_response import OrganizationPlanResponse
+from .organization_plan_type import OrganizationPlanType
 from .organization_response import OrganizationResponse
 from .ping_response import PingResponse
 from .pipeline_run_summary_response import PipelineRunSummaryResponse
@@ -54,12 +56,14 @@ from .script_type import ScriptType
 from .script_version_response import ScriptVersionResponse
 from .status_counts import StatusCounts
 from .t_deliver_spec import TDeliverSpec
+from .t_deployment_file_item import TDeploymentFileItem
 from .t_entry_point import TEntryPoint
 from .t_entry_point_job_type import TEntryPointJobType
 from .t_execute_spec import TExecuteSpec
 from .t_expose_spec import TExposeSpec
 from .t_expose_spec_category import TExposeSpecCategory
 from .t_expose_spec_interface import TExposeSpecInterface
+from .t_files_manifest import TFilesManifest
 from .t_interval_spec import TIntervalSpec
 from .t_job_definition import TJobDefinition
 from .t_job_definition_refresh import TJobDefinitionRefresh
@@ -125,6 +129,8 @@ __all__ = (
     "OrganizationMembershipResponse",
     "OrganizationMembershipRole",
     "OrganizationMeResponse",
+    "OrganizationPlanResponse",
+    "OrganizationPlanType",
     "OrganizationResponse",
     "PingResponse",
     "PipelineRunSummaryResponse",
@@ -140,12 +146,14 @@ __all__ = (
     "ScriptVersionResponse",
     "StatusCounts",
     "TDeliverSpec",
+    "TDeploymentFileItem",
     "TEntryPoint",
     "TEntryPointJobType",
     "TExecuteSpec",
     "TExposeSpec",
     "TExposeSpecCategory",
     "TExposeSpecInterface",
+    "TFilesManifest",
     "TIntervalSpec",
     "TJobDefinition",
     "TJobDefinitionRefresh",

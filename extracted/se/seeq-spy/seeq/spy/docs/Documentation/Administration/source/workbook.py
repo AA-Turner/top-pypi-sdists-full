@@ -926,9 +926,9 @@ def swap(**kwargs):
                     id=workbook_id
                 )  # type: WorkbookOutputV1
                 worksheets = workbooks_api.get_worksheets(
-                    workbook_id=workbook.id,  # type: WorksheetOutputListV1
+                    workbook_id=workbook.id,
                     limit=helper.get_default_page_size(),
-                )
+                )  # type: WorksheetOutputListV1
             except ApiException as e:
                 if e.status == 403:
                     tables.write_table_row(

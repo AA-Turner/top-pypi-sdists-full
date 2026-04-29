@@ -19,16 +19,22 @@ class FalkorDB:
     """
     FalkorDB Class for interacting with a FalkorDB server.
 
+    Supports both TCP and Unix socket connections.
+
     Usage example::
         from falkordb import FalkorDB
         # connect to the database and select the 'social' graph
         db = FalkorDB()
         graph = db.select_graph("social")
 
+        # connect using a Unix socket
+        db = FalkorDB.from_url("unix:///path/to/redis.sock")
+        graph = db.select_graph("social")
+
         # get a single 'Person' node from the graph and print its name
         result = graph.query("MATCH (n:Person) RETURN n LIMIT 1").result_set
         person = result[0][0]
-        print(node.properties['name'])
+        print(person.properties['name'])
     """
 
     def __init__(
@@ -168,21 +174,10 @@ class FalkorDB:
         elif url.startswith("falkors://"):
             url = "rediss://" + url[len("falkors://") :]
 
+        kwargs["decode_responses"] = True
         conn = redis.from_url(url, **kwargs)
 
-        connection_kwargs = conn.connection_pool.connection_kwargs
-        connection_class = conn.connection_pool.connection_class
-        kwargs["host"] = connection_kwargs.get("host", "localhost")
-        kwargs["port"] = connection_kwargs.get("port", 6379)
-        kwargs["username"] = connection_kwargs.get("username")
-        kwargs["password"] = connection_kwargs.get("password")
-        if connection_class is redis.SSLConnection:
-            kwargs["ssl"] = True
-
-        # Initialize a FalkorDB instance using the updated kwargs
-        db = cls(**kwargs)
-
-        return db
+        return cls(connection_pool=conn.connection_pool)
 
     def select_graph(self, graph_id: str) -> Graph:
         """

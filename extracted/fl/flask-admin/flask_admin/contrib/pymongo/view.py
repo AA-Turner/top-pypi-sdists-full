@@ -29,7 +29,7 @@ class ModelView(BaseModelView):
     MongoEngine model scaffolding.
     """
 
-    column_filters: t.Collection[str | BaseFilter] | None = None
+    column_filters: t.Collection[str | BasePyMongoFilter] | None = None
     """
         Collection of the column filters.
 
@@ -192,10 +192,10 @@ class ModelView(BaseModelView):
         """
         return model.get(name)
 
-    def _search(self, query, search_term: str):
+    def _search(self, query: dict[str, t.Any], search_term: str) -> dict[str, t.Any]:
         values = search_term.split(" ")
 
-        queries: list[dict] = []
+        queries: list[dict[str, t.Any]] = []
 
         # Construct inner querie
         for value in values:
@@ -234,13 +234,13 @@ class ModelView(BaseModelView):
     def get_list(  # type: ignore[override]
         self,
         page: int | None,
-        sort_column,
+        sort_column: str | None,
         sort_desc: bool,
         search: str | None,
         filters: t.Sequence[T_FILTER] | None,
-        execute=True,
+        execute: bool = True,
         page_size: int | None = None,
-    ):
+    ) -> tuple[int | None, t.Any]:
         """
         Get list of objects from MongoEngine
 
@@ -265,7 +265,7 @@ class ModelView(BaseModelView):
 
         # Filters
         if self._filters:
-            data: list = []
+            data: list[str] | str = []
 
             for flt, _flt_name, value in filters:  # type: ignore[union-attr]
                 f = self._filters[flt]
@@ -273,7 +273,7 @@ class ModelView(BaseModelView):
 
             if data:
                 if len(data) == 1:
-                    query = data[0]
+                    query = data[0]  # type: ignore[assignment]
                 else:
                     query["$and"] = data
 

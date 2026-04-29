@@ -23,16 +23,16 @@ from seeq.spy.addons import _permissions
 
 @Status.top_level_spy_function()
 def install(
-    tool: Union[pd.DataFrame, pd.Series, dict, list],
-    *,
-    include_workbook_parameters: bool = True,
-    update_tool: bool = False,
-    update_permissions: bool = False,
-    in_development: bool = False,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None
+        tool: Union[pd.DataFrame, pd.Series, dict, list],
+        *,
+        include_workbook_parameters: bool = True,
+        update_tool: bool = False,
+        update_permissions: bool = False,
+        in_development: bool = False,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
 ) -> pd.DataFrame:
     """
     Installs or updates Add-on tool(s) in Seeq Workbench.
@@ -281,17 +281,6 @@ def install(
     """
     input_args = locals()
 
-    try:
-        return _install(session, tool, status, include_workbook_parameters=include_workbook_parameters,
-                        update_tool=update_tool, update_permissions=update_permissions, in_development=in_development,
-                        input_args=input_args)
-
-    except KeyboardInterrupt:
-        status.update('Add-on installation canceled', Status.CANCELED)
-
-
-def _install(session: Session, tool, status, *, include_workbook_parameters=True, update_tool=False,
-             update_permissions=False, in_development=False, input_args=None):
     tool_copy = copy.deepcopy(tool)  # To avoid modifying the original object passed by the user
     system_api = SystemApi(session.client)
 

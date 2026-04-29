@@ -363,14 +363,48 @@ def main(logger, parser):
 
     if pool_countries:
         inputs = gather_pooled_inputs(parser)
-        params = _build_summary_params(parser, inputs)
-        ut.display_run_summary("GeoCIF ML Runner (Pooled)", params, wait=20)
-        execute_models(inputs, logger, parser, loop_fn=loop_execute_pooled)
+        loop_fn = loop_execute_pooled
+        summary_title = "GeoCIF ML Runner (Pooled)"
     else:
         inputs = gather_inputs(parser)
-        params = _build_summary_params(parser, inputs)
-        ut.display_run_summary("GeoCIF ML Runner", params, wait=20)
-        execute_models(inputs, logger, parser)
+        loop_fn = None
+        summary_title = "GeoCIF ML Runner"
+
+    params = _build_summary_params(parser, inputs)
+    ut.display_run_summary(summary_title, params, wait=20)
+
+    run_time_steps = parser.get("ML", "run_time_steps", fallback="latest")
+
+    # Check if use_cids is forecast-only
+    try:
+        _use_cids = ast.literal_eval(parser.get("DEFAULT", "use_cids", fallback="['all']"))
+    except (ValueError, SyntaxError):
+        _use_cids = ["all"]
+    _forecast_only = (
+        "all" not in _use_cids
+        and all(c in ("FLDAS", "S2S") for c in _use_cids)
+    )
+
+    if run_time_steps == "auto":
+        if _forecast_only:
+            parser.set("ML", "run_time_steps", "pre_season")
+            logger.info("Auto mode (forecast-only): single pass pre-season + in-season")
+            execute_models(inputs, logger, parser, loop_fn=loop_fn,
+                           desc="Forecast models (pre+in-season)")
+        else:
+            parser.set("ML", "run_time_steps", "pre_season")
+            logger.info("Auto mode — Pass 1: Pre-season (FLDAS/S2S leads only)")
+            execute_models(inputs, logger, parser, loop_fn=loop_fn,
+                           desc="Pre-season models")
+
+            parser.set("ML", "run_time_steps", "all")
+            logger.info("Auto mode — Pass 2: In-season (all time steps)")
+            execute_models(inputs, logger, parser, loop_fn=loop_fn,
+                           desc="In-season models")
+
+        parser.set("ML", "run_time_steps", "auto")
+    else:
+        execute_models(inputs, logger, parser, loop_fn=loop_fn)
 
     # Upload outputs to HuggingFace Hub if configured
     push_to_hf = parser.getboolean("ML", "push_to_hf", fallback=False)

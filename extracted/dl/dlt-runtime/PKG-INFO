@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: dlt-runtime
-Version: 0.26.0
+Version: 0.26.1
 Summary: CLI tool for accessing dltHub runtime
 Author-email: "dltHub Inc." <services@dlthub.com>
-Maintainer-email: Ivan Chebotar <ivan@dlthub.com>
+Maintainer-email: Marcin Rudolf <marcin@dlthub.com>, David Sharf <dave@dlthub.com>
 License-Expression: Apache-2.0
 License-File: LICENSE.txt
 Keywords: etl

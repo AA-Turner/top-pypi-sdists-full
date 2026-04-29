@@ -17,7 +17,7 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with intbitset; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+# Inc., 51 Franklin Street, Fifth Floor, Boston MA 2110, USA.
 #
 # In applying this licence, CERN does not waive the privileges and immunities
 # granted to it by virtue of its status as an Intergovernmental Organization
@@ -30,7 +30,7 @@ from setuptools import setup
 
 setup(
     name="intbitset",
-    version="4.1.0",
+    version="4.1.2",
     url="http://github.com/inveniosoftware-contrib/intbitset/",
     license="LGPL-3.0-or-later",
     author="Invenio collaboration, maintained by Philippe Ombredanne and AboutCode.org",

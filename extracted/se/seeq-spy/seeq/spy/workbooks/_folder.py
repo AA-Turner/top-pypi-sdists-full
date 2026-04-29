@@ -19,8 +19,9 @@ USERS = '__Users__'
 MY_FOLDER = '__My_Folder__'
 ORIGINAL_FOLDER = '__Original_Folder__'
 PUBLIC = '__Public__'
+SHARED_OR_PUBLIC = '__Shared_or_Public__'
 
-SYNTHETIC_FOLDERS = [MY_FOLDER, SHARED, CORPORATE, ALL, USERS, PUBLIC]
+SYNTHETIC_FOLDERS = [MY_FOLDER, SHARED, CORPORATE, ALL, USERS, PUBLIC, SHARED_OR_PUBLIC]
 
 
 def massage_ancestors(session: Session, item: Item):
@@ -34,11 +35,30 @@ def massage_ancestors(session: Session, item: Item):
         item.definition['Ancestors'][0] = CORPORATE
 
 
+SYNTHETIC_FOLDER_TO_CONTENT_FILTER_MAP = {
+    MY_FOLDER: 'OWNER',
+    SHARED: 'SHARED',
+    CORPORATE: 'CORPORATE',
+    ALL: 'ALL',
+    USERS: 'USERS',
+    PUBLIC: 'PUBLIC',
+    SHARED_OR_PUBLIC: 'SHAREDORPUBLIC'
+}
+
+
 def synthetic_folder_to_content_filter(synthetic_folder):
-    # If synthetic_folder is MY_FOLDER, the corresponding content_filter would be 'OWNER', otherwise,  it would be the
-    #  synthetic_folder formatted for use by the Folders API
-    content_filter = 'OWNER' if synthetic_folder == MY_FOLDER else synthetic_folder.replace('__', '').upper()
-    return content_filter
+    if synthetic_folder not in SYNTHETIC_FOLDER_TO_CONTENT_FILTER_MAP:
+        raise SPyValueError(f'Unrecognized synthetic folder: {synthetic_folder}')
+
+    return SYNTHETIC_FOLDER_TO_CONTENT_FILTER_MAP[synthetic_folder]
+
+
+def content_filter_to_synthetic_folder(content_filter: str):
+    for synthetic_folder, mapped_content_filter in SYNTHETIC_FOLDER_TO_CONTENT_FILTER_MAP.items():
+        if content_filter.upper() == mapped_content_filter:
+            return synthetic_folder
+
+    raise SPyValueError(f'Unrecognized content filter: {content_filter}')
 
 
 class Folder(ItemWithOwnerAndAcl):
@@ -185,6 +205,7 @@ class Folder(ItemWithOwnerAndAcl):
             folder_input.owner_id = self.decide_owner(context, item_map, owner=owner)
             folder_input.parent_folder_id = parent_folder_id if parent_folder_id != _common.PATH_ROOT else None
 
+            check_for_reserved_folder_name(folder_input.name)
             if not context.dry_run:
                 folder_output = safely(lambda: folders_api.create_folder(body=folder_input),
                                        action_description=f'create Folder {folder_input.name}',
@@ -219,6 +240,7 @@ class Folder(ItemWithOwnerAndAcl):
             # you're intending to revive it.
             props.append(ScalarPropertyV1(name='Archived', value=False))
 
+            check_for_reserved_folder_name(self['Name'])
             safely(lambda: items_api.set_properties(id=folder_output.id, body=props),
                    action_description=f'set common properties (Name, Description, Archived) for existing Folder'
                                       f' {folder_output.id}',
@@ -236,3 +258,9 @@ class Folder(ItemWithOwnerAndAcl):
                 self._push_acl(context, folder_output.id, item_map)
 
         return folder_output
+
+
+def check_for_reserved_folder_name(folder_name: str):
+    if folder_name in SYNTHETIC_FOLDERS:
+        raise SPyValueError(f'Folder name "{folder_name}" is reserved and cannot be used for a real folder. '
+                            f'Please choose a different name.')

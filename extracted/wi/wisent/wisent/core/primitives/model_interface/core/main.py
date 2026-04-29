@@ -6,13 +6,7 @@ and provides the main() function that serves as the CLI entry point.
 """
 
 import os
-
-# Note: previous versions set os.environ["NUMBA_NUM_THREADS"] = "1" here,
-# which caused RuntimeError when numba's reload_config (triggered by the
-# pynndescent import below) detected the env and tried to re-launch threads
-# at a different count than the one already running. Operators who actually
-# want to constrain numba should set NUMBA_NUM_THREADS in the environment
-# before launching python — not from inside our CLI entry point.
+os.environ["NUMBA_NUM_THREADS"] = "1"
 
 # Import pynndescent early before sklearn uses numba
 import pynndescent  # noqa: F401

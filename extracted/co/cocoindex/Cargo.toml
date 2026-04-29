@@ -3,7 +3,7 @@ members = ["rust/core", "rust/utils", "rust/py", "rust/py_utils", "rust/ops_text
 resolver = "2"
 
 [workspace.package]
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 rust-version = "1.89"
 license = "Apache-2.0"

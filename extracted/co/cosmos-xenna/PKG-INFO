@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cosmos-xenna
-Version: 0.2.3
+Version: 0.4.0
 Requires-Dist: attrs
 Requires-Dist: cattrs
 Requires-Dist: jinja2
@@ -21,7 +21,7 @@ Provides-Extra: examples
 Provides-Extra: gpu
 License-File: LICENSE
 Summary: A framework for building and running distributed, AI-powered data pipelines using Ray
-Requires-Python: >=3.9
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 # Cosmos-xenna

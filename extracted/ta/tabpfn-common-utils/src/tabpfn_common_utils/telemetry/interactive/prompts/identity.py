@@ -1,10 +1,8 @@
 import logging
-import uuid
 import textwrap
 
 from typing import Any, Dict, Optional
 from .base import render_html, PromptResult, Outcome, parse_input, PromptSpec
-from ...core.state import get_property, set_property
 
 
 # Logger
@@ -69,8 +67,7 @@ def _should_prompt() -> bool:
     """
     Check if the user should be prompted to subscribe to the newsletter.
     """
-    user_id = get_property("user_id")
-    return user_id is None
+    return False
 
 
 def _on_done(res: PromptResult) -> None:
@@ -79,11 +76,7 @@ def _on_done(res: PromptResult) -> None:
     Args:
         res: The prompt result.
     """
-    if res.outcome != "accepted":
-        return
-
-    user_id = str(uuid.uuid4())
-    set_property("user_id", user_id)
+    return None
 
 
 class IdentityPrompt:

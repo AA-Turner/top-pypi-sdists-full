@@ -16,10 +16,11 @@ from pathlib import Path
 from typing import Annotated, Optional, List, Dict, Literal, Any
 from urllib.parse import unquote, urlparse, urlunsplit
 
-import httpx
 from email.message import EmailMessage
 from email.policy import SMTP
 from email.utils import formataddr
+
+import httpx
 
 from pydantic import Field
 from googleapiclient.errors import HttpError
@@ -47,6 +48,7 @@ from auth.scopes import (
     GMAIL_MODIFY_SCOPE,
     GMAIL_LABELS_SCOPE,
 )
+from gmail.gmail_helpers import _analyze_thread_ownership_impl
 
 logger = logging.getLogger(__name__)
 
@@ -567,6 +569,39 @@ def _format_attachment_error(
     return f"{label}: {detail}"
 
 
+def _format_base64_content_block(urlsafe_b64_data: str) -> List[str]:
+    """
+    Convert Gmail's URL-safe base64 attachment data to standard base64 and
+    format it as a labeled block of result lines.
+
+    The Gmail API returns attachment bodies in URL-safe base64 (per RFC 4648).
+    ``draft_gmail_message`` and most stdlib consumers expect standard base64
+    (``base64.b64decode``). Converting here keeps the response self-contained
+    so a caller can pass the bytes straight back into the draft flow without
+    knowing about the alphabet difference.
+
+    Args:
+        urlsafe_b64_data: URL-safe base64 string as returned by Gmail.
+
+    Returns:
+        A list of strings to extend onto ``result_lines``. On failure to
+        decode, returns a single warning line instead of raising.
+    """
+    try:
+        raw_bytes = base64.urlsafe_b64decode(urlsafe_b64_data)
+        standard_b64 = base64.b64encode(raw_bytes).decode("ascii")
+        return [
+            f"\n📦 Base64 content ({len(standard_b64)} chars, standard base64):",
+            standard_b64,
+        ]
+    except (binascii.Error, ValueError) as e:
+        logger.warning(
+            f"[get_gmail_attachment_content] Failed to convert attachment "
+            f"to standard base64: {e}"
+        )
+        return [f"\n⚠️ Could not include base64 content: {e}"]
+
+
 def _extract_attachments(payload: dict) -> List[Dict[str, Any]]:
     """
     Extract attachment metadata from a Gmail message payload.
@@ -695,6 +730,10 @@ async def _fetch_thread_reply_context(
 
     message_contexts = []
     for msg in messages:
+        # Skip trashed messages so auto-derived In-Reply-To never points at a
+        # message that Gmail's UI cannot render
+        if "TRASH" in msg.get("labelIds", []):
+            continue
         payload = msg.get("payload", {})
         headers = _extract_headers(payload, header_names)
         context = {
@@ -1587,6 +1626,7 @@ async def get_gmail_attachment_content(
     message_id: str,
     attachment_id: str,
     user_google_email: str,
+    return_base64: bool = False,
 ) -> str:
     """
     Downloads an email attachment and saves it to local disk.
@@ -1599,9 +1639,20 @@ async def get_gmail_attachment_content(
         message_id (str): The ID of the Gmail message containing the attachment.
         attachment_id (str): The ID of the attachment to download.
         user_google_email (str): The user's Google email address. Required.
+        return_base64 (bool): When True, includes the full attachment as a
+            standard base64 string in the response (in addition to any file
+            path or download URL). Useful for sandboxed clients that cannot
+            reach localhost download URLs or the MCP server's local file
+            paths (e.g. containerized agents with network allowlists). The
+            returned base64 uses the standard alphabet, so it can be passed
+            directly to tools like ``draft_gmail_message`` that expect
+            standard (not URL-safe) base64. Default False preserves the
+            existing behavior and response size.
 
     Returns:
-        str: Attachment metadata with either a local file path or download URL.
+        str: Attachment metadata with either a local file path or download URL,
+            optionally followed by a base64 content block when
+            ``return_base64=True``.
     """
     logger.info(
         f"[get_gmail_attachment_content] Invoked. Message ID: '{message_id}', Email: '{user_google_email}'"
@@ -1645,6 +1696,8 @@ async def get_gmail_attachment_content(
             f"{base64_data[:100]}...",
             "\nNote: Attachment IDs are ephemeral. Always use IDs from the most recent message fetch.",
         ]
+        if return_base64 and base64_data:
+            result_lines.extend(_format_base64_content_block(base64_data))
         logger.info(
             f"[get_gmail_attachment_content] Successfully downloaded {size_kb:.1f} KB attachment (stateless mode)"
         )
@@ -1732,6 +1785,9 @@ async def get_gmail_attachment_content(
             "\nNote: Attachment IDs are ephemeral. Always use IDs from the most recent message fetch."
         )
 
+        if return_base64 and base64_data:
+            result_lines.extend(_format_base64_content_block(base64_data))
+
         logger.info(
             f"[get_gmail_attachment_content] Successfully saved {size_kb:.1f} KB attachment to {result.path}"
         )
@@ -1753,6 +1809,8 @@ async def get_gmail_attachment_content(
             f"\nError: {str(e)}",
             "\nNote: Attachment IDs are ephemeral. Always use IDs from the most recent message fetch.",
         ]
+        if return_base64 and base64_data:
+            result_lines.extend(_format_base64_content_block(base64_data))
         return "\n".join(result_lines)
 
 
@@ -2363,9 +2421,25 @@ async def get_gmail_thread_content(
             ),
         ),
     ] = "text",
-) -> str:
+    include_analysis: Annotated[
+        bool,
+        Field(
+            description=(
+                "When True, the return value is a dict with both the formatted "
+                "thread content AND structured ownership analysis (last sender, "
+                "ball-in-court verdict, per-sender message counts, participants). "
+                "Defaults to False, in which case the existing string return shape "
+                "is preserved."
+            ),
+        ),
+    ] = False,
+) -> "str | Dict[str, Any]":
     """
     Retrieves the complete content of a Gmail conversation thread, including all messages.
+
+    Optionally also returns structured ownership analysis so a caller can
+    determine who sent the last message and who owes whom a response without
+    re-parsing the formatted string or making a second tool call.
 
     Args:
         thread_id (str): The unique ID of the Gmail thread to retrieve.
@@ -2374,12 +2448,22 @@ async def get_gmail_thread_content(
             "text" (default) returns plaintext (HTML converted to text as fallback).
             "html" returns the raw HTML body as-is without conversion.
             "raw" fetches each message's full raw MIME content and returns the base64url-decoded body.
+        include_analysis (bool): When True, returns a dict containing both the
+            formatted thread content and structured ownership analysis. When
+            False (default), returns the formatted content string (existing
+            behavior, unchanged).
 
     Returns:
-        str: The complete thread content with all messages formatted for reading.
+        str: When `include_analysis=False` (default). The complete thread
+        content with all messages formatted for reading.
+
+        Dict[str, Any]: When `include_analysis=True`. A dict with keys
+            "content" (str) and "analysis" (dict). See
+            `_analyze_thread_ownership_impl` for the analysis schema.
     """
     logger.info(
-        f"[get_gmail_thread_content] Invoked. Thread ID: '{thread_id}', Email: '{user_google_email}'"
+        f"[get_gmail_thread_content] Invoked. Thread ID: '{thread_id}', "
+        f"Email: '{user_google_email}', include_analysis={include_analysis}"
     )
 
     # Fetch the complete thread with all messages
@@ -2398,12 +2482,18 @@ async def get_gmail_thread_content(
             service, message_ids, log_prefix="get_gmail_thread_content"
         )
 
-    return _format_thread_content(
+    content = _format_thread_content(
         thread_response,
         thread_id,
         body_format=body_format,
         raw_contents=raw_contents,
     )
+
+    if not include_analysis:
+        return content
+
+    analysis = _analyze_thread_ownership_impl(thread_response, user_google_email)
+    return {"content": content, "analysis": analysis}
 
 
 @server.tool()

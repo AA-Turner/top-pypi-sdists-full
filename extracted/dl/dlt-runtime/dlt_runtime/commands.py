@@ -102,6 +102,16 @@ class RuntimeCommand(SupportsCliCommand):
             default=None,
             help="Select workspace by name or ID (skip interactive prompt)",
         )
+        login_parser.add_argument(
+            "--resume",
+            type=str,
+            default=None,
+            metavar="DEVICE_CODE",
+            help=(
+                "Resume a previously started device flow login. The DEVICE_CODE"
+                " is printed by `dlt runtime login` when no TTY is attached."
+            ),
+        )
 
         subparsers.add_parser(
             "logout",
@@ -200,12 +210,6 @@ class RuntimeCommand(SupportsCliCommand):
             "--show-manifest",
             action="store_true",
             help="Dump the expanded deployment manifest as YAML and exit",
-        )
-
-        subparsers.add_parser(
-            "sync",
-            help="Sync code and configuration to Runtime without running anything (shortcut for 'deployment sync' + 'configuration sync')",
-            description="Upload deployment and configuration if changed.",
         )
 
         subparsers.add_parser(
@@ -452,10 +456,21 @@ class RuntimeCommand(SupportsCliCommand):
             help="Get detailed information about a deployment",
             description="Get detailed information about a deployment",
         )
-        deployment_subparsers.add_parser(
+        deployment_sync_parser = deployment_subparsers.add_parser(
             "sync",
             help="Create new deployment if local workspace content changed",
             description="Create new deployment if local workspace content changed",
+        )
+        deployment_sync_parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Compare local files to latest deployment without uploading",
+        )
+        deployment_sync_parser.add_argument(
+            "-v",
+            "--verbose",
+            action="store_true",
+            help="Print per-file added/updated/deleted tree alongside the summary",
         )
 
     def _configure_jobs_parser(self, job_cmd: argparse.ArgumentParser) -> None:
@@ -562,18 +577,31 @@ class RuntimeCommand(SupportsCliCommand):
             help="Get detailed information about a configuration",
             description="Get detailed information about a configuration",
         )
-        configuration_subparsers.add_parser(
+        configuration_sync_parser = configuration_subparsers.add_parser(
             "sync",
             help="Create new configuration if local config content changed",
             description="Create new configuration if local config content changed",
+        )
+        configuration_sync_parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Compare local config to latest configuration without uploading",
+        )
+        configuration_sync_parser.add_argument(
+            "-v",
+            "--verbose",
+            action="store_true",
+            help="Print per-file added/updated/deleted tree alongside the summary",
         )
 
     def execute(self, args: argparse.Namespace) -> None:
         # Other libraries
         from dlt._workspace.cli import echo as fmt
+        from dlt._workspace.cli.exceptions import CliCommandInnerException
 
         import dlt_runtime._runtime_command as cmd
         from dlt_runtime._runtime_command_views import set_show_exact_timestamps
+        from dlt_runtime.exceptions import RuntimeNotAuthenticated
         from dlt_runtime.runtime import get_api_client
         from dlt_runtime.version import __version__
 
@@ -603,7 +631,13 @@ class RuntimeCommand(SupportsCliCommand):
         fmt.echo("")
         try:
             if args.runtime_command == "login":
-                cmd.login(minimal_logging=False, workspace=args.workspace)
+                cmd.login(
+                    minimal_logging=False,
+                    workspace=args.workspace,
+                    resume=args.resume,
+                    # select workspace as additional step in non interactive mode
+                    restart_if_no_workspace=True,
+                )
                 return
             elif args.runtime_command == "logout":
                 cmd.logout()
@@ -618,7 +652,12 @@ class RuntimeCommand(SupportsCliCommand):
                     cmd.workspace_switch(args.workspace)
                     return
 
-            auth_service = cmd.login()
+            auth_service = cmd.login(not_logged_in_hint=True)
+            # In non-interactive mode without an existing token, login() prints
+            # device-flow info and returns None. Abort here — the user must
+            # complete Phase 1 → 2 before running other commands.
+            if auth_service is None:
+                return
             api_client = get_api_client(auth_service)
             if args.runtime_command == "launch":
                 cmd.launch(
@@ -698,8 +737,6 @@ class RuntimeCommand(SupportsCliCommand):
                     auth_service=auth_service,
                     api_client=api_client,
                 )
-            elif args.runtime_command == "sync":
-                cmd.sync_workspace(auth_service=auth_service, api_client=api_client)
             elif args.runtime_command == "info":
                 cmd.runtime_info(auth_service=auth_service, api_client=api_client)
             elif args.runtime_command == "deployment":
@@ -719,7 +756,9 @@ class RuntimeCommand(SupportsCliCommand):
                     )
                 elif args.operation == "sync":
                     cmd.sync_deployment(
-                        minimal_logging=False,
+                        level="full",
+                        dry_run=bool(getattr(args, "dry_run", False)),
+                        verbose=bool(getattr(args, "verbose", False)),
                         auth_service=auth_service,
                         api_client=api_client,
                     )
@@ -754,7 +793,9 @@ class RuntimeCommand(SupportsCliCommand):
                     )
                 elif args.operation == "sync":
                     cmd.sync_configuration(
-                        minimal_logging=False,
+                        level="full",
+                        dry_run=bool(getattr(args, "dry_run", False)),
+                        verbose=bool(getattr(args, "verbose", False)),
                         auth_service=auth_service,
                         api_client=api_client,
                     )
@@ -791,5 +832,45 @@ class RuntimeCommand(SupportsCliCommand):
             else:
                 fmt.echo(f"Unknown command: {args.runtime_command}")
                 self.parser.print_usage()
+        except RuntimeNotAuthenticated as e:
+            # `workspace list/switch` are pre-login commands — pointing the user
+            # at `dlt runtime login` is more useful than auto-starting a device
+            # flow they didn't ask for.
+            if args.runtime_command == "workspace":
+                raise CliCommandInnerException(
+                    cmd="runtime",
+                    msg="Not logged in. Run `dlt runtime login` to authenticate.",
+                    inner_exc=e,
+                ) from e
+            # Issue #645: 401 from API or no/expired token. Surface the original
+            # error and drop into Phase 1 device flow so an LLM agent gets
+            # actionable `--resume <code>` instructions.
+            from dlt_runtime._runtime_command import (
+                _print_device_flow_start,
+                _start_device_flow,
+            )
+
+            flow = _start_device_flow()
+            _print_device_flow_start(
+                flow["verification_uri"],
+                flow["user_code"],
+                flow["device_code"],
+                not_logged_in_hint=True,
+            )
+            raise CliCommandInnerException(
+                cmd="runtime",
+                msg=str(e) or "Authentication required. Run 'dlt runtime login'.",
+                inner_exc=e,
+            ) from e
+        except CliCommandInnerException:
+            # Already user-facing with cmd/msg/inner_exc set. Pass through.
+            raise
+        except Exception as e:
+            # Single uniform translation: every other exception becomes a
+            # CliCommandInnerException so dlt display layer formats it
+            # consistently. KeyboardInterrupt is BaseException (not caught).
+            raise CliCommandInnerException(
+                cmd="runtime", msg=str(e), inner_exc=e
+            ) from e
         finally:
             fmt.echo("")  # trailing newline for all runtime commands

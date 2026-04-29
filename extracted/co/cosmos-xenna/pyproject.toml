@@ -1,10 +1,10 @@
 [project]
 name = "cosmos-xenna"
-version = "0.2.3"
+version = "0.4.0"
 description = "A framework for building and running distributed, AI-powered data pipelines using Ray"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "attrs",
     "cattrs",
@@ -67,6 +67,8 @@ log_cli_level = "INFO"
 addopts = "-m 'not slow'"
 markers = [
     "slow: marks tests as slow to run",
+    "L1: level-1 test tier (used by external CI runners)",
+    "CPU: test runs on CPU-only hardware (used by external CI runners)",
 ]
 
 
@@ -212,7 +214,7 @@ mypy-init-return = true # Let RUFF infer the return type for most __init__ metho
 
 [tool.pyright]
 typeCheckingMode = "basic"
-pythonVersion = "3.9"
+pythonVersion = "3.12"
 include = ["cosmos_xenna"]
 
 reportOptionalCall = false

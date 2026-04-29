@@ -5,6 +5,16 @@ from pathlib import Path
 from typing import Optional
 import ctypes
 import os
+
+# Detect if we are already running inside IDAPython (inside IDA itself).
+# IDAPython sets IDAPYTHON_VERSION in __main__'s globals during its C++
+# init (idapython.cpp), before any user script runs.  This is a reliable
+# signal that we are hosted inside IDA — it is never present in a
+# standalone idalib Python process.
+_main = sys.modules.get("__main__")
+if _main is not None and getattr(_main, "IDAPYTHON_VERSION", None) is not None:
+    raise ImportError("The IDA library can only be run in a separate process and cannot be loaded within IDA itself.")
+
 from .config import get_ida_install_dir
 
 def find_file(name, path):
@@ -31,10 +41,6 @@ root_dir = get_ida_install_dir()
 idalib_path = find_file(name=name, path=root_dir) if root_dir else None
 if idalib_path is None:
     raise ImportError(f"Cannot load IDA library file {name}. Please make sure you are using IDA version 9.0 or newer and the IDADIR environment variable is set and points to the active IDA installation.")
-
-if "IDA_IS_INTERACTIVE" in os.environ:
-    if os.environ["IDA_IS_INTERACTIVE"] == "1":
-        raise ImportError("The IDA library can only be run in a separate process and cannot be loaded within IDA itself.")
 
 # load the library and initialize the kernel
 try:

@@ -4,15 +4,23 @@
 # license information.
 # --------------------------------------------------------------------------
 """Mixin Classes for Sentinel Incident Features."""
+
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 import httpx
 import pandas as pd
-from azure.common.exceptions import CloudError
+from azure.core.exceptions import (
+    ClientAuthenticationError,
+    HttpResponseError,
+    ResourceExistsError,
+    ResourceNotFoundError,
+    ResourceNotModifiedError,
+)
 from IPython.display import display
 from typing_extensions import Self
 
@@ -71,7 +79,11 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If incident could not be retrieved.
 
         """
@@ -81,7 +93,18 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
             incident_url,
         )
         if not response.is_success:
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = f"Received HTTP return code {response.status_code}: {response.text}"
+                    raise HttpResponseError(err_msg)
 
         incident_df: pd.DataFrame = _azs_api_result_to_df(response)
 
@@ -238,9 +261,9 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
                 ):
                     bkmark_id: str = relationship["properties"]["relatedResourceName"]
                     bookmarks_df: pd.DataFrame = self.list_bookmarks()
-                    bookmark: pd.Series = bookmarks_df[
-                        bookmarks_df["name"] == bkmark_id
-                    ].iloc[0]
+                    bookmark: pd.Series = bookmarks_df[bookmarks_df["name"] == bkmark_id].iloc[
+                        0
+                    ]
                     bookmarks_list.append(
                         {
                             "Bookmark ID": bkmark_id,
@@ -269,7 +292,11 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If incident could not be updated.
 
         """
@@ -297,11 +324,22 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
             timeout=get_http_timeout(),
         )
         if response.status_code not in (200, 201):
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = f"Received HTTP return code {response.status_code}: {response.text}"
+                    raise HttpResponseError(err_msg)
         logger.info("Incident updated.")
         return response.json().get("name")
 
-    def create_incident(  # pylint: disable=too-many-arguments, too-many-locals #noqa:PLR0913
+    def create_incident(  # pylint: disable=too-many-arguments, too-many-locals, too-many-branches #noqa:PLR0913
         self: Self,
         title: str,
         severity: str,
@@ -343,7 +381,11 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If the API returns an error
 
         """
@@ -377,7 +419,18 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
             timeout=get_http_timeout(),
         )
         if not response.is_success:
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = f"Received HTTP return code {response.status_code}: {response.text}"
+                    raise HttpResponseError(err_msg)
         if bookmarks:
             for mark in bookmarks:
                 relation_id: UUID = uuid4()
@@ -431,10 +484,7 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
                 display(filtered_incidents[["name", "properties.title"]])
                 err_msg: str = "More than one incident found, please specify by GUID"
                 raise MsticpyUserError(err_msg) from incident_name
-            if (
-                not isinstance(filtered_incidents, pd.DataFrame)
-                or filtered_incidents.empty
-            ):
+            if not isinstance(filtered_incidents, pd.DataFrame) or filtered_incidents.empty:
                 err_msg = f"Incident {incident} not found"
                 raise MsticpyUserError(err_msg) from incident_name
             return filtered_incidents["name"].iloc[0]
@@ -457,14 +507,16 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If message could not be posted.
 
         """
         self.check_connected()
-        comment_url: str = (
-            self.sent_urls["incidents"] + f"/{incident_id}/comments/{uuid4()}"
-        )
+        comment_url: str = self.sent_urls["incidents"] + f"/{incident_id}/comments/{uuid4()}"
         params: dict[str, str] = {"api-version": "2020-01-01"}
         data: dict[str, Any] = extract_sentinel_response({"message": comment})
         if not self._token:
@@ -478,7 +530,20 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
             timeout=get_http_timeout(),
         )
         if not response.is_success:
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = (
+                        f"Received HTTP return code {response.status_code}: {response.text}"
+                    )
+                    raise HttpResponseError(err_msg)
         logger.info("Comment posted.")
         return response.json().get("name")
 
@@ -495,7 +560,11 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If API returns error
 
         """
@@ -522,7 +591,20 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
             timeout=get_http_timeout(),
         )
         if not response.is_success:
-            raise CloudError(response=response)
+            match response.status_code:
+                case httpx.codes.UNAUTHORIZED:
+                    raise ClientAuthenticationError()
+                case httpx.codes.NOT_FOUND:
+                    raise ResourceNotFoundError()
+                case httpx.codes.CONFLICT:
+                    raise ResourceExistsError()
+                case httpx.codes.NOT_MODIFIED:
+                    raise ResourceNotModifiedError()
+                case _:
+                    err_msg = (
+                        f"Received HTTP return code {response.status_code}: {response.text}"
+                    )
+                    raise HttpResponseError(err_msg)
         logger.info("Bookmark added to incident.")
         return response.json().get("name")
 
@@ -542,7 +624,11 @@ class SentinelIncidentsMixin(SentinelBookmarksMixin):
 
         Raises
         ------
-        CloudError
+        ClientAuthenticationError
+        ResourceNotFoundError
+        ResourceExistsError
+        ResourceNotModifiedError
+        HttpResponseError
             If incidents could not be retrieved.
 
         """

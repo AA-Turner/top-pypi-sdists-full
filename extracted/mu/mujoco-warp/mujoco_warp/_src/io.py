@@ -226,7 +226,10 @@ def put_model(mjm: mujoco.MjModel) -> types.Model:
   m.nsensortaxel = mjm.mesh_vertnum[mjm.sensor_objid[mjm.sensor_type == mujoco.mjtSensor.mjSENS_TACTILE]].sum()
   m.nsensorcontact = (mjm.sensor_type == mujoco.mjtSensor.mjSENS_CONTACT).sum()
   m.nrangefinder = (mjm.sensor_type == mujoco.mjtSensor.mjSENS_RANGEFINDER).sum()
-  m.nmaxcondim = np.concatenate(([0], mjm.geom_condim, mjm.pair_dim)).max()
+  condim_arrays = [np.array([0]), mjm.geom_condim, mjm.pair_dim]
+  if mjm.nflex > 0:
+    condim_arrays.append(mjm.flex_condim)
+  m.nmaxcondim = np.concatenate(condim_arrays).max()
   m.nmaxpyramid = np.maximum(1, 2 * (m.nmaxcondim - 1))
   m.has_sdf_geom = (mjm.geom_type == mujoco.mjtGeom.mjGEOM_SDF).any()
   m.block_dim = types.BlockDim()
@@ -922,7 +925,10 @@ def make_data(
       raise ValueError(f"nccdmax ({nccdmax}) must be <= nconmax ({nconmax})")
 
   sizes = dict({"*": 1}, **{f.name: getattr(mjm, f.name, None) for f in dataclasses.fields(types.Model) if f.type is int})
-  sizes["nmaxcondim"] = np.concatenate(([0], mjm.geom_condim, mjm.pair_dim)).max()
+  condim_arrays = [np.array([0]), mjm.geom_condim, mjm.pair_dim]
+  if mjm.nflex > 0:
+    condim_arrays.append(mjm.flex_condim)
+  sizes["nmaxcondim"] = np.concatenate(condim_arrays).max()
   sizes["nmaxpyramid"] = np.maximum(1, 2 * (sizes["nmaxcondim"] - 1))
   tile_size = types.TILE_SIZE_JTDAJ_SPARSE if is_sparse(mjm) else types.TILE_SIZE_JTDAJ_DENSE
   sizes["njmax_pad"], sizes["nv_pad"] = _get_padded_sizes(mjm.nv, njmax, is_sparse(mjm), tile_size)
@@ -1094,7 +1100,10 @@ def put_data(
     raise ValueError(f"njmax overflow (njmax must be >= {mjd.nefc})")
 
   sizes = dict({"*": 1}, **{f.name: getattr(mjm, f.name, None) for f in dataclasses.fields(types.Model) if f.type is int})
-  sizes["nmaxcondim"] = np.concatenate(([0], mjm.geom_condim, mjm.pair_dim)).max()
+  condim_arrays = [np.array([0]), mjm.geom_condim, mjm.pair_dim]
+  if mjm.nflex > 0:
+    condim_arrays.append(mjm.flex_condim)
+  sizes["nmaxcondim"] = np.concatenate(condim_arrays).max()
   sizes["nmaxpyramid"] = np.maximum(1, 2 * (sizes["nmaxcondim"] - 1))
   tile_size = types.TILE_SIZE_JTDAJ_SPARSE if is_sparse(mjm) else types.TILE_SIZE_JTDAJ_DENSE
   sizes["njmax_pad"], sizes["nv_pad"] = _get_padded_sizes(mjm.nv, njmax, is_sparse(mjm), tile_size)
@@ -2674,8 +2683,8 @@ def create_render_context(
              MuJoCo model values.
     render_rgb: Whether to render RGB images. If None, uses the MuJoCo model values.
     render_depth: Whether to render depth images. If None, uses the MuJoCo model values.
-    render_seg: Whether to render segmentation (per-pixel geom IDs). If None,
-      uses the MuJoCo model values.
+    render_seg: Whether to render segmentation (per-pixel object ID/type pairs).
+      If None, uses the MuJoCo model values.
     use_textures: Whether to use textures.
     use_shadows: Whether to use shadows.
     enabled_geom_groups: The geom groups to render.
@@ -2744,21 +2753,21 @@ def create_render_context(
   flex_geom_flexid = []
   flex_geom_edgeid = []
   flex_bvh_id = np.full(nflex, 0, dtype=wp.uint64)
-  flex_group_root = np.zeros((nflex, nworld), dtype=int)
+  # Indexed later as [worldid, flexid].
+  flex_group_root = np.full((nworld, nflex), -1, dtype=int)
 
   for f in range(nflex):
     if mjm.flex_dim[f] == 1:
       edge_adr = mjm.flex_edgeadr[f]
       flex_geom_flexid.extend([f] * mjm.flex_edgenum[f])
       flex_geom_edgeid.extend([edge_adr + e for e in range(mjm.flex_edgenum[f])])
-      flex_group_root[f] = np.zeros(nworld, dtype=int)
     else:
       flex_geom_flexid.append(f)
       flex_geom_edgeid.append(-1)
       fmesh, group_root = bvh.build_flex_bvh(mjm, mjd, nworld, f)
       flex_registry[f] = fmesh
       flex_bvh_id[f] = fmesh.id
-      flex_group_root[f] = group_root.numpy()
+      flex_group_root[:, f] = group_root.numpy()
 
   textures_registry = []
   for i in range(mjm.ntex):
@@ -2912,7 +2921,7 @@ def create_render_context(
     depth_adr=wp.array(depth_adr, dtype=int),
     render_rgb=wp.array(render_rgb, dtype=bool),
     render_depth=wp.array(render_depth, dtype=bool),
-    seg_data=wp.zeros((nworld, max(si, 1)), dtype=int),
+    seg_data=wp.zeros((nworld, max(si, 1)), dtype=wp.vec2i),
     seg_adr=wp.array(seg_adr, dtype=int),
     render_seg=wp.array(render_seg, dtype=bool),
     znear=znear,

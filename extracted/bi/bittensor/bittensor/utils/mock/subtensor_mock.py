@@ -871,9 +871,6 @@ class MockSubtensor(Subtensor):
         dividends = self._get_most_recent_storage(
             subtensor_state["Dividends"][netuid][uid], block
         )
-        pruning_score = self._get_most_recent_storage(
-            subtensor_state["PruningScores"][netuid][uid], block
-        )
         last_update = self._get_most_recent_storage(
             subtensor_state["LastUpdate"][netuid][uid], block
         )

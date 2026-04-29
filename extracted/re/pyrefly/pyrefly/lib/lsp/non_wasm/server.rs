@@ -16,6 +16,8 @@ use std::io::Stdin;
 use std::io::Write;
 use std::iter::once;
 use std::num::NonZeroUsize;
+#[cfg(unix)]
+use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -393,7 +395,7 @@ impl TypeErrorDisplayStatus {
 }
 
 /// Interface exposed for TSP to interact with the LSP server
-pub trait TspInterface: Send + Sync {
+pub trait TspInterface: Send + Sync + 'static {
     /// Send a response back to the LSP client
     fn send_response(&self, response: Response);
 
@@ -475,6 +477,17 @@ pub trait TspInterface: Send + Sync {
         func_id: &pyrefly_types::callable::FuncId,
     ) -> Option<TextRange>;
 
+    /// Resolve an importable module to its backing filesystem path using the
+    /// import-resolution context of `source_uri`.
+    ///
+    /// Returns `None` when the source URI is invalid, cannot be mapped to a
+    /// path, or the target module cannot be resolved.
+    fn resolve_module_uri(
+        &self,
+        source_uri: &str,
+        module: &pyrefly_types::module::ModuleType,
+    ) -> Option<PathBuf>;
+
     /// Resolve a URI to a filesystem path.
     ///
     /// Handles both `file://` URIs (via [`Url::to_file_path`]) and notebook
@@ -505,6 +518,9 @@ pub struct Connection {
 pub enum MessageReader {
     Channel(Receiver<Message>),
     Stdio(BufReader<Stdin>),
+    /// A generic byte stream, used for IPC transports (Unix domain sockets,
+    /// Windows named pipes).
+    Stream(BufReader<Box<dyn std::io::Read + Send>>),
 }
 
 impl MessageReader {
@@ -515,6 +531,7 @@ impl MessageReader {
         match self {
             MessageReader::Channel(r) => r.recv().ok(),
             MessageReader::Stdio(r) => read_lsp_message(r).ok().flatten(),
+            MessageReader::Stream(r) => read_lsp_message(r).ok().flatten(),
         }
     }
 }
@@ -553,6 +570,67 @@ impl Connection {
             MessageReader::Stdio(BufReader::new(std::io::stdin())),
             IoThread { writer },
         )
+    }
+
+    /// Create a connection over a local IPC mechanism (Unix domain socket on
+    /// Unix, named pipe on Windows). The `pipe_name` is a socket path on Unix
+    /// or a pipe name on Windows (automatically prefixed with `\\.\pipe\`).
+    pub fn ipc(pipe_name: &str) -> std::io::Result<(Self, MessageReader, IoThread)> {
+        let (writer_stream, reader_stream) = Self::connect_ipc(pipe_name)?;
+        let (writer_sender, writer_receiver) = crossbeam_channel::unbounded();
+        let writer = std::thread::spawn(move || {
+            let mut output = writer_stream;
+            while let Ok(msg) = writer_receiver.recv() {
+                write_lsp_message(&mut output, msg)?;
+            }
+            Ok(())
+        });
+        Ok((
+            Self {
+                sender: writer_sender,
+                channel_receiver: None,
+            },
+            MessageReader::Stream(BufReader::new(Box::new(reader_stream))),
+            IoThread { writer },
+        ))
+    }
+
+    #[cfg(unix)]
+    fn connect_ipc(
+        pipe_name: &str,
+    ) -> std::io::Result<(Box<dyn Write + Send>, Box<dyn std::io::Read + Send>)> {
+        let stream = UnixStream::connect(pipe_name)?;
+        let reader = stream.try_clone()?;
+        Ok((Box::new(stream), Box::new(reader)))
+    }
+
+    #[cfg(windows)]
+    fn connect_ipc(
+        pipe_name: &str,
+    ) -> std::io::Result<(Box<dyn Write + Send>, Box<dyn std::io::Read + Send>)> {
+        use std::fs::OpenOptions;
+        let path = format!(r"\\.\pipe\{}", pipe_name);
+        let stream = OpenOptions::new().read(true).write(true).open(&path)?;
+        let reader = stream.try_clone()?;
+        Ok((Box::new(stream), Box::new(reader)))
+    }
+
+    /// Create a connection from a transport specification string.
+    /// Supported values: `"stdio"` for stdin/stdout, or `"ipc://<name>"` for a
+    /// local socket / named pipe.
+    pub fn from_transport(transport: &str) -> std::io::Result<(Self, MessageReader, IoThread)> {
+        if transport == "stdio" {
+            return Ok(Self::stdio());
+        }
+
+        if let Some(pipe_name) = transport.strip_prefix("ipc://") {
+            return Self::ipc(pipe_name);
+        }
+
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Unsupported TSP transport: {transport}"),
+        ))
     }
 
     pub fn memory() -> ((Self, MessageReader), (Self, MessageReader)) {
@@ -1091,6 +1169,12 @@ pub struct ServerCapabilitiesWithTypeHierarchy {
     base: ServerCapabilities,
     #[serde(skip_serializing_if = "Option::is_none")]
     type_hierarchy_provider: Option<bool>,
+}
+
+impl ServerCapabilitiesWithTypeHierarchy {
+    pub fn set_experimental(&mut self, value: Value) {
+        self.base.experimental = Some(value);
+    }
 }
 
 #[derive(Serialize)]
@@ -6310,6 +6394,27 @@ impl TspInterface for Server {
         let key = KeyUndecoratedFunctionRange(def_index);
         let idx = bindings.key_to_idx_hashed_opt(Hashed::new(&key))?;
         Some(bindings.get(idx).0.range())
+    }
+
+    fn resolve_module_uri(
+        &self,
+        source_uri: &str,
+        module: &pyrefly_types::module::ModuleType,
+    ) -> Option<PathBuf> {
+        let url = Url::parse(source_uri)
+            .ok()
+            .or_else(|| Url::from_file_path(source_uri).ok())?;
+        let source_path = self.path_for_uri_or_notebook_cell(&url)?;
+
+        let source_handle = make_open_handle(&self.state, &source_path);
+        let transaction = self.state.transaction();
+        let module_name = ModuleName::from_str(&module.to_string());
+        let finding = transaction
+            .import_handle(&source_handle, module_name, None)
+            .finding()?;
+
+        let path = to_real_path(finding.path())?;
+        Some(path.canonicalize().unwrap_or(path))
     }
 
     fn resolve_uri_to_path(&self, uri: &Url) -> Option<PathBuf> {

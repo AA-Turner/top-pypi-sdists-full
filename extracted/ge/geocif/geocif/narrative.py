@@ -337,13 +337,13 @@ paragraphs. Do not add disclaimers about being an AI."""
 
     try:
         client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
+        with client.messages.stream(
             model=claude_model,
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
-        )
+        ) as stream:
+            text = stream.get_final_text()
 
-        text = response.content[0].text
         paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
         logger.info(f"Generated {len(paragraphs)} narrative paragraphs")
         return paragraphs

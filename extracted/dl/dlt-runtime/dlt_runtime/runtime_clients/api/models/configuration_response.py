@@ -22,7 +22,6 @@ class ConfigurationResponse:
         date_added (datetime.datetime): datetime with the constraint that the value must have timezone info
         date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
         file_count (int): The number of files in the uploaded tarball
-        file_names (str): The names of the files in the uploaded tarball (comma-separated)
         id (UUID): The unique ID of the entity
         profiles (str): The profiles found in the configuration files (comma-separated)
         size (int): The size of the uploaded tarball in bytes
@@ -35,7 +34,6 @@ class ConfigurationResponse:
     date_added: datetime.datetime
     date_updated: datetime.datetime
     file_count: int
-    file_names: str
     id: UUID
     profiles: str
     size: int
@@ -53,8 +51,6 @@ class ConfigurationResponse:
         date_updated = self.date_updated.isoformat()
 
         file_count = self.file_count
-
-        file_names = self.file_names
 
         id = str(self.id)
 
@@ -75,7 +71,6 @@ class ConfigurationResponse:
                 "date_added": date_added,
                 "date_updated": date_updated,
                 "file_count": file_count,
-                "file_names": file_names,
                 "id": id,
                 "profiles": profiles,
                 "size": size,
@@ -99,8 +94,6 @@ class ConfigurationResponse:
 
         file_count = d.pop("file_count")
 
-        file_names = d.pop("file_names")
-
         id = UUID(d.pop("id"))
 
         profiles = d.pop("profiles")
@@ -117,7 +110,6 @@ class ConfigurationResponse:
             date_added=date_added,
             date_updated=date_updated,
             file_count=file_count,
-            file_names=file_names,
             id=id,
             profiles=profiles,
             size=size,

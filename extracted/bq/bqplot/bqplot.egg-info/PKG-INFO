@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bqplot
-Version: 0.12.45
+Version: 0.12.46
 Summary: Interactive plotting for the Jupyter notebook, using d3.js and ipywidgets.
 Home-page: https://github.com/bqplot/bqplot
 Author: The BQplot Development Team

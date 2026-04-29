@@ -2,22 +2,27 @@
 
 from django.db import migrations
 
+
 def migrate_city(apps, schema_editor):
-    AddressContact = apps.get_model('directory', 'AddressContact')
-    from wbcore.contrib.geography.models import  Geography
+    AddressContact = apps.get_model("directory", "AddressContact")
+    from wbcore.contrib.geography.models import Geography
+
     qs = AddressContact.objects.filter(geography_city__isnull=True, city__isnull=False)
     from tqdm import tqdm
+
     for a in tqdm(qs, total=qs.count()):
         if city := Geography.cities.get_by_name(a.city):
             a.geography_city_id = city.id
         else:
-            a.province = f"{a.province} {a.city}"  if a.province else a.city # we add to an temporary field to not lose this information
+            a.province = (
+                f"{a.province} {a.city}" if a.province else a.city
+            )  # we add to an temporary field to not lose this information
         a.save()
 
-class Migration(migrations.Migration):
 
+class Migration(migrations.Migration):
     dependencies = [
-        ('directory', '0009_remove_entry_external_identfier_and_more'),
+        ("directory", "0009_remove_entry_external_identfier_and_more"),
     ]
 
     operations = [
@@ -25,7 +30,7 @@ class Migration(migrations.Migration):
         migrations.RunPython(migrate_city),
         migrations.RunSQL(sql="SET CONSTRAINTS ALL DEFERRED;"),
         migrations.RemoveField(
-            model_name='addresscontact',
-            name='city',
+            model_name="addresscontact",
+            name="city",
         ),
     ]

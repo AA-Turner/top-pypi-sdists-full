@@ -38,11 +38,13 @@ DASHBOARD_VIEW_NAMES: tuple[str, ...] = (
     "v_holdout_assignments",
     "v_capacity_utilization",
     "v_run_anchor_history",
+    "v_account_primary_recommendation",
     "v_portfolio_risk_matrix",
     "v_playbook_archetype_rollup",
     "v_eligible_all_playbooks",
     "v_account_explanation",
     "v_run_context",
+    "v_feature_provenance",
 )
 DASHBOARD_DEVIATION_VIEW_NAMES: tuple[str, ...] = (
     "v_account_feature_deviation",
@@ -105,17 +107,150 @@ def render_dashboard_view_sql(
 def split_view_statements(sql_text: str) -> List[str]:
     """Split a multi-statement SQL string on semicolons.
 
+    A statement-ending ``;`` only counts when it sits outside ``--`` line
+    comments and outside single-quoted string literals.  This lets
+    operator-supplied SQL include English prose like
+    ``-- NB03 materialises and the scoring path consumes; reading from it``
+    inside CTE comments without the splitter cutting the statement in two
+    and handing Spark a truncated DDL (which surfaces as ``[PARSE_SYNTAX_ERROR]
+    Syntax error at or near end of input``).
+
     Comments (``--`` lines) are kept on the preceding statement so view
     headers stay readable in error messages. Empty trailing statements
     after the final semicolon are dropped.
     """
     statements: List[str] = []
-    for raw in sql_text.split(";"):
-        stripped = raw.strip()
-        if not stripped:
+    buf: List[str] = []
+    in_line_comment = False
+    in_single_quote = False
+    in_backtick = False
+    i = 0
+    n = len(sql_text)
+    while i < n:
+        ch = sql_text[i]
+        nxt = sql_text[i + 1] if i + 1 < n else ""
+        if in_line_comment:
+            buf.append(ch)
+            if ch == "\n":
+                in_line_comment = False
+            i += 1
             continue
-        statements.append(stripped)
+        if in_single_quote:
+            buf.append(ch)
+            # Handle escaped quote ``''`` (SQL-standard).
+            if ch == "'" and nxt == "'":
+                buf.append(nxt)
+                i += 2
+                continue
+            if ch == "'":
+                in_single_quote = False
+            i += 1
+            continue
+        if in_backtick:
+            buf.append(ch)
+            if ch == "`":
+                in_backtick = False
+            i += 1
+            continue
+        if ch == "-" and nxt == "-":
+            in_line_comment = True
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == "'":
+            in_single_quote = True
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == "`":
+            in_backtick = True
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == ";":
+            stripped = "".join(buf).strip()
+            if stripped:
+                statements.append(stripped)
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    tail = "".join(buf).strip()
+    if tail:
+        statements.append(tail)
     return statements
+
+
+_DEVIATION_PREREQ_TABLES: tuple[str, ...] = ("feature_population_stats",)
+_POPULATION_STATS_SIDECAR_FILENAME = "feature_population_stats.json"
+
+
+def _try_materialize_population_stats_from_sidecar(
+    spark: "SparkSession", catalog: str, schema: str
+) -> bool:
+    """Best-effort: materialize the population-stats JSON sidecar into UC.
+
+    The framework writes population stats to a JSON sidecar in the run
+    namespace; the deviation views read a UC Delta table. When the table
+    is missing but the sidecar exists, materializing it on the fly lets
+    ``publish_dashboard_views`` continue without operator intervention.
+
+    Returns ``True`` when the table now exists (whether already-present
+    or just-materialized), ``False`` when neither the table nor a
+    discoverable sidecar is available.
+    """
+    fqn = f"{catalog}.{schema}.feature_population_stats"
+    if spark.catalog.tableExists(fqn):
+        return True
+    try:
+        from customer_retention.analysis.auto_explorer.run_namespace import RunNamespace
+    except ImportError:
+        return False
+    try:
+        ns = RunNamespace.from_env_or_latest()
+    except Exception:  # noqa: BLE001 -- best-effort, never fail the publish
+        ns = None
+    if ns is None:
+        return False
+    sidecar = ns.feature_population_stats_dir / _POPULATION_STATS_SIDECAR_FILENAME
+    if not sidecar.exists():
+        return False
+    try:
+        from .population_stats import materialize_population_stats_from_sidecar
+
+        materialize_population_stats_from_sidecar(spark, sidecar, fqn)
+    except Exception as exc:  # noqa: BLE001 -- log + degrade
+        logger.warning(
+            "auto-materialization of %s from sidecar %s failed: %s. "
+            "Deviation views will be skipped this run.",
+            fqn, sidecar, exc,
+        )
+        return spark.catalog.tableExists(fqn)
+    return spark.catalog.tableExists(fqn)
+
+
+def _deviation_prerequisites_present(
+    spark: "SparkSession", catalog: str, schema: str, composite_name: str
+) -> tuple[bool, list[str]]:
+    """Return ``(ok, missing)`` for the tables the deviation views read.
+
+    The deviation views reference both ``feature_population_stats`` and
+    ``gold_features_<composite_name>``. On clusters where population stats
+    live as a JSON sidecar (the framework's run-namespace layout) rather
+    than a UC Delta table, the publisher first tries to materialize the
+    sidecar to UC; if that succeeds the table is considered present. If
+    the sidecar is unreachable too, the deviation block is skipped so
+    the rest of the dashboard publishes successfully instead of failing
+    the whole call with ``[TABLE_OR_VIEW_NOT_FOUND]`` at DDL parse time.
+    """
+    missing: list[str] = []
+    if not _try_materialize_population_stats_from_sidecar(spark, catalog, schema):
+        missing.append(f"{catalog}.{schema}.feature_population_stats")
+    gold_fqn = f"{catalog}.{schema}.gold_features_{composite_name}"
+    if not spark.catalog.tableExists(gold_fqn):
+        missing.append(gold_fqn)
+    return (not missing), missing
 
 
 def publish_dashboard_views(
@@ -137,22 +272,38 @@ def publish_dashboard_views(
     time, so this makes publish order-independent from the per-run
     ``write_run_context`` write.
 
-    When ``composite_name`` is supplied, the deviation views
-    (``v_account_feature_deviation`` / ``_topn``) are also published.  When
-    omitted, those views are skipped — the gold table FQN is per-run and
-    cannot be inferred from ``catalog`` / ``schema`` alone.
+    When ``composite_name`` is supplied AND the deviation prerequisites
+    (``feature_population_stats`` UC table + ``gold_features_<cn>`` UC
+    table) are present, the deviation views (``v_account_feature_deviation``
+    / ``_topn``) are also published. When the prerequisites are missing
+    (e.g. population stats live as a JSON sidecar on Volume rather than a
+    UC table), the deviation block is skipped with a logged warning so
+    the rest of the dashboard publishes successfully.
     """
     from .run_context_writer import ensure_run_context_table
 
     ensure_run_context_table(spark, f"{catalog}.{schema}.run_context")
-    rendered = render_dashboard_view_sql(catalog, schema, composite_name=composite_name)
+
+    effective_composite = composite_name
+    if composite_name:
+        ok, missing = _deviation_prerequisites_present(spark, catalog, schema, composite_name)
+        if not ok:
+            logger.warning(
+                "deviation views skipped: missing prerequisite table(s) %s; "
+                "publishing the rest of the dashboard. Populate the missing "
+                "table(s) (or pass composite_name=None) to silence this notice.",
+                ", ".join(missing),
+            )
+            effective_composite = None
+
+    rendered = render_dashboard_view_sql(catalog, schema, composite_name=effective_composite)
     statements = split_view_statements(rendered)
     submitted: List[str] = []
     for stmt in statements:
         spark.sql(stmt)
         submitted.append(stmt)
         logger.info("published dashboard view (%d chars)", len(stmt))
-    if composite_name is None:
+    if effective_composite is None and composite_name is None:
         logger.info(
             "deviation views skipped (no composite_name supplied; pass composite_name= to enable)"
         )

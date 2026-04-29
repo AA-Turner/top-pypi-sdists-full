@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 #
+#       docformatter.patterns.__pkginfo__.py is part of the docformatter project
+#
 # Copyright (C) 2012-2023 Steven Myint
+# Copyright (C) 2023-2025 Doyle "weibullguy" Rowlans
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -23,4 +26,4 @@
 # SOFTWARE.
 """Package information for docformatter."""
 
-__version__ = "1.7.7"
+__version__ = "1.7.8"

@@ -38,7 +38,8 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::expr::TypeOrExpr;
 use crate::alt::solve::Iterable;
-use crate::alt::unwrap::HintRefOld;
+use crate::alt::unwrap::HintRef;
+use crate::alt::unwrap::MAX_CALL_HINT_WIDTH;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -1205,6 +1206,55 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         expected_types
     }
 
+    /// Helper used by `callable_infer` and Expr::Lambda inference to distribute over hints.
+    pub fn callable_infer_with_hint<R>(
+        &self,
+        hint: Option<HintRef>,
+        errors: &ErrorCollector,
+        mut inner: impl FnMut(Option<&Type>, &ErrorCollector) -> R,
+        result_type: impl Fn(&R) -> &Type,
+    ) -> R {
+        let owner = Owner::new();
+        let hint = match hint {
+            // Optimization: no-hint and single-hint cases can return immediately.
+            None => return inner(None, errors),
+            Some(hint) if hint.types().len() == 1 => return inner(hint.types().first(), errors),
+            // Optimization: discard overly wide hints.
+            Some(hint) if hint.types().len() > MAX_CALL_HINT_WIDTH => return inner(None, errors),
+            Some(hint) => hint,
+        };
+        let mut hints = hint.types().map(Some);
+        // Push a marker so we know when no individual hint has matched. We'll try a combined union hint.
+        // Constructing the union is expensive, so we use the marker to avoid unnecessary construction.
+        hints.push(None);
+        let mut ret_with_error = None;
+        for mut cur_hint in hints {
+            if cur_hint.is_none() {
+                let combined_hint = Type::union(hint.types().to_vec());
+                cur_hint = Some(owner.push(combined_hint));
+            }
+            let cur_errors = self.error_collector();
+            let ret = inner(cur_hint, &cur_errors);
+            if cur_errors.is_empty()
+                && cur_hint.is_none_or(|hint| {
+                    let snapshot = self
+                        .solver()
+                        .snapshot_vars(&hint.collect_maybe_placeholder_vars());
+                    let res = self.is_subset_eq(result_type(&ret), hint);
+                    self.solver().restore_vars(snapshot);
+                    res
+                })
+            {
+                return ret;
+            } else if ret_with_error.is_none() {
+                ret_with_error = Some((ret, cur_errors));
+            }
+        }
+        let (ret, cur_errors) = ret_with_error.unwrap();
+        errors.extend(cur_errors);
+        ret
+    }
+
     // Call a function with the given arguments. The arguments are contextually typed, if possible.
     // We pass two error collectors into this function and return specialization errors separately:
     // * arg_errors is used to infer the types of arguments, before passing them to the function.
@@ -1223,6 +1273,48 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         callable: Callable,
         callable_name: Option<&FunctionKind>,
         tparams: Option<&TParams>,
+        self_obj: Option<Type>,
+        args: &[CallArg],
+        keywords: &[CallKeyword],
+        arguments_range: TextRange,
+        arg_errors: &ErrorCollector,
+        call_errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+        hint: Option<HintRef>,
+        mut ctor_targs: Option<&mut TArgs>,
+    ) -> (
+        Type,
+        Vec<TypeVarSpecializationError>,
+        HashMap<TextRange, Type>,
+    ) {
+        self.callable_infer_with_hint(
+            hint,
+            call_errors,
+            |cur_hint, cur_call_errors| {
+                self.callable_infer_inner(
+                    callable.clone(),
+                    callable_name,
+                    tparams,
+                    self_obj.clone(),
+                    args,
+                    keywords,
+                    arguments_range,
+                    arg_errors,
+                    cur_call_errors,
+                    context,
+                    cur_hint,
+                    &mut ctor_targs,
+                )
+            },
+            |ret| &ret.0,
+        )
+    }
+
+    fn callable_infer_inner(
+        &self,
+        callable: Callable,
+        callable_name: Option<&FunctionKind>,
+        tparams: Option<&TParams>,
         mut self_obj: Option<Type>,
         mut args: &[CallArg],
         keywords: &[CallKeyword],
@@ -1230,8 +1322,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         arg_errors: &ErrorCollector,
         call_errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
-        hint: Option<HintRefOld>,
-        mut ctor_targs: Option<&mut TArgs>,
+        hint: Option<&Type>,
+        ctor_targs: &mut Option<&mut TArgs>,
     ) -> (
         Type,
         Vec<TypeVarSpecializationError>,
@@ -1253,7 +1345,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // By invariant, hint will be None if we are calling a constructor.
             if let Some(hint) = hint {
                 let (qs, callable_) = self.instantiate_fresh_callable(tparams, callable.clone());
-                if self.is_subset_eq(&callable_.ret, hint.ty())
+                if self.is_subset_eq(&callable_.ret, hint)
                     && !self.solver().has_instantiation_errors(&qs)
                 {
                     (qs, callable_)

@@ -16,7 +16,6 @@ from pynvml import (
     nvmlShutdown,
 )
 from .runtime import get_execution_context
-from .state import get_property, set_property
 
 
 def _uuid4() -> str:
@@ -256,50 +255,6 @@ def _get_runtime_environment() -> Optional[str]:
     return exec_context.environment
 
 
-@lru_cache(maxsize=1)
-def _get_install_id() -> str:
-    """Get or create the install ID. If not set in disk-cached
-    state, generate a new one and store it in the state.
-
-    Returns:
-        str: The install ID.
-    """
-    install_id = get_property("install_id")
-
-    # Fallback to new install ID
-    if install_id is None:
-        install_id = _uuid4()
-        set_property("install_id", install_id)
-
-    return install_id
-
-
-@lru_cache(maxsize=1)
-def _get_install_date() -> str:
-    """Return the install date as YYYY-MM-DD.
-
-    In case the user was using TabPFN before this change was made,
-    the install date will not correspond to the actual install date,
-    but rather when the user upgraded the page and made a first call.
-
-    Returns:
-        str: The install date as YYYY-MM-DD.
-    """
-    value = get_property("install_date")
-
-    if isinstance(value, str):
-        try:
-            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-            return dt.date().isoformat()
-        except ValueError:
-            pass
-
-    # Fallback to current date
-    value = _utc_now_date()
-    set_property("install_date", value)
-    return value
-
-
 @dataclass
 class BaseTelemetryEvent:
     """
@@ -355,12 +310,6 @@ class SessionEvent(BaseTelemetryEvent):
     is a single init call to TabPFNClassifier or TabPFNRegressor.
     """
 
-    # Install ID of the user
-    install_id: str = field(default_factory=_get_install_id, init=False)
-
-    # Install date of the user
-    install_date: str = field(default_factory=_get_install_date, init=False)
-
     @property
     def name(self) -> str:
         return "session"
@@ -374,9 +323,6 @@ class ModelLoadEvent(BaseTelemetryEvent):
 
     # Status of the model download attempt
     status: Literal["success", "failed"]
-
-    # Install ID of the user
-    install_id: str = field(default_factory=_get_install_id, init=False)
 
     # Name of the model, may be a HuggingFace repo ID
     model_name: Optional[str] = field(default=None)
@@ -438,9 +384,6 @@ class ModelCallEvent(BaseTelemetryEvent):
 
     # Task associated with the model call
     task: Literal["classification", "regression"]
-
-    # Install ID of the user
-    install_id: str = field(default_factory=_get_install_id, init=False)
 
     # Version of the PyTorch
     torch_version: str = field(default_factory=_get_torch_version, init=False)

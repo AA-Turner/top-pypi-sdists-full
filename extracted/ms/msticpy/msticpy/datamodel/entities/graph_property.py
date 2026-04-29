@@ -4,7 +4,8 @@
 # license information.
 # --------------------------------------------------------------------------
 """Entity graph property."""
-from typing import Union
+
+from __future__ import annotations
 
 from ..._version import VERSION
 
@@ -16,9 +17,7 @@ __author__ = "Ian Hellen"
 
 
 # Future - will replace entity graph creation with property factory
-def graph_property(
-    name: str, prop_type: Union[type, str], edge_name: str = None
-) -> property:
+def graph_property(name: str, prop_type: type | str, edge_name: str = None) -> property:
     """Property factory for graph_property."""
     storage_name = f"_{name}"
     edge_attrs = {"name": edge_name or name}
@@ -29,11 +28,11 @@ def graph_property(
             "'prop_type' must be a type of Entity or the string 'self'",
         )
 
-    def prop_getter(self: "Entity") -> "Entity":  # type: ignore
+    def prop_getter(self: Entity) -> Entity:  # type: ignore  # pylint: disable=undefined-variable
         """Return property value."""
         return getattr(self, storage_name, None)
 
-    def prop_setter(self: "Entity", value: "Entity"):  # type: ignore
+    def prop_setter(self: Entity, value: Entity):  # type: ignore  # pylint: disable=undefined-variable
         """Set property value and add graph edge."""
         nonlocal prop_type
         if prop_type == "self":

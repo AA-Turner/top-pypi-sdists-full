@@ -27,21 +27,24 @@ import narwhals.stable.v1 as nw
 
 # Import Rust date parser (shared with other ext modules)
 from xbbg._core import ext_get_futures_months, ext_parse_date
-from xbbg.ext._utils import _syncify
+from xbbg.ext._utils import (
+    DateLike,
+    _canonical_column_name,
+    _normalize_to_datetime,
+    _syncify,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def _parse_date(dt: str | date) -> datetime:
-    """Parse date string or date object to datetime using Rust."""
-    if isinstance(dt, datetime):
-        return dt
+def _parse_date(dt: DateLike) -> datetime:
+    """Parse a date-like value (str / date / datetime / pd.Timestamp) to datetime."""
     if isinstance(dt, str):
         year, month, day = ext_parse_date(dt)
         return datetime(year, month, day)
-    if isinstance(dt, date):
-        return datetime(dt.year, dt.month, dt.day)
-    raise ValueError(f"Cannot parse date: {dt}")
+    if dt is None:
+        raise ValueError("Cannot parse date: None")
+    return _normalize_to_datetime(dt)
 
 
 _FLD_ROLLING_SERIES = "ROLLING_SERIES"
@@ -78,12 +81,19 @@ def _parse_generic_ticker(gen_ticker: str) -> tuple[str, int, str]:
 
 
 def _find_col(columns: list[str], candidates: list[str]) -> str | None:
-    """Find first matching column name (case-insensitive)."""
-    lowered = {col.lower(): col for col in columns}
+    """Find a column by raw label or wrapper-internal canonical alias."""
+    by_exact_lower = {col.casefold(): col for col in columns}
+    by_canonical = {_canonical_column_name(col): col for col in columns}
+
     for candidate in candidates:
-        match = lowered.get(candidate.lower())
+        match = by_exact_lower.get(candidate.casefold())
         if match is not None:
             return match
+
+        match = by_canonical.get(_canonical_column_name(candidate))
+        if match is not None:
+            return match
+
     return None
 
 
@@ -267,7 +277,7 @@ async def _resolve_version_for_ticker(ticker: str, **kwargs) -> str:
 
 async def afut_ticker(
     gen_ticker: str,
-    dt: str | date,
+    dt: DateLike,
     **kwargs,
 ) -> str:
     """Async resolve generic futures ticker to specific contract.
@@ -325,7 +335,7 @@ async def afut_ticker(
 
 async def aactive_futures(
     ticker: str,
-    dt: str | date,
+    dt: DateLike,
     **kwargs,
 ) -> str:
     """Async get the most active futures contract for a date.
@@ -451,7 +461,7 @@ async def aactive_futures(
 
 async def acdx_ticker(
     gen_ticker: str,
-    dt: str | date,
+    dt: DateLike,
     **kwargs,
 ) -> str:
     """Async resolve generic CDX ticker to specific series.
@@ -562,7 +572,7 @@ async def acdx_ticker(
 
 async def aactive_cdx(
     gen_ticker: str,
-    dt: str | date,
+    dt: DateLike,
     lookback_days: int = 10,
     **kwargs,
 ) -> str:
@@ -626,7 +636,6 @@ async def aactive_cdx(
         if "field" in nw_px.columns and "value" in nw_px.columns:
             px_rows = nw_px.filter(nw.col("field").str.to_uppercase() == "PX_LAST")
             px_rows = px_rows.filter(~nw.col("value").is_null())
-            px_rows = px_rows.filter(nw.col("value") != "")
 
             if len(px_rows) == 0 or "date" not in px_rows.columns:
                 return cur

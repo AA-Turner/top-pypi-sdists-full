@@ -75,7 +75,7 @@ class PushResults(dict):
     def add_response(self, func, args):
         self._response_queue.put((func, args))
 
-    def add_side_effect_asset(self, asset_dict) -> (str, PushItem):
+    def add_side_effect_asset(self, asset_dict) -> tuple[str, PushItem]:
         self._asset_side_effect_count += 1
         index = f'__side_effect_asset_{self._asset_side_effect_count}__'
         asset_dict[ORIGINAL_INDEX_COLUMN] = index

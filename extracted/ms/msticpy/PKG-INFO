@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: msticpy
-Version: 2.18.0
+Version: 3.0.0
 Summary: MSTIC Security Tools
 Home-page: https://github.com/microsoft/msticpy
 Author: Ian Hellen
@@ -15,11 +15,10 @@ Keywords: security,azure,sentinel,mstic,cybersec,infosec,cyber,cybersecurity,jup
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 5 - Production/Stable
@@ -29,7 +28,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE.txt
@@ -38,10 +37,11 @@ Requires-Dist: azure-common>=1.1.18
 Requires-Dist: azure-core>=1.24.0
 Requires-Dist: azure-identity>=1.16.1
 Requires-Dist: azure-keyvault-secrets>=4.0.0
-Requires-Dist: azure-kusto-data<=5.0.0,>=4.4.0
+Requires-Dist: azure-kusto-data<7.0.0,>=4.4.0
+Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: azure-mgmt-keyvault>=2.0.0
 Requires-Dist: azure-mgmt-subscription>=3.0.0
-Requires-Dist: azure-monitor-query<=2.0.0,>=1.0.0
+Requires-Dist: azure-monitor-query<=3.0.0,>=1.0.0
 Requires-Dist: beautifulsoup4>=4.0.0
 Requires-Dist: bokeh>=3.0.0
 Requires-Dist: cryptography>=43.0.1
@@ -51,9 +51,7 @@ Requires-Dist: folium>=0.9.0
 Requires-Dist: geoip2>=2.9.0
 Requires-Dist: httpx<1.0.0,>=0.23.0
 Requires-Dist: html5lib
-Requires-Dist: importlib-resources>=6.4.0; python_version <= "3.8"
-Requires-Dist: ipython>=7.1.1; python_version < "3.8"
-Requires-Dist: ipython>=7.23.1; python_version >= "3.8"
+Requires-Dist: ipython>=7.23.1
 Requires-Dist: ipywidgets<9.0.0,>=7.4.2
 Requires-Dist: jinja2>=3.1.5
 Requires-Dist: keyring>=13.2.1
@@ -61,7 +59,6 @@ Requires-Dist: lxml>=4.6.5
 Requires-Dist: msal>=1.12.0
 Requires-Dist: msal_extensions>=0.3.0
 Requires-Dist: msrest>=0.6.0
-Requires-Dist: msrestazure>=0.6.0
 Requires-Dist: nest_asyncio>=1.4.0
 Requires-Dist: networkx>=2.2
 Requires-Dist: numpy>=1.15.4
@@ -85,27 +82,19 @@ Requires-Dist: aiohttp>=3.7.4; extra == "dev"
 Requires-Dist: async-cache>=1.1.1; extra == "dev"
 Requires-Dist: bandit>=1.7.0; extra == "dev"
 Requires-Dist: beautifulsoup4>=4.0.0; extra == "dev"
-Requires-Dist: black<25.0.0,>=20.8b1; extra == "dev"
 Requires-Dist: coverage>=5.5; extra == "dev"
 Requires-Dist: docutils<0.22.0; extra == "dev"
 Requires-Dist: filelock>=3.0.0; extra == "dev"
-Requires-Dist: flake8>=3.8.4; extra == "dev"
 Requires-Dist: httpx<0.28.0,>=0.23.0; extra == "dev"
-Requires-Dist: isort>=5.10.1; extra == "dev"
 Requires-Dist: jsonschema>=4.17.3; extra == "dev"
 Requires-Dist: markdown>=3.3.4; extra == "dev"
-Requires-Dist: mccabe>=0.6.1; extra == "dev"
 Requires-Dist: mypy>=0.812; extra == "dev"
 Requires-Dist: nbdime>=2.1.0; extra == "dev"
 Requires-Dist: nbconvert>=6.1.0; extra == "dev"
 Requires-Dist: pandas<3.0.0,>=1.4.0; extra == "dev"
-Requires-Dist: pep8-naming>=0.10.0; extra == "dev"
-Requires-Dist: pep8>=1.7.1; extra == "dev"
 Requires-Dist: pipreqs>=0.4.9; extra == "dev"
 Requires-Dist: pre-commit>=2.7.1; extra == "dev"
-Requires-Dist: pycodestyle>=2.6.0; extra == "dev"
 Requires-Dist: pydocstyle>=6.0.0; extra == "dev"
-Requires-Dist: pyflakes>=2.2.0; extra == "dev"
 Requires-Dist: pygeohash>=1.2.0; extra == "dev"
 Requires-Dist: pylint>=2.5.3; extra == "dev"
 Requires-Dist: pyroma>=3.1; extra == "dev"
@@ -130,11 +119,9 @@ Requires-Dist: splunk-sdk!=2.0.0,>=1.6.0; extra == "splunk"
 Provides-Extra: sumologic
 Requires-Dist: sumologic-sdk>=0.1.11; extra == "sumologic"
 Requires-Dist: openpyxl>=3.0; extra == "sumologic"
-Provides-Extra: kql
-Requires-Dist: KqlmagicCustom[jupyter-extended]>=0.1.114.post22; extra == "kql"
 Provides-Extra: azure
 Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "azure"
-Requires-Dist: azure-mgmt-core>=1.2.1; extra == "azure"
+Requires-Dist: azure-mgmt-core>=1.6.0; extra == "azure"
 Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "azure"
 Requires-Dist: azure-mgmt-network>=2.7.0; extra == "azure"
 Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "azure"
@@ -155,10 +142,11 @@ Provides-Extra: riskiq
 Requires-Dist: passivetotal>=2.5.3; extra == "riskiq"
 Requires-Dist: requests>=2.31.0; extra == "riskiq"
 Provides-Extra: panel
+Provides-Extra: openobserve
+Requires-Dist: python_openobserve>=0.4.2; extra == "openobserve"
 Provides-Extra: all
-Requires-Dist: KqlmagicCustom[jupyter-extended]>=0.1.114.post22; extra == "all"
 Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "all"
-Requires-Dist: azure-mgmt-core>=1.2.1; extra == "all"
+Requires-Dist: azure-mgmt-core>=1.6.0; extra == "all"
 Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "all"
 Requires-Dist: azure-mgmt-network>=2.7.0; extra == "all"
 Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "all"
@@ -169,6 +157,7 @@ Requires-Dist: matplotlib>=3.0.0; extra == "all"
 Requires-Dist: mo-sql-parsing<12.0.0,>=11; extra == "all"
 Requires-Dist: openpyxl>=3.0; extra == "all"
 Requires-Dist: passivetotal>=2.5.3; extra == "all"
+Requires-Dist: python_openobserve>=0.4.2; extra == "all"
 Requires-Dist: requests>=2.31.0; extra == "all"
 Requires-Dist: rrcf==0.4.4; extra == "all"
 Requires-Dist: scikit-learn>=1.0.0; extra == "all"
@@ -179,11 +168,10 @@ Requires-Dist: sumologic-sdk>=0.1.11; extra == "all"
 Requires-Dist: vt-graph-api>=2.0; extra == "all"
 Requires-Dist: vt-py>=0.18.0; extra == "all"
 Provides-Extra: test
-Requires-Dist: KqlmagicCustom[jupyter-extended]>=0.1.114.post22; extra == "test"
 Requires-Dist: aiohttp>=3.7.4; extra == "test"
 Requires-Dist: async-cache>=1.1.1; extra == "test"
 Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "test"
-Requires-Dist: azure-mgmt-core>=1.2.1; extra == "test"
+Requires-Dist: azure-mgmt-core>=1.6.0; extra == "test"
 Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "test"
 Requires-Dist: azure-mgmt-network>=2.7.0; extra == "test"
 Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "test"
@@ -191,18 +179,14 @@ Requires-Dist: azure-mgmt-resourcegraph>=8.0.0; extra == "test"
 Requires-Dist: azure-storage-blob>=12.5.0; extra == "test"
 Requires-Dist: bandit>=1.7.0; extra == "test"
 Requires-Dist: beautifulsoup4>=4.0.0; extra == "test"
-Requires-Dist: black<25.0.0,>=20.8b1; extra == "test"
 Requires-Dist: coverage>=5.5; extra == "test"
 Requires-Dist: docutils<0.22.0; extra == "test"
 Requires-Dist: filelock>=3.0.0; extra == "test"
-Requires-Dist: flake8>=3.8.4; extra == "test"
 Requires-Dist: httpx<0.28.0,>=0.23.0; extra == "test"
-Requires-Dist: isort>=5.10.1; extra == "test"
 Requires-Dist: joblib>=1.3.0; extra == "test"
 Requires-Dist: jsonschema>=4.17.3; extra == "test"
 Requires-Dist: markdown>=3.3.4; extra == "test"
 Requires-Dist: matplotlib>=3.0.0; extra == "test"
-Requires-Dist: mccabe>=0.6.1; extra == "test"
 Requires-Dist: mo-sql-parsing<12.0.0,>=11; extra == "test"
 Requires-Dist: mypy>=0.812; extra == "test"
 Requires-Dist: nbconvert>=6.1.0; extra == "test"
@@ -210,13 +194,9 @@ Requires-Dist: nbdime>=2.1.0; extra == "test"
 Requires-Dist: openpyxl>=3.0; extra == "test"
 Requires-Dist: pandas<3.0.0,>=1.4.0; extra == "test"
 Requires-Dist: passivetotal>=2.5.3; extra == "test"
-Requires-Dist: pep8-naming>=0.10.0; extra == "test"
-Requires-Dist: pep8>=1.7.1; extra == "test"
 Requires-Dist: pipreqs>=0.4.9; extra == "test"
 Requires-Dist: pre-commit>=2.7.1; extra == "test"
-Requires-Dist: pycodestyle>=2.6.0; extra == "test"
 Requires-Dist: pydocstyle>=6.0.0; extra == "test"
-Requires-Dist: pyflakes>=2.2.0; extra == "test"
 Requires-Dist: pygeohash>=1.2.0; extra == "test"
 Requires-Dist: pylint>=2.5.3; extra == "test"
 Requires-Dist: pyroma>=3.1; extra == "test"
@@ -225,6 +205,7 @@ Requires-Dist: pytest-cov>=2.11.1; extra == "test"
 Requires-Dist: pytest-env>=1.1.0; extra == "test"
 Requires-Dist: pytest-xdist>=2.5.0; extra == "test"
 Requires-Dist: pytest>=5.0.1; extra == "test"
+Requires-Dist: python_openobserve>=0.4.2; extra == "test"
 Requires-Dist: readthedocs-sphinx-ext==2.2.5; extra == "test"
 Requires-Dist: requests>=2.31.0; extra == "test"
 Requires-Dist: responses>=0.13.2; extra == "test"
@@ -244,7 +225,7 @@ Requires-Dist: vt-graph-api>=2.0; extra == "test"
 Requires-Dist: vt-py>=0.18.0; extra == "test"
 Provides-Extra: sentinel
 Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "sentinel"
-Requires-Dist: azure-mgmt-core>=1.2.1; extra == "sentinel"
+Requires-Dist: azure-mgmt-core>=1.6.0; extra == "sentinel"
 Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "sentinel"
 Requires-Dist: azure-mgmt-network>=2.7.0; extra == "sentinel"
 Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "sentinel"
@@ -252,7 +233,7 @@ Requires-Dist: azure-storage-blob>=12.5.0; extra == "sentinel"
 Requires-Dist: azure-mgmt-resourcegraph>=8.0.0; extra == "sentinel"
 Provides-Extra: azsentinel
 Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "azsentinel"
-Requires-Dist: azure-mgmt-core>=1.2.1; extra == "azsentinel"
+Requires-Dist: azure-mgmt-core>=1.6.0; extra == "azsentinel"
 Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "azsentinel"
 Requires-Dist: azure-mgmt-network>=2.7.0; extra == "azsentinel"
 Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "azsentinel"
@@ -260,7 +241,7 @@ Requires-Dist: azure-storage-blob>=12.5.0; extra == "azsentinel"
 Requires-Dist: azure-mgmt-resourcegraph>=8.0.0; extra == "azsentinel"
 Provides-Extra: azuresentinel
 Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "azuresentinel"
-Requires-Dist: azure-mgmt-core>=1.2.1; extra == "azuresentinel"
+Requires-Dist: azure-mgmt-core>=1.6.0; extra == "azuresentinel"
 Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "azuresentinel"
 Requires-Dist: azure-mgmt-network>=2.7.0; extra == "azuresentinel"
 Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "azuresentinel"
@@ -275,7 +256,6 @@ Dynamic: requires-dist
 ![GitHub Actions build](https://github.com/microsoft/msticpy/actions/workflows/python-package.yml/badge.svg?branch=main)
 [![Azure Pipelines build](https://dev.azure.com/mstic-detections/mstic-jupyter/_apis/build/status/microsoft.msticpy?branchName=main)](https://dev.azure.com/mstic-detections/mstic-jupyter/_build/latest?definitionId=14&branchName=main)
 [![Downloads](https://pepy.tech/badge/msticpy)](https://pepy.tech/project/msticpy)
-[![BlackHat Arsenal 2020](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2020.svg)](https://www.blackhat.com/us-20/arsenal/schedule/#msticpy-the-security-analysis-swiss-army-knife-19872)
 
 Microsoft Threat Intelligence Python Security Tools.
 
@@ -301,7 +281,7 @@ alt="Timeline" title="Msticpy Timeline Control" height="300" />
 The **msticpy** package was initially developed to support
 [Jupyter Notebooks](https://jupyter-notebook-beginner-guide.readthedocs.io/en/latest/)
 authoring for
-[Azure Sentinel](https://azure.microsoft.com/en-us/services/azure-sentinel/).
+[Microsoft Sentinel](https://www.microsoft.com/en-us/security/business/siem-and-xdr/microsoft-sentinel/).
 While Azure Sentinel is still a big focus of our work, we are
 extending the data query/acquisition components to pull log data from
 other sources (currently Splunk, Microsoft Defender for Endpoint and
@@ -326,11 +306,6 @@ We welcome feedback, bug reports, suggestions for new features and contributions
 For core install:
 
 `pip install msticpy`
-
-If you are using *MSTICPy* with Azure Sentinel you should install with
-the "azsentinel" extra package:
-
-`pip install msticpy[azsentinel]`
 
 or for the latest dev build
 
@@ -362,8 +337,8 @@ functions in this interactive demo on mybinder.org.
 
 ## Log Data Acquisition
 
-QueryProvider is an extensible query library targeting Azure Sentinel/Log Analytics,
-Splunk, OData
+QueryProvider is an extensible query library targeting Microsoft Sentinel/Log Analytics,
+Microsoft XDR, Splunk, OData
 and other log data sources. It also has special support for
 [Mordor](https://github.com/OTRF/mordor) data sets and using local data.
 
@@ -597,7 +572,7 @@ See the following notebooks for more examples of the use of this package in prac
 ## Supported Platforms and Packages
 
 - msticpy is OS-independent
-- Requires [Python 3.8 or later](https://www.python.org/dev/peps/pep-0494/)
+- Requires [Python 3.10 or later](https://www.python.org/dev/peps/pep-0494/)
 - See [requirements.txt](requirements.txt) for more details and version requirements.
 
 ---

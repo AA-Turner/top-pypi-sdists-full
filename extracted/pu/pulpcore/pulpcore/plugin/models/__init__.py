@@ -1,3 +1,5 @@
+# ruff: noqa: F401
+# isort: skip_file
 # Models are exposed selectively in the versioned plugin API.
 # Any models defined in the pulpcore.plugin namespace should probably be proxy models.
 
@@ -38,6 +40,7 @@ from pulpcore.app.models import (
     SigningService,
     Task,
     TaskGroup,
+    TaskSchedule,
     Upload,
     UploadChunk,
     VulnerabilityReport,
@@ -84,6 +87,7 @@ __all__ = [
     "SigningService",
     "Task",
     "TaskGroup",
+    "TaskSchedule",
     "Upload",
     "UploadChunk",
     "EncryptedTextField",

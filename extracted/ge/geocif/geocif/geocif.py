@@ -157,6 +157,10 @@ class Geocif:
         # years (operationally faithful hindcasts). Replaces the old
         # align_hindcast_stage flag.
         self.align_hindcast_stage = (self.run_time_steps == "current")
+        # "pre_season" runs the model BEFORE the season starts using only
+        # FLDAS/S2S forecast lead data. Init month is derived dynamically
+        # from the current date at execution time.
+        self.is_pre_season = (self.run_time_steps == "pre_season")
         self.cat_features: list = ast.literal_eval(self.parser.get("ML", "cat_features"))
         self.use_spatial_neighbors = (
             self.parser.getboolean("ML", "use_spatial_neighbors")
@@ -389,12 +393,17 @@ class Geocif:
         self.all_seasons_with_yield = self.df_inputs[
             self.df_inputs[self.target].notna()
         ]["Harvest Year"].unique()
-        
+
+        if self.is_pre_season:
+            self.all_stages = ["PS"]
+            self.simulation_stages = [np.array([0])]
+            return
+
         if self.method.endswith("_r"):
             self._setup_reverse_stages()
         else:
             raise NotImplementedError(f"Method {self.method} not implemented")
-        
+
         self._filter_current_month_stages()
         self._create_simulation_stages()
 
@@ -431,10 +440,11 @@ class Geocif:
             ]
 
     def _create_simulation_stages(self):
-        """Create simulation stages from stage IDs."""
+        """Create simulation stages from stage IDs (skip PS_ pre-season stages)."""
         self.simulation_stages = [
-            np.array([int(stage) for stage in s.split("_")]) 
+            np.array([int(stage) for stage in s.split("_")])
             for s in self.all_stages
+            if not s.startswith(("PS", "IS"))
         ]
 
     def _setup_geodata(self):
@@ -686,7 +696,14 @@ class Geocif:
         For ``"latest"`` or ``"current"``, the original single-pass flow
         is used (all stages become feature columns in one model).
         """
-        if self.run_time_steps in ("latest", "current"):
+        if self.is_pre_season:
+            self._execute_pre_season()
+        elif self._is_forecast_only():
+            # Forecast-only CIDs (FLDAS/S2S): use pre-season-style
+            # extraction for ALL months (pre-season + in-season) since
+            # cumulative stage windows don't produce distinct FLDAS features.
+            self._execute_pre_season(include_in_season=True)
+        elif self.run_time_steps in ("latest", "current"):
             self._execute_single_pass()
         else:
             self._execute_multi_step()
@@ -707,6 +724,210 @@ class Geocif:
 
         if self.run_ml:
             self._execute_ml_pipeline(dict_selected_features, dict_best_cid)
+
+    # ------------------------------------------------------------------
+    # PRE-SEASON MODE
+    # ------------------------------------------------------------------
+
+    def _get_season_start_month(self) -> int:
+        """Return the first month of the crop season from the loaded data.
+
+        For reverse methods (monthly_r), the longest Stage_ID contains all
+        season months in harvest→planting order, so reversed gives planting
+        first.  For forward methods, the shortest single-stage ID is the
+        planting month.
+        """
+        stage_ids = [
+            s for s in self.df_inputs["Stage_ID"].dropna().unique()
+            if not s.startswith(("PS", "IS"))
+        ]
+        if not stage_ids:
+            return ar.utcnow().month
+
+        # Longest stage contains the full season sequence
+        longest = max(stage_ids, key=lambda s: len(s.split("_")))
+        months = [int(x) for x in longest.split("_")]
+        if self.method.endswith("_r"):
+            months = list(reversed(months))
+        return months[0]
+
+
+    def _is_forecast_only(self) -> bool:
+        """Check if use_cids contains only forecast types (FLDAS/S2S)."""
+        forecast_types = {"FLDAS", "S2S"}
+        return (
+            "all" not in self.use_cids
+            and all(c in forecast_types for c in self.use_cids)
+        )
+
+    def _get_pre_season_init_months(self, include_in_season: bool = False) -> list[int]:
+        """Build the sequence of init months for pre-season (and optionally in-season).
+
+        Args:
+            include_in_season: If True, extend through current month (for
+                forecast-only mode where in-season also uses init-month rows).
+
+        Returns months from (planting - max_lead) to stop_month.
+        """
+        planting_month = self._get_season_start_month()
+        max_lead = 6
+        earliest = (planting_month - max_lead - 1) % 12 + 1
+
+        if include_in_season:
+            # Extend through current month (pre-season + in-season)
+            stop_month = ar.utcnow().month
+        else:
+            stop_month = (planting_month - 1) if planting_month > 1 else 12
+
+        months = []
+        m = earliest
+        while True:
+            months.append(m)
+            if m == stop_month:
+                break
+            m = m % 12 + 1
+            if len(months) > 12:
+                break
+        return months
+
+    def _execute_pre_season(self, include_in_season: bool = False):
+        """Pre-season pipeline — one model per init month, multi-step.
+
+        Args:
+            include_in_season: If True, extend month range through current
+                month (for forecast-only mode).
+        """
+        init_months = self._get_pre_season_init_months(include_in_season=include_in_season)
+        season_start = self._get_season_start_month()
+
+        self.logger.info(
+            f"Pre-season mode: {len(init_months)} time steps "
+            f"(months {init_months[0]}→{init_months[-1]}, "
+            f"season starts {season_start})"
+        )
+
+        df_inputs_orig = self.df_inputs.copy()
+        cached_latlon = None
+
+        # Debug file for pre-season diagnostics
+        debug_dir = Path(self.parser.get("PATHS", "dir_output")) / self.parser.get("DEFAULT", "project_name", fallback="geocif") / "ml" / "debug"
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        debug_rows = []
+
+        # Log initial state
+        unique_stages = sorted(df_inputs_orig["Stage"].dropna().unique())[:30]
+        unique_stage_ids = sorted(df_inputs_orig["Stage_ID"].dropna().unique())[:30] if "Stage_ID" in df_inputs_orig.columns else []
+        self.logger.info(
+            f"Pre-season debug: df_inputs has {len(df_inputs_orig)} rows, "
+            f"Stage dtype={df_inputs_orig['Stage'].dtype}, "
+            f"unique Stages (first 30)={unique_stages}"
+        )
+
+        for step_idx, init_month in enumerate(init_months):
+            month_name = ar.get(f"2000-{init_month:02d}-01").format("MMM")
+
+            # Determine if this month is pre-season or in-season
+            months_until_planting = (season_start - init_month) % 12
+            is_before_planting = months_until_planting > 0 and months_until_planting <= 6
+
+            if is_before_planting:
+                stage_id = f"PS_{init_month}"
+                stage_name = f"Pre-Season (init {month_name})"
+                label_prefix = "PS"
+            else:
+                stage_id = f"IS_{init_month}"
+                stage_name = f"In-Season (init {month_name})"
+                label_prefix = "IS"
+
+            self.stage_info = {
+                "Stage_ID": stage_id,
+                "CID": "PRE_SEASON" if is_before_planting else "IN_SEASON",
+                "Stage Range": stage_id,
+                "Starting Stage": 0,
+                "Ending Stage": 0,
+                "Stage Name": stage_name,
+            }
+            self._current_step_label = f"[{label_prefix} {step_idx + 1}/{len(init_months)}]"
+            self.logger.info(
+                f"Forecast step {self._current_step_label}: init {month_name}"
+            )
+
+            # Filter to this init month's features
+            self.df_inputs = df_inputs_orig.copy()
+            stage_pattern = f"PS_{init_month}"
+
+            n_stage = int((self.df_inputs["Stage"] == stage_pattern).sum())
+            n_stage_id = int((self.df_inputs["Stage_ID"] == stage_pattern).sum()) if "Stage_ID" in self.df_inputs.columns else -1
+            n_fldas = int((self.df_inputs["Type"] == "FLDAS").sum())
+            n_s2s = int((self.df_inputs["Type"] == "S2S").sum())
+
+            df = self.df_inputs[
+                (self.df_inputs["Type"].isin(["FLDAS", "S2S"])) &
+                (self.df_inputs["Stage"] == stage_pattern)
+            ]
+
+            debug_row = {
+                "step": init_month,
+                "month_name": month_name,
+                "n_rows_stage_match": n_stage,
+                "n_rows_stage_id_match": n_stage_id,
+                "n_rows_type_fldas": n_fldas,
+                "n_rows_type_s2s": n_s2s,
+                "n_rows_after_filter": len(df),
+                "stage_dtype": str(self.df_inputs["Stage"].dtype),
+                "unique_stages_sample": str(unique_stages[:10]),
+                "result": "",
+            }
+
+            if df.empty:
+                debug_row["result"] = "empty_filter"
+                debug_rows.append(debug_row)
+                self.logger.warning(
+                    f"No features for init month {month_name} "
+                    f"(stage_match={n_stage}, stage_id_match={n_stage_id}), skipping"
+                )
+                continue
+
+            df = self.create_ml_dataframe(df)
+            debug_row["n_rows_after_ml"] = len(df)
+            if df.empty:
+                debug_row["result"] = "empty_ml"
+                debug_rows.append(debug_row)
+                continue
+
+            debug_row["result"] = "success"
+            debug_rows.append(debug_row)
+
+            if cached_latlon is None:
+                df = self._add_lat_lon_to_data(df)
+                if "lat" in df.columns:
+                    cached_latlon = df[["Country Region", "lat", "lon"]].drop_duplicates()
+            else:
+                df["Country Region"] = (
+                    df["Country"].astype(str) + " " + df["Region"].astype(str)
+                ).str.lower()
+                df = df.merge(cached_latlon, on="Country Region", how="left")
+
+            if step_idx == 0:
+                self._run_cluster_analysis(df)
+
+            dict_selected_features, dict_best_cid = self._generate_correlation_plots(df)
+
+            self._prepare_train_test_split(df)
+            self._compute_detrended_yield()
+            self._add_spatial_neighbor_features()
+
+            if self.run_ml:
+                self._execute_ml_pipeline(dict_selected_features, dict_best_cid)
+
+        self.df_inputs = df_inputs_orig
+
+        # Write debug CSV
+        if debug_rows:
+            debug_df = pd.DataFrame(debug_rows)
+            debug_path = debug_dir / f"pre_season_debug_{self.country}_{self.crop}.csv"
+            debug_df.to_csv(debug_path, index=False)
+            self.logger.info(f"Pre-season debug written to {debug_path}")
 
     def _execute_multi_step(self):
         """Multi-step pipeline — one model per time-step from planting forward."""
@@ -1219,8 +1440,10 @@ class Geocif:
         cid_column = df[df.columns[df.columns.str.contains(cid)]].columns
         max_cid_col = max(cid_column, key=len)
 
-        self.stage_info = stages.get_stage_information_dict(max_cid_col, self.method)
-        
+        # Don't overwrite pre-season stage_info (which carries the init month)
+        if not self.is_pre_season:
+            self.stage_info = stages.get_stage_information_dict(max_cid_col, self.method)
+
         return df
 
     def _create_cumulative_features(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -1250,8 +1473,9 @@ class Geocif:
                 continue
 
             max_cid_col = max(cid_column, key=len)
-            self.stage_info = stages.get_stage_information_dict(max_cid_col, self.method)
-            
+            if not self.is_pre_season:
+                self.stage_info = stages.get_stage_information_dict(max_cid_col, self.method)
+
             all_columns = group.columns[
                 group.columns.str.contains(self.stage_info["Stage_ID"])
             ].tolist()

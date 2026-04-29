@@ -567,8 +567,14 @@ def is_illumos() -> bool:
     `platform.uname().version` which contains "illumos" on Illumos-based systems
     (like OpenIndiana, SmartOS, OmniOS).
     ```
+
+    .. note::
+        Gates on {data}`sys.platform` before reading {func}`platform.uname` so
+        the function returns immediately on non-SunOS hosts. This matters on
+        Windows, where {func}`platform.uname` shells out via
+        {func}`platform._syscmd_ver` to populate its ``version`` field.
     """
-    return "illumos" in platform.uname().version.lower()
+    return sys.platform == "sunos5" and "illumos" in platform.uname().version.lower()
 
 
 @cache
@@ -591,8 +597,21 @@ def is_linuxmint() -> bool:
 
 @cache
 def is_macos() -> bool:
-    """Return {data}`True` if current platform is {data}`~extra_platforms.MACOS`."""
-    return platform.platform(terse=True).startswith(("macOS", "Darwin"))
+    """Return {data}`True` if current platform is {data}`~extra_platforms.MACOS`.
+
+    .. note::
+        Uses {data}`sys.platform` rather than {func}`platform.platform`. The
+        former is a constant baked in by CPython at compile time (always
+        ``"darwin"`` on macOS), while the latter performs runtime introspection
+        and, on Windows, shells out via {func}`platform._syscmd_ver` to invoke
+        ``cmd /c ver``. Calling {func}`platform.platform` here would therefore
+        spawn a subprocess on every non-macOS host, and break test suites that
+        globally patch {func}`subprocess.run`. Since ``sys.platform == "darwin"``
+        is unambiguous for macOS (unlike Solaris vs. SunOS, which both report
+        ``"sunos5"`` and genuinely need {func}`platform.platform` to be told
+        apart), there is no reason to pay that cost here.
+    """
+    return sys.platform == "darwin"
 
 
 @cache
@@ -715,14 +734,32 @@ def is_sles() -> bool:
 
 @cache
 def is_solaris() -> bool:
-    """Return {data}`True` if current platform is {data}`~extra_platforms.SOLARIS`."""
-    return platform.platform(aliased=True, terse=True).startswith("Solaris")
+    """Return {data}`True` if current platform is {data}`~extra_platforms.SOLARIS`.
+
+    .. note::
+        Gates on {data}`sys.platform == "sunos5"` before invoking
+        {func}`platform.platform`, which on Windows would shell out via
+        {func}`platform._syscmd_ver`. Solaris and SunOS share the same
+        {data}`sys.platform` value, so {func}`platform.platform` is still needed
+        to tell them apart, but only when we already know we're on a SunOS-based
+        host.
+    """
+    return sys.platform == "sunos5" and platform.platform(
+        aliased=True, terse=True
+    ).startswith("Solaris")
 
 
 @cache
 def is_sunos() -> bool:
-    """Return {data}`True` if current platform is {data}`~extra_platforms.SUNOS`."""
-    return platform.platform(aliased=True, terse=True).startswith("SunOS")
+    """Return {data}`True` if current platform is {data}`~extra_platforms.SUNOS`.
+
+    .. note::
+        See {func}`is_solaris` for the rationale behind the {data}`sys.platform`
+        guard.
+    """
+    return sys.platform == "sunos5" and platform.platform(
+        aliased=True, terse=True
+    ).startswith("SunOS")
 
 
 @cache
@@ -787,14 +824,26 @@ def is_wsl1() -> bool:
             $ uname -r
             5.10.102.1-microsoft-standard-WSL2
     ```
+
+    .. note::
+        Gates on {data}`sys.platform == "linux"` before invoking
+        {func}`platform.release`. WSL is by definition a Linux subsystem, so on
+        any other host the answer is trivially {data}`False`. The guard also
+        avoids a {func}`platform._syscmd_ver` subprocess on Windows, where
+        {func}`platform.release` is implemented as a ``cmd /c ver`` shell-out.
     """
-    return "Microsoft" in platform.release()
+    return sys.platform == "linux" and "Microsoft" in platform.release()
 
 
 @cache
 def is_wsl2() -> bool:
-    """Return {data}`True` if current platform is {data}`~extra_platforms.WSL2`."""
-    return "microsoft" in platform.release()
+    """Return {data}`True` if current platform is {data}`~extra_platforms.WSL2`.
+
+    .. note::
+        See {func}`is_wsl1` for the rationale behind the {data}`sys.platform`
+        guard.
+    """
+    return sys.platform == "linux" and "microsoft" in platform.release()
 
 
 @cache

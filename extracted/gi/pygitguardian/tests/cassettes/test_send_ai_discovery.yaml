@@ -1,0 +1,63 @@
+interactions:
+  - request:
+      body: '{"user": {"hostname": "toto-laptop", "username": "toto", "machine_id":
+        "1234567890", "user_email": "toto@gitguardian.com"}, "discovery_duration": 0.5,
+        "servers": [{"name": "mcp-server-1", "display_name": null, "tools": [], "resources":
+        [], "prompts": [], "configurations": [{"name": "mcp-configuration-1", "agent":
+        "cursor", "scope": "user", "transport": "http", "project": null, "command":
+        null, "args": [], "env": {}, "url": "https://mcp-server-1.com", "headers": {}}]}]}'
+      headers:
+        Accept:
+          - '*/*'
+        Accept-Encoding:
+          - gzip, deflate
+        Connection:
+          - keep-alive
+        Content-Length:
+          - '473'
+        Content-Type:
+          - application/json
+        User-Agent:
+          - pygitguardian/1.29.0 (Linux;py3.11.15)
+      method: POST
+      uri: https://api.gitguardian.com/v1/nhi/ai/discovery
+    response:
+      body:
+        string: '{"user":{"hostname":"toto-laptop","username":"toto","machine_id":"1234567890","user_email":"toto@gitguardian.com"},"servers":[{"name":"https://mcp-server-1.com","display_name":"","tools":[],"resources":[],"prompts":[],"configurations":[{"name":"mcp-configuration-1","agent":"cursor","scope":"user","transport":"http","project":null,"command":null,"args":[],"env":{},"url":"https://mcp-server-1.com","headers":{}}]}],"discovery_duration":0.5}'
+      headers:
+        Access-Control-Expose-Headers:
+          - X-App-Version
+        Allow:
+          - POST, OPTIONS
+        Connection:
+          - keep-alive
+        Content-Length:
+          - '441'
+        Content-Security-Policy:
+          - frame-ancestors 'none'
+        Content-Type:
+          - application/json
+        Cross-Origin-Opener-Policy:
+          - same-origin
+        Date:
+          - Tue, 21 Apr 2026 09:57:44 GMT
+        Referrer-Policy:
+          - same-origin
+        Server:
+          - nginx/1.29.1
+        Vary:
+          - Cookie
+        X-App-Version:
+          - dev
+        X-Content-Type-Options:
+          - nosniff
+        X-Frame-Options:
+          - DENY
+        X-Request-ID:
+          - fb763215b6af5bfa3f5d34e7c26cd9dc
+        X-Secrets-Engine-Version:
+          - 2.161.0
+      status:
+        code: 200
+        message: OK
+version: 1

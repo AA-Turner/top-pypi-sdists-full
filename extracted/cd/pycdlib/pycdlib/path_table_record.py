@@ -21,9 +21,10 @@ import struct
 from pycdlib import pycdlibexception
 from pycdlib import utils
 
-# For mypy annotations
-if False:  # pylint: disable=using-constant-test
-    from typing import Type  # NOQA pylint: disable=unused-import
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Type  # noqa: F401
 
 
 class PathTableRecord:
@@ -32,6 +33,7 @@ class PathTableRecord:
                  'parent_directory_num', 'directory_identifier', 'dirrecord')
 
     FMT = '<BBLH'
+    _FMT_SIZE = struct.calcsize(FMT)
 
     def __init__(self):
         # type: () -> None
@@ -51,7 +53,7 @@ class PathTableRecord:
             raise pycdlibexception.PyCdlibInternalError('Path Table Record already initialized')
 
         (self.len_di, self.xattr_length, self.extent_location,
-         self.parent_directory_num) = struct.unpack_from(self.FMT, data[:8], 0)
+         self.parent_directory_num) = struct.unpack_from(self.FMT, data, 0)
 
         if self.len_di % 2 != 0:
             self.directory_identifier = data[8:-1]
@@ -119,7 +121,7 @@ class PathTableRecord:
         Returns:
          The total length that a Path Directory Record with this name would occupy.
         """
-        return struct.calcsize(cls.FMT) + len_di + (len_di % 2)
+        return cls._FMT_SIZE + len_di + (len_di % 2)
 
     def _new(self, name, parent_dir_num):
         # type: (bytes, int) -> None

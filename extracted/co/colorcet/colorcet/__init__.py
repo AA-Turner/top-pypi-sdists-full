@@ -40,85 +40,66 @@ same methods described above and are named:
 Some of the Glasbey sets are aliased to short names as explained in the User Guide.
 """
 
+from __future__ import annotations
+
 from collections import OrderedDict
+from collections.abc import Iterable, Mapping, Sequence
 from itertools import chain
+from typing import Any
 
-# Define '__version__'
-try:
-    # __version__ was added in _version in setuptools-scm 7.0.0, we rely on
-    # the hopefully stable version variable.
-    from ._version import version as __version__
-except (ModuleNotFoundError, ImportError):
-    # Either _version doesn't exist (ModuleNotFoundError) or version isn't
-    # in _version (ImportError). ModuleNotFoundError is a subclass of
-    # ImportError, let's be explicit anyway.
-
-    # Try something else:
-    from importlib.metadata import version as mversion, PackageNotFoundError
-
-    try:
-        __version__ = mversion("colorcet")
-    except PackageNotFoundError:
-        # The user is probably trying to run this without having installed
-        # the package.
-        __version__ = "0.0.0+unknown"
+from .__version import __version__  # noqa: F401
+from ._dependencies import LinearSegmentedColormap, ListedColormap, register_cmap
 
 
-class AttrODict(OrderedDict):
+class AttrODict(OrderedDict): # type: ignore[type-arg]
     """Ordered dictionary with attribute access (e.g. for tab completion)"""
-    def __dir__(self): return self.keys()
-    def __delattr__(self, name): del self[name]
-    def __getattr__(self, name):
-        return self[name] if not name.startswith('_') else super(AttrODict, self).__getattr__(name)
-    def __setattr__(self, name, value):
-        if (name.startswith('_')): return super(AttrODict, self).__setattr__(name, value)
+    def __dir__(self) -> list[str]:
+        return list(self.keys())
+    def __delattr__(self, name: str) -> None:
+        del self[name]
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(f"{type(self).__name__} object has no attribute or key '{name}'")
+    def __setattr__(self, name: str, value: Any) -> None:
+        if (name.startswith('_')):
+            return super().__setattr__(name, value)
         self[name] = value
 
 
-try:
-    from matplotlib.colors import LinearSegmentedColormap, ListedColormap
-    try:
-        from matplotlib import colormaps
-        def register_cmap(name, cmap):
-            if name not in colormaps or colormaps[name] != cmap:
-                # The last condition will raise an error
-                colormaps.register(cmap, name=name)
-    except ImportError:
-        # PendingDeprecationWarning from matplotlib 3.6
-        from matplotlib.cm import register_cmap
-except ImportError:
-    def LinearSegmentedColormap(colorlist,name): pass
-    def ListedColormap(colorlist,name): pass
-    def register_cmap(name,cmap): pass
-    LinearSegmentedColormap.from_list=lambda n,c,N: None
+
+def rgb_to_hex(r: int, g: int, b: int) -> str:
+    return f'#{r:02x}{g:02x}{b:02x}'
 
 
-def rgb_to_hex(r,g,b):
-    return '#%02x%02x%02x' % (r,g,b)
-
-
-def bokeh_palette(name,colorlist):
+def bokeh_palette(name: str, colorlist: Sequence[Sequence[float]]) -> list[str]:
     palette[name] = [rgb_to_hex(int(r*255),int(g*255),int(b*255)) for r,g,b in colorlist]
     return palette[name]
 
 
-def mpl_cm(name,colorlist):
-    cm[name]      = LinearSegmentedColormap.from_list(name, colorlist, N=len(colorlist))
-    register_cmap("cet_"+name, cmap=cm[name])
-    return cm[name]
+def mpl_cm(name: str, colorlist: Sequence[Any]) -> LinearSegmentedColormap:
+    cm[name] = cmap = LinearSegmentedColormap.from_list(name, colorlist, N=len(colorlist))
+    register_cmap(f"cet_{name}", cmap=cmap)
+    return cmap
 
 
-def mpl_cl(name,colorlist):
-    cm[name]      = ListedColormap(colorlist, name)
-    register_cmap("cet_"+name, cmap=cm[name])
-    return cm[name]
+def mpl_cl(name: str, colorlist: Sequence[Any]) -> ListedColormap:
+    cm[name] = cmap = ListedColormap(colorlist, name)
+    register_cmap(f"cet_{name}", cmap=cmap)
+    return cmap
 
 
-def get_aliases(name):
+def get_aliases(name: str) -> str:
     """Get the aliases for a given colormap name"""
     names = [name]
 
-    def check_aliases(names, d,  k_position=-1, v_position=0):
+    def check_aliases(
+        names: list[str],
+        d: Mapping[str, str | list[str]],
+        k_position: int = -1,
+        v_position: int = 0,
+    ) -> list[str]:
         for name in [n for n in names]:
             for k, v in d.items():
                 v = [v] if not isinstance(v, list) else v
@@ -145,7 +126,7 @@ def get_aliases(name):
         n_names = len(names)
 
     # Sort names as 1or0_underscores, CET, multiple_under_scores (alias, cetname, algorithmicname)
-    def name_sortfn(name):
+    def name_sortfn(name: str) -> int:
         if name.count("_") > 1:
             return 2
         if "CET" in name:
@@ -155,7 +136,12 @@ def get_aliases(name):
     return ',  '.join(sorted(names, key=name_sortfn))
 
 
-def all_original_names(group=None, not_group=None, only_aliased=False, only_CET=False):
+def all_original_names(
+    group: str | list[str] | None = None,
+    not_group: str | list[str] | None = None,
+    only_aliased: bool = False,
+    only_CET: bool = False
+) -> list[str]:
     """
     Returns a list (optionally filtered) of the names of the available colormaps
     Filters available:
@@ -165,7 +151,7 @@ def all_original_names(group=None, not_group=None, only_aliased=False, only_CET=
     - only_aliased: only include maps with shorter/simpler aliases
     - only_CET: only include maps from CET
     """
-    names = palette.keys()
+    names: Iterable[str] = palette.keys()
     if group:
         groups = group if isinstance(group, list) else [group]
         names = [n for ns in [list(filter(lambda x: g in x, names)) for g in groups] for n in ns]
@@ -184,7 +170,7 @@ def all_original_names(group=None, not_group=None, only_aliased=False, only_CET=
     return sorted(list(names))
 
 
-palette = AttrODict()
+palette: dict[str, list[str]] = AttrODict()
 cm = AttrODict()
 palette_n = AttrODict()
 cm_n = AttrODict()
@@ -2781,7 +2767,7 @@ m_rainbow_bgyrm_35_85_c71_r = mpl_cm('rainbow_bgyrm_35_85_c71_r',list(reversed(r
 
 
 
-linear_ternary_green_0_46_c42 = [  # cmap_def
+linear_ternary_green_0_46_c42: list[list[float]] = [  # cmap_def
 [0, 0, 0],
 [0, 0.0035927, 0],
 [0, 0.0071431, 1.452e-17],
@@ -5522,7 +5508,7 @@ register_cmap('cet_CET_L7_r',m_linear_bmw_5_95_c86_r)
 
 
 
-linear_grey_0_100_c0 = [  # cmap_def
+linear_grey_0_100_c0: list[list[float]] = [  # cmap_def
 [0, 0, 0],
 [0.0055606, 0.0055631, 0.0055625],
 [0.011212, 0.011219, 0.011217],
@@ -7436,7 +7422,7 @@ register_cmap('cet_CET_L12_r',m_linear_blue_95_50_c20_r)
 
 
 
-linear_ternary_red_0_50_c52 = [  # cmap_def
+linear_ternary_red_0_50_c52: list[list[float]] = [  # cmap_def
 [0, 0, 0],
 [0.0080248, 0.0015152, 4.5084e-17],
 [0.016166, 0.0030536, 0],
@@ -8521,7 +8507,7 @@ register_cmap('cet_CET_R1_r',m_rainbow_bgyrm_35_85_c69_r)
 
 
 
-linear_kryw_0_100_c71 = [  # cmap_def
+linear_kryw_0_100_c71: list[list[float]] = [  # cmap_def
 [0, 0, 0],
 [0.027065, 2.143e-05, 0],
 [0.052054, 7.4728e-05, 0],
@@ -11280,7 +11266,7 @@ register_cmap('cet_CET_L11_r',m_linear_gow_65_90_c35_r)
 
 
 
-linear_ternary_blue_0_44_c57 = [  # cmap_def
+linear_ternary_blue_0_44_c57: list[list[float]] = [  # cmap_def
 [0, 0, 0],
 [0.00074336, 0.0024531, 0.0074342],
 [0.0014922, 0.0049243, 0.014921],
@@ -18989,7 +18975,7 @@ register_cmap('cet_CET_CBTC1_r',m_cyclic_tritanopic_cwrk_40_100_c20_r)
 
 
 
-linear_kry_0_97_c73 = [  # cmap_def
+linear_kry_0_97_c73: list[list[float]] = [  # cmap_def
 [0, 0, 0],
 [0.025875, 1.8579e-05, 0],
 [0.050536, 6.891e-05, 2.2895e-17],

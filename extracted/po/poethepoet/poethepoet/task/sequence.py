@@ -140,11 +140,8 @@ class SequenceTask(PoeTask):
     async def _handle_run(
         self, context: RunContext, env: TaskEnv, task_state: PoeTaskRun
     ):
-        named_arg_values, _ = self.get_parsed_arguments(env)
-        env.register_task_args(named_arg_values)
-
-        if not named_arg_values and any(arg.strip() for arg in self.invocation[1:]):
-            raise PoeException(f"Sequence task {self.name!r} does not accept arguments")
+        named_arg_values, extra_args = self.get_parsed_arguments(env)
+        env.register_task_args(named_arg_values, extra_args)
 
         if len(self._subtasks) > 1:
             # Indicate on the global context that there are multiple stages

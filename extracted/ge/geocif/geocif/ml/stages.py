@@ -24,16 +24,25 @@ def add_stage_information(df, method, label=""):
     df["Stage"] = df["Stage"].astype(str)
 
     df["Stage_ID"] = df["Stage"]
-    df["Stage Range"] = df["Stage"].apply(
-        lambda x: "_".join([x.split("_")[0], x.split("_")[-1]])
-    )
 
-    # Create a column with starting stage and ending stage
-    # Stage looks like this: 13_12_11
-    # Starting Stage will look like this: 13
-    # Ending Stage will look like this: 11
-    df["Starting Stage"] = df["Stage"].apply(lambda x: int(x.split("_")[0]))
-    df["Ending Stage"] = df["Stage"].apply(lambda x: int(x.split("_")[-1]))
+    def _stage_range(x):
+        if x.startswith(("PS", "IS")):
+            return x
+        return "_".join([x.split("_")[0], x.split("_")[-1]])
+
+    def _start_stage(x):
+        if x.startswith(("PS", "IS")):
+            return 0
+        return int(x.split("_")[0])
+
+    def _end_stage(x):
+        if x.startswith(("PS", "IS")):
+            return 0
+        return int(x.split("_")[-1])
+
+    df["Stage Range"] = df["Stage"].apply(_stage_range)
+    df["Starting Stage"] = df["Stage"].apply(_start_stage)
+    df["Ending Stage"] = df["Stage"].apply(_end_stage)
 
     # Create a column called Stage Names that applies utils.dict_growth_stages
     # to the Starting Stage and Ending Stage
@@ -48,11 +57,15 @@ def add_stage_information(df, method, label=""):
         stage_dict_end = utils.dict_growth_stages_monthly_end
     # Wrap around for stages beyond the dictionary length
     n = len(stage_dict)
-    wrap_start = lambda x: stage_dict[((x - 1) % n) + 1]
-    wrap_end = lambda x: stage_dict_end[((x - 1) % n) + 1]
+    wrap_start = lambda x: stage_dict[((x - 1) % n) + 1] if x > 0 else "Pre-Season"
+    wrap_end = lambda x: stage_dict_end[((x - 1) % n) + 1] if x > 0 else "Pre-Season"
+
+    # Pre-season rows get their Stage_ID as Stage Names (e.g., "PS_9")
+    is_ps = df["Stage"].str.startswith("PS") | df["Stage"].str.startswith("IS")
     df["Stage Names"] = (
         df["Starting Stage"].map(wrap_start) + " - " + df["Ending Stage"].map(wrap_end)
     )
+    df.loc[is_ps, "Stage Names"] = df.loc[is_ps, "Stage"]
 
     df["Percentage Season"] = float("nan")
 
@@ -207,6 +220,26 @@ def get_stage_information_dict(stage_str, method):
     stage_info["Stage_ID"] = stage_str
 
     parts = stage_str.split("_")
+
+    # Pre-season / forecast-only in-season: Stage_ID is "PS_N" or "IS_N".
+    # Column looks like "MEAN_FLDAS_SoilMoist_tavg_LEAD0_PS_4" or "_IS_3".
+    ps_idx = next((i for i, p in enumerate(parts) if p in ("PS", "IS")), None)
+    if ps_idx is not None:
+        cid = "_".join(parts[:ps_idx])
+        stage_id = "_".join(parts[ps_idx:])  # "PS" or "PS_4"
+        lead_idx = next((i for i, p in enumerate(parts) if p.startswith("LEAD")), None)
+        lead_str = ""
+        if lead_idx is not None:
+            lead_str = f" {parts[lead_idx]}"
+        return {
+            "Stage_ID": stage_id,
+            "CID": cid,
+            "Stage Range": stage_id,
+            "Starting Stage": 0,
+            "Ending Stage": 0,
+            "Stage Name": f"Pre-Season{lead_str}",
+        }
+
     # Find where numeric stage numbers begin.
     # AEF_N has a numeric band suffix that is part of the CID name, so skip it.
     skip = 2 if parts[0] == "AEF" else 1
@@ -321,6 +354,18 @@ def update_feature_names(df, method):
             cid = "_".join(parts[:2])
             stage_parts = parts[2:]
         else:
+            continue
+
+        # Pre-season / forecast-only in-season: stage_parts is ["PS", "4"] or ["IS", "3"].
+        if stage_parts and stage_parts[0] in ("PS", "IS"):
+            stage_id = "_".join(stage_parts)
+            lead_idx = next((i for i, p in enumerate(cid.split("_")) if p.startswith("LEAD")), None)
+            lead_label = ""
+            if lead_idx is not None:
+                lead_label = f" {cid.split('_')[lead_idx]}"
+            prefix = "Pre-Season" if stage_parts[0] == "PS" else "In-Season"
+            new_column_name = f"{cid} {prefix}{lead_label}"
+            stages_info[element] = (cid, stage_id, stage_id, new_column_name)
             continue
 
         # Filtering stage_parts to only keep numeric stages

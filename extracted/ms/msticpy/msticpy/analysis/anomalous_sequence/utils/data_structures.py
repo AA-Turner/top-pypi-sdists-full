@@ -5,8 +5,9 @@
 # --------------------------------------------------------------------------
 """Useful helper data structure classes for modelling sessions."""
 
+from __future__ import annotations
+
 from collections import defaultdict
-from typing import Union
 
 from ....common.exceptions import MsticpyException
 
@@ -14,7 +15,7 @@ from ....common.exceptions import MsticpyException
 class StateMatrix(dict):
     """Class for storing trained counts/probabilities."""
 
-    def __init__(self, states: Union[dict, defaultdict], unk_token: str):
+    def __init__(self, states: dict | defaultdict, unk_token: str):
         """
         Containr for dict of counts/probs or dict of dicts of cond counts/probs.
 
@@ -76,7 +77,7 @@ class StateMatrix(dict):
 class Cmd:
     """Class to store commands with accompanying params (and optionally values)."""
 
-    def __init__(self, name: str, params: Union[set, dict]):
+    def __init__(self, name: str, params: set | dict):
         """
         Instantiate the Cmd class.
 
