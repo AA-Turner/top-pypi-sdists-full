@@ -19,21 +19,25 @@ from sentry_protos.billing.v1 import seat_category_pb2 as sentry__protos_dot_bil
 from sentry_protos.billing.v1 import usage_data_pb2 as sentry__protos_dot_billing_dot_v1_dot_usage__data__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n?sentry_protos/billing/v1/services/usage/v1/endpoint_usage.proto\x12*sentry_protos.billing.v1.services.usage.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a,sentry_protos/billing/v1/data_category.proto\x1a#sentry_protos/billing/v1/date.proto\x1a,sentry_protos/billing/v1/seat_category.proto\x1a)sentry_protos/billing/v1/usage_data.proto\"|\n\rCategoryUsage\x12\x38\n\x08\x63\x61tegory\x18\x01 \x01(\x0e\x32&.sentry_protos.billing.v1.DataCategory\x12\x31\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32#.sentry_protos.billing.v1.UsageData\"\x84\x01\n\nDailyUsage\x12,\n\x04\x64\x61te\x18\x01 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12H\n\x05usage\x18\x02 \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.usage.v1.CategoryUsage\"\\\n\x11\x43\x61tegorySeatUsage\x12\x38\n\x08\x63\x61tegory\x18\x01 \x01(\x0e\x32&.sentry_protos.billing.v1.SeatCategory\x12\r\n\x05\x63ount\x18\x02 \x01(\x04\"\xa6\x01\n\x10GetUsageResponse\x12\x44\n\x04\x64\x61ys\x18\x01 \x03(\x0b\x32\x36.sentry_protos.billing.v1.services.usage.v1.DailyUsage\x12L\n\x05seats\x18\x02 \x03(\x0b\x32=.sentry_protos.billing.v1.services.usage.v1.CategorySeatUsage\"\xba\x01\n\x0fGetUsageRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12)\n\x05start\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\'\n\x03\x65nd\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12:\n\ncategories\x18\x04 \x03(\x0e\x32&.sentry_protos.billing.v1.DataCategoryb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n?sentry_protos/billing/v1/services/usage/v1/endpoint_usage.proto\x12*sentry_protos.billing.v1.services.usage.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a,sentry_protos/billing/v1/data_category.proto\x1a#sentry_protos/billing/v1/date.proto\x1a,sentry_protos/billing/v1/seat_category.proto\x1a)sentry_protos/billing/v1/usage_data.proto\"|\n\rCategoryUsage\x12\x38\n\x08\x63\x61tegory\x18\x01 \x01(\x0e\x32&.sentry_protos.billing.v1.DataCategory\x12\x31\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32#.sentry_protos.billing.v1.UsageData\"\x84\x01\n\nDailyUsage\x12,\n\x04\x64\x61te\x18\x01 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12H\n\x05usage\x18\x02 \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.usage.v1.CategoryUsage\"\\\n\x11\x43\x61tegorySeatUsage\x12\x38\n\x08\x63\x61tegory\x18\x01 \x01(\x0e\x32&.sentry_protos.billing.v1.SeatCategory\x12\r\n\x05\x63ount\x18\x02 \x01(\x04\"\x8c\x01\n\x0e\x44\x61ilySeatUsage\x12,\n\x04\x64\x61te\x18\x01 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12L\n\x05seats\x18\x02 \x03(\x0b\x32=.sentry_protos.billing.v1.services.usage.v1.CategorySeatUsage\"\xf9\x01\n\x10GetUsageResponse\x12\x44\n\x04\x64\x61ys\x18\x01 \x03(\x0b\x32\x36.sentry_protos.billing.v1.services.usage.v1.DailyUsage\x12M\n\tseat_days\x18\x03 \x03(\x0b\x32:.sentry_protos.billing.v1.services.usage.v1.DailySeatUsage\x12P\n\x05seats\x18\x02 \x03(\x0b\x32=.sentry_protos.billing.v1.services.usage.v1.CategorySeatUsageB\x02\x18\x01\"\xba\x01\n\x0fGetUsageRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12)\n\x05start\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\'\n\x03\x65nd\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12:\n\ncategories\x18\x04 \x03(\x0e\x32&.sentry_protos.billing.v1.DataCategoryb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.usage.v1.endpoint_usage_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_GETUSAGERESPONSE'].fields_by_name['seats']._loaded_options = None
+  _globals['_GETUSAGERESPONSE'].fields_by_name['seats']._serialized_options = b'\030\001'
   _globals['_CATEGORYUSAGE']._serialized_start=316
   _globals['_CATEGORYUSAGE']._serialized_end=440
   _globals['_DAILYUSAGE']._serialized_start=443
   _globals['_DAILYUSAGE']._serialized_end=575
   _globals['_CATEGORYSEATUSAGE']._serialized_start=577
   _globals['_CATEGORYSEATUSAGE']._serialized_end=669
-  _globals['_GETUSAGERESPONSE']._serialized_start=672
-  _globals['_GETUSAGERESPONSE']._serialized_end=838
-  _globals['_GETUSAGEREQUEST']._serialized_start=841
-  _globals['_GETUSAGEREQUEST']._serialized_end=1027
+  _globals['_DAILYSEATUSAGE']._serialized_start=672
+  _globals['_DAILYSEATUSAGE']._serialized_end=812
+  _globals['_GETUSAGERESPONSE']._serialized_start=815
+  _globals['_GETUSAGERESPONSE']._serialized_end=1064
+  _globals['_GETUSAGEREQUEST']._serialized_start=1067
+  _globals['_GETUSAGEREQUEST']._serialized_end=1253
 # @@protoc_insertion_point(module_scope)

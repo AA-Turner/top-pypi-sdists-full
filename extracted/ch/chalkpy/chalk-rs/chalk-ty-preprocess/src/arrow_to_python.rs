@@ -28,9 +28,9 @@ fn arrow_type_enum_to_python(variant: &ArrowTypeEnum) -> String {
 
         ArrowTypeEnum::Utf8(_) | ArrowTypeEnum::LargeUtf8(_) => "str".to_string(),
 
-        ArrowTypeEnum::Binary(_) | ArrowTypeEnum::LargeBinary(_) | ArrowTypeEnum::FixedSizeBinary(_) => {
-            "bytes".to_string()
-        }
+        ArrowTypeEnum::Binary(_)
+        | ArrowTypeEnum::LargeBinary(_)
+        | ArrowTypeEnum::FixedSizeBinary(_) => "bytes".to_string(),
 
         ArrowTypeEnum::Timestamp(_) => "datetime.datetime".to_string(),
         ArrowTypeEnum::Date32(_) | ArrowTypeEnum::Date64(_) => "datetime.date".to_string(),

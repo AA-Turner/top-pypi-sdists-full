@@ -36,8 +36,9 @@ def sync(
 ) -> Any:
     """Aggregate pass/fail data for simgen-generated simulators, grouped by skill.
 
-    Identifies simgen sims via the ``[skill: ...]`` description convention,
-    then joins testcases -> sessions -> scores in two DB queries."""
+    Identifies skill-gym sims primarily via ``config.is_skill_gym == true``,
+    falling back to the legacy ``[skill: ...]`` description convention for
+    older sims. Excludes sims whose ``config.status`` is out-of-service."""
 
     request_args = _build_request_args(
         authorization=authorization,
@@ -56,8 +57,9 @@ async def asyncio(
 ) -> Any:
     """Aggregate pass/fail data for simgen-generated simulators, grouped by skill.
 
-    Identifies simgen sims via the ``[skill: ...]`` description convention,
-    then joins testcases -> sessions -> scores in two DB queries."""
+    Identifies skill-gym sims primarily via ``config.is_skill_gym == true``,
+    falling back to the legacy ``[skill: ...]`` description convention for
+    older sims. Excludes sims whose ``config.status`` is out-of-service."""
 
     request_args = _build_request_args(
         authorization=authorization,

@@ -23,7 +23,10 @@ pub fn hover(sql: &str, line: u32, col: u32) -> Option<Hover> {
     // All overloads
     md.push_str("### Signatures\n\n");
     for overload in &func.overloads {
-        md.push_str(&format!("```sql\n{}\n```\n\n", overload.render_signature(&func.name)));
+        md.push_str(&format!(
+            "```sql\n{}\n```\n\n",
+            overload.render_signature(&func.name)
+        ));
     }
 
     Some(Hover {

@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 
 from albucore.decorators import preserve_channel_dim
+from albucore.lut import _apply_float_lut
 from albucore.stats import DEFAULT_EPS, mean_std
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
@@ -53,13 +54,22 @@ def _normalize_mean_std_opencv(img: ImageType, mean: float | np.ndarray, std: fl
     return np.clip(normalized_img, -20, 20, out=normalized_img)
 
 
+def _min_max_per_channel(img: ImageType) -> tuple[np.ndarray, np.ndarray]:
+    axes = tuple(range(img.ndim - 1))
+    if img.shape[-1] == 1:
+        return img.min(axis=axes), img.max(axis=axes)
+
+    flat = np.ascontiguousarray(img).reshape(-1, img.shape[-1])
+    dtype = cv2.CV_32F if img.dtype == np.float32 else -1
+    img_min = cv2.reduce(flat, 0, cv2.REDUCE_MIN, dtype=dtype).reshape(-1)
+    img_max = cv2.reduce(flat, 0, cv2.REDUCE_MAX, dtype=dtype).reshape(-1)
+    return img_min, img_max
+
+
 def _normalize_min_max_per_channel_opencv(img: ImageType) -> ImageFloat32:
     """Apply per-channel min-max normalization."""
     eps = 1e-4
-    axes = tuple(range(img.ndim - 1))  # All axes except channel
-
-    img_min = img.min(axis=axes)
-    img_max = img.max(axis=axes)
+    img_min, img_max = _min_max_per_channel(img)
 
     if img.shape[-1] > MAX_OPENCV_WORKING_CHANNELS:
         img_min = np.full_like(img, img_min)
@@ -213,10 +223,10 @@ def _create_min_max_lut(img_min: float, img_max: float, max_value: float, eps: f
 
 def _apply_per_channel_lut(img: ImageUInt8, luts: np.ndarray, num_channels: int) -> ImageFloat32:
     """Apply per-channel LUTs to an image."""
-    result = np.empty_like(img, dtype=np.float32)
-    for i in range(num_channels):
-        result[..., i] = cv2.LUT(img[..., i], luts[:, i])
-    return result
+    if luts.shape != (256, 1, num_channels):
+        msg = f"Expected per-channel LUTs shaped (256, 1, {num_channels}), got {luts.shape}"
+        raise ValueError(msg)
+    return _apply_float_lut(img, luts)
 
 
 def _normalize_image_lut(img: ImageUInt8, max_value: float, eps: float) -> ImageFloat32:
@@ -230,8 +240,10 @@ def _normalize_image_per_channel_lut(img: ImageUInt8, max_value: float, eps: flo
     """Normalize per-channel using mean and std with LUT."""
     pixel_mean, pixel_std = mean_std(img, "per_channel", eps=eps)
 
-    arange_vals = np.arange(0, max_value + 1, dtype=np.float32)
-    luts = ((arange_vals[:, np.newaxis] - pixel_mean) / pixel_std).clip(-20, 20).astype(np.float32)
+    arange_vals = np.arange(0, max_value + 1, dtype=np.float32).reshape(-1, 1, 1)
+    mean_lut = np.asarray(pixel_mean, dtype=np.float32).reshape(1, 1, num_channels)
+    std_lut = np.asarray(pixel_std, dtype=np.float32).reshape(1, 1, num_channels)
+    luts = ((arange_vals - mean_lut) / std_lut).clip(-20, 20).astype(np.float32)
 
     return _apply_per_channel_lut(img, luts, num_channels)
 
@@ -253,8 +265,10 @@ def _normalize_min_max_per_channel_lut(
     axes = tuple(range(img.ndim - 1))
     img_min, img_max = img.min(axis=axes), img.max(axis=axes)
 
-    arange_vals = np.arange(0, max_value + 1, dtype=np.float32)
-    luts = ((arange_vals[:, np.newaxis] - img_min) / (img_max - img_min + eps)).clip(0, 1).astype(np.float32)
+    arange_vals = np.arange(0, max_value + 1, dtype=np.float32).reshape(-1, 1, 1)
+    img_min_lut = np.asarray(img_min, dtype=np.float32).reshape(1, 1, num_channels)
+    img_max_lut = np.asarray(img_max, dtype=np.float32).reshape(1, 1, num_channels)
+    luts = ((arange_vals - img_min_lut) / (img_max_lut - img_min_lut + eps)).clip(0, 1).astype(np.float32)
 
     return _apply_per_channel_lut(img, luts, num_channels)
 

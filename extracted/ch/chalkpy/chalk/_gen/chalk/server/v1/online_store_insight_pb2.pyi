@@ -100,21 +100,24 @@ class GetOnlineStoreConfigResponse(_message.Message):
     ) -> None: ...
 
 class OnlineStoreUsageStat(_message.Message):
-    __slots__ = ("namespace", "feature", "entity_count", "total_memory_bytes")
+    __slots__ = ("namespace", "feature", "entity_count", "total_memory_bytes", "total_memory_bytes_history")
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     FEATURE_FIELD_NUMBER: _ClassVar[int]
     ENTITY_COUNT_FIELD_NUMBER: _ClassVar[int]
     TOTAL_MEMORY_BYTES_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_MEMORY_BYTES_HISTORY_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     feature: str
     entity_count: int
     total_memory_bytes: int
+    total_memory_bytes_history: _containers.RepeatedScalarFieldContainer[int]
     def __init__(
         self,
         namespace: _Optional[str] = ...,
         feature: _Optional[str] = ...,
         entity_count: _Optional[int] = ...,
         total_memory_bytes: _Optional[int] = ...,
+        total_memory_bytes_history: _Optional[_Iterable[int]] = ...,
     ) -> None: ...
 
 class GetOnlineStoreUsageStatsRequest(_message.Message):

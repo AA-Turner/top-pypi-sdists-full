@@ -55,7 +55,6 @@ class DeviceCommandQueue:
         self._seq = 0
         self._running = False
         self._task: asyncio.Task[None] | None = None
-        self._current_work_task: asyncio.Task[None] | None = None
         self._device_name = device_name
         #: Called on critical errors (AuthError, SagaFailedError) so DeviceHandle can propagate them.
         self.on_critical_error: Callable[[Exception], Awaitable[None]] | None = None
@@ -81,13 +80,9 @@ class DeviceCommandQueue:
         """Stop the queue processor and release any held exclusive lock."""
         self._running = False
         self._exclusive_active.set()  # release any waiters
-        if self._current_work_task is not None and not self._current_work_task.done():
-            self._current_work_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._current_work_task
         if self._task is not None and not self._task.done():
             self._task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await self._task
         self._task = None
 
@@ -130,22 +125,33 @@ class DeviceCommandQueue:
 
         async def _run() -> None:
             self._exclusive_active.clear()
-            if self.on_saga_start is not None:
-                try:
-                    await self.on_saga_start()
-                except Exception:
-                    _logger.exception("on_saga_start callback failed for saga '%s'", saga.name)
+            saga_exception: BaseException | None = None
             try:
+                if self.on_saga_start is not None:
+                    try:
+                        await self.on_saga_start()
+                    except Exception:
+                        _logger.exception("on_saga_start callback failed for saga '%s'", saga.name)
                 saga.device_name = self._device_name
-                await saga.execute(broker)
+                try:
+                    await saga.execute(broker)
+                except asyncio.CancelledError:
+                    saga_exception = asyncio.CancelledError()
+                    raise
+                except Exception as exc:
+                    saga_exception = exc
+                    _logger.exception("Saga '%s' raised an unhandled exception", saga.name)
+                    raise
             finally:
+                # Always release the exclusive lock and clear the work-task pointer,
+                # even on cancellation or unhandled exception — otherwise the queue deadlocks.
                 self._exclusive_active.set()
                 if self.on_saga_end is not None:
                     try:
                         await self.on_saga_end()
                     except Exception:
                         _logger.exception("on_saga_end callback failed for saga '%s'", saga.name)
-            if on_complete is not None:
+            if saga_exception is None and on_complete is not None:
                 try:
                     await on_complete()
                 except Exception:
@@ -176,11 +182,8 @@ class DeviceCommandQueue:
 
                 _gateway_timeout_max = 3
                 for _attempt in range(1, _gateway_timeout_max + 1):
-                    self._current_work_task = asyncio.get_running_loop().create_task(
-                        item.work()  # type: ignore[arg-type]
-                    )
                     try:
-                        await self._current_work_task
+                        await item.work()  # type: ignore[misc]
                         break  # success — exit retry loop
                     except GatewayTimeoutException:
                         if _attempt < _gateway_timeout_max:
@@ -197,16 +200,30 @@ class DeviceCommandQueue:
                                 self._device_name,
                                 _attempt,
                             )
-                    finally:
-                        self._current_work_task = None
             except asyncio.CancelledError:
+                # stop() sets _running=False before cancelling the processor task,
+                # so CancelledError here always means we are shutting down.
                 break
             except Exception as exc:
-                from pymammotion.aliyun.exceptions import DeviceOfflineException
-                from pymammotion.transport.base import AuthError, NoTransportAvailableError, SagaFailedError
+                from pymammotion.aliyun.exceptions import DeviceOfflineException, TooManyRequestsException
+                from pymammotion.transport.base import (
+                    AuthError,
+                    NoTransportAvailableError,
+                    SagaFailedError,
+                    TransportRateLimitedError,
+                )
 
                 if isinstance(
-                    exc, (AuthError, SagaFailedError, DeviceOfflineException, NoTransportAvailableError, TransportError)
+                    exc,
+                    (
+                        AuthError,
+                        SagaFailedError,
+                        DeviceOfflineException,
+                        NoTransportAvailableError,
+                        TooManyRequestsException,
+                        TransportRateLimitedError,
+                        TransportError,
+                    ),
                 ):
                     _logger.warning("DeviceCommandQueue[%s]: %s", self._device_name, exc)
                 else:

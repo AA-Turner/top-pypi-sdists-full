@@ -36,6 +36,18 @@
 #undef NDEBUG
 #include <assert.h>
 
+/* Use for ignoring libcurl deprecation warnings */
+#if defined(__clang__) || defined(__GNUC__)
+  #define PYCURL_IGNORE_DEPRECATED_BEGIN \
+    _Pragma("GCC diagnostic push") \
+    _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
+  #define PYCURL_IGNORE_DEPRECATED_END \
+    _Pragma("GCC diagnostic pop")
+#else
+#  define PYCURL_IGNORE_DEPRECATED_BEGIN
+#  define PYCURL_IGNORE_DEPRECATED_END
+#endif
+
 #define MAKE_LIBCURL_VERSION(major, minor, patch) \
     ((major) * 0x10000 + (minor) * 0x100 + (patch))
 
@@ -56,8 +68,8 @@
 #  define EAFNOSUPPORT 97
 # endif
 
-PYCURL_INTERNAL int
-dup_winsock(int sock, const struct curl_sockaddr *address);
+PYCURL_INTERNAL curl_socket_t
+dup_winsock(curl_socket_t sock, const struct curl_sockaddr *address);
 #endif
 
 /* The inet_ntop() was added in ws2_32.dll on Windows Vista [1]. Hence the
@@ -163,8 +175,17 @@ pycurl_inet_ntop (int family, void *addr, char *string, size_t string_size);
 #define HAVE_CURL_GLOBAL_SSLSET
 #endif
 
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 56, 0)
+#define HAVE_CURL_MIME
+#endif
+
 #if LIBCURL_VERSION_NUM >= 0x074300 /* check for 7.67.0 or greater */
 #define HAVE_CURL_7_67_0_MULTI_STREAMS
+#endif
+
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 86, 0)
+#define HAVE_CURL_WEBSOCKETS
+#include <curl/websockets.h>
 #endif
 
 #undef UNUSED
@@ -254,11 +275,13 @@ PYCURL_INTERNAL int pycurl_ssl_init(void);
 PYCURL_INTERNAL void pycurl_ssl_cleanup(void);
 #endif
 
-#ifdef WITH_THREAD
 #  define PYCURL_DECLARE_THREAD_STATE PyThreadState *tmp_state
 #  define PYCURL_ACQUIRE_THREAD() pycurl_acquire_thread(self, &tmp_state)
 #  define PYCURL_ACQUIRE_THREAD_MULTI() pycurl_acquire_thread_multi(self, &tmp_state)
 #  define PYCURL_RELEASE_THREAD() pycurl_release_thread(tmp_state)
+#  define PYCURL_END_CALLBACK(retval) \
+       PYCURL_RELEASE_THREAD(); \
+       return (retval)
 /* Replacement for Py_BEGIN_ALLOW_THREADS/Py_END_ALLOW_THREADS when python
    callbacks are expected during blocking i/o operations: self->state will hold
    the handle to current thread to be used as context */
@@ -282,21 +305,25 @@ PYCURL_INTERNAL void pycurl_ssl_cleanup(void);
        PYCURL_END_ALLOW_THREADS \
        if (self->multi_stack != NULL) \
            self->multi_stack->state = NULL;
-#else
-#  define PYCURL_DECLARE_THREAD_STATE
-#  define PYCURL_ACQUIRE_THREAD() (1)
-#  define PYCURL_ACQUIRE_THREAD_MULTI() (1)
-#  define PYCURL_RELEASE_THREAD()
-#  define PYCURL_BEGIN_ALLOW_THREADS
-#  define PYCURL_END_ALLOW_THREADS
+
+#if PY_VERSION_HEX < 0x030D0000  /* Python 3.13 */
+#  define Py_IsFinalizing _Py_IsFinalizing
 #endif
 
-#if PY_MAJOR_VERSION >= 3
-  #define PyInt_Type                   PyLong_Type
-  #define PyInt_Check(op)              PyLong_Check(op)
-  #define PyInt_FromLong               PyLong_FromLong
-  #define PyInt_AsLong                 PyLong_AsLong
-#endif
+#define PYCURL_BEGIN_CALLBACK_COMMON(acquire_expr, retval, callback_name) \
+    if (Py_IsFinalizing()) { \
+        return (retval); \
+    } \
+    if (!(acquire_expr)) { \
+        warn_failed_to_acquire_thread(#callback_name " failed to acquire thread"); \
+        return (retval); \
+    }
+
+/* Convert socket values without truncation on Win64 where curl_socket_t is SOCKET. */
+PYCURL_INTERNAL PyObject *
+PyLong_FromCurlSocket(curl_socket_t sockfd);
+PYCURL_INTERNAL int
+PyLong_AsCurlSocket(PyObject *obj, curl_socket_t *sockfd);
 
 #define PYLISTORTUPLE_LIST 1
 #define PYLISTORTUPLE_TUPLE 2
@@ -310,23 +337,8 @@ PYCURL_INTERNAL PyObject *
 PyListOrTuple_GetItem(PyObject *v, Py_ssize_t i, int which);
 
 /*************************************************************************
-// python 2/3 compatibility
+// string helpers
 **************************************************************************/
-
-#if PY_MAJOR_VERSION >= 3
-# define PyText_FromFormat(format, str) PyUnicode_FromFormat((format), (str))
-# define PyText_FromString(str) PyUnicode_FromString(str)
-# define PyByteStr_FromString(str) PyBytes_FromString(str)
-# define PyByteStr_Check(obj) PyBytes_Check(obj)
-# define PyByteStr_AsStringAndSize(obj, buffer, length) PyBytes_AsStringAndSize((obj), (buffer), (length))
-#else
-# define PyText_FromFormat(format, str) PyString_FromFormat((format), (str))
-# define PyText_FromString(str) PyString_FromString(str)
-# define PyByteStr_FromString(str) PyString_FromString(str)
-# define PyByteStr_Check(obj) PyString_Check(obj)
-# define PyByteStr_AsStringAndSize(obj, buffer, length) PyString_AsStringAndSize((obj), (buffer), (length))
-#endif
-#define PyText_EncodedDecref(encoded) Py_XDECREF(encoded)
 
 PYCURL_INTERNAL int
 PyText_AsStringAndSize(PyObject *obj, char **buffer, Py_ssize_t *length, PyObject **encoded_obj);
@@ -337,9 +349,8 @@ PyText_Check(PyObject *o);
 PYCURL_INTERNAL PyObject *
 PyText_FromString_Ignore(const char *string);
 
-/* Py_NewRef and Py_XNewRef - not part of Python's C API before 3.10 */
-static inline PyObject* my_Py_NewRef(PyObject *obj) { Py_INCREF(obj); return obj; }
-static inline PyObject* my_Py_XNewRef(PyObject *obj) { Py_XINCREF(obj); return obj; }
+PYCURL_INTERNAL int
+callback_return_value_to_int(PyObject *ret_obj, const char *callback_name, int *ret_out);
 
 struct CurlObject;
 
@@ -396,11 +407,14 @@ create_and_set_error_object(struct CurlObject *self, int code);
 #define PYCURL_MEMGROUP_CACERTS         128
 /* Curl slist objects */
 #define PYCURL_MEMGROUP_SLIST           256
+/* CurlMime object pinned via CURLOPT_MIMEPOST */
+#define PYCURL_MEMGROUP_MIMEPOST        512
 
 #define PYCURL_MEMGROUP_EASY \
     (PYCURL_MEMGROUP_CALLBACK | PYCURL_MEMGROUP_FILE | \
     PYCURL_MEMGROUP_HTTPPOST | PYCURL_MEMGROUP_POSTFIELDS | \
-    PYCURL_MEMGROUP_CACERTS | PYCURL_MEMGROUP_SLIST)
+    PYCURL_MEMGROUP_CACERTS | PYCURL_MEMGROUP_SLIST | \
+    PYCURL_MEMGROUP_MIMEPOST)
 
 #define PYCURL_MEMGROUP_ALL \
     (PYCURL_MEMGROUP_ATTRDICT | PYCURL_MEMGROUP_EASY | \
@@ -424,12 +438,14 @@ typedef struct CurlObject {
     // https://docs.python.org/3/extending/newtypes.html
     PyObject *weakreflist;
     CURL *handle;
-#ifdef WITH_THREAD
     PyThreadState *state;
-#endif
+    PyObject *multi_weakref;
     struct CurlMultiObject *multi_stack;
     struct CurlShareObject *share;
     struct CurlHttppostObject *httppost;
+#ifdef HAVE_CURL_MIME
+    PyObject *mimepost_obj;
+#endif
     struct CurlSlistObject *httpheader;
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 37, 0)
     struct CurlSlistObject *proxyheader;
@@ -468,6 +484,19 @@ typedef struct CurlObject {
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
     PyObject *prereq_cb;
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 21, 0)
+    PyObject *fnmatch_cb;
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 59, 0)
+    PyObject *resolver_start_cb;
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 64, 0)
+    PyObject *trailer_cb;
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 74, 0)
+    PyObject *hstsread_cb;
+    PyObject *hstswrite_cb;
+#endif
     /* file objects */
     PyObject *readdata_fp;
     PyObject *writedata_fp;
@@ -476,6 +505,8 @@ typedef struct CurlObject {
     PyObject *postfields_obj;
     /* reference to the object containing ca certs */
     PyObject *ca_certs_obj;
+    /* true while executing WRITEFUNCTION for this handle */
+    int ws_write_cb_running;
     /* misc */
     char error[CURL_ERROR_SIZE+1];
 } CurlObject;
@@ -486,9 +517,7 @@ typedef struct CurlMultiObject {
     // https://docs.python.org/3/extending/newtypes.html
     PyObject *weakreflist;
     CURLM *multi_handle;
-#ifdef WITH_THREAD
     PyThreadState *state;
-#endif
     fd_set read_fd_set;
     fd_set write_fd_set;
     fd_set exc_fd_set;
@@ -496,7 +525,11 @@ typedef struct CurlMultiObject {
     PyObject *t_cb;
     PyObject *s_cb;
 
+    /* socket-to-object mappings for curl_multi_assign */
+    PyObject *socket_object_dict;
+
     PyObject *easy_object_dict;
+    int close_handles; /* boolean: False by default */
 } CurlMultiObject;
 
 typedef struct {
@@ -509,12 +542,34 @@ typedef struct CurlShareObject {
     // https://docs.python.org/3/extending/newtypes.html
     PyObject *weakreflist;
     CURLSH *share_handle;
-#ifdef WITH_THREAD
     ShareLock *lock;                /* lock object to implement CURLSHOPT_LOCKFUNC */
-#endif
+    PyThread_type_lock easy_weakrefs_lock;  /* protects easy_weakrefs map */
+    /* Set of weakref.ref(CurlObject) */
+    PyObject *easy_weakrefs;
+    int detach_on_close; /* boolean: True by default */
 } CurlShareObject;
 
-#ifdef WITH_THREAD
+#ifdef HAVE_CURL_MIME
+typedef struct CurlMimeObject {
+    PyObject_HEAD
+    struct CurlObject *curl;
+    curl_mime *mime;
+    PyObject *parts;
+    PyObject *submimes;
+    PyObject *data_cb_owners;
+    int owns_mime;
+} CurlMimeObject;
+
+typedef struct CurlMimePartObject {
+    PyObject_HEAD
+    CurlMimeObject *mime;
+    curl_mimepart *part;
+    PyObject *data_cb_owner;
+} CurlMimePartObject;
+
+PYCURL_INTERNAL void
+curlmime_duphandle_incref_data_cb_owners(PyObject *mime_obj);
+#endif
 
 PYCURL_INTERNAL PyThreadState *
 pycurl_get_thread_state(const CurlObject *self);
@@ -540,23 +595,26 @@ share_lock_callback(CURL *handle, curl_lock_data data, curl_lock_access locktype
 PYCURL_INTERNAL void
 share_unlock_callback(CURL *handle, curl_lock_data data, void *userptr);
 
-#endif /* WITH_THREAD */
-
-#if PY_MAJOR_VERSION >= 3
 PYCURL_INTERNAL PyObject *
 my_getattro(PyObject *co, PyObject *name, PyObject *dict1, PyObject *dict2, PyMethodDef *m);
 PYCURL_INTERNAL int
 my_setattro(PyObject **dict, PyObject *name, PyObject *v);
-#else /* PY_MAJOR_VERSION >= 3 */
-PYCURL_INTERNAL int
-my_setattr(PyObject **dict, char *name, PyObject *v);
-PYCURL_INTERNAL PyObject *
-my_getattr(PyObject *co, char *name, PyObject *dict1, PyObject *dict2, PyMethodDef *m);
-#endif /* PY_MAJOR_VERSION >= 3 */
 
 /* used by multi object */
 PYCURL_INTERNAL void
 assert_curl_state(const CurlObject *self);
+
+PYCURL_INTERNAL int
+check_pending_python_signal(void);
+
+PYCURL_INTERNAL int
+check_pending_python_exception_or_signal(void);
+
+PYCURL_INTERNAL void
+warn_failed_to_acquire_thread(const char *warning_message);
+
+PYCURL_INTERNAL void
+print_callback_error_if_regular_exception(void);
 
 PYCURL_INTERNAL PyObject *
 do_global_init(PyObject *dummy, PyObject *args);
@@ -579,15 +637,36 @@ PYCURL_INTERNAL PyObject *
 do_curl_perform(CurlObject *self, PyObject *Py_UNUSED(ignored));
 PYCURL_INTERNAL PyObject *
 do_curl_perform_rb(CurlObject *self, PyObject *Py_UNUSED(ignored));
-#if PY_MAJOR_VERSION >= 3
 PYCURL_INTERNAL PyObject *
 do_curl_perform_rs(CurlObject *self, PyObject *Py_UNUSED(ignored));
-#else
-# define do_curl_perform_rs do_curl_perform_rb
-#endif
 
 PYCURL_INTERNAL PyObject *
 do_curl_pause(CurlObject *self, PyObject *args);
+PYCURL_INTERNAL PyObject *
+do_curl_unpause(CurlObject *self, PyObject *Py_UNUSED(ignored));
+PYCURL_INTERNAL PyObject *
+do_curl_send(CurlObject *self, PyObject *args);
+PYCURL_INTERNAL PyObject *
+do_curl_recv(CurlObject *self, PyObject *args);
+PYCURL_INTERNAL PyObject *
+do_curl_recv_into(CurlObject *self, PyObject *args, PyObject *kwds);
+
+PYCURL_INTERNAL PyObject *set_would_block_error(void);
+PYCURL_INTERNAL int
+check_easy_recv_send_result(CurlObject *self, CURLcode res);
+
+#ifdef HAVE_CURL_WEBSOCKETS
+PYCURL_INTERNAL PyObject *
+do_curl_ws_send(CurlObject *self, PyObject *args, PyObject *kwds);
+PYCURL_INTERNAL PyObject *
+do_curl_ws_recv(CurlObject *self, PyObject *args);
+PYCURL_INTERNAL PyObject *
+do_curl_ws_recv_into(CurlObject *self, PyObject *args, PyObject *kwds);
+PYCURL_INTERNAL PyObject *
+do_curl_ws_meta(CurlObject *self, PyObject *Py_UNUSED(ignored));
+PYCURL_INTERNAL PyObject *
+do_curl_ws_close(CurlObject *self, PyObject *args, PyObject *kwds);
+#endif
 
 PYCURL_INTERNAL int
 check_curl_state(const CurlObject *self, int flags, const char *name);
@@ -596,27 +675,19 @@ util_curl_xdecref(CurlObject *self, int flags, CURL *handle);
 PYCURL_INTERNAL PyObject *
 do_curl_setopt_filelike(CurlObject *self, int option, PyObject *obj);
 
-PYCURL_INTERNAL void
+PYCURL_INTERNAL int
 util_curlslist_update(CurlSlistObject **old, struct curl_slist *slist);
-PYCURL_INTERNAL void
+PYCURL_INTERNAL int
 util_curlhttppost_update(CurlObject *obj, struct curl_httppost *httppost, PyObject *reflist);
 
 PYCURL_INTERNAL PyObject *
 do_curl_getinfo_raw(CurlObject *self, PyObject *args);
-#if PY_MAJOR_VERSION >= 3
 PYCURL_INTERNAL PyObject *
 do_curl_getinfo(CurlObject *self, PyObject *args);
-#else
-# define do_curl_getinfo do_curl_getinfo_raw
-#endif
 PYCURL_INTERNAL PyObject *
 do_curl_errstr(CurlObject *self, PyObject *Py_UNUSED(ignored));
-#if PY_MAJOR_VERSION >= 3
 PYCURL_INTERNAL PyObject *
 do_curl_errstr_raw(CurlObject *self, PyObject *Py_UNUSED(ignored));
-#else
-# define do_curl_errstr_raw do_curl_errstr
-#endif
 
 PYCURL_INTERNAL size_t
 write_callback(char *ptr, size_t size, size_t nmemb, void *stream);
@@ -634,7 +705,8 @@ closesocket_callback(void *clientp, curl_socket_t curlfd);
 #ifdef HAVE_CURL_7_19_6_OPTS
 PYCURL_INTERNAL int
 ssh_key_cb(CURL *easy, const struct curl_khkey *knownkey,
-    const struct curl_khkey *foundkey, int khmatch, void *clientp);
+           const struct curl_khkey *foundkey, enum curl_khmatch khmatch,
+           void *clientp);
 #endif
 PYCURL_INTERNAL int
 seek_callback(void *stream, curl_off_t offset, int origin);
@@ -663,6 +735,31 @@ PYCURL_INTERNAL int
 prereq_callback(void *clientp, char *conn_primary_ip, char *conn_local_ip,
                 int conn_primary_port, int conn_local_port);
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 21, 0)
+PYCURL_INTERNAL int
+fnmatch_callback(void *clientp, const char *pattern, const char *string);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 59, 0)
+PYCURL_INTERNAL int
+resolver_start_callback(void *resolver_state, void *reserved, void *clientp);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 64, 0)
+PYCURL_INTERNAL int
+trailer_callback(struct curl_slist **list, void *clientp);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 74, 0)
+PYCURL_INTERNAL CURLSTScode
+hstsread_callback(CURL *easy, struct curl_hstsentry *e, void *clientp);
+PYCURL_INTERNAL CURLSTScode
+hstswrite_callback(CURL *easy, struct curl_hstsentry *e,
+                   struct curl_index *i, void *clientp);
+#endif
+
+PYCURL_INTERNAL struct curl_slist *
+pycurl_list_or_tuple_to_slist(int which, PyObject *obj, Py_ssize_t len);
+
+PYCURL_INTERNAL int share_register_easy(struct CurlShareObject *share, struct CurlObject *easy);
+PYCURL_INTERNAL void share_unregister_easy(struct CurlShareObject *share, struct CurlObject *easy);
 
 #if !defined(PYCURL_SINGLE_FILE)
 /* Type objects */
@@ -671,6 +768,10 @@ extern PyTypeObject CurlSlist_Type;
 extern PyTypeObject CurlHttppost_Type;
 extern PyTypeObject CurlMulti_Type;
 extern PyTypeObject CurlShare_Type;
+#ifdef HAVE_CURL_MIME
+extern PyTypeObject CurlMime_Type;
+extern PyTypeObject CurlMimePart_Type;
+#endif
 
 extern PyObject *ErrorObject;
 extern PyTypeObject *p_Curl_Type;
@@ -678,8 +779,21 @@ extern PyTypeObject *p_CurlSlist_Type;
 extern PyTypeObject *p_CurlHttppost_Type;
 extern PyTypeObject *p_CurlMulti_Type;
 extern PyTypeObject *p_CurlShare_Type;
+#ifdef HAVE_CURL_MIME
+extern PyTypeObject *p_CurlMime_Type;
+extern PyTypeObject *p_CurlMimePart_Type;
+#endif
 extern PyObject *khkey_type;
 extern PyObject *curl_sockaddr_type;
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 74, 0)
+extern PyObject *hsts_entry_type;
+extern PyObject *hsts_index_type;
+extern PyObject *datetime_type;
+extern PyObject *utc_tz;
+#endif
+#ifdef HAVE_CURL_WEBSOCKETS
+extern PyObject *ws_frame_type;
+#endif
 
 extern PyObject *curlobject_constants;
 extern PyObject *curlmultiobject_constants;
@@ -691,26 +805,13 @@ extern PYCURL_INTERNAL char *empty_keywords[];
 extern PYCURL_INTERNAL PyObject *bytesio;
 extern PYCURL_INTERNAL PyObject *stringio;
 
-#if PY_MAJOR_VERSION >= 3
 extern PyMethodDef curlobject_methods[];
 extern PyMethodDef curlshareobject_methods[];
 extern PyMethodDef curlmultiobject_methods[];
-#endif
 #endif /* !PYCURL_SINGLE_FILE */
 
-#if PY_MAJOR_VERSION >= 3
-# define PYCURL_TYPE_FLAGS Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_BASETYPE
-#else
-# define PYCURL_TYPE_FLAGS Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_HAVE_WEAKREFS | Py_TPFLAGS_BASETYPE
-#endif
+#define PYCURL_TYPE_FLAGS Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_BASETYPE
 
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 8
-# define CPy_TRASHCAN_BEGIN(op, dealloc) Py_TRASHCAN_BEGIN(op, dealloc)
-# define CPy_TRASHCAN_END(op) Py_TRASHCAN_END
-#else
-# define CPy_TRASHCAN_BEGIN(op, dealloc) Py_TRASHCAN_SAFE_BEGIN(op)
-# define CPy_TRASHCAN_END(op) Py_TRASHCAN_SAFE_END(op)
-#endif
 
 #ifdef PYCURL_AUTODETECT_CA
 extern char *g_pycurl_autodetected_cainfo;

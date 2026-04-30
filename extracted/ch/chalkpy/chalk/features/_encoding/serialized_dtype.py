@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import enum
 import json
-from typing import TYPE_CHECKING, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Annotated, List, Literal, Optional, Union
 
 import pyarrow as pa
-from typing_extensions import Annotated
 
 from chalk.utils.json import is_pyarrow_json_type, pyarrow_json_type
 

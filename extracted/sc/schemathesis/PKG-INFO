@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemathesis
-Version: 4.16.1
+Version: 4.17.0
 Summary: Property-based testing framework for Open API and GraphQL based apps
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -35,7 +35,7 @@ Requires-Dist: httpx<1.0,>=0.22.0
 Requires-Dist: hypothesis-graphql<1,>=0.12.0
 Requires-Dist: hypothesis-jsonschema<0.24,>=0.23.1
 Requires-Dist: hypothesis<7,>=6.108.0
-Requires-Dist: jsonschema-rs>=0.46.2
+Requires-Dist: jsonschema-rs>=0.46.3
 Requires-Dist: jsonschema<5.0,>=4.18.0
 Requires-Dist: junit-xml<2.0,>=1.9
 Requires-Dist: pyrate-limiter<5.0,>=4.0

@@ -67,6 +67,18 @@ StrategyFactory = Callable[
 ]
 
 
+def _draw(draw: st.DrawFn, strategy: st.SearchStrategy, operation: APIOperation) -> Any:
+    try:
+        return draw(strategy)
+    except jsonschema_rs.ValidationError as exc:
+        raise InvalidSchema.from_jsonschema_error(
+            exc,
+            path=operation.path,
+            method=operation.method,
+            config=operation.schema.config.output,
+        ) from None
+
+
 @st.composite  # type: ignore[untyped-decorator]
 def openapi_cases(
     draw: st.DrawFn,
@@ -200,10 +212,7 @@ def openapi_cases(
                 event(event_text)
                 reject()
             media_type, _ = draw(st.sampled_from(possible_media_types))
-            if media_type is not None and media_types.parse(media_type) == (
-                "application",
-                "x-www-form-urlencoded",
-            ):
+            if media_types.is_form_urlencoded(media_type):
                 # Helper to transform FormBodyWithContentTypes while preserving it
                 def prepare_urlencoded_form(x: Any) -> Any:
                     if isinstance(x, FormBodyWithContentTypes):
@@ -226,7 +235,7 @@ def openapi_cases(
                     ).filter(lambda x: is_valid_urlencoded_form(x.value if isinstance(x, GeneratedValue) else x))
                 else:
                     strategy = strategy.map(prepare_urlencoded_form).filter(is_valid_urlencoded_form)
-            body_result = draw(strategy)
+            body_result = _draw(draw, strategy, operation)
             body_metadata = None
             # Negative strategy returns GeneratedValue, positive returns just value
             if isinstance(body_result, GeneratedValue):
@@ -625,7 +634,7 @@ def get_parameters_value(
             mix_examples=mix_examples,
         )
         strategy = apply_hooks(operation, ctx, hooks, strategy, location)
-        result = draw(strategy)
+        result = _draw(draw, strategy, operation)
         # Negative strategy returns GeneratedValue, positive returns just value
         if isinstance(result, GeneratedValue):
             return result.value, result.meta
@@ -640,7 +649,7 @@ def get_parameters_value(
         mix_examples=mix_examples,
     )
     strategy = apply_hooks(operation, ctx, hooks, strategy, location)
-    new = draw(strategy)
+    new = _draw(draw, strategy, operation)
     metadata = None
     # Negative strategy returns GeneratedValue, positive returns just value
     if isinstance(new, GeneratedValue):
@@ -826,6 +835,7 @@ def make_positive_strategy(
     generation_config: GenerationConfig,
     validator_cls: type[jsonschema_rs.Validator],
     name_to_uri: dict[str, str] | None = None,
+    validation_schema: JsonSchema | None = None,
 ) -> st.SearchStrategy:
     """Strategy for generating values that fit the schema."""
     custom_formats = _build_custom_formats(generation_config, GenerationMode.POSITIVE)
@@ -852,6 +862,7 @@ def make_negative_strategy(
     generation_config: GenerationConfig,
     validator_cls: type[jsonschema_rs.Validator],
     name_to_uri: dict[str, str] | None = None,
+    validation_schema: JsonSchema | None = None,
 ) -> st.SearchStrategy:
     custom_formats = _build_custom_formats(generation_config, GenerationMode.NEGATIVE)
     return negative_schema(
@@ -862,6 +873,7 @@ def make_negative_strategy(
         custom_formats=custom_formats,
         generation_config=generation_config,
         validator_cls=validator_cls,
+        validation_schema=validation_schema,
         name_to_uri=name_to_uri,
     )
 

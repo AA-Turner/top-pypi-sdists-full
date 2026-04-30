@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Any, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias
 
 from inspect_ai._util.zip_common import ZipCompressionMethod
 from inspect_ai.event import Timeline
 from inspect_ai.event._event import Event
 from inspect_ai.log import EventsData
 from inspect_ai.model._chat_message import ChatMessage
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from typing_extensions import TypeAliasType
 
 from .._project.types import ProjectConfig
 from .._query.condition import Condition
@@ -16,7 +17,7 @@ from .._recorder.recorder import Status as RecorderStatus
 from .._recorder.summary import Summary
 from .._scanner.result import Error
 from .._scanspec import ScanSpec
-from .._transcript.types import TranscriptInfo
+from .._transcript.types import EventFilter, MessageFilter, TranscriptInfo
 
 
 @dataclass
@@ -290,3 +291,78 @@ class StreamMetadata:
 
     compression_method: ZipCompressionMethod | None
     uncompressed_size: int | None
+
+
+class SearchRequestBase(BaseModel):
+    """Shared fields for search request variants."""
+
+    query: str
+
+    messages: MessageFilter = Field(default=None)
+    """Filter for which message types to include when loading the transcript."""
+
+    events: EventFilter = Field(default=None)
+    """Filter for which event types to include when loading the transcript."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class GrepSearchRequest(SearchRequestBase):
+    """Request body for grep transcript searches."""
+
+    type: Literal["grep"] = "grep"
+    regex: bool = False
+    ignore_case: bool = True
+    word_boundary: bool = False
+
+
+class LlmSearchRequest(SearchRequestBase):
+    """Request body for LLM transcript searches."""
+
+    type: Literal["llm"] = "llm"
+    model: str | None = None
+
+
+SearchRequest = TypeAliasType(
+    "SearchRequest",
+    Annotated[GrepSearchRequest | LlmSearchRequest, Field(discriminator="type")],
+)
+
+
+class SearchInputBase(BaseModel):
+    """Shared fields for persisted search input history."""
+
+    search_id: str
+    query: str
+    created_at: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class GrepSearchInput(SearchInputBase):
+    """A persisted grep search input."""
+
+    type: Literal["grep"] = "grep"
+    regex: bool
+    ignore_case: bool
+    word_boundary: bool
+
+
+class LlmSearchInput(SearchInputBase):
+    """A persisted LLM search input."""
+
+    type: Literal["llm"] = "llm"
+    model: str | None = None
+
+
+SearchInput = TypeAliasType(
+    "SearchInput",
+    Annotated[GrepSearchInput | LlmSearchInput, Field(discriminator="type")],
+)
+
+
+@dataclass
+class SearchInputListResponse:
+    """Response from the list search inputs endpoint."""
+
+    items: list[SearchInput]

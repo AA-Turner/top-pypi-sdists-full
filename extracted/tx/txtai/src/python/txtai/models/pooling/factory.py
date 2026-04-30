@@ -10,6 +10,7 @@ from transformers.utils import cached_file
 
 from .base import Pooling
 from .cls import ClsPooling
+from .last import LastPooling
 from .late import LatePooling
 from .mean import MeanPooling
 
@@ -44,12 +45,16 @@ class PoolingFactory:
             return Pooling(path, device, tokenizer, maxlength, loadprompts, modelargs)
 
         # Derive pooling method if it's not specified and path is a string
-        if (not method or method not in ("clspooling", "meanpooling", "latepooling")) and isinstance(path, str):
+        if (not method or method not in ("clspooling", "meanpooling", "lastpooling", "latepooling")) and isinstance(path, str):
             method = PoolingFactory.method(path)
 
         # Check for cls pooling
         if method == "clspooling":
             return ClsPooling(path, device, tokenizer, maxlength, loadprompts, modelargs)
+
+        # Check for last pooling
+        if method == "lastpooling":
+            return LastPooling(path, device, tokenizer, maxlength, loadprompts, modelargs)
 
         # Check for late pooling
         if method == "latepooling":
@@ -77,8 +82,12 @@ class PoolingFactory:
         config = PoolingFactory.load(path, "1_Pooling/config.json")
 
         # Set to CLS pooling if it's enabled and mean pooling is disabled
-        if config and config["pooling_mode_cls_token"] and not config["pooling_mode_mean_tokens"]:
+        if config and config.get("pooling_mode_cls_token") and not config["pooling_mode_mean_tokens"]:
             method = "clspooling"
+
+        # Set to last token pooling if it's enabled and mean pooling is disabled
+        if config and config.get("pooling_mode_lasttoken") and not config["pooling_mode_mean_tokens"]:
+            method = "lastpooling"
 
         # Check for late interaction pooling
         if not config:

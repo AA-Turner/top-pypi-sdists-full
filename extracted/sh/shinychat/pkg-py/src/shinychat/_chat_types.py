@@ -1,20 +1,101 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, TypedDict
+from typing import Literal, Union
 
 from htmltools import HTML, HTMLDependency, TagChild, TagList
 
-from ._typing_extensions import NotRequired
+from ._html_islands import split_html_islands
+from ._typing_extensions import NotRequired, TypedDict
 
 Role = Literal["assistant", "user", "system"]
 
+# ---------------------------------------------------------------------------
+# Wire-format types (mirrors js/src/transport/types.ts)
+# ---------------------------------------------------------------------------
+
+ContentType = Literal["markdown", "html", "text"]
+
+
+class MessagePayload(TypedDict):
+    role: Literal["user", "assistant"]
+    content: str
+    content_type: ContentType
+    id: NotRequired[str]
+    icon: NotRequired[str]
+    html_deps: NotRequired[list[dict[str, object]]]
+
+
+class MessageAction(TypedDict):
+    type: Literal["message"]
+    message: MessagePayload
+
+
+class ChunkStartAction(TypedDict):
+    type: Literal["chunk_start"]
+    message: MessagePayload
+
+
+class ChunkAction(TypedDict):
+    type: Literal["chunk"]
+    content: str
+    operation: Literal["append", "replace"]
+    content_type: NotRequired[ContentType]
+
+
+class ChunkEndAction(TypedDict):
+    type: Literal["chunk_end"]
+
+
+class ClearAction(TypedDict):
+    type: Literal["clear"]
+
+
+class UpdateInputAction(TypedDict):
+    type: Literal["update_input"]
+    value: NotRequired[str]
+    placeholder: NotRequired[str]
+    submit: NotRequired[bool]
+    focus: NotRequired[bool]
+
+
+class RemoveLoadingAction(TypedDict):
+    type: Literal["remove_loading"]
+
+
+class HideToolRequestAction(TypedDict):
+    type: Literal["hide_tool_request"]
+    requestId: str
+
+
+ChatAction = Union[
+    MessageAction,
+    ChunkStartAction,
+    ChunkAction,
+    ChunkEndAction,
+    ClearAction,
+    UpdateInputAction,
+    RemoveLoadingAction,
+    HideToolRequestAction,
+]
+
+
+class ShinyChatEnvelope(TypedDict):
+    id: str
+    action: ChatAction
+    html_deps: NotRequired[list[dict[str, object]]]
+
+
+# ---------------------------------------------------------------------------
+# Domain types
+# ---------------------------------------------------------------------------
 
 # TODO: content should probably be [{"type": "text", "content": "..."}, {"type": "image", ...}]
 # in order to support multiple content types...
 class ChatMessageDict(TypedDict):
     content: str
     role: Role
+    html_deps: NotRequired[list[dict[str, object]]]
 
 
 class ChatMessage:
@@ -27,53 +108,34 @@ class ChatMessage:
 
         # content _can_ be a TagChild, but it's most likely just a string (of
         # markdown), so only process it if it's not a string.
-        deps = []
+        deps: list[HTMLDependency] = []
         if not isinstance(content, str):
-            ui = TagList(content).render()
-            content, deps = ui["html"], ui["dependencies"]
-            # Code blocks with `{=html}` infostrings are rendered as-is by a
-            # custom rendering method in markdown-stream.ts
-            content = f"\n\n````````{{=html}}\n{content}\n````````\n\n"
+            split = split_html_islands(content)
+            ui = TagList(*split).render()
+            content, ui_deps = ui["html"], ui["dependencies"]
+            deps = deps + ui_deps
+            # Surround with blank lines so the markdown parser treats
+            # block-level custom elements correctly.
+            content = f"\n\n{content}\n\n"
 
         self.content = content
         self.html_deps: list[HTMLDependency] = deps
 
 
-# A message once transformed have been applied
 @dataclass
-class TransformedMessage:
-    content_client: str | HTML
-    content_server: str
+class StoredMessage:
+    content: str | HTML
     role: Role
-    transform_key: Literal["content_client", "content_server"]
-    pre_transform_key: Literal["content_client", "content_server"]
-    html_deps: list[HTMLDependency] | None = None
+    html_deps: list[dict[str, object]] | None = None
 
     @classmethod
-    def from_chat_message(cls, message: ChatMessage) -> "TransformedMessage":
-        if message.role == "user":
-            transform_key = "content_server"
-            pre_transform_key = "content_client"
-        else:
-            transform_key = "content_client"
-            pre_transform_key = "content_server"
-
-        return TransformedMessage(
-            content_client=message.content,
-            content_server=message.content,
+    def from_chat_message(
+        cls,
+        message: ChatMessage,
+        html_deps: list[dict[str, object]] | None = None,
+    ) -> "StoredMessage":
+        return StoredMessage(
+            content=message.content,
             role=message.role,
-            transform_key=transform_key,
-            pre_transform_key=pre_transform_key,
-            html_deps=message.html_deps,
+            html_deps=html_deps,
         )
-
-
-# A message that can be sent to the client
-class ClientMessage(TypedDict):
-    content: str
-    role: Literal["assistant", "user"]
-    content_type: Literal["markdown", "html"]
-    chunk_type: Literal["message_start", "message_end"] | None
-    operation: Literal["append", "replace"]
-    icon: NotRequired[str]
-    html_deps: NotRequired[list[dict[str, str]]]

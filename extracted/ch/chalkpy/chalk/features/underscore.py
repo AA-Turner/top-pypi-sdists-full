@@ -241,9 +241,16 @@ class Underscore:
             parent = cls._from_proto(node.get_attribute.parent)
             if not isinstance(parent, Underscore):
                 raise TypeError(f"Parent is not an underscore. Got {parent}")
+            # `_to_proto` packs version-pinned attrs as "attr@N" (see UnderscoreAttr._to_proto).
+            # Restore the version field so the deserialized object's repr matches the
+            # original (`_.x @ N` with spaces, not `_.x@N`).
+            from chalk.features.feature_field import parse_versioned_name
+
+            attr_name, version = parse_versioned_name(node.get_attribute.attribute.name)
             return UnderscoreAttr(
                 parent=parent,
-                attr=node.get_attribute.attribute.name,
+                attr=attr_name,
+                version=version,
             )
         elif node.HasField("get_subscript"):
             parent = cls._from_proto(node.get_subscript.parent)
@@ -418,28 +425,54 @@ class DoubleUnderscore(Underscore):
 
 
 class UnderscoreAttr(Underscore):
-    # _.a
-    def __init__(self, parent: Underscore, attr: str, *, expr_id: Optional[str] = None):
+    # _.a, optionally version-pinned via `_.a @ N`.
+    def __init__(
+        self,
+        parent: Underscore,
+        attr: str,
+        *,
+        version: Optional[int] = None,
+        expr_id: Optional[str] = None,
+    ):
         super().__init__(expr_id)
         self._chalk__parent = parent
         self._chalk__attr = attr
+        self._chalk__version = version
+
+    def __matmul__(self, other: int) -> "UnderscoreAttr":
+        if not isinstance(other, int):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise TypeError(f"Cannot pin version to non-int value {other!r}")
+        if self._chalk__version is not None:
+            raise ValueError(f"Cannot re-pin already-versioned underscore attr {self!r} to version {other}")
+        return UnderscoreAttr(self._chalk__parent, self._chalk__attr, version=other)
 
     def __repr__(self):
-        return f"{self._chalk__parent}.{self._chalk__attr}"
+        suffix = f" @ {self._chalk__version}" if self._chalk__version is not None else ""
+        return f"{self._chalk__parent}.{self._chalk__attr}{suffix}"
 
     def _is_equal(self, other: Underscore) -> bool:
         if self is other:
             return True
         if not isinstance(other, UnderscoreAttr):
             return False
-        return self._chalk__parent._is_equal(other._chalk__parent) and self._chalk__attr == other._chalk__attr
+        return (
+            self._chalk__parent._is_equal(other._chalk__parent)
+            and self._chalk__attr == other._chalk__attr
+            and self._chalk__version == other._chalk__version
+        )
 
     def _to_proto(self) -> expr_pb2.LogicalExprNode:
+        # Version-pinned attrs are serialized with the @N suffix baked into the
+        # attribute name so existing FQN-based resolvers find the versioned
+        # feature without needing a new proto schema field.
+        proto_name = (
+            f"{self._chalk__attr}@{self._chalk__version}" if self._chalk__version is not None else self._chalk__attr
+        )
         return expr_pb2.LogicalExprNode(
             expr_id=self._chalk__expr_id,
             get_attribute=expr_pb2.ExprGetAttribute(
                 parent=convert_value_to_proto_expr(self._chalk__parent),
-                attribute=expr_pb2.Identifier(name=self._chalk__attr),
+                attribute=expr_pb2.Identifier(name=proto_name),
             ),
         )
 

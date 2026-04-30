@@ -144,3 +144,42 @@ for _var in S2S_VARIABLES:
         _key = f"MEAN_S2S_{_var}_LEAD{_lead}"
         dict_s2s[_key] = ["S2S", f"Mean S2S {_var} (lead {_lead})"]
         s2s_col_map[_key] = f"s2s_{_var}_lead{_lead}"
+
+# Engineered aggregate features (computed from raw leads, not read from CSV)
+# Precipitation: sum across leads; Temperature/SoilMoist/Evap/TWS: mean across leads
+FLDAS_AGG_FEATURES = {
+    "SUM_FLDAS_TotalPrecip": ["FLDAS", "Sum of FLDAS precip forecast (all leads)"],
+    "AVG_FLDAS_SoilMoist": ["FLDAS", "Mean FLDAS soil moisture (all leads)"],
+    "AVG_FLDAS_Tair": ["FLDAS", "Mean FLDAS air temperature (all leads)"],
+    "AVG_FLDAS_Evap": ["FLDAS", "Mean FLDAS evaporation (all leads)"],
+    "AVG_FLDAS_TWS": ["FLDAS", "Mean FLDAS terrestrial water storage (all leads)"],
+}
+S2S_AGG_FEATURES = {
+    "SUM_S2S_tprate": ["S2S", "Sum of S2S precipitation rate forecast (all leads)"],
+    "AVG_S2S_t2m": ["S2S", "Mean S2S 2m temperature forecast (all leads)"],
+}
+
+# Forecast revision features (within-year change between consecutive init months)
+FLDAS_REV_FEATURES = {
+    f"REV_FLDAS_{_var}": ["FLDAS", f"Within-year forecast revision ({_var})"]
+    for _var in FLDAS_VARIABLES
+}
+S2S_REV_FEATURES = {
+    f"REV_S2S_{_var}": ["S2S", f"Within-year forecast revision ({_var})"]
+    for _var in S2S_VARIABLES
+}
+
+# Multi-year Mean Absolute Revision (static per-region reliability)
+FLDAS_MAR_FEATURES = {
+    f"MAR_FLDAS_{_var}": ["FLDAS", f"Multi-year mean absolute revision ({_var})"]
+    for _var in FLDAS_VARIABLES
+}
+S2S_MAR_FEATURES = {
+    f"MAR_S2S_{_var}": ["S2S", f"Multi-year mean absolute revision ({_var})"]
+    for _var in S2S_VARIABLES
+}
+
+# Separate engineered feature dicts — NOT merged into dict_fldas/dict_s2s
+# because compute_eo_indices iterates those and expects "LEAD" in the name.
+dict_fldas_engineered = {**FLDAS_AGG_FEATURES, **FLDAS_REV_FEATURES, **FLDAS_MAR_FEATURES}
+dict_s2s_engineered = {**S2S_AGG_FEATURES, **S2S_REV_FEATURES, **S2S_MAR_FEATURES}

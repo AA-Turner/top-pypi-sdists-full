@@ -19,6 +19,11 @@ class EnvironmentServiceStub(object):
                 request_serializer=qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.CreateEnvironmentRequest.SerializeToString,
                 response_deserializer=qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.CreateEnvironmentResponse.FromString,
                 )
+        self.DeleteEnvironment = channel.unary_unary(
+                '/qwak.administration.v1.environment.EnvironmentService/DeleteEnvironment',
+                request_serializer=qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.DeleteEnvironmentRequest.SerializeToString,
+                response_deserializer=qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.DeleteEnvironmentResponse.FromString,
+                )
 
 
 class EnvironmentServiceServicer(object):
@@ -31,6 +36,13 @@ class EnvironmentServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DeleteEnvironment(self, request, context):
+        """Delete an environment
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_EnvironmentServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -38,6 +50,11 @@ def add_EnvironmentServiceServicer_to_server(servicer, server):
                     servicer.CreateEnvironment,
                     request_deserializer=qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.CreateEnvironmentRequest.FromString,
                     response_serializer=qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.CreateEnvironmentResponse.SerializeToString,
+            ),
+            'DeleteEnvironment': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteEnvironment,
+                    request_deserializer=qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.DeleteEnvironmentRequest.FromString,
+                    response_serializer=qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.DeleteEnvironmentResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -63,5 +80,22 @@ class EnvironmentService(object):
         return grpc.experimental.unary_unary(request, target, '/qwak.administration.v1.environment.EnvironmentService/CreateEnvironment',
             qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.CreateEnvironmentRequest.SerializeToString,
             qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.CreateEnvironmentResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeleteEnvironment(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.administration.v1.environment.EnvironmentService/DeleteEnvironment',
+            qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.DeleteEnvironmentRequest.SerializeToString,
+            qwak_dot_administration_dot_v1_dot_environments_dot_environment__service__pb2.DeleteEnvironmentResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -5,17 +5,18 @@ import typing
 import pydantic
 from ...core.pydantic_utilities import IS_PYDANTIC_V2
 from ...core.unchecked_base_model import UncheckedBaseModel
+from .update_message_labels import UpdateMessageLabels
 
 
 class UpdateMessageRequest(UncheckedBaseModel):
-    add_labels: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    add_labels: typing.Optional[UpdateMessageLabels] = pydantic.Field(default=None)
     """
-    Labels to add to message.
+    Label or labels to add to message.
     """
 
-    remove_labels: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    remove_labels: typing.Optional[UpdateMessageLabels] = pydantic.Field(default=None)
     """
-    Labels to remove from message.
+    Label or labels to remove from message.
     """
 
     if IS_PYDANTIC_V2:

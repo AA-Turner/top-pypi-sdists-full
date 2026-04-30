@@ -1,92 +1,50 @@
 Metadata-Version: 2.4
 Name: docling
-Version: 2.91.0
+Version: 2.92.0
 Summary: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
-Author-email: Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>, Nikos Livathinos <nli@zurich.ibm.com>, Ahmed Nassar <ahn@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
-License-Expression: MIT
 Project-URL: homepage, https://github.com/docling-project/docling
 Project-URL: repository, https://github.com/docling-project/docling
 Project-URL: issues, https://github.com/docling-project/docling/issues
 Project-URL: changelog, https://github.com/docling-project/docling/blob/main/CHANGELOG.md
-Keywords: docling,convert,document,pdf,docx,html,markdown,layout model,segmentation,table structure,table former
-Classifier: Operating System :: MacOS :: MacOS X
-Classifier: Operating System :: POSIX :: Linux
-Classifier: Operating System :: Microsoft :: Windows
+Author-email: Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>, Nikos Livathinos <nli@zurich.ibm.com>, Ahmed Nassar <ahn@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
+License-Expression: MIT
+Keywords: convert,docling,document,docx,html,layout model,markdown,pdf,segmentation,table former,table structure
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0,>=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: pydantic<3.0.0,>=2.0.0
-Requires-Dist: docling-core[chunking]<3.0.0,>=2.73.0
-Requires-Dist: docling-parse<6.0.0,>=5.3.2
-Requires-Dist: docling-ibm-models<4,>=3.13.0
-Requires-Dist: torch<3.0.0,>=2.2.2
-Requires-Dist: torchvision<1,>=0
-Requires-Dist: filetype<2.0.0,>=1.2.0
-Requires-Dist: pypdfium2!=4.30.1,<6.0.0,>=4.30.0
-Requires-Dist: pydantic-settings<3.0.0,>=2.3.0
-Requires-Dist: huggingface_hub<2,>=0.23
-Requires-Dist: httpx<1.0.0,>=0.28
-Requires-Dist: requests<3.0.0,>=2.32.2
-Requires-Dist: ocrmac<2.0.0,>=1.0.0; sys_platform == "darwin"
-Requires-Dist: rapidocr<4.0.0,>=3.8
-Requires-Dist: certifi>=2024.7.4
-Requires-Dist: rtree<2.0.0,>=1.3.0
-Requires-Dist: typer<0.22.0,>=0.12.5
-Requires-Dist: python-docx<2.0.0,>=1.1.2
-Requires-Dist: python-pptx<2.0.0,>=1.0.2
-Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3
-Requires-Dist: pandas<4.0.0,>=2.1.4
-Requires-Dist: marko<3.0.0,>=2.1.2
-Requires-Dist: openpyxl<4.0.0,>=3.1.5
-Requires-Dist: lxml<7.0.0,>=4.0.0
-Requires-Dist: pillow<13.0.0,>=10.0.0
-Requires-Dist: tqdm<5.0.0,>=4.65.0
-Requires-Dist: pluggy<2.0.0,>=1.0.0
-Requires-Dist: pylatexenc<3.0,>=2.10
-Requires-Dist: scipy<2.0.0,>=1.6.0
-Requires-Dist: accelerate<2,>=1.0.0
-Requires-Dist: polyfactory>=2.22.2
-Requires-Dist: defusedxml<0.8.0,>=0.7.1
-Requires-Dist: websockets<17.0,>=14.0
-Provides-Extra: easyocr
-Requires-Dist: easyocr<2.0,>=1.7; extra == "easyocr"
-Provides-Extra: tesserocr
-Requires-Dist: tesserocr<3.0.0,>=2.7.1; extra == "tesserocr"
-Provides-Extra: ocrmac
-Requires-Dist: ocrmac<2.0.0,>=1.0.0; sys_platform == "darwin" and extra == "ocrmac"
-Provides-Extra: htmlrender
-Requires-Dist: playwright>=1.58.0; extra == "htmlrender"
-Provides-Extra: vlm
-Requires-Dist: transformers!=5.0.*,!=5.1.*,!=5.2.*,!=5.3.*,<6.0.0,>=4.42.0; extra == "vlm"
-Requires-Dist: accelerate<2.0.0,>=1.2.1; extra == "vlm"
-Requires-Dist: mlx-vlm<1.0.0,>=0.4.3; (python_version >= "3.10" and sys_platform == "darwin" and platform_machine == "arm64") and extra == "vlm"
-Requires-Dist: qwen-vl-utils>=0.0.11; extra == "vlm"
-Requires-Dist: peft>=0.18.1; extra == "vlm"
-Provides-Extra: rapidocr
-Requires-Dist: rapidocr<4.0.0,>=3.8; extra == "rapidocr"
-Requires-Dist: onnxruntime<2.0.0,>=1.7.0; python_version < "3.14" and extra == "rapidocr"
-Provides-Extra: onnxruntime
-Requires-Dist: onnxruntime<1.24; (python_version < "3.14" and sys_platform == "darwin") and extra == "onnxruntime"
-Requires-Dist: onnxruntime-gpu<1.24; (python_version < "3.14" and (sys_platform == "linux" or sys_platform == "win32")) and extra == "onnxruntime"
+Requires-Dist: docling-slim[standard]==2.92.0
 Provides-Extra: asr
-Requires-Dist: mlx-whisper>=0.4.3; (python_version >= "3.10" and sys_platform == "darwin" and platform_machine == "arm64") and extra == "asr"
-Requires-Dist: openai-whisper>=20250625; extra == "asr"
-Requires-Dist: numba>=0.63.0; extra == "asr"
-Provides-Extra: xbrl
-Requires-Dist: arelle-release<3.0.0,>=2.38.17; extra == "xbrl"
+Requires-Dist: docling-slim[format-audio]==2.92.0; extra == 'asr'
+Provides-Extra: easyocr
+Requires-Dist: docling-slim[feat-ocr-easyocr]==2.92.0; extra == 'easyocr'
+Provides-Extra: htmlrender
+Requires-Dist: docling-slim[format-html-render]==2.92.0; extra == 'htmlrender'
+Provides-Extra: ocrmac
+Requires-Dist: docling-slim[feat-ocr-mac]==2.92.0; extra == 'ocrmac'
+Provides-Extra: onnxruntime
+Requires-Dist: docling-slim[models-onnxruntime]==2.92.0; extra == 'onnxruntime'
+Provides-Extra: rapidocr
+Requires-Dist: docling-slim[feat-ocr-rapidocr-onnx]==2.92.0; extra == 'rapidocr'
 Provides-Extra: remote-serving
-Requires-Dist: tritonclient[grpc]<3.0.0,>=2.65.0; extra == "remote-serving"
-Dynamic: license-file
+Requires-Dist: docling-slim[models-remote]==2.92.0; extra == 'remote-serving'
+Provides-Extra: tesserocr
+Requires-Dist: docling-slim[feat-ocr-tesserocr]==2.92.0; extra == 'tesserocr'
+Provides-Extra: vlm
+Requires-Dist: docling-slim[models-vlm-inline]==2.92.0; extra == 'vlm'
+Provides-Extra: xbrl
+Requires-Dist: docling-slim[format-xml-xbrl]==2.92.0; extra == 'xbrl'
+Description-Content-Type: text/markdown
 
 <p align="center">
   <a href="https://github.com/docling-project/docling">

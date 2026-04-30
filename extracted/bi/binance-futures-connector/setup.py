@@ -7,7 +7,7 @@ with open(
     requirements = fh.readlines()
 
 NAME = "binance-futures-connector"
-DESCRIPTION = "This is a lightweight library that works as a connector to Binance Futures public API."
+DESCRIPTION = "This is a deprecated lightweight library that works as a connector to Binance Futures public API."
 AUTHOR = "Futures"
 URL = "https://github.com/binance/binance-futures-connector-python"
 VERSION = None

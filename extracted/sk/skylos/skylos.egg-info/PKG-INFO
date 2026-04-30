@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 4.8.0
-Summary: Open-source AI code security and static analysis for Python, TypeScript, and Go. Finds dead code, secrets, vulnerabilities, and diff-aware regressions.
+Version: 4.9.0
+Summary: Open-source AI code security and static analysis for Python, TypeScript/JavaScript, Go, Java, PHP, and Rust. Finds dead code, secrets, vulnerabilities, and diff-aware regressions.
 Author-email: Aaron Oh <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://skylos.dev
@@ -40,6 +40,7 @@ Requires-Dist: tree-sitter-typescript>=0.23.2
 Requires-Dist: tree-sitter-go>=0.23.0
 Requires-Dist: tree-sitter-java>=0.23.0
 Requires-Dist: tree-sitter-php>=0.24.1
+Requires-Dist: tree-sitter-rust>=0.24.2
 Requires-Dist: pyyaml
 Requires-Dist: networkx
 Requires-Dist: pyperclip

@@ -1937,7 +1937,7 @@ def rule_nl_kvk_4_4_4_1(
     for ELR in val.modelXbrl.relationshipSet(XbrlConst.parentChild).linkRoleUris:
         relSet = val.modelXbrl.relationshipSet(XbrlConst.parentChild, ELR)
         for rootConcept in relSet.rootConcepts:
-            warnings = pluginData.checkLabels(set(), val.modelXbrl , rootConcept, relSet, None, set())
+            warnings = pluginData.checkLabels(set(), val.modelXbrl , rootConcept, relSet, None, set())  # type: ignore[arg-type]
         if len(warnings) > 0:
             yield Validation.warning(
                 codes='NL.NL-KVK.4.4.4.1.missingPreferredLabelRole',

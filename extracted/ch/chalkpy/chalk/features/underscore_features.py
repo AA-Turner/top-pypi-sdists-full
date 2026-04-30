@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import warnings
-from typing import Any, Tuple, Type, Union
-
-import typing_extensions
+from typing import TYPE_CHECKING, Any, Tuple, Type, Union
 
 from chalk.features.feature_field import Feature
 from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
@@ -26,7 +24,7 @@ from chalk.features.underscore import (
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.pl_helpers import schema_compat
 
-if typing_extensions.TYPE_CHECKING:
+if TYPE_CHECKING:
     from chalk import Features
 
 try:

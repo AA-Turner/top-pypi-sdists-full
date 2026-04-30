@@ -114,6 +114,7 @@ __all__ = (
     "CachePolicyQueryStringsConfigTypeDef",
     "CachePolicySummaryTypeDef",
     "CachePolicyTypeDef",
+    "CacheTagConfigTypeDef",
     "CachedMethodsOutputTypeDef",
     "CachedMethodsTypeDef",
     "CachedMethodsUnionTypeDef",
@@ -813,6 +814,9 @@ class QueryStringNamesOutputTypeDef(TypedDict):
 class QueryStringNamesTypeDef(TypedDict):
     Quantity: int
     Items: NotRequired[Sequence[str]]
+
+class CacheTagConfigTypeDef(TypedDict):
+    HeaderName: str
 
 class CachedMethodsTypeDef(TypedDict):
     Quantity: int
@@ -3576,6 +3580,7 @@ class DistributionConfigOutputTypeDef(TypedDict):
     ConnectionMode: NotRequired[ConnectionModeType]
     ViewerMtlsConfig: NotRequired[ViewerMtlsConfigTypeDef]
     ConnectionFunctionAssociation: NotRequired[ConnectionFunctionAssociationTypeDef]
+    CacheTagConfig: NotRequired[CacheTagConfigTypeDef]
 
 class DistributionSummaryTypeDef(TypedDict):
     Id: str
@@ -3956,6 +3961,7 @@ class DistributionConfigTypeDef(TypedDict):
     ConnectionMode: NotRequired[ConnectionModeType]
     ViewerMtlsConfig: NotRequired[ViewerMtlsConfigTypeDef]
     ConnectionFunctionAssociation: NotRequired[ConnectionFunctionAssociationTypeDef]
+    CacheTagConfig: NotRequired[CacheTagConfigTypeDef]
 
 DistributionConfigUnionTypeDef = Union[DistributionConfigTypeDef, DistributionConfigOutputTypeDef]
 

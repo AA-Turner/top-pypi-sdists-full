@@ -68,7 +68,7 @@ class UpdateWorkspaceConfig(ModelBase):
 from anyscale.workspace.models import UpdateWorkspaceConfig
 
 config = UpdateWorkspaceConfig(
-    name="new-workpsace-name",
+    name="new-workspace-name",
     idle_termination_minutes=220,
     env_vars={"key": "value"},
     requirements="/tmp/requirements.txt",
@@ -246,7 +246,7 @@ class WorkspaceConfig(UpdateWorkspaceConfig):
 from anyscale.workspace.models import WorkspaceConfig
 
 config = WorkspaceConfig(
-    name="my-workpsace",
+    name="my-workspace",
     idle_termination_minutes=220,
     env_vars={"key": "value"},
     requirements="/tmp/requirements.txt",

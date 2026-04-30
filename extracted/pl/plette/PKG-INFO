@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: plette
-Version: 2.1.0
+Version: 2.2.1
 Summary: Structured Pipfile and Pipfile.lock models.
 Author-email: Tzu-ping Chung <uranusjr@gmail.com>
 License: ISC License
@@ -24,6 +24,7 @@ Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: pytest-xdist; extra == "tests"
 Provides-Extra: validation
 Requires-Dist: cerberus; extra == "validation"
+Dynamic: license-file
 
 ===================================================
 Plette: Structured Pipfile and Pipfile.lock models.

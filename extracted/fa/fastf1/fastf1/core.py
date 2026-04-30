@@ -1247,8 +1247,8 @@ class Session:
         return self._get_property_warn_not_loaded('_session_info')
 
     @property
-    def drivers(self):
-        """:class:`list`: List of all drivers that took part in this
+    def drivers(self) -> list[str]:
+        """List of all drivers that took part in this
         session; contains driver numbers as string.
 
         Data is available after calling `Session.load`
@@ -1282,7 +1282,7 @@ class Session:
         return self._get_property_warn_not_loaded('_total_laps')
 
     @property
-    def weather_data(self):
+    def weather_data(self) -> pd.DataFrame:
         """Dataframe containing weather data for this session as received
         from the api. See :func:`fastf1.api.weather_data` for available data
         channels. Each data channel is one row of the dataframe.
@@ -1312,8 +1312,8 @@ class Session:
         return self._get_property_warn_not_loaded('_pos_data')
 
     @property
-    def session_status(self):
-        """:class:`pandas.Dataframe`: Session status data as returned by
+    def session_status(self) -> pd.DataFrame:
+        """Session status data as returned by
         :func:`fastf1.api.session_status_data`
 
         Data is available after calling `Session.load` with ``laps=True``
@@ -1321,8 +1321,8 @@ class Session:
         return self._get_property_warn_not_loaded('_session_status')
 
     @property
-    def track_status(self):
-        """:class:`pandas.Dataframe`: Track status data as returned by
+    def track_status(self) -> pd.DataFrame:
+        """Track status data as returned by
         :func:`fastf1.api.track_status_data`
 
         Data is available after calling `Session.load` with ``laps=True``
@@ -1330,8 +1330,8 @@ class Session:
         return self._get_property_warn_not_loaded('_track_status')
 
     @property
-    def race_control_messages(self):
-        """:class:`pandas.Dataframe`: Race Control messages as returned by
+    def race_control_messages(self) -> pd.DataFrame:
+        """Race Control messages as returned by
         :func:`fastf1.api.race_control_messages`
 
         Data is available after calling `Session.load` with ``messages=True``
@@ -1339,19 +1339,19 @@ class Session:
         return self._get_property_warn_not_loaded('_race_control_messages')
 
     @property
-    def session_start_time(self) -> pd.Timedelta:
-        """:class:`pandas.Timedelta`: Session time at which the session was
-        started according to the session status data. This is not the
-        time at which the session is scheduled to be started!
+    def session_start_time(self) -> pd.Timedelta | None:
+        """Session time at which the session was started according to the
+        session status data. This is not the time at which the session is
+        scheduled to be started!
 
         Data is available after calling `Session.load` with ``laps=True``
         """
         return self._get_property_warn_not_loaded('_session_start_time')
 
     @property
-    def t0_date(self):
-        """:class:`pandas.Datetime`: Date timestamp which marks the beginning
-        of the data stream (the moment at which the session time is zero).
+    def t0_date(self) -> pd.Timestamp | None:
+        """Date timestamp which marks the beginning of the data stream
+        (the moment at which the session time is zero).
 
         Data is available after calling `Session.load` with ``telemetry=True``
         """
@@ -1490,11 +1490,26 @@ class Session:
             if d2.shape[0] != len(d2['Stint'].unique()):
                 # tyre info includes correction messages that need to be
                 # applied before continuing
-                pit_in_times = list(d1['PitInTime'].dropna().unique())
-                d2 = self.__fix_tyre_info(d2, pit_in_times)
+
+                # Find all laps where a driver went into the pits. Their end
+                # times mark the end of each stint.
+                stint_split_times = d1.loc[
+                    ~pd.isnull(d1["PitInTime"]), "Time"
+                ].to_list()
+
+                d2 = self.__fix_tyre_info(d2, stint_split_times)
 
             is_generated = False
             if not len(d1):
+
+                if ((r := getattr(self, '_results', None)) is not None
+                        and (r.loc[driver, 'ClassifiedPosition'] == 'W')):
+                    # If a driver withdrew from the race before the start,
+                    # there will be no lap data.
+                    # Determining this reliably requires result data which
+                    # is not always available.
+                    continue
+
                 if self.name in self._RACE_LIKE_SESSIONS and len(d2):
                     # add data for drivers who crashed on the very first lap
                     # as a downside, this potentially adds a nonexistent lap
@@ -2129,23 +2144,54 @@ class Session:
             self._session_start_time = None
         self._session_status = pd.DataFrame(session_status)
 
-    def __fix_tyre_info(self, df: pd.DataFrame, pit_in_times: list):
-        # ### Part 1: detect and fix incorrectly incremented stint counter
-        # ref: GH#715, GH#742
+    def __fix_tyre_info(self, df: pd.DataFrame, stint_split_times: list):
+        did_pit_in_session = bool(stint_split_times)
 
-        # Pad pit in times with zero and a sufficiently far away value
-        # such that two subsequent values in the list always bracket one
-        # "stint". (The source data considers each drive through the pit as the
+        # Add an artificial start and end time to the stint split times so
+        # that two subsequent timestamps always bracket a stint.
+        # (The source data considers each drive through the pit lane as the
         # beginning of a new stint, independent of tyres being changed)
-        pit_in_times = [
-            pd.Timedelta(0), *pit_in_times, pd.Timedelta(days=1)
+        stint_brackets = [
+            pd.Timedelta(0), *stint_split_times, pd.Timedelta(days=1)
         ]
+
+        # ### Problem 1: Detect bunched up tyre data messages at the start
+        #                of a race session and adjust their timestamps.
+        # ref: GH#863
+        if (self.name in self._RACE_LIKE_SESSIONS
+                and did_pit_in_session
+                and (self.session_start_time is not None)
+                and not (df['Time'] < self.session_start_time).any()):
+            # No tyre data messages were registered before the start of the
+            # session. This points towards a delay in the transmission of the
+            # data. Check if messages for multiple stints are bunched up with
+            # the same timestamp at the beginning of the data stream.
+            # In non-race sessions, this should be ignored since drivers
+            # frequently only leave the pits after the session has started.
+
+            first_ts = df['Time'].iloc[0]
+            stints_at_first_ts = df.loc[
+                df['Time'] == first_ts, 'Stint'].unique()
+
+            # corrections are necessary if multiple stints are bunched up at
+            # the same first timestamp
+            if len(stints_at_first_ts) > 1:
+                # If there are any delayed stints, set the timestamps of the
+                # messages for these stints to the start of the corresponding
+                # stint + 1 ms so that they are just within the stint bracket.
+                for n in stints_at_first_ts:
+                    df.loc[
+                        (df['Stint'] == n) & (df['Time'] == first_ts), 'Time'
+                    ] = stint_brackets[n] + pd.Timedelta(milliseconds=1)
+
+        # ### Problem 2: detect and fix incorrectly incremented stint counter
+        # ref: GH#715, GH#742
 
         stint = 0  # stints are counted starting at zero in the source data
         fixed_stint_errors = False
-        for i in range(len(pit_in_times) - 1):
-            t_start = pit_in_times[i]
-            t_end = pit_in_times[i + 1]
+        for i in range(len(stint_brackets) - 1):
+            t_start = stint_brackets[i]
+            t_end = stint_brackets[i + 1]
 
             # Check if for any tyre data message in the current stint, the
             # stint counter is higher than the current stint. This would be

@@ -3,7 +3,9 @@ Textractor module
 """
 
 import contextlib
+import ipaddress
 import os
+import socket
 import tempfile
 
 from urllib.parse import urlparse
@@ -32,7 +34,8 @@ class Textractor(Segmentation):
         chunker=None,
         headers=None,
         backend="available",
-        **kwargs
+        safeopen=False,
+        **kwargs,
     ):
         super().__init__(sentences, lines, paragraphs, minlength, join, sections, cleantext, chunker, **kwargs)
 
@@ -47,6 +50,9 @@ class Textractor(Segmentation):
 
         # HTTP headers
         self.headers = headers if headers else {}
+
+        # Safe open mode. When set only local temp urls (or a specified directory) and non-private URLs are supported
+        self.safeopen = os.path.realpath(tempfile.gettempdir() if isinstance(safeopen, bool) else safeopen) if safeopen else safeopen
 
     def text(self, text):
         # Check if text is a valid file path or url
@@ -96,6 +102,10 @@ class Textractor(Segmentation):
         # Check if this is a local file path or local file url
         exists = os.path.exists(path)
 
+        # Safe open validation
+        if not self.safecheck(path):
+            raise IOError(f"Safeopen URL validation failed: path={os.path.realpath(path)}, safeopen={self.safeopen}")
+
         # Consider local files and HTTP urls valid
         return (path if exists or urlparse(path).scheme in ("http", "https") else None, exists)
 
@@ -137,3 +147,59 @@ class Textractor(Segmentation):
         # Remote file
         with contextlib.closing(urlopen(Request(url, headers=self.headers))) as connection:
             return connection.read()
+
+    def safecheck(self, url):
+        """
+        Safe open url validation. Validates a local path is within the safeopen directory and
+        that URLs are a public HTTP(s) URLs.
+
+        Args:
+            url: input url
+
+        Returns:
+            True if url is valid, false otherwise
+        """
+
+        # Default to allow all urls when safe open is disabled
+        valid = True
+
+        if self.safeopen:
+            if os.path.exists(url):
+                # Validate local file is in safe path
+                path = os.path.realpath(url)
+                prefix = os.path.commonprefix([self.safeopen, path])
+                valid = prefix == self.safeopen
+            else:
+                # URL validation
+                valid = url.lower().startswith("http") and not self.isprivateurl(url)
+
+        return valid
+
+    def isprivateurl(self, url):
+        """
+        Checks if URL refers to a private/internal IP address.
+
+        Args:
+            url: input url
+
+        Returns:
+            True if this is a private url, false otherwise
+        """
+
+        # Assume the url is private until proven otherwise
+        private = True
+
+        try:
+            host = urlparse(url).hostname
+            if host:
+                # Resolve IP Address
+                ip = ipaddress.ip_address(socket.gethostbyname(host))
+
+                # Check if it's private
+                private = ip.is_private or ip.is_loopback
+
+        # pylint: disable=W0718
+        except Exception:
+            pass
+
+        return private

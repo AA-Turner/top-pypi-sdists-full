@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 from chalk.features.resolver import RESOLVER_REGISTRY, Resolver
 from chalk.features.underscore import (
+    DoubleUnderscore,
     Underscore,
     UnderscoreAttr,
     UnderscoreCall,
@@ -281,14 +282,28 @@ def _get_underlying_type(t: type, feature_name: str) -> type:
     return t
 
 
-def _parse_simple_feature_ref(arg_name: str, arg_val: Any) -> str:
+@dataclass(frozen=True, kw_only=True)
+class AggregationColumnRef:
+    """Reference to a column used as an aggregation input — the `aggregate_on`
+    column, or an additional column like `by` in `approx_top_k(by=...)` /
+    `max_by_n(by, k)` / `min_by_n(by, k)`. Captures the version pin from
+    `_.x @ N` so downstream lookups can resolve to the `_v{N}`-suffixed Python
+    attribute on the child feature class.
     """
-    Turns a simple underscore feature reference such as _.a into a while performing validation
-    This is temporary as we should move this parsing to engine
+
+    name: str
+    version: int | None
+
+
+def _parse_simple_feature_ref(arg_name: str, arg_val: Any) -> AggregationColumnRef:
+    """
+    Turns a simple underscore feature reference such as `_.a` or `_.a @ 2`
+    into an AggregationColumnRef (capturing the version pin if present) while
+    validating. This is temporary as we should move this parsing to engine.
     """
     if isinstance(arg_val, UnderscoreAttr):
         if isinstance(arg_val._chalk__parent, UnderscoreRoot):
-            return arg_val._chalk__attr
+            return AggregationColumnRef(name=arg_val._chalk__attr, version=arg_val._chalk__version)
     raise ChalkParseError(f"expected a feature for '{arg_name}', like `_.amount`, but got {arg_val}")
 
 
@@ -300,8 +315,8 @@ class _ParsedAggCall:
         Tuple[str, Any]
     ]  # kwargs that survive round-tripping through the proto (typically just `k`)
     additional_features: list[
-        str
-    ]  # child-namespace feature names lifted out of kwargs/positional args (e.g. `by` for approx_top_k)
+        AggregationColumnRef
+    ]  # child-namespace feature refs lifted out of kwargs/positional args (e.g. `by` for approx_top_k, comparator for max_by_n)
 
 
 def _parse_agg_function_call(
@@ -323,7 +338,7 @@ def _parse_agg_function_call(
         raise ChalkParseError(f"aggregation should be one of {', '.join(supported_aggs)}")
 
     opts = FrozenOrderedSet()
-    additional_features = list[str]()
+    additional_features = list[AggregationColumnRef]()
     if aggregation == "approx_top_k":
         # Special arg validation for approx_top_k, first_k, and last_k.
         if len(call_expr._chalk__args) > 0:
@@ -412,9 +427,14 @@ def _get_has_many_class(
     parent: Type[Features],
     has_many_feature_name: str,
     group_names: list[str],
-    aggregated_feature_names: list[str],
+    aggregated_feature_refs: list[AggregationColumnRef],
 ) -> _HasManyResolution:
-    """Resolve a has-many feature into its joined class plus the group-by and aggregated Feature objects on that class."""
+    """Resolve a has-many feature into its joined class plus the group-by and aggregated Feature objects on that class.
+
+    Each entry in `aggregated_feature_refs` may carry a version pin (from
+    `_.x @ N` syntax); when set, the lookup uses the `_v{N}`-suffixed Python
+    attribute on the child class so it can find non-default versioned features.
+    """
     try:
         has_many_feature = getattr(parent, has_many_feature_name)
     except Exception:
@@ -451,15 +471,20 @@ def _get_has_many_class(
 
     aggregated_features = list[Feature]()
 
-    for aggregated_feature_name in aggregated_feature_names:
-        aggregated_feature_wrapper = getattr(joined_class, aggregated_feature_name, None)
-        if aggregated_feature_wrapper is None and aggregated_feature_name == "ts":
+    for ref in aggregated_feature_refs:
+        # Version-pinned refs (via `_.x @ N`) resolve via the `_v{N}` Python
+        # attribute_name convention, which every versioned feature carries
+        # regardless of explicit/non-explicit versioning syntax.
+        python_attr = f"{ref.name}_v{ref.version}" if ref.version is not None else ref.name
+        aggregated_feature_wrapper = getattr(joined_class, python_attr, None)
+        if aggregated_feature_wrapper is None and ref.name == "ts" and ref.version is None:
             # if feature's name is 'ts' and joined_class doesn't have it, assume it's '__chalk_ts__'
             aggregated_feature_wrapper = joined_class.__chalk_ts__
 
         if aggregated_feature_wrapper is None:
             raise ChalkParseError(
-                f"joined class '{_get_printable_name(joined_class)}' missing feature '{aggregated_feature_name}'"
+                f"joined class '{_get_printable_name(joined_class)}' missing feature '{ref.name}'"
+                + (f" at version {ref.version}" if ref.version is not None else "")
             )
 
         aggregated_feature = unwrap_feature(aggregated_feature_wrapper)
@@ -577,8 +602,10 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
     # If it's an error, we'll tolerate `.count()`, so leave it be for now.
     try:
         child_feature_name = _parse_projection(par)
+        child_feature_version = par._chalk__version if isinstance(par, UnderscoreAttr) else None
     except ChalkParseError:
         child_feature_name = None
+        child_feature_version = None
     if not isinstance(par, UnderscoreAttr) and not isinstance(par, UnderscoreRoot):
         raise ChalkParseError("expected a feature, like `_.amount`")
 
@@ -624,13 +651,17 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
 
     has_many_name = _parse_projection(has_many_parent)
 
-    aggregate_on_names = ([] if child_feature_name is None else [child_feature_name]) + additional_features
+    aggregate_on_refs: list[AggregationColumnRef] = (
+        []
+        if child_feature_name is None
+        else [AggregationColumnRef(name=child_feature_name, version=child_feature_version)]
+    ) + additional_features
 
     resolution = _get_has_many_class(
         parent=f.features_cls,
         has_many_feature_name=has_many_name,
         group_names=group_keys,
-        aggregated_feature_names=aggregate_on_names,
+        aggregated_feature_refs=aggregate_on_refs,
     )
     joined_class = resolution.joined_class
     group_key_features = resolution.group_by_features
@@ -791,6 +822,7 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
 
     filters: list[UnderscoreFunction] = []
     aggregated_value = None
+    aggregated_version: int | None = None
     if isinstance(getitem_expression, UnderscoreItem):
         agg_on = None
 
@@ -808,6 +840,7 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
 
         if isinstance(agg_on, UnderscoreAttr):
             aggregated_value = agg_on._chalk__attr
+            aggregated_version = agg_on._chalk__version
             if not isinstance(agg_on._chalk__parent, UnderscoreRoot):
                 raise ChalkParseError("expected a single feature from the child namespace, like `_.b`")
         elif aggregation != "count":
@@ -829,13 +862,15 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
     if f.features_cls is None:
         raise ChalkParseError("feature class is None")
 
-    aggregate_on_names = ([] if aggregated_value is None else [aggregated_value]) + additional_features
+    aggregate_on_refs: list[AggregationColumnRef] = (
+        [] if aggregated_value is None else [AggregationColumnRef(name=aggregated_value, version=aggregated_version)]
+    ) + additional_features
 
     resolution = _get_has_many_class(
         parent=f.features_cls,
         has_many_feature_name=child_attr_name,
         group_names=[],
-        aggregated_feature_names=aggregate_on_names,
+        aggregated_feature_refs=aggregate_on_refs,
     )
     joined_class = resolution.joined_class
     group_by_features = resolution.group_by_features
@@ -1504,6 +1539,7 @@ def _supplemental_validate_underscore_expression(
     *,
     class_namespace: type[FeaturesProtocol],
     underscore: Underscore,
+    outer_class_namespace: type[FeaturesProtocol] | None = None,
 ) -> Union[_ScalarExpr, _HasOneNamespaceExpr, _HasManyNamespaceExpr, None]:
     """
     Validates that the provided `underscore` definition is legal when evaluated in `class_namespace`.
@@ -1524,11 +1560,32 @@ def _supplemental_validate_underscore_expression(
             underscore=underscore,
         )
 
+    if isinstance(underscore, UnderscoreAttr) and isinstance(underscore._chalk__parent, DoubleUnderscore):
+        if outer_class_namespace is None:
+            raise _UnderscoreValidationError(
+                f"'__' can only be used inside a filter expression ('[...]' or '.where()'), but '{underscore!r}' was used outside of a filter"
+            )
+        feature_name = underscore._chalk__attr
+        outer_features = state.get_local_features_by_name(outer_class_namespace)
+        if feature_name not in outer_features:
+            raise _UnderscoreValidationError(
+                f"'{underscore!r}' is invalid because the outer feature class '{outer_class_namespace.namespace}' does not have a feature named '{feature_name}'"
+            )
+        outer_feature = outer_features[feature_name]
+        if outer_feature.is_has_many:
+            raise _UnderscoreValidationError(
+                f"'{underscore!r}' refers to a has-many feature '{feature_name}' on the outer namespace '{outer_class_namespace.namespace}', which is not supported"
+            )
+        if outer_feature.is_scalar:
+            return _ScalarExpr(dtype=outer_feature.converter.pyarrow_dtype)
+        return None
+
     if isinstance(underscore, UnderscoreAttr):
         parent_result = _supplemental_validate_underscore_expression(
             state=state,
             class_namespace=class_namespace,
             underscore=underscore._chalk__parent,
+            outer_class_namespace=outer_class_namespace,
         )
 
         if isinstance(parent_result, _ScalarExpr):
@@ -1574,6 +1631,7 @@ def _supplemental_validate_underscore_expression(
                 state=state,
                 class_namespace=class_namespace,
                 underscore=underscore._chalk__args[0],
+                outer_class_namespace=outer_class_namespace,
             )
 
             if parent_result is None:
@@ -1591,7 +1649,10 @@ def _supplemental_validate_underscore_expression(
 
             for arg in underscore._chalk__args[1:]:
                 _supplemental_validate_underscore_expression(
-                    state=state, class_namespace=parent_class_namespace, underscore=arg
+                    state=state,
+                    class_namespace=parent_class_namespace,
+                    underscore=arg,
+                    outer_class_namespace=outer_class_namespace,
                 )
 
             return None
@@ -1601,6 +1662,7 @@ def _supplemental_validate_underscore_expression(
                     state=state,
                     class_namespace=class_namespace,
                     underscore=arg,
+                    outer_class_namespace=outer_class_namespace,
                 )
                 if isinstance(expr, _HasOneNamespaceExpr):
                     raise _UnderscoreValidationError(
@@ -1623,12 +1685,14 @@ def _supplemental_validate_underscore_expression(
                     state,
                     class_namespace=class_namespace,
                     underscore=op(caller, *underscore._chalk__args, **underscore._chalk__kwargs),
+                    outer_class_namespace=outer_class_namespace,
                 )
 
         maybe_parent_result = _supplemental_validate_underscore_expression(
             state=state,
             class_namespace=class_namespace,
             underscore=caller,
+            outer_class_namespace=outer_class_namespace,
         )
         if op_name == "where":
             if maybe_parent_result is None:
@@ -1650,6 +1714,7 @@ def _supplemental_validate_underscore_expression(
                     state=state,
                     class_namespace=FeatureSetBase.registry[maybe_parent_result.namespace],
                     underscore=arg,
+                    outer_class_namespace=class_namespace,
                 )
                 if isinstance(expr, _HasOneNamespaceExpr):
                     raise _UnderscoreValidationError(
@@ -1680,6 +1745,7 @@ def _supplemental_validate_underscore_expression(
             state=state,
             class_namespace=class_namespace,
             underscore=underscore._chalk__parent,
+            outer_class_namespace=outer_class_namespace,
         )
 
         if parent_result is None:
@@ -1695,10 +1761,15 @@ def _supplemental_validate_underscore_expression(
 
         parent_class_namespace = FeatureSetBase.registry[parent_result.namespace]
         for key_arg in underscore._chalk__key:
+            if isinstance(key_arg, UnderscoreAttr) and isinstance(key_arg._chalk__parent, DoubleUnderscore):
+                raise _UnderscoreValidationError(
+                    f"'{key_arg!r}' is not a valid column on the has-many '{parent_result.namespace}'; '__' can only appear in filter conditions inside '[...]' (e.g. '_.col == __.outer_col'), not as a bare column selector"
+                )
             _supplemental_validate_underscore_expression(
                 state=state,
                 class_namespace=parent_class_namespace,
                 underscore=key_arg,
+                outer_class_namespace=class_namespace,
             )
 
         return parent_result

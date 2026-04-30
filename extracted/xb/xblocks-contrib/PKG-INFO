@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xblocks-contrib
-Version: 0.16.0
+Version: 0.16.1
 Summary: core xblocks
 Home-page: https://github.com/openedx/xblocks-contrib
 Author: Open edX Project
@@ -365,6 +365,13 @@ Change Log
 
 Unreleased
 **********
+
+0.16.0 - 2026-04-21
+**********************************************
+
+Fixed
+=====
+* Fix video block editor issues while editing in the Content Library
 
 0.16.0 - 2026-04-21
 **********************************************

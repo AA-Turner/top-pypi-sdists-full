@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 1.0.1
+Version: 1.0.2
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -37,6 +37,8 @@ Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'all'
 Requires-Dist: surrealdb>=1.0.0 ; extra == 'all'
 Requires-Dist: google-api-python-client>=2.0.0 ; extra == 'all'
 Requires-Dist: google-auth>=2.0.0 ; extra == 'all'
+Requires-Dist: google-auth-httplib2>=0.2.0 ; extra == 'all'
+Requires-Dist: httplib2>=0.22.0 ; extra == 'all'
 Requires-Dist: aiobotocore>=2.0.0 ; extra == 'all'
 Requires-Dist: aiohttp>=3.9.0 ; extra == 'all'
 Requires-Dist: pymysql>=1.1.0 ; extra == 'all'
@@ -58,6 +60,8 @@ Requires-Dist: litellm>=1.81.0 ; extra == 'entity-resolution-llm'
 Requires-Dist: falkordb>=1.1.0 ; extra == 'falkordb'
 Requires-Dist: google-api-python-client>=2.0.0 ; extra == 'google-drive'
 Requires-Dist: google-auth>=2.0.0 ; extra == 'google-drive'
+Requires-Dist: google-auth-httplib2>=0.2.0 ; extra == 'google-drive'
+Requires-Dist: httplib2>=0.22.0 ; extra == 'google-drive'
 Requires-Dist: confluent-kafka>=2.6 ; extra == 'kafka'
 Requires-Dist: lancedb>=0.25.0 ; extra == 'lancedb'
 Requires-Dist: pyarrow>=19.0.0 ; extra == 'lancedb'

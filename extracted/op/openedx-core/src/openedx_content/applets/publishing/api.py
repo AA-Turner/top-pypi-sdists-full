@@ -1,5 +1,5 @@
 """
-Publishing API (warning: UNSTABLE, in progress API)
+Publishing API
 
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.
@@ -13,7 +13,7 @@ from functools import partial
 from typing import ContextManager, Optional, cast
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.db.transaction import atomic, on_commit
 
@@ -43,7 +43,7 @@ from .models.publish_log import Published
 # is listed in the __all__ entries below. Internal helper functions that are
 # private to this module should start with an underscore. If a function does not
 # start with an underscore AND it is not in __all__, that function is considered
-# to be callable only by other apps in the authoring package.
+# to be callable only by other applets in the openedx_content package.
 __all__ = [
     "get_learning_package",
     "get_learning_package_by_ref",
@@ -237,6 +237,14 @@ def create_publishable_entity_version(
             created_by_id=created_by,
         )
         if dependencies:
+            # Validate that dependencies are from the same learning package:
+            if (
+                PublishableEntity.objects.filter(id__in=dependencies)
+                .exclude(learning_package_id=version.entity.learning_package_id)
+                .exists()
+            ):
+                raise ValidationError("Dependencies must be from the same learning package")
+            # Store dependencies:
             set_version_dependencies(version.id, dependencies)
 
         set_draft_version(
@@ -474,6 +482,12 @@ def publish_from_drafts(
             dependency_drafts_qsets = _get_dependencies_with_unpublished_changes(draft_qset)
         else:
             dependency_drafts_qsets = []
+            # Validation: check that all dependencies have been published already.
+            if Draft.objects.filter(
+                entity__affects__in=draft_qset.values_list("version_id", flat=True),
+                entity__published=None,
+            ).exists():
+                raise ValidationError("Cannot publish entities that have unpublished dependencies.")
 
         # Collect PKs of directly-requested drafts before expanding dependencies.
         direct_draft_ids = set(draft_qset.values_list('pk', flat=True))
@@ -503,6 +517,12 @@ def publish_from_drafts(
                 # Skip duplicates that we might get from expanding dependencies.
                 if draft.pk in published_draft_ids:
                     continue
+                # Validate Learning Package here where it won't require any extra queries
+                if draft.entity.learning_package_id != learning_package_id:
+                    raise ValidationError(
+                        f"Draft entity (id={draft.entity.id}) is from learning package "
+                        f"{draft.entity.learning_package_id}; expected learning package {learning_package_id}."
+                    )
 
                 try:
                     old_version = draft.entity.published.version
@@ -601,7 +621,6 @@ def get_entity_draft_history(
     publishable_entity_or_id: PublishableEntity | int, /
 ) -> QuerySet[DraftChangeLogRecord]:
     """
-    [ 🛑 UNSTABLE ]
     Return DraftChangeLogRecords for a PublishableEntity since its last publication,
     ordered from most recent to oldest.
 
@@ -669,7 +688,6 @@ def get_entity_publish_history(
     publishable_entity_or_id: PublishableEntity | int, /
 ) -> QuerySet[PublishLogRecord]:
     """
-    [ 🛑 UNSTABLE ]
     Return all PublishLogRecords for a PublishableEntity, ordered most recent first.
 
     Edge cases:
@@ -704,7 +722,6 @@ def get_entity_publish_history_entries(
     publish_log_uuid: str,
 ) -> QuerySet[DraftChangeLogRecord]:
     """
-    [ 🛑 UNSTABLE ]
     Return the DraftChangeLogRecords associated with a specific PublishLog.
 
     Finds the PublishLogRecord for the given entity and publish_log_uuid, then
@@ -802,7 +819,6 @@ def get_entity_version_contributors(
     new_version_num: int | None,
 ) -> QuerySet:
     """
-    [ 🛑 UNSTABLE ]
     Return distinct User queryset of contributors (changed_by) for
     DraftChangeLogRecords of a PublishableEntity after old_version_num.
 
@@ -918,6 +934,17 @@ def set_draft_version(
         # The actual update of the Draft model is here. Everything after this
         # block is bookkeeping in our DraftChangeLog.
         draft.version_id = publishable_entity_version_pk
+
+        # Validate the entity
+        if publishable_entity_version_pk is not None:
+            if draft.entity.id != PublishableEntityVersion.objects.only("entity_id").get(
+                pk=publishable_entity_version_pk
+            ).entity_id:
+                invalid_pev = PublishableEntityVersion.objects.get(pk=publishable_entity_version_pk)
+                raise ValidationError(
+                    f"Entity mismatch - the specified PublishableEntityVersion ({repr(invalid_pev)}) does not match "
+                    f"the PublishableEntity ({repr(draft.entity)})."
+                )
 
         # Check to see if we're inside a context manager for an active
         # DraftChangeLog (i.e. what happens if the caller is using the public

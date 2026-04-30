@@ -18,7 +18,7 @@ static PyObject *convert_slist(struct curl_slist *slist, int free_flags)
         if (slist->data == NULL) {
             v = Py_None; Py_INCREF(v);
         } else {
-            v = PyByteStr_FromString(slist->data);
+            v = PyBytes_FromString(slist->data);
         }
         if (v == NULL || PyList_Append(ret, v) != 0) {
             Py_XDECREF(v);
@@ -86,20 +86,16 @@ static PyObject *convert_certinfo(struct curl_certinfo *cinfo, int decode)
                 const char *sep = strchr(field, ':');
                 if (!sep) {
                     if (decode) {
-                        field_tuple = PyText_FromString(field);
+                        field_tuple = PyUnicode_FromString(field);
                     } else {
-                        field_tuple = PyByteStr_FromString(field);
+                        field_tuple = PyBytes_FromString(field);
                     }
                 } else {
-                    /* XXX check */
+                    Py_ssize_t name_len = sep - field;
                     if (decode) {
-                        field_tuple = Py_BuildValue("s#s", field, (int)(sep - field), sep+1);
+                        field_tuple = Py_BuildValue("s#s", field, name_len, sep+1);
                     } else {
-#if PY_MAJOR_VERSION >= 3
-                        field_tuple = Py_BuildValue("y#y", field, (int)(sep - field), sep+1);
-#else
-                        field_tuple = Py_BuildValue("s#s", field, (int)(sep - field), sep+1);
-#endif
+                        field_tuple = Py_BuildValue("y#y", field, name_len, sep+1);
                     }
                 }
                 if (!field_tuple)
@@ -142,7 +138,9 @@ do_curl_getinfo_raw(CurlObject *self, PyObject *args)
     case CURLINFO_PROXYAUTH_AVAIL:
     case CURLINFO_OS_ERRNO:
     case CURLINFO_NUM_CONNECTS:
+#if LIBCURL_VERSION_NUM < MAKE_LIBCURL_VERSION(7, 45, 0)
     case CURLINFO_LASTSOCKET:
+#endif
 #ifdef HAVE_CURLINFO_LOCAL_PORT
     case CURLINFO_LOCAL_PORT:
 #endif
@@ -169,7 +167,7 @@ do_curl_getinfo_raw(CurlObject *self, PyObject *args)
             if (res != CURLE_OK) {
                 CURLERROR_RETVAL();
             }
-            return PyInt_FromLong(l_res);
+            return PyLong_FromLong(l_res);
         }
 
     case CURLINFO_CONTENT_TYPE:
@@ -198,21 +196,26 @@ do_curl_getinfo_raw(CurlObject *self, PyObject *args)
             if (s_res == NULL) {
                 Py_RETURN_NONE;
             }
-            return PyByteStr_FromString(s_res);
+            return PyBytes_FromString(s_res);
 
         }
 
-    case CURLINFO_CONNECT_TIME:
-    case CURLINFO_APPCONNECT_TIME:
+PYCURL_IGNORE_DEPRECATED_BEGIN
     case CURLINFO_CONTENT_LENGTH_DOWNLOAD:
     case CURLINFO_CONTENT_LENGTH_UPLOAD:
-    case CURLINFO_NAMELOOKUP_TIME:
-    case CURLINFO_PRETRANSFER_TIME:
-    case CURLINFO_REDIRECT_TIME:
     case CURLINFO_SIZE_DOWNLOAD:
     case CURLINFO_SIZE_UPLOAD:
     case CURLINFO_SPEED_DOWNLOAD:
     case CURLINFO_SPEED_UPLOAD:
+PYCURL_IGNORE_DEPRECATED_END
+        if (PyErr_WarnEx(PyExc_DeprecationWarning, "getinfo option is deprecated", 1) != 0) {
+            return NULL;
+        }
+    case CURLINFO_CONNECT_TIME:
+    case CURLINFO_APPCONNECT_TIME:
+    case CURLINFO_NAMELOOKUP_TIME:
+    case CURLINFO_PRETRANSFER_TIME:
+    case CURLINFO_REDIRECT_TIME:
     case CURLINFO_STARTTRANSFER_TIME:
     case CURLINFO_TOTAL_TIME:
         {
@@ -293,6 +296,29 @@ do_curl_getinfo_raw(CurlObject *self, PyObject *args)
             return PyLong_FromLongLong(ot_res);
         }
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 45, 0)
+    /* CURLINFO_ACTIVESOCKET was added as a replacement for CURLINFO_LASTSOCKET
+     *  since that one is not working on all platforms.
+     */
+PYCURL_IGNORE_DEPRECATED_BEGIN
+    case CURLINFO_LASTSOCKET:
+PYCURL_IGNORE_DEPRECATED_END
+    case CURLINFO_ACTIVESOCKET:
+        {
+            /* Return PyLong as result */
+            curl_socket_t sockfd;
+
+            res = curl_easy_getinfo(self->handle, CURLINFO_ACTIVESOCKET, &sockfd);
+            if (res != CURLE_OK) {
+                CURLERROR_RETVAL();
+            }
+
+            /* Expose CURL_SOCKET_BAD as -1 in Python so ACTIVESOCKET matches
+             * LASTSOCKET semantics for invalid sockets.
+             */
+            return PyLong_FromCurlSocket(sockfd);
+        }
+#endif
 
     }
 
@@ -302,37 +328,37 @@ do_curl_getinfo_raw(CurlObject *self, PyObject *args)
 }
 
 
-#if PY_MAJOR_VERSION >= 3
 static PyObject *
 decode_string_list(PyObject *list)
 {
     PyObject *decoded_list = NULL;
     Py_ssize_t size = PyList_Size(list);
     int i;
-    
+
     decoded_list = PyList_New(size);
     if (decoded_list == NULL) {
         return NULL;
     }
-    
+
     for (i = 0; i < size; ++i) {
         PyObject *decoded_item = PyUnicode_FromEncodedObject(
             PyList_GET_ITEM(list, i),
             NULL,
             NULL);
-        
+
         if (decoded_item == NULL) {
             goto err;
         }
 	PyList_SetItem(decoded_list, i, decoded_item);
     }
-    
+
     return decoded_list;
-    
+
 err:
     Py_DECREF(decoded_list);
     return NULL;
 }
+
 
 PYCURL_INTERNAL PyObject *
 do_curl_getinfo(CurlObject *self, PyObject *args)
@@ -343,7 +369,7 @@ do_curl_getinfo(CurlObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "i:getinfo", &option)) {
         return NULL;
     }
-    
+
 #ifdef HAVE_CURLOPT_CERTINFO
     if (option == CURLINFO_CERTINFO) {
         /* Return a list of lists of 2-tuples */
@@ -356,12 +382,12 @@ do_curl_getinfo(CurlObject *self, PyObject *args)
         }
     }
 #endif
-    
+
     rv = do_curl_getinfo_raw(self, args);
     if (rv == NULL) {
         return rv;
     }
-    
+
     switch (option) {
     case CURLINFO_CONTENT_TYPE:
     case CURLINFO_EFFECTIVE_URL:
@@ -379,7 +405,7 @@ do_curl_getinfo(CurlObject *self, PyObject *args)
 #endif
         if (rv != Py_None) {
             PyObject *decoded;
-        
+
             // Decode bytes into a Unicode string using default encoding
             decoded = PyUnicode_FromEncodedObject(rv, NULL, NULL);
             // success and failure paths both need to free bytes object
@@ -395,12 +421,11 @@ do_curl_getinfo(CurlObject *self, PyObject *args)
             Py_DECREF(rv);
             return decoded;
         }
-        
+
     default:
         return rv;
     }
 }
-#endif
 
 
 PYCURL_INTERNAL PyObject *
@@ -411,11 +436,10 @@ do_curl_errstr(CurlObject *self, PyObject *Py_UNUSED(ignored))
     }
     self->error[sizeof(self->error) - 1] = 0;
 
-    return PyText_FromString(self->error);
+    return PyUnicode_FromString(self->error);
 }
 
 
-#if PY_MAJOR_VERSION >= 3
 PYCURL_INTERNAL PyObject *
 do_curl_errstr_raw(CurlObject *self, PyObject *Py_UNUSED(ignored))
 {
@@ -424,6 +448,5 @@ do_curl_errstr_raw(CurlObject *self, PyObject *Py_UNUSED(ignored))
     }
     self->error[sizeof(self->error) - 1] = 0;
 
-    return PyByteStr_FromString(self->error);
+    return PyBytes_FromString(self->error);
 }
-#endif

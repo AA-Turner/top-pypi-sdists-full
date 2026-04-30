@@ -1,3 +1,12 @@
+"""Constants and configuration for DANDI CLI.
+
+This module defines constants used throughout the DANDI CLI including:
+- Metadata field definitions for NWB files
+- Known DANDI Archive instances and their configurations
+- File organization patterns and BIDS-related constants
+- Request timeouts and retry settings
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -191,6 +200,8 @@ ZARR_UPLOAD_BATCH_SIZE = 255
 ZARR_DELETE_BATCH_SIZE = 100
 
 BIDS_DATASET_DESCRIPTION = "dataset_description.json"
+
+BIDS_IGNORE_FILE = ".bidsignore"
 
 # Fields which would be used to compose organized filenames
 # TODO: add full description into command --help etc

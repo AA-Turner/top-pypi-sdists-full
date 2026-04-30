@@ -28,6 +28,7 @@ from anyscale.cloud.models import (
 )
 from anyscale.commands import (
     aggregated_instance_usage_commands,
+    auth_commands,
     cloud_commands,
     compute_config_commands,
     image_commands,
@@ -70,6 +71,8 @@ from anyscale.job.models import (
     JobQueueSpec,
     JobRunState,
     JobRunStatus,
+    JobSortField,
+    JobSortOrder,
     JobState,
     JobStatus,
 )
@@ -99,7 +102,12 @@ from anyscale.project.models import (
     ProjectSortOrder,
 )
 from anyscale.resource_quota.models import CreateResourceQuota, Quota, ResourceQuota
-from anyscale.schedule.models import ScheduleConfig, ScheduleState, ScheduleStatus
+from anyscale.schedule.models import (
+    ScheduleConfig,
+    ScheduleSortField,
+    ScheduleState,
+    ScheduleStatus,
+)
 from anyscale.service.models import (
     RayGCSExternalStorageConfig,
     ServiceConfig,
@@ -233,6 +241,8 @@ ALL_MODULES = [
             JobRunStatus,
             JobRunState,
             JobLogMode,
+            JobSortField,
+            JobSortOrder,
         ],
         cli_command_group_prefix={
             job_commands.add_tags: "tags",
@@ -284,7 +294,7 @@ ALL_MODULES = [
             anyscale.schedule.url,
             anyscale.schedule.delete,
         ],
-        models=[ScheduleConfig, ScheduleState, ScheduleStatus],
+        models=[ScheduleConfig, ScheduleState, ScheduleStatus, ScheduleSortField],
     ),
     Module(
         title="Service",
@@ -380,6 +390,7 @@ ALL_MODULES = [
         sdk_commands=[
             anyscale.service_account.create,
             anyscale.service_account.create_api_key,
+            anyscale.service_account.rotate_api_keys,
             anyscale.service_account.list,
             anyscale.service_account.delete,
         ],
@@ -504,6 +515,9 @@ ALL_MODULES = [
             anyscale.workspace.wait,
             anyscale.workspace.generate_ssh_config_file,
             anyscale.workspace.run_command,
+            anyscale.workspace.pull,
+            anyscale.workspace.push,
+            anyscale.workspace.get,
             anyscale.workspace.list,
             anyscale.workspace.add_tags,
             anyscale.workspace.remove_tags,
@@ -625,7 +639,7 @@ ALL_MODULES = [
             organization_invitation_commands.list,
             organization_invitation_commands.delete,
         ],
-        sdk_prefix="anyscale.organization-invitation",
+        sdk_prefix="anyscale.organization_invitation",
         sdk_commands=[
             anyscale.organization_invitation.create,
             anyscale.organization_invitation.list,
@@ -645,6 +659,7 @@ ALL_MODULES = [
         sdk_prefix="anyscale.user_group",
         sdk_commands=[anyscale.user_group.list, anyscale.user_group.get,],
         models=[UserGroup],
+        cli_command_group_prefix={user_group_commands.list_memberships: "membership",},
     ),
     Module(
         title="Policy",
@@ -679,7 +694,9 @@ ALL_MODULES = [
             login_commands.anyscale_login,
             login_commands.anyscale_logout,
             scripts.version_cli,
+            auth_commands.auth_show,
         ],
+        cli_command_group_prefix={auth_commands.auth_show: "auth",},
         sdk_prefix="",
         sdk_commands=[],
         models=[],

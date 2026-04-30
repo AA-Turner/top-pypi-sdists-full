@@ -9,9 +9,8 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    get_origin,
 )
-
-from typing_extensions import get_origin
 
 import pyarrow as pa
 

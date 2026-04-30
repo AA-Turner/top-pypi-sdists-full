@@ -81,6 +81,33 @@ RSTR = "_edbc7885e4f9aac9b83b35999b68d015148caf467b78fa39c05f669c0ff89878"
 # NOTE - must use non-grouping match groups or output splitting will fail.
 RSTR_RE = r"(?:^|\r?\n)" + RSTR + r"(?:\r?\n|$)"
 
+
+def _ssh_cli_process_exit_code(retcode):
+    """
+    Map shim / per-minion retcodes to the salt-ssh CLI process exit code.
+
+    Codes for thin transfer, checksum, and similar infrastructure faults are
+    returned unchanged so callers can distinguish them. Typical execution
+    failures (including module and state retcodes) are collapsed to
+    :const:`~salt.defaults.exitcodes.EX_AGGREGATE`, matching salt-ssh tests and
+    the documented "one of a collection failed" semantics.
+    """
+    if retcode == salt.defaults.exitcodes.EX_OK:
+        return retcode
+    preserved = (
+        salt.defaults.exitcodes.EX_THIN_PYTHON_INVALID,
+        salt.defaults.exitcodes.EX_THIN_DEPLOY,
+        salt.defaults.exitcodes.EX_THIN_CHECKSUM,
+        salt.defaults.exitcodes.EX_MOD_DEPLOY,
+        salt.defaults.exitcodes.EX_SCP_NOT_FOUND,
+        salt.defaults.exitcodes.EX_CANTCREAT,
+        salt.defaults.exitcodes.EX_SOFTWARE,
+    )
+    if retcode in preserved:
+        return retcode
+    return salt.defaults.exitcodes.EX_AGGREGATE
+
+
 # METHODOLOGY:
 #
 #   1) Make the _thinnest_ /bin/sh shim (SSH_SH_SHIM) to find the python
@@ -290,6 +317,18 @@ class SSH(MultiprocessingStateMixin):
                 "ssh_timeout", salt.config.DEFAULT_MASTER_OPTS["ssh_timeout"]
             )
             + self.opts.get("timeout", salt.config.DEFAULT_MASTER_OPTS["timeout"]),
+            "keepalive": self.opts.get(
+                "ssh_keepalive",
+                salt.config.DEFAULT_MASTER_OPTS["ssh_keepalive"],
+            ),
+            "keepalive_interval": self.opts.get(
+                "ssh_keepalive_interval",
+                salt.config.DEFAULT_MASTER_OPTS["ssh_keepalive_interval"],
+            ),
+            "keepalive_count_max": self.opts.get(
+                "ssh_keepalive_count_max",
+                salt.config.DEFAULT_MASTER_OPTS["ssh_keepalive_count_max"],
+            ),
             "sudo": self.opts.get(
                 "ssh_sudo", salt.config.DEFAULT_MASTER_OPTS["ssh_sudo"]
             ),
@@ -522,7 +561,7 @@ class SSH(MultiprocessingStateMixin):
                 thin=self.thin,
                 **target,
             )
-            stdout, stderr, retcode = single.cmd_block()
+            stdout, stderr, retcode = single.run()
             try:
                 retcode = int(retcode)
             except (TypeError, ValueError):
@@ -804,6 +843,14 @@ class SSH(MultiprocessingStateMixin):
         """
         Execute the overall routine, print results via outputters
         """
+        # Recursion protection for nested salt-ssh calls (e.g. mine.get)
+        if "salt_ssh_recursion_depth" not in self.opts:
+            self.opts["salt_ssh_recursion_depth"] = 0
+        self.opts["salt_ssh_recursion_depth"] += 1
+        if self.opts["salt_ssh_recursion_depth"] > 10:
+            log.error("salt-ssh recursion depth limit exceeded (10)")
+            return {"error": "salt-ssh recursion depth limit exceeded"}
+
         if self.opts.get("list_hosts"):
             self._get_roster()
             ret = {}
@@ -859,6 +906,17 @@ class SSH(MultiprocessingStateMixin):
                 exc_info=True,
             )
 
+        # Save the job information to the master's proc directory
+        # so that state.running can find it.
+        proc_dir = os.path.join(self.opts["cachedir"], "proc")
+        if not os.path.isdir(proc_dir):
+            os.makedirs(proc_dir)
+        proc_file = os.path.join(proc_dir, jid)
+        with salt.utils.files.fopen(proc_file, "w+b") as fp_:
+            # Add PID to job_load
+            job_load["pid"] = os.getpid()
+            fp_.write(salt.payload.dumps(job_load))
+
         if self.opts.get("verbose"):
             msg = f"Executing job with jid {jid}"
             print(msg)
@@ -867,77 +925,87 @@ class SSH(MultiprocessingStateMixin):
         sret = {}
         outputter = self.opts.get("output", "nested")
         final_exit = salt.defaults.exitcodes.EX_OK
-        for ret, retcode in self.handle_ssh():
-            host = next(iter(ret))
-            if not isinstance(retcode, int):
-                log.warning("Host '%s' returned an invalid retcode: %s", host, retcode)
-                retcode = 1
-            final_exit = max(final_exit, retcode)
-
-            self.cache_job(jid, host, ret[host], fun)
-            ret, deploy_retcode = self.key_deploy(host, ret)
-            if deploy_retcode is not None:
-                try:
-                    retcode = int(deploy_retcode)
-                except (TypeError, ValueError):
+        try:
+            for ret, retcode in self.handle_ssh():
+                host = next(iter(ret))
+                if not isinstance(retcode, int):
                     log.warning(
-                        "Got an invalid deploy retcode for host '%s': '%s'",
-                        host,
-                        retcode,
+                        "Host '%s' returned an invalid retcode: %s", host, retcode
                     )
                     retcode = 1
-            final_exit = max(final_exit, retcode)
+                final_exit = max(final_exit, _ssh_cli_process_exit_code(retcode))
 
-            if isinstance(ret[host], dict) and (
-                ret[host].get("stderr") or ""
-            ).startswith("ssh:"):
-                ret[host] = ret[host]["stderr"]
+                self.cache_job(jid, host, ret[host], fun)
+                ret, deploy_retcode = self.key_deploy(host, ret)
+                if deploy_retcode is not None:
+                    try:
+                        retcode = int(deploy_retcode)
+                    except (TypeError, ValueError):
+                        log.warning(
+                            "Got an invalid deploy retcode for host '%s': '%s'",
+                            host,
+                            retcode,
+                        )
+                        retcode = 1
+                final_exit = max(final_exit, _ssh_cli_process_exit_code(retcode))
 
-            if not isinstance(ret[host], dict):
-                p_data = {host: ret[host]}
-            elif "return" not in ret[host]:
-                if ret[host].get("_error") == "Permission denied":
-                    p_data = {host: ret[host]["stderr"]}
-                else:
-                    p_data = ret
-            else:
-                outputter = ret[host].get("out", self.opts.get("output", "nested"))
-                p_data = {host: ret[host].get("return", {})}
-            if self.opts.get("static"):
-                sret.update(p_data)
-            else:
-                salt.output.display_output(p_data, outputter, self.opts)
-            if self.event:
-                id_, data = next(iter(ret.items()))
-                if not isinstance(data, dict):
-                    data = {"return": data}
-                if "id" not in data:
-                    data["id"] = id_
-                if "fun" not in data:
-                    data["fun"] = fun
-                if "fun_args" not in data:
-                    data["fun_args"] = args
-                if "retcode" not in data:
-                    data["retcode"] = retcode
-                if "success" not in data:
-                    data["success"] = data["retcode"] == salt.defaults.exitcodes.EX_OK
-                if "return" not in data:
-                    if data["success"]:
-                        data["return"] = data.get("stdout")
+                if isinstance(ret[host], dict) and (
+                    ret[host].get("stderr") or ""
+                ).startswith("ssh:"):
+                    ret[host] = ret[host]["stderr"]
+
+                if not isinstance(ret[host], dict):
+                    p_data = {host: ret[host]}
+                elif "return" not in ret[host]:
+                    if ret[host].get("_error") == "Permission denied":
+                        p_data = {host: ret[host]["stderr"]}
                     else:
-                        data["return"] = data.get("stderr", data.get("stdout"))
-                data["jid"] = (
-                    jid  # make the jid in the payload the same as the jid in the tag
-                )
-                self.event.fire_event(
-                    data, salt.utils.event.tagify([jid, "ret", host], "job")
-                )
+                        p_data = ret
+                else:
+                    outputter = ret[host].get("out", self.opts.get("output", "nested"))
+                    p_data = {host: ret[host].get("return", {})}
+
+                sret.update(p_data)
+                if not self.opts.get("static"):
+                    salt.output.display_output(p_data, outputter, self.opts)
+                if self.event:
+                    id_, data = next(iter(ret.items()))
+                    if not isinstance(data, dict):
+                        data = {"return": data}
+                    if "id" not in data:
+                        data["id"] = id_
+                    if "fun" not in data:
+                        data["fun"] = fun
+                    if "fun_args" not in data:
+                        data["fun_args"] = args
+                    if "retcode" not in data:
+                        data["retcode"] = retcode
+                    if "success" not in data:
+                        data["success"] = (
+                            data["retcode"] == salt.defaults.exitcodes.EX_OK
+                        )
+                    if "return" not in data:
+                        if data["success"]:
+                            data["return"] = data.get("stdout")
+                        else:
+                            data["return"] = data.get("stderr", data.get("stdout"))
+                    data["jid"] = (
+                        jid  # make the jid in the payload the same as the jid in the tag
+                    )
+                    self.event.fire_event(
+                        data, salt.utils.event.tagify([jid, "ret", host], "job")
+                    )
+        finally:
+            if os.path.exists(proc_file):
+                os.remove(proc_file)
         if self.event is not None:
             self.event.destroy()
         if self.opts.get("static"):
             salt.output.display_output(sret, outputter, self.opts)
+
         if final_exit:
-            sys.exit(salt.defaults.exitcodes.EX_AGGREGATE)
+            sys.exit(final_exit)
+        return sret
 
 
 class Single:
@@ -973,6 +1041,9 @@ class Single:
         remote_port_forwards=None,
         winrm=False,
         ssh_options=None,
+        keepalive=True,
+        keepalive_interval=60,
+        keepalive_count_max=3,
         **kwargs,
     ):
         # Get mine setting and mine_functions if defined in kwargs (from roster)
@@ -1032,6 +1103,9 @@ class Single:
             "priv": priv,
             "priv_passwd": priv_passwd,
             "timeout": timeout,
+            "keepalive": keepalive,
+            "keepalive_interval": keepalive_interval,
+            "keepalive_count_max": keepalive_count_max,
             "sudo": sudo,
             "tty": tty,
             "mods": self.mods,
@@ -1324,7 +1398,6 @@ class Single:
             minion_opts=self.minion_opts,
             **self.target,
         )
-        wrapper.fsclient.opts["cachedir"] = opts["cachedir"]
         self.wfuncs = salt.loader.ssh_wrapper(opts, wrapper, self.context)
         wrapper.wfuncs = self.wfuncs
 
@@ -1364,6 +1437,7 @@ class Single:
                 self.args = mine_args
                 self.kwargs = {}
 
+        retcode = salt.defaults.exitcodes.EX_OK
         try:
             if self.mine:
                 result = wrapper[mine_fun](*self.args, **self.kwargs)

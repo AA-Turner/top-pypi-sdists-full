@@ -11,24 +11,37 @@ from plato._generated.errors import raise_for_status
 
 def _build_request_args(
     simulator_name: str,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = f"/api/v1/session/public/benchmarks/{simulator_name}/analysis"
 
+    headers: dict[str, str] = {}
+    if authorization is not None:
+        headers["authorization"] = authorization
+    if x_api_key is not None:
+        headers["X-API-Key"] = x_api_key
+
     return {
         "method": "GET",
         "url": url,
+        "headers": headers,
     }
 
 
 def sync(
     client: httpx.Client,
     simulator_name: str,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
 ) -> Any:
     """Return the pre-computed benchmark failure analysis JSON for a simulator."""
 
     request_args = _build_request_args(
         simulator_name=simulator_name,
+        authorization=authorization,
+        x_api_key=x_api_key,
     )
 
     response = client.request(**request_args)
@@ -39,11 +52,15 @@ def sync(
 async def asyncio(
     client: httpx.AsyncClient,
     simulator_name: str,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
 ) -> Any:
     """Return the pre-computed benchmark failure analysis JSON for a simulator."""
 
     request_args = _build_request_args(
         simulator_name=simulator_name,
+        authorization=authorization,
+        x_api_key=x_api_key,
     )
 
     response = await client.request(**request_args)

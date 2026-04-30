@@ -3,7 +3,7 @@ Type annotations for pinpoint-email service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_email/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

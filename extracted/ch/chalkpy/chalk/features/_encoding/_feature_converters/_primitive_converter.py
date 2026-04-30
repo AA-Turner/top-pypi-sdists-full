@@ -20,6 +20,7 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.feather as pf
+from chalk_rs import timezone_from_name as _timezone_from_name
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.json import (
@@ -1126,9 +1127,8 @@ def proto_to_pa_scalar(pb_value: pb.ScalarValue) -> pa.Scalar:
             "Unsupported time64 value - missing fields `time64_microsecond_value` and `time64_nanosecond_value`"
         )
     if pb_value.HasField("timestamp_value"):
-        import dateutil.tz
         tz_str = pb_value.timestamp_value.timezone
-        tz = dateutil.tz.gettz(tz_str) if tz_str else None
+        tz = _timezone_from_name(tz_str) if tz_str else None
         if pb_value.timestamp_value.HasField("time_second_value"):
             return pa.scalar(datetime.fromtimestamp(pb_value.timestamp_value.time_second_value, tz=tz), pa.timestamp("s", tz=tz_str))
         if pb_value.timestamp_value.HasField("time_millisecond_value"):

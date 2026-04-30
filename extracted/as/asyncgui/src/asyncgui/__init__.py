@@ -7,15 +7,14 @@ __all__ = (
     'dummy_task', 'current_task', 'sleep_forever',
 
     # structured concurrency
-    'wait_all', 'wait_any', 'wait_all_cm',
-    'move_on_when', 'move_on_when_any', 'move_on_when_all',
-    'run_as_daemon', 'run_as_daemons',
+    'wait_all', 'wait_any',
+    'move_on_when', 'run_as_daemon',
     'open_nursery', 'Nursery',
 
     # synchronization
     'Event', 'ExclusiveEvent', 'StatefulEvent', 'StatelessEvent',
 )
-from typing import Any, Union, TypeAlias
+from typing import Any, Union, TypeAlias, Literal
 from collections.abc import (
     Iterable, Coroutine, Awaitable, AsyncIterator, Generator, Callable,
 )
@@ -245,23 +244,18 @@ class Task:
             self._cancel_if_needed()
 
     class CancelScope:
-        __slots__ = ('_task', '_depth', 'cancel_called', )
+        __slots__ = ("_task", "_depth", "done", )
 
         def __init__(self, task, depth):
             self._task = task
             self._depth = depth
-            self.cancel_called = False
-
-        @property
-        def closed(self) -> bool:
-            return self._task is None
+            self.done = False
 
         def cancel(self):
-            if self.cancel_called:
+            if self.done:
                 return
-            self.cancel_called = True
-            if (t := self._task) is not None:
-                t.cancel(self._depth)
+            self.done = True
+            self._task.cancel(self._depth)
 
     @contextmanager
     def _open_cancel_scope(self, CancelScope=CancelScope):
@@ -276,7 +270,7 @@ class Task:
                 raise
         finally:
             req_level = self._requested_cancel_level
-            scope._task = None
+            scope.done = True
             self._current_depth -= 1
             if req_level is not None:
                 if req_level == depth:
@@ -307,7 +301,7 @@ def start(aw: Aw_or_Task, /) -> Task:
 
         Tasks started with this function are root tasks.
         You must ensure they aren't garbage-collected while still running
-        --for example, by explicitly calling :meth:`Task.cancel` before the program exits.
+        —for example, by explicitly calling :meth:`Task.cancel` before the program exits.
     '''
     if isawaitable(aw):
         task = Task(aw)
@@ -416,6 +410,9 @@ class ExclusiveEvent:
     '''
     Similar to :class:`Event`, but this version does not allow multiple tasks to :meth:`wait` simultaneously.
     As a result, it operates faster.
+
+    .. versionchanged:: 0.10.1
+        This is now weak-referenceable.
     '''
     __slots__ = ("_waiting_task", "__weakref__", )
 
@@ -735,12 +732,6 @@ def _close_on_fail_or_finish(scope, counter, child):
         scope.cancel()
 
 
-def _close_on_fail_or_counter_zero(scope, counter, child):
-    counter.decrease()
-    if child._exc_caught is not None or counter.is_zero:
-        scope.cancel()
-
-
 _wait_xxx_type: TypeAlias = Callable[..., Awaitable[list[Task]]]
 wait_all: _wait_xxx_type = partial(_wait_xxx, "wait_all()", _close_on_fail)
 '''
@@ -773,39 +764,33 @@ As soon as one completes, the others will be cancelled.
 
 
 @asynccontextmanager
-async def _wait_xxx_cm(debug_msg, on_child_end, wait_bg: bool, single: bool, *aws: Iterable[Aw_or_Task]):
+async def _wait_xxx_cm(debug_msg, on_child_end, aw: Aw_or_Task):
     fg_task = await current_task()
-    bg_tasks = [v if isinstance(v, Task) else Task(v) for v in aws]
-    counter = Counter(len(bg_tasks))
+    bg_task = aw if isinstance(aw, Task) else Task(aw)
+    counter = Counter(1)
 
     fg_exc = None
 
     try:
         with fg_task._open_cancel_scope() as scope:
-            for task in bg_tasks:
-                task._on_end = partial(on_child_end, scope, counter)
-                task._suppresses_exc = True
-                start(task)
-            if single:
-                yield bg_tasks[0]
-            else:
-                yield bg_tasks
-            if wait_bg:
-                await counter.wait_for_zero()
+            bg_task._on_end = partial(on_child_end, scope, counter)
+            bg_task._suppresses_exc = True
+            start(bg_task)
+            yield bg_task
     except Exception as e:
         fg_exc = e
     finally:
-        for task in bg_tasks:
-            task.cancel()
+        bg_task.cancel()
         if not counter.is_zero:
             try:
                 fg_task._cancel_disabled = True
                 await counter.wait_for_zero()
             finally:
                 fg_task._cancel_disabled = False
-        excs = [e for task in bg_tasks if (e := task._exc_caught) is not None]
-        if fg_exc is not None:
-            excs.append(fg_exc)
+        excs = [
+            e for e in (fg_exc, bg_task._exc_caught, )
+            if e is not None
+        ]
         if excs:
             raise ExceptionGroup(debug_msg, excs)
         if fg_task._requested_cancel_level is not None:
@@ -813,29 +798,8 @@ async def _wait_xxx_cm(debug_msg, on_child_end, wait_bg: bool, single: bool, *aw
             assert False, potential_bug_msg
 
 
-_wait_xxx_cm_type_single: TypeAlias = Callable[[Aw_or_Task], AbstractAsyncContextManager[Task]]
-_wait_xxx_cm_type: TypeAlias = Callable[..., AbstractAsyncContextManager[list[Task]]]
-
-wait_all_cm: _wait_xxx_cm_type = partial(_wait_xxx_cm, "wait_all_cm()", _close_on_fail, True, False)
-'''
-Returns an async context manager that runs all given tasks concurrently with each other and alongside the code inside
-the with-block, then waits until the with-block completes and all tasks are done (completed or cancelled).
-
-.. code-block::
-
-    async with wait_all_cm(async_fn0(), async_fn1()) as tasks:
-        ...
-    for i, task in enumerate(tasks):
-        if task.finished:
-            print(f"async_fn{i} completed with a return value of {task.result}.")
-        else:
-            print(f"async_fn{i} was cancelled.")
-
-.. versionchanged:: 0.10.0
-    Now accepts multiple tasks. The object bound in the as-clause is a list of Task instances instead of a single one.
-'''
-
-move_on_when: _wait_xxx_cm_type_single = partial(_wait_xxx_cm, "move_on_when()", _close_on_fail_or_finish, False, True)
+_wait_xxx_cm_type: TypeAlias = Callable[[Aw_or_Task], AbstractAsyncContextManager[Task]]
+move_on_when: _wait_xxx_cm_type = partial(_wait_xxx_cm, "move_on_when()", _close_on_fail_or_finish)
 '''
 Returns an async context manager that runs the given task and the code inside the with-block concurrently,
 then waits for either one to complete. As soon as that happens, the other will be cancelled if it is still running.
@@ -850,55 +814,18 @@ This is equivalent to :func:`trio_util.move_on_when`.
         print(f"async_fn completed with a return value of {task.result}.")
     else:
         print(f"async_fn was cancelled.")
-'''
 
-move_on_when_any: _wait_xxx_cm_type = partial(
-    _wait_xxx_cm, "move_on_when_any()", _close_on_fail_or_finish, False, False)
-'''
-Returns an async context manager that runs all given tasks concurrently with each other and alongside the code inside
-the with-block, then waits until either the with-block completes or any of the tasks completes.
-As soon as that happens, any remaining tasks and the with-block (if still running) will be cancelled.
+You can replicate the same behavior with :func:`open_nursery` as follows:
 
 .. code-block::
 
-    async with move_on_when_any(async_fn0(), async_fn1()) as tasks:
+    async with open_nursery() as nursery:
+        task = nursery.start(async_fn(), role="closer")
         ...
-
-The code above is semantically equivalent to the following, but more efficient:
-
-.. code-block::
-
-    async with move_on_when(wait_any(...)) as task:
-        ...
-    tasks = task.result
-
-.. versionadded:: 0.10.0
 '''
 
-move_on_when_all: _wait_xxx_cm_type = partial(
-    _wait_xxx_cm, "move_on_when_all()", _close_on_fail_or_counter_zero, False, False)
-'''
-Returns an async context manager that runs all given tasks concurrently with each other and alongside the code inside
-the with-block, then waits until either the with-block completes or all tasks are done (completed or cancelled).
-As soon as that happens, any remaining tasks and the with-block (if still running) will be cancelled.
 
-.. code-block::
-
-    async with move_on_when_all(async_fn0(), async_fn1()) as tasks:
-        ...
-
-The code above is semantically equivalent to the following, but more efficient:
-
-.. code-block::
-
-    async with move_on_when(wait_all(...)) as task:
-        ...
-    tasks = task.result
-
-.. versionadded:: 0.10.0
-'''
-
-run_as_daemon: _wait_xxx_cm_type_single = partial(_wait_xxx_cm, "run_as_daemon()", _close_on_fail, False, True)
+run_as_daemon: _wait_xxx_cm_type = partial(_wait_xxx_cm, "run_as_daemon()", _close_on_fail)
 '''
 Returns an async context manager that runs the given task and the code inside the with-block concurrently,
 then waits for the with-block to complete. As soon as that happens, the task will be cancelled if it is still running.
@@ -913,64 +840,68 @@ This is equivalent to :func:`trio_util.run_and_cancelling`.
         print(f"async_fn completed with a return value of {task.result}.")
     else:
         print(f"async_fn was cancelled.")
-'''
 
-run_as_daemons: _wait_xxx_cm_type = partial(_wait_xxx_cm, "run_as_daemons()", _close_on_fail, False, False)
-'''
-Returns an async context manager that runs all given tasks concurrently with each other and alongside the code inside
-the with-block, then waits until the code inside the with-block completes. As soon as that happens, the tasks will be
-cancelled if they are still running.
+You can replicate the same behavior with :func:`open_nursery` as follows:
 
 .. code-block::
 
-    async with run_as_daemons(async_fn0(), async_fn1()) as tasks:
+    async with open_nursery() as nursery:
+        task = nursery.start(async_fn(), role="daemon")
         ...
-    for i, task in enumerate(tasks):
-        if task.finished:
-            print(f"async_fn{i} completed with a return value of {task.result}.")
-        else:
-            print(f"async_fn{i} was cancelled.")
-
-.. versionadded:: 0.10.0
 '''
+
+
+TaskRole: TypeAlias = Literal["default", "daemon", "closer"]
 
 
 class Nursery:
     '''
     An equivalent of :class:`trio.Nursery`.
-    You should not directly instantiate this, use :func:`open_nursery`.
+    Do not instantiate this class directly; use :func:`open_nursery`.
+
+    Nursery is closed when any of the following occurs:
+
+    * :meth:`close` is called.
+    * Any child task raises an exception.
+    * Any child task with the "closer" role completes.
+    * All child tasks complete.
+    * Only child tasks with the "daemon" role remain running.
     '''
 
-    __slots__ = ('_closed', '_children', '_scope', '_counters', '_callbacks', '_gc_in_every', '_n_until_gc', )
+    __slots__ = ("_closed", "_children", "_scope", "_role2stuff", "_gc_in_every", "_n_until_gc", )
 
     def __init__(self, scope, counter, daemon_counter, gc_in_every):
         self._gc_in_every = self._n_until_gc = gc_in_every
         self._closed = False
         self._children = []
         self._scope = scope
-        self._counters = (daemon_counter, counter, )
-        self._callbacks = (
-            partial(_close_on_fail, scope, daemon_counter),
-            partial(_close_on_fail, scope, counter),
-        )
+        self._role2stuff = {
+            "daemon": (partial(_close_on_fail, scope, daemon_counter), daemon_counter),
+            "default": (partial(_close_on_fail, scope, counter), counter),
+            "closer": (partial(_close_on_fail_or_finish, scope, counter), counter),
+        }
 
-    def start(self, aw: Aw_or_Task, /, *, daemon=False) -> Task:
+    def start(self, aw: Aw_or_Task, /, *, role: TaskRole="default") -> Task:
         '''
-        *Immediately* start a Task under the supervision of the nursery.
+        *Immediately* starts a Task under the supervision of the nursery.
 
-        The ``daemon`` parameter acts like the one in the :mod:`threading` module.
-        When only daemon tasks are left, they get cancelled, and the nursery closes.
+        .. versionchanged:: 0.11.0
+            The ``role`` parameter replaces the previous ``daemon`` parameter.
         '''
         if self._closed:
             raise InvalidStateError("Nursery has been already closed")
+        try:
+            on_child_end, counter = self._role2stuff[role]
+        except KeyError:
+            raise ValueError(f"Invalid task role: {role}")
         if not self._n_until_gc:
             self._collect_garbage()
             self._n_until_gc = self._gc_in_every
         self._n_until_gc -= 1
         child = aw if isinstance(aw, Task) else Task(aw)
         child._suppresses_exc = True
-        child._on_end = self._callbacks[not daemon]
-        self._counters[not daemon].increase()
+        child._on_end = on_child_end
+        counter.increase()
         self._children.append(child)
         return start(child)
 
@@ -981,7 +912,10 @@ class Nursery:
         ]
 
     def close(self):
-        '''Cancel all the child tasks in the nursery as soon as possible. '''
+        '''
+        Cancels all child tasks in the nursery as soon as possible.
+        After this method is called, no new child tasks can be started.
+        '''
         self._closed = True
         self._scope.cancel()
 
@@ -999,7 +933,7 @@ async def open_nursery(*, _gc_in_every=1000) -> AsyncIterator[Nursery]:
 
         async with open_nursery() as nursery:
             nursery.start(async_fn1())
-            nursery.start(async_fn2(), daemon=True)
+            nursery.start(async_fn2(), role="daemon")
     '''
     exc = None
     parent = await current_task()

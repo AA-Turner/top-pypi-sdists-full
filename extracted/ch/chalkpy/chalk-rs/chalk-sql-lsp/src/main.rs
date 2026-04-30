@@ -170,11 +170,7 @@ fn handle_request(
             let uri = &params.text_document_position_params.text_document.uri;
             let pos = params.text_document_position_params.position;
             let result = if let Some(text) = store.get(uri) {
-                match chalk_sql_lsp::signature_help::signature_help(
-                    text,
-                    pos.line,
-                    pos.character,
-                ) {
+                match chalk_sql_lsp::signature_help::signature_help(text, pos.line, pos.character) {
                     Some(sh) => serde_json::to_value(sh)?,
                     None => serde_json::Value::Null,
                 }
@@ -205,10 +201,7 @@ fn handle_notification(
         DidOpenTextDocument::METHOD => {
             let params: lsp_types::DidOpenTextDocumentParams =
                 serde_json::from_value(notif.params)?;
-            store.on_open(
-                params.text_document.uri.clone(),
-                params.text_document.text,
-            );
+            store.on_open(params.text_document.uri.clone(), params.text_document.text);
             publish_diagnostics(sender, store, &params.text_document.uri)?;
         }
         DidChangeTextDocument::METHOD => {

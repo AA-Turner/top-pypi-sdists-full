@@ -79,24 +79,53 @@ class CategorySeatUsage(google.protobuf.message.Message):
 global___CategorySeatUsage = CategorySeatUsage
 
 @typing.final
+class DailySeatUsage(google.protobuf.message.Message):
+    """Seat usage data for a single day."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DATE_FIELD_NUMBER: builtins.int
+    SEATS_FIELD_NUMBER: builtins.int
+    @property
+    def date(self) -> sentry_protos.billing.v1.date_pb2.Date: ...
+    @property
+    def seats(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___CategorySeatUsage]: ...
+    def __init__(
+        self,
+        *,
+        date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
+        seats: collections.abc.Iterable[global___CategorySeatUsage] | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["date", b"date"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["date", b"date", "seats", b"seats"]) -> None: ...
+
+global___DailySeatUsage = DailySeatUsage
+
+@typing.final
 class GetUsageResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     DAYS_FIELD_NUMBER: builtins.int
+    SEAT_DAYS_FIELD_NUMBER: builtins.int
     SEATS_FIELD_NUMBER: builtins.int
     @property
     def days(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___DailyUsage]:
         """Usage broken down by day, each containing per-category usage."""
 
     @property
-    def seats(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___CategorySeatUsage]: ...
+    def seat_days(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___DailySeatUsage]: ...
+    @property
+    def seats(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___CategorySeatUsage]:
+        """DEPRECATED: use seat_days"""
+
     def __init__(
         self,
         *,
         days: collections.abc.Iterable[global___DailyUsage] | None = ...,
+        seat_days: collections.abc.Iterable[global___DailySeatUsage] | None = ...,
         seats: collections.abc.Iterable[global___CategorySeatUsage] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["days", b"days", "seats", b"seats"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["days", b"days", "seat_days", b"seat_days", "seats", b"seats"]) -> None: ...
 
 global___GetUsageResponse = GetUsageResponse
 

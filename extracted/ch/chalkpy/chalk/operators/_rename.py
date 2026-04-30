@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Mapping
-
-from typing_extensions import final
+from typing import Mapping, final
 
 from chalk.operators import StaticOperator
 

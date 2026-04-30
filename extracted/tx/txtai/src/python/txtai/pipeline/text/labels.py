@@ -40,7 +40,7 @@ class Labels(HFPipeline):
 
         if self.dynamic:
             # Run zero shot classification pipeline
-            results = self.pipeline(text, labels, multi_label=multilabel, truncation=True, num_workers=workers)
+            results = self.pipeline(text, labels, multi_label=multilabel, truncation=True, num_workers=workers, **kwargs)
         else:
             # Set classification function based on inputs
             function = "none" if multilabel is None else "sigmoid" if multilabel or len(self.labels()) == 1 else "softmax"
@@ -54,6 +54,11 @@ class Labels(HFPipeline):
 
         # Build list of outputs and return
         outputs = self.outputs(results, labels, flatten)
+
+        # Stream outputs into list, if necessary
+        outputs = list(outputs) if isinstance(results, list) else outputs
+
+        # Return format that matches input format
         return outputs[0] if isinstance(text, str) else outputs
 
     def labels(self):
@@ -76,28 +81,25 @@ class Labels(HFPipeline):
             flatten: flatten output to a list of labels if present. Accepts a boolean or float value to only keep scores greater than that number.
 
         Returns:
-            list of outputs
+            outputs
         """
 
-        outputs = []
         threshold = 0.0 if isinstance(flatten, bool) else flatten
 
         for result in results:
             if self.dynamic:
                 if flatten:
                     result = [label for x, label in enumerate(result["labels"]) if result["scores"][x] >= threshold]
-                    outputs.append(result[:1] if isinstance(flatten, bool) else result)
+                    yield result[:1] if isinstance(flatten, bool) else result
                 else:
-                    outputs.append([(labels.index(label), result["scores"][x]) for x, label in enumerate(result["labels"])])
+                    yield [(labels.index(label), result["scores"][x]) for x, label in enumerate(result["labels"])]
             else:
                 if flatten:
                     result = [x["label"] for x in result if x["score"] >= threshold and (not labels or x["label"] in labels)]
-                    outputs.append(result[:1] if isinstance(flatten, bool) else result)
+                    yield result[:1] if isinstance(flatten, bool) else result
                 else:
                     # Filter results using labels, if provided
-                    outputs.append(self.limit(result, labels))
-
-        return outputs
+                    yield self.limit(result, labels)
 
     def limit(self, result, labels):
         """

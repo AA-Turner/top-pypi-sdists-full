@@ -37,8 +37,8 @@ from transformer_lens.components import MLP, Embed, GatedMLP, RMSNorm, T5Block, 
 from transformer_lens.config.HookedTransformerConfig import HookedTransformerConfig
 from transformer_lens.FactoredMatrix import FactoredMatrix
 from transformer_lens.hook_points import HookedRootModule, HookPoint
+from transformer_lens.utilities import sample_logits, warn_if_mps
 from transformer_lens.utilities.multi_gpu import get_device_for_block_index
-from transformer_lens.utils import sample_logits, warn_if_mps
 
 T = TypeVar("T", bound="HookedEncoderDecoder")
 
@@ -484,13 +484,13 @@ class HookedEncoderDecoder(HookedRootModule):
         else:
             return decoder_input
 
-    @overload
+    @overload  # type: ignore[overload-overlap]
     def run_with_cache(
         self, *model_args: Any, return_cache_object: Literal[True] = True, **kwargs: Any
     ) -> Tuple[Float[torch.Tensor, "batch pos d_vocab"], ActivationCache]:
         ...
 
-    @overload
+    @overload  # type: ignore[overload-overlap]
     def run_with_cache(
         self, *model_args: Any, return_cache_object: Literal[False] = False, **kwargs: Any
     ) -> Tuple[Float[torch.Tensor, "batch pos d_vocab"], Dict[str, torch.Tensor]]:

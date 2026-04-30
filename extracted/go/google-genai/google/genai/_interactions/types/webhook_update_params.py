@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 from typing import List, Union
-from typing_extensions import Literal, Required, TypedDict
+from typing_extensions import Literal, TypedDict
 
 __all__ = ["WebhookUpdateParams"]
 
@@ -26,45 +26,39 @@ __all__ = ["WebhookUpdateParams"]
 class WebhookUpdateParams(TypedDict, total=False):
     api_version: str
 
-    subscribed_events: Required[
-        List[
-            Union[
-                Literal[
-                    "batch.succeeded",
-                    "batch.cancelled",
-                    "batch.expired",
-                    "batch.failed",
-                    "interaction.requires_action",
-                    "interaction.completed",
-                    "interaction.failed",
-                    "interaction.cancelled",
-                    "video.generated",
-                ],
-                str,
-            ]
+    update_mask: str
+    """Optional. The list of fields to update."""
+
+    name: str
+    """Optional. The user-provided name of the webhook."""
+
+    state: Literal["enabled", "disabled", "disabled_due_to_failed_deliveries"]
+    """Optional. The state of the webhook."""
+
+    subscribed_events: List[
+        Union[
+            Literal[
+                "batch.succeeded",
+                "batch.expired",
+                "batch.failed",
+                "interaction.requires_action",
+                "interaction.completed",
+                "interaction.failed",
+                "video.generated",
+            ],
+            str,
         ]
     ]
-    """Required. The events that the webhook is subscribed to. Available events:
+    """Optional. The events that the webhook is subscribed to. Available events:
 
     - batch.succeeded
-    - batch.cancelled
     - batch.expired
     - batch.failed
     - interaction.requires_action
     - interaction.completed
     - interaction.failed
-    - interaction.cancelled
     - video.generated
     """
 
-    uri: Required[str]
-    """Required. The URI to which webhook events will be sent."""
-
-    update_mask: str
-    """Optional. The list of fields to update."""
-
-    name: str
-    """Identifier. The name of the webhook. Format: `webhooks/{webhook_id}`"""
-
-    state: Literal["enabled", "disabled", "disabled_due_to_failed_deliveries"]
-    """The state of the webhook."""
+    uri: str
+    """Optional. The URI to which webhook events will be sent."""

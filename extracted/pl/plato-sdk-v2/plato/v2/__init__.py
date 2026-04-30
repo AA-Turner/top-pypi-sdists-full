@@ -12,6 +12,7 @@
 # Sync exports (default)
 from plato._generated.models import ArtifactInfoResponse, Flow
 from plato.v2 import async_, sync
+from plato.v2._wait_for_ready import JobTerminalStatusError
 
 # Async exports (prefixed with Async)
 from plato.v2.async_.cdp_bridge import shared_cdp_chromium
@@ -70,6 +71,7 @@ __all__ = [
     "ArtifactInfoResponse",
     "SandboxClient",
     "TestcaseManager",
+    "JobTerminalStatusError",
     # Async
     "AsyncPlato",
     "AsyncSession",

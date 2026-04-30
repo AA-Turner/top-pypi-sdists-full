@@ -62,18 +62,14 @@ pub fn load_type_map_from_json(json_bytes: &[u8]) -> Result<TypeMap> {
     let text = std::str::from_utf8(json_bytes).context("invalid UTF-8 in JSON file")?;
 
     // Skip any header lines before the JSON object.
-    let json_start = text
-        .find('{')
-        .context("no JSON object found in file")?;
+    let json_start = text.find('{').context("no JSON object found in file")?;
     let json_text = &text[json_start..];
 
     let root: serde_json::Value =
         serde_json::from_str(json_text).context("failed to parse JSON")?;
 
     // The root might be {"graph": {...}} or just the graph directly.
-    let graph = root
-        .get("graph")
-        .unwrap_or(&root);
+    let graph = root.get("graph").unwrap_or(&root);
 
     let feature_sets = graph
         .get("feature_sets")
@@ -85,25 +81,18 @@ pub fn load_type_map_from_json(json_bytes: &[u8]) -> Result<TypeMap> {
     let mut class_fields: HashMap<String, Vec<(String, String)>> = HashMap::new();
 
     for fs in feature_sets {
-        let namespace = fs
-            .get("name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let namespace = fs.get("name").and_then(|v| v.as_str()).unwrap_or("");
         let class_name = snake_to_pascal(namespace);
         namespace_to_class.insert(namespace.to_string(), class_name.clone());
 
-        let fs_features = fs
-            .get("features")
-            .and_then(|v| v.as_array());
+        let fs_features = fs.get("features").and_then(|v| v.as_array());
         let Some(fs_features) = fs_features else {
             continue;
         };
 
         for feature in fs_features {
             // Go-style JSON wraps oneof in {"Type": {"Scalar": {...}}}
-            let type_obj = feature
-                .get("Type")
-                .or_else(|| feature.get("type"));
+            let type_obj = feature.get("Type").or_else(|| feature.get("type"));
             let Some(type_obj) = type_obj else { continue };
 
             if let Some(scalar) = type_obj.get("Scalar").or_else(|| type_obj.get("scalar")) {
@@ -117,9 +106,7 @@ pub fn load_type_map_from_json(json_bytes: &[u8]) -> Result<TypeMap> {
                     .get("is_nullable")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
-                let python_type = extract_arrow_type_from_json(
-                    scalar.get("arrow_type"),
-                );
+                let python_type = extract_arrow_type_from_json(scalar.get("arrow_type"));
                 let info = FeatureTypeInfo {
                     python_type: python_type.clone(),
                     is_nullable,
@@ -129,7 +116,8 @@ pub fn load_type_map_from_json(json_bytes: &[u8]) -> Result<TypeMap> {
                     .entry(class_name.clone())
                     .or_default()
                     .push((attr_name.to_string(), python_type));
-            } else if let Some(has_one) = type_obj.get("HasOne").or_else(|| type_obj.get("hasOne")) {
+            } else if let Some(has_one) = type_obj.get("HasOne").or_else(|| type_obj.get("hasOne"))
+            {
                 let name = has_one.get("name").and_then(|v| v.as_str()).unwrap_or("");
                 let foreign_ns = has_one
                     .get("foreign_namespace")
@@ -156,7 +144,9 @@ pub fn load_type_map_from_json(json_bytes: &[u8]) -> Result<TypeMap> {
                     .entry(class_name.clone())
                     .or_default()
                     .push((name.to_string(), display_type));
-            } else if let Some(has_many) = type_obj.get("HasMany").or_else(|| type_obj.get("hasMany")) {
+            } else if let Some(has_many) =
+                type_obj.get("HasMany").or_else(|| type_obj.get("hasMany"))
+            {
                 let name = has_many.get("name").and_then(|v| v.as_str()).unwrap_or("");
                 let foreign_ns = has_many
                     .get("foreign_namespace")
@@ -199,58 +189,130 @@ fn extract_arrow_type_from_json(arrow_type: Option<&serde_json::Value>) -> Strin
         return "Any".to_string();
     };
 
-    if type_enum.get("LargeUtf8").or_else(|| type_enum.get("large_utf8")).is_some() {
+    if type_enum
+        .get("LargeUtf8")
+        .or_else(|| type_enum.get("large_utf8"))
+        .is_some()
+    {
         return "str".to_string();
     }
-    if type_enum.get("Utf8").or_else(|| type_enum.get("utf8")).is_some() {
+    if type_enum
+        .get("Utf8")
+        .or_else(|| type_enum.get("utf8"))
+        .is_some()
+    {
         return "str".to_string();
     }
-    if type_enum.get("Int64").or_else(|| type_enum.get("int64")).is_some() {
+    if type_enum
+        .get("Int64")
+        .or_else(|| type_enum.get("int64"))
+        .is_some()
+    {
         return "int".to_string();
     }
-    if type_enum.get("Int32").or_else(|| type_enum.get("int32")).is_some() {
+    if type_enum
+        .get("Int32")
+        .or_else(|| type_enum.get("int32"))
+        .is_some()
+    {
         return "int".to_string();
     }
-    if type_enum.get("Int16").or_else(|| type_enum.get("int16")).is_some() {
+    if type_enum
+        .get("Int16")
+        .or_else(|| type_enum.get("int16"))
+        .is_some()
+    {
         return "int".to_string();
     }
-    if type_enum.get("Int8").or_else(|| type_enum.get("int8")).is_some() {
+    if type_enum
+        .get("Int8")
+        .or_else(|| type_enum.get("int8"))
+        .is_some()
+    {
         return "int".to_string();
     }
-    if type_enum.get("Uint64").or_else(|| type_enum.get("uint64")).is_some() {
+    if type_enum
+        .get("Uint64")
+        .or_else(|| type_enum.get("uint64"))
+        .is_some()
+    {
         return "int".to_string();
     }
-    if type_enum.get("Uint32").or_else(|| type_enum.get("uint32")).is_some() {
+    if type_enum
+        .get("Uint32")
+        .or_else(|| type_enum.get("uint32"))
+        .is_some()
+    {
         return "int".to_string();
     }
-    if type_enum.get("Float64").or_else(|| type_enum.get("float64")).is_some() {
+    if type_enum
+        .get("Float64")
+        .or_else(|| type_enum.get("float64"))
+        .is_some()
+    {
         return "float".to_string();
     }
-    if type_enum.get("Float32").or_else(|| type_enum.get("float32")).is_some() {
+    if type_enum
+        .get("Float32")
+        .or_else(|| type_enum.get("float32"))
+        .is_some()
+    {
         return "float".to_string();
     }
-    if type_enum.get("Bool").or_else(|| type_enum.get("bool")).is_some() {
+    if type_enum
+        .get("Bool")
+        .or_else(|| type_enum.get("bool"))
+        .is_some()
+    {
         return "bool".to_string();
     }
-    if type_enum.get("Timestamp").or_else(|| type_enum.get("timestamp")).is_some() {
+    if type_enum
+        .get("Timestamp")
+        .or_else(|| type_enum.get("timestamp"))
+        .is_some()
+    {
         return "datetime.datetime".to_string();
     }
-    if type_enum.get("Date64").or_else(|| type_enum.get("date64")).is_some() {
+    if type_enum
+        .get("Date64")
+        .or_else(|| type_enum.get("date64"))
+        .is_some()
+    {
         return "datetime.date".to_string();
     }
-    if type_enum.get("Date32").or_else(|| type_enum.get("date32")).is_some() {
+    if type_enum
+        .get("Date32")
+        .or_else(|| type_enum.get("date32"))
+        .is_some()
+    {
         return "datetime.date".to_string();
     }
-    if type_enum.get("Duration").or_else(|| type_enum.get("duration")).is_some() {
+    if type_enum
+        .get("Duration")
+        .or_else(|| type_enum.get("duration"))
+        .is_some()
+    {
         return "datetime.timedelta".to_string();
     }
-    if type_enum.get("Binary").or_else(|| type_enum.get("binary")).is_some()
-        || type_enum.get("LargeBinary").or_else(|| type_enum.get("large_binary")).is_some()
+    if type_enum
+        .get("Binary")
+        .or_else(|| type_enum.get("binary"))
+        .is_some()
+        || type_enum
+            .get("LargeBinary")
+            .or_else(|| type_enum.get("large_binary"))
+            .is_some()
     {
         return "bytes".to_string();
     }
-    if type_enum.get("Decimal128").or_else(|| type_enum.get("decimal_128")).is_some()
-        || type_enum.get("Decimal256").or_else(|| type_enum.get("decimal_256")).is_some()
+    if type_enum
+        .get("Decimal128")
+        .or_else(|| type_enum.get("decimal_128"))
+        .is_some()
+        || type_enum
+            .get("Decimal256")
+            .or_else(|| type_enum.get("decimal_256"))
+            .is_some()
     {
         return "decimal.Decimal".to_string();
     }

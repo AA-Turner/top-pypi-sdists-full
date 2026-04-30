@@ -34,7 +34,10 @@ from .paginator import (
     ListBrowserProfilesPaginator,
     ListBrowsersPaginator,
     ListCodeInterpretersPaginator,
+    ListConfigurationBundlesPaginator,
+    ListConfigurationBundleVersionsPaginator,
     ListEvaluatorsPaginator,
+    ListGatewayRulesPaginator,
     ListGatewaysPaginator,
     ListGatewayTargetsPaginator,
     ListHarnessesPaginator,
@@ -62,10 +65,14 @@ from .type_defs import (
     CreateBrowserResponseTypeDef,
     CreateCodeInterpreterRequestTypeDef,
     CreateCodeInterpreterResponseTypeDef,
+    CreateConfigurationBundleRequestTypeDef,
+    CreateConfigurationBundleResponseTypeDef,
     CreateEvaluatorRequestTypeDef,
     CreateEvaluatorResponseTypeDef,
     CreateGatewayRequestTypeDef,
     CreateGatewayResponseTypeDef,
+    CreateGatewayRuleRequestTypeDef,
+    CreateGatewayRuleResponseTypeDef,
     CreateGatewayTargetRequestTypeDef,
     CreateGatewayTargetResponseTypeDef,
     CreateHarnessRequestTypeDef,
@@ -97,10 +104,14 @@ from .type_defs import (
     DeleteBrowserResponseTypeDef,
     DeleteCodeInterpreterRequestTypeDef,
     DeleteCodeInterpreterResponseTypeDef,
+    DeleteConfigurationBundleRequestTypeDef,
+    DeleteConfigurationBundleResponseTypeDef,
     DeleteEvaluatorRequestTypeDef,
     DeleteEvaluatorResponseTypeDef,
     DeleteGatewayRequestTypeDef,
     DeleteGatewayResponseTypeDef,
+    DeleteGatewayRuleRequestTypeDef,
+    DeleteGatewayRuleResponseTypeDef,
     DeleteGatewayTargetRequestTypeDef,
     DeleteGatewayTargetResponseTypeDef,
     DeleteHarnessRequestTypeDef,
@@ -131,10 +142,16 @@ from .type_defs import (
     GetBrowserResponseTypeDef,
     GetCodeInterpreterRequestTypeDef,
     GetCodeInterpreterResponseTypeDef,
+    GetConfigurationBundleRequestTypeDef,
+    GetConfigurationBundleResponseTypeDef,
+    GetConfigurationBundleVersionRequestTypeDef,
+    GetConfigurationBundleVersionResponseTypeDef,
     GetEvaluatorRequestTypeDef,
     GetEvaluatorResponseTypeDef,
     GetGatewayRequestTypeDef,
     GetGatewayResponseTypeDef,
+    GetGatewayRuleRequestTypeDef,
+    GetGatewayRuleResponseTypeDef,
     GetGatewayTargetRequestTypeDef,
     GetGatewayTargetResponseTypeDef,
     GetHarnessRequestTypeDef,
@@ -175,8 +192,14 @@ from .type_defs import (
     ListBrowsersResponseTypeDef,
     ListCodeInterpretersRequestTypeDef,
     ListCodeInterpretersResponseTypeDef,
+    ListConfigurationBundlesRequestTypeDef,
+    ListConfigurationBundlesResponseTypeDef,
+    ListConfigurationBundleVersionsRequestTypeDef,
+    ListConfigurationBundleVersionsResponseTypeDef,
     ListEvaluatorsRequestTypeDef,
     ListEvaluatorsResponseTypeDef,
+    ListGatewayRulesRequestTypeDef,
+    ListGatewayRulesResponseTypeDef,
     ListGatewaysRequestTypeDef,
     ListGatewaysResponseTypeDef,
     ListGatewayTargetsRequestTypeDef,
@@ -223,10 +246,14 @@ from .type_defs import (
     UpdateAgentRuntimeResponseTypeDef,
     UpdateApiKeyCredentialProviderRequestTypeDef,
     UpdateApiKeyCredentialProviderResponseTypeDef,
+    UpdateConfigurationBundleRequestTypeDef,
+    UpdateConfigurationBundleResponseTypeDef,
     UpdateEvaluatorRequestTypeDef,
     UpdateEvaluatorResponseTypeDef,
     UpdateGatewayRequestTypeDef,
     UpdateGatewayResponseTypeDef,
+    UpdateGatewayRuleRequestTypeDef,
+    UpdateGatewayRuleResponseTypeDef,
     UpdateGatewayTargetRequestTypeDef,
     UpdateGatewayTargetResponseTypeDef,
     UpdateHarnessRequestTypeDef,
@@ -381,6 +408,16 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_code_interpreter)
         """
 
+    def create_configuration_bundle(
+        self, **kwargs: Unpack[CreateConfigurationBundleRequestTypeDef]
+    ) -> CreateConfigurationBundleResponseTypeDef:
+        """
+        Creates a new configuration bundle resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_configuration_bundle.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_configuration_bundle)
+        """
+
     def create_evaluator(
         self, **kwargs: Unpack[CreateEvaluatorRequestTypeDef]
     ) -> CreateEvaluatorResponseTypeDef:
@@ -399,6 +436,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_gateway.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_gateway)
+        """
+
+    def create_gateway_rule(
+        self, **kwargs: Unpack[CreateGatewayRuleRequestTypeDef]
+    ) -> CreateGatewayRuleResponseTypeDef:
+        """
+        Creates a rule for a gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_gateway_rule.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_gateway_rule)
         """
 
     def create_gateway_target(
@@ -562,6 +609,16 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_code_interpreter)
         """
 
+    def delete_configuration_bundle(
+        self, **kwargs: Unpack[DeleteConfigurationBundleRequestTypeDef]
+    ) -> DeleteConfigurationBundleResponseTypeDef:
+        """
+        Deletes a configuration bundle and all of its versions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_configuration_bundle.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_configuration_bundle)
+        """
+
     def delete_evaluator(
         self, **kwargs: Unpack[DeleteEvaluatorRequestTypeDef]
     ) -> DeleteEvaluatorResponseTypeDef:
@@ -580,6 +637,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_gateway.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_gateway)
+        """
+
+    def delete_gateway_rule(
+        self, **kwargs: Unpack[DeleteGatewayRuleRequestTypeDef]
+    ) -> DeleteGatewayRuleResponseTypeDef:
+        """
+        Deletes a gateway rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_gateway_rule.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_gateway_rule)
         """
 
     def delete_gateway_target(
@@ -751,6 +818,26 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_code_interpreter)
         """
 
+    def get_configuration_bundle(
+        self, **kwargs: Unpack[GetConfigurationBundleRequestTypeDef]
+    ) -> GetConfigurationBundleResponseTypeDef:
+        """
+        Gets the latest version of a configuration bundle.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_configuration_bundle.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_configuration_bundle)
+        """
+
+    def get_configuration_bundle_version(
+        self, **kwargs: Unpack[GetConfigurationBundleVersionRequestTypeDef]
+    ) -> GetConfigurationBundleVersionResponseTypeDef:
+        """
+        Gets a specific version of a configuration bundle by its version identifier.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_configuration_bundle_version.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_configuration_bundle_version)
+        """
+
     def get_evaluator(
         self, **kwargs: Unpack[GetEvaluatorRequestTypeDef]
     ) -> GetEvaluatorResponseTypeDef:
@@ -768,6 +855,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_gateway.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_gateway)
+        """
+
+    def get_gateway_rule(
+        self, **kwargs: Unpack[GetGatewayRuleRequestTypeDef]
+    ) -> GetGatewayRuleResponseTypeDef:
+        """
+        Retrieves detailed information about a specific gateway rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_gateway_rule.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_gateway_rule)
         """
 
     def get_gateway_target(
@@ -968,6 +1065,27 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_code_interpreters)
         """
 
+    def list_configuration_bundle_versions(
+        self, **kwargs: Unpack[ListConfigurationBundleVersionsRequestTypeDef]
+    ) -> ListConfigurationBundleVersionsResponseTypeDef:
+        """
+        Lists all versions of a configuration bundle, with optional filtering by branch
+        name or creation source.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_configuration_bundle_versions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_configuration_bundle_versions)
+        """
+
+    def list_configuration_bundles(
+        self, **kwargs: Unpack[ListConfigurationBundlesRequestTypeDef]
+    ) -> ListConfigurationBundlesResponseTypeDef:
+        """
+        Lists all configuration bundles in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_configuration_bundles.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_configuration_bundles)
+        """
+
     def list_evaluators(
         self, **kwargs: Unpack[ListEvaluatorsRequestTypeDef]
     ) -> ListEvaluatorsResponseTypeDef:
@@ -977,6 +1095,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_evaluators.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_evaluators)
+        """
+
+    def list_gateway_rules(
+        self, **kwargs: Unpack[ListGatewayRulesRequestTypeDef]
+    ) -> ListGatewayRulesResponseTypeDef:
+        """
+        Lists all rules for a gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_gateway_rules.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_gateway_rules)
         """
 
     def list_gateway_targets(
@@ -1222,6 +1350,17 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_api_key_credential_provider)
         """
 
+    def update_configuration_bundle(
+        self, **kwargs: Unpack[UpdateConfigurationBundleRequestTypeDef]
+    ) -> UpdateConfigurationBundleResponseTypeDef:
+        """
+        Updates a configuration bundle by creating a new version with the specified
+        changes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_configuration_bundle.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_configuration_bundle)
+        """
+
     def update_evaluator(
         self, **kwargs: Unpack[UpdateEvaluatorRequestTypeDef]
     ) -> UpdateEvaluatorResponseTypeDef:
@@ -1240,6 +1379,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_gateway.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_gateway)
+        """
+
+    def update_gateway_rule(
+        self, **kwargs: Unpack[UpdateGatewayRuleRequestTypeDef]
+    ) -> UpdateGatewayRuleResponseTypeDef:
+        """
+        Updates a gateway rule's priority, conditions, actions, or description.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_gateway_rule.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_gateway_rule)
         """
 
     def update_gateway_target(
@@ -1432,8 +1581,41 @@ class BedrockAgentCoreControlClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_configuration_bundle_versions"]
+    ) -> ListConfigurationBundleVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_configuration_bundles"]
+    ) -> ListConfigurationBundlesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_evaluators"]
     ) -> ListEvaluatorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_gateway_rules"]
+    ) -> ListGatewayRulesPaginator:
         """
         Create a paginator for an operation.
 

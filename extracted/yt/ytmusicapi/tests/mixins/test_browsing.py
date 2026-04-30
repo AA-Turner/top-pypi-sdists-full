@@ -43,6 +43,12 @@ class TestBrowsing:
             [x for x in related if set(x.keys()) == {"browseId", "subscribers", "title", "thumbnails"}]
         ) == len(related)
 
+        # test that album type and year are being parsed correctly #899
+        assert all(album["year"].isnumeric() for album in results["albums"]["results"])
+        assert all(not album["type"].isnumeric() for album in results["albums"]["results"] if "type" in album)
+        assert all(single["year"].isnumeric() for single in results["singles"]["results"])
+        assert all(not single["type"].isnumeric() for single in results["singles"]["results"])
+
         results = yt.get_artist("UCLZ7tlKC06ResyDmEStSrOw")  # no album year
         assert len(results) >= 11
 
@@ -134,6 +140,9 @@ class TestBrowsing:
         assert album["audioPlaylistId"] is not None
         assert album["tracks"][0]["trackNumber"] == 1
         assert "feedbackTokens" in album["tracks"][0]
+        assert all(
+            item["creditsBrowseId"] and item["creditsBrowseId"].startswith("MPTC") for item in album["tracks"]
+        )
         album = yt.get_album("MPREb_BQZvl3BFGay")
         assert album["audioPlaylistId"] is not None
         assert len(album["tracks"]) == 7
@@ -259,3 +268,23 @@ class TestBrowsing:
         results = yt_auth.get_search_suggestions("b", detailed_runs=True)
         assert len(results) > 0
         assert any(not item["fromHistory"] for item in results)
+
+    def test_get_song_credits(self, yt, sample_credits):
+        credits = yt.get_song_credits(sample_credits)
+
+        SECTIONS = {"performed_by", "written_by", "produced_by", "music_metadata_provided_by"}
+
+        for section in SECTIONS:
+            assert section in credits
+            assert credits[section] is not None
+            assert isinstance(credits[section]["localized_title"], str)
+            assert len(credits[section]["data"]) > 0
+            assert all(isinstance(item, str) and item for item in credits[section]["data"])
+            assert "\n" not in credits[section]["data"]
+
+        assert len(credits["performed_by"]["data"]) == 12
+        assert credits["performed_by"]["data"][0] == "KANGTA"
+        assert credits["written_by"]["data"][4] == "Eirik Røland"
+        assert credits["produced_by"]["data"][1] == "David Zandén"
+        assert credits["music_metadata_provided_by"]["data"][0] == "SM Entertainment"
+        assert len(credits["other_sections"]) == 0

@@ -3,7 +3,7 @@ Main interface for kinesis-video-webrtc-storage service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis_video_webrtc_storage/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

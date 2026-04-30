@@ -3,7 +3,7 @@ Type annotations for cost-optimization-hub service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cost_optimization_hub/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

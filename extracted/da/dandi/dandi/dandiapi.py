@@ -1,3 +1,15 @@
+"""REST API client for interacting with DANDI Archive instances.
+
+This module provides client classes for communicating with DANDI Archive API
+servers, including asset management, dandiset operations, and authentication.
+
+The main classes are:
+- DandiAPIClient: High-level client for DANDI API operations
+- RESTFullAPIClient: Base HTTP client with retry and authentication
+- RemoteDandiset: Represents a dandiset on the server
+- RemoteAsset: Represents an asset (file) on the server
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -200,6 +212,14 @@ class RESTFullAPIClient:
 
         lgr.debug("%s %s", method.upper(), url)
 
+        def _rewind_data(retry_state: tenacity.RetryCallState) -> None:
+            # After a failed attempt (ConnectionError mid-upload, HTTPError,
+            # etc.), the file pointer may be at an arbitrary position. Seek
+            # back to 0 so the next attempt sends the complete body.
+            # See https://github.com/dandi/dandi-cli/issues/1821
+            if data is not None and hasattr(data, "seek"):
+                data.seek(0)
+
         try:
             for i, attempt in enumerate(
                 tenacity.Retrying(
@@ -213,6 +233,7 @@ class RESTFullAPIClient:
                     ),
                     stop=tenacity.stop_after_attempt(REQUEST_RETRIES),
                     reraise=True,
+                    before_sleep=_rewind_data,
                 )
             ):
                 with attempt:
@@ -237,8 +258,6 @@ class RESTFullAPIClient:
                                 url,
                                 result.text,
                             )
-                            if data is not None and hasattr(data, "seek"):
-                                data.seek(0)
                         if retry_after := get_retry_after(result):
                             lgr.debug(
                                 "Sleeping for %d seconds as instructed in response "
@@ -435,7 +454,11 @@ class DandiAPIClient(RESTFullAPIClient):
                 dandi_instance = get_instance(instance_name)
             api_url = dandi_instance.api
         elif dandi_instance is not None:
-            raise ValueError("api_url and dandi_instance are mutually exclusive")
+            raise ValueError(
+                "api_url and dandi_instance are mutually exclusive. "
+                "Use either 'api_url' to specify a custom API URL, "
+                "or 'dandi_instance' to use a registered DANDI instance, but not both."
+            )
         else:
             dandi_instance = get_instance(api_url)
         super().__init__(api_url)
@@ -562,7 +585,10 @@ class DandiAPIClient(RESTFullAPIClient):
                     self, self.get(f"/dandisets/{dandiset_id}/")
                 )
             except HTTP404Error:
-                raise NotFoundError(f"No such Dandiset: {dandiset_id!r}")
+                raise NotFoundError(
+                    f"No such Dandiset: {dandiset_id!r}. "
+                    "Verify the Dandiset ID is correct and that you have access. "
+                )
             if version_id is not None and version_id != d.version_id:
                 if version_id == DRAFT:
                     return d.for_version(d.draft_version)
@@ -732,7 +758,11 @@ class DandiAPIClient(RESTFullAPIClient):
         try:
             info = self.get(f"/assets/{asset_id}/info/")
         except HTTP404Error:
-            raise NotFoundError(f"No such asset: {asset_id!r}")
+            raise NotFoundError(
+                f"No such asset: {asset_id!r}. "
+                "Verify the asset ID is correct. "
+                "Use 'dandi ls' to list available assets."
+            )
         metadata = info.pop("metadata", None)
         return BaseRemoteAsset.from_base_data(self, info, metadata)
 
@@ -1306,7 +1336,11 @@ class RemoteDandiset:
                 a for a in self.get_assets_with_path_prefix(path) if a.path == path
             )
         except ValueError:
-            raise NotFoundError(f"No asset at path {path!r}")
+            raise NotFoundError(
+                f"No asset at path {path!r} in version {self.version_id}. "
+                "Verify the path is correct and the asset exists in this version. "
+                "Use 'dandi ls' to list available assets."
+            )
         else:
             return asset
 

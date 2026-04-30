@@ -72,7 +72,11 @@ from plato._generated.models import (
     SetDateResponse,
     WaitForReadyResponse,
 )
-from plato.v2._wait_for_ready import poll_until_ready_sync
+from plato.v2._wait_for_ready import (
+    JobTerminalStatusError,
+    is_terminal_status,
+    poll_until_ready_sync,
+)
 from plato.v2.sync.environment import Environment
 from plato.v2.sync.flow_executor import FlowExecutor
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
@@ -386,6 +390,17 @@ class Session:
                         error = result.error or "Unknown error"
                         errors.append(f"{job_id}: {error}")
 
+            # Aggregate session status: ``failed`` means at least one job is
+            # in a terminal state — surface a permanent failure rather than a
+            # timeout, even if the budget hasn't been exhausted.
+            if is_terminal_status(response):
+                detail = ", ".join(errors) if errors else "session reported terminal failure status"
+                raise JobTerminalStatusError(
+                    f"Environments failed to become ready: {detail}",
+                    job_id=None,
+                    status=response.status.value,
+                    backend_error=detail,
+                )
             if errors:
                 raise RuntimeError(f"Environments failed to become ready: {', '.join(errors)}")
             else:
@@ -832,6 +847,7 @@ class Session:
         env: EnvFromSimulator | EnvFromArtifact | EnvFromResource,
         *,
         timeout: int = 1800,
+        ready_timeout: int = 600,
         heartbeat_timeout: int | None = None,
         wait_for_ready: bool = True,
     ) -> Environment:
@@ -844,7 +860,13 @@ class Session:
 
         Args:
             env: Environment configuration (from Env.simulator(), Env.artifact(), or Env.resource()).
-            timeout: VM timeout in seconds (default: 1800).
+            timeout: VM lifetime in seconds (default: 1800). Sent to the backend as
+                ``AddJobRequest.timeout`` — the backend kills the VM after this elapses.
+            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before
+                raising ``TimeoutError`` (default: 600). Independent of VM lifetime so
+                a long-lived VM does not force a long readiness wait when something has
+                gone wrong. Always clamped to ``timeout`` so the polling deadline never
+                outlives the VM.
             heartbeat_timeout: Per-VM heartbeat timeout. None=use default (300s), 0=disabled.
             wait_for_ready: If True, wait for the job to be ready before returning (default: True).
 
@@ -853,7 +875,8 @@ class Session:
 
         Raises:
             RuntimeError: If session is closed or job creation fails.
-            TimeoutError: If wait_for_ready=True and the job doesn't become ready within timeout.
+            TimeoutError: If wait_for_ready=True and the job doesn't become ready
+                within ``ready_timeout``.
         """
         self._check_closed()
 
@@ -893,6 +916,7 @@ class Session:
         # Wait for the job to be ready if requested.
         mesh_ip: str | None = None
         if wait_for_ready:
+            poll_budget = min(ready_timeout, timeout)
             ready_response = poll_until_ready_sync(
                 lambda per_call: jobs_wait_for_ready.sync(
                     client=self._http,
@@ -900,10 +924,18 @@ class Session:
                     timeout=per_call,
                     x_api_key=self._api_key,
                 ),
-                timeout=timeout,
+                timeout=poll_budget,
             )
             if not ready_response.ready:
                 error = ready_response.error or "Unknown error"
+                if is_terminal_status(ready_response):
+                    status_value = ready_response.status.value
+                    raise JobTerminalStatusError(
+                        f"Job {job_id} reached terminal status '{status_value}' before becoming ready: {error}",
+                        job_id=job_id,
+                        status=status_value,
+                        backend_error=ready_response.error,
+                    )
                 raise TimeoutError(f"Job {job_id} did not become ready: {error}")
             mesh_ip = ready_response.mesh_ip
 

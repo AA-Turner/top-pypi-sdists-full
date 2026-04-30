@@ -3,11 +3,10 @@ import uuid
 from xml.etree import ElementTree
 
 import pytest
-import yaml
 from _pytest.main import ExitCode
 from flask import jsonify, request
 
-from test.utils import flaky
+from test.utils import flaky, load_yaml_or_fail
 
 
 @pytest.mark.openapi_version("3.0")
@@ -78,8 +77,7 @@ def test_with_cassette(tmp_path, cli, schema_url):
         f"--report-vcr-path={cassette_path}",
     )
     assert cassette_path.exists()
-    with cassette_path.open(encoding="utf-8") as fd:
-        cassette = yaml.safe_load(fd)
+    cassette = load_yaml_or_fail(cassette_path)
     assert len(cassette["http_interactions"]) >= 20
     assert cassette["seed"] not in (None, "None")
 
@@ -97,8 +95,7 @@ def test_with_cassette_stateful_only(tmp_path, cli, schema_url):
         f"--report-vcr-path={cassette_path}",
     )
     assert cassette_path.exists()
-    with cassette_path.open(encoding="utf-8") as fd:
-        cassette = yaml.safe_load(fd)
+    cassette = load_yaml_or_fail(cassette_path)
     for interaction in cassette["http_interactions"]:
         assert interaction["phase"]["name"] == "stateful"
 
@@ -117,14 +114,17 @@ def test_junit(tmp_path, cli, schema_url):
         exit_code=ExitCode.TESTS_FAILED,
     )
     assert junit_path.exists()
-    tree = ElementTree.parse(junit_path)
-    root = tree.getroot()
-    assert root.tag == "testsuites"
-    assert len(root) == 1
-    assert len(root[0]) == 1
-    assert root[0][0].attrib["name"] == "Stateful tests"
-    assert len(root[0][0]) == 1
-    assert root[0][0][0].tag == "failure"
+    xml_content = junit_path.read_text()
+    root = ElementTree.fromstring(xml_content)
+    structure = (
+        root.tag,
+        [
+            (suite.attrib.get("name"), [(case.attrib.get("name"), [child.tag for child in case]) for case in suite])
+            for suite in root
+        ],
+    )
+    expected = ("testsuites", [("schemathesis", [("Stateful tests", ["failure"])])])
+    assert structure == expected, xml_content
 
 
 @pytest.mark.openapi_version("3.0")

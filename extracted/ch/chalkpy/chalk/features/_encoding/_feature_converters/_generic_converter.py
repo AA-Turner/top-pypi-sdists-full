@@ -12,9 +12,9 @@ from typing import (
     Tuple,
     Union,
     final,
+    get_args,
+    get_origin,
 )
-
-from typing_extensions import get_args, get_origin
 
 from chalk.utils.collections import unwrap_annotated_if_needed
 

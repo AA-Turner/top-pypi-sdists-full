@@ -11,8 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import tenacity
-
 from plato.agents import vm_setup
 from plato.runtimes.base import Runtime, RuntimeInfo
 from plato.runtimes.vm import VMRuntime
@@ -21,6 +19,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
+_ACQUIRE_PROVISION_ATTEMPT_LIMIT = 3
+_PROVISION_VM_ATTEMPT_LIMIT = 3
 
 
 @dataclass(slots=True)
@@ -231,6 +231,7 @@ class WarmPool:
             await asyncio.gather(*(self._destroy_vm(vm) for vm in pooled_vms), return_exceptions=True)
 
     async def _acquire_or_provision(self) -> PooledVM:
+        provision_failures = 0
         while True:
             async with self._condition:
                 if self._closed:
@@ -243,32 +244,44 @@ class WarmPool:
 
                 if len(self._all_vms) + self._provisioning < self.max_size:
                     self._provisioning += 1
-                    break
+                else:
+                    await self._condition.wait()
+                    continue
 
-                await self._condition.wait()
+            try:
+                pooled_vm = await self._provision_vm()
+            except Exception as exc:
+                async with self._condition:
+                    self._provisioning -= 1
+                    self._condition.notify_all()
+                provision_failures += 1
+                if provision_failures >= _ACQUIRE_PROVISION_ATTEMPT_LIMIT:
+                    raise
+                delay = min(float(2 ** (provision_failures - 1)), 5.0)
+                logger.warning(
+                    "Warm pool acquire provision failed on attempt %d/%d; retrying with a fresh slot in %.1fs: %s",
+                    provision_failures,
+                    _ACQUIRE_PROVISION_ATTEMPT_LIMIT,
+                    delay,
+                    exc,
+                )
+                await asyncio.sleep(delay)
+                continue
 
-        try:
-            pooled_vm = await self._provision_vm()
-        except Exception:
             async with self._condition:
                 self._provisioning -= 1
-                self._condition.notify_all()
-            raise
+                if self._closed:
+                    destroy_now = True
+                else:
+                    self._all_vms[pooled_vm.alias] = pooled_vm
+                    self._in_use[pooled_vm.alias] = pooled_vm
+                    self._condition.notify_all()
+                    destroy_now = False
 
-        async with self._condition:
-            self._provisioning -= 1
-            if self._closed:
-                destroy_now = True
-            else:
-                self._all_vms[pooled_vm.alias] = pooled_vm
-                self._in_use[pooled_vm.alias] = pooled_vm
-                self._condition.notify_all()
-                destroy_now = False
-
-        if destroy_now:
-            await self._destroy_vm(pooled_vm)
-            raise RuntimeError("WarmPool was shut down during provisioning")
-        return pooled_vm
+            if destroy_now:
+                await self._destroy_vm(pooled_vm)
+                raise RuntimeError("WarmPool was shut down during provisioning")
+            return pooled_vm
 
     async def _mark_not_in_use(self, alias: str) -> None:
         async with self._condition:
@@ -335,35 +348,62 @@ class WarmPool:
         except Exception:
             logger.exception("Warm pool replenish failed")
 
-    @tenacity.retry(
-        stop=tenacity.stop_after_attempt(3),
-        wait=tenacity.wait_exponential(multiplier=1, min=1, max=5),
-        before_sleep=tenacity.before_sleep_log(logger, logging.WARNING),
-        reraise=True,
-    )
     async def _provision_vm(self) -> PooledVM:
-        """Provision a new pooled runtime."""
-        alias = vm_setup.make_agent_alias("warm-pool")
+        """Provision a new pooled runtime.
+
+        Each retry uses a fresh alias and tears down the previous attempt's
+        VM. Reusing the alias would just re-probe the same unreachable VM —
+        if a backend VM is wedged (e.g. SSH never comes up), the only way
+        forward is to throw it away and provision a new one.
+        """
         vm_rt = self._make_runtime()
+        last_exc: BaseException | None = None
 
-        logger.info(
-            "Creating pooled runtime: %s (image: %s)",
-            alias,
-            self._image,
-        )
+        for attempt in range(_PROVISION_VM_ATTEMPT_LIMIT):
+            alias = vm_setup.make_agent_alias("warm-pool")
+            logger.info(
+                "Creating pooled runtime: %s (image: %s)%s",
+                alias,
+                self._image,
+                f" [retry {attempt}/{_PROVISION_VM_ATTEMPT_LIMIT - 1}]" if attempt else "",
+            )
 
-        info = await vm_rt.start(alias=alias)
+            try:
+                info = await vm_rt.start(alias=alias)
+            except Exception as exc:
+                last_exc = exc
+                logger.warning(
+                    "Pooled VM %s start failed (attempt %d/%d): %s",
+                    alias,
+                    attempt + 1,
+                    _PROVISION_VM_ATTEMPT_LIMIT,
+                    exc,
+                )
+                try:
+                    await vm_rt.stop(alias)
+                except Exception as cleanup_exc:
+                    logger.warning(
+                        "Failed to clean up pooled VM %s after provision failure: %s",
+                        alias,
+                        cleanup_exc,
+                    )
+                if attempt + 1 < _PROVISION_VM_ATTEMPT_LIMIT:
+                    await asyncio.sleep(min(2**attempt, 5))
+                continue
 
-        now = time.monotonic()
-        return PooledVM(
-            vm_runtime=vm_rt,
-            runtime_info=info,
-            alias=alias,
-            image=self._image,
-            created_at=now,
-            last_used_at=now,
-            use_count=0,
-        )
+            now = time.monotonic()
+            return PooledVM(
+                vm_runtime=vm_rt,
+                runtime_info=info,
+                alias=alias,
+                image=self._image,
+                created_at=now,
+                last_used_at=now,
+                use_count=0,
+            )
+
+        assert last_exc is not None
+        raise last_exc
 
     async def _reset_vm(self, pooled_vm: PooledVM, workspace_paths: list[str]) -> bool:
         commands = _runtime_reset_commands(workspace_paths)

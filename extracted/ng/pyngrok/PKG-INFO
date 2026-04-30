@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyngrok
-Version: 8.1.1
+Version: 8.1.2
 Summary: A Python wrapper for ngrok
 Author-email: Alex Laird <contact@alexlaird.com>
 Maintainer-email: Alex Laird <contact@alexlaird.com>

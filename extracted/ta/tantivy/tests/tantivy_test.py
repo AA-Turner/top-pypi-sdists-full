@@ -4,6 +4,8 @@ import copy
 import datetime
 import json
 import pickle
+from itertools import groupby
+
 import pytest
 
 import tantivy
@@ -139,6 +141,39 @@ class TestClass(object):
 }
 """)
 
+    def test_aggregate_terms(self, ram_index_numeric_fields):
+        """terms aggregation on a fast text field returns buckets with doc counts."""
+        index = ram_index_numeric_fields
+        query = Query.all_query()
+        agg_query = {
+            "body_terms": {
+                "terms": {
+                    "field": "body",
+                    "size": 5,
+                }
+            }
+        }
+        searcher = index.searcher()
+        result = searcher.aggregate(query, agg_query)
+
+        assert isinstance(result, dict)
+        assert "body_terms" in result
+        buckets = result["body_terms"]["buckets"]
+        assert len(buckets) == 5  # capped by size=5
+        # Every bucket must have a string key and an integer doc_count
+        for bucket in buckets:
+            assert isinstance(bucket["key"], str)
+            assert isinstance(bucket["doc_count"], int)
+            assert bucket["doc_count"] >= 1
+        # Results are sorted by doc_count descending.
+        counts = [b["doc_count"] for b in buckets]
+        assert counts == sorted(counts, reverse=True)
+        # "and" appears in both documents so it has the highest doc_count (2).
+        # doc1's body has "inthe" as one token (no separate "the"), so "and" wins.
+        top_keys = {b["key"] for b in buckets if b["doc_count"] == buckets[0]["doc_count"]}
+        assert "and" in top_keys
+        assert buckets[0]["doc_count"] == 2
+
     def test_cardinality(self, ram_index_numeric_fields):
         index = ram_index_numeric_fields
         query = Query.all_query()
@@ -156,6 +191,11 @@ class TestClass(object):
         single_doc_query = Query.term_query(index.schema, "id", 1)
         cardinality = searcher.cardinality(single_doc_query, "rating")
         assert cardinality == 1.0
+
+        # Test cardinality on a text fast field - the body field contains
+        # many unique tokens across both documents.
+        cardinality = searcher.cardinality(query, "body")
+        assert cardinality > 10
 
     def test_and_query_numeric_fields(self, ram_index_numeric_fields):
         index = ram_index_numeric_fields
@@ -203,6 +243,22 @@ class TestClass(object):
             == """Query(BooleanQuery { subqueries: [(Should, FuzzyTermQuery { term: Term(field=0, type=Str, "winter"), distance: 1, transposition_cost_one: false, prefix: true }), (Should, TermQuery(Term(field=1, type=Str, "winter")))], minimum_number_should_match: 1 })"""
         )
 
+    def test_parse_query_allow_regexes(self, ram_index):
+        query = ram_index.parse_query("title:/(?:man|men)/", allow_regexes=True)
+        result = ram_index.searcher().search(query, 10)
+        assert len(result.hits) == 2
+        _, doc_address = result.hits[0]
+        searched_doc = ram_index.searcher().doc(doc_address)
+        assert searched_doc["title"] == ["The Old Man and the Sea"]
+        _, doc_address = result.hits[1]
+        searched_doc = ram_index.searcher().doc(doc_address)
+        assert searched_doc["title"] == ["Of Mice and Men"]
+
+        with pytest.raises(
+               ValueError, match="Unsupported query: Regex queries are not allowed."
+          ):
+          query = ram_index.parse_query("title:/(?:man|men)/")
+
     def test_query_errors(self, ram_index):
         index = ram_index
         # no "bod" field
@@ -233,99 +289,9 @@ class TestClass(object):
             == """Query(BooleanQuery { subqueries: [(Should, BooleanQuery { subqueries: [(Must, TermQuery(Term(field=3, type=Str, "hello")))], minimum_number_should_match: 0 })], minimum_number_should_match: 1 })"""
         )
 
-    def test_order_by_search(self):
-        schema = (
-            SchemaBuilder()
-            .add_unsigned_field("order", fast=True)
-            .add_text_field("title", stored=True)
-            .build()
-        )
-
-        index = Index(schema)
-        writer = index.writer()
-
-        doc = Document()
-        doc.add_unsigned("order", 0)
-        doc.add_text("title", "Test title")
-
-        writer.add_document(doc)
-
-        doc = Document()
-        doc.add_unsigned("order", 2)
-        doc.add_text("title", "Final test title")
-        writer.add_document(doc)
-
-        doc = Document()
-        doc.add_unsigned("order", 1)
-        doc.add_text("title", "Another test title")
-
-        writer.add_document(doc)
-
-        writer.commit()
-        index.reload()
-
-        query = index.parse_query("test")
-
-        searcher = index.searcher()
-
-        result = searcher.search(query, 10, offset=2, order_by_field="order")
-
-        assert len(result.hits) == 1
-
-        result = searcher.search(query, 10, order_by_field="order")
-
-        assert len(result.hits) == 3
-
-        _, doc_address = result.hits[0]
-        searched_doc = index.searcher().doc(doc_address)
-        assert searched_doc["title"] == ["Final test title"]
-
-        _, doc_address = result.hits[1]
-        searched_doc = index.searcher().doc(doc_address)
-        assert searched_doc["title"] == ["Another test title"]
-
-        _, doc_address = result.hits[2]
-        searched_doc = index.searcher().doc(doc_address)
-        assert searched_doc["title"] == ["Test title"]
-
-        result = searcher.search(
-            query, 10, order_by_field="order", order=tantivy.Order.Asc
-        )
-
-        assert len(result.hits) == 3
-
-        _, doc_address = result.hits[2]
-        searched_doc = index.searcher().doc(doc_address)
-        assert searched_doc["title"] == ["Final test title"]
-
-        _, doc_address = result.hits[1]
-        searched_doc = index.searcher().doc(doc_address)
-        assert searched_doc["title"] == ["Another test title"]
-
-        _, doc_address = result.hits[0]
-        searched_doc = index.searcher().doc(doc_address)
-        assert searched_doc["title"] == ["Test title"]
-
-    def test_order_by_search_without_fast_field(self):
-        schema = (
-            SchemaBuilder()
-            .add_unsigned_field("order")
-            .add_text_field("title", stored=True)
-            .build()
-        )
-
-        index = Index(schema)
-        writer = index.writer()
-
-        doc = Document()
-        doc.add_unsigned("order", 0)
-        doc.add_text("title", "Test title")
-
-        query = index.parse_query("test")
-
-        searcher = index.searcher()
-        result = searcher.search(query, 10, order_by_field="order")
-        assert len(result.hits) == 0
+        query, errors = index.parse_query_lenient("title:/(?:man|men)/")
+        assert len(errors) == 1
+        assert isinstance(errors[0], query_parser_error.UnsupportedQueryError)
 
     def test_query_explain(self, ram_index):
         index: Index = ram_index
@@ -350,10 +316,42 @@ class TestClass(object):
         # The JSON should contain score information
         assert '"value"' in json_output or "value" in json_output
 
-    def test_order_by_search_date(self):
+    @pytest.mark.parametrize("field, low_value, high_value", [
+        pytest.param("u64_field", 0, 2, id="U64"),
+        pytest.param("i64_field", -10, 5, id="I64"),
+        pytest.param("f64_field", 1.5, 3.14, id="F64"),
+        pytest.param("bool_field", False, True, id="Bool"),
+        pytest.param("str_field", "apple", "cherry", id="Str"),
+        pytest.param(
+            "date_field",
+            int(datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc).timestamp()) * 1_000_000_000,
+            int(datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc).timestamp()) * 1_000_000_000,
+            id="Date",
+        ),
+    ])
+    def test_order_by_fast_field(self, index_with_order_fast_fields, field, low_value, high_value):
+        searcher = index_with_order_fast_fields.searcher()
+        query = index_with_order_fast_fields.parse_query("title", ["title"])
+
+        result = searcher.search(query, 10, order_by_field=field)
+        assert len(result.hits) == 2
+        assert result.hits[0][0] == high_value
+        assert result.hits[1][0] == low_value
+        assert searcher.doc(result.hits[0][1])["title"] == ["high title"]
+        assert searcher.doc(result.hits[1][1])["title"] == ["low title"]
+
+        result = searcher.search(query, 10, order_by_field=field, order=tantivy.Order.Asc)
+        assert len(result.hits) == 2
+        assert result.hits[0][0] == low_value
+        assert result.hits[1][0] == high_value
+        assert searcher.doc(result.hits[0][1])["title"] == ["low title"]
+        assert searcher.doc(result.hits[1][1])["title"] == ["high title"]
+
+
+    def test_order_by_search_without_fast_field(self):
         schema = (
             SchemaBuilder()
-            .add_date_field("order", fast=True)
+            .add_unsigned_field("order")
             .add_text_field("title", stored=True)
             .build()
         )
@@ -362,44 +360,16 @@ class TestClass(object):
         writer = index.writer()
 
         doc = Document()
-        doc.add_date("order", datetime.datetime(2020, 1, 1))
+        doc.add_unsigned("order", 0)
         doc.add_text("title", "Test title")
-
-        writer.add_document(doc)
-
-        doc = Document()
-        doc.add_date("order", datetime.datetime(2022, 1, 1))
-        doc.add_text("title", "Final test title")
-        writer.add_document(doc)
-
-        doc = Document()
-        doc.add_date("order", datetime.datetime(2021, 1, 1))
-        doc.add_text("title", "Another test title")
-
-        writer.add_document(doc)
-
-        writer.commit()
-        index.reload()
 
         query = index.parse_query("test")
 
         searcher = index.searcher()
-
-        result = searcher.search(query, 10, order_by_field="order")
-
-        assert len(result.hits) == 3
-
-        _, doc_address = result.hits[0]
-        searched_doc = index.searcher().doc(doc_address)
-        assert searched_doc["title"] == ["Final test title"]
-
-        _, doc_address = result.hits[1]
-        searched_doc = index.searcher().doc(doc_address)
-        assert searched_doc["title"] == ["Another test title"]
-
-        _, doc_address = result.hits[2]
-        searched_doc = index.searcher().doc(doc_address)
-        assert searched_doc["title"] == ["Test title"]
+        with pytest.raises(
+            ValueError, match="not a fast field"
+        ):
+            searcher.search(query, 10, order_by_field="order")
 
     def test_with_merges(self):
         # This test is taken from tantivy's test suite:
@@ -888,6 +858,27 @@ def test_bytes(bytes_kwarg, bytes_payload):
     index.reload()
 
 
+def test_bytes_term_query():
+    schema = (
+        SchemaBuilder()
+        .add_bytes_field("data", indexed=True)
+        .build()
+    )
+    index = Index(schema)
+    writer = index.writer()
+
+    doc1 = Document(data=b"\x01\x02\x03")
+    doc2 = Document(data=b"\x04\x05\x06")
+    writer.add_document(doc1)
+    writer.add_document(doc2)
+    writer.commit()
+    index.reload()
+
+    query = Query.term_query(schema, "data", b"\x01\x02\x03")
+    result = index.searcher().search(query, 10)
+    assert len(result.hits) == 1
+
+
 def test_schema_eq():
     schema1 = build_schema()
     schema2 = build_schema()
@@ -1003,11 +994,9 @@ class TestQuery(object):
         result = index.searcher().search(query, 10)
         assert len(result.hits) == 0
 
-        # Should fail to create the query due to the invalid list object in the terms list
-        with pytest.raises(
-            ValueError, match=r"Can't create a term for Field `title` with value `\[\]`"
-        ):
-            terms = ["old", [], "man"]
+        # Should fail to create the query due to the invalid object in the terms list
+        with pytest.raises(ValueError):
+            terms = ["old", object(), "man"]
             query = Query.term_set_query(index.schema, "title", terms)
 
     def test_all_query(self, ram_index):
@@ -1023,6 +1012,25 @@ class TestQuery(object):
 
         result = index.searcher().search(query, 10)
         assert len(result.hits) == 0
+
+    def test_exists_query(self, index_with_empty_fast_field):
+        index = index_with_empty_fast_field
+        query = Query.exists_query("body")
+
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 1
+
+    def test_not_exists_query(self, index_with_empty_fast_field):
+        index = index_with_empty_fast_field
+        query = Query.boolean_query(
+            [
+                (Occur.Must, Query.all_query()),
+                (Occur.MustNot, Query.exists_query("body")),
+            ]
+        )
+
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 2
 
     def test_phrase_query(self, ram_index):
         index = ram_index
@@ -1176,7 +1184,14 @@ class TestQuery(object):
         result = index.searcher().search(query, 10)
         assert len(result.hits) == 0
 
-        query = Query.boolean_query([(Occur.Should, query1), (Occur.Should, query2)])
+        query = Query.boolean_query([(Occur.Should, query1), (Occur.Should, query2)], minimum_number_should_match=2)
+
+        # it's possible to specify that both queries should match with the minimum_number_should_match argument
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 0
+
+
+        query = Query.boolean_query([(Occur.Should, query1), (Occur.Should, query2)], minimum_number_should_match=1)
 
         # two documents should match, one for each query
         result = index.searcher().search(query, 10)
@@ -1405,6 +1420,79 @@ class TestQuery(object):
         result = index.searcher().search(mlt_query, 10)
         assert len(result.hits) > 0
 
+    def test_more_like_this_document_fields_query(self):
+        schema = (
+            SchemaBuilder()
+            .add_unsigned_field("id", stored=True, indexed=True)
+            .add_text_field("title")
+            .add_text_field("body")
+            .build()
+        )
+        index = Index(schema)
+        writer = index.writer()
+        writer.add_document(
+            Document.from_dict(
+                {
+                    "id": 1,
+                    "title": "aaa",
+                    "body": "the old man and the sea",
+                },
+                schema,
+            )
+        )
+        writer.add_document(
+            Document.from_dict(
+                {
+                    "id": 2,
+                    "title": "bbb",
+                    "body": "an old man sailing on the sea",
+                },
+                schema,
+            )
+        )
+        writer.add_document(
+            Document.from_dict(
+                {
+                    "id": 3,
+                    "title": "ccc",
+                    "body": "send this message to alice",
+                },
+                schema,
+            )
+        )
+        writer.commit()
+        writer.wait_merging_threads()
+        index.reload()
+
+        query_document_fields = {
+            "title": "aaa",
+            "body": "the old man and the sea",
+        }
+        mlt_query = Query.more_like_this_document_fields_query(
+            schema,
+            query_document_fields,
+            min_doc_frequency=1,
+            min_term_frequency=1,
+            max_query_terms=10,
+        )
+        assert "target: DocumentFields(" in repr(mlt_query)
+
+        result = index.searcher().search(mlt_query, 10)
+        hit_ids = {
+            index.searcher().doc(doc_address)["id"][0]
+            for _, doc_address in result.hits
+        }
+        assert hit_ids == {1, 2}
+
+    def test_more_like_this_document_fields_query_rejects_unknown_fields(self, ram_index):
+        index = ram_index
+        query_document_fields = {"unknown_field": "value"}
+
+        with pytest.raises(
+            ValueError, match="Field `unknown_field` is not defined in the schema."
+        ):
+            Query.more_like_this_document_fields_query(index.schema, query_document_fields)
+
     def test_const_score_query(self, ram_index):
         index = ram_index
 
@@ -1478,6 +1566,76 @@ class TestQuery(object):
         result = index.searcher().search(query, 10)
         assert len(result.hits) == 0
 
+        # test unbounded upper (>= 4.0)
+        query = Query.range_query(
+            index.schema, "rating", FieldType.Float, 4.0, None, include_lower=True
+        )
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 1
+        _, doc_address = result.hits[0]
+        searched_doc = index.searcher().doc(doc_address)
+        assert searched_doc["id"][0] == 2
+
+        # test unbounded lower (<= 4.0)
+        query = Query.range_query(
+            index.schema, "rating", FieldType.Float, None, 4.0, include_upper=True
+        )
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 1
+        _, doc_address = result.hits[0]
+        searched_doc = index.searcher().doc(doc_address)
+        assert searched_doc["id"][0] == 1
+
+        # both bounds None is an error
+        with pytest.raises(ValueError, match="At least one"):
+            Query.range_query(index.schema, "rating", FieldType.Float, None, None)
+
+        # test integer field with unbounded upper (id >= 2)
+        query = Query.range_query(
+            index.schema, "id", FieldType.Integer, 2, None, include_lower=True
+        )
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 1
+        _, doc_address = result.hits[0]
+        assert index.searcher().doc(doc_address)["id"][0] == 2
+
+        # test integer field with unbounded lower (id <= 1)
+        query = Query.range_query(
+            index.schema, "id", FieldType.Integer, None, 1, include_upper=True
+        )
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 1
+        _, doc_address = result.hits[0]
+        assert index.searcher().doc(doc_address)["id"][0] == 1
+
+    @pytest.mark.parametrize(
+        ("lower_bound", "upper_bound", "include_lower", "include_upper", "match"),
+        [
+            (None, 4.0, False, True, "include_lower"),
+            (3.0, None, True, False, "include_upper"),
+        ],
+    )
+    def test_range_query_contradictory_include_and_none_bound(
+        self,
+        ram_index_numeric_fields,
+        lower_bound: float | None,
+        upper_bound: float | None,
+        include_lower: bool,
+        include_upper: bool,
+        match: str,
+    ):
+        index = ram_index_numeric_fields
+        with pytest.raises(ValueError, match=match):
+            Query.range_query(
+                index.schema,
+                "rating",
+                FieldType.Float,
+                lower_bound,
+                upper_bound,
+                include_lower=include_lower,
+                include_upper=include_upper,
+            )
+
     def test_range_query_numerics_with_inverted_index(self, ram_index_numeric_fields):
         index = ram_index_numeric_fields
 
@@ -1488,6 +1646,13 @@ class TestQuery(object):
 
         # test integer field excluding the lower bound
         query = Query.range_query(index.schema, "id", FieldType.Integer, 1, 2, use_inverted_index=True, include_lower=False)
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 1
+
+        # test unbounded upper with inverted index (id >= 2)
+        query = Query.range_query(
+            index.schema, "id", FieldType.Integer, 2, None, include_lower=True, use_inverted_index=True
+        )
         result = index.searcher().search(query, 10)
         assert len(result.hits) == 1
 
@@ -1528,6 +1693,30 @@ class TestQuery(object):
         )
         result = index.searcher().search(query, 10)
         assert len(result.hits) == 0
+
+        # test date field with unbounded upper (date >= 2021-01-02)
+        query = Query.range_query(
+            index.schema,
+            "date",
+            FieldType.Date,
+            datetime.datetime(2021, 1, 2),
+            None,
+            include_lower=True,
+        )
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 1
+
+        # test date field with unbounded lower (date <= 2021-01-01)
+        query = Query.range_query(
+            index.schema,
+            "date",
+            FieldType.Date,
+            None,
+            datetime.datetime(2021, 1, 1),
+            include_upper=True,
+        )
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 1
 
     def test_range_query_ip_addrs(self, ram_index_with_ip_addr_field):
         index = ram_index_with_ip_addr_field
@@ -1576,6 +1765,20 @@ class TestQuery(object):
         )
         result = index.searcher().search(query, 10)
         assert len(result.hits) == 1
+
+        # test unbounded upper (ip >= 10.0.0.1): matches 10.0.0.1 and 127.0.0.1
+        query = Query.range_query(
+            index.schema, "ip_addr", FieldType.IpAddr, "10.0.0.1", None, include_lower=True
+        )
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 2
+
+        # test unbounded lower (ip <= 10.0.0.1): matches ::1 and 10.0.0.1
+        query = Query.range_query(
+            index.schema, "ip_addr", FieldType.IpAddr, None, "10.0.0.1", include_upper=True
+        )
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 2
 
     def test_range_query_invalid_types(
         self,
@@ -1633,6 +1836,57 @@ class TestQuery(object):
             ValueError, match="Facet fields are not supported for range queries."
         ):
             Query.range_query(index.schema, "title", FieldType.Facet, 1, 2)
+
+    def test_term_query_unsigned_field(self):
+        """term_query must correctly match documents on unsigned (u64) fields.
+
+        Previously, make_term() used extract_value() which always inferred
+        Python integers as i64.  For a u64 schema field this produced a
+        mistyped Term that never matched any document, silently returning 0
+        hits regardless of the value passed.
+        """
+        schema = (
+            SchemaBuilder()
+            .add_unsigned_field("uid", stored=True, indexed=True)
+            .add_text_field("body", stored=True)
+            .build()
+        )
+        index = Index(schema, None)
+        with index.writer(15_000_000, 1) as writer:
+            doc = Document()
+            doc.add_unsigned("uid", 1)
+            doc.add_text("body", "hello world")
+            writer.add_document(doc)
+
+            doc = Document()
+            doc.add_unsigned("uid", 2)
+            doc.add_text("body", "goodbye world")
+            writer.add_document(doc)
+
+        index.reload()
+        searcher = index.searcher()
+
+        # Exact match on a u64 field - previously always returned 0 hits.
+        query = Query.term_query(index.schema, "uid", 1)
+        result = searcher.search(query, 10)
+        assert len(result.hits) == 1, (
+            "term_query on a u64 field returned no hits; "
+            "integer was likely extracted as i64"
+        )
+        _, doc_address = result.hits[0]
+        assert searcher.doc(doc_address)["uid"][0] == 1
+
+        # Second value also resolves correctly.
+        query = Query.term_query(index.schema, "uid", 2)
+        result = searcher.search(query, 10)
+        assert len(result.hits) == 1
+        _, doc_address = result.hits[0]
+        assert searcher.doc(doc_address)["uid"][0] == 2
+
+        # Non-existent value returns no hits.
+        query = Query.term_query(index.schema, "uid", 999)
+        result = searcher.search(query, 10)
+        assert len(result.hits) == 0
 
 
 class TestTokenizers:
@@ -1809,3 +2063,299 @@ class TestTokenizers:
         assert isinstance(ast, dict)
         assert isinstance(errors, list)
         assert len(errors) == 0
+
+
+class TestFastFieldValues:
+    """Tests for Searcher.fast_field_values()."""
+
+    @pytest.fixture(scope="class")
+    def fast_index(self):
+        schema = (
+            SchemaBuilder()
+            .add_unsigned_field("doc_id", stored=True, indexed=True, fast=True)
+            .add_integer_field("rank", stored=True, indexed=True, fast=True)
+            .add_float_field("score", stored=True, indexed=True, fast=True)
+            .add_boolean_field("active", stored=True, indexed=True)
+            .add_boolean_field("flag", stored=True, indexed=True, fast=True)
+            .add_text_field("body", stored=True)
+            .add_text_field("tag", stored=True, fast=True)
+            .build()
+        )
+        index = Index(schema, None)
+        with index.writer(15_000_000, 1) as writer:
+            doc = Document()
+            doc.add_unsigned("doc_id", 101)
+            doc.add_integer("rank", -10)
+            doc.add_float("score", 1.5)
+            doc.add_boolean("active", True)
+            doc.add_boolean("flag", True)
+            doc.add_text("body", "alpha beta gamma")
+            doc.add_text("tag", "news")
+            writer.add_document(doc)
+
+            doc = Document()
+            doc.add_unsigned("doc_id", 202)
+            doc.add_integer("rank", 0)
+            doc.add_float("score", 2.5)
+            doc.add_boolean("active", False)
+            doc.add_boolean("flag", False)
+            doc.add_text("body", "beta gamma delta")
+            doc.add_text("tag", "sports")
+            writer.add_document(doc)
+
+            doc = Document()
+            doc.add_unsigned("doc_id", 303)
+            doc.add_integer("rank", 10)
+            doc.add_float("score", 0.5)
+            doc.add_boolean("active", True)
+            doc.add_boolean("flag", True)
+            doc.add_text("body", "gamma delta epsilon")
+            doc.add_text("tag", "news")
+            writer.add_document(doc)
+        index.reload()
+        return index
+
+    def test_returns_values_in_hit_order(self, fast_index):
+        searcher = fast_index.searcher()
+        query = fast_index.parse_query("beta", ["body"])
+        result = searcher.search(query, 10)
+        addrs = [addr for _, addr in result.hits]
+        ids = searcher.fast_field_values("doc_id", addrs)
+        assert len(ids) == len(addrs)
+        # Cross-check: each value matches what stored doc reports
+        for addr, fast_id in zip(addrs, ids):
+            stored_id = searcher.doc(addr).to_dict()["doc_id"][0]
+            assert fast_id == stored_id
+
+    def test_all_docs_covered(self, fast_index):
+        searcher = fast_index.searcher()
+        query = fast_index.parse_query("gamma", ["body"])
+        result = searcher.search(query, 10)
+        addrs = [addr for _, addr in result.hits]
+        ids = searcher.fast_field_values("doc_id", addrs)
+        assert set(ids) == {101, 202, 303}
+
+    def test_empty_input_returns_empty(self, fast_index):
+        searcher = fast_index.searcher()
+        assert searcher.fast_field_values("doc_id", []) == []
+
+    def test_single_match(self, fast_index):
+        searcher = fast_index.searcher()
+        query = fast_index.parse_query("alpha", ["body"])
+        result = searcher.search(query, 10)
+        addrs = [addr for _, addr in result.hits]
+        ids = searcher.fast_field_values("doc_id", addrs)
+        assert ids == [101]
+
+    @pytest.mark.parametrize(("field_name", "expected"), [
+        pytest.param("rank", {-10, 0, 10}, id="i64"),
+        pytest.param("score", {0.5, 1.5, 2.5}, id="f64"),
+        pytest.param("flag", {True, False}, id="bool"),
+    ])
+    def test_typed_fields(self, fast_index, field_name, expected):
+        searcher = fast_index.searcher()
+        query = fast_index.parse_query("gamma", ["body"])
+        result = searcher.search(query, 10)
+        addrs = [addr for _, addr in result.hits]
+        assert set(searcher.fast_field_values(field_name, addrs)) == expected
+
+    def test_unknown_field_raises(self, fast_index):
+        """ValueError for a field name that does not exist in the schema."""
+        searcher = fast_index.searcher()
+        query = fast_index.parse_query("gamma", ["body"])
+        result = searcher.search(query, 1)
+        addrs = [addr for _, addr in result.hits]
+        with pytest.raises(ValueError, match="Unknown field"):
+            searcher.fast_field_values("nonexistent", addrs)
+
+    def test_non_fast_field_raises(self, fast_index):
+        """ValueError when the field exists but is not declared fast."""
+        searcher = fast_index.searcher()
+        query = fast_index.parse_query("gamma", ["body"])
+        result = searcher.search(query, 1)
+        addrs = [addr for _, addr in result.hits]
+        with pytest.raises(ValueError, match="not a fast field"):
+            searcher.fast_field_values("active", addrs)
+
+    def test_unsupported_type_raises(self, fast_index):
+        """ValueError when the field is fast but has an unsupported type (text)."""
+        searcher = fast_index.searcher()
+        query = fast_index.parse_query("gamma", ["body"])
+        result = searcher.search(query, 1)
+        addrs = [addr for _, addr in result.hits]
+        # Text fast fields store term ids, not scalar values — unsupported.
+        with pytest.raises(ValueError, match="unsupported type"):
+            searcher.fast_field_values("tag", addrs)
+
+
+class TestTermsWithPrefix:
+    """Tests for Searcher.terms_with_prefix()."""
+
+    @pytest.fixture(scope="class")
+    def prefix_index(self):
+        """Single-segment index with predictable term frequencies."""
+        schema = (
+            SchemaBuilder()
+            .add_text_field("body", stored=False)
+            .add_unsigned_field("owner_id", stored=True, indexed=True, fast=True)
+            .build()
+        )
+        index = Index(schema, None)
+        with index.writer(15_000_000, 1) as writer:
+            # apple: 2 docs, apricot: 1 doc, banana: 1 doc, cherry: 1 doc, date: 1 doc
+            doc = Document()
+            doc.add_text("body", "apple banana")
+            doc.add_unsigned("owner_id", 1)
+            writer.add_document(doc)
+            doc = Document()
+            doc.add_text("body", "apple apricot")
+            doc.add_unsigned("owner_id", 2)
+            writer.add_document(doc)
+            doc = Document()
+            doc.add_text("body", "cherry date")
+            doc.add_unsigned("owner_id", 1)
+            writer.add_document(doc)
+        index.reload()
+        return index
+
+    @pytest.fixture(scope="class")
+    def multi_seg_index(self):
+        """Two-segment index — same 3 docs as prefix_index split across commits.
+
+        wait_merging_threads() is intentionally omitted: calling it lets the
+        default merge policy collapse the two small segments into one, which
+        would defeat the purpose of this fixture.
+        """
+        schema = (
+            SchemaBuilder()
+            .add_text_field("body", stored=False)
+            .build()
+        )
+        index = Index(schema, None)
+        # Two separate commits → two segments (no merge policy invoked yet)
+        with index.writer(15_000_000, 1) as writer:
+            doc = Document()
+            doc.add_text("body", "apple banana")
+            writer.add_document(doc)
+        # Reload between commits forces a new segment on the next write
+        index.reload()
+        with index.writer(15_000_000, 1) as writer:
+            doc = Document()
+            doc.add_text("body", "apple apricot")
+            writer.add_document(doc)
+        index.reload()
+        return index
+
+    @pytest.fixture(scope="class")
+    def filtered_index(self):
+        """4-doc index: 2 owned by user 1, 2 owned by user 2.
+        All docs contain 'apple'; 'exclusive' only in user-2 docs."""
+        schema = (
+            SchemaBuilder()
+            .add_text_field("body", stored=False)
+            .add_unsigned_field("owner_id", stored=True, indexed=True, fast=True)
+            .build()
+        )
+        index = Index(schema, None)
+        with index.writer(15_000_000, 1) as writer:
+            for _ in range(2):
+                doc = Document()
+                doc.add_text("body", "apple common")
+                doc.add_unsigned("owner_id", 1)
+                writer.add_document(doc)
+            for _ in range(2):
+                doc = Document()
+                doc.add_text("body", "apple exclusive")
+                doc.add_unsigned("owner_id", 2)
+                writer.add_document(doc)
+        index.reload()
+        return index
+
+    # ------------------------------------------------------------------ tests
+
+    def test_basic_prefix_match(self, prefix_index):
+        """Returns correct terms and counts for a simple prefix."""
+        searcher = prefix_index.searcher()
+        results = searcher.terms_with_prefix("body", "ap")
+        terms = [t for t, _ in results]
+        counts = {t: c for t, c in results}
+        assert "apple" in terms
+        assert "apricot" in terms
+        assert "banana" not in terms
+        assert counts["apple"] == 2
+        assert counts["apricot"] == 1
+
+    def test_sorted_by_count_descending_then_alpha(self, prefix_index):
+        """Higher-count terms come first; ties broken alphabetically."""
+        searcher = prefix_index.searcher()
+        results = searcher.terms_with_prefix("body", "")  # all terms
+        counts = [c for _, c in results]
+        assert counts == sorted(counts, reverse=True)
+        # Find all terms with the same count and check alphabetical order within
+        for _, group in groupby(results, key=lambda x: x[1]):
+            group_terms = [t for t, _ in group]
+            assert group_terms == sorted(group_terms)
+
+    def test_multi_segment_counts_summed(self, multi_seg_index):
+        """Counts are summed correctly across segments."""
+        assert multi_seg_index.searcher().num_segments >= 2
+        results = multi_seg_index.searcher().terms_with_prefix("body", "ap")
+        counts = {t: c for t, c in results}
+        assert counts["apple"] == 2
+        assert counts["apricot"] == 1
+
+    def test_filter_query_path(self, filtered_index):
+        """filter_query restricts counts to matching docs only."""
+        searcher = filtered_index.searcher()
+        schema = filtered_index.schema
+        filter_q = Query.term_query(schema, "owner_id", 2)
+        # Use empty prefix so all terms are reachable
+        results = searcher.terms_with_prefix("body", "", filter_query=filter_q)
+        counts = {t: c for t, c in results}
+        # user 2 has 2 docs each containing 'apple' and 'exclusive'
+        assert counts.get("apple") == 2
+        assert "common" not in counts
+        assert "exclusive" in counts
+
+    def test_filter_matches_nothing(self, filtered_index):
+        """Returns [] when the filter matches no documents."""
+        searcher = filtered_index.searcher()
+        schema = filtered_index.schema
+        # owner_id 99 does not exist
+        filter_q = Query.term_query(schema, "owner_id", 99)
+        assert searcher.terms_with_prefix("body", "ap", filter_query=filter_q) == []
+
+    def test_limit_truncation(self, prefix_index):
+        """Exactly `limit` results returned, and they are the correct top-N."""
+        searcher = prefix_index.searcher()
+        all_results = searcher.terms_with_prefix("body", "")
+        limited = searcher.terms_with_prefix("body", "", limit=2)
+        assert len(limited) == 2
+        # The top-2 from the full list must equal the limited result
+        assert limited == all_results[:2]
+
+    def test_empty_prefix_returns_all_terms(self, prefix_index):
+        """Empty prefix returns every term in the field."""
+        searcher = prefix_index.searcher()
+        results = searcher.terms_with_prefix("body", "")
+        terms = {t for t, _ in results}
+        assert {"apple", "apricot", "banana", "cherry", "date"} == terms
+
+    def test_unknown_field_raises(self, prefix_index):
+        """ValueError when field_name is not in the schema."""
+        with pytest.raises(ValueError, match="is not defined in the schema"):
+            prefix_index.searcher().terms_with_prefix("nonexistent", "ap")
+
+    def test_non_text_field_raises(self, prefix_index):
+        """ValueError when the field exists but is not a text field."""
+        with pytest.raises(ValueError, match="not an indexed text field"):
+            prefix_index.searcher().terms_with_prefix("owner_id", "ap")
+
+    def test_no_filter_equals_all_docs_filter(self, filtered_index):
+        """filter_query=None and a query matching all docs give identical results
+        including the same ordering."""
+        searcher = filtered_index.searcher()
+        no_filter = searcher.terms_with_prefix("body", "")
+        all_docs_q = filtered_index.parse_query("apple OR common OR exclusive", ["body"])
+        with_filter = searcher.terms_with_prefix("body", "", filter_query=all_docs_q)
+        assert no_filter == with_filter

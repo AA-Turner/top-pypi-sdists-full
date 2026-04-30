@@ -1,27 +1,86 @@
-Metadata-Version: 1.1
+Metadata-Version: 2.4
 Name: pyx12
-Version: 2.3.3
+Version: 3.1.0
 Summary: HIPAA X12 validator, parser and converter
-Home-page: http://github.com/azoner/pyx12
-Author: John Holland
-Author-email: john.holland@swmbh.org
+Author-email: John Holland <john.holland@swmbh.org>
 License: BSD
-Description: Pyx12 is a HIPAA X12 document validator and converter. It parses an ANSI X12N data file and
-        validates it against a representation of the Implementation Guidelines for a HIPAA transaction. By default, it
-        creates a 997 response for 4010 and a 999 response for 5010. It can create an html representation of the X12
-        document or can translate to and from an XML representation of the data file.
-Keywords: x12 hipaa healthcare edi
-Platform: All
+Project-URL: Homepage, http://github.com/azoner/pyx12
+Project-URL: Repository, https://github.com/azoner/pyx12.git
+Project-URL: Documentation, https://pyx12.readthedocs.io/
+Keywords: x12,hipaa,healthcare,edi
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Healthcare Industry
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Office/Business
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: defusedxml>=0.7
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: black>=23.0; extra == "dev"
+Requires-Dist: isort>=5.12; extra == "dev"
+Requires-Dist: build>=1.0; extra == "dev"
+Requires-Dist: twine>=4.0; extra == "dev"
+Requires-Dist: mypy>=1.10; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx>=7.0; extra == "docs"
+Requires-Dist: furo>=2024.1; extra == "docs"
+Dynamic: license-file
+
+# Pyx12
+
+[![Build Status](https://github.com/azoner/pyx12/actions/workflows/main.yml/badge.svg)](https://github.com/azoner/pyx12/actions/workflows/main.yml)
+
+
+Pyx12 is a HIPAA X12 document validator and converter.  It parses an ANSI X12N data file and validates it against a representation of the Implementation Guidelines for a HIPAA transaction.  By default, it creates a 997 response for 4010 and a 999 response for 5010. It can create an html representation of the X12 document or can translate to and from an XML representation of the data file. 
+
+# Usage
+
+As a command line X12 validator
+
+    x12valid.exe <filename>
+
+Fixes common X12 structural errors.  Can add or remove line breaks.  Can fix loop and segment counting.
+
+    x12norm.exe --fix --eol <filename>
+
+# Code Examples
+
+    Iterate over a loop.  Alter children. Show changes
+```python
+    src = pyx12.x12context.X12ContextReader(param, errh, fd_in)
+    for datatree in src.iter_segments('2300'):
+        # do something with a 2300 claim loop
+        # we have access to the 2300 loop and all its children
+        for loop2400 in datatree.select('2400'):
+            print(loop2400.get_value('SV101'))
+            # update something
+            loop2400.set_value('SV102', 'xx')
+            # delete something
+            if loop2400.exists('PWK'):
+                loop2400.delete('PWK')
+        # iterate over all the child segments
+        for seg_node in datatree.iterate_segments():
+            print(seg_node.format())
+```
+
+# Install
+
+    uv pip install pyx12
+
+# Licensing
+
+Pyx12 uses a BSD license. The full license text is included with the source code for the package. 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: huawei-solar
-Version: 3.0.0
+Version: 3.0.1
 Summary: A Python wrapper for the Huawei Inverter modbus TCP API
 Project-URL: Homepage, https://github.com/wlcrs/huawei-solar-lib
 Project-URL: Repository, https://github.com/wlcrs/huawei-solar-lib
@@ -679,7 +679,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Home Automation
 Classifier: Typing :: Typed
 Requires-Python: >=3.12
-Requires-Dist: tmodbus[async-serial]>=0.2.3
+Requires-Dist: tmodbus[async-serial]>=0.3
 Description-Content-Type: text/markdown
 
 [![Homepage](https://img.shields.io/badge/Homepage-2088ff?logo=github&logoColor=white)](https://github.com/wlcrs/huawei-solar-lib)

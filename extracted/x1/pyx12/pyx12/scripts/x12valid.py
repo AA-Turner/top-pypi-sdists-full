@@ -17,18 +17,13 @@ Validate against a map and codeset values.
 
 import os
 import os.path
-from os.path import abspath, join, dirname, isdir, isfile
+from os.path import isdir, isfile
 import sys
 import logging
 import tempfile
-import codecs
 import argparse
 import glob
 
-# Intrapackage imports
-libpath = abspath(join(dirname(__file__), '../..'))
-if isdir(libpath):
-    sys.path.insert(0, libpath)
 import pyx12
 import pyx12.x12n_document
 import pyx12.params
@@ -38,16 +33,14 @@ __status__ = pyx12.__status__
 __version__ = pyx12.__version__
 __date__ = pyx12.__date__
 
-
 def check_map_path_arg(map_path):
     if not isdir(map_path):
-        raise argparse.ArgumentError(None, "The MAP_PATH '{}' is not a valid directory".format(map_path))
+        raise argparse.ArgumentError(None, "The MAP_PATH '{}' is not a valid directory.  Current directory is {}".format(map_path, os.getcwd()))
     index_file = 'maps.xml'
     if not isfile(os.path.join(map_path, index_file)):
         raise argparse.ArgumentError(None,
                     "The MAP_PATH '{}' does not contain the map index file '{}'".format(map_path, index_file))
     return map_path
-
 
 def main():
     """
@@ -59,7 +52,7 @@ def main():
     parser.add_argument(
         '--log-file', '-l', action='store', dest="logfile", default=None)
     parser.add_argument('--map-path', '-m', action='store', dest="map_path", default=None, type=check_map_path_arg)
-    parser.add_argument('--verbose', '-v', action='count')
+    parser.add_argument('--verbose', '-v', action='count', default=0)
     parser.add_argument('--debug', '-d', action='store_true')
     parser.add_argument('--quiet', '-q', action='store_true')
     parser.add_argument('--html', '-H', action='store_true')
@@ -69,7 +62,6 @@ def main():
         'b', 'e'), help='Specify X12 character set: b=basic, e=extended')
     #parser.add_argument('--background', '-b', action='store_true')
     #parser.add_argument('--test', '-t', action='store_true')
-    parser.add_argument('--profile', action='store_true', help='Profile the code with plop')
     parser.add_argument('--version', action='version',
                         version='{prog} {version}'.format(prog=parser.prog, version=__version__))
     parser.add_argument('input_files', nargs='*')
@@ -103,7 +95,7 @@ def main():
             hdlr = logging.FileHandler(args.logfile)
             hdlr.setFormatter(formatter)
             logger.addHandler(hdlr)
-        except IOError:
+        except OSError:
             logger.exception('Could not open log file: %s' % (args.logfile))
 
     for fn in args.input_files:
@@ -112,65 +104,36 @@ def main():
                 if not os.path.isfile(src_filename):
                     logger.error('Could not open file "%s"' % (src_filename))
                     continue
-                #fd_src = open(src_filename, 'U')
                 if flag_997:
-                    fd_997 = tempfile.TemporaryFile()
+                    fd_997 = tempfile.TemporaryFile(mode='w+', encoding='ascii')
                 if args.html:
                     if os.path.splitext(src_filename)[1] == '.txt':
                         target_html = os.path.splitext(src_filename)[0] + '.html'
                     else:
                         target_html = src_filename + '.html'
-                    fd_html = open(target_html, 'w')
+                    fd_html = open(target_html, 'w', encoding='utf-8')
 
-                if args.profile:
-                    from plop.collector import Collector
-                    p = Collector()
-                    p.start()
-                    if pyx12.x12n_document.x12n_document(param=param, src_file=src_filename,
-                            fd_997=fd_997, fd_html=fd_html, fd_xmldoc=None, map_path=args.map_path):
-                        sys.stderr.write('%s: OK\n' % (src_filename))
-                    else:
-                        sys.stderr.write('%s: Failure\n' % (src_filename))
-                    #import profile
-                    #prof_str = 'pyx12.x12n_document.x12n_document(param, src_filename, ' \
-                    #        + 'fd_997, fd_html, None, None)'
-                    #print prof_str
-                    #print param
-                    #profile.run(prof_str, 'pyx12.prof')
-                    p.stop()
-                    try:
-                        pfile = os.path.splitext(os.path.basename(
-                            src_filename))[0] + '.plop.out'
-                        pfull = os.path.join(os.path.expanduser(
-                            '~/.plop.profiles'), pfile)
-                        print(pfull)
-                        with open(pfull, 'w') as fdp:
-                            fdp.write(repr(dict(p.stack_counts)))
-                    except Exception:
-                        logger.exception('Failed to write profile data')
-                        sys.stderr.write('%s: bad profile save\n' % (src_filename))
+                logger.debug('Before x12n_document for {}'.format(src_filename))
+                if pyx12.x12n_document.x12n_document(param=param, src_file=src_filename,
+                        fd_997=fd_997, fd_html=fd_html, fd_xmldoc=None, map_path=args.map_path):
+                    sys.stderr.write('%s: OK\n' % (src_filename))
                 else:
-                    logger.debug('Before x12n_document for {}'.format(src_filename))
-                    if pyx12.x12n_document.x12n_document(param=param, src_file=src_filename,
-                            fd_997=fd_997, fd_html=fd_html, fd_xmldoc=None, map_path=args.map_path):
-                        sys.stderr.write('%s: OK\n' % (src_filename))
-                    else:
-                        sys.stderr.write('%s: Failure\n' % (src_filename))
-                    logger.debug('after x12n_document for {}'.format(src_filename))
+                    sys.stderr.write('%s: Failure\n' % (src_filename))
+                logger.debug('after x12n_document for {}'.format(src_filename))
                 if flag_997 and fd_997.tell() != 0:
                     fd_997.seek(0)
                     if os.path.splitext(src_filename)[1] == '.txt':
                         target_997 = os.path.splitext(src_filename)[0] + '.997'
                     else:
                         target_997 = src_filename + '.997'
-                    codecs.open(target_997, mode='w',
-                                encoding='ascii').write(fd_997.read())
+                    with open(target_997, mode='w', encoding='ascii') as f997:
+                        f997.write(fd_997.read())
 
                 if fd_997:
                     fd_997.close()
                 if fd_html:
                     fd_html.close()
-            except IOError:
+            except OSError:
                 logger.exception('Could not open files')
                 return False
             except KeyboardInterrupt:

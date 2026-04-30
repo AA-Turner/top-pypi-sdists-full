@@ -1,3 +1,14 @@
+"""Upload assets to DANDI Archive.
+
+This module handles uploading NWB files and other assets to DANDI Archive
+instances. Features include:
+- Validation of files before upload
+- Progress tracking with resume capability
+- Metadata extraction and assignment
+- BIDS validation integration
+- Concurrent uploads with thread pool
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -38,7 +49,8 @@ from .misctypes import Digest
 from .support import pyout as pyouts
 from .support.pyout import naturalsize
 from .utils import ensure_datetime, path_is_subpath, pluralize
-from .validate_types import Severity
+from .validate._io import write_validation_jsonl
+from .validate._types import Severity
 
 
 def _check_dandidownload_paths(dfile: DandiFile) -> None:
@@ -101,6 +113,7 @@ def upload(
     jobs: int | None = None,
     jobs_per_file: int | None = None,
     sync: bool = False,
+    validation_log_path: str | Path | None = None,
 ) -> None:
     if paths:
         paths = [Path(p).absolute() for p in paths]
@@ -289,6 +302,10 @@ def upload(
                 ):
                     yield {"status": "pre-validating"}
                     validation_statuses = dfile.get_validation_errors()
+                    if validation_log_path is not None and validation_statuses:
+                        write_validation_jsonl(
+                            validation_statuses, validation_log_path, append=True
+                        )
                     validation_errors = [
                         s
                         for s in validation_statuses

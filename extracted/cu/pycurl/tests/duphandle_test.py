@@ -1,12 +1,13 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 # vi:ts=4:et
 
 from . import localhost
 import pycurl
+import pytest
 import unittest
 import gc
 import weakref
+from io import BytesIO
 try:
     import json
 except ImportError:
@@ -43,7 +44,7 @@ class DuphandleTest(unittest.TestCase):
         dup.close()
 
     def slist_check(self, handle, value, persistance=True):
-        body = util.BytesIO()
+        body = BytesIO()
         handle.setopt(pycurl.WRITEFUNCTION, body.write)
         handle.setopt(pycurl.URL, 'http://%s:8380/header_utf8?h=x-test-header' % localhost)
         handle.perform()
@@ -80,7 +81,7 @@ class DuphandleTest(unittest.TestCase):
         self.slist_test(self.orig.unsetopt, pycurl.HTTPHEADER)
 
     def httppost_check(self, handle, value, persistance=True):
-        body = util.BytesIO()
+        body = BytesIO()
         handle.setopt(pycurl.WRITEFUNCTION, body.write)
         handle.setopt(pycurl.URL, 'http://%s:8380/postfields' % localhost)
         handle.perform()
@@ -88,18 +89,20 @@ class DuphandleTest(unittest.TestCase):
         assert (result == value) == persistance
 
     def httppost_test(self, clear_func, *args):
-        self.orig.setopt(pycurl.HTTPPOST, [
-            ('field', (pycurl.FORM_CONTENTS, 'orig-httppost')),
-        ])
+        with pytest.warns(DeprecationWarning, match="HTTPPOST is deprecated; use MIMEPOST"):
+            self.orig.setopt(pycurl.HTTPPOST, [
+                ('field', (pycurl.FORM_CONTENTS, 'orig-httppost')),
+            ])
         dup1 = self.orig.duphandle()
         clear_func(*args)
         dup2 = self.orig.duphandle()
         self.httppost_check(dup1, {'field': 'orig-httppost'}, True)
         self.httppost_check(dup2, {'field': 'orig-httppost'}, False)
         # util_curlhttppost_update() and util_curlhttppost_dealloc()
-        dup1.setopt(pycurl.HTTPPOST, [
-            ('field', (pycurl.FORM_CONTENTS, 'dup-httppost')),
-        ])
+        with pytest.warns(DeprecationWarning, match="HTTPPOST is deprecated; use MIMEPOST"):
+            dup1.setopt(pycurl.HTTPPOST, [
+                ('field', (pycurl.FORM_CONTENTS, 'dup-httppost')),
+            ])
         self.httppost_check(dup1, {'field': 'dup-httppost'}, True)
         dup1.close()
         dup2.close()
@@ -114,7 +117,7 @@ class DuphandleTest(unittest.TestCase):
         self.httppost_test(self.orig.unsetopt, pycurl.HTTPPOST)
 
     def test_duphandle_references(self):
-        body = util.BytesIO()
+        body = BytesIO()
         def callback(data):
             body.write(data)
         callback_ref = weakref.ref(callback)

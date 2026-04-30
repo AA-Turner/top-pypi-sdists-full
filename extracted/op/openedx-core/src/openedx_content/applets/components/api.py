@@ -1,5 +1,5 @@
 """
-Components API (warning: UNSTABLE, in progress API)
+Components API
 
 These functions are often going to be simple-looking write operations, but there
 is bookkeeping logic needed across multiple models to keep state consistent. You
@@ -33,7 +33,7 @@ from .models import Component, ComponentType, ComponentVersion, ComponentVersion
 # is listed in the __all__ entries below. Internal helper functions that are
 # private to this module should start with an underscore. If a function does not
 # start with an underscore AND it is not in __all__, that function is considered
-# to be callable only by other apps in the authoring package.
+# to be callable only by other applets in the openedx_content package.
 __all__ = [
     "get_or_create_component_type",
     "create_component",

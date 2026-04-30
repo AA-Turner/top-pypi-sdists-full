@@ -2,6 +2,7 @@ import re
 
 from ytmusicapi.continuations import *
 from ytmusicapi.helpers import sum_total_duration
+from ytmusicapi.models.content.enums import VoteStatus
 from ytmusicapi.type_alias import JsonDict, JsonList, ParseFuncType, RequestFuncBodyType
 
 from ..helpers import to_int
@@ -148,7 +149,7 @@ def parse_playlist_item(
     is_album: bool = False,
     is_collaborative: bool = False,
 ) -> JsonDict | None:
-    videoId = setVideoId = None
+    videoId = setVideoId = creditsBrowseId = None
     like = None
 
     # if the item has a menu, find its setVideoId
@@ -161,6 +162,10 @@ def parse_playlist_item(
                     videoId = nav(
                         menu_service, ["playlistEditEndpoint", "actions", 0, "removedVideoId"], True
                     )
+            elif MNIR in item:
+                maybe_credits_browse_id = nav(item, [MNIR, *NAVIGATION_BROWSE_ID], True)
+                if maybe_credits_browse_id and maybe_credits_browse_id.startswith("MPTC"):
+                    creditsBrowseId = maybe_credits_browse_id
 
     song_menu_data = {"inLibrary": None, "pinnedToListenAgain": None} | parse_song_menu_data(data)
 
@@ -262,6 +267,17 @@ def parse_playlist_item(
         True,
     )
 
+    voting_status = nav(data, ENGAGEMENT_BAR, none_if_absent=True)
+
+    community_vote_status = (
+        None
+        if voting_status is None
+        else {
+            "netVoteValue": voting_status["votes"],
+            "status": VoteStatus(voting_status["status"]),
+        }
+    )
+
     song = {
         "videoId": videoId,
         "title": title,
@@ -274,6 +290,7 @@ def parse_playlist_item(
         "isExplicit": isExplicit,
         "videoType": videoType,
         "views": views,
+        "communityVoteStatus": community_vote_status,
     }
 
     if is_album:
@@ -284,6 +301,8 @@ def parse_playlist_item(
         song["duration_seconds"] = parse_duration(duration)
     if setVideoId:
         song["setVideoId"] = setVideoId
+    if creditsBrowseId:
+        song["creditsBrowseId"] = creditsBrowseId
 
     return song
 

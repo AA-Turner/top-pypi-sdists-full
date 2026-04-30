@@ -272,6 +272,7 @@ class UnderscoreValueV2(_message.Message):
         "materialized_aggregation",
         "materialized_state_operation",
         "incomplete_group_by_aggregation",
+        "outer_feature",
     )
     EXPRESSION_ID_FIELD_NUMBER: _ClassVar[int]
     FEATURE_FIELD_NUMBER: _ClassVar[int]
@@ -284,6 +285,7 @@ class UnderscoreValueV2(_message.Message):
     MATERIALIZED_AGGREGATION_FIELD_NUMBER: _ClassVar[int]
     MATERIALIZED_STATE_OPERATION_FIELD_NUMBER: _ClassVar[int]
     INCOMPLETE_GROUP_BY_AGGREGATION_FIELD_NUMBER: _ClassVar[int]
+    OUTER_FEATURE_FIELD_NUMBER: _ClassVar[int]
     expression_id: str
     feature: UnderscoreFeature
     column: UnderscoreColumn
@@ -295,6 +297,7 @@ class UnderscoreValueV2(_message.Message):
     materialized_aggregation: UnderscoreMaterializedAggregation
     materialized_state_operation: UnderscoreMaterializedStateOperation
     incomplete_group_by_aggregation: UnderscoreIncompleteGroupByAggregation
+    outer_feature: UnderscoreOuterFeature
     def __init__(
         self,
         expression_id: _Optional[str] = ...,
@@ -308,6 +311,7 @@ class UnderscoreValueV2(_message.Message):
         materialized_aggregation: _Optional[_Union[UnderscoreMaterializedAggregation, _Mapping]] = ...,
         materialized_state_operation: _Optional[_Union[UnderscoreMaterializedStateOperation, _Mapping]] = ...,
         incomplete_group_by_aggregation: _Optional[_Union[UnderscoreIncompleteGroupByAggregation, _Mapping]] = ...,
+        outer_feature: _Optional[_Union[UnderscoreOuterFeature, _Mapping]] = ...,
     ) -> None: ...
 
 class UnderscoreFeature(_message.Message):
@@ -578,6 +582,21 @@ class UnderscoreIncompleteGroupByAggregation(_message.Message):
         window_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         allowed_window_values: _Optional[_Iterable[_Union[_duration_pb2.Duration, _Mapping]]] = ...,
         source_aggregation_namespace: _Optional[str] = ...,
+    ) -> None: ...
+
+class UnderscoreOuterFeature(_message.Message):
+    __slots__ = ("outer_depth", "nested_root_namespace", "outer_feature")
+    OUTER_DEPTH_FIELD_NUMBER: _ClassVar[int]
+    NESTED_ROOT_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    OUTER_FEATURE_FIELD_NUMBER: _ClassVar[int]
+    outer_depth: int
+    nested_root_namespace: str
+    outer_feature: UnderscoreParsedId
+    def __init__(
+        self,
+        outer_depth: _Optional[int] = ...,
+        nested_root_namespace: _Optional[str] = ...,
+        outer_feature: _Optional[_Union[UnderscoreParsedId, _Mapping]] = ...,
     ) -> None: ...
 
 class UnderscoreOperation(_message.Message):

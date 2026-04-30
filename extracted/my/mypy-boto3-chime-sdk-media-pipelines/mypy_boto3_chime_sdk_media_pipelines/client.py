@@ -3,7 +3,7 @@ Type annotations for chime-sdk-media-pipelines service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_chime_sdk_media_pipelines/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

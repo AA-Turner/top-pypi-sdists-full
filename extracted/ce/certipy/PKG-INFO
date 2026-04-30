@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certipy
-Version: 0.2.2
+Version: 0.2.3
 Summary: Utility to create and sign CAs and certificates
 Author-email: Thomas Mendoza <mendoza33@llnl.gov>
 License: BSD 3-Clause License

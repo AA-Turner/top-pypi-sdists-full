@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ggshield
-Version: 1.50.0
+Version: 1.50.2
 Summary: Detect secrets from all sources using GitGuardian's brains
 Project-URL: Homepage, https://github.com/GitGuardian/ggshield
 Author-email: GitGuardian <support@gitguardian.com>
@@ -39,7 +39,7 @@ Requires-Dist: python-dotenv~=0.21.0
 Requires-Dist: pyyaml~=6.0.1
 Requires-Dist: requests~=2.32.0
 Requires-Dist: rich~=13.0
-Requires-Dist: sigstore<4,>=3.0.0
+Requires-Dist: sigstore<5,>=4.0.0
 Requires-Dist: truststore>=0.10.1; python_version >= '3.10'
 Requires-Dist: typing-extensions~=4.14
 Requires-Dist: urllib3<3,>=2.2.2

@@ -6,9 +6,23 @@ import sys
 import types
 import typing
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Optional, Set, Tuple, Type, TypeVar, Union, cast
-
-from typing_extensions import Annotated, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Dict,
+    FrozenSet,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 
 from chalk._lsp.error_builder import LSPErrorBuilder
 from chalk.features._encoding.http import HttpResponse

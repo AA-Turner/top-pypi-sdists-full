@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -34,7 +35,7 @@ class SimConfigMetadata(BaseModel):
 
 
 class SimConfigService(BaseModel):
-    type: str
+    type: Literal["docker-compose"]
     file: str | None = None
     required_healthy_containers: list[str] | None = None
     healthy_wait_timeout: int | None = None

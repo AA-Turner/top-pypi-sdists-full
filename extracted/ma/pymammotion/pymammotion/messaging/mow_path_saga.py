@@ -12,7 +12,7 @@ import betterproto2
 from pymammotion.data.model import GenerateRouteInformation
 from pymammotion.data.model.hash_list import HashList, MowPath
 from pymammotion.messaging.saga import Saga
-from pymammotion.transport.base import CommandTimeoutError
+from pymammotion.transport.base import CommandTimeoutError, SagaFailedError
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -99,14 +99,9 @@ class MowPathSaga(Saga):
         hash_ack_queue: asyncio.Queue[Any] = asyncio.Queue()
 
         async def _collect_hash_ack(msg: Any) -> None:
-            try:
-                sub_name, sub_val = betterproto2.which_one_of(msg, "LubaSubMsg")
-                if sub_name == "nav":
-                    leaf_name, leaf_val = betterproto2.which_one_of(sub_val, "SubNavMsg")
-                    if leaf_name == "toapp_gethash_ack" and leaf_val.sub_cmd == 3:
-                        hash_ack_queue.put_nowait(msg)
-            except Exception:  # noqa: BLE001, S110
-                pass
+            frame = self.extract_nav_frame(msg, "toapp_gethash_ack")
+            if frame is not None and frame[1].sub_cmd == 3:
+                hash_ack_queue.put_nowait(msg)
 
         _current_frame = 1
         _total_frame = 0
@@ -169,8 +164,11 @@ class MowPathSaga(Saga):
                     self._route_val.path_hash,
                 )
             else:
-                # running task mode: query the currently running job's route info (sub_cmd=2)
-                return
+                # skip_planning=True: a running job's route info should already be cached.
+                # If it isn't, the saga cannot fetch cover paths — fail loudly instead of
+                # returning silently (which left the caller with empty MowPath data).
+                _logger.warning("MowPathSaga: skip_planning=True but no _route_val available — failing saga")
+                raise SagaFailedError(self.name, self.max_attempts)
         else:
             _logger.debug("MowPathSaga: reusing cached route info — skipping step 2")
 
@@ -207,14 +205,8 @@ class MowPathSaga(Saga):
         path_queue: asyncio.Queue[Any] = asyncio.Queue()
 
         async def _collect_path(msg: Any) -> None:
-            try:
-                sub_name, sub_val = betterproto2.which_one_of(msg, "LubaSubMsg")
-                if sub_name == "nav":
-                    leaf_name, _ = betterproto2.which_one_of(sub_val, "SubNavMsg")
-                    if leaf_name == "cover_path_upload":
-                        path_queue.put_nowait(msg)
-            except Exception:  # noqa: BLE001, S110
-                pass
+            if self.extract_nav_frame(msg, "cover_path_upload") is not None:
+                path_queue.put_nowait(msg)
 
         current_run_tx_ids: set[int] = set()
 

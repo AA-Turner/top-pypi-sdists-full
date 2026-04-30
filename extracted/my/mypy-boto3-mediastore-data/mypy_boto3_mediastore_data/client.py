@@ -3,7 +3,7 @@ Type annotations for mediastore-data service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediastore_data/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

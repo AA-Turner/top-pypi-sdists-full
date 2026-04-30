@@ -348,6 +348,12 @@ pub struct SnowflakeSource {
     pub async_engine_args: ::std::collections::HashMap<::prost::alloc::string::String, super::super::arrow::v1::ScalarValue>,
     #[prost(string, tag="11")]
     pub private_key_b64: ::prost::alloc::string::String,
+    #[prost(string, tag="12")]
+    pub unload_stage: ::prost::alloc::string::String,
+    #[prost(string, tag="13")]
+    pub unload_storage_integration: ::prost::alloc::string::String,
+    #[prost(string, tag="14")]
+    pub unload_external_location: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

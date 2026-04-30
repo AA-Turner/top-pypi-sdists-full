@@ -54,11 +54,15 @@ __all__ = [
     'scout_sandbox_api',
     'scout_savedviews',
     'scout_savedviews_api',
+    'scout_spatial',
+    'scout_spatial_api',
     'scout_template_api',
     'scout_units_api',
     'scout_versioning_api',
     'scout_video',
     'scout_video_api',
+    'scout_webhook_template',
+    'scout_webhook_template_api',
     'scout_workbookcommon_api',
     'secrets_api',
     'security_api_workspace',
@@ -80,5 +84,5 @@ __all__ = [
 
 __conjure_generator_version__ = "4.17.0"
 
-__version__ = "0.1216.0"
+__version__ = "0.1220.0"
 

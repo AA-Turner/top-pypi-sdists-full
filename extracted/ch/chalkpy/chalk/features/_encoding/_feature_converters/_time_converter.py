@@ -9,8 +9,8 @@ from typing import (
     cast,
 )
 
-import isodate
 import pyarrow as pa
+from chalk_rs import parse_iso_time as _parse_iso_time
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.json import FeatureEncodingOptions
@@ -37,13 +37,13 @@ def _coerce_time(x: Any) -> time:
     """Convert x to time, matching the structuring logic in rich.py/_structure_time and json.py/_structure_time.
 
     Both the rich and JSON converters for time behave identically: accept time objects
-    (passthrough) and ISO strings (via isodate.parse_time), reject everything else.
+    (passthrough) and ISO strings (via chalk_rs.parse_iso_time), reject everything else.
     Unlike date/datetime, there is no divergence between the JSON and rich paths.
     """
     if isinstance(x, time):
         return x
     if isinstance(x, str):
-        return isodate.parse_time(x)
+        return _parse_iso_time(x)
     raise TypeError(f"Cannot convert '{x}' to a time")
 
 

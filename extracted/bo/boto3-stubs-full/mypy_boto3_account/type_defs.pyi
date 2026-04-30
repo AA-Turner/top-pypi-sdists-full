@@ -21,6 +21,7 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
+    AccountStateType,
     AlternateContactTypeType,
     AwsAccountStateType,
     PrimaryEmailUpdateStatusType,
@@ -68,8 +69,8 @@ __all__ = (
 
 class AcceptPrimaryEmailUpdateRequestTypeDef(TypedDict):
     AccountId: str
-    Otp: str
     PrimaryEmail: str
+    Otp: str
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -79,24 +80,24 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 class AlternateContactTypeDef(TypedDict):
-    AlternateContactType: NotRequired[AlternateContactTypeType]
-    EmailAddress: NotRequired[str]
     Name: NotRequired[str]
-    PhoneNumber: NotRequired[str]
     Title: NotRequired[str]
+    EmailAddress: NotRequired[str]
+    PhoneNumber: NotRequired[str]
+    AlternateContactType: NotRequired[AlternateContactTypeType]
 
 class ContactInformationTypeDef(TypedDict):
+    FullName: str
     AddressLine1: str
     City: str
-    CountryCode: str
-    FullName: str
-    PhoneNumber: str
     PostalCode: str
+    CountryCode: str
+    PhoneNumber: str
     AddressLine2: NotRequired[str]
     AddressLine3: NotRequired[str]
-    CompanyName: NotRequired[str]
-    DistrictOrCounty: NotRequired[str]
     StateOrRegion: NotRequired[str]
+    DistrictOrCounty: NotRequired[str]
+    CompanyName: NotRequired[str]
     WebsiteUrl: NotRequired[str]
 
 class DeleteAlternateContactRequestTypeDef(TypedDict):
@@ -151,11 +152,11 @@ class PutAccountNameRequestTypeDef(TypedDict):
     AccountId: NotRequired[str]
 
 class PutAlternateContactRequestTypeDef(TypedDict):
-    AlternateContactType: AlternateContactTypeType
-    EmailAddress: str
     Name: str
-    PhoneNumber: str
     Title: str
+    EmailAddress: str
+    PhoneNumber: str
+    AlternateContactType: AlternateContactTypeType
     AccountId: NotRequired[str]
 
 class StartPrimaryEmailUpdateRequestTypeDef(TypedDict):
@@ -170,14 +171,15 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetAccountInformationResponseTypeDef(TypedDict):
-    AccountCreatedDate: datetime
     AccountId: str
     AccountName: str
+    AccountCreatedDate: datetime
+    AccountState: AccountStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetGovCloudAccountInformationResponseTypeDef(TypedDict):
-    AccountState: AwsAccountStateType
     GovCloudAccountId: str
+    AccountState: AwsAccountStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPrimaryEmailResponseTypeDef(TypedDict):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-object-actions
-Version: 5.0.0
+Version: 5.0.1
 Summary: A Django app for adding object tools for models in the admin
 Author-email: crccheck <c@crccheck.com>
 License: Apache-2.0
@@ -17,11 +17,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev
 Requires-Dist: coverage==7.*; extra == "dev"
+Requires-Dist: Django>=4.2; extra == "dev"
 Requires-Dist: django-extensions==3.*; extra == "dev"
 Requires-Dist: factory-boy==3.*; extra == "dev"
 Requires-Dist: dj-database-url==2.*; extra == "dev"
@@ -59,8 +61,8 @@ class ArticleAdmin(DjangoObjectActions, admin.ModelAdmin):
     def publish_this(self, request, obj):
         publish_obj(obj)
 
-    change_actions = ('publish_this', )
-    changelist_actions = ('...', )
+    change_actions = ("publish_this", )
+    changelist_actions = ("action_name", )
 ```
 
 ## Usage
@@ -87,8 +89,8 @@ class MyModelAdmin(DjangoObjectActions, admin.ModelAdmin):
     def make_published(modeladmin, request, queryset):
         queryset.update(status='p')
 
-    change_actions = ('toolfunc', )
-    changelist_actions = ('make_published', )
+    change_actions = ("toolfunc", )
+    changelist_actions = ("make_published", )
 ```
 
 Just like admin actions, you can send a message with `self.message_user`.
@@ -115,8 +117,8 @@ class RobotAdmin(DjangoObjectActions, admin.ModelAdmin):
     def tighten_lug_nuts(self, request, queryset):
         queryset.update(lugnuts=F('lugnuts') - 1)
 
-    change_actions = ['tighten_lug_nuts']
-    actions = ['tighten_lug_nuts']
+    change_actions = ("tighten_lug_nuts", )
+    actions = ("tighten_lug_nuts", )
 ```
 
 [admin actions]: https://docs.djangoproject.com/en/stable/ref/contrib/admin/actions/
@@ -222,12 +224,6 @@ You can configure an action to only use POST with:
 @action(methods=("POST",), button_type="form")
 ```
 
-One caveat is Django's styling is pinned to anchor tags[^1], so to maintain
-visual consistency, we have to use anchor tags and use JavaScript to make it act
-like the submit button of the form.
-
-[^1]: https://github.com/django/django/blob/826ef006681eae1e9b4bd0e4f18fa13713025cba/django/contrib/admin/static/admin/css/base.css#L786
-
 ### Alternate Installation
 
 You don't have to add this to `INSTALLED_APPS`, all you need to to do
@@ -235,9 +231,15 @@ is copy the template `django_object_actions/change_form.html` some place
 Django's template loader [will find
 it](https://docs.djangoproject.com/en/stable/ref/settings/#template-dirs).
 
-If you don't intend to use the template customizations at all, don't
-add `django_object_actions` to your `INSTALLED_APPS` at all and use
-`BaseDjangoObjectActions` instead of `DjangoObjectActions`.
+If you don't intend to use the template customizations or bundled CSS at
+all, don't add `django_object_actions` to your `INSTALLED_APPS` at all
+and use `BaseDjangoObjectActions` instead of `DjangoObjectActions`. If
+you use `button_type='form'` actions, add this to your admin class:
+
+```python
+class Media:
+    css = {"all": ["django_object_actions/css/django-object-actions.css"]}
+```
 
 ## More Examples
 
@@ -247,6 +249,77 @@ Making an action that links off-site:
 def external_link(self, request, obj):
     from django.http import HttpResponseRedirect
     return HttpResponseRedirect(f'https://example.com/{obj.id}')
+```
+
+### Intermediate confirmation and form pages
+
+Because an action is called with the current request, you can render a
+confirmation on GET and apply the change on POST. `@action` allows both
+methods by default.
+
+```python
+from django.shortcuts import render
+
+@action(label="Delete all choices")
+def delete_all_choices(self, request, obj):
+    if request.method == "POST":
+        obj.choice_set.all().delete()
+        return None
+    return render(request, "admin/confirm.html", {"object": obj})
+```
+
+For anything beyond a confirmation button, delegate to a `FormView` rather
+than handling the form inline. Unpacking `admin.site.each_context(request)`
+into the template context preserves the admin breadcrumbs, header, and user
+menu on the rendered page:
+
+```python
+from django.contrib import admin
+from django.shortcuts import redirect
+from django.views.generic import FormView
+
+from .forms import VerifyForm
+
+
+class ArticleAdmin(DjangoObjectActions, admin.ModelAdmin):
+    @action(label="Verify")
+    def verify(self, request, obj):
+        return VerifyView.as_view()(request, target=obj)
+
+    change_actions = ("verify",)
+
+
+class VerifyView(FormView):
+    form_class = VerifyForm
+    template_name = "admin/generic_form.html"
+
+    def dispatch(self, request, *args, target, **kwargs):
+        self.target = target
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        return {
+            **super().get_context_data(**kwargs),
+            **admin.site.each_context(self.request),
+            "title": "Verify article",
+        }
+
+    def form_valid(self, form):
+        self.target.mark_as_verified(**form.cleaned_data)
+        return redirect("admin:myapp_article_change", self.target.pk)
+```
+
+The template:
+
+```html
+{% extends "admin/base_site.html" %}
+{% block content %}
+  <form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Save">
+  </form>
+{% endblock %}
 ```
 
 ## Limitations
@@ -266,13 +339,11 @@ def external_link(self, request, obj):
 
 See [`ci.yml`](./.github/workflows/ci.yml) for which Python and Django versions this supports.
 
-## Demo Admin & Docker images
+## Demo Admin
 
-You can try the demo admin against several versions of Django with these Docker
-images: https://hub.docker.com/r/crccheck/django-object-actions/tags
-
-This runs the example Django project in `./example_project` based on the "polls"
-tutorial. `admin.py` demos what you can do with this app.
+You can try the demo admin by running the example Django project in
+`./example_project`, which is based on the "polls" tutorial. `admin.py` demos
+what you can do with this app.
 
 ## Development
 

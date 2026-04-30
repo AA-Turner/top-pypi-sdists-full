@@ -4,10 +4,10 @@
 
 [project]
 name = "mypy-boto3-pca-connector-scep"
-version = "1.42.53"
+version = "1.43.0"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 PrivateCAConnectorforSCEP 1.42.53 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 PrivateCAConnectorforSCEP 1.43.0 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

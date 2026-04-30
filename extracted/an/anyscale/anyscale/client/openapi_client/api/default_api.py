@@ -32986,6 +32986,8 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str name: name to filter by
+        :param str creator_id: filter to Clouds deployed by this user ID
+        :param list[CloudState] state_filter: filter to Clouds in the given state(s)
         :param CloudsSortField sort_field: field to sort by
         :param SortOrder sort_order: sort direction, ignored if sort_field is absent
         :param str paging_token:
@@ -32997,7 +32999,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: CloudListResponse
+        :return: DecoratedcloudListResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -33014,6 +33016,8 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str name: name to filter by
+        :param str creator_id: filter to Clouds deployed by this user ID
+        :param list[CloudState] state_filter: filter to Clouds in the given state(s)
         :param CloudsSortField sort_field: field to sort by
         :param SortOrder sort_order: sort direction, ignored if sort_field is absent
         :param str paging_token:
@@ -33027,7 +33031,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(CloudListResponse, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(DecoratedcloudListResponse, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -33036,6 +33040,8 @@ class DefaultApi(object):
 
         all_params = [
             'name',
+            'creator_id',
+            'state_filter',
             'sort_field',
             'sort_order',
             'paging_token',
@@ -33070,6 +33076,11 @@ class DefaultApi(object):
         query_params = []
         if 'name' in local_var_params and local_var_params['name'] is not None:  # noqa: E501
             query_params.append(('name', local_var_params['name']))  # noqa: E501
+        if 'creator_id' in local_var_params and local_var_params['creator_id'] is not None:  # noqa: E501
+            query_params.append(('creator_id', local_var_params['creator_id']))  # noqa: E501
+        if 'state_filter' in local_var_params and local_var_params['state_filter'] is not None:  # noqa: E501
+            query_params.append(('state_filter', local_var_params['state_filter']))  # noqa: E501
+            collection_formats['state_filter'] = 'multi'  # noqa: E501
         if 'sort_field' in local_var_params and local_var_params['sort_field'] is not None:  # noqa: E501
             query_params.append(('sort_field', local_var_params['sort_field']))  # noqa: E501
         if 'sort_order' in local_var_params and local_var_params['sort_order'] is not None:  # noqa: E501
@@ -33100,7 +33111,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='CloudListResponse',  # noqa: E501
+            response_type='DecoratedcloudListResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -34808,6 +34819,176 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='OrganizationinvitationListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def list_job_queue_jobs_api_v2_job_queues_job_queue_id_jobs_get(self, job_queue_id, **kwargs):  # noqa: E501
+        """List Job Queue Jobs  # noqa: E501
+
+        Lists jobs in a job queue with queue-specific details.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_job_queue_jobs_api_v2_job_queues_job_queue_id_jobs_get(job_queue_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str job_queue_id: (required)
+        :param str name: Filter by job name (substring match)
+        :param ArchiveStatus archive_status: Archive status filter
+        :param list[HaJobStates] state_filter: A list of job states to filter by
+        :param str creator_id: Filter by creator id
+        :param list[str] tag_filter: Repeatable filter of tags in the form key:value. Jobs must match all specified tags.
+        :param int count_limit: When set, skip expensive COUNT if total exceeds this limit. total will be null in the response when exceeded.
+        :param HaJobsSortField sort_field: Field to sort by. If absent, the default sort order is applied.
+        :param SortOrder sort_order: Sort direction. If sort_field is absent, this field is ignored.
+        :param str paging_token:
+        :param int count:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: JobqueuejobListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_job_queue_jobs_api_v2_job_queues_job_queue_id_jobs_get_with_http_info(job_queue_id, **kwargs)  # noqa: E501
+
+    def list_job_queue_jobs_api_v2_job_queues_job_queue_id_jobs_get_with_http_info(self, job_queue_id, **kwargs):  # noqa: E501
+        """List Job Queue Jobs  # noqa: E501
+
+        Lists jobs in a job queue with queue-specific details.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_job_queue_jobs_api_v2_job_queues_job_queue_id_jobs_get_with_http_info(job_queue_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str job_queue_id: (required)
+        :param str name: Filter by job name (substring match)
+        :param ArchiveStatus archive_status: Archive status filter
+        :param list[HaJobStates] state_filter: A list of job states to filter by
+        :param str creator_id: Filter by creator id
+        :param list[str] tag_filter: Repeatable filter of tags in the form key:value. Jobs must match all specified tags.
+        :param int count_limit: When set, skip expensive COUNT if total exceeds this limit. total will be null in the response when exceeded.
+        :param HaJobsSortField sort_field: Field to sort by. If absent, the default sort order is applied.
+        :param SortOrder sort_order: Sort direction. If sort_field is absent, this field is ignored.
+        :param str paging_token:
+        :param int count:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(JobqueuejobListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'job_queue_id',
+            'name',
+            'archive_status',
+            'state_filter',
+            'creator_id',
+            'tag_filter',
+            'count_limit',
+            'sort_field',
+            'sort_order',
+            'paging_token',
+            'count'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_job_queue_jobs_api_v2_job_queues_job_queue_id_jobs_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'job_queue_id' is set
+        if self.api_client.client_side_validation and ('job_queue_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['job_queue_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `job_queue_id` when calling `list_job_queue_jobs_api_v2_job_queues_job_queue_id_jobs_get`")  # noqa: E501
+
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 50:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_job_queue_jobs_api_v2_job_queues_job_queue_id_jobs_get`, must be a value less than or equal to `50`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_job_queue_jobs_api_v2_job_queues_job_queue_id_jobs_get`, must be a value greater than or equal to `0`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+        if 'job_queue_id' in local_var_params:
+            path_params['job_queue_id'] = local_var_params['job_queue_id']  # noqa: E501
+
+        query_params = []
+        if 'name' in local_var_params and local_var_params['name'] is not None:  # noqa: E501
+            query_params.append(('name', local_var_params['name']))  # noqa: E501
+        if 'archive_status' in local_var_params and local_var_params['archive_status'] is not None:  # noqa: E501
+            query_params.append(('archive_status', local_var_params['archive_status']))  # noqa: E501
+        if 'state_filter' in local_var_params and local_var_params['state_filter'] is not None:  # noqa: E501
+            query_params.append(('state_filter', local_var_params['state_filter']))  # noqa: E501
+            collection_formats['state_filter'] = 'multi'  # noqa: E501
+        if 'creator_id' in local_var_params and local_var_params['creator_id'] is not None:  # noqa: E501
+            query_params.append(('creator_id', local_var_params['creator_id']))  # noqa: E501
+        if 'tag_filter' in local_var_params and local_var_params['tag_filter'] is not None:  # noqa: E501
+            query_params.append(('tag_filter', local_var_params['tag_filter']))  # noqa: E501
+            collection_formats['tag_filter'] = 'multi'  # noqa: E501
+        if 'count_limit' in local_var_params and local_var_params['count_limit'] is not None:  # noqa: E501
+            query_params.append(('count_limit', local_var_params['count_limit']))  # noqa: E501
+        if 'sort_field' in local_var_params and local_var_params['sort_field'] is not None:  # noqa: E501
+            query_params.append(('sort_field', local_var_params['sort_field']))  # noqa: E501
+        if 'sort_order' in local_var_params and local_var_params['sort_order'] is not None:  # noqa: E501
+            query_params.append(('sort_order', local_var_params['sort_order']))  # noqa: E501
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/job_queues/{job_queue_id}/jobs', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='JobqueuejobListResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -39229,7 +39410,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: None
+        :return: LogoutresponseResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -39255,7 +39436,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: None
+        :return: tuple(LogoutresponseResponse, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -39294,6 +39475,10 @@ class DefaultApi(object):
         local_var_files = {}
 
         body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
         # Authentication setting
         auth_settings = []  # noqa: E501
 
@@ -39305,7 +39490,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type=None,  # noqa: E501
+            response_type='LogoutresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

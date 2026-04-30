@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: findpython
-Version: 0.7.1
+Version: 0.8.0
 Summary: A utility to find python versions on your system
 Author-Email: Frost Ming <mianghong@gmail.com>
 License: MIT
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Project-URL: Homepage, https://github.com/frostming/findpython
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: packaging>=20
 Requires-Dist: platformdirs>=4.3.6
 Description-Content-Type: text/markdown

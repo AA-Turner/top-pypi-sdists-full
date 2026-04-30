@@ -7,7 +7,6 @@
 # you should have received as part of this distribution.
 #
 ######################################################################
-
 """
 Locate the correct xml map file given:
     - Interchange Control Version Number (ISA12)
@@ -15,53 +14,81 @@ Locate the correct xml map file given:
     - Version / Release / Industry Identifier Code (GS08)
     - Transaction Set Purpose Code (BHT02) (For 278 only)
 """
-
+from __future__ import annotations
+from typing import IO, Any, TypedDict
 import os.path
 import logging
-from pkg_resources import resource_stream
-import xml.etree.cElementTree as et
+import defusedxml.ElementTree as et
+from importlib.resources import files as _res_files
 
 
-class map_index(object):
+class _MapEntry(TypedDict):
+    icvn: str | None
+    vriic: str | None
+    fic: str | None
+    tspc: str | None
+    map_file: str | None
+    abbr: str | None
+
+
+class map_index:
     """
     Interface to the maps.xml file
     """
-    def __init__(self, base_path=None):
+
+    maps: list[_MapEntry]
+
+    def __init__(self, base_path: str | None = None) -> None:
         """
-        @param base_path: Override directory containing maps.xml.  If None,
+        :param base_path: Override directory containing maps.xml.  If None,
                     uses package resource folder
-        @type base_path: string
+        :type base_path: string
         """
         logger = logging.getLogger('pyx12')
         self.maps = []
         maps_index_file = 'maps.xml'
+        # ElementTree.parse accepts either a text- or binary-mode stream; the
+        # file source differs between override path and bundled package resource.
+        fd: IO[Any]
         if base_path is not None:
-            logger.debug("Looking for map index file '{}' in map_path '{}'".format(maps_index_file, base_path))
+            logger.debug(f"Looking for map index file '{maps_index_file}' in map_path '{base_path}'")
             if not os.path.isdir(base_path):
                 raise OSError(2, "Map path does not exist", base_path)
-            if not os.path.isdir(base_path):
-                raise OSError(2, "Pyx12 Map file '{}' does not exist in map path".format(maps_index_file), base_path)
-            fd = open(os.path.join(base_path, maps_index_file))
+            fd = open(os.path.join(base_path, maps_index_file), encoding='utf-8')
         else:
-            logger.debug("Looking for map index file '{}' in pkg_resources".format(maps_index_file))
-            fd = resource_stream(__name__, os.path.join('map', maps_index_file))
-        t = et.parse(fd)
-        for v in t.iter('version'):
-            icvn = v.get('icvn')
-            for m in v.iterfind('map'):
-                self.add_map(icvn, m.get('vriic'), m.get('fic'),
-                             m.get('tspc'), m.text, m.get('abbr'))
-        fd.close()
+            logger.debug(f"Looking for map index file '{maps_index_file}' in package resources")
+            fd = _res_files('pyx12').joinpath('map', maps_index_file).open('rb')
+        with fd:
+            parser = et.XMLParser(encoding='utf-8')
+            for _v in et.parse(fd, parser=parser).iter('version'):
+                icvn = _v.get('icvn')
+                for _m in _v.iterfind('map'):
+                    self.add_map(icvn, _m.get('vriic'), _m.get('fic'),
+                                 _m.get('tspc'), _m.text, _m.get('abbr'))
 
-    def add_map(self, icvn, vriic, fic, tspc, map_file, abbr):
+    def add_map(
+        self,
+        icvn: str | None,
+        vriic: str | None,
+        fic: str | None,
+        tspc: str | None,
+        map_file: str | None,
+        abbr: str | None,
+    ) -> None:
         self.maps.append({'icvn': icvn, 'vriic': vriic, 'fic': fic,
                           'tspc': tspc, 'map_file': map_file, 'abbr': abbr})
 
-    def get_filename(self, icvn, vriic, fic, tspc=None):
+    def get_filename(
+        self,
+        icvn: str | None,
+        vriic: str | None,
+        fic: str | None,
+        tspc: str | None = None,
+    ) -> str | None:
         """
         Get the map filename associated with the given icvn, vriic, fic,
         and tspc values
-        @rtype: string
+        :rtype: string
         """
         for a in self.maps:
             if a['icvn'] == icvn and a['vriic'] == vriic and a['fic'] == fic \
@@ -69,11 +96,17 @@ class map_index(object):
                 return a['map_file']
         return None
 
-    def get_abbr(self, icvn, vriic, fic, tspc=None):
+    def get_abbr(
+        self,
+        icvn: str | None,
+        vriic: str | None,
+        fic: str | None,
+        tspc: str | None = None,
+    ) -> str | None:
         """
         Get the informal abbreviation associated with the given icvn, vriic,
         fic, and tspc values
-        @rtype: string
+        :rtype: string
         """
         for a in self.maps:
             if a['icvn'] == icvn and a['vriic'] == vriic and a['fic'] == fic \
@@ -81,6 +114,6 @@ class map_index(object):
                 return a['abbr']
         return None
 
-    def print_all(self):
+    def print_all(self) -> None:
         for a in self.maps:
             print(a)

@@ -4,7 +4,7 @@
 # Distributed under the terms of the Modified BSD License.
 
 import sys
-from typing import Optional
+from typing import Optional, Union
 
 from jupyterlab_server.translation_utils import translator
 
@@ -80,3 +80,6 @@ class ReadOnlyExtensionManager(ExtensionManager):
         return ActionResult(
             status="error", message=trans.gettext("Extension removal not supported.")
         )
+
+    async def is_install_allowed(self, name: str, version: Union[str, None] = None) -> bool:
+        return False

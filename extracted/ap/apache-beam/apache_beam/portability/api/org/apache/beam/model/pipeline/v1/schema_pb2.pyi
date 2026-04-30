@@ -336,6 +336,12 @@ class LogicalTypes(google.protobuf.message.Message):
           - Argument type: INT32.
             A variable-length string with its maximum length as the argument.
         """
+        DATE: LogicalTypes._Enum.ValueType  # 8
+        """A URN for Date type
+          - Representation type: INT64
+          - A date without a timezone, represented by the number of days
+            since the epoch.
+        """
 
     class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
     PYTHON_CALLABLE: LogicalTypes.Enum.ValueType  # 0
@@ -389,6 +395,12 @@ class LogicalTypes(google.protobuf.message.Message):
       - Representation type: STRING
       - Argument type: INT32.
         A variable-length string with its maximum length as the argument.
+    """
+    DATE: LogicalTypes.Enum.ValueType  # 8
+    """A URN for Date type
+      - Representation type: INT64
+      - A date without a timezone, represented by the number of days
+        since the epoch.
     """
 
     def __init__(

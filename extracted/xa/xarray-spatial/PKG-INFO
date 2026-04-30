@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray-spatial
-Version: 0.9.7
+Version: 0.9.8
 Summary: xarray-based spatial analysis tools
 Home-page: https://github.com/xarray-contrib/xarray-spatial
 Author: Xarray-Spatial Developers
@@ -90,7 +90,7 @@ Dynamic: license-file
 <tr>
   <td>License</td>
   <td>
-    <a href="https://github.com/xarray-contrib/xarray-spatial/blob/master/LICENSE.txt">
+    <a href="https://github.com/xarray-contrib/xarray-spatial/blob/main/LICENSE.txt">
     <img src="https://img.shields.io/pypi/l/xarray-spatial.svg"
          alt="MIT" />
     </a>
@@ -128,7 +128,7 @@ Dynamic: license-file
   <td>
     <div>
       <a href="https:https://codecov.io/gh/xarray-contrib/xarray-spatial">
-      <img alt="Language grade: Python" src="https://codecov.io/gh/xarray-contrib/xarray-spatial/branch/master/graph/badge.svg"/>
+      <img alt="Language grade: Python" src="https://codecov.io/gh/xarray-contrib/xarray-spatial/branch/main/graph/badge.svg"/>
       </a>
     </div>
   </td>

@@ -76,6 +76,50 @@ def _prefetch_world_image(image_url: str, world_name: str) -> None:
         console.print(f"[yellow]Prefetch failed (non-fatal): {e}[/yellow]")
 
 
+def _update_config_package_version(
+    config_path: Path,
+    package_name: str,
+    new_version: str,
+) -> None:
+    """Rewrite world.package in a config JSON to <package_name>:<new_version>.
+
+    Warns and skips if the config is missing, malformed, lacks world.package,
+    or its package name doesn't match.
+    """
+    try:
+        with open(config_path) as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        console.print(f"[yellow]Warning: Config not found, skipping: {config_path}[/yellow]")
+        return
+    except json.JSONDecodeError as e:
+        console.print(f"[yellow]Warning: Invalid JSON in {config_path}, skipping: {e}[/yellow]")
+        return
+
+    world = config.get("world")
+    if not isinstance(world, dict) or "package" not in world:
+        console.print(f"[yellow]Warning: No world.package in {config_path}, skipping[/yellow]")
+        return
+
+    current = world["package"]
+    current_name = current.split(":", 1)[0] if isinstance(current, str) else ""
+    if current_name != package_name:
+        console.print(
+            f"[yellow]Warning: {config_path} has world.package='{current}' "
+            f"(name '{current_name}' != '{package_name}'), skipping[/yellow]"
+        )
+        return
+
+    new_package = f"{package_name}:{new_version}"
+    world["package"] = new_package
+
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+        f.write("\n")
+
+    console.print(f"[green]Updated config:[/green] {config_path} -> world.package = {new_package}")
+
+
 def _extract_schema_from_wheel(wheel_path: Path, module_name: str) -> dict | None:
     """Extract schema.json from a built wheel file."""
     try:
@@ -108,6 +152,13 @@ def world_publish(
         False,
         "--no-skip-docker",
         help="Force Docker rebuild even with --dev (overrides the default skip behavior)",
+    ),
+    update_config: list[str] = typer.Option(
+        None,
+        "--update-config",
+        help="Path to a config JSON whose 'world.package' version should be updated to "
+        "match the published version. For --dev/--minor uses the bumped version; for a "
+        "release publish pins to ':latest'. Pass multiple times to update multiple configs.",
     ),
 ):
     """Build and publish a world package to the Plato worlds repository.
@@ -393,6 +444,17 @@ def world_publish(
                 console.print("\n[dim]Docker image digest unchanged - skipping prefetch[/dim]")
     else:
         console.print("\n[dim]No Dockerfile found - skipping Docker image build[/dim]")
+
+    if update_config:
+        console.print()
+        if dry_run:
+            console.print("[yellow]Dry run - skipping --update-config rewrites (version was not bumped):[/yellow]")
+            for cfg_path in update_config:
+                console.print(f"  {Path(cfg_path).resolve()}")
+        else:
+            target_version = version if (dev or minor) else "latest"
+            for cfg_path in update_config:
+                _update_config_package_version(Path(cfg_path).resolve(), package_name, target_version)
 
     console.print("\n[bold]Install with:[/bold]")
     console.print(f"  uv pip install {package_name} --index-url {api_url}/v2/pypi/worlds/simple/")

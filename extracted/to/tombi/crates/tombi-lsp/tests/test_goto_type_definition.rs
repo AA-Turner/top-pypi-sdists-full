@@ -1,14 +1,9 @@
 mod goto_type_definition_tests {
     use super::*;
-    use std::path::PathBuf;
     use tombi_test_lib::{
         adjacent_applicators_test_schema_path, adjacent_one_of_hover_test_schema_path,
-        lsp_consistency_test_schema_path,
+        exact_index_string_test_schema_path, lsp_consistency_test_schema_path,
     };
-
-    fn exact_index_string_test_schema_path() -> PathBuf {
-        tombi_test_lib::project_root_path().join("schemas/exact-index-string-test.schema.json")
-    }
 
     mod tombi_schema {
         use super::*;
@@ -140,7 +135,7 @@ mod goto_type_definition_tests {
                 [tool.taskipy.tasks]
                 format█ = "ruff"
                 "#,
-                SourcePath("pyproject.toml".into()),
+                SourcePath(tombi_test_lib::project_root_path().join("pyproject.toml")),
                 SchemaPath(pyproject_schema_path()),
             ) -> Ok("https://json.schemastore.org/partial-taskipy.json");
         );

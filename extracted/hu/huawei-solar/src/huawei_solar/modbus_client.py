@@ -5,7 +5,14 @@ import logging
 from typing import TypeVar
 
 import tenacity
-from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, stop_after_delay, wait_exponential
+from tenacity import (
+    AsyncRetrying,
+    retry_if_exception_type,
+    stop_after_attempt,
+    stop_after_delay,
+    wait_exponential,
+    wait_fixed,
+)
 from tmodbus import AsyncModbusClient, AsyncRtuTransport, AsyncSmartTransport, AsyncTcpTransport
 from tmodbus.exceptions import ModbusResponseError, TModbusError
 from tmodbus.utils.crc import calculate_crc16
@@ -31,6 +38,7 @@ DEFAULT_BAUDRATE = 9600
 
 DEFAULT_UNIT_ID = 0
 DEFAULT_TIMEOUT = 10  # especially the SDongle can react quite slowly
+DEFAULT_SCAN_TIMEOUT = 3  # short timeout for scanning — responding devices reply in milliseconds
 DEFAULT_WAIT = 1
 DEFAULT_COOLDOWN_TIME = 0.05
 WAIT_FOR_CONNECTION_TIMEOUT = 5
@@ -83,6 +91,13 @@ RESPONSE_RETRY_STRATEGY = AsyncRetrying(
     retry=retry_if_exception_type(TimeoutError),
     reraise=True,
     after=log_invalid_response,
+)
+
+# No retries for scanning: if a device doesn't respond on the first attempt, it's not there.
+SCAN_RESPONSE_RETRY_STRATEGY = AsyncRetrying(
+    wait=wait_fixed(1),
+    stop=stop_after_attempt(2),
+    reraise=True,
 )
 
 
@@ -232,6 +247,28 @@ def create_client(
     return AsyncHuaweiSolarClient(smart_transport, unit_id=unit_id)
 
 
+def create_scan_client(
+    transport: AsyncTcpTransport | AsyncRtuTransport,
+    *,
+    unit_id: int = DEFAULT_UNIT_ID,
+    wait_after_connect: float = 1.0,
+    wait_between_requests: float = DEFAULT_COOLDOWN_TIME,
+) -> AsyncHuaweiSolarClient:
+    """Create an AsyncHuaweiSolarClient optimized for device scanning.
+
+    Uses no retries so non-responding unit IDs are skipped quickly instead of
+    being retried multiple times with backoff.
+    """
+    smart_transport = AsyncSmartTransport(
+        transport,
+        auto_reconnect=RECONNECT_RETRY_STRATEGY,
+        wait_after_connect=wait_after_connect,
+        wait_between_requests=wait_between_requests,
+        response_retry_strategy=SCAN_RESPONSE_RETRY_STRATEGY,
+    )
+    return AsyncHuaweiSolarClient(smart_transport, unit_id=unit_id)
+
+
 def create_tcp_client(
     host: str,
     port: int = DEFAULT_TCP_PORT,
@@ -251,6 +288,25 @@ def create_tcp_client(
     )
 
 
+def create_scan_tcp_client(
+    host: str,
+    port: int = DEFAULT_TCP_PORT,
+    *,
+    unit_id: int = DEFAULT_UNIT_ID,
+    timeout: int = DEFAULT_SCAN_TIMEOUT,
+    wait_after_connect: float = 1.0,
+    wait_between_requests: float = DEFAULT_COOLDOWN_TIME,
+) -> AsyncHuaweiSolarClient:
+    """Create an AsyncHuaweiSolarClient optimized for TCP device scanning."""
+    transport = AsyncTcpTransport(host, port, timeout=timeout)
+    return create_scan_client(
+        transport,
+        unit_id=unit_id,
+        wait_after_connect=wait_after_connect,
+        wait_between_requests=wait_between_requests,
+    )
+
+
 def create_rtu_client(
     port: str,
     *,
@@ -262,6 +318,24 @@ def create_rtu_client(
     """Create an AsyncHuaweiSolarClient connected via RTU."""
     transport = AsyncRtuTransport(port, baudrate=baudrate)
     return create_client(
+        transport,
+        unit_id=unit_id,
+        wait_after_connect=wait_after_connect,
+        wait_between_requests=wait_between_requests,
+    )
+
+
+def create_scan_rtu_client(
+    port: str,
+    *,
+    baudrate: int = DEFAULT_BAUDRATE,
+    unit_id: int = DEFAULT_UNIT_ID,
+    wait_after_connect: float = 1.0,
+    wait_between_requests: float = DEFAULT_COOLDOWN_TIME,
+) -> AsyncHuaweiSolarClient:
+    """Create an AsyncHuaweiSolarClient optimized for RTU device scanning."""
+    transport = AsyncRtuTransport(port, baudrate=baudrate)
+    return create_scan_client(
         transport,
         unit_id=unit_id,
         wait_after_connect=wait_after_connect,

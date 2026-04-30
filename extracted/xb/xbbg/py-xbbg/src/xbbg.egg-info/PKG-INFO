@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbbg
-Version: 1.2.0
+Version: 1.2.1
 Summary: Independent client for Bloomberg-connected data workflows
 Author-email: Alpha x1 <alpha.xone@outlook.com>
 License-Expression: Apache-2.0
@@ -69,7 +69,7 @@ Dynamic: license-file
 ---
 
 <!-- xbbg:latest-release-start -->
-Latest release: xbbg==1.2.0 (release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v1.2.0))
+Latest release: xbbg==1.2.1 (release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v1.2.1))
 <!-- xbbg:latest-release-end -->
 
 > This `main` branch is the Rust-powered v1 release, a significant upgrade over 0.x in performance and architecture.

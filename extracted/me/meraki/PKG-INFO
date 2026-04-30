@@ -1,27 +1,19 @@
 Metadata-Version: 2.4
 Name: meraki
-Version: 2.2.0
-Summary: Meraki library for Python
-Home-page: https://github.com/meraki/dashboard-api-python
-Author: Cisco Meraki
+Version: 3.0.0
+Summary: Cisco Meraki Dashboard API library
+Project-URL: Homepage, https://github.com/meraki/dashboard-api-python
+Project-URL: Repository, https://github.com/meraki/dashboard-api-python
 Author-email: Cisco Meraki <api-feedback@meraki.net>
 License: MIT License
-Project-URL: homepage, https://github.com/meraki/dashboard-api-python
-Project-URL: repository, https://github.com/meraki/dashboard-api-python
-Requires-Python: >=3.10
-Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests<3.0.0,>=2.32.2
-Requires-Dist: aiohttp<4.0.0,>=3.11.18
-Requires-Dist: jinja2==3.1.6
-Requires-Dist: pytest<10.0.0,>=8.3.5
-Requires-Dist: setuptools<79.0.0,>=78.1.1
-Requires-Dist: build<2.0.0,>=1.4.0
-Requires-Dist: wheel<0.47.0,>=0.46.3
-Dynamic: author
-Dynamic: home-page
-Dynamic: license-file
-Dynamic: requires-python
+Keywords: cisco,dashboard,meraki
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.11
+Requires-Dist: aiohttp<4,>=3.13.5
+Requires-Dist: requests<3,>=2.33.1
+Description-Content-Type: text/markdown
 
 # Meraki Dashboard API Python Library
 
@@ -31,10 +23,14 @@ cloud-managed platform. Meraki generates the library based on dashboard API's Op
 the latest API releases, and provides the full source code for the library including the tools used to generate the
 library, if you are participating in the Early Access program or would like to contribute to the development of the
 library. Meraki welcomes constructive pull requests that maintain backwards compatibility with prior versions. The
-library requires Python 3.10+, receives support from the community, and you can install it
-via [PyPI](https://pypi.org/project/meraki/):
+library requires Python 3.10+, receives support from the community, and you can install it via
+[PyPI](https://pypi.org/project/meraki/):
 
     pip install --upgrade meraki
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+    uv pip install --upgrade meraki
 
 If you participate
 in [our Early Access program](https://community.meraki.com/t5/Developers-APIs/UPDATED-Beta-testing-with-the-Meraki-Developer-Early-Access/m-p/145344#M5808)
@@ -212,3 +208,22 @@ Unless you are an ecosystem partner, this identifier is optional.
 1. If you are an ecosystem partner and you have questions about this requirement, please reach out to your ecosystem
    rep.
 2. If you have any questions about the formatting, please ask your question by opening an issue in this repo.
+
+## Development
+
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management and builds with
+[Hatchling](https://hatch.pypa.io/).
+
+1. [Install uv](https://docs.astral.sh/uv/getting-started/installation/) if you haven't already.
+
+2. Install dev dependencies:
+
+       uv sync
+
+3. Run tests:
+
+       uv run pytest
+
+4. If you're working with the generator, install its additional dependencies:
+
+       uv sync --group generator

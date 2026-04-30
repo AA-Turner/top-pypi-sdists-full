@@ -11,28 +11,47 @@
 """
 Generates HTML error output
 """
+from __future__ import annotations
+from typing import Any, TextIO
 
+import html
 import time
 import logging
 
 # Intrapackage imports
+import pyx12.segment
 
 logger = logging.getLogger('pyx12.error_html')
 logger.setLevel(logging.DEBUG)
 #logger.setLevel(logging.ERROR)
 
 
-class error_html(object):
+class error_html:
     """
     """
-    def __init__(self, errh, fd, term=('~', '*', '~', '\n')):
-        """
-        @param fd: target file
-        @type fd: file descriptor
-        @param term: tuple of x12 terminators used
-        @type term: tuple(string, string, string, string)
 
-        @bug: GS errors are re-printing at the GE level
+    errh: Any
+    fd: TextIO
+    seg_term: str
+    ele_term: str
+    subele_term: str
+    eol: str
+    last_line: int
+    loop_info: str | None
+
+    def __init__(
+        self,
+        errh: Any,
+        fd: TextIO,
+        term: tuple[Any, ...] = ('~', '*', '~', '\n'),
+    ) -> None:
+        """
+        :param fd: target file
+        :type fd: file descriptor
+        :param term: tuple of x12 terminators used
+        :type term: tuple(string, string, string, string)
+
+        Bug: GS errors are re-printing at the GE level
         """
         self.errh = errh
         self.fd = fd
@@ -43,7 +62,7 @@ class error_html(object):
         self.last_line = 0
         self.loop_info = None
 
-    def header(self):
+    def header(self) -> None:
         self.fd.write('<html>\n<head>\n')
         self.fd.write('<title>X12N Error Analysis</title>\n')
         self.fd.write('<style type="text/css">\n<!--\n')
@@ -58,7 +77,7 @@ class error_html(object):
                       (time.strftime('%m/%d/%Y %H:%M:%S')))
         self.fd.write('<div class="segs" style="">\n')
 
-    def footer(self):
+    def footer(self) -> None:
         err_st = self.errh.cur_st_node
         if not err_st.is_closed():
             for (err_cde, err_str) in err_st.errors:
@@ -81,33 +100,33 @@ class error_html(object):
         self.fd.write('<p>\n<a href="http://sourceforge.net/projects/pyx12/">pyx12 Validator</a>\n</p>\n')
         self.fd.write('</body>\n</html>\n')
 
-    def loop(self, loop_node):
+    def loop(self, loop_node: Any) -> None:
         if loop_node.type != 'wrapper':
             #self.gen_info('Loop %s: %s' % (loop_node.id, loop_node.name))
             self.loop_info = 'Loop %s: %s' % (loop_node.id, loop_node.name)
 
-    def gen_info(self, info_str):
+    def gen_info(self, info_str: str) -> None:
         """
         """
         self.fd.write('<span class="info">&nbsp;&nbsp;%s</span><br />\n' %
                       (info_str))
 
-    def gen_seg(self, seg_data, src, err_node_list):
+    def gen_seg(self, seg_data: pyx12.segment.Segment, src: Any, err_node_list: list[Any]) -> None:
         """
         Find error seg for this segment.
         Find any skipped error values.
         ID pos of bad value.
-        @param seg_data: data segment instance
+        :param seg_data: data segment instance
         """
         cur_line = src.cur_line
 
         #while errh
-        ele_pos_map = {}
+        ele_pos_map: dict[int, int] = {}
         for err_node in err_node_list:
             for ele in err_node.elements:
                 ele_pos_map[ele.ele_pos] = ele.subele_pos
 
-        t_seg = []  # list of formatted elements
+        t_seg: list[Any] = []  # list of formatted elements
         #seg_data.format_ele_list(t_seg)
         for i in range(1, len(seg_data) + 1):
             if seg_data.is_composite(ref_des='%02i' % (i)):
@@ -116,13 +135,13 @@ class error_html(object):
                 for j in range(1, seg_data.ele_len('%02i' % (i)) + 1):
                     ref_des = '%02i-%i' % (i, j)
                     ele_str = escape_html_chars(seg_data.get_value(ref_des))
-                    if i in list(ele_pos_map.keys()) and ele_pos_map[i] == j:
+                    if i in ele_pos_map.keys() and ele_pos_map[i] == j:
                         ele_str = self._wrap_ele_error(ele_str)
                     t_seg[-1].append(ele_str)
             else:
                 ref_des = '%02i' % (i)
                 ele_str = escape_html_chars(seg_data.get_value(ref_des))
-                if i in list(ele_pos_map.keys()):
+                if i in ele_pos_map.keys():
                     ele_str = self._wrap_ele_error(ele_str)
                 t_seg.append(ele_str)
 
@@ -154,41 +173,47 @@ class error_html(object):
                         self.fd.write('<span class="error">&nbsp;%s (Element Error Code: %s)</span><br />\n' %
                                       (err_str, err_cde))
 
-    def _seg_str(self, seg_id, ele_list):
+    def _seg_str(self, seg_id: str | None, ele_list: list[Any]) -> str:
         """
-        @param ele_list: list of formatted elements
-        @rtype: string
+        :param ele_list: list of formatted elements
+        :rtype: string
         """
-        return seg_id + self.ele_term + seg_str(
+        return (seg_id or '') + self.ele_term + seg_str(
             ele_list, self.seg_term, self.ele_term,
             self.subele_term, self.eol)
 
-    def _wrap_ele_error(self, str1):
+    def _wrap_ele_error(self, str1: str | None) -> str:
         """
-        @rtype: string
+        :rtype: string
         """
         return '<span class="ele_err">%s</span>' % (str1)
 
 
-def seg_str(seg, seg_term, ele_term, subele_term, eol=''):
+def seg_str(
+    seg: list[Any],
+    seg_term: str,
+    ele_term: str,
+    subele_term: str,
+    eol: str = '',
+) -> str:
     """
     Join a list of elements
-    @param seg: List of elements
-    @type seg: list[string|list[string]]
-    @param seg_term: Segment terminator character
-    @type seg_term: string
-    @param ele_term: Element terminator character
-    @type ele_term: string
-    @param subele_term: Sub-element terminator character
-    @type subele_term: string
-    @param eol: End of line character
-    @type eol: string
-    @return: formatted segment
-    @rtype: string
+    :param seg: List of elements
+    :type seg: list[string|list[string]]
+    :param seg_term: Segment terminator character
+    :type seg_term: string
+    :param ele_term: Element terminator character
+    :type ele_term: string
+    :param subele_term: Sub-element terminator character
+    :type subele_term: string
+    :param eol: End of line character
+    :type eol: string
+    :return: formatted segment
+    :rtype: string
     """
     #if None in seg:
     #    logger.debug(seg)
-    tmp = []
+    tmp: list[str] = []
     for a in seg:
         if type(a) is list:
             tmp.append(subele_term.join(a))
@@ -197,18 +222,12 @@ def seg_str(seg, seg_term, ele_term, subele_term, eol=''):
     return '%s%s%s' % (ele_term.join(tmp), seg_term, eol)
 
 
-def escape_html_chars(str_val):
+def escape_html_chars(str_val: str | None) -> str | None:
     """
-    Escape special HTML characters (& <>)
-    @type str_val: string
-    @return: formatted string
-    @rtype: string
+    Escape special HTML characters, including quotes, so the result is safe in
+    both element text and attribute contexts. Spaces are replaced with &nbsp;
+    after escaping to preserve column alignment in the rendered report.
     """
     if str_val is None:
         return None
-    output = str_val
-    output = output.replace('&', '&amp;')
-    output = output.replace(' ', '&nbsp;')
-    output = output.replace('>', '&gt;')
-    output = output.replace('<', '&lt;')
-    return output
+    return html.escape(str_val, quote=True).replace(' ', '&nbsp;')

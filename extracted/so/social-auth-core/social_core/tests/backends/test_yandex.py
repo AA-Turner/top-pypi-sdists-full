@@ -1,6 +1,12 @@
 import json
 
+from social_core.backends.yandex import YandexOpenId
+
 from .oauth import BaseAuthUrlTestMixin, OAuth2Test
+
+
+def test_yandex_openid_url_uses_https() -> None:
+    assert YandexOpenId.URL == "https://openid.yandex.ru"
 
 
 class YandexOAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
@@ -29,7 +35,7 @@ class YandexOAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
 class YandexOAuth2TestEmptyEmail(OAuth2Test, BaseAuthUrlTestMixin):
     """
     When user log in to yandex service with social network account (e.g.
-    vk.com), they `default_email` could be empty.
+    vk.com), their `default_email` could be empty.
     """
 
     backend_path = "social_core.backends.yandex.YandexOAuth2"

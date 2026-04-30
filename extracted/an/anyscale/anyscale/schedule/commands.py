@@ -52,7 +52,7 @@ import anyscale
 from anyscale.schedule.models import ScheduleState
 
 anyscale.schedule.set_state(
-    id="my=schedule-id",
+    id="my-schedule-id",
     state=ScheduleState.DISABLED,
 )
 """
@@ -61,7 +61,7 @@ _SET_STATE_ARG_DOCSTRINGS = {
     "id": "The id of the schedule.",
     "name": "The name of the schedule.",
     "cloud": "The Anyscale Cloud to run this workload on. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
-    "project": "Named project to use for the job. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+    "project": "Named project to use for the schedule. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
     "state": "The state to set the schedule to.",
 }
 
@@ -98,8 +98,8 @@ anyscale.schedule.status(id="cronjob_yt389jvskwht9k2ygx7rj6iz62")
 _STATUS_ARG_DOCSTRINGS = {
     "id": "The id of the schedule.",
     "name": "The name of the schedule.",
-    "cloud": "The Anyscale Cloud to run this workload on. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
-    "project": "Named project to use for the job. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+    "cloud": "The Anyscale Cloud of the schedule. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
+    "project": "Named project to use for the schedule. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
 }
 
 
@@ -130,8 +130,8 @@ anyscale.schedule.trigger(id="cronjob_yt389jvskwht9k2ygx7rj6iz62")
 _TRIGGER_ARG_DOCSTRINGS = {
     "id": "The id of the schedule.",
     "name": "The name of the schedule.",
-    "cloud": "The Anyscale Cloud to run this workload on. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
-    "project": "Named project to use for the job. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+    "cloud": "The Anyscale Cloud of the schedule. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
+    "project": "Named project to use for the schedule. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
 }
 
 

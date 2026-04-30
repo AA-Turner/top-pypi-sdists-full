@@ -17,6 +17,7 @@ def to_json_schema(
     update_quantifiers: bool = True,
     clone: bool = True,
     upgrade_legacy_exclusive_bounds: bool = False,
+    convert_prefix_items: bool = True,
     name_to_uri: dict[str, str] | None = None,
 ) -> dict[str, Any]: ...  # pragma: no cover
 
@@ -29,6 +30,7 @@ def to_json_schema(
     update_quantifiers: bool = True,
     clone: bool = True,
     upgrade_legacy_exclusive_bounds: bool = False,
+    convert_prefix_items: bool = True,
     name_to_uri: dict[str, str] | None = None,
 ) -> bool: ...  # pragma: no cover
 
@@ -40,6 +42,7 @@ def to_json_schema(
     update_quantifiers: bool = True,
     clone: bool = True,
     upgrade_legacy_exclusive_bounds: bool = False,
+    convert_prefix_items: bool = True,
     name_to_uri: dict[str, str] | None = None,
 ) -> dict[str, Any] | bool:
     if isinstance(schema, bool):
@@ -52,6 +55,7 @@ def to_json_schema(
         is_response_schema=is_response_schema,
         update_quantifiers=update_quantifiers,
         upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+        convert_prefix_items=convert_prefix_items,
         name_to_uri=name_to_uri,
     )
 
@@ -63,10 +67,11 @@ def _to_json_schema(
     is_response_schema: bool = False,
     update_quantifiers: bool = True,
     upgrade_legacy_exclusive_bounds: bool = False,
+    convert_prefix_items: bool = True,
     name_to_uri: dict[str, str] | None = None,
 ) -> JsonSchema:
-    if isinstance(schema, bool):
-        return schema
+    if not isinstance(schema, dict):
+        return schema if isinstance(schema, bool) else {}
 
     if upgrade_legacy_exclusive_bounds:
         _upgrade_legacy_exclusive_bounds(schema)
@@ -126,17 +131,20 @@ def _to_json_schema(
 
     ensure_required_properties(schema)
 
-    # Convert JSON Schema Draft 2020-12 prefixItems to Draft 4/7 items array form
-    # hypothesis-jsonschema only supports Draft 4/6/7
-    if "prefixItems" in schema:
+    # Convert prefixItems -> items[array] for hypothesis-jsonschema (Draft 4/7-only).
+    # Skipped when the consumer needs `prefixItems` to stay intact (e.g. for Draft 2020-12 validators).
+    if convert_prefix_items and "prefixItems" in schema:
         prefix_items = schema.pop("prefixItems")
         if "items" in schema:
             # When both prefixItems and items exist, items becomes additionalItems
             schema["additionalItems"] = schema.pop("items")
         schema["items"] = prefix_items
 
+    if schema_type == "array":
+        _rewrite_allof_of_contains_consts(schema)
+
     if not is_response_schema:
-        _inject_discriminator_consts(schema, name_to_uri)
+        _pin_discriminator_property(schema, name_to_uri)
 
     for keyword, value in schema.items():
         if keyword in IN_VALUE and isinstance(value, dict):
@@ -146,6 +154,7 @@ def _to_json_schema(
                 is_response_schema=is_response_schema,
                 update_quantifiers=update_quantifiers,
                 upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+                convert_prefix_items=convert_prefix_items,
                 name_to_uri=name_to_uri,
             )
         elif keyword in IN_ITEM and isinstance(value, list):
@@ -156,6 +165,7 @@ def _to_json_schema(
                     is_response_schema=is_response_schema,
                     update_quantifiers=update_quantifiers,
                     upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+                    convert_prefix_items=convert_prefix_items,
                     name_to_uri=name_to_uri,
                 )
         elif keyword in IN_CHILD and isinstance(value, dict):
@@ -166,17 +176,18 @@ def _to_json_schema(
                     is_response_schema=is_response_schema,
                     update_quantifiers=update_quantifiers,
                     upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+                    convert_prefix_items=convert_prefix_items,
                     name_to_uri=name_to_uri,
                 )
 
     return schema
 
 
-def _inject_discriminator_consts(schema: dict[str, Any], name_to_uri: dict[str, str] | None) -> None:
+def _pin_discriminator_property(schema: dict[str, Any], name_to_uri: dict[str, str] | None) -> None:
     """Pin the discriminator property to its expected value in each oneOf/anyOf branch.
 
     When a schema has a `discriminator`, each branch in oneOf/anyOf is wrapped in
-    `allOf` with a `const` constraint on the discriminator property. This ensures
+    `allOf` with an `enum` constraint on the discriminator property. This ensures
     hypothesis-jsonschema generates the correct discriminator value for each branch.
     """
     discriminator = schema.get("discriminator")
@@ -209,7 +220,45 @@ def _inject_discriminator_consts(schema: dict[str, Any], name_to_uri: dict[str, 
             disc_value = ref_to_value.get(resolved_ref) or resolved_ref.rstrip("/").rsplit("/", 1)[-1]
             if not disc_value:
                 continue
-            items[idx] = {"allOf": [item, {"properties": {property_name: {"const": disc_value}}}]}
+            # `enum` is used instead of `const` so the pin is recognized under Draft 4
+            # (used by OpenAPI 2.0 / 3.0); Draft 4 silently ignores `const`.
+            items[idx] = {"allOf": [item, {"properties": {property_name: {"enum": [disc_value]}}}]}
+
+
+def _rewrite_allof_of_contains_consts(schema: dict[str, Any]) -> None:
+    # `allOf: [{contains: {const: A}}, {contains: {const: B}}, ...]` can't be merged by
+    # hypothesis-jsonschema, so it falls back to filtering and exhausts. Rewriting the
+    # required consts as a positional `items` prefix forces them into the array up front.
+    all_of = schema.get("allOf")
+    if not isinstance(all_of, list) or len(all_of) < 2:
+        return
+    if isinstance(schema.get("items"), list):
+        return
+    consts = []
+    keep = []
+    for entry in all_of:
+        if (
+            isinstance(entry, dict)
+            and len(entry) == 1
+            and isinstance(entry.get("contains"), dict)
+            and entry["contains"].keys() == {"const"}
+        ):
+            consts.append({"const": entry["contains"]["const"]})
+        else:
+            keep.append(entry)
+    if len(consts) < 2:
+        return
+    original_items = schema.get("items")
+    if isinstance(original_items, dict):
+        schema["additionalItems"] = original_items
+    schema["items"] = consts
+    if keep:
+        schema["allOf"] = keep
+    else:
+        schema.pop("allOf", None)
+    min_items = schema.get("minItems")
+    if not isinstance(min_items, int) or min_items < len(consts):
+        schema["minItems"] = len(consts)
 
 
 def _upgrade_legacy_exclusive_bounds(schema: dict[str, Any]) -> None:
@@ -266,6 +315,7 @@ IN_ITEM = frozenset(
         "allOf",
         "anyOf",
         "oneOf",
+        "prefixItems",
     )
 )
 IN_CHILD = frozenset(
@@ -305,13 +355,13 @@ def rewrite_properties(schema: dict[str, Any], predicate: Callable[[dict[str, An
         schema.pop("properties", None)
 
 
-def is_write_only(schema: dict[str, Any] | bool) -> bool:
-    if isinstance(schema, bool):
+def is_write_only(schema: Any) -> bool:
+    if not isinstance(schema, dict):
         return False
     return schema.get("writeOnly", False) or schema.get("x-writeOnly", False)
 
 
-def is_read_only(schema: dict[str, Any] | bool) -> bool:
-    if isinstance(schema, bool):
+def is_read_only(schema: Any) -> bool:
+    if not isinstance(schema, dict):
         return False
     return schema.get("readOnly", False)

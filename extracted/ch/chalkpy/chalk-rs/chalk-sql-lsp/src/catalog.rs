@@ -38,7 +38,9 @@ impl Catalog {
 
     pub fn find_function(&self, name: &str) -> Option<&FunctionDef> {
         let lower = name.to_lowercase();
-        self.functions.iter().find(|f| f.name.to_lowercase() == lower)
+        self.functions
+            .iter()
+            .find(|f| f.name.to_lowercase() == lower)
     }
 
     pub fn functions_with_prefix(&self, prefix: &str) -> Vec<&FunctionDef> {

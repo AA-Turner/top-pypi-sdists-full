@@ -233,12 +233,108 @@ def _cost_distance_kernel(
 
 
 # ---------------------------------------------------------------------------
+# Memory safety helpers
+# ---------------------------------------------------------------------------
+
+# Peak working-memory footprint of _cost_distance_kernel per pixel:
+#   dist   (float64)  : 8
+#   h_keys (float64)  : 8
+#   h_rows (int64)    : 8
+#   h_cols (int64)    : 8
+#   visited (int8)    : 1
+#   out    (float32)  : 4
+# Total ~37 bytes/pixel.  Round up to 40 for intermediate temporaries.
+_BYTES_PER_PIXEL = 40
+
+# Peak GPU working-memory footprint of _cost_distance_cupy per pixel:
+#   dist          (float64) : 8
+#   source_mask   (bool)    : 1
+#   passable      (bool)    : 1
+#   cp.where temp (float64) : 8
+#   out           (float32) : 4
+#   isfinite/cast intermediates allow another ~2
+# Total ~24 bytes/pixel.  This excludes the caller-provided src/fric arrays,
+# which already live on the device before _cost_distance_cupy is invoked.
+_GPU_BYTES_PER_PIXEL = 24
+
+
+def _available_memory_bytes():
+    """Best-effort estimate of available memory in bytes."""
+    # Try /proc/meminfo (Linux)
+    try:
+        with open('/proc/meminfo', 'r') as f:
+            for line in f:
+                if line.startswith('MemAvailable:'):
+                    return int(line.split()[1]) * 1024  # kB -> bytes
+    except (OSError, ValueError, IndexError):
+        pass
+    # Try psutil
+    try:
+        import psutil
+        return psutil.virtual_memory().available
+    except (ImportError, AttributeError):
+        pass
+    # Fallback: 2 GB
+    return 2 * 1024 ** 3
+
+
+def _available_gpu_memory_bytes():
+    """Best-effort estimate of free GPU memory in bytes.
+
+    Returns 0 if CuPy / CUDA is unavailable or the query fails -- callers
+    use that as a sentinel meaning "no GPU info, skip the guard".
+    """
+    try:
+        import cupy as _cp
+        free, _total = _cp.cuda.runtime.memGetInfo()
+        return int(free)
+    except Exception:
+        return 0
+
+
+def _check_memory(height, width):
+    """Raise MemoryError if the Dijkstra kernel would exceed 50% of RAM."""
+    required = int(height) * int(width) * _BYTES_PER_PIXEL
+    available = _available_memory_bytes()
+    if required > 0.5 * available:
+        raise MemoryError(
+            f"cost_distance on a {height}x{width} grid requires "
+            f"~{required / 1e9:.1f} GB of working memory but only "
+            f"~{available / 1e9:.1f} GB is available.  "
+            f"Set a finite `max_cost=` to bound the search, or use a "
+            f"dask-backed DataArray for out-of-core processing."
+        )
+
+
+def _check_gpu_memory(height, width):
+    """Raise MemoryError if the CuPy kernel would exceed 50% of free GPU RAM.
+
+    Skips the check (returns silently) when ``_available_gpu_memory_bytes``
+    cannot determine the free memory -- e.g. on hosts without CUDA, where
+    the kernel will fail at the cupy.asarray boundary anyway.
+    """
+    available = _available_gpu_memory_bytes()
+    if available <= 0:
+        return
+    required = int(height) * int(width) * _GPU_BYTES_PER_PIXEL
+    if required > 0.5 * available:
+        raise MemoryError(
+            f"cost_distance on a {height}x{width} grid requires "
+            f"~{required / 1e9:.1f} GB of GPU working memory but only "
+            f"~{available / 1e9:.1f} GB is free on the active device.  "
+            f"Set a finite `max_cost=` to bound the search, or use a "
+            f"dask+cupy DataArray for out-of-core processing."
+        )
+
+
+# ---------------------------------------------------------------------------
 # NumPy wrapper
 # ---------------------------------------------------------------------------
 
 def _cost_distance_numpy(source_data, friction_data, cellsize_x, cellsize_y,
                          max_cost, target_values, dy, dx, dd):
     height, width = source_data.shape
+    _check_memory(height, width)
     return _cost_distance_kernel(
         source_data, friction_data, height, width,
         cellsize_x, cellsize_y, max_cost,
@@ -308,6 +404,7 @@ def _cost_distance_cupy(source_data, friction_data, cellsize_x, cellsize_y,
     import cupy as cp
 
     height, width = source_data.shape
+    _check_gpu_memory(height, width)
     src = source_data.astype(cp.float64) if source_data.dtype != cp.float64 \
         else source_data
     fric = friction_data.astype(cp.float64) if friction_data.dtype != cp.float64 \
@@ -922,11 +1019,7 @@ def _cost_distance_dask_iterative(source_da, friction_da,
                    np.prod(friction_da.shape) * friction_da.dtype.itemsize)
     # Working memory: tile cache (~2x dataset) + result (~1x) + boundaries
     estimated = total_bytes * 3
-    try:
-        from xrspatial.zonal import _available_memory_bytes
-        avail = _available_memory_bytes()
-    except ImportError:
-        avail = 2 * 1024**3
+    avail = _available_memory_bytes()
     if estimated > 0.8 * avail:
         raise MemoryError(
             f"cost_distance iterative Dijkstra needs ~{estimated / 1e9:.1f} GB "

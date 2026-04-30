@@ -23,7 +23,12 @@ pub fn completions(sql: &str, line: u32, col: u32) -> Vec<CompletionItem> {
                 .map(|f| {
                     let detail = f.signature_short();
                     let docs = f.docs.as_deref().unwrap_or("");
-                    let doc_text = format!("**{}**\n\n{}\n\n{}", f.category, docs, signatures_markdown(f));
+                    let doc_text = format!(
+                        "**{}**\n\n{}\n\n{}",
+                        f.category,
+                        docs,
+                        signatures_markdown(f)
+                    );
 
                     CompletionItem {
                         label: f.name.clone(),

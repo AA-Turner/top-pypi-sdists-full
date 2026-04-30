@@ -254,7 +254,7 @@ class TestCliContainerLifecycle:
             entrypoint="",
             command=[
                 "bash", "-c",
-                "pip install -e /opt/code/localstack-cli && localstack --version"
+                "SETUPTOOLS_SCM_PRETEND_VERSION=1.0.0 pip install -e /opt/code/localstack-cli && localstack --version"
             ],
             volumes=[
                 (os.path.dirname(MODULE_MAIN_PATH), "/opt/code/localstack-cli"),

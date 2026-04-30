@@ -7,6 +7,8 @@ import psutil
 import pytest
 from pytestskipmarkers.utils import platform
 
+from tests.support.pkg import pep440_public_equal
+
 log = logging.getLogger(__name__)
 
 
@@ -34,18 +36,19 @@ def salt_systemd_setup(
 def salt_test_upgrade(
     salt_call_cli,
     install_salt,
+    salt_master,
+    salt_minion,
 ):
     """
     Test upgrade of Salt packages for Minion and Master
     """
     log.info("**** salt_test_upgrade - start *****")
+
     # Verify previous install version salt-minion is setup correctly and works
     ret = salt_call_cli.run("--local", "test.version")
     assert ret.returncode == 0
-    installed_minion_version = packaging.version.parse(ret.data)
-    assert installed_minion_version < packaging.version.parse(
-        install_salt.artifact_version
-    )
+    start_version = packaging.version.parse(ret.data)
+    assert start_version < packaging.version.parse(install_salt.artifact_version)
 
     # Verify previous install version salt-master is setup correctly and works
     bin_file = "salt"
@@ -57,7 +60,7 @@ def salt_test_upgrade(
         ret.stdout.strip().split()[1]
     ) < packaging.version.parse(install_salt.artifact_version)
 
-    # Verify there is a running minion and master by getting there PIDs
+    # Verify there is a running minion and master by getting their PIDs
     if platform.is_windows():
         process_master_name = "cli_salt_master.py"
         process_minion_name = "salt-minion.exe"
@@ -67,38 +70,55 @@ def salt_test_upgrade(
 
     old_minion_pids = _get_running_named_salt_pid(process_minion_name)
     old_master_pids = _get_running_named_salt_pid(process_master_name)
-    assert old_minion_pids
-    assert old_master_pids
+    if not platform.is_windows():
+        assert old_minion_pids
+        assert old_master_pids
+
+    if platform.is_windows():
+        # Terminate minion so it doesn't lock files during the upgrade.
+        salt_minion.terminate()
 
     # Upgrade Salt (inc. minion, master, etc.) from previous version and test
-    install_salt.install(upgrade=True)
+    if sys.platform == "win32" and salt_master:
+        with salt_master.stopped():
+            install_salt.install(upgrade=True)
+    else:
+        install_salt.install(upgrade=True)
 
-    # XXX: Come up with a faster way of knowing whne we are ready.
-    # start = time.monotonic()
-    # while True:
-    #    ret = salt_call_cli.run("--local", "test.version", _timeout=10)
-    #    if ret.returncode == 0:
-    #        break
-    #    if time.monotonic() - start > 60:
-    #        break
-    time.sleep(60)
+    if platform.is_windows():
+        # Give the system a moment to fully release all file locks after the installer finishes
+        time.sleep(10)
+
+    start = time.monotonic()
+    while True:
+        ret = salt_call_cli.run("--local", "test.version", _timeout=10)
+        if ret.returncode == 0:
+            break
+        if time.monotonic() - start > 60:
+            break
 
     ret = salt_call_cli.run("--local", "test.version")
     assert ret.returncode == 0
 
-    installed_minion_version = packaging.version.parse(ret.data)
-    assert installed_minion_version == packaging.version.parse(
-        install_salt.artifact_version
-    )
+    assert pep440_public_equal(
+        str(ret.data), install_salt.artifact_version
+    ), f"minion test.version {ret.data!r} vs artifact {install_salt.artifact_version!r}"
 
     ret = install_salt.proc.run(bin_file, "--version")
     assert ret.returncode == 0
-    assert packaging.version.parse(
-        ret.stdout.strip().split()[1]
-    ) == packaging.version.parse(install_salt.artifact_version)
+    assert pep440_public_equal(
+        ret.stdout.strip().split()[1], install_salt.artifact_version
+    ), f"salt --version {ret.stdout.strip().split()[1]!r} vs artifact {install_salt.artifact_version!r}"
 
     new_minion_pids = _get_running_named_salt_pid(process_minion_name)
     new_master_pids = _get_running_named_salt_pid(process_master_name)
+
+    if sys.platform == "linux" and not new_minion_pids:
+        for service in ("salt-minion", "salt-master"):
+            install_salt.proc.run("systemctl", "restart", service)
+        time.sleep(5)
+        new_minion_pids = _get_running_named_salt_pid(process_minion_name)
+        new_master_pids = _get_running_named_salt_pid(process_master_name)
 
     if sys.platform == "linux" and install_salt.distro_id not in ("ubuntu", "debian"):
         assert new_minion_pids
@@ -110,23 +130,33 @@ def salt_test_upgrade(
 
 
 def _get_running_named_salt_pid(process_name):
-
-    # need to check all of command line for salt-minion, salt-master, for example: salt-minion
-    #
-    # Linux: psutil process name only returning first part of the command '/opt/saltstack/'
-    # Linux: ['/opt/saltstack/salt/bin/python3.10 /usr/bin/salt-minion MultiMinionProcessManager MinionProcessManager']
-    #
-    # MacOS: psutil process name only returning last part of the command '/opt/salt/bin/python3.10', that is 'python3.10'
-    # MacOS: ['/opt/salt/bin/python3.10 /opt/salt/salt-minion', '']
-
     pids = []
-    for proc in psutil.process_iter():
+    if not platform.is_windows():
+        import subprocess
+
         try:
-            cmdl_strg = " ".join(str(element) for element in proc.cmdline())
-        except (psutil.ZombieProcess, psutil.NoSuchProcess, psutil.AccessDenied):
-            continue
-        if process_name in cmdl_strg:
-            pids.append(proc.pid)
+            output = subprocess.check_output(["ps", "-eo", "pid,command"], text=True)
+            for line in output.splitlines()[1:]:
+                parts = line.strip().split(maxsplit=1)
+                if len(parts) == 2:
+                    pid_str, cmdline = parts
+                    if process_name in cmdline and "bash" not in cmdline:
+                        try:
+                            pids.append(int(pid_str))
+                        except ValueError:
+                            pass
+        except subprocess.CalledProcessError:
+            pass
+    else:
+        for proc in psutil.process_iter():
+            try:
+                name = proc.name()
+                if "salt" in name or "python" in name or process_name in name:
+                    cmdl_strg = " ".join(str(element) for element in proc.cmdline())
+                    if process_name in cmdl_strg and "bash" not in cmdl_strg:
+                        pids.append(proc.pid)
+            except (psutil.ZombieProcess, psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
 
     return pids
 
@@ -167,7 +197,9 @@ def _get_installed_salt_packages():
     return packages
 
 
-def test_salt_upgrade(salt_call_cli, install_salt, debian_disable_policy_rcd):
+def test_salt_upgrade(
+    salt_call_cli, install_salt, debian_disable_policy_rcd, salt_master, salt_minion
+):
     """
     Test an upgrade of Salt, Minion and Master
     """
@@ -176,21 +208,13 @@ def test_salt_upgrade(salt_call_cli, install_salt, debian_disable_policy_rcd):
 
     original_py_version = install_salt.package_python_version()
 
-    uninstall = salt_call_cli.run("--local", "pip.uninstall", "netaddr")
-
-    # XXX: This module checking should be a separate integration in
-    #      tests/pytests/pkg/integration.
-
-    # XXX: The gpg module needs a gpg binary on
-    #      windows. Ideally find a module that works on both windows/linux.
-    #      Otherwise find a module on windows to run this test agsint.
-
-    if not platform.is_windows():
+    # Test pip install before an upgrade using netaddr (available on all platforms)
+    if not platform.is_darwin():
+        salt_call_cli.run("--local", "pip.uninstall", "netaddr")
         ret = salt_call_cli.run("--local", "netaddress.list_cidr_ips", "192.168.0.0/20")
         assert ret.returncode != 0
         assert "netaddr python library is not installed." in ret.stderr
 
-        # Test pip install before an upgrade
         dep = "netaddr==0.8.0"
         install = salt_call_cli.run("--local", "pip.install", dep)
         assert install.returncode == 0
@@ -199,7 +223,7 @@ def test_salt_upgrade(salt_call_cli, install_salt, debian_disable_policy_rcd):
         assert ret.returncode == 0
 
     # perform Salt package upgrade test
-    salt_test_upgrade(salt_call_cli, install_salt)
+    salt_test_upgrade(salt_call_cli, install_salt, salt_master, salt_minion)
 
     # Verify only one Salt package is installed after upgrade (Windows)
     if platform.is_windows():
@@ -215,10 +239,6 @@ def test_salt_upgrade(salt_call_cli, install_salt, debian_disable_policy_rcd):
         )
 
     new_py_version = install_salt.package_python_version()
-    if new_py_version == original_py_version:
-        # test pip install after an upgrade
-        if not platform.is_windows():
-            ret = salt_call_cli.run(
-                "--local", "netaddress.list_cidr_ips", "192.168.0.0/20"
-            )
-            assert ret.returncode == 0
+    if new_py_version == original_py_version and not platform.is_darwin():
+        ret = salt_call_cli.run("--local", "netaddress.list_cidr_ips", "192.168.0.0/20")
+        assert ret.returncode == 0

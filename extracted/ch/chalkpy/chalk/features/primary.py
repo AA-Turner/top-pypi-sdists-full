@@ -1,8 +1,6 @@
 import typing
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Protocol, Type, TypeVar, overload
-
-from typing_extensions import Annotated
+from typing import TYPE_CHECKING, Annotated, Any, Protocol, Type, TypeVar, overload
 
 from chalk.features.feature_field import Feature
 from chalk.features.feature_set import Features, is_feature_set_class, is_features_cls

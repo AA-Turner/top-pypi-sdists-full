@@ -39,8 +39,9 @@ RSYNC_USER = armco@web.sourceforge.net
 # src/module.c is first because it declares global variables
 # which other files reference; important for single source build
 SOURCES = src/easy.c src/easycb.c src/easyinfo.c src/easyopt.c src/easyperform.c \
-	src/module.c src/multi.c src/oscompat.c src/pythoncompat.c \
-	src/share.c src/stringcompat.c src/threadsupport.c src/util.c
+	src/easyws.c src/mime.c src/module.c src/multi.c src/oscompat.c \
+	src/pythoncompat.c src/share.c src/stringcompat.c src/threadsupport.c \
+	src/util.c
 
 GEN_SOURCES = src/docstrings.c src/docstrings.h
 
@@ -51,20 +52,34 @@ RELEASE_SOURCES = src/allpycurl.c
 DOCSTRINGS_SOURCES = \
 	doc/docstrings/curl.rst \
 	doc/docstrings/curl_close.rst \
+	doc/docstrings/curl_closed.rst \
 	doc/docstrings/curl_errstr.rst \
 	doc/docstrings/curl_errstr_raw.rst \
 	doc/docstrings/curl_getinfo.rst \
 	doc/docstrings/curl_getinfo_raw.rst \
+	doc/docstrings/curl_multi.rst \
 	doc/docstrings/curl_pause.rst \
 	doc/docstrings/curl_perform.rst \
+	doc/docstrings/curl_recv.rst \
+	doc/docstrings/curl_recv_into.rst \
 	doc/docstrings/curl_reset.rst \
+	doc/docstrings/curl_send.rst \
 	doc/docstrings/curl_setopt.rst \
+	doc/docstrings/curl_ws_close.rst \
+	doc/docstrings/curl_ws_meta.rst \
+	doc/docstrings/curl_ws_recv.rst \
+	doc/docstrings/curl_ws_recv_into.rst \
+	doc/docstrings/curl_ws_send.rst \
+	doc/docstrings/curl_share.rst \
+	doc/docstrings/curl_unpause.rst \
 	doc/docstrings/curl_unsetopt.rst \
 	doc/docstrings/curl_set_ca_certs.rst \
 	doc/docstrings/multi.rst \
 	doc/docstrings/multi_add_handle.rst \
 	doc/docstrings/multi_assign.rst \
 	doc/docstrings/multi_close.rst \
+	doc/docstrings/multi_closed.rst \
+	doc/docstrings/multi_contains.rst \
 	doc/docstrings/multi_fdset.rst \
 	doc/docstrings/multi_info_read.rst \
 	doc/docstrings/multi_perform.rst \
@@ -74,12 +89,14 @@ DOCSTRINGS_SOURCES = \
 	doc/docstrings/multi_socket_action.rst \
 	doc/docstrings/multi_socket_all.rst \
 	doc/docstrings/multi_timeout.rst \
+	doc/docstrings/multi_unassign.rst \
 	doc/docstrings/pycurl_global_cleanup.rst \
 	doc/docstrings/pycurl_global_init.rst \
 	doc/docstrings/pycurl_module.rst \
 	doc/docstrings/pycurl_version_info.rst \
 	doc/docstrings/share.rst \
 	doc/docstrings/share_close.rst \
+	doc/docstrings/share_closed.rst \
 	doc/docstrings/share_setopt.rst
 
 all: build
@@ -122,8 +139,11 @@ strip: build
 	strip -p --strip-unneeded build/lib*/*.so
 	chmod -x build/lib*/*.so
 
-install install_lib:
-	$(PYTHON) setup.py $@
+install:
+	$(PYTHON) -m pip install .
+
+install_lib:
+	$(PYTHON) setup.py install_lib
 
 clean:
 	-rm -rf build dist

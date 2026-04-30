@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.16.1"
+version = "4.17.0"
 description = "Property-based testing framework for Open API and GraphQL based apps"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
@@ -39,7 +39,7 @@ dependencies = [
   "hypothesis_graphql>=0.12.0,<1",
   "hypothesis_jsonschema>=0.23.1,<0.24",
   "jsonschema>=4.18.0,<5.0",
-  "jsonschema_rs>=0.46.2",
+  "jsonschema_rs>=0.46.3",
   "junit-xml>=1.9,<2.0",
   "pyrate-limiter>=4.0,<5.0",
   "pytest>=9,<10",

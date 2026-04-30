@@ -279,7 +279,7 @@ connections: # (Optional) List of third-party connections for credential injecti
         default=True,
         repr=False,
         metadata={
-            "docstring": "Whether or not queries to this service is gated behind an authentication token. If `True`, an auth token is generated the first time the service is deployed. You can find the token in the UI or by fetching the status of the service."
+            "docstring": "Whether or not queries to this service are gated behind an authentication token. If `True`, an auth token is generated the first time the service is deployed. You can find the token in the UI or by fetching the status of the service."
         },
     )
 
@@ -722,9 +722,7 @@ primary_version:
 
     project: Optional[str] = field(
         default=None,
-        metadata={
-            "docstring": "Name of the project that this service version belongs to."
-        },
+        metadata={"docstring": "Name of the project that this service belongs to."},
     )
 
     def _validate_project(self, project: Optional[str]):
@@ -767,7 +765,7 @@ class ServiceSortField(ModelEnum):
 
 
 class ServiceLogMode(ModelEnum):
-    """Mode to use for getting job logs."""
+    """Mode to use for getting service logs."""
 
     HEAD = "HEAD"
     TAIL = "TAIL"

@@ -200,6 +200,13 @@ pub enum MetricKind {
     PullQueryMaxInflight = 70,
     PullQueryConcurrencyTarget = 71,
     PullQueryOpenConnections = 72,
+    FunctionCallEnqueued = 73,
+    FunctionCallEnqueueLatency = 74,
+    FunctionCallOpenConnections = 75,
+    FunctionCallDequeued = 76,
+    FunctionCallProcessingLatency = 77,
+    FunctionCallQueueDepth = 78,
+    FunctionCallInflight = 79,
 }
 impl MetricKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -281,6 +288,13 @@ impl MetricKind {
             MetricKind::PullQueryMaxInflight => "METRIC_KIND_PULL_QUERY_MAX_INFLIGHT",
             MetricKind::PullQueryConcurrencyTarget => "METRIC_KIND_PULL_QUERY_CONCURRENCY_TARGET",
             MetricKind::PullQueryOpenConnections => "METRIC_KIND_PULL_QUERY_OPEN_CONNECTIONS",
+            MetricKind::FunctionCallEnqueued => "METRIC_KIND_FUNCTION_CALL_ENQUEUED",
+            MetricKind::FunctionCallEnqueueLatency => "METRIC_KIND_FUNCTION_CALL_ENQUEUE_LATENCY",
+            MetricKind::FunctionCallOpenConnections => "METRIC_KIND_FUNCTION_CALL_OPEN_CONNECTIONS",
+            MetricKind::FunctionCallDequeued => "METRIC_KIND_FUNCTION_CALL_DEQUEUED",
+            MetricKind::FunctionCallProcessingLatency => "METRIC_KIND_FUNCTION_CALL_PROCESSING_LATENCY",
+            MetricKind::FunctionCallQueueDepth => "METRIC_KIND_FUNCTION_CALL_QUEUE_DEPTH",
+            MetricKind::FunctionCallInflight => "METRIC_KIND_FUNCTION_CALL_INFLIGHT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -359,6 +373,13 @@ impl MetricKind {
             "METRIC_KIND_PULL_QUERY_MAX_INFLIGHT" => Some(Self::PullQueryMaxInflight),
             "METRIC_KIND_PULL_QUERY_CONCURRENCY_TARGET" => Some(Self::PullQueryConcurrencyTarget),
             "METRIC_KIND_PULL_QUERY_OPEN_CONNECTIONS" => Some(Self::PullQueryOpenConnections),
+            "METRIC_KIND_FUNCTION_CALL_ENQUEUED" => Some(Self::FunctionCallEnqueued),
+            "METRIC_KIND_FUNCTION_CALL_ENQUEUE_LATENCY" => Some(Self::FunctionCallEnqueueLatency),
+            "METRIC_KIND_FUNCTION_CALL_OPEN_CONNECTIONS" => Some(Self::FunctionCallOpenConnections),
+            "METRIC_KIND_FUNCTION_CALL_DEQUEUED" => Some(Self::FunctionCallDequeued),
+            "METRIC_KIND_FUNCTION_CALL_PROCESSING_LATENCY" => Some(Self::FunctionCallProcessingLatency),
+            "METRIC_KIND_FUNCTION_CALL_QUEUE_DEPTH" => Some(Self::FunctionCallQueueDepth),
+            "METRIC_KIND_FUNCTION_CALL_INFLIGHT" => Some(Self::FunctionCallInflight),
             _ => None,
         }
     }
@@ -389,6 +410,7 @@ pub enum FilterKind {
     SubscriptionName = 20,
     PartitionName = 21,
     ScalingGroup = 22,
+    FunctionName = 23,
 }
 impl FilterKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -420,6 +442,7 @@ impl FilterKind {
             FilterKind::SubscriptionName => "FILTER_KIND_SUBSCRIPTION_NAME",
             FilterKind::PartitionName => "FILTER_KIND_PARTITION_NAME",
             FilterKind::ScalingGroup => "FILTER_KIND_SCALING_GROUP",
+            FilterKind::FunctionName => "FILTER_KIND_FUNCTION_NAME",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -448,6 +471,7 @@ impl FilterKind {
             "FILTER_KIND_SUBSCRIPTION_NAME" => Some(Self::SubscriptionName),
             "FILTER_KIND_PARTITION_NAME" => Some(Self::PartitionName),
             "FILTER_KIND_SCALING_GROUP" => Some(Self::ScalingGroup),
+            "FILTER_KIND_FUNCTION_NAME" => Some(Self::FunctionName),
             _ => None,
         }
     }
@@ -564,6 +588,7 @@ pub enum GroupByKind {
     TopicName = 15,
     SubscriptionName = 16,
     PartitionName = 17,
+    FunctionName = 18,
 }
 impl GroupByKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -590,6 +615,7 @@ impl GroupByKind {
             GroupByKind::TopicName => "GROUP_BY_KIND_TOPIC_NAME",
             GroupByKind::SubscriptionName => "GROUP_BY_KIND_SUBSCRIPTION_NAME",
             GroupByKind::PartitionName => "GROUP_BY_KIND_PARTITION_NAME",
+            GroupByKind::FunctionName => "GROUP_BY_KIND_FUNCTION_NAME",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -613,6 +639,7 @@ impl GroupByKind {
             "GROUP_BY_KIND_TOPIC_NAME" => Some(Self::TopicName),
             "GROUP_BY_KIND_SUBSCRIPTION_NAME" => Some(Self::SubscriptionName),
             "GROUP_BY_KIND_PARTITION_NAME" => Some(Self::PartitionName),
+            "GROUP_BY_KIND_FUNCTION_NAME" => Some(Self::FunctionName),
             _ => None,
         }
     }
@@ -806,6 +833,10 @@ pub struct CronAggregateBackfill {
     pub target: i32,
     #[prost(string, optional, tag="8")]
     pub resource_group: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="9")]
+    pub lower_bound: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="10")]
+    pub upper_bound: ::core::option::Option<::prost_types::Timestamp>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

@@ -938,6 +938,9 @@ class EnumBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
     def define_literal_core(self, literal_name: str, literal_value: typing.Any) -> System.Reflection.Emit.FieldBuilder:
         ...
 
+    def get_nullable_underlying_type(self) -> typing.Type:
+        ...
+
     @overload
     def make_array_type(self) -> typing.Type:
         ...
@@ -1024,6 +1027,9 @@ class GenericTypeParameterBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCM
     """This class has no documentation."""
 
     def __init__(self) -> None:
+        ...
+
+    def get_nullable_underlying_type(self) -> typing.Type:
         ...
 
     def set_base_type_constraint(self, base_type_constraint: typing.Type) -> None:
@@ -1477,6 +1483,9 @@ class TypeBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
 
     @staticmethod
     def get_method(type: typing.Type, method: System.Reflection.MethodInfo) -> System.Reflection.MethodInfo:
+        ...
+
+    def get_nullable_underlying_type(self) -> typing.Type:
         ...
 
     def is_created(self) -> bool:

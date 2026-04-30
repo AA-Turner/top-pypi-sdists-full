@@ -267,11 +267,24 @@ class BaseAuth:
         )
 
     def auth_extra_arguments(self) -> dict[str, str]:
-        """Return extra arguments needed on auth process. The defaults can be
-        overridden by GET parameters."""
+        """Return extra arguments needed on auth process.
+
+        Configured AUTH_EXTRA_ARGUMENTS are not overridden by request data by
+        default. Set AUTH_EXTRA_ARGUMENTS_OVERRIDE_ALLOWLIST to an iterable of
+        configured extra-argument keys that may be replaced by matching request
+        data values.
+        """
         extra_arguments = self.setting("AUTH_EXTRA_ARGUMENTS", {}).copy()
+        override_allowlist = (
+            self.setting("AUTH_EXTRA_ARGUMENTS_OVERRIDE_ALLOWLIST", ()) or ()
+        )
+        if isinstance(override_allowlist, str):
+            override_allowlist = (override_allowlist,)
+
         extra_arguments.update(
-            (key, self.data[key]) for key in extra_arguments if key in self.data
+            (key, self.data[key])
+            for key in override_allowlist
+            if key in extra_arguments and key in self.data
         )
         return extra_arguments
 
@@ -297,8 +310,10 @@ class BaseAuth:
         verify = self.setting("VERIFY_SSL", True)
 
         if timeout is None:
-            timeout = self.setting("REQUESTS_TIMEOUT") or self.setting(
-                "URLOPEN_TIMEOUT"
+            timeout = (
+                self.setting("REQUESTS_TIMEOUT")
+                or self.setting("URLOPEN_TIMEOUT")
+                or 5.0
             )
 
         if self.SEND_USER_AGENT and "User-Agent" not in headers:

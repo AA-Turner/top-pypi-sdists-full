@@ -3,7 +3,7 @@ Type annotations for elb service client waiters.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elb/waiters/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

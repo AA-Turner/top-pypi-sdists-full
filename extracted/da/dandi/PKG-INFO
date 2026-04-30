@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dandi
-Version: 0.74.3
+Version: 0.75.0
 Summary: Command line client for interaction with DANDI instances
 Author-email: DANDI developers <team@dandiarchive.org>
 Maintainer-email: DANDI developers <team@dandiarchive.org>
@@ -244,7 +244,7 @@ Requires-Dist: pycryptodomex
 Requires-Dist: pydantic~=2.0
 Requires-Dist: pynwb!=1.1.0,!=2.3.0,>=1.0.3
 Requires-Dist: numcodecs<0.16
-Requires-Dist: nwbinspector!=0.4.32,>=0.4.28
+Requires-Dist: nwbinspector>=0.7.0
 Requires-Dist: pyout!=0.6.0,>=0.5
 Requires-Dist: python-dateutil
 Requires-Dist: requests~=2.20

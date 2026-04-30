@@ -116,6 +116,18 @@ def _check_grace_period_active(ack: bool) -> bool:
 @hooks.prepare_host(priority=100, should_load=pro_config.ACTIVATE_PRO)
 def activate_pro_key_on_host():
     """Activate license on host (needed for DNS forward and EC2 daemon)."""
+    from localstack_cli.constants import OFFICIAL_IMAGES
+    from localstack_cli.utils.bootstrap import get_docker_image_to_start
+
+    image_name = get_docker_image_to_start().split(":")[0]
+    if image_name not in OFFICIAL_IMAGES:
+        LOG.debug(
+            "Skipping host license activation for custom image '%s' "
+            "(license expected to be baked into the image)",
+            image_name,
+        )
+        return
+
     try:
         licensingv2.get_licensed_environment().activate()
     except licensingv2.LicensingError as e:

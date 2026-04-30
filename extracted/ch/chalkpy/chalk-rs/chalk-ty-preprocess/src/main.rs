@@ -163,7 +163,9 @@ fn main() -> Result<()> {
         for arg in &args.ty_args {
             cmd.arg(arg);
         }
-        let status = cmd.status().context("failed to run `ty check` — is ty installed?")?;
+        let status = cmd
+            .status()
+            .context("failed to run `ty check` — is ty installed?")?;
         if !status.success() {
             std::process::exit(status.code().unwrap_or(1));
         }
@@ -186,8 +188,7 @@ fn load_type_map(
             if let Ok(graph) = if raw_graph {
                 load_graph_from_bytes(&bytes)
             } else {
-                load_graph_from_export_bytes(&bytes)
-                    .or_else(|_| load_graph_from_bytes(&bytes))
+                load_graph_from_export_bytes(&bytes).or_else(|_| load_graph_from_bytes(&bytes))
             } {
                 return Ok(build_type_map(&graph));
             }
@@ -198,13 +199,22 @@ fn load_type_map(
                 return Ok(type_map);
             }
 
-            bail!("failed to decode protograph as protobuf or JSON from {}", path.display());
+            bail!(
+                "failed to decode protograph as protobuf or JSON from {}",
+                path.display()
+            );
         }
         None => {
             // Try to run `chalk apply --export` to get the protograph.
             eprintln!("No protograph provided, running `chalk apply --export`...");
             let output = Command::new("chalk")
-                .args(["apply", "--dir", &project_dir.to_string_lossy(), "--export-graph-path", "/dev/stdout"])
+                .args([
+                    "apply",
+                    "--dir",
+                    &project_dir.to_string_lossy(),
+                    "--export-graph-path",
+                    "/dev/stdout",
+                ])
                 .output()
                 .context("failed to run `chalk apply` — is chalk installed?")?;
             if !output.status.success() {
@@ -226,7 +236,12 @@ fn is_hidden_or_output(entry: &walkdir::DirEntry, output_dir: &Path) -> bool {
     }
     // Skip hidden directories and common non-source directories.
     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-        if name.starts_with('.') || name == "__pycache__" || name == "node_modules" || name == ".venv" || name == "venv" {
+        if name.starts_with('.')
+            || name == "__pycache__"
+            || name == "node_modules"
+            || name == ".venv"
+            || name == "venv"
+        {
             return true;
         }
     }

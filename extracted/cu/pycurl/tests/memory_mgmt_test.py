@@ -1,10 +1,10 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 # vi:ts=4:et
 
 import sys
 import weakref
 import pycurl
+import pytest
 import unittest
 import gc
 import flaky
@@ -225,13 +225,9 @@ class MemoryMgmtTest(unittest.TestCase):
             iters = 10000
         else:
             iters = 100000
-            
-        try:
-            range_generator = xrange
-        except NameError:
-            range_generator = range
+
         # Ensure that the refcounting error in "reset" is fixed:
-        for i in range_generator(iters):
+        for i in range(iters):
             c = util.DefaultCurl()
             c.reset()
             c.close()
@@ -275,7 +271,14 @@ class MemoryMgmtTest(unittest.TestCase):
         object_count = len(gc.get_objects())
 
         c = util.DefaultCurl()
-        c.setopt(callback, lambda x: True)
+        if callback == pycurl.IOCTLFUNCTION:
+            with pytest.warns(DeprecationWarning, match="IOCTLFUNCTION is deprecated; use SEEKFUNCTION"):
+                c.setopt(callback, lambda x: True)
+        elif callback == pycurl.PROGRESSFUNCTION:
+            with pytest.warns(DeprecationWarning, match="PROGRESSFUNCTION is deprecated; use XFERINFOFUNCTION"):
+                c.setopt(callback, lambda x: True)
+        else:
+            c.setopt(callback, lambda x: True)
         del c
 
         gc.collect()
@@ -306,14 +309,15 @@ class MemoryMgmtTest(unittest.TestCase):
         before_object_count = len(gc.get_objects())
 
         for i in range(100000):
-            c.setopt(pycurl.HTTPPOST, [
-                # Newer versions of libcurl accept FORM_BUFFERPTR
-                # without FORM_BUFFER and reproduce the memory leak;
-                # libcurl 7.19.0 requires FORM_BUFFER to be given before
-                # FORM_BUFFERPTR.
-                ("post1", (pycurl.FORM_BUFFER, 'foo.txt', pycurl.FORM_BUFFERPTR, "data1")),
-                ("post2", (pycurl.FORM_BUFFER, 'bar.txt', pycurl.FORM_BUFFERPTR, "data2")),
-            ])
+            with pytest.warns(DeprecationWarning, match="HTTPPOST is deprecated; use MIMEPOST"):
+                c.setopt(pycurl.HTTPPOST, [
+                    # Newer versions of libcurl accept FORM_BUFFERPTR
+                    # without FORM_BUFFER and reproduce the memory leak;
+                    # libcurl 7.19.0 requires FORM_BUFFER to be given before
+                    # FORM_BUFFERPTR.
+                    ("post1", (pycurl.FORM_BUFFER, 'foo.txt', pycurl.FORM_BUFFERPTR, "data1")),
+                    ("post2", (pycurl.FORM_BUFFER, 'bar.txt', pycurl.FORM_BUFFERPTR, "data2")),
+                ])
 
         gc.collect()
         after_object_count = len(gc.get_objects())
@@ -328,13 +332,13 @@ class MemoryMgmtTest(unittest.TestCase):
         del f
         gc.collect()
         assert ref()
-        
+
         for i in range(100):
             assert ref()
             c.setopt(option, ref())
         gc.collect()
         assert ref()
-        
+
         c.close()
         gc.collect()
         assert ref() is None
@@ -359,13 +363,13 @@ class MemoryMgmtTest(unittest.TestCase):
         del f, fn
         gc.collect()
         assert ref()
-        
+
         for i in range(100):
             assert ref()
             c.setopt(option, ref())
         gc.collect()
         assert ref()
-        
+
         c.close()
         gc.collect()
         assert ref() is None

@@ -3,6 +3,7 @@ Integration tests for Ruby Gem module
 """
 
 import pytest
+from packaging.version import Version
 from tornado.httpclient import HTTPClient
 
 import salt.utils.platform
@@ -35,16 +36,18 @@ class GemModuleTest(ModuleCase):
         self.GEM_BIN = "gem.cmd" if salt.utils.platform.is_windows() else "gem"
         self.GEM = "tidy"
         self.GEM_VER = "1.1.2"
-        self.OLD_GEM = "brass"
-        self.OLD_VERSION = "1.0.0"
-        self.NEW_VERSION = "1.2.1"
+        # Use paint as the upgradeable gem: it is pure Ruby, has many historical
+        # versions, no minimum Ruby version constraint, is not a system gem on
+        # any distro, and is always upgradeable. rake is a system gem on
+        # Debian/Ubuntu and cannot be fully uninstalled, which breaks cleanup.
+        self.OLD_GEM = "paint"
+        self.OLD_VERSION = "2.2.1"
         self.GEM_LIST = [self.GEM, self.OLD_GEM]
         for name in (
             "GEM",
             "GEM_VER",
             "OLD_GEM",
             "OLD_VERSION",
-            "NEW_VERSION",
             "GEM_LIST",
         ):
             self.addCleanup(delattr, self, name)
@@ -54,7 +57,23 @@ class GemModuleTest(ModuleCase):
             if self.run_function("gem.list", [self.GEM]):
                 self.run_function("gem.uninstall", [self.GEM])
 
+        def uninstall_old_gem():
+            # Remove all versions of OLD_GEM; retry until gem.list returns empty
+            # because gem uninstall -a may only remove one version at a time on
+            # some platforms.
+            for _ in range(5):
+                if not self.run_function("gem.list", [self.OLD_GEM]):
+                    break
+                self.run_function("gem.uninstall", [self.OLD_GEM])
+
         self.addCleanup(uninstall_gem)
+        self.addCleanup(uninstall_old_gem)
+
+        # Ensure OLD_GEM is not installed before each test
+        for _ in range(5):
+            if not self.run_function("gem.list", [self.OLD_GEM]):
+                break
+            self.run_function("gem.uninstall", [self.OLD_GEM])
 
     def run_function(self, function, *args, **kwargs):
         """Override run_function to use the gem binary"""
@@ -139,13 +158,24 @@ class GemModuleTest(ModuleCase):
         """
         self.run_function("gem.install", [self.OLD_GEM], version=self.OLD_VERSION)
         gem_list = self.run_function("gem.list", [self.OLD_GEM])
-        self.assertEqual({self.OLD_GEM: [self.OLD_VERSION]}, gem_list)
+        self.assertIn(self.OLD_VERSION, gem_list.get(self.OLD_GEM, []))
 
         self.run_function("gem.update", [self.OLD_GEM])
         gem_list = self.run_function("gem.list", [self.OLD_GEM])
-        self.assertEqual({self.OLD_GEM: [self.NEW_VERSION, self.OLD_VERSION]}, gem_list)
+        versions = gem_list.get(self.OLD_GEM, [])
+        # After update the old version should still be installed alongside
+        # a newer one.  We don't pin the new version so the test remains
+        # valid regardless of which Ruby/rubygems version is present.
+        self.assertIn(self.OLD_VERSION, versions)
+        newer = [v for v in versions if Version(v) > Version(self.OLD_VERSION)]
+        self.assertTrue(
+            newer, f"Expected a version newer than {self.OLD_VERSION}, got {versions}"
+        )
 
-        self.run_function("gem.uninstall", [self.OLD_GEM])
+        for _ in range(5):
+            if not self.run_function("gem.list", [self.OLD_GEM]):
+                break
+            self.run_function("gem.uninstall", [self.OLD_GEM])
         self.assertFalse(self.run_function("gem.list", [self.OLD_GEM]))
 
     @pytest.mark.slow_test

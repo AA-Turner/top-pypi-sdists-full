@@ -9,8 +9,9 @@ from typing import (
     cast,
 )
 
-import isodate
 import pyarrow as pa
+from chalk_rs import parse_datetime as _parse_datetime
+from chalk_rs import parse_iso_date as _parse_iso_date
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.json import FeatureEncodingOptions
@@ -36,6 +37,13 @@ except ImportError:
 _EPOCH = date(1970, 1, 1)
 
 
+def _parse_date_string(x: str) -> date:
+    try:
+        return _parse_iso_date(x)
+    except ValueError:
+        return _parse_datetime(x).date()
+
+
 def _coerce_date(x: Any) -> date:
     """Convert x to date, matching the structuring logic in rich.py/_structure_date.
 
@@ -54,7 +62,7 @@ def _coerce_date(x: Any) -> date:
             raise TypeError(f"Datetime '{x}' has a non-zero time component, which cannot be safely cast into a date")
         return x.date()
     if isinstance(x, str):
-        return isodate.parse_date(x)
+        return _parse_date_string(x)
     raise TypeError(f"Cannot convert '{x}' to a date")
 
 
@@ -69,7 +77,7 @@ def _coerce_date_from_json(x: Any) -> date:
     if isinstance(x, date):
         return x
     if isinstance(x, str):
-        return isodate.parse_date(x)
+        return _parse_date_string(x)
     raise TypeError(
         f"Date values must be serialized as ISO strings. Instead, received value '{x}' of type `{type(x).__name__}`"
     )

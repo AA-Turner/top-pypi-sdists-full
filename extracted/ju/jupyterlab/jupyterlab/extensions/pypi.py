@@ -19,14 +19,16 @@ from os import environ
 from pathlib import Path
 from subprocess import CalledProcessError, run
 from tarfile import TarFile
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile
 
 import httpx
 import tornado
 from async_lru import alru_cache
-from packaging.version import Version
+from packaging.utils import InvalidName, canonicalize_name
+from packaging.version import InvalidVersion, Version
+from packaging.version import parse as parse_version
 from traitlets import CFloat, CInt, Unicode, config, observe
 
 from jupyterlab._version import __version__
@@ -169,7 +171,24 @@ class PyPIExtensionManager(ExtensionManager):
         """Extension manager metadata."""
         return ExtensionManagerMetadata("PyPI", True, sys.prefix)
 
-    async def get_latest_version(self, pkg: str) -> Optional[str]:
+    async def is_install_allowed(self, name: str, version: Union[str, None] = None) -> bool:
+        try:
+            canonicalize_name(name, validate=True)
+            if version is not None:
+                parse_version(version)
+        except InvalidName:
+            self.log.warning(f"Invalid extension name: {name!r}")
+            return False
+        except InvalidVersion:
+            self.log.warning(f"Version {version!r} does not comply with PEP 440")
+            return False
+
+        allowed = await self._is_allowed_by_listing(name)
+        if not allowed:
+            self.log.warning(f"Installation denied by allowlist/blocklist for {name}")
+        return allowed
+
+    async def get_latest_version(self, pkg: str) -> Union[str, None]:
         """Return the latest available version for a given extension.
 
         Args:
@@ -381,6 +400,10 @@ class PyPIExtensionManager(ExtensionManager):
         Returns:
             The action result
         """
+        if not self.is_install_allowed(name, version):
+            # is_install_allowed will log the reason
+            return ActionResult(status="error", message="install is not allowed")
+
         current_loop = tornado.ioloop.IOLoop.current()
         with (
             tempfile.TemporaryDirectory() as ve_dir,

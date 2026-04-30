@@ -16,6 +16,7 @@ from rest_framework.schemas.openapi import SchemaGenerator
 
 from drf_standardized_errors.openapi_utils import (
     InputDataField,
+    _drf_version,
     get_django_filter_backends,
     get_error_serializer,
     get_filter_forms,
@@ -372,6 +373,43 @@ def test_unique_together_error_codes(unique_together):
     assert "required" in model.error_codes
 
 
+@pytest.fixture
+def unique_together_with_violation_code():
+    from django.db import models
+
+    class SomeModel(models.Model):
+        app_label = models.CharField(max_length=100)
+        model = models.CharField(max_length=100)
+
+        class Meta:
+            constraints = [
+                models.UniqueConstraint(
+                    fields=["app_label", "model"],
+                    name="unique_model",
+                    violation_error_code="custom_violation_code",
+                )
+            ]
+
+    class SomeSerializer(serializers.ModelSerializer):
+        class Meta:
+            model = SomeModel
+            fields = ["app_label", "model"]
+
+    return get_flat_serializer_fields(SomeSerializer())
+
+
+@pytest.mark.skipif(
+    _drf_version() < (3, 17) or django.VERSION < (5, 0),
+    reason="django added violation_error_code in v5 and drf supported it in v3.17",
+)
+def test_unique_together_new(unique_together_with_violation_code):
+    non_field_errors, _, __ = get_serializer_fields_with_error_codes(
+        unique_together_with_violation_code
+    )
+
+    assert "custom_violation_code" in non_field_errors.error_codes
+
+
 class PostSerializer(serializers.ModelSerializer):
     """
     Intentional required=False to test that the 'required' error code is added
@@ -505,7 +543,7 @@ class CharForm(forms.Form):
 
 
 def test_char_fields_with_error_codes():
-    (char, slug, regex, uuid, ip) = get_form_fields_with_error_codes(CharForm())
+    char, slug, regex, uuid, ip = get_form_fields_with_error_codes(CharForm())
 
     assert char.error_codes == {
         "required",
@@ -535,7 +573,7 @@ class NumberForm(forms.Form):
 
 
 def test_number_fields_with_error_codes():
-    (integer, dec1, dec2, dec3, dec4) = get_form_fields_with_error_codes(NumberForm())
+    integer, dec1, dec2, dec3, dec4 = get_form_fields_with_error_codes(NumberForm())
 
     assert integer.error_codes == {"required", "max_value", "min_value", "invalid"}
     assert dec1.error_codes == {
@@ -556,7 +594,7 @@ class TemporalForm(forms.Form):
 
 
 def test_temporal_fields_with_error_codes():
-    (date, datetime, duration) = get_form_fields_with_error_codes(TemporalForm())
+    date, datetime, duration = get_form_fields_with_error_codes(TemporalForm())
 
     assert date.error_codes == {"required", "invalid"}
     assert datetime.error_codes == {"invalid"}
@@ -587,7 +625,7 @@ class ChoiceForm(forms.Form):
 
 
 def test_choice_fields_with_error_codes():
-    (choice, multiple_choice) = get_form_fields_with_error_codes(ChoiceForm())
+    choice, multiple_choice = get_form_fields_with_error_codes(ChoiceForm())
 
     assert choice.error_codes == {"required", "invalid_choice"}
     assert multiple_choice.error_codes == {"invalid_choice", "invalid_list"}

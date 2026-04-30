@@ -5188,6 +5188,64 @@ def test_negative_data_rejection_no_false_positive_for_nullable_binary_multipart
         )
 
 
+def test_negative_data_rejection_no_false_positive_for_multipart_body_type_mutations(ctx, response_factory):
+    # Non-dict body values render as malformed multipart that lenient servers accept.
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/upload": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "multipart/form-data": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["data"],
+                                    "properties": {
+                                        "data": {
+                                            "type": "string",
+                                            "format": "binary",
+                                            "nullable": True,
+                                        }
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {
+                        "200": {"description": "OK"},
+                        "400": {"description": "Bad Request"},
+                    },
+                }
+            }
+        }
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    operation = schema["/upload"]["POST"]
+
+    cases = list(
+        generate_coverage_cases(
+            operation=operation,
+            generation_modes=[GenerationMode.NEGATIVE],
+            auth_storage=None,
+            as_strategy_kwargs={},
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=schema.config.generation,
+        )
+    )
+
+    response = response_factory.requests(status_code=200)
+    ctx_check = CheckContext(override=None, auth=None, headers=None, config=ChecksConfig(), transport_kwargs=None)
+
+    for case in cases:
+        if isinstance(case.body, dict):
+            continue
+        assert negative_data_rejection(ctx_check, response, case) is None, (
+            f"False positive: body {case.body!r} ({type(case.body).__name__})"
+        )
+
+
 def test_coverage_positive_body_nested_allof_inner_required_preserved(ctx):
     # Required fields from the second inner $ref (e.g. 'direction') must appear in POSITIVE bodies
     # when a oneOf branch resolves to allOf[{$ref: base}, {$ref: extension}].
@@ -5816,3 +5874,578 @@ def test_coverage_array_above_max_items_with_complex_items_schema(ctx):
             assert not validator.is_valid(case.body), (
                 f"NEGATIVE body is schema-valid (mutation had no effect): {case.body!r}"
             )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_coverage_consumes_path_keyed_pool(cli, app_runner, snapshot_cli, ctx):
+    paths = {
+        "/widgets/{widgetId}": {
+            "post": {
+                "operationId": "createWidget",
+                "parameters": [
+                    {
+                        "name": "widgetId",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string", "format": "uuid"},
+                    }
+                ],
+                "responses": {"201": {"description": "Created"}},
+            },
+            "get": {
+                "operationId": "getWidget",
+                "parameters": [
+                    {
+                        "name": "widgetId",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string", "format": "uuid"},
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["name"],
+                                    "properties": {"name": {"type": "string"}},
+                                }
+                            }
+                        },
+                    },
+                    "404": {"description": "Not found"},
+                },
+            },
+        }
+    }
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    widgets: set[str] = set()
+
+    @app.route("/widgets/<widget_id>", methods=["POST"])
+    def create_widget(widget_id):
+        widgets.add(widget_id)
+        return "", 201
+
+    @app.route("/widgets/<widget_id>", methods=["GET"])
+    def get_widget(widget_id):
+        if widget_id not in widgets:
+            return "", 404
+        # Planted bug: required `name` is null for widgets that exist
+        return jsonify({"name": None}), 200
+
+    port = app_runner.run_flask_app(app)
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--phases=coverage",
+            "-c response_schema_conformance",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_coverage_consumes_body_field_keyed_pool(cli, app_runner, snapshot_cli, ctx):
+    paths = {
+        "/sessions": {
+            "post": {
+                "operationId": "createSession",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["sessionId"],
+                                "properties": {"sessionId": {"type": "string", "format": "uuid"}},
+                            }
+                        }
+                    },
+                },
+                "responses": {"201": {"description": "Created"}},
+            }
+        },
+        "/sessions/{sessionId}/events": {
+            "post": {
+                "operationId": "createEvent",
+                "parameters": [
+                    {
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string", "format": "uuid"},
+                    }
+                ],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["sessionId", "kind"],
+                                "properties": {
+                                    "sessionId": {"type": "string", "format": "uuid"},
+                                    "kind": {"type": "string"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["name"],
+                                    "properties": {"name": {"type": "string"}},
+                                }
+                            }
+                        },
+                    },
+                    "404": {"description": "Not found"},
+                },
+            }
+        },
+    }
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    sessions: set[str] = set()
+
+    @app.route("/sessions", methods=["POST"])
+    def create_session():
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data, dict):
+            return "", 400
+        session_id = data.get("sessionId")
+        if not isinstance(session_id, str):
+            return "", 400
+        sessions.add(session_id)
+        return "", 201
+
+    @app.route("/sessions/<session_id>/events", methods=["POST"])
+    def create_event(session_id):
+        if session_id not in sessions:
+            return "", 404
+        # Planted bug: required `name` is null when sessionId exists
+        return jsonify({"name": None}), 200
+
+    port = app_runner.run_flask_app(app)
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--phases=coverage",
+            "-c response_schema_conformance",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_coverage_correlates_nested_resource_pool_picks(cli, app_runner, snapshot_cli, ctx):
+    # Independent picks return (U2, R1) but R1's parent is U1; only correlation matches the planted pair.
+    paths = {
+        "/products": {
+            "post": {
+                "operationId": "createProduct",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["productId"],
+                                "properties": {
+                                    "productId": {
+                                        "type": "string",
+                                        "examples": [
+                                            "alpha-product-7af3",
+                                            "bravo-product-9c11",
+                                        ],
+                                    }
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {"201": {"description": "Created"}},
+            }
+        },
+        "/products/{productId}/reviews": {
+            "post": {
+                "operationId": "createReview",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    }
+                ],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["reviewId"],
+                                "properties": {
+                                    "reviewId": {
+                                        "type": "string",
+                                        "examples": ["alpha-review-1234"],
+                                    }
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {"201": {"description": "Created"}},
+            }
+        },
+        "/products/{productId}/reviews/{reviewId}": {
+            "get": {
+                "operationId": "getReview",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "reviewId",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    },
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["name"],
+                                    "properties": {"name": {"type": "string"}},
+                                }
+                            }
+                        },
+                    },
+                    "404": {"description": "Not found"},
+                },
+            }
+        },
+    }
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    products: set[str] = set()
+    reviews: set[tuple[str, str]] = set()
+
+    @app.route("/products", methods=["POST"])
+    def create_product():
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data, dict):
+            return "", 400
+        product_id = data.get("productId")
+        if not isinstance(product_id, str):
+            return "", 400
+        products.add(product_id)
+        return "", 201
+
+    @app.route("/products/<product_id>/reviews", methods=["POST"])
+    def create_review(product_id):
+        if product_id not in products:
+            return "", 404
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data, dict):
+            return "", 400
+        review_id = data.get("reviewId")
+        if not isinstance(review_id, str):
+            return "", 400
+        reviews.add((product_id, review_id))
+        return "", 201
+
+    @app.route("/products/<product_id>/reviews/<review_id>", methods=["GET"])
+    def get_review(product_id, review_id):
+        if (product_id, review_id) not in reviews:
+            return "", 404
+        # Planted bug: required `name` is null for matched parent-child pairs.
+        return jsonify({"name": None}), 200
+
+    port = app_runner.run_flask_app(app)
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--phases=coverage",
+            "-c response_schema_conformance",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_coverage_negative_does_not_pollute_pool_with_invalid_values(cli, app_runner, snapshot_cli, ctx):
+    # A permissive endpoint's negative mutations must not seed the pool with values a strict endpoint would later reject.
+    paths = {
+        "/payments": {
+            "post": {
+                "operationId": "createPayment",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["customerId"],
+                                "properties": {"customerId": {"type": "string"}},
+                            }
+                        }
+                    },
+                },
+                "responses": {"200": {"description": "OK"}, "400": {"description": "Bad request"}},
+            }
+        },
+        "/audit": {
+            "post": {
+                "operationId": "createAuditEntry",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["customerId"],
+                                "properties": {"customerId": {"type": "string"}},
+                            }
+                        }
+                    },
+                },
+                "responses": {"200": {"description": "OK"}},
+            }
+        },
+        "/customers/{customerId}": {
+            "get": {
+                "operationId": "getCustomer",
+                "parameters": [{"name": "customerId", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK"}},
+            }
+        },
+    }
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    @app.route("/payments", methods=["POST"])
+    def payments():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get("customerId"), str):
+            return "", 400
+        return "", 200
+
+    @app.route("/audit", methods=["POST"])
+    def audit():
+        return "", 200
+
+    @app.route("/customers/<customer_id>", methods=["GET"])
+    def get_customer(customer_id):
+        return "", 200
+
+    port = app_runner.run_flask_app(app)
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--phases=coverage",
+            "-c positive_data_acceptance",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_coverage_pool_overlay_respects_stricter_destination_constraints(cli, app_runner, snapshot_cli, ctx):
+    # A loose endpoint contributes a value valid only for itself; a stricter consumer must not adopt it.
+    paths = {
+        "/clients": {
+            "post": {
+                "operationId": "createClient",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["clientId"],
+                                "properties": {"clientId": {"type": "string"}},
+                            }
+                        }
+                    },
+                },
+                "responses": {"200": {"description": "OK"}},
+            }
+        },
+        "/identity-providers": {
+            "put": {
+                "operationId": "putIdentityProvider",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["clientId"],
+                                "properties": {"clientId": {"type": "string", "minLength": 1}},
+                            }
+                        }
+                    },
+                },
+                "responses": {"200": {"description": "OK"}, "400": {"description": "Bad request"}},
+            }
+        },
+        "/clients/{clientId}": {
+            "get": {
+                "operationId": "getClient",
+                "parameters": [{"name": "clientId", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK"}},
+            }
+        },
+    }
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    @app.route("/clients", methods=["POST"])
+    def create_client():
+        return "", 200
+
+    @app.route("/identity-providers", methods=["PUT"])
+    def put_identity_provider():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get("clientId"), str) or not data["clientId"]:
+            return "", 400
+        return "", 200
+
+    @app.route("/clients/<client_id>", methods=["GET"])
+    def get_client(client_id):
+        return "", 200
+
+    port = app_runner.run_flask_app(app)
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--phases=coverage",
+            "-c positive_data_acceptance",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_coverage_pool_overlay_respects_destination_format(cli, app_runner, snapshot_cli, ctx):
+    # A producer with no `format` constraint must not contribute values that violate a consumer's `format: uuid`.
+    # The producer caps `txnId` length at 5 — no value can satisfy uuid (36 chars), so any pool injection fails.
+    paths = {
+        "/a-create": {
+            "post": {
+                "operationId": "createSession",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["txnId"],
+                                "properties": {"txnId": {"type": "string", "maxLength": 5}},
+                            }
+                        }
+                    },
+                },
+                "responses": {"200": {"description": "OK"}},
+            }
+        },
+        "/z-confirm": {
+            "post": {
+                "operationId": "confirmAuth",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["txnId"],
+                                "properties": {"txnId": {"type": "string", "format": "uuid"}},
+                            }
+                        }
+                    },
+                },
+                "responses": {"200": {"description": "OK"}, "400": {"description": "Bad request"}},
+            }
+        },
+        "/sessions/{txnId}": {
+            "get": {
+                "operationId": "getSession",
+                "parameters": [{"name": "txnId", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK"}},
+            }
+        },
+    }
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    @app.route("/a-create", methods=["POST"])
+    def create_session():
+        return "", 200
+
+    @app.route("/z-confirm", methods=["POST"])
+    def confirm_auth():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return "", 400
+        txn_id = data.get("txnId")
+        if not isinstance(txn_id, str) or not re.fullmatch(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", txn_id
+        ):
+            return "", 400
+        return "", 200
+
+    @app.route("/sessions/<txn_id>", methods=["GET"])
+    def get_session(txn_id):
+        return "", 200
+
+    port = app_runner.run_flask_app(app)
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--phases=coverage",
+            "-c positive_data_acceptance",
+        )
+        == snapshot_cli
+    )
+
+
+def test_undeclared_method_probes_dedup_across_operations(ctx):
+    # Each (path, unexpected_method) pair is emitted once across all declared operations on the path.
+    schema_dict = ctx.openapi.build_schema(
+        {
+            "/items": {
+                method: {"responses": {"200": {"description": "OK"}}} for method in ("get", "post", "put", "delete")
+            },
+        },
+    )
+    schema = schemathesis.openapi.from_dict(schema_dict)
+    unexpected_methods = {"options", "patch", "trace", "query"}
+
+    seen: list[tuple[str, str]] = []
+    seen_dedup: set[tuple[str, str]] = set()
+    for declared in ("GET", "POST", "PUT", "DELETE"):
+        for case in _iter_coverage_cases(
+            operation=schema["/items"][declared],
+            generation_modes=[GenerationMode.NEGATIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=unexpected_methods,
+            generation_config=schema.config.generation,
+            unexpected_methods_seen=seen_dedup,
+        ):
+            if case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD:
+                seen.append((case.operation.path, case.method))
+
+    assert sorted(seen) == sorted([("/items", method.upper()) for method in unexpected_methods])

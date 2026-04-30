@@ -96,12 +96,12 @@ def create(
 
 _GET_EXAMPLE = """
 import anyscale
-from anyscale.compute_config.models import ComputeConfig
+from anyscale.compute_config.models import ComputeConfigVersion
 
-compute_config: ComputeConfig = anyscale.compute_config.get("my-compute-config")
+compute_config: ComputeConfigVersion = anyscale.compute_config.get("my-compute-config")
 """
 _GET_ARG_DOCSTRINGS = {
-    "name": "The name of the compute config. This can inclue an optional version tag, i.e., 'name:version'. If no version tag is provided, the latest version will be returned.",
+    "name": "The name of the compute config. This can include an optional version tag, i.e., 'name:version'. If no version tag is provided, the latest version will be returned.",
     "include_archived": "Whether to consider archived compute configs (defaults to False).",
     "cloud": "Cloud name to filter by when resolving the compute config by name. Useful when multiple compute configs with the same name exist across different clouds.",
 }

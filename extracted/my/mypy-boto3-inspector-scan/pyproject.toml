@@ -1,13 +1,13 @@
 # Setup script for mypy-boto3-inspector-scan.
 
-# Copyright 2025 Vlad Emelianov
+# Copyright 2026 Vlad Emelianov
 
 [project]
 name = "mypy-boto3-inspector-scan"
-version = "1.42.12"
+version = "1.43.0"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 Inspectorscan 1.42.12 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 Inspectorscan 1.43.0 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

@@ -1,12 +1,13 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 # vi:ts=4:et
 
 from . import localhost
 import flaky
 import os.path
 import pycurl
+import pytest
 import unittest
+from io import BytesIO
 try:
     import json
 except ImportError:
@@ -67,7 +68,7 @@ class PostTest(unittest.TestCase):
         # UnicodeDecodeError: 'utf8' codec can't decode byte 0x80 in position 4: invalid start byte
 
         #self.curl.setopt(pycurl.VERBOSE, 1)
-        sio = util.BytesIO()
+        sio = BytesIO()
         self.curl.setopt(pycurl.WRITEFUNCTION, sio.write)
         self.curl.perform()
         self.assertEqual(200, self.curl.getinfo(pycurl.HTTP_CODE))
@@ -189,9 +190,10 @@ class PostTest(unittest.TestCase):
     # XXX this test takes about a second to run, check keep-alives?
     def check_post(self, send, expect, endpoint):
         self.curl.setopt(pycurl.URL, endpoint)
-        self.curl.setopt(pycurl.HTTPPOST, send)
+        with pytest.warns(DeprecationWarning, match="HTTPPOST is deprecated; use MIMEPOST"):
+            self.curl.setopt(pycurl.HTTPPOST, send)
         #self.curl.setopt(pycurl.VERBOSE, 1)
-        sio = util.BytesIO()
+        sio = BytesIO()
         self.curl.setopt(pycurl.WRITEFUNCTION, sio.write)
         self.curl.perform()
         self.assertEqual(200, self.curl.getinfo(pycurl.HTTP_CODE))

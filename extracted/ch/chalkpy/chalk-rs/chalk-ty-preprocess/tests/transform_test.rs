@@ -81,7 +81,10 @@ fn run_fixture(name: &str, graph: &Graph) {
             let a = actual_lines.get(i).unwrap_or(&"<missing>");
             let e = expected_lines.get(i).unwrap_or(&"<missing>");
             if a != e {
-                diff.push_str(&format!("  line {}: \n    expected: {e:?}\n    actual:   {a:?}\n", i + 1));
+                diff.push_str(&format!(
+                    "  line {}: \n    expected: {e:?}\n    actual:   {a:?}\n",
+                    i + 1
+                ));
             }
         }
         panic!(
@@ -218,10 +221,14 @@ fn test_features_decorator_with_args() {
         &[
             ("id", ArrowTypeEnum::LargeUtf8(e()), false),
             ("balance", ArrowTypeEnum::Float64(e()), false),
-            ("created_at", ArrowTypeEnum::Timestamp(chalk_proto::chalk::arrow::v1::Timestamp {
-                time_unit: 3, // microsecond
-                timezone: "UTC".to_string(),
-            }), true),
+            (
+                "created_at",
+                ArrowTypeEnum::Timestamp(chalk_proto::chalk::arrow::v1::Timestamp {
+                    time_unit: 3, // microsecond
+                    timezone: "UTC".to_string(),
+                }),
+                true,
+            ),
         ],
     )]);
     run_fixture("decorator_args", &graph);
@@ -428,7 +435,12 @@ fn test_realistic() {
         scalar("user", "name", ArrowTypeEnum::LargeUtf8(e()), false),
         scalar("user", "email", ArrowTypeEnum::LargeUtf8(e()), true),
         scalar("user", "score", ArrowTypeEnum::Float64(e()), false),
-        scalar("user", "created_at", ArrowTypeEnum::Timestamp(ts.clone()), false),
+        scalar(
+            "user",
+            "created_at",
+            ArrowTypeEnum::Timestamp(ts.clone()),
+            false,
+        ),
         FeatureType {
             r#type: Some(feature_type::Type::HasMany(HasManyFeatureType {
                 name: "transactions".to_string(),
@@ -511,10 +523,19 @@ fn test_stubs_no_dataclass_field_order() {
         "stubs should define a DataFrame class"
     );
     // Must contain the class
-    assert!(stubs.contains("class User:"), "stubs should contain User class");
+    assert!(
+        stubs.contains("class User:"),
+        "stubs should contain User class"
+    );
     // Must contain fields
-    assert!(stubs.contains("    id: int"), "stubs should contain id field");
-    assert!(stubs.contains("    name: str"), "stubs should contain name field");
+    assert!(
+        stubs.contains("    id: int"),
+        "stubs should contain id field"
+    );
+    assert!(
+        stubs.contains("    name: str"),
+        "stubs should contain name field"
+    );
 }
 
 #[test]
@@ -536,7 +557,12 @@ fn test_chalk_types() {
                     scalar("user", "id", ArrowTypeEnum::Int64(e()), false),
                     scalar("user", "name", ArrowTypeEnum::LargeUtf8(e()), false),
                     scalar("user", "email", ArrowTypeEnum::LargeUtf8(e()), true),
-                    scalar("user", "created_at", ArrowTypeEnum::Timestamp(ts.clone()), false),
+                    scalar(
+                        "user",
+                        "created_at",
+                        ArrowTypeEnum::Timestamp(ts.clone()),
+                        false,
+                    ),
                     scalar("user", "score", ArrowTypeEnum::Float64(e()), false),
                 ],
                 ..Default::default()
@@ -596,7 +622,12 @@ fn test_foreign_keys() {
                 name: "confirmed_fraud".to_string(),
                 features: vec![
                     scalar("confirmed_fraud", "id", ArrowTypeEnum::Int64(e()), false),
-                    scalar("confirmed_fraud", "is_fraud", ArrowTypeEnum::Int64(e()), false),
+                    scalar(
+                        "confirmed_fraud",
+                        "is_fraud",
+                        ArrowTypeEnum::Int64(e()),
+                        false,
+                    ),
                 ],
                 ..Default::default()
             },

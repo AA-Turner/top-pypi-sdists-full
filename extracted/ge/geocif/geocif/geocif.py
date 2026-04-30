@@ -226,6 +226,8 @@ class Geocif:
             **di.dict_aef,
             **di.dict_fldas,
             **di.dict_s2s,
+            **di.dict_fldas_engineered,
+            **di.dict_s2s_engineered,
         }
         
         self.combined_keys = list(self.combined_dict.keys())
@@ -861,8 +863,13 @@ class Geocif:
             n_fldas = int((self.df_inputs["Type"] == "FLDAS").sum())
             n_s2s = int((self.df_inputs["Type"] == "S2S").sum())
 
+            # Respect use_cids: only include forecast types that are in use_cids
+            if "all" in self.use_cids:
+                forecast_types = ["FLDAS", "S2S"]
+            else:
+                forecast_types = [c for c in self.use_cids if c in ("FLDAS", "S2S")]
             df = self.df_inputs[
-                (self.df_inputs["Type"].isin(["FLDAS", "S2S"])) &
+                (self.df_inputs["Type"].isin(forecast_types)) &
                 (self.df_inputs["Stage"] == stage_pattern)
             ]
 

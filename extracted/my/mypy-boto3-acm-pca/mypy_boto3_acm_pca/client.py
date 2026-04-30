@@ -3,7 +3,7 @@ Type annotations for acm-pca service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm_pca/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

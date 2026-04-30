@@ -13,6 +13,8 @@ def _build_request_args(
     simulator_name: str,
     agent_artifact_ids: str | None = None,
     include_replays: bool | None = False,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = f"/api/v1/session/public/benchmarks/{simulator_name}"
@@ -23,10 +25,17 @@ def _build_request_args(
     if include_replays is not None:
         params["includeReplays"] = include_replays
 
+    headers: dict[str, str] = {}
+    if authorization is not None:
+        headers["authorization"] = authorization
+    if x_api_key is not None:
+        headers["X-API-Key"] = x_api_key
+
     return {
         "method": "GET",
         "url": url,
         "params": params,
+        "headers": headers,
     }
 
 
@@ -35,6 +44,8 @@ def sync(
     simulator_name: str,
     agent_artifact_ids: str | None = None,
     include_replays: bool | None = False,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
 ) -> Any:
     """Public endpoint to fetch benchmark sessions for a simulator by name.
     - Returns sessions across all orgs (no org/public restriction)
@@ -45,6 +56,8 @@ def sync(
         simulator_name=simulator_name,
         agent_artifact_ids=agent_artifact_ids,
         include_replays=include_replays,
+        authorization=authorization,
+        x_api_key=x_api_key,
     )
 
     response = client.request(**request_args)
@@ -57,6 +70,8 @@ async def asyncio(
     simulator_name: str,
     agent_artifact_ids: str | None = None,
     include_replays: bool | None = False,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
 ) -> Any:
     """Public endpoint to fetch benchmark sessions for a simulator by name.
     - Returns sessions across all orgs (no org/public restriction)
@@ -67,6 +82,8 @@ async def asyncio(
         simulator_name=simulator_name,
         agent_artifact_ids=agent_artifact_ids,
         include_replays=include_replays,
+        authorization=authorization,
+        x_api_key=x_api_key,
     )
 
     response = await client.request(**request_args)

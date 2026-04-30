@@ -105,18 +105,20 @@ def _make_logger() -> _ctx.Logger:
 
     def log(message: str, *, kind: tuple[str, ...] | None = None) -> None:
         if _ctx.verbosity >= -1:
-            if kind is None:
-                print(fill(message, initial_indent='  '), file=sys.stderr)  # noqa: T201 # pragma: no cover
-            elif kind[0] == 'step':
-                (first, *rest) = message.splitlines()
-                _cprint('{bold}{}{reset}', fill(first, initial_indent='* '), file=sys.stderr)
-                for line in rest:
-                    print(fill(line, initial_indent='  '), file=sys.stderr)  # noqa: T201
-
-            elif kind[0] == 'subprocess':
-                initial_indent = '> ' if kind[1] == 'cmd' else '< '
-                for line in message.splitlines():
-                    _cprint('{dim}{}{reset}', fill(line, initial_indent=initial_indent), file=sys.stderr)
+            match kind:
+                case ('step', *_):
+                    (first, *rest) = message.splitlines()
+                    _cprint('{bold}{}{reset}', fill(first, initial_indent='* '), file=sys.stderr)
+                    for line in rest:
+                        print(fill(line, initial_indent='  '), file=sys.stderr)  # noqa: T201
+                case ('subprocess', 'cmd'):
+                    for line in message.splitlines():
+                        _cprint('{dim}{}{reset}', fill(line, initial_indent='> '), file=sys.stderr)
+                case ('subprocess', 'stdout' | 'stderr'):
+                    for line in message.splitlines():
+                        _cprint('{dim}{}{reset}', fill(line, initial_indent='< '), file=sys.stderr)
+                case _:
+                    print(fill(message, initial_indent='  '), file=sys.stderr)  # noqa: T201
 
     return log
 
@@ -177,7 +179,7 @@ def _bootstrap_build_env(
                     install = partial(install, constraints=set(map(str.strip, dependency_constraints_file)))
 
             # first install the build dependencies
-            install(builder.build_system_requires)
+            install(builder.build_system_requires, _fresh=True)
             # then get the extra required dependencies from the backend (which was installed in the call above :P)
             install(builder.get_requires_for_build(distribution, config_settings))
 

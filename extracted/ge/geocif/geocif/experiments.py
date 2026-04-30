@@ -277,6 +277,7 @@ def _all_cid_types():
     for d in (
         di.dict_indices, di.dict_ndvi, di.dict_gcvi, di.dict_esi4wk,
         di.dict_hindex, di.dict_aef, di.dict_fldas, di.dict_s2s,
+        di.dict_fldas_engineered, di.dict_s2s_engineered,
     ):
         for v in d.values():
             types.add(v[0])
@@ -290,6 +291,7 @@ def _all_cid_indices():
     for d in (
         di.dict_indices, di.dict_ndvi, di.dict_gcvi, di.dict_esi4wk,
         di.dict_hindex, di.dict_aef, di.dict_fldas, di.dict_s2s,
+        di.dict_fldas_engineered, di.dict_s2s_engineered,
     ):
         keys.extend(d.keys())
     return sorted(set(keys))

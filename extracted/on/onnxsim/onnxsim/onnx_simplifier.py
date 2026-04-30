@@ -5,7 +5,7 @@ import os
 import sys
 import re
 import tempfile
-from typing import List, Dict, Union, Optional, Tuple, Sequence
+from typing import List, Literal, Dict, Union, Optional, Tuple, Sequence
 from rich.text import Text
 from rich import print
 import numpy as np
@@ -34,7 +34,15 @@ from . import version
 TensorShape = List[int]
 TensorShapes = Dict[str, TensorShape]
 TensorShapesWithOptionalKey = Dict[Optional[str], TensorShape]
+Unit = Literal["B", "KB", "MB", "GB", "TB"]
 
+UNIT_MAP: dict[Unit, int] = {
+    "B": 1,
+    "KB": 1 << 10,
+    "MB": 1 << 20,
+    "GB": 1 << 30,
+    "TB": 1 << 40,
+}
 
 def get_output_names(model: onnx.ModelProto) -> List[str]:
     output_names = [opt.name for opt in model.graph.output]
@@ -181,14 +189,13 @@ def simplify(
     if not mutable_initializer and model.ir_version >= 4:
         model = remove_initializer_from_input(model)
 
-    # https://stackoverflow.com/a/60708339
     def parse_size(size: str) -> int:
-        units = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
-        size = size.upper()
-        if not re.match(r' ', size):
-            size = re.sub(r'([KMGT]?B)', r' \1', size)
-        number, unit = [string.strip() for string in size.split()]
-        return int(float(number)*units[unit])
+        m = re.fullmatch(r"([\d.]+)\s*([KMGT]?B)", size.strip(), re.I)
+        if not m:
+            raise ValueError(size)
+        number: float = float(m.group(1))
+        unit: Unit = m.group(2).upper()  # type: ignore
+        return int(number * UNIT_MAP[unit])
 
     tensor_size_threshold = parse_size(tensor_size_threshold)
     if tensor_size_threshold > 2**31 - 9999:
@@ -369,6 +376,14 @@ def main():
         action="store_true",
         )
     parser.add_argument('-v', '--version', action='version', version='onnxsim ' + version.version)
+
+    class ListOptimizers(argparse.Action):
+        def __call__(self, parser, ns, v, option_string=None):
+            for p in C._list_optimizers():
+                print(p)
+            parser.exit()
+
+    parser.add_argument("--list-default-optimizers", help="List default optimizer pass names", nargs=0, action=ListOptimizers)
 
     args = parser.parse_args()
 

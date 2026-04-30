@@ -568,6 +568,115 @@ async def test_async_client_generate_format_pydantic(httpserver: HTTPServer):
   assert response['response'] == '{"answer": "Because of Rayleigh scattering", "confidence": 0.95}'
 
 
+def test_client_generate_image(httpserver: HTTPServer):
+  httpserver.expect_ordered_request(
+    '/api/generate',
+    method='POST',
+    json={
+      'model': 'dummy-image',
+      'prompt': 'a sunset over mountains',
+      'stream': False,
+      'width': 1024,
+      'height': 768,
+      'steps': 20,
+    },
+  ).respond_with_json(
+    {
+      'model': 'dummy-image',
+      'image': PNG_BASE64,
+      'done': True,
+      'done_reason': 'stop',
+    }
+  )
+
+  client = Client(httpserver.url_for('/'))
+  response = client.generate('dummy-image', 'a sunset over mountains', width=1024, height=768, steps=20)
+  assert response['model'] == 'dummy-image'
+  assert response['image'] == PNG_BASE64
+  assert response['done'] is True
+
+
+def test_client_generate_image_stream(httpserver: HTTPServer):
+  def stream_handler(_: Request):
+    def generate():
+      # Progress updates
+      for i in range(1, 4):
+        yield (
+          json.dumps(
+            {
+              'model': 'dummy-image',
+              'completed': i,
+              'total': 3,
+              'done': False,
+            }
+          )
+          + '\n'
+        )
+      # Final response with image
+      yield (
+        json.dumps(
+          {
+            'model': 'dummy-image',
+            'image': PNG_BASE64,
+            'done': True,
+            'done_reason': 'stop',
+          }
+        )
+        + '\n'
+      )
+
+    return Response(generate())
+
+  httpserver.expect_ordered_request(
+    '/api/generate',
+    method='POST',
+    json={
+      'model': 'dummy-image',
+      'prompt': 'a sunset over mountains',
+      'stream': True,
+      'width': 512,
+      'height': 512,
+    },
+  ).respond_with_handler(stream_handler)
+
+  client = Client(httpserver.url_for('/'))
+  response = client.generate('dummy-image', 'a sunset over mountains', stream=True, width=512, height=512)
+
+  parts = list(response)
+  # Check progress updates
+  assert parts[0]['completed'] == 1
+  assert parts[0]['total'] == 3
+  assert parts[0]['done'] is False
+  # Check final response
+  assert parts[-1]['image'] == PNG_BASE64
+  assert parts[-1]['done'] is True
+
+
+async def test_async_client_generate_image(httpserver: HTTPServer):
+  httpserver.expect_ordered_request(
+    '/api/generate',
+    method='POST',
+    json={
+      'model': 'dummy-image',
+      'prompt': 'a robot painting',
+      'stream': False,
+      'width': 1024,
+      'height': 1024,
+    },
+  ).respond_with_json(
+    {
+      'model': 'dummy-image',
+      'image': PNG_BASE64,
+      'done': True,
+    }
+  )
+
+  client = AsyncClient(httpserver.url_for('/'))
+  response = await client.generate('dummy-image', 'a robot painting', width=1024, height=1024)
+  assert response['model'] == 'dummy-image'
+  assert response['image'] == PNG_BASE64
+
+
 def test_client_pull(httpserver: HTTPServer):
   httpserver.expect_ordered_request(
     '/api/pull',
@@ -1347,3 +1456,33 @@ def test_client_explicit_bearer_header_overrides_env(monkeypatch: pytest.MonkeyP
   client = Client(headers={'Authorization': 'Bearer explicit-token'})
   assert client._client.headers['authorization'] == 'Bearer explicit-token'
   client.web_search('override check')
+
+
+def test_client_close():
+  client = Client()
+  client.close()
+  assert client._client.is_closed
+
+
+@pytest.mark.anyio
+async def test_async_client_close():
+  client = AsyncClient()
+  await client.close()
+  assert client._client.is_closed
+
+
+def test_client_context_manager():
+  with Client() as client:
+    assert isinstance(client, Client)
+    assert not client._client.is_closed
+
+  assert client._client.is_closed
+
+
+@pytest.mark.anyio
+async def test_async_client_context_manager():
+  async with AsyncClient() as client:
+    assert isinstance(client, AsyncClient)
+    assert not client._client.is_closed
+
+  assert client._client.is_closed

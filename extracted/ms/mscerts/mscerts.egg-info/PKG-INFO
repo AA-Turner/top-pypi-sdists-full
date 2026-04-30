@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mscerts
-Version: 2025.8.29
+Version: 2026.4.30
 Summary: Python package for providing Microsoft's CA Bundle.
 Home-page: https://github.com/ralphje/mscerts
 Author: Ralph Broenink
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.7
 License-File: LICENSE
 Provides-Extra: stlupdate

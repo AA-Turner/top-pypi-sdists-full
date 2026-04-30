@@ -142,14 +142,20 @@ def _resolve_parameter_dependency(
             field = parameter_name
     else:
         # Match parameter to resource field (`userId` -> `id`, `Id` -> `ChannelId`, etc.)
-        field = (
-            naming.find_matching_field(
-                parameter=parameter_name,
-                resource=resource_name,
-                fields=resource.fields,
-            )
-            or "id"
+        matched = naming.find_matching_field(
+            parameter=parameter_name,
+            resource=resource_name,
+            fields=resource.fields,
         )
+        if matched is not None:
+            field = matched
+        elif "id" in resource.fields:
+            # Conventional fallback: `<resource>Id` parameters point at the resource's `id` field.
+            field = "id"
+        else:
+            # Resource has no `id` field — use the parameter name itself so request-pool
+            # captures from peer operations land in the same field this slot will read.
+            field = parameter_name
 
     return InputSlot(
         resource=resource,
@@ -290,11 +296,13 @@ def _resolve_body_dependencies(
             )
 
     # Inspect each property that could be a part of some other resource
-    properties = resolved.get("properties", {})
+    properties = resolved.get("properties")
+    if not isinstance(properties, dict):
+        return
     required = resolved.get("required", [])
     path = operation.path
     for property_name, subschema in properties.items():
-        resource_name = naming.from_parameter(property_name, path)
+        resource_name = naming.from_parameter(property_name, path, body_field=True)
         if resource_name is not None:
             resource = resources.get(resource_name)
             if resource is None:
@@ -366,7 +374,9 @@ def _extract_nested_body_fk_fields(
     if max_depth <= 0:
         return
 
-    properties = schema.get("properties", {})
+    properties = schema.get("properties")
+    if not isinstance(properties, dict):
+        return
 
     for property_name, subschema in properties.items():
         if not isinstance(subschema, dict):

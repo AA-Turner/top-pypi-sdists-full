@@ -57,8 +57,8 @@ create_cloud_collaborator = CreateCloudCollaborator(
     permission_level: CloudPermissionLevel = field(  # type: ignore
         default=CloudPermissionLevel.READONLY,  # type: ignore
         metadata={
-            "docstring": "Permission level the added user should have for the cloud"  # type: ignore
-            f"(one of: {','.join([str(m.value) for m in CloudPermissionLevel])}",  # type: ignore
+            "docstring": "Permission level the added user should have for the cloud "  # type: ignore
+            f"(one of: {','.join([str(m.value) for m in CloudPermissionLevel])}).",  # type: ignore
         },
     )
 

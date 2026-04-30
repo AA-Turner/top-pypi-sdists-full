@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: anomalo
-Version: 0.41.0
+Version: 0.41.1
 Summary: Python bindings for the Anomalo API
 License: Apache-2.0
+License-File: LICENSE
 Author: Anomalo
 Author-email: support@anomalo.com
 Requires-Python: >=3.9,<4.0
@@ -14,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: casefy (>=1.1.0,<2.0.0)
 Requires-Dist: dataclasses-json (>=0.5.7,<0.6.0)

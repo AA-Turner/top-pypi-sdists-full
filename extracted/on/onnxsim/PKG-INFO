@@ -1,47 +1,34 @@
 Metadata-Version: 2.4
 Name: onnxsim
-Version: 0.6.2
+Version: 0.6.3
 Summary: Simplify your ONNX model
-Home-page: https://github.com/daquexian/onnx-simplifier
-Author: ONNX Simplifier Authors
-Author-email: daquexian566@gmail.com
+Author-email: ONNX Simplifier Authors <daquexian566@gmail.com>
 License: MIT AND (Apache-2.0 OR BSD-2-Clause)
-Keywords: deep-learning ONNX
+Project-URL: Homepage, https://github.com/onnxsim/onnxsim
+Keywords: deep-learning,ONNX
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: onnx
 Requires-Dist: rich
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # ONNX Simplifier
 
-[![PyPI version](https://img.shields.io/pypi/v/onnx-simplifier.svg)](https://pypi.python.org/pypi/onnx-simplifier/)
-[![PyPI pyversions](https://img.shields.io/pypi/pyversions/onnx-simplifier.svg)](https://pypi.python.org/pypi/onnx-simplifier/)
-[![PyPI license](https://img.shields.io/pypi/l/onnx-simplifier.svg)](https://pypi.python.org/pypi/onnx-simplifier/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/daquexian/onnx-simplifier/pulls)
-[Discord Server Link](https://discord.gg/W3ht33v4)
+[![PyPI version](https://img.shields.io/pypi/v/onnxsim.svg)](https://pypi.python.org/pypi/onnxsim/)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/onnxsim.svg)](https://pypi.python.org/pypi/onnxsim/)
+[![PyPI license](https://img.shields.io/pypi/l/onnxsim.svg)](https://pypi.python.org/pypi/onnxsim/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/onnxsim/onnxsim/pulls)
+[![Discord](https://img.shields.io/discord/1475920534847099121?logo=discord)](https://discord.gg/W3ht33v4)
 
 _ONNX is great, but sometimes too complicated._
 

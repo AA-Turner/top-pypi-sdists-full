@@ -3,6 +3,7 @@ import contextlib
 import logging
 import random
 import time
+import warnings
 from enum import IntEnum
 
 import aiokafka.errors as Errors
@@ -87,6 +88,7 @@ class AIOKafkaClient:
         retry_backoff_ms=100,
         ssl_context=None,
         security_protocol="PLAINTEXT",
+        api_version=None,
         connections_max_idle_ms=540000,
         sasl_mechanism="PLAIN",
         sasl_plain_username=None,
@@ -97,6 +99,14 @@ class AIOKafkaClient:
     ):
         if loop is None:
             loop = get_running_loop()
+
+        if api_version is not None:
+            warnings.warn(
+                "The `api_version` parameter has been deprecated since 0.13.0. "
+                "It is now a no-op and will be removed in a future release. ",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         if security_protocol not in ("SSL", "PLAINTEXT", "SASL_PLAINTEXT", "SASL_SSL"):
             raise ValueError("`security_protocol` should be SSL or PLAINTEXT")
@@ -385,17 +395,14 @@ class AIOKafkaClient:
                 return conn
 
         try:
-            if group == ConnectionGroup.DEFAULT:
-                broker = self.cluster.broker_metadata(node_id)
-                # XXX: earlier we only did an assert here, but it seems it's
-                # possible to get a leader that is for some reason not in
-                # metadata.
-                # I think requiring metadata should solve this problem
-                if broker is None:
-                    raise StaleMetadata(f"Broker id {node_id} not in current metadata")
-            else:
-                broker = self.cluster.coordinator_metadata(node_id)
-                assert broker is not None
+            broker = self.cluster.broker_metadata(node_id)
+
+            # XXX: earlier we only did an asserts, but it seems it's
+            # possible to get a leader/coordinator that is for
+            # some reason not in metadata.
+            # I think requiring metadata should solve this problem
+            if broker is None:
+                raise StaleMetadata(f"Broker id {node_id} not in current metadata")
 
             log.debug(
                 "Initiating connection to node %s at %s:%s",
@@ -426,10 +433,9 @@ class AIOKafkaClient:
                 )
         except (OSError, asyncio.TimeoutError, KafkaError) as err:
             log.error("Unable connect to node with id %s: %s", node_id, err)
-            if group == ConnectionGroup.DEFAULT:
-                # Connection failures imply that our metadata is stale, so
-                # let's refresh
-                self.force_metadata_update()
+            # Connection failures imply that our metadata is stale, so
+            # let's refresh
+            self.force_metadata_update()
             return None
         else:
             return self._conns[conn_id]
@@ -538,11 +544,4 @@ class AIOKafkaClient:
         if error_type is not Errors.NoError:
             err = error_type()
             raise err
-        self.cluster.add_coordinator(
-            resp.coordinator_id,
-            resp.host,
-            resp.port,
-            rack=None,
-            purpose=(coordinator_type, coordinator_key),
-        )
         return resp.coordinator_id

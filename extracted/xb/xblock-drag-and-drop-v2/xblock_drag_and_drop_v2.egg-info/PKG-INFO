@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xblock-drag-and-drop-v2
-Version: 5.0.5
+Version: 5.0.6
 Summary: XBlock - Drag-and-Drop v2
 Home-page: https://github.com/openedx/xblock-drag-and-drop-v2
 Classifier: Programming Language :: Python
@@ -587,6 +587,11 @@ Drag and Drop XBlock changelog
 
 Unreleased
 ---------------------------
+
+Version 5.0.6 (2026-04-29)
+--------------------------
+
+* Wait for `virtualDom` before initializing block.
 
 Version 5.0.5 (2026-03-23)
 --------------------------

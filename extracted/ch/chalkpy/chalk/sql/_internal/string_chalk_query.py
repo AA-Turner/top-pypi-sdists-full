@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, Mapping, Optional, Union
-
-from typing_extensions import final
+from typing import TYPE_CHECKING, Any, Literal, Mapping, Optional, Union, final
 
 from chalk.features import Feature
 from chalk.sql import IncrementalSettings

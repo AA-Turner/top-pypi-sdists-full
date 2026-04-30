@@ -228,10 +228,14 @@ class GetDeploymentSourceRequest(_message.Message):
     def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
 
 class GetDeploymentSourceResponse(_message.Message):
-    __slots__ = ("signed_url",)
+    __slots__ = ("signed_url", "supplementary_graph_info_signed_url")
     SIGNED_URL_FIELD_NUMBER: _ClassVar[int]
+    SUPPLEMENTARY_GRAPH_INFO_SIGNED_URL_FIELD_NUMBER: _ClassVar[int]
     signed_url: str
-    def __init__(self, signed_url: _Optional[str] = ...) -> None: ...
+    supplementary_graph_info_signed_url: str
+    def __init__(
+        self, signed_url: _Optional[str] = ..., supplementary_graph_info_signed_url: _Optional[str] = ...
+    ) -> None: ...
 
 class ResolverDeploymentHistoryEntry(_message.Message):
     __slots__ = ("resolver_id", "deployment_id", "triggered_by", "created_at")

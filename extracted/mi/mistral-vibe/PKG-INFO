@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.9.0
+Version: 2.9.2
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -500,7 +500,7 @@ Example custom agent configuration (`~/.vibe/agents/redteam.toml`):
 
 ```toml
 # Custom agent configuration for red-teaming
-active_model = "devstral-2"
+active_model = "mistral-medium-3.5"
 system_prompt_id = "redteam"
 
 # Disable some tools for this agent

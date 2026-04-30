@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: miniaudio
-Version: 1.70
+Version: 1.71
 Summary: python bindings for the miniaudio library and its decoders (mp3, flac, ogg vorbis, wav)
 Author-email: Irmen de Jong <irmen@razorvine.net>
 License: MIT

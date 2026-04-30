@@ -9,7 +9,6 @@ from anyscale.client.openapi_client.models import (
     AnyscaleServiceAccount,
     ApplyProductionServiceMultiVersionV2Model,
     Cloud,
-    CloudListResponse,
     ClusteroperationResponse,
     CollaboratorType,
     ComputeTemplateConfig,
@@ -18,6 +17,7 @@ from anyscale.client.openapi_client.models import (
     CreateInternalProductionJob,
     CreateResourceQuota,
     CreateUserProjectCollaborator,
+    DecoratedcloudListResponse,
     DecoratedCloudResource,
     DecoratedComputeTemplate,
     DecoratedjobqueueListResponse,
@@ -215,7 +215,7 @@ class AnyscaleClientInterface(ABC):
     @abstractmethod
     def list_clouds(
         self, *, paging_token: Optional[str] = None, count: Optional[int] = None
-    ) -> CloudListResponse:
+    ) -> DecoratedcloudListResponse:
         """List clouds with optional paging.
 
         Returns a paged response with `.results` and `.metadata.next_paging_token`.

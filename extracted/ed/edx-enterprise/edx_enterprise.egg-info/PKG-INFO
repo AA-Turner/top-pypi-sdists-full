@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 8.0.1
+Version: 8.0.2
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -165,6 +165,10 @@ Unreleased
 ----------
 
 * nothing unreleased
+
+[8.0.2] - 2026-04-27
+---------------------
+* feat: add ai pathways operator waffle flag
 
 [8.0.1] - 2026-04-27
 ---------------------

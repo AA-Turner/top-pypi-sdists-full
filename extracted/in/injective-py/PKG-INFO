@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: injective-py
-Version: 1.14.0
+Version: 1.14.1
 Summary: Injective Python SDK, with Exchange API Client
 License: Apache-2.0
 License-File: LICENSE.md
@@ -8,13 +8,15 @@ License-File: NOTICE.md
 Keywords: injective,blockchain,cosmos,injectivelabs
 Author: Injective Labs
 Author-email: contact@injectivelabs.org
-Requires-Python: >=3.10,<3.13
+Requires-Python: >=3.10,<3.15
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: aiohttp (>=3.9.4,<4.0.0)
 Requires-Dist: bech32
 Requires-Dist: bip32

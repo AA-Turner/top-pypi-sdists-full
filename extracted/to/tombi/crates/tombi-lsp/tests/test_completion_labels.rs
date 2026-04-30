@@ -1,14 +1,11 @@
 use tombi_config::{JSON_SCHEMASTORE_CATALOG_URL, TOMBI_SCHEMASTORE_CATALOG_URL};
 use tombi_test_lib::{
     adjacent_applicators_test_schema_path, adjacent_one_of_additional_properties_test_schema_path,
-    adjacent_one_of_hover_test_schema_path, lsp_consistency_test_schema_path, project_root_path,
+    adjacent_one_of_hover_test_schema_path, dot_config_project_root_fixture_path,
+    exact_index_string_test_schema_path, lsp_consistency_test_schema_path, project_root_path,
     string_format_test_schema_path, today_local_date, today_local_date_time, today_local_time,
     today_offset_date_time,
 };
-
-fn exact_index_string_test_schema_path() -> std::path::PathBuf {
-    project_root_path().join("schemas/exact-index-string-test.schema.json")
-}
 
 mod completion_labels {
     use super::*;
@@ -464,6 +461,8 @@ mod completion_labels {
                 "#,
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "\"https://www.schemastore.org/api/json/catalog.json\"",
+                "\"tombi://www.schemastore.org/api/json/catalog.json\"",
                 "\"\"",
                 "''",
             ]);
@@ -478,6 +477,8 @@ mod completion_labels {
                 "#,
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "\"https://www.schemastore.org/api/json/catalog.json\"",
+                "\"tombi://www.schemastore.org/api/json/catalog.json\"",
                 "\"\"",
                 "''",
             ]);
@@ -755,6 +756,48 @@ mod completion_labels {
                 "\"tombi://www.schemastore.org/cargo.json\"",
                 "\"tombi://www.schemastore.org/pyproject.json\"",
                 "\"tombi://www.schemastore.org/tombi.json\"",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_schemars_path_file_completion_from_dot_config_project_root(
+                r#"
+                [[schemas]]
+                path = "sch█"
+                "#,
+                SourcePath(dot_config_project_root_fixture_path().join(".config/tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "schemas/",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_schema_catalog_paths_file_completion(
+                r#"
+                [schema.catalog]
+                paths = ["sch█"]
+                "#,
+                SourcePath(project_root_path().join("tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "schemas/",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_schema_catalog_paths_file_completion_from_dot_config_project_root(
+                r#"
+                [schema.catalog]
+                paths = ["sch█"]
+                "#,
+                SourcePath(dot_config_project_root_fixture_path().join(".config/tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "schemas/",
             ]);
         }
 
@@ -1315,6 +1358,7 @@ mod completion_labels {
                     { path = "www.schemastore.org/**/*.json", format = "sdist" },
                 ]
                 "#,
+                SourcePath(project_root_path().join("pyproject.toml")),
                 SchemaPath(pyproject_schema_path()),
             ) -> Ok([
                 "format",

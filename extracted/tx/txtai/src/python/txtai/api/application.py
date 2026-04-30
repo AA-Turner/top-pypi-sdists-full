@@ -8,7 +8,7 @@ import sys
 
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi_mcp import FastApiMCP
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 
 from .authorization import Authorization
 from .base import API
@@ -115,11 +115,35 @@ def lifespan(application):
             extension(application)
 
     # Add Model Context Protocol (MCP) service, if applicable
-    if config.get("mcp"):
-        mcp = FastApiMCP(application, http_client=AsyncClient(timeout=100))
-        mcp.mount()
+    createmcp(application, config)
 
     yield
+
+
+def createmcp(application, config):
+    """
+    Create a MCP service if necessary.
+
+    Args:
+        application: FastAPI Application
+        config: configuration
+    """
+
+    mcp = config.get("mcp")
+    if mcp:
+        # HTTP Client arguments
+        defaults = {"base_url": "http://apiserver", "timeout": 100}
+        clientargs = mcp.get("clientargs", {}) if isinstance(mcp, dict) else {}
+        clientargs = {**defaults, **clientargs}
+
+        # Create HTTP client with custom options
+        client = AsyncClient(transport=ASGITransport(app=application, raise_app_exceptions=False), **clientargs)
+
+        # MCP service arguments
+        mcpargs = mcp.get("mcpargs", {}) if isinstance(mcp, dict) else {}
+
+        mcp = FastApiMCP(application, http_client=client, **mcpargs)
+        mcp.mount()
 
 
 def start():

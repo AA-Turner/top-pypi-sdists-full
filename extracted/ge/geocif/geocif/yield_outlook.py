@@ -627,6 +627,18 @@ def _plot_metric_progression(df, stages_sorted, metric_col, ylabel, title,
     region_vals = _compute_region_metric(df, stages_sorted, metric_col)
     df_national = _compute_national_metric(df, stages_sorted, metric_col, has_area)
 
+    # Exclude regions with median metric > 100 (e.g., outlier MAPE regions)
+    if metric_col == "MAPE":
+        median_by_region = region_vals.groupby("Region")[metric_col].median()
+        keep_regions = median_by_region[median_by_region <= 100].index
+        excluded = set(region_vals["Region"].unique()) - set(keep_regions)
+        if excluded:
+            logger.info(
+                f"Progression: excluding {len(excluded)} regions with median "
+                f"{metric_col} > 100%: {sorted(excluded)}"
+            )
+        region_vals = region_vals[region_vals["Region"].isin(keep_regions)]
+
     with plt.style.context(["science", "no-latex"]):
         fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -770,8 +782,343 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
         df_r2.to_csv(dir_csvs_prog / f"r2_progression_{country}_{crop}_{model}.csv", index=False)
 
 
+# ---------------------------------------------------------------------------
+# FEATURE SELECTION BY CID TYPE ACROSS TIME STEPS
+# ---------------------------------------------------------------------------
+
+def _build_cid_type_map():
+    """Build feature-name → CID-Type lookup from definitions."""
+    from geocif.cid import definitions as di
+    m = {}
+    for d in [di.dict_indices, di.dict_ndvi, di.dict_gcvi, di.dict_esi4wk,
+              di.dict_hindex, di.dict_aef, di.dict_fldas, di.dict_s2s,
+              di.dict_fldas_engineered, di.dict_s2s_engineered]:
+        for k, (typ, _) in d.items():
+            m[k] = typ
+    return m
+
+
+def _feature_to_cid_type(feature_name, type_map):
+    """Map a human-readable feature name back to its CID Type.
+
+    Feature names in DB look like "WW Aug 1-Mar 31" or
+    "MEAN_FLDAS_SoilMoist_tavg_LEAD0 Pre-Season LEAD0".
+    Strip the stage/time suffix to match dictionary keys.
+    """
+    # Engineered / regional trend features
+    if feature_name.startswith("t -") or feature_name.startswith("t-"):
+        return "Regional Trends"
+    if feature_name.startswith("median"):
+        return "Regional Trends"
+    if feature_name in ("lat", "lon"):
+        return "Regional Trends"
+
+    # Try exact match first
+    if feature_name in type_map:
+        return type_map[feature_name]
+
+    # Strip stage suffix: "WW Aug 1-Mar 31" → "WW"
+    # CID names don't contain month names, so split at first space followed
+    # by a month abbreviation or "Pre-Season" or "In-Season".
+    import re
+    cleaned = re.split(
+        r"\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|Pre-Season|In-Season)",
+        feature_name
+    )[0].strip()
+    if cleaned in type_map:
+        return type_map[cleaned]
+
+    return "Regional Trends"
+
+
+def _query_selected_features(db_path, table, model, experiment_name="outlook"):
+    """Query Selected Features + Stage Name from DB, one row per unique stage."""
+    import ast as _ast
+
+    if not db_path.exists():
+        return pd.DataFrame()
+
+    con = sqlite3.connect(db_path)
+    try:
+        table_cols = pd.read_sql(f'PRAGMA table_info("{table}")', con)["name"].tolist()
+        if "Selected Features" not in table_cols:
+            return pd.DataFrame()
+
+        df = pd.read_sql(
+            f'SELECT DISTINCT "Stage Name", "Selected Features" '
+            f'FROM "{table}" WHERE "Experiment Name" = ? AND "Model" = ?',
+            con,
+            params=(experiment_name, model),
+        )
+    except Exception:
+        return pd.DataFrame()
+    finally:
+        con.close()
+
+    if df.empty:
+        return pd.DataFrame()
+
+    # Parse JSON feature lists
+    def _parse(s):
+        try:
+            return _ast.literal_eval(s) if isinstance(s, str) else (s if s else [])
+        except (ValueError, SyntaxError):
+            return []
+
+    df["features"] = df["Selected Features"].apply(_parse)
+    return df[["Stage Name", "features"]]
+
+
+def _plot_feature_selection_by_stage(df_features, country, crop, model, dir_outlook):
+    """Plot heatmap + stacked bar of CID Types selected at each time step.
+
+    Args:
+        df_features: DataFrame with "Stage Name" and "features" (list of str).
+    """
+    import matplotlib.pyplot as plt
+    import scienceplots  # noqa: F401
+
+    if df_features.empty:
+        return
+
+    type_map = _build_cid_type_map()
+
+    # Build stage → type → count matrix
+    rows = []
+    for _, row in df_features.iterrows():
+        stage = row["Stage Name"]
+        for feat in row["features"]:
+            cid_type = _feature_to_cid_type(feat, type_map)
+            rows.append({"Stage Name": stage, "CID Type": cid_type, "Feature": feat})
+
+    if not rows:
+        return
+
+    df_long = pd.DataFrame(rows)
+
+    # Sort stages chronologically
+    stages_sorted = sorted(df_long["Stage Name"].unique(), key=_stage_sort_key)
+    friendly_labels = [friendly_stage_label(s) for s in stages_sorted]
+
+    # Pivot: count of features per (stage, type)
+    df_pivot = (
+        df_long.groupby(["Stage Name", "CID Type"])
+        .size()
+        .reset_index(name="Count")
+        .pivot_table(index="CID Type", columns="Stage Name", values="Count", fill_value=0)
+    )
+    # Reorder columns by stage sort
+    df_pivot = df_pivot[[s for s in stages_sorted if s in df_pivot.columns]]
+
+    # Determine pre-season boundary for vertical line
+    n_pre = sum(1 for s in stages_sorted if s.startswith("Pre-Season"))
+
+    dir_plots = dir_outlook / "plots" / model / country / "feature_selection"
+    dir_csvs = dir_outlook / "csvs" / model / country / "feature_selection"
+    os.makedirs(dir_plots, exist_ok=True)
+    os.makedirs(dir_csvs, exist_ok=True)
+
+    base_title = f"{country.title()} {crop.title()} ({model})"
+
+    with plt.style.context(["science", "no-latex"]):
+        # --- Heatmap ---
+        import matplotlib.colors as mcolors
+
+        fig, ax = plt.subplots(figsize=(max(10, len(stages_sorted) * 0.9), 6))
+
+        # Mask zeros as white; colorbar starts at 1
+        data = df_pivot.values.astype(float)
+        masked = np.ma.masked_where(data == 0, data)
+        vmax = max(data.max(), 1)
+        cmap_heat = plt.cm.get_cmap("YlOrRd").copy()
+        cmap_heat.set_bad(color="white")
+
+        im = ax.imshow(masked, aspect="auto", cmap=cmap_heat, vmin=1, vmax=vmax,
+                        interpolation="nearest")
+
+        ax.set_xticks(range(len(stages_sorted)))
+        ax.set_xticklabels(friendly_labels, rotation=45, ha="right", fontsize=8)
+        ax.set_yticks(range(len(df_pivot.index)))
+        ax.set_yticklabels(df_pivot.index, fontsize=8)
+        ax.tick_params(axis="both", which="both", length=0)
+
+        # Thin gridlines between cells
+        for i in range(len(df_pivot.index) + 1):
+            ax.axhline(y=i - 0.5, color="#e0e0e0", linewidth=0.5)
+        for j in range(len(stages_sorted) + 1):
+            ax.axvline(x=j - 0.5, color="#e0e0e0", linewidth=0.5)
+
+        ax.set_title(f"Selected CID Types by Stage — {base_title}")
+
+        # Annotate cells with count
+        for i in range(len(df_pivot.index)):
+            for j in range(len(stages_sorted)):
+                val = data[i, j]
+                if val > 0:
+                    ax.text(j, i, str(int(val)), ha="center", va="center",
+                            fontsize=7, color="white" if val > vmax / 2 else "black")
+
+        if 0 < n_pre < len(stages_sorted):
+            ax.axvline(x=n_pre - 0.5, color="gray", linestyle="--", linewidth=1.2)
+
+        plt.colorbar(im, ax=ax, label="# features selected", shrink=0.8)
+        plt.tight_layout()
+        fig.savefig(dir_plots / f"feature_selection_heatmap_{country}_{crop}_{model}.png",
+                    dpi=250, bbox_inches="tight")
+        plt.close(fig)
+
+        # --- Stacked bar ---
+        fig, ax = plt.subplots(figsize=(max(10, len(stages_sorted) * 0.9), 6))
+        cid_types = df_pivot.index.tolist()
+        n_types = len(cid_types)
+        cmap = plt.cm.get_cmap("tab20", max(n_types, 1))
+        x = np.arange(len(stages_sorted))
+        bottom = np.zeros(len(stages_sorted))
+
+        for i, cid_type in enumerate(cid_types):
+            vals = df_pivot.loc[cid_type].values
+            ax.bar(x, vals, bottom=bottom, label=cid_type, color=cmap(i), width=0.8)
+            bottom += vals
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(friendly_labels, rotation=45, ha="right", fontsize=8)
+        ax.set_ylabel("Number of features selected")
+        ax.set_title(f"Feature Selection by CID Type — {base_title}")
+        ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=7)
+
+        if 0 < n_pre < len(stages_sorted):
+            ax.axvline(x=n_pre - 0.5, color="gray", linestyle="--", linewidth=1.2)
+            ax.text(n_pre - 0.5, ax.get_ylim()[1] * 0.97, " Start of planting",
+                    fontsize=7, color="gray", ha="left", va="top")
+
+        plt.tight_layout()
+        fig.savefig(dir_plots / f"feature_selection_stacked_{country}_{crop}_{model}.png",
+                    dpi=250, bbox_inches="tight")
+        plt.close(fig)
+
+    # --- CSV ---
+    df_csv = (
+        df_long.groupby(["Stage Name", "CID Type"])
+        .agg(Count=("Feature", "size"), Features=("Feature", lambda x: "; ".join(sorted(x))))
+        .reset_index()
+    )
+    # Sort by stage order
+    stage_order = {s: i for i, s in enumerate(stages_sorted)}
+    df_csv["_order"] = df_csv["Stage Name"].map(stage_order)
+    df_csv = df_csv.sort_values(["_order", "CID Type"]).drop(columns="_order")
+    df_csv.to_csv(dir_csvs / f"feature_selection_by_stage_{country}_{crop}_{model}.csv", index=False)
+
+    logger.info(
+        f"Feature selection plots saved: {dir_plots}, CSV: {dir_csvs}"
+    )
+
+    # --- Lead-time value heatmap (FLDAS + S2S leads only) ---
+    _plot_lead_time_value(df_long, stages_sorted, friendly_labels, n_pre,
+                          base_title, country, crop, model, dir_plots, dir_csvs)
+
+
+def _plot_lead_time_value(df_long, stages_sorted, friendly_labels, n_pre,
+                          base_title, country, crop, model, dir_plots, dir_csvs):
+    """Heatmap showing which FLDAS/S2S lead times are selected at each stage."""
+    import matplotlib.pyplot as plt
+    import re
+
+    # Filter to FLDAS/S2S features only
+    df_fc = df_long[df_long["CID Type"].isin(["FLDAS", "S2S"])].copy()
+    if df_fc.empty:
+        return
+
+    # Extract lead number and source from feature name
+    def _parse_lead(feat):
+        match = re.search(r"(FLDAS|S2S).*LEAD(\d+)", feat)
+        if match:
+            return f"{match.group(1)} LEAD{match.group(2)}"
+        return None
+
+    df_fc["Lead"] = df_fc["Feature"].apply(_parse_lead)
+    df_fc = df_fc.dropna(subset=["Lead"])
+    if df_fc.empty:
+        return
+
+    # Pivot: count per (stage, lead)
+    df_pivot = (
+        df_fc.groupby(["Stage Name", "Lead"])
+        .size()
+        .reset_index(name="Count")
+        .pivot_table(index="Lead", columns="Stage Name", values="Count", fill_value=0)
+    )
+    df_pivot = df_pivot[[s for s in stages_sorted if s in df_pivot.columns]]
+
+    # Sort leads: FLDAS LEAD0-5 then S2S LEAD1-6
+    def _lead_sort(name):
+        parts = name.split()
+        src = 0 if parts[0] == "FLDAS" else 1
+        lead_num = int(parts[1].replace("LEAD", ""))
+        return (src, lead_num)
+
+    sorted_leads = sorted(df_pivot.index, key=_lead_sort)
+    df_pivot = df_pivot.loc[sorted_leads]
+
+    with plt.style.context(["science", "no-latex"]):
+        fig, ax = plt.subplots(figsize=(max(10, len(stages_sorted) * 0.9), 6))
+
+        data = df_pivot.values.astype(float)
+        masked = np.ma.masked_where(data == 0, data)
+        vmax = max(data.max(), 1)
+        cmap_heat = plt.cm.get_cmap("YlGnBu").copy()
+        cmap_heat.set_bad(color="white")
+
+        im = ax.imshow(masked, aspect="auto", cmap=cmap_heat, vmin=1, vmax=vmax,
+                        interpolation="nearest")
+
+        ax.set_xticks(range(len(df_pivot.columns)))
+        ax.set_xticklabels(
+            [friendly_labels[stages_sorted.index(s)] for s in df_pivot.columns],
+            rotation=45, ha="right", fontsize=8
+        )
+        ax.set_yticks(range(len(sorted_leads)))
+        ax.set_yticklabels(sorted_leads, fontsize=8)
+        ax.tick_params(axis="both", which="both", length=0)
+
+        # Gridlines
+        for i in range(len(sorted_leads) + 1):
+            ax.axhline(y=i - 0.5, color="#e0e0e0", linewidth=0.5)
+        for j in range(len(df_pivot.columns) + 1):
+            ax.axvline(x=j - 0.5, color="#e0e0e0", linewidth=0.5)
+
+        # Annotate
+        for i in range(len(sorted_leads)):
+            for j in range(len(df_pivot.columns)):
+                val = data[i, j]
+                if val > 0:
+                    ax.text(j, i, str(int(val)), ha="center", va="center",
+                            fontsize=7, color="white" if val > vmax / 2 else "black")
+
+        if 0 < n_pre < len(df_pivot.columns):
+            ax.axvline(x=n_pre - 0.5, color="gray", linestyle="--", linewidth=1.2)
+
+        ax.set_title(f"Forecast Lead Times Selected — {base_title}")
+        plt.colorbar(im, ax=ax, label="# times selected", shrink=0.8)
+        plt.tight_layout()
+
+        fig.savefig(dir_plots / f"lead_time_heatmap_{country}_{crop}_{model}.png",
+                    dpi=250, bbox_inches="tight")
+        plt.close(fig)
+
+    # CSV
+    df_lead_csv = (
+        df_fc.groupby(["Stage Name", "Lead"])
+        .agg(Count=("Feature", "size"), Variables=("Feature", lambda x: "; ".join(sorted(set(x)))))
+        .reset_index()
+    )
+    stage_order = {s: i for i, s in enumerate(stages_sorted)}
+    df_lead_csv["_order"] = df_lead_csv["Stage Name"].map(stage_order)
+    df_lead_csv = df_lead_csv.sort_values(["_order", "Lead"]).drop(columns="_order")
+    df_lead_csv.to_csv(dir_csvs / f"lead_time_by_stage_{country}_{crop}_{model}.csv", index=False)
+
+
 def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
-                          dict_config=None):
+                          dict_config=None, db_path=None):
     """Generate scatter, MAPE bar chart, and MAPE map per (country, crop, model, stage).
 
     When multi-step results are present (multiple Stage Names), produces
@@ -804,6 +1151,15 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
                 df, country, crop, model, dg, dir_outlook,
                 forecast_year=current_year, admin_level=admin_level,
             )
+
+        # Feature selection by CID Type across stages
+        if db_path is not None:
+            table = f"{country}_{crop}"
+            df_feat = _query_selected_features(db_path, table, model)
+            if not df_feat.empty:
+                _plot_feature_selection_by_stage(
+                    df_feat, country, crop, model, dir_outlook
+                )
 
     # Model comparison plots (only when multiple models)
     _generate_model_comparison(df_pred_store, dg, dir_outlook)
@@ -1104,7 +1460,8 @@ def _generate_outlook_map(
 
 
 def run(path_config_files=None, current_year=None, n_years=None, aggregation=None,
-        reuse_db=None, use_latest_stage=True, fdw_export=False, since_year=None):
+        reuse_db=None, use_latest_stage=True, fdw_export=False, since_year=None,
+        parser=None, logger_obj=None, outlook_db_name=None, analysis_dir=None):
     """Main entry point for yield outlook map generation.
 
     1. Override forecast_seasons to cover [since_year, ..., current_year]
@@ -1126,11 +1483,13 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         since_year: Start year for ML execution (default: config
             ``outlook_since_year`` or 2005).  Controls how far back the ML
             pipeline runs; ``n_years`` still controls the outlook index window.
+        parser: Pre-configured ConfigParser (skips reading config files if provided).
+        logger_obj: Pre-configured logger (skips setup if provided).
     """
-    if path_config_files is None:
-        path_config_files = [Path("../config/geocif.txt")]
-
-    logger_obj, parser = log.setup_logger_parser(path_config_files)
+    if parser is None or logger_obj is None:
+        if path_config_files is None:
+            path_config_files = [Path("../config/geocif.txt")]
+        logger_obj, parser = log.setup_logger_parser(path_config_files)
 
     # Read config with defaults
     if n_years is None:
@@ -1163,7 +1522,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
         parser.set("DEFAULT", "experiment_name", "outlook")
         orig_db = parser.get("DEFAULT", "db")
-        outlook_db = ar.utcnow().to("America/New_York").format("[outlook_]MM[_]DD[_]YYYY[_]HH[h]mm[.db]")
+        if outlook_db_name:
+            outlook_db = outlook_db_name
+        else:
+            outlook_db = ar.utcnow().to("America/New_York").format("[outlook_]MM[_]DD[_]YYYY[_]HH[h]mm[.db]")
         parser.set("DEFAULT", "db", outlook_db)
         pool_countries_flag = parser.getboolean("ML", "pool_countries", fallback=False)
         if pool_countries_flag:
@@ -1192,7 +1554,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         dir_output = Path(parser.get("PATHS", "dir_output"))
         dir_inputs = Path(parser.get("PATHS", "dir_inputs", fallback=parser.get("PATHS", "dir_input", fallback="")))
         params = [
-            ("Config files", [str(p) for p in path_config_files]),
+            ("Config files", [str(p) for p in path_config_files] if path_config_files else ["(parser provided)"]),
             ("Input dir", str(dir_inputs)),
             ("Output dir", str(dir_output)),
             ("Countries", countries),
@@ -1215,11 +1577,15 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         run_time_steps = parser.get("ML", "run_time_steps", fallback="latest")
         loop_fn = gc.loop_execute_pooled if pool_countries_flag else None
 
-        # Check if use_cids is forecast-only (FLDAS/S2S)
+        # Check use_cids for forecast type presence
         try:
             _use_cids = ast.literal_eval(parser.get("DEFAULT", "use_cids", fallback="['all']"))
         except (ValueError, SyntaxError):
             _use_cids = ["all"]
+        _has_forecast = (
+            "all" in _use_cids
+            or any(c in ("FLDAS", "S2S") for c in _use_cids)
+        )
         _forecast_only = (
             "all" not in _use_cids
             and all(c in ("FLDAS", "S2S") for c in _use_cids)
@@ -1228,13 +1594,12 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         if run_time_steps == "auto":
             if _forecast_only:
                 # Forecast-only: single pass covering pre-season + in-season
-                # using init-month rows for ALL months.
                 parser.set("ML", "run_time_steps", "pre_season")
                 logger.info("Auto mode (forecast-only): single pass pre-season + in-season")
                 gc.execute_models(inputs, logger_obj, parser,
                                   loop_fn=loop_fn, desc="Forecast models (pre+in-season)")
-            else:
-                # Full CIDs: two passes — pre-season (forecast only) then in-season (all CIDs)
+            elif _has_forecast:
+                # Has forecast types: pre-season pass + in-season pass
                 parser.set("ML", "run_time_steps", "pre_season")
                 logger.info("Auto mode — Pass 1: Pre-season (FLDAS/S2S leads only)")
                 gc.execute_models(inputs, logger_obj, parser,
@@ -1242,6 +1607,12 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
                 parser.set("ML", "run_time_steps", "all")
                 logger.info("Auto mode — Pass 2: In-season (all time steps)")
+                gc.execute_models(inputs, logger_obj, parser,
+                                  loop_fn=loop_fn, desc="In-season models")
+            else:
+                # No forecast types: skip pre-season, in-season only
+                parser.set("ML", "run_time_steps", "all")
+                logger.info("Auto mode — No forecast CIDs, in-season only")
                 gc.execute_models(inputs, logger_obj, parser,
                                   loop_fn=loop_fn, desc="In-season models")
 
@@ -1267,8 +1638,11 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     else:
         db_path = dir_output / "ml" / "db" / outlook_db
 
-    today = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY")
-    dir_outlook = dir_output / "ml" / "analysis" / today / "outlook"
+    if analysis_dir:
+        dir_outlook = Path(analysis_dir) / "outlook"
+    else:
+        today = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY_HH[h]mm")
+        dir_outlook = dir_output / "ml" / "analysis" / today / "outlook"
     os.makedirs(dir_outlook, exist_ok=True)
 
     all_outlook_frames = []
@@ -1677,7 +2051,8 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     # have predictions, even when outlook index computation fails.
     if df_pred_store:
         _generate_diagnostics(df_pred_store, dg, dir_outlook,
-                              current_year=current_year, dict_config=dict_config)
+                              current_year=current_year, dict_config=dict_config,
+                              db_path=db_path)
 
     # Optional PDF report
     generate_report_flag = parser.getboolean("ML", "generate_report", fallback=False)

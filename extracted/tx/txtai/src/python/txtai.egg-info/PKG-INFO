@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: txtai
-Version: 9.7.0
+Version: 9.8.0
 Summary: All-in-one open-source AI framework for semantic search, LLM orchestration and language model workflows
 Home-page: https://github.com/neuml/txtai
 Author: NeuML
@@ -55,7 +55,7 @@ Requires-Dist: sqlite-vec>=0.1.1; extra == "ann"
 Provides-Extra: api
 Requires-Dist: aiohttp>=3.8.1; extra == "api"
 Requires-Dist: fastapi>=0.94.0; extra == "api"
-Requires-Dist: fastapi-mcp>=0.2.0; extra == "api"
+Requires-Dist: fastapi-mcp>=0.4.0; extra == "api"
 Requires-Dist: httpx>=0.28.1; extra == "api"
 Requires-Dist: pillow>=7.1.2; extra == "api"
 Requires-Dist: python-multipart>=0.0.7; extra == "api"
@@ -185,7 +185,7 @@ Requires-Dist: mcpadapt>=0.1.0; extra == "all"
 Requires-Dist: smolagents>=1.23; extra == "all"
 Requires-Dist: aiohttp>=3.8.1; extra == "all"
 Requires-Dist: fastapi>=0.94.0; extra == "all"
-Requires-Dist: fastapi-mcp>=0.2.0; extra == "all"
+Requires-Dist: fastapi-mcp>=0.4.0; extra == "all"
 Requires-Dist: httpx>=0.28.1; extra == "all"
 Requires-Dist: pillow>=7.1.2; extra == "all"
 Requires-Dist: python-multipart>=0.0.7; extra == "all"
@@ -457,9 +457,9 @@ See the table below for the current recommended models. These models all allow c
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | [Embeddings](https://neuml.github.io/txtai/embeddings)                        | [all-MiniLM-L6-v2](https://hf.co/sentence-transformers/all-MiniLM-L6-v2) | 
 | [Image Captions](https://neuml.github.io/txtai/pipeline/image/caption)        | [BLIP](https://hf.co/Salesforce/blip-image-captioning-base)              |
-| [Labels - Zero Shot](https://neuml.github.io/txtai/pipeline/text/labels)      | [BART-Large-MNLI](https://hf.co/facebook/bart-large)                     |
+| [Labels - Zero Shot](https://neuml.github.io/txtai/pipeline/text/labels)      | [DeBERTa v3 Zeroshot](https://hf.co/MoritzLaurer/deberta-v3-base-zeroshot-v2.0-c) |
 | [Labels - Fixed](https://neuml.github.io/txtai/pipeline/text/labels)          | Fine-tune with [training pipeline](https://neuml.github.io/txtai/pipeline/train/trainer)          |
-| [Large Language Model (LLM)](https://neuml.github.io/txtai/pipeline/text/llm) | [gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b)                 |
+| [Large Language Model (LLM)](https://neuml.github.io/txtai/pipeline/text/llm) | [Gemma 4 31B](https://hf.co/google/gemma-4-31B) |
 | [Summarization](https://neuml.github.io/txtai/pipeline/text/summary)          | [DistilBART](https://hf.co/sshleifer/distilbart-cnn-12-6)                |
 | [Text-to-Speech](https://neuml.github.io/txtai/pipeline/audio/texttospeech)   | [ESPnet JETS](https://hf.co/NeuML/ljspeech-jets-onnx)                    |
 | [Transcription](https://neuml.github.io/txtai/pipeline/audio/transcription)   | [Whisper](https://hf.co/openai/whisper-base)                             | 
@@ -471,9 +471,8 @@ See the following links to learn more.
 
 - [Hugging Face Tasks](https://hf.co/tasks)
 - [Hugging Face Model Hub](https://hf.co/models)
-- [MTEB Leaderboard](https://hf.co/spaces/mteb/leaderboard)
-- [LMSYS LLM Leaderboard](https://chat.lmsys.org/?leaderboard)
-- [Open LLM Leaderboard](https://hf.co/spaces/HuggingFaceH4/open_llm_leaderboard)
+- [Embeddings Leaderboard](https://hf.co/spaces/mteb/leaderboard)
+- [LLM Leaderboard](https://hf.co/spaces/lmarena-ai/arena-leaderboard)
 
 ## Powered by txtai
 
@@ -495,6 +494,7 @@ In addition to this list, there are also many other [open-source projects](https
 ![further](https://raw.githubusercontent.com/neuml/txtai/master/docs/images/further.png#gh-light-mode-only)
 
 - [Introducing txtai, the all-in-one AI framework](https://medium.com/neuml/introducing-txtai-the-all-in-one-ai-framework-0660ecfc39d7)
+- [txtai: An All-in-One AI Framework for Semantic Search and LLM Workflows](https://github.com/neuml/papers/blob/master/txtai/txtai.pdf)
 - [Tutorial series on Hashnode](https://neuml.hashnode.dev/series/txtai-tutorial) | [dev.to](https://dev.to/neuml/tutorial-series-on-txtai-ibg)
 - [What's new in txtai 9.0](https://medium.com/neuml/whats-new-in-txtai-9-0-d522bb150afa) | [8.0](https://medium.com/neuml/whats-new-in-txtai-8-0-2d7d0ab4506b) | [7.0](https://medium.com/neuml/whats-new-in-txtai-7-0-855ad6a55440) | [6.0](https://medium.com/neuml/whats-new-in-txtai-6-0-7d93eeedf804) | [5.0](https://medium.com/neuml/whats-new-in-txtai-5-0-e5c75a13b101) | [4.0](https://medium.com/neuml/whats-new-in-txtai-4-0-bbc3a65c3d1c)
 - [Getting started with semantic search](https://medium.com/neuml/getting-started-with-semantic-search-a9fd9d8a48cf) | [workflows](https://medium.com/neuml/getting-started-with-semantic-workflows-2fefda6165d9) | [rag](https://medium.com/neuml/getting-started-with-rag-9a0cca75f748)

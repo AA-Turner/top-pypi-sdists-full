@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import threading
 import time
 
@@ -8,6 +9,7 @@ import pytest
 pytestmark = [
     pytest.mark.slow_test,
     pytest.mark.windows_whitelisted,
+    pytest.mark.timeout(900),
 ]
 
 log = logging.getLogger(__name__)
@@ -15,7 +17,10 @@ log = logging.getLogger(__name__)
 
 def minion_func(salt_minion, event_listener, salt_master, timeout):
     start = time.time()
-    with salt_minion.started(start_timeout=timeout * 2, max_start_attempts=1):
+    # start_timeout must cover: minion startup time + master-down wait + reconnect
+    # time.  On Windows the minion is slower to start so we give extra headroom.
+    start_timeout = timeout * 4 if sys.platform == "win32" else timeout * 2
+    with salt_minion.started(start_timeout=start_timeout, max_start_attempts=1):
         new_start = time.time()
         while time.time() < new_start + (timeout * 2):
             if event_listener.get_events(
@@ -28,7 +33,7 @@ def minion_func(salt_minion, event_listener, salt_master, timeout):
 
 @pytest.fixture(scope="module")
 def timeout():
-    return int(os.environ.get("SALT_CI_REAUTH_MASTER_WAIT", 150))
+    return int(os.environ.get("SALT_CI_REAUTH_MASTER_WAIT", 30))
 
 
 def test_reauth(salt_cli, salt_minion, salt_master, timeout, event_listener):
@@ -57,5 +62,14 @@ def test_reauth(salt_cli, salt_minion, salt_master, timeout, event_listener):
         after_time=start,
         timeout=timeout * 2,
     )
-    assert salt_cli.run("test.ping", minion_tgt=salt_minion.id).data is True
-    minion_proc.join()
+    # Retry test.ping: on slow runners (e.g. Windows) the minion may have
+    # re-authenticated but not yet be fully ready to handle commands.
+    ping_deadline = time.time() + timeout * 4
+    while True:
+        result = salt_cli.run("test.ping", minion_tgt=salt_minion.id)
+        if result.data is True:
+            break
+        if time.time() >= ping_deadline:
+            assert result.data is True
+        time.sleep(5)
+    minion_proc.join(timeout=timeout * 2)

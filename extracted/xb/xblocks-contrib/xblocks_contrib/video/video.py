@@ -29,8 +29,6 @@ from lxml import etree
 from opaque_keys.edx.keys import CourseKey
 from opaque_keys.edx.locator import AssetLocator
 from web_fragments.fragment import Fragment
-from webob import Response
-from webob.multidict import MultiDict
 from xblock.completable import XBlockCompletionMode
 from xblock.core import XBlock
 from xblock.fields import ScopeIds
@@ -43,11 +41,13 @@ from xblocks_contrib.legacy_utils.xml_utils import (
     is_pointer_tag,
     name_to_pathname,
 )
+from xblocks_contrib.video.ajax_handler_mixin import AjaxHandlerMixin
 from xblocks_contrib.video.bumper_utils import bumperize
 from xblocks_contrib.video.cache_utils import request_cached
 from xblocks_contrib.video.constants import ATTR_KEY_REQUEST_COUNTRY_CODE, ATTR_KEY_USER_ID, PUBLIC_VIEW, STUDENT_VIEW
 from xblocks_contrib.video.exceptions import TranscriptNotFoundError
 from xblocks_contrib.video.mixin import LicenseMixin
+from xblocks_contrib.video.studio_metadata_mixin import StudioMetadataMixin
 from xblocks_contrib.video.validation import StudioValidation, StudioValidationMessage
 from xblocks_contrib.video.video_handlers import VideoStudentViewHandlers, VideoStudioViewHandlers
 from xblocks_contrib.video.video_static_content_utils import (
@@ -60,7 +60,6 @@ from xblocks_contrib.video.video_transcripts_utils import (
     VideoTranscriptsMixin,
     clean_video_id,
     get_endonym_or_label,
-    get_html5_ids,
     subs_filename,
 )
 from xblocks_contrib.video.video_utils import (
@@ -111,7 +110,9 @@ EXPORT_IMPORT_STATIC_DIR = 'static'
 @XBlock.needs('i18n', 'user')
 class VideoBlock(
         VideoFields, VideoTranscriptsMixin, VideoStudioViewHandlers, VideoStudentViewHandlers,
-        LegacyXmlMixin, XBlock, LicenseMixin):
+        LegacyXmlMixin, XBlock,
+        AjaxHandlerMixin, StudioMetadataMixin,
+        LicenseMixin):
     """
     XML source example::
 
@@ -481,7 +482,7 @@ class VideoBlock(
             'bumper_metadata': json.dumps(self.bumper['metadata']),  # pylint: disable=E1101
             'cdn_eval': cdn_eval,
             'cdn_exp_group': cdn_exp_group,
-            'display_name': self.display_name_with_default,  # pylint: disable=no-member
+            'display_name': self.display_name_with_default,
             'download_video_link': download_video_link,
             'is_video_from_same_origin': is_video_from_same_origin,
             'handout': self.handout,
@@ -1166,111 +1167,11 @@ class VideoBlock(
             )
         return None
 
-    @property
-    def ajax_url(self):
-        """
-        Returns the URL for the ajax handler.
-        """
-        return self.runtime.handler_url(self, 'ajax_handler', '', '').rstrip('/?')
-
-    @XBlock.handler
-    def ajax_handler(self, request, suffix=None):
-        """
-        XBlock handler that wraps `ajax_handler`
-        """
-        class FileObjForWebobFiles:
-            """
-            Turn Webob cgi.FieldStorage uploaded files into pure file objects.
-
-            Webob represents uploaded files as cgi.FieldStorage objects, which
-            have a .file attribute.  We wrap the FieldStorage object, delegating
-            attribute access to the .file attribute.  But the files have no
-            name, so we carry the FieldStorage .filename attribute as the .name.
-
-            """
-            def __init__(self, webob_file):
-                self.file = webob_file.file
-                self.name = webob_file.filename
-
-            def __getattr__(self, name):
-                return getattr(self.file, name)
-
-        # WebOb requests have multiple entries for uploaded files.  handle_ajax
-        # expects a single entry as a list.
-        request_post = MultiDict(request.POST)
-        for key in set(request.POST.keys()):
-            if hasattr(request.POST[key], "file"):
-                request_post[key] = list(map(FileObjForWebobFiles, request.POST.getall(key)))
-
-        response_data = self.handle_ajax(suffix, request_post)
-        return Response(response_data, content_type='application/json', charset='UTF-8')
-
     @classmethod
     def definition_from_xml(cls, xml_object, system):
         if len(xml_object) == 0 and len(list(xml_object.items())) == 0:
             return {"data": ""}, []
         return {"data": etree.tostring(xml_object, pretty_print=True, encoding="unicode")}, []
-
-    @property
-    def editable_metadata_fields(self):
-        """
-        Returns the metadata fields to be edited in Studio.
-        """
-        editable_fields = super().editable_metadata_fields  # pylint: disable=no-member
-
-        settings_service = self.runtime.service(self, 'settings')
-        if settings_service:
-            xb_settings = settings_service.get_settings_bucket(self)
-            if not xb_settings.get("licensing_enabled", False) and "license" in editable_fields:
-                del editable_fields["license"]
-
-        # Default Timed Transcript a.k.a `sub` has been deprecated and end users shall
-        # not be able to modify it.
-        editable_fields.pop('sub')
-
-        languages = [{'label': label, 'code': lang} for lang, label in settings.ALL_LANGUAGES]
-        languages.sort(key=lambda lang_item: lang_item['label'])
-        editable_fields['transcripts']['custom'] = True
-        editable_fields['transcripts']['languages'] = languages
-        editable_fields['transcripts']['type'] = 'VideoTranslations'
-
-        # We need to send ajax requests to show transcript status
-        # whenever edx_video_id changes on frontend. Thats why we
-        # are changing type to `VideoID` so that a specific
-        # Backbonjs view can handle it.
-        editable_fields['edx_video_id']['type'] = 'VideoID'
-
-        # `public_access` is a boolean field and by default backbonejs code render it as a dropdown with 2 options
-        # but in our case we also need to show an input field with dropdown, the input field will show the url to
-        # be shared with leaners. This is not possible with default rendering logic in backbonjs code, that is why
-        # we are setting a new type and then do a custom rendering in backbonejs code to render the desired UI.
-        editable_fields['public_access']['type'] = 'PublicAccess'
-        editable_fields['public_access']['url'] = self.get_public_video_url()
-
-        # construct transcripts info and also find if `en` subs exist
-        transcripts_info = self.get_transcripts_info()
-        possible_sub_ids = [self.sub, self.youtube_id_1_0] + get_html5_ids(self.html5_sources)
-        video_config_service = self.runtime.service(self, 'video_config')
-        if video_config_service:
-            for sub_id in possible_sub_ids:
-                try:
-                    _, sub_id, _ = video_config_service.get_transcript(
-                        self, lang='en', output_format=TranscriptExtensions.TXT
-                    )
-                    transcripts_info['transcripts'] = dict(transcripts_info['transcripts'], en=sub_id)
-                    break
-                except TranscriptNotFoundError:
-                    continue
-
-        editable_fields['transcripts']['value'] = transcripts_info['transcripts']
-        editable_fields['transcripts']['urlRoot'] = self.runtime.handler_url(
-            self,
-            'studio_transcript',
-            'translation'
-        ).rstrip('/?')
-        editable_fields['handout']['type'] = 'FileUploader'
-
-        return editable_fields
 
     @staticmethod
     def workbench_scenarios():

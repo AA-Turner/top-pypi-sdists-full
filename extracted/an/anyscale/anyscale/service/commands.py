@@ -446,7 +446,7 @@ def _controller_logs(
     max_lines: int = 1000,
     _private_sdk: Optional[PrivateServiceSDK] = None,
 ):
-    """Wait for a service to reach a target state."""
+    """Get the controller logs of a service."""
     return _private_sdk.controller_logs(  # type: ignore
         name,
         cloud=cloud,

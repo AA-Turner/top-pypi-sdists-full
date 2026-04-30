@@ -1,6 +1,10 @@
+from urllib.parse import parse_qs, urlparse
+
 from ytmusicapi.continuations import *
+from ytmusicapi.enums import ResponseStatus
 from ytmusicapi.exceptions import YTMusicUserError
 from ytmusicapi.helpers import sum_total_duration
+from ytmusicapi.models.content.enums import PlaylistSortOrder, PlaylistVoteEditOptions
 from ytmusicapi.navigation import *
 from ytmusicapi.parsers.browsing import parse_content_list, parse_playlist
 from ytmusicapi.parsers.playlists import *
@@ -107,12 +111,19 @@ class PlaylistsMixin(MixinProtocol):
                     "pin": "AB9zfpImL2k...",
                     "unpin": "AB9zfpJt6pA..."
                   },
-
+                  "communityVoteStatus": {
+                    "netVoteValue": 12,
+                    "status": "VOTE_STATUS_UPVOTED""
+                  }
+                }
+                  "creditsBrowseId": "MPTCekz1IJ9I0sw"
               ]
             }
 
         The setVideoId is the unique id of this playlist item and
         needed for moving/removing playlist items
+
+        Note that communityVoteStatus can be null if the information is not available (i.e. playlist does not have that setting enabled, the request is not authenticated, ...)
 
         Collaborative playlists replace ``author`` with limited data about ``collaborators``::
             {
@@ -138,7 +149,9 @@ class PlaylistsMixin(MixinProtocol):
         response = request_func("")
 
         request_func_continuations: RequestFuncBodyType = lambda body: self._send_request(endpoint, body)
-        if playlistId.startswith("OLA") or playlistId.startswith("VLOLA"):
+        is_ola = playlistId.startswith("OLA") or playlistId.startswith("VLOLA")
+        has_playlist_header = nav(response, [*TWO_COLUMN_RENDERER, *TAB_CONTENT, *SECTION_LIST_ITEM], True)
+        if is_ola and not has_playlist_header:
             return parse_audio_playlist(response, limit, request_func_continuations)
 
         header_data = nav(response, [*TWO_COLUMN_RENDERER, *TAB_CONTENT, *SECTION_LIST_ITEM])
@@ -279,15 +292,38 @@ class PlaylistsMixin(MixinProtocol):
         response = self._send_request(endpoint, body)
         return response["playlistId"] if "playlistId" in response else response
 
+    def join_collaborative_playlist(self, playlistId: str, joinCollaborationToken: str) -> str | JsonDict:
+        """
+        Given an invite token, join a collaborative playlist and add it to your library.
+
+        :param playlistId: ID of the playlist to join.
+            If you're already a collaborator, an Unauthorized server error is raised.
+        :param joinCollaborationToken: See :py:func:`edit_playlist`, or ``jct`` in YTM's invite URL
+        :return: Status String or full response
+        """
+        self._check_auth()
+        body: JsonDict = {
+            "playlistId": validate_playlist_id(playlistId),
+            "actions": [
+                {"action": "ACTION_JOIN_COLLABORATION", "joinCollaborationToken": joinCollaborationToken}
+            ],
+        }
+        endpoint = "browse/edit_playlist"
+        response = self._send_request(endpoint, body)
+        return response["status"] if "status" in response else response
+
     def edit_playlist(
         self,
         playlistId: str,
         title: str | None = None,
         description: str | None = None,
         privacyStatus: str | None = None,
+        collaboration: bool | None = None,
         moveItem: str | tuple[str, str] | None = None,
         addPlaylistId: str | None = None,
+        sortOrder: PlaylistSortOrder | None = None,
         addToTop: bool | None = None,
+        voteOption: PlaylistVoteEditOptions | None = None,
     ) -> str | JsonDict:
         """
         Edit title, description or privacyStatus of a playlist.
@@ -297,16 +333,30 @@ class PlaylistsMixin(MixinProtocol):
         :param title: Optional. New title for the playlist
         :param description: Optional. New description for the playlist
         :param privacyStatus: Optional. New privacy status for the playlist
+        :param collaboration: Optional. Enable or disable collaboration.
+            If False and collaboration is not enabled, a Forbidden server error is raised.
+            If True, a new ``joinCollaborationToken`` is returned.
+            Collaborators cannot interact with private playlists.
         :param moveItem: Optional. Move one item before another. Items are specified by setVideoId, which is the
             unique id of this playlist item. See :py:func:`get_playlist`
         :param addPlaylistId: Optional. Id of another playlist to add to this playlist
+        :param sortOrder: Optional. Change the order tracks are returned in. The default is ``MANUAL``.
         :param addToTop: Optional. Change the state of this playlist to add items to the top of the playlist (if True)
             or the bottom of the playlist (if False - this is also the default of a new playlist).
-        :return: Status String or full response
+        :param VoteOption: Optional. Change who can participate in community voting in this playlist.
+            Note that a bad request will be thrown if voteOption is PlaylistVoteEditOptions.COLLABORATORS_ONLY but the playlist is not enabled for collaboration prior to the edit.
+        :return: Status String, ``collaboration`` dict described below, or full response
+
+        Dictionary returned when ``collaboration`` is True and the request is successful::
+
+                {
+                    "status": "STATUS_SUCCEEDED",
+                    "joinCollaborationToken": "kM9wXdRj2p8v_qL3sHBkTz"
+                }
         """
         self._check_auth()
         body: JsonDict = {"playlistId": validate_playlist_id(playlistId)}
-        actions = []
+        actions: JsonList = []
         if title:
             actions.append({"action": "ACTION_SET_PLAYLIST_NAME", "playlistName": title})
 
@@ -315,6 +365,11 @@ class PlaylistsMixin(MixinProtocol):
 
         if privacyStatus:
             actions.append({"action": "ACTION_SET_PLAYLIST_PRIVACY", "playlistPrivacy": privacyStatus})
+
+        if collaboration:
+            actions.append({"action": "ACTION_CREATE_COLLABORATION_INVITE_LINK"})
+        elif collaboration is False:
+            actions.append({"action": "ACTION_SET_CLOSED_TO_CONTRIBUTIONS", "closedToContributions": True})
 
         if moveItem:
             action = {
@@ -328,15 +383,36 @@ class PlaylistsMixin(MixinProtocol):
         if addPlaylistId:
             actions.append({"action": "ACTION_ADD_PLAYLIST", "addedFullListId": addPlaylistId})
 
+        if sortOrder:
+            actions.append(
+                {"action": "ACTION_SET_PLAYLIST_VIDEO_ORDER", "playlistVideoOrder": sortOrder.value}
+            )
+
         if addToTop:
             actions.append({"action": "ACTION_SET_ADD_TO_TOP", "addToTop": "true"})
 
         if addToTop is not None:
             actions.append({"action": "ACTION_SET_ADD_TO_TOP", "addToTop": str(addToTop)})
 
+        if voteOption is not None:
+            actions.append(
+                {
+                    "action": "ACTION_SET_ALLOW_ITEM_VOTE",
+                    "itemVotePermission": voteOption.get_argument_for_request(),
+                }
+            )
+
         body["actions"] = actions
         endpoint = "browse/edit_playlist"
         response = self._send_request(endpoint, body)
+
+        if collaboration and response.get("status") == ResponseStatus.SUCCEEDED:
+            invite_link = nav(response, ["collaborationInviteLink"])
+            return {
+                "status": response["status"],
+                "joinCollaborationToken": nav(parse_qs(urlparse(invite_link).query), ["jct", 0]),
+            }
+
         return response["status"] if "status" in response else response
 
     def delete_playlist(self, playlistId: str) -> str | JsonDict:

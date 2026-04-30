@@ -1,0 +1,191 @@
+# =======================================================================================
+# To guarantee that our cleanup script always runs (preventing orphaned cloud resources),
+# this pipeline uses the `allowFailure` property and a final check step.
+#
+# How it works:
+# 1. Critical steps have `allowFailure: true`.
+# 2. If a command fails, it writes its name to `/workspace/FAILED` and exits with 1.
+# 3. Cloud Build marks the step as Failed (gray icon) but continues the pipeline.
+# 4. Subsequent steps use `${_SKIP_IF_FAILED}` to see the flag and skip execution.
+# 5. The pipeline continues to the `cleanup` step, which runs unconditionally.
+# 6. A final `check-failure` step reads the `/workspace/FAILED` file, prints a
+#    summary of which steps failed, and then exits with 1 to fail the overall build.
+# =======================================================================================
+
+substitutions:
+  _REGION: "us-central1"
+  _ZONE: "us-central1-a"
+  _SHORT_BUILD_ID: ${BUILD_ID:0:8}
+  _SKIP_IF_FAILED: '[[ -f /workspace/FAILED ]] && echo "⚠️ Skipping: Previous failure" && exit 0'
+  _TEST_ENV_VARS: "SHORT_BUILD_ID='${_SHORT_BUILD_ID}' PROJECT_ID='${PROJECT_ID}' REGION='${_REGION}' KEY_RING='${_GCSFS_KEY_RING_NAME}' KEY_NAME='${_GCSFS_KEY_NAME}'"
+
+steps:
+  # Generate a persistent SSH key for this build run.
+  # This prevents gcloud from adding a new key to the OS Login profile on every ssh/scp command.
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "generate-ssh-key"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        mkdir -p /workspace/.ssh
+        # Generate the SSH key
+        ssh-keygen -t rsa -f /workspace/.ssh/google_compute_engine -N '' -C gcb || { echo "generate-ssh-key" >> /workspace/FAILED; exit 1; }
+        # Save the public key content to a file for the cleanup step
+        cat /workspace/.ssh/google_compute_engine.pub > /workspace/gcb_ssh_key.pub
+    waitFor: ["-"]
+    allowFailure: true
+
+  # Create all necessary GCS buckets AND the GCE VM in parallel.
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "create-resources"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        ${_SKIP_IF_FAILED}
+        bash cloudbuild/create_resources.sh || { echo "create-resources" >> /workspace/FAILED; exit 1; }
+    env:
+      - "PROJECT_ID=${PROJECT_ID}"
+      - "REGION=${_REGION}"
+      - "ZONE=${_ZONE}"
+      - "SHORT_BUILD_ID=${_SHORT_BUILD_ID}"
+      - "ZONAL_VM_SERVICE_ACCOUNT=${_ZONAL_VM_SERVICE_ACCOUNT}"
+    waitFor: ["-"]
+    allowFailure: true
+
+  # Set up the VM for integration tests.
+  # This step uses 'gcloud compute ssh' to execute a script.
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "setup-vm"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        ${_SKIP_IF_FAILED}
+
+        # Wait for SSH
+        bash cloudbuild/wait_for_ssh.sh "gcsfs-test-vm-${_SHORT_BUILD_ID}" "${_ZONE}" || { echo "setup-vm (wait for ssh)" >> /workspace/FAILED; exit 1; }
+
+        # Copy entire repo to VM
+        gcloud compute scp --recurse . gcsfs-test-vm-${_SHORT_BUILD_ID}:~ \
+          --zone=${_ZONE} \
+          --internal-ip \
+          --ssh-key-file=/workspace/.ssh/google_compute_engine || { echo "setup-vm (scp source)" >> /workspace/FAILED; exit 1; }
+
+        # Run Setup Script remotely
+        gcloud compute ssh gcsfs-test-vm-${_SHORT_BUILD_ID} \
+          --zone=${_ZONE} \
+          --internal-ip \
+          --ssh-key-file=/workspace/.ssh/google_compute_engine \
+          --command="bash cloudbuild/setup_vm.sh" || { echo "setup-vm (setup script)" >> /workspace/FAILED; exit 1; }
+    waitFor: ["create-resources", "generate-ssh-key"]
+    allowFailure: true
+
+  # Run Tests (Parallel Blocks)
+  # We reuse a single remote runner script, passing env vars to control which suite runs.
+
+  # Standard Tests
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "run-standard-tests"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        ${_SKIP_IF_FAILED}
+        gcloud compute ssh gcsfs-test-vm-${_SHORT_BUILD_ID} \
+          --zone=${_ZONE} \
+          --internal-ip \
+          --ssh-key-file=/workspace/.ssh/google_compute_engine \
+          --command="export TEST_SUITE='standard' ${_TEST_ENV_VARS} && bash cloudbuild/run_tests.sh" || { echo "run-standard-tests" >> /workspace/FAILED; exit 1; }
+    waitFor: ["setup-vm", "create-resources"]
+    allowFailure: true
+
+  # Zonal Tests
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "run-zonal-tests"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        ${_SKIP_IF_FAILED}
+        gcloud compute ssh gcsfs-test-vm-${_SHORT_BUILD_ID} \
+          --zone=${_ZONE} \
+          --internal-ip \
+          --ssh-key-file=/workspace/.ssh/google_compute_engine \
+          --command="export TEST_SUITE='zonal' ${_TEST_ENV_VARS} && bash cloudbuild/run_tests.sh" || { echo "run-zonal-tests" >> /workspace/FAILED; exit 1; }
+    waitFor: ["setup-vm", "create-resources"]
+    allowFailure: true
+
+  # Zonal Core Tests
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "run-zonal-core-tests"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        ${_SKIP_IF_FAILED}
+        gcloud compute ssh gcsfs-test-vm-${_SHORT_BUILD_ID} \
+          --zone=${_ZONE} \
+          --internal-ip \
+          --ssh-key-file=/workspace/.ssh/google_compute_engine \
+          --command="export TEST_SUITE='zonal-core' ${_TEST_ENV_VARS} && bash cloudbuild/run_tests.sh" || { echo "run-zonal-core-tests" >> /workspace/FAILED; exit 1; }
+    waitFor: ["setup-vm", "create-resources"]
+    allowFailure: true
+
+  # HNS Tests
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "run-hns-tests"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        ${_SKIP_IF_FAILED}
+        gcloud compute ssh gcsfs-test-vm-${_SHORT_BUILD_ID} \
+          --zone=${_ZONE} \
+          --internal-ip \
+          --ssh-key-file=/workspace/.ssh/google_compute_engine \
+          --command="export TEST_SUITE='hns' ${_TEST_ENV_VARS} && bash cloudbuild/run_tests.sh" || { echo "run-hns-tests" >> /workspace/FAILED; exit 1; }
+    waitFor: ["setup-vm", "create-resources"]
+    allowFailure: true
+
+  # Cleanup
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "cleanup"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        bash cloudbuild/cleanup.sh
+    env:
+      - "SHORT_BUILD_ID=${_SHORT_BUILD_ID}"
+      - "ZONE=${_ZONE}"
+      - "PROJECT_ID=${PROJECT_ID}"
+    waitFor:
+      [
+        "run-standard-tests",
+        "run-zonal-tests",
+        "run-hns-tests",
+        "run-zonal-core-tests",
+      ]
+
+  # Fail the build if any previous step failed
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "check-failure"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        if [[ -f /workspace/FAILED ]]; then
+          echo "❌ Build failed! The following steps reported failures:"
+          cat /workspace/FAILED | sed 's/^/ - /'
+          exit 1
+        fi
+        echo "Build successful."
+    waitFor: ["cleanup"]
+
+timeout: "3600s"
+options:
+  logging: CLOUD_LOGGING_ONLY
+  pool:
+    name: "projects/${PROJECT_ID}/locations/us-central1/workerPools/cloud-build-worker-pool"

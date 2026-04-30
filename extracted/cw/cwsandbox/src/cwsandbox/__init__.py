@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.21.0"
+__version__ = "0.22.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
@@ -54,14 +54,19 @@ from cwsandbox.exceptions import (
     FunctionSerializationError,
     ProfileNotFoundError,
     RunnerNotFoundError,
+    SandboxCommandTimeoutError,
     SandboxError,
     SandboxExecutionError,
     SandboxFailedError,
     SandboxFileError,
     SandboxNotFoundError,
     SandboxNotRunningError,
+    SandboxRequestTimeoutError,
+    SandboxResourceExhaustedError,
+    SandboxTerminalStateUnavailableError,
     SandboxTerminatedError,
     SandboxTimeoutError,
+    SandboxUnavailableError,
 )
 
 if TYPE_CHECKING:
@@ -282,6 +287,7 @@ __all__ = [
     "RunnerResources",
     "set_auth_mode",
     "Sandbox",
+    "SandboxCommandTimeoutError",
     "SandboxDefaults",
     "SandboxError",
     "SandboxExecutionError",
@@ -289,9 +295,13 @@ __all__ = [
     "SandboxFileError",
     "SandboxNotFoundError",
     "SandboxNotRunningError",
+    "SandboxRequestTimeoutError",
+    "SandboxResourceExhaustedError",
     "SandboxStatus",
+    "SandboxTerminalStateUnavailableError",
     "SandboxTerminatedError",
     "SandboxTimeoutError",
+    "SandboxUnavailableError",
     "Secret",
     "Serialization",
     "Session",

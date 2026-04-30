@@ -3,7 +3,7 @@ Main interface for securitylake service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securitylake/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

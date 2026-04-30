@@ -121,6 +121,131 @@ _UNICODE_PROPERTY_MAP = (
     (r"\PM", f"[^{_MARK_CLASS}]"),
 )
 
+# Raw class contents (no surrounding brackets) used when `\p{X}` is nested inside a character class.
+_UNICODE_PROPERTY_RAW_MAP: dict[str, str] = {
+    "L": _LETTER_CLASS,
+    "Lu": _LETTER_UPPER_CLASS,
+    "Ll": _LETTER_LOWER_CLASS,
+    "Lo": _OTHER_LETTER_CLASS,
+    "N": _DIGIT_CLASS,
+    "Nd": _DIGIT_CLASS,
+    "Alpha": _LETTER_CLASS,
+    "Digit": _DIGIT_CLASS,
+    "XDigit": _XDIGIT_CLASS,
+    "Alnum": _ALNUM_CLASS,
+    "Space": _SPACE_CLASS,
+    "Z": _SPACE_CLASS,
+    "Zs": _SPACE_CLASS,
+    "P": _PUNCT_CLASS,
+    "Punct": _PUNCT_CLASS,
+    "M": _MARK_CLASS,
+    "S": _SYMBOL_CLASS,
+    "C": _CONTROL_CLASS,
+    "Cntrl": _CONTROL_CLASS,
+    "ASCII": _ASCII_CLASS,
+    "Graph": _GRAPH_CLASS,
+    "Print": _PRINT_CLASS,
+    "Blank": _BLANK_CLASS,
+    "Upper": _LETTER_UPPER_CLASS,
+    "IsLetter": _LETTER_CLASS,
+}
+# Single-letter shorthand (`\pL`, `\pN`, ...) raw equivalents.
+_UNICODE_SHORTHAND_RAW_MAP: dict[str, str] = {
+    "L": _LETTER_CLASS,
+    "N": _DIGIT_CLASS,
+    "P": _PUNCT_CLASS,
+    "M": _MARK_CLASS,
+    "S": _SYMBOL_CLASS,
+    "C": _CONTROL_CLASS,
+    "Z": _SPACE_CLASS,
+}
+
+# POSIX character classes (only valid inside `[...]` in PCRE; Python's `re` misparses them
+# and emits FutureWarning about possible nested sets).
+_POSIX_CLASS_RAW_MAP: dict[str, str] = {
+    "alpha": _LETTER_CLASS,
+    "alnum": _ALNUM_CLASS,
+    "digit": _DIGIT_CLASS,
+    "upper": _LETTER_UPPER_CLASS,
+    "lower": _LETTER_LOWER_CLASS,
+    "space": _SPACE_CLASS,
+    "xdigit": _XDIGIT_CLASS,
+    "print": _PRINT_CLASS,
+    "graph": _GRAPH_CLASS,
+    "punct": _PUNCT_CLASS,
+    "cntrl": _CONTROL_CLASS,
+    "blank": _BLANK_CLASS,
+    "ascii": _ASCII_CLASS,
+}
+
+
+_PCRE_CLASS_SET_OPERATORS = ("||", "&&", "~~")
+
+
+def _inline_unicode_in_classes(pattern: str) -> str | None:
+    r"""Inline `\p{X}` and `[:X:]` raw class contents inside `[...]`; bail out on `\P{X}` / `[:^X:]` (uncomposable)."""
+    out: list[str] = []
+    i = 0
+    in_class = False
+    n = len(pattern)
+    while i < n:
+        ch = pattern[i]
+        if ch == "\\" and i + 1 < n:
+            next_ch = pattern[i + 1]
+            # `[^contents]` cannot compose with sibling class members in standard regex.
+            if in_class and next_ch == "P":
+                return None
+            if in_class and next_ch == "p" and i + 2 < n:
+                if pattern[i + 2] == "{":
+                    end = pattern.find("}", i + 3)
+                    if end != -1:
+                        name = pattern[i + 3 : end]
+                        raw = _UNICODE_PROPERTY_RAW_MAP.get(name)
+                        if raw is not None:
+                            out.append(raw)
+                            i = end + 1
+                            continue
+                else:
+                    raw = _UNICODE_SHORTHAND_RAW_MAP.get(pattern[i + 2])
+                    if raw is not None:
+                        out.append(raw)
+                        i += 3
+                        continue
+            # Other escapes (`\[`, `\]`, `\\`, unknown `\p{Greek}`) pass through unchanged.
+            out.append(pattern[i : i + 2])
+            i += 2
+            continue
+        # PCRE/Java class-set operators have no Python `re` equivalent — silent translation
+        # would change semantics (`||` becomes a literal `|`, `&&` a literal `&`, etc.).
+        if in_class and pattern[i : i + 2] in _PCRE_CLASS_SET_OPERATORS:
+            return None
+        # POSIX character class `[:name:]` nested inside `[...]`.
+        if in_class and ch == "[" and i + 1 < n and pattern[i + 1] == ":":
+            end = pattern.find(":]", i + 2)
+            if end != -1:
+                inner = pattern[i + 2 : end]
+                # Negated POSIX class `[:^X:]` cannot compose with sibling class members.
+                if inner.startswith("^"):
+                    return None
+                raw = _POSIX_CLASS_RAW_MAP.get(inner)
+                if raw is None:
+                    # Unknown POSIX name (or not a POSIX class at all) - bail out.
+                    return None
+                out.append(raw)
+                i = end + 2
+                continue
+        # Nested `[...]` inside an outer class is a PCRE/Java extension; Python `re` has no
+        # equivalent and silently treats `[` as a literal, drifting from the source semantics.
+        if in_class and ch == "[":
+            return None
+        if ch == "[" and not in_class:
+            in_class = True
+        elif ch == "]" and in_class:
+            in_class = False
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
 
 @lru_cache(maxsize=256)
 def normalize_regex(pattern: object) -> str | None:
@@ -128,6 +253,7 @@ def normalize_regex(pattern: object) -> str | None:
 
     Handles:
     - PCRE Unicode property escapes (\p{L}, \pL, etc.) -> Python equivalents
+    - POSIX character classes ([:alnum:], [:digit:], etc.) -> Python equivalents
     - Python anchors (\A, \Z) -> Rust-compatible equivalents (^, $)
 
     Returns the translated pattern if successful, None if translation failed
@@ -141,13 +267,17 @@ def normalize_regex(pattern: object) -> str | None:
         esc in pattern
         for esc in (r"\pL", r"\pN", r"\pP", r"\pM", r"\pS", r"\pC", r"\pZ", r"\PL", r"\PN", r"\PC", r"\PM")
     )
+    # Check for POSIX character classes like `[:alnum:]` (only valid inside `[...]`)
+    has_posix = "[:" in pattern and ":]" in pattern
     # Check for Python-specific anchors that need Rust translation
     has_python_anchors = pattern.startswith(r"\A") or pattern.endswith(r"\Z")
 
-    if not has_braced and not has_shorthand and not has_python_anchors:
+    if not has_braced and not has_shorthand and not has_posix and not has_python_anchors:
         return None  # No translation needed
 
-    translated = pattern
+    translated = _inline_unicode_in_classes(pattern)
+    if translated is None:
+        return None
     for pcre_escape, python_equiv in _UNICODE_PROPERTY_MAP:
         translated = translated.replace(pcre_escape, python_equiv)
 
@@ -167,9 +297,17 @@ def normalize_regex(pattern: object) -> str | None:
     return None
 
 
+_POSIX_CLASS_RE = re.compile(r"\[\[:\^?[a-zA-Z]+:\]")
+
+
 def is_valid_python_regex(pattern: object) -> bool:
     """Check if a pattern is valid Python regex."""
     if not isinstance(pattern, str):
+        return False
+    # POSIX character classes nested inside `[...]` are misparsed by Python's `re` (it treats
+    # `[:alnum:]` as the literal characters `:`, `a`, `l`, `n`, `u`, `m` and emits a FutureWarning).
+    # Treat such patterns as invalid so callers route them through `normalize_regex`.
+    if _POSIX_CLASS_RE.search(pattern):
         return False
     try:
         re.compile(pattern)

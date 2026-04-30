@@ -6,7 +6,7 @@ import os
 
 from collections import deque
 
-from jinja2 import Template
+from jinja2.sandbox import SandboxedEnvironment
 
 from .factory import ProcessFactory
 
@@ -50,7 +50,7 @@ class Agent:
         self.window = memory
 
         # Create template
-        self.template = Template(
+        self.template = SandboxedEnvironment().from_string(
             template
             if template
             else """{{ text }}

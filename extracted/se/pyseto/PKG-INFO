@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyseto
-Version: 1.9.1
+Version: 1.9.2
 Summary: A Python implementation of PASETO/PASERK.
 Author: Ajitomi Daisuke
 Author-email: Ajitomi Daisuke <dajiaji@gmail.com>
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Dist: argon2-cffi>=23.1.0
-Requires-Dist: cryptography>=42.0.1,<47
+Requires-Dist: cryptography>=42.0.1,<48
 Requires-Dist: iso8601>=1.0.2,<3.0.0
 Requires-Dist: pycryptodomex>=3.18.0
 Requires-Python: >=3.10, <4.0

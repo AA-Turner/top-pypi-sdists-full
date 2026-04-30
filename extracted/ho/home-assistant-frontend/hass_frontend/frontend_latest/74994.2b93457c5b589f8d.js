@@ -1,0 +1,2 @@
+export const __rspack_esm_id=74994;export const __rspack_esm_ids=[74994];export const __webpack_modules__={56009(t,e,a){a.r(e),a.d(e,{MapDashboardStrategy:()=>_});var s=a(62826),r=a(96196),o=a(97735);class _ extends r.mN{static async generate(t){return{views:[{strategy:t}]}}static getCreateSuggestions(t){return{title:t.localize("panel.map"),icon:"mdi:map"}}}_.noEditor=!0,_=(0,s.Cg)([(0,o.EM)("map-dashboard-strategy")],_)}};
+//# sourceMappingURL=74994.2b93457c5b589f8d.js.map

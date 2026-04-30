@@ -1,14 +1,25 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject
 
 
-def sanitize(schema: JsonSchema) -> set[str]:
-    """Remove $ref from optional locations."""
+def sanitize(schema: JsonSchema, *, is_recursive_ref: Callable[[str], bool] | None = None) -> set[str]:
+    """Remove $ref from optional locations.
+
+    `is_recursive_ref`, if provided, returns ``True`` for $ref strings that point back
+    to a schema currently being inlined. Such refs are dropped from `oneOf`/`anyOf`
+    variants when other variants remain, and from the *top-level* `allOf` of the
+    inlined schema (where `{$ref: S}` is trivially satisfied — but only there;
+    nested it's a real constraint on a sub-value).
+    """
     if isinstance(schema, bool):
         return set()
+
+    if is_recursive_ref is not None and isinstance(schema, dict):
+        _drop_recursive_top_level_allof(schema, is_recursive_ref)
 
     stack: list[JsonSchema] = [schema]
 
@@ -17,9 +28,18 @@ def sanitize(schema: JsonSchema) -> set[str]:
         if not isinstance(current, dict):
             continue
 
-        _sanitize_combinators(current)
+        # `definitions` / `$defs` are storage for ref targets, not validation constraints.
+        # Active refs still resolve through the resolver, so dropping these blocks avoids
+        # walking $refs that have already been pruned from optional positions.
+        current.pop("definitions", None)
+        current.pop("$defs", None)
+
+        _sanitize_combinators(current, is_recursive_ref)
 
         _sanitize_properties(current)
+
+        if "patternProperties" in current:
+            _sanitize_pattern_properties(current)
 
         if "items" in current:
             _sanitize_items(current)
@@ -46,7 +66,18 @@ def sanitize(schema: JsonSchema) -> set[str]:
     return remaining
 
 
-def _sanitize_combinators(schema: JsonSchemaObject) -> None:
+def _drop_recursive_top_level_allof(schema: JsonSchemaObject, is_recursive_ref: Callable[[str], bool]) -> None:
+    all_of = schema.get("allOf")
+    if not isinstance(all_of, list):
+        return
+    kept = [entry for entry in all_of if not _is_self_ref(entry, is_recursive_ref)]
+    if kept:
+        schema["allOf"] = kept
+    else:
+        schema.pop("allOf", None)
+
+
+def _sanitize_combinators(schema: JsonSchemaObject, is_recursive_ref: Callable[[str], bool] | None = None) -> None:
     """Sanitize anyOf/oneOf/allOf."""
     for combinator_key in ("anyOf", "oneOf"):
         variants = schema.get(combinator_key)
@@ -54,6 +85,14 @@ def _sanitize_combinators(schema: JsonSchemaObject) -> None:
             continue
 
         flattened = _flatten_combinator(variants, combinator_key)
+
+        # Drop variants that are pure refs back to the schema being inlined, when at
+        # least one usable variant remains. Kept variants are part of the original
+        # alternatives, so generated data still satisfies the original `oneOf`/`anyOf`.
+        if is_recursive_ref is not None:
+            non_recursive = [v for v in flattened if not _is_self_ref(v, is_recursive_ref)]
+            if non_recursive and len(non_recursive) < len(flattened):
+                flattened = non_recursive
 
         cleaned = [variant for variant in flattened if not _has_ref(variant)]
 
@@ -63,6 +102,8 @@ def _sanitize_combinators(schema: JsonSchemaObject) -> None:
             schema[combinator_key] = cleaned
         elif not flattened:
             schema.pop(combinator_key, None)
+        else:
+            schema[combinator_key] = flattened
 
     all_of = schema.get("allOf")
     if isinstance(all_of, list):
@@ -73,6 +114,13 @@ def _sanitize_combinators(schema: JsonSchemaObject) -> None:
             schema["allOf"] = cleaned
         else:
             schema.pop("allOf", None)
+
+
+def _is_self_ref(entry: Any, is_recursive_ref: Callable[[str], bool]) -> bool:
+    """A bare `{"$ref": X}` whose target is currently being inlined."""
+    if not isinstance(entry, dict) or list(entry) != ["$ref"]:
+        return False
+    return isinstance(entry["$ref"], str) and is_recursive_ref(entry["$ref"])
 
 
 def _flatten_combinator(variants: list, key: str) -> list:
@@ -134,6 +182,23 @@ def _sanitize_properties(schema: JsonSchemaObject) -> None:
 
         if name not in required:
             del properties[name]
+
+
+def _sanitize_pattern_properties(schema: JsonSchemaObject) -> None:
+    """Drop `patternProperties` entries whose value contains a `$ref`.
+
+    Each entry is structurally optional: an object with no key matching the
+    regex satisfies the schema regardless of the entry's sub-schema. Removing
+    ref-bearing entries breaks recursive cycles without forcing the bundler
+    to inline another level. The original schema still applies at validation
+    time — schemathesis just won't generate matching keys itself.
+    """
+    pattern_properties = schema["patternProperties"]
+    if not isinstance(pattern_properties, dict):
+        return
+    for key, subschema in list(pattern_properties.items()):
+        if _has_ref(subschema):
+            del pattern_properties[key]
 
 
 def _sanitize_items(schema: JsonSchemaObject) -> None:

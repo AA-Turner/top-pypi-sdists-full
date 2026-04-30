@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mypy-boto3
-Version: 1.42.3
+Version: 1.43.0
 Summary: Legacy type annotations for boto3, use types-boto3 instead.
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Dynamic
-[boto3 1.42.3](https://boto3.amazonaws.com/v1/documentation/api/1.42.3/index.html)
+[boto3 1.43.0](https://boto3.amazonaws.com/v1/documentation/api/1.43.0/index.html)
 
 Generated with
 [mypy-boto3-builder 8.12.0](https://github.com/youtype/mypy_boto3_builder).

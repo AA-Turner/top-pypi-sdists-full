@@ -12,8 +12,9 @@
 Generates a 997 Response
 Visitor - Visits an error_handler composite
 """
+from __future__ import annotations
+from typing import Any, TextIO
 
-#from types import *
 import time
 import logging
 
@@ -30,12 +31,27 @@ class error_997_visitor(error_visitor.error_visitor):
     """
     Visit an error_handler composite.  Generate a 997.
     """
-    def __init__(self, fd, term=('~', '*', '~', '\n')):
+
+    fd: TextIO
+    seg_term: str
+    ele_term: str
+    subele_term: str
+    eol: str
+    seg_count: int
+    isa_control_num: str | None
+    isa_seg: pyx12.segment.Segment | None
+    gs_loop_count: int
+    gs_id: str | None
+    gs_seg: pyx12.segment.Segment | None
+    st_control_num: int
+    st_loop_count: int
+
+    def __init__(self, fd: TextIO, term: tuple[Any, ...] = ('~', '*', '~', '\n')) -> None:
         """
-        @param fd: target file
-        @type fd: file descriptor
-        @param term: tuple of x12 terminators used
-        @type term: tuple(string, string, string, string)
+        :param fd: target file
+        :type fd: file descriptor
+        :param term: tuple of x12 terminators used
+        :type term: tuple(string, string, string, string)
         """
         self.fd = fd
         self.seg_term = '~'
@@ -55,10 +71,10 @@ class error_997_visitor(error_visitor.error_visitor):
         self.st_control_num = 0
         self.st_loop_count = 0
 
-    def visit_root_pre(self, errh):
+    def visit_root_pre(self, errh: Any) -> None:
         """
-        @param errh: Error handler
-        @type errh: L{error_handler.err_handler}
+        :param errh: Error handler
+        :type errh: L{error_handler.err_handler}
         """
         #now = time.localtime()
         seg = errh.cur_isa_node.seg_data
@@ -102,7 +118,7 @@ class error_997_visitor(error_visitor.error_visitor):
         self.st_loop_count = 0
         self.gs_loop_count += 1
 
-    def __get_isa_errors(self, err_isa):
+    def __get_isa_errors(self, err_isa: Any) -> list[str]:
         """
         Build list of TA1 level errors
         Only the first error is used
@@ -130,7 +146,7 @@ class error_997_visitor(error_visitor.error_visitor):
 
         # return unique codes, while trying to keep the order of the list
         # this is to ensure that test result is deterministic on Python 3
-        uniq_codes = []
+        uniq_codes: list[str] = []
         for err in err_codes:
             if err in uniq_codes:
                 continue
@@ -143,13 +159,14 @@ class error_997_visitor(error_visitor.error_visitor):
 
         return uniq_codes
 
-    def visit_root_post(self, errh):
+    def visit_root_post(self, errh: Any) -> None:
         """
-        @param errh: Error handler
-        @type errh: L{error_handler.err_handler}
+        :param errh: Error handler
+        :type errh: L{error_handler.err_handler}
         """
-        self._write(pyx12.segment.Segment('GE*%i*%s' % (self.st_loop_count,
-                                                        self.gs_seg.get_value('GS06')), '~', '*', ':'))
+        gs06 = self.gs_seg.get_value('GS06') if self.gs_seg is not None else ''
+        self._write(pyx12.segment.Segment('GE*%i*%s' % (self.st_loop_count, gs06),
+                                          '~', '*', ':'))
         self.gs_loop_count = 1
 
         #pdb.set_trace()
@@ -175,22 +192,22 @@ class error_997_visitor(error_visitor.error_visitor):
         self._write(pyx12.segment.Segment('IEA*%i*%s' %
                                           (self.gs_loop_count, self.isa_control_num), '~', '*', ':'))
 
-    def visit_isa_pre(self, err_isa):
+    def visit_isa_pre(self, err_isa: Any) -> None:
         """
-        @param err_isa: ISA Loop error handler
-        @type err_isa: L{error_handler.err_isa}
-        """
-
-    def visit_isa_post(self, err_isa):
-        """
-        @param err_isa: ISA Loop error handler
-        @type err_isa: L{error_handler.err_isa}
+        :param err_isa: ISA Loop error handler
+        :type err_isa: L{error_handler.err_isa}
         """
 
-    def visit_gs_pre(self, err_gs):
+    def visit_isa_post(self, err_isa: Any) -> None:
         """
-        @param err_gs: GS Loop error handler
-        @type err_gs: L{error_handler.err_gs}
+        :param err_isa: ISA Loop error handler
+        :type err_isa: L{error_handler.err_isa}
+        """
+
+    def visit_gs_pre(self, err_gs: Any) -> None:
+        """
+        :param err_gs: GS Loop error handler
+        :type err_gs: L{error_handler.err_gs}
         """
         #ST
         self.st_control_num += 1
@@ -208,7 +225,7 @@ class error_997_visitor(error_visitor.error_visitor):
         self._write(pyx12.segment.Segment('AK1*%s*%s' %
                                           (err_gs.fic, err_gs.gs_control_num), '~', '*', ':'))
 
-    def __get_gs_errors(self, err_gs):
+    def __get_gs_errors(self, err_gs: Any) -> list[str]:
         """
         Build list of GS level errors
         """
@@ -234,10 +251,10 @@ class error_997_visitor(error_visitor.error_visitor):
         ret.sort()
         return ret
 
-    def visit_gs_post(self, err_gs):
+    def visit_gs_post(self, err_gs: Any) -> None:
         """
-        @param err_gs: GS Loop error handler
-        @type err_gs: L{error_handler.err_gs}
+        :param err_gs: GS Loop error handler
+        :type err_gs: L{error_handler.err_gs}
         """
         if not (err_gs.ack_code and err_gs.st_count_orig and
                 err_gs.st_count_recv):
@@ -277,7 +294,7 @@ class error_997_visitor(error_visitor.error_visitor):
             #seg.append('%s' % err_cde)
         self._write(seg_data)
         #for child in err_gs.children:
-            #print child.cur_line, child.seg
+            #print(child.cur_line, child.seg)
         #logger.info('err_gs has %i children' % len(self.children))
 
         #SE
@@ -288,17 +305,17 @@ class error_997_visitor(error_visitor.error_visitor):
         #seg = ['SE', '%i' % seg_count, '%04i' % self.st_control_num]
         self._write(seg_data)
 
-    def visit_st_pre(self, err_st):
+    def visit_st_pre(self, err_st: Any) -> None:
         """
-        @param err_st: ST Loop error handler
-        @type err_st: L{error_handler.err_st}
+        :param err_st: ST Loop error handler
+        :type err_st: L{error_handler.err_st}
         """
         seg_data = pyx12.segment.Segment('AK2', '~', '*', ':')
         seg_data.append(err_st.trn_set_id)
         seg_data.append(err_st.trn_set_control_num.strip())
         self._write(seg_data)
 
-    def __get_st_errors(self, err_st):
+    def __get_st_errors(self, err_st: Any) -> list[str]:
         """
         Build list of ST level errors
         """
@@ -319,10 +336,10 @@ class error_997_visitor(error_visitor.error_visitor):
         ret.sort()
         return ret
 
-    def visit_st_post(self, err_st):
+    def visit_st_post(self, err_st: Any) -> None:
         """
-        @param err_st: ST Loop error handler
-        @type err_st: L{error_handler.err_st}
+        :param err_st: ST Loop error handler
+        :type err_st: L{error_handler.err_st}
         """
         if err_st.ack_code is None:
             raise EngineError('err_st.ack_cde variable not set')
@@ -337,10 +354,10 @@ class error_997_visitor(error_visitor.error_visitor):
             #seg.append(err_codes[i])
         self._write(seg_data)
 
-    def visit_seg(self, err_seg):
+    def visit_seg(self, err_seg: Any) -> None:
         """
-        @param err_seg: Segment error handler
-        @type err_seg: L{error_handler.err_seg}
+        :param err_seg: Segment error handler
+        :type err_seg: L{error_handler.err_seg}
         """
         #logger.debug('visit_deg: AK3 - ')
         #seg_base = ['AK3', err_seg.seg_id, '%i' % err_seg.seg_count]
@@ -368,10 +385,10 @@ class error_997_visitor(error_visitor.error_visitor):
             seg_data.set('AK304', '8')
             self._write(seg_data)
 
-    def visit_ele(self, err_ele):
+    def visit_ele(self, err_ele: Any) -> None:
         """
-        @param err_ele: Segment error handler
-        @type err_ele: L{error_handler.err_ele}
+        :param err_ele: Segment error handler
+        :type err_ele: L{error_handler.err_ele}
         """
         valid_AK4_codes = ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10')
         seg_base = pyx12.segment.Segment('AK4', '~', '*', ':')
@@ -392,11 +409,11 @@ class error_997_visitor(error_visitor.error_visitor):
                     seg_data.set('AK404', bad_value)
                 self._write(seg_data)
 
-    def _write(self, seg_data):
+    def _write(self, seg_data: pyx12.segment.Segment) -> None:
         """
         Params:     seg_data -
-        @param seg_data: Data segment instance
-        @type seg_data: L{segment.Segment}
+        :param seg_data: Data segment instance
+        :type seg_data: L{segment.Segment}
         """
         sout = seg_data.format(self.seg_term, self.ele_term, self.subele_term)
         if seg_data.get_seg_id() == 'ISA':

@@ -7093,6 +7093,9 @@ class Type(System.Reflection.MemberInfo, System.Reflection.IReflect, metaclass=a
     def get_nested_types(self, binding_attr: System.Reflection.BindingFlags) -> typing.List[typing.Type]:
         ...
 
+    def get_nullable_underlying_type(self) -> typing.Type:
+        ...
+
     def get_optional_custom_modifiers(self) -> typing.List[typing.Type]:
         ...
 

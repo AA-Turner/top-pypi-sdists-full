@@ -10,10 +10,10 @@ from enum import Enum
 import json
 import os
 import os.path
-import urllib.parse
 from pathlib import Path
 from time import sleep
 from typing import Any, Optional
+import urllib.parse
 
 from dandischema.models import BareAsset, DigestType
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -47,7 +47,7 @@ from dandi.utils import (
 )
 
 from .bases import LocalDirectoryAsset
-from ..validate_types import (
+from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
     Origin,
     OriginType,
@@ -275,10 +275,13 @@ def _ts_validate_zarr3_array(
 class LocalZarrEntry(BasePath):
     """A file or directory within a `ZarrAsset`"""
 
-    #: The path to the actual file or directory on disk
-    filepath: Path
     #: The path to the root of the Zarr file tree
     zarr_basepath: Path
+
+    @property
+    def filepath(self) -> Path:
+        """The path to the actual file or directory on disk"""
+        return self.zarr_basepath.joinpath(*self.parts)
 
     def _get_subpath(self, name: str) -> LocalZarrEntry:
         if not name or "/" in name:
@@ -288,16 +291,14 @@ class LocalZarrEntry(BasePath):
         elif name == "..":
             return self.parent
         else:
-            return replace(
-                self, filepath=self.filepath / name, parts=self.parts + (name,)
-            )
+            return replace(self, parts=self.parts + (name,))
 
     @property
     def parent(self) -> LocalZarrEntry:
         if self.is_root():
             return self
         else:
-            return replace(self, filepath=self.filepath.parent, parts=self.parts[:-1])
+            return replace(self, parts=self.parts[:-1])
 
     def exists(self) -> bool:
         return os.path.lexists(self.filepath)
@@ -390,9 +391,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         The `LocalZarrEntry` for the root of the hierarchy of files within the
         Zarr asset
         """
-        return LocalZarrEntry(
-            filepath=self.filepath, zarr_basepath=self.filepath, parts=()
-        )
+        return LocalZarrEntry(zarr_basepath=self.filepath, parts=())
 
     def stat(self) -> ZarrStat:
         """Return various details about the Zarr asset"""

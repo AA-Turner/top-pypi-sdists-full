@@ -131,7 +131,6 @@ from openapi_client.models.cloud_data_bucket_request_scope import CloudDataBucke
 from openapi_client.models.cloud_deployment import CloudDeployment
 from openapi_client.models.cloud_deployment_compute_config import CloudDeploymentComputeConfig
 from openapi_client.models.cloud_deployment_config import CloudDeploymentConfig
-from openapi_client.models.cloud_list_response import CloudListResponse
 from openapi_client.models.cloud_name_options import CloudNameOptions
 from openapi_client.models.cloud_overview_dashboard import CloudOverviewDashboard
 from openapi_client.models.cloud_permission_removal import CloudPermissionRemoval
@@ -308,6 +307,7 @@ from openapi_client.models.dataset_upload import DatasetUpload
 from openapi_client.models.datasetupload_response import DatasetuploadResponse
 from openapi_client.models.decorated_application_template import DecoratedApplicationTemplate
 from openapi_client.models.decorated_build import DecoratedBuild
+from openapi_client.models.decorated_cloud import DecoratedCloud
 from openapi_client.models.decorated_cloud_resource import DecoratedCloudResource
 from openapi_client.models.decorated_compute_template import DecoratedComputeTemplate
 from openapi_client.models.decorated_compute_template_config import DecoratedComputeTemplateConfig
@@ -330,6 +330,7 @@ from openapi_client.models.decoratedapplicationtemplate_list_response import Dec
 from openapi_client.models.decoratedapplicationtemplate_response import DecoratedapplicationtemplateResponse
 from openapi_client.models.decoratedbuild_list_response import DecoratedbuildListResponse
 from openapi_client.models.decoratedbuild_response import DecoratedbuildResponse
+from openapi_client.models.decoratedcloud_list_response import DecoratedcloudListResponse
 from openapi_client.models.decoratedcloudresource_list_response import DecoratedcloudresourceListResponse
 from openapi_client.models.decoratedcloudresource_response import DecoratedcloudresourceResponse
 from openapi_client.models.decoratedcomputetemplate_list_response import DecoratedcomputetemplateListResponse
@@ -457,6 +458,8 @@ from openapi_client.models.job_queue import JobQueue
 from openapi_client.models.job_queue_config import JobQueueConfig
 from openapi_client.models.job_queue_config_response import JobQueueConfigResponse
 from openapi_client.models.job_queue_execution_mode import JobQueueExecutionMode
+from openapi_client.models.job_queue_job import JobQueueJob
+from openapi_client.models.job_queue_job_state import JobQueueJobState
 from openapi_client.models.job_queue_sort_directive import JobQueueSortDirective
 from openapi_client.models.job_queue_sort_field import JobQueueSortField
 from openapi_client.models.job_queue_spec import JobQueueSpec
@@ -472,6 +475,7 @@ from openapi_client.models.job_state_log_level_types import JobStateLogLevelType
 from openapi_client.models.job_with_report import JobWithReport
 from openapi_client.models.jobconfigresponse_response import JobconfigresponseResponse
 from openapi_client.models.jobqueue_response import JobqueueResponse
+from openapi_client.models.jobqueuejob_list_response import JobqueuejobListResponse
 from openapi_client.models.jobqueueterminationresponse_response import JobqueueterminationresponseResponse
 from openapi_client.models.jobs_sort_field import JobsSortField
 from openapi_client.models.jobwithreport_list_response import JobwithreportListResponse
@@ -519,6 +523,8 @@ from openapi_client.models.log_item_batch import LogItemBatch
 from openapi_client.models.logdownloadresult_response import LogdownloadresultResponse
 from openapi_client.models.login_user_params import LoginUserParams
 from openapi_client.models.logitembatch_response import LogitembatchResponse
+from openapi_client.models.logout_response import LogoutResponse
+from openapi_client.models.logoutresponse_response import LogoutresponseResponse
 from openapi_client.models.logs_output import LogsOutput
 from openapi_client.models.logsoutput_response import LogsoutputResponse
 from openapi_client.models.long_running_workload import LongRunningWorkload
@@ -548,6 +554,7 @@ from openapi_client.models.mini_compute_template import MiniComputeTemplate
 from openapi_client.models.mini_compute_template_config import MiniComputeTemplateConfig
 from openapi_client.models.mini_job_queue import MiniJobQueue
 from openapi_client.models.mini_job_run import MiniJobRun
+from openapi_client.models.mini_last_job_run import MiniLastJobRun
 from openapi_client.models.mini_namespace import MiniNamespace
 from openapi_client.models.mini_organization import MiniOrganization
 from openapi_client.models.mini_production_job import MiniProductionJob

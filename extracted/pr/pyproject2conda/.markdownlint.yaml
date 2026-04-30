@@ -1,6 +1,0 @@
-# Example markdownlint configuration with all properties set to their default value
-
-# Default state for all rules
-default: true
-# disable rules?
-# MD026: false

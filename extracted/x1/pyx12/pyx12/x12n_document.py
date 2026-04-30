@@ -12,6 +12,9 @@
 Parse a ANSI X12N data file.  Validate against a map and codeset values.
 Create XML, HTML, and 997/999 documents based on the data file.
 """
+from __future__ import annotations
+from collections.abc import Callable
+from typing import Any, TextIO
 
 import logging
 
@@ -23,12 +26,13 @@ import pyx12.error_html
 import pyx12.errors
 import pyx12.map_index
 import pyx12.map_if
+import pyx12.params
 import pyx12.x12file
 from pyx12.map_walker import walk_tree
 import pyx12.x12xml_simple
 
 
-def _reset_counter_to_isa_counts(walker):
+def _reset_counter_to_isa_counts(walker: walk_tree) -> None:
     """
     Reset ISA instance counts
     """
@@ -37,7 +41,7 @@ def _reset_counter_to_isa_counts(walker):
     walker.counter.increment('/ISA_LOOP/ISA')
 
 
-def _reset_counter_to_gs_counts(walker):
+def _reset_counter_to_gs_counts(walker: walk_tree) -> None:
     """
     Reset GS instance counts
     """
@@ -46,21 +50,28 @@ def _reset_counter_to_gs_counts(walker):
     walker.counter.increment('/ISA_LOOP/GS_LOOP/GS')
 
 
-def x12n_document(param, src_file, fd_997, fd_html,
-                  fd_xmldoc=None, xslt_files=None, map_path=None,
-                  callback=None):
+def x12n_document(
+    param: pyx12.params.ParamsBase,
+    src_file: str | TextIO,
+    fd_997: TextIO | None,
+    fd_html: TextIO | None,
+    fd_xmldoc: TextIO | None = None,
+    xslt_files: Any = None,
+    map_path: str | None = None,
+    callback: Callable[..., Any] | None = None,
+) -> bool:
     """
     Primary X12 validation function
-    @param param: pyx12.param instance
-    @param src_file: Source document
-    @type src_file: string
-    @param fd_997: 997/999 output document
-    @type fd_997: file descriptor
-    @param fd_html: HTML output document
-    @type fd_html: file descriptor
-    @param fd_xmldoc: XML output document
-    @type fd_xmldoc: file descriptor
-    @rtype: boolean
+    :param param: pyx12.param instance
+    :param src_file: Source document
+    :type src_file: string
+    :param fd_997: 997/999 output document
+    :type fd_997: file descriptor
+    :param fd_html: HTML output document
+    :type fd_html: file descriptor
+    :param fd_xmldoc: XML output document
+    :type fd_xmldoc: file descriptor
+    :rtype: boolean
     """
     logger = logging.getLogger('pyx12')
     errh = pyx12.error_handler.err_handler()
@@ -79,8 +90,11 @@ def x12n_document(param, src_file, fd_997, fd_html,
     map_index_if = pyx12.map_index.map_index(map_path)
     node = control_map.getnodebypath('/ISA_LOOP/ISA')
     walker = walk_tree()
-    icvn = fic = vriic = tspc = None
-    cur_map = None  # we do not initially know the X12 transaction type
+    icvn: str | None = None
+    fic: str | None = None
+    vriic: str | None = None
+    tspc: str | None = None
+    cur_map: Any = None  # we do not initially know the X12 transaction type
     #XXX Generate TA1 if needed.
 
     if fd_html:
@@ -104,7 +118,7 @@ def x12n_document(param, src_file, fd_997, fd_html,
             print('--------------------------------------------')
             # reset to control map for ISA and GS loops
             print('------- counters before --------')
-            print(walker.counter._dict)
+            print((walker.counter._dict))
         if seg.get_seg_id() == 'ISA':
             node = control_map.getnodebypath('/ISA_LOOP/ISA')
             walker.forceWalkCounterToLoopStart('/ISA_LOOP', '/ISA_LOOP/ISA')
@@ -123,7 +137,7 @@ def x12n_document(param, src_file, fd_997, fd_html,
 
         if False:
             print('------- counters after --------')
-            print(walker.counter._dict)
+            print((walker.counter._dict))
         if node is None:
             node = orig_node
         else:
@@ -141,10 +155,10 @@ def x12n_document(param, src_file, fd_997, fd_html,
                 vriic = seg.get_value('GS08')
                 map_file_new = map_index_if.get_filename(icvn, vriic, fic)
                 if map_file != map_file_new:
-                    map_file = map_file_new
-                    if map_file is None:
+                    if map_file_new is None:
                         err_str = "Map not found.  icvn={}, fic={}, vriic={}".format(icvn, fic, vriic)
                         raise pyx12.errors.EngineError(err_str)
+                    map_file = map_file_new
                     cur_map = pyx12.map_if.load_map_file(map_file, param, map_path)
                     src.check_837_lx = True if cur_map.id == '837' else False
                     logger.debug('Map file: %s' % (map_file))
@@ -165,11 +179,11 @@ def x12n_document(param, src_file, fd_997, fd_html,
                     map_file_new = map_index_if.get_filename(icvn, vriic, fic, tspc)
                     logger.debug('New map file: %s' % (map_file_new))
                     if map_file != map_file_new:
-                        map_file = map_file_new
-                        if map_file is None:
+                        if map_file_new is None:
                             err_str = "Map not found.  icvn={}, fic={}, vriic={}, tspc={}".format(
                                         icvn, fic, vriic, tspc)
                             raise pyx12.errors.EngineError(err_str)
+                        map_file = map_file_new
                         cur_map = pyx12.map_if.load_map_file(map_file, param, map_path)
                         src.check_837_lx = True if cur_map.id == '837' else False
                         logger.debug('Map file: %s' % (map_file))
@@ -198,13 +212,12 @@ def x12n_document(param, src_file, fd_997, fd_html,
         if callback:
             try:
                 callback(seg, src, node, valid)
-            except:
+            except Exception:
                 logger.error('callback failed')
-                pass
         if fd_html:
             if node is not None and node.is_first_seg_in_loop():
                 html.loop(node.get_parent())
-            err_node_list = []
+            err_node_list: list[Any] = []
             while True:
                 try:
                     next(err_iter)
@@ -229,10 +242,9 @@ def x12n_document(param, src_file, fd_997, fd_html,
 
     if fd_html:
         html.footer()
-        del html
 
     if fd_xmldoc:
-        del xmldoc
+        xmldoc.close()
 
     #visit_debug = pyx12.error_debug.error_debug_visitor(sys.stdout)
     #errh.accept(visit_debug)
@@ -253,13 +265,7 @@ def x12n_document(param, src_file, fd_997, fd_html,
                 del visit_999
             except Exception:
                 logger.exception('Failed to create 999 response')
-    del node
-    del src
-    del control_map
-    try:
-        del cur_map
-    except UnboundLocalError:
-        pass
+    src.close()
     try:
         if not valid or errh.get_error_count() > 0:
             return False

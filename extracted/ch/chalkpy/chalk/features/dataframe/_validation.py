@@ -3,7 +3,9 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING, Union, cast
 
-import isodate
+from chalk_rs import parse_iso_date as _parse_iso_date
+from chalk_rs import parse_iso_duration as _parse_iso_duration
+from chalk_rs import parse_iso_time as _parse_iso_time
 
 from chalk.features._encoding.missing_value import MissingValueStrategy
 from chalk.features.feature_field import Feature, FeatureNotFoundException
@@ -141,17 +143,17 @@ def validate_df_schema(underlying: Union[pl.DataFrame, pl.LazyFrame]):
                     elif expected_dtype == pl.Date:
                         cast_expr = apply_compat(
                             pl.col(root_fqn),
-                            lambda x: None if x is None else isodate.parse_date(x),
+                            lambda x: None if x is None else _parse_iso_date(x),
                         )
                     elif expected_dtype == pl.Time:
                         cast_expr = apply_compat(
                             pl.col(root_fqn),
-                            lambda x: None if x is None else isodate.parse_time(x),
+                            lambda x: None if x is None else _parse_iso_time(x),
                         )
                     elif expected_dtype == pl.Duration:
                         cast_expr = apply_compat(
                             pl.col(root_fqn),
-                            lambda x: None if x is None else isodate.parse_duration(x),
+                            lambda x: None if x is None else _parse_iso_duration(x),
                         )
                     else:
                         cast_expr = pl.col(root_fqn).cast(expected_dtype)

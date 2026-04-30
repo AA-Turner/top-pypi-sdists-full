@@ -13,9 +13,7 @@ from __future__ import annotations
 
 import dataclasses as _dataclasses
 import enum as _enum_module
-from typing import Any, Callable, List, cast
-
-from typing_extensions import get_args, get_origin
+from typing import Any, Callable, List, cast, get_args, get_origin
 
 from chalk.utils.attrs_utils import is_attrs_class
 from chalk.utils.collections import unwrap_optional_and_annotated_if_needed
@@ -42,7 +40,7 @@ def _build_to_primitive_converter(typ: type) -> "Callable[[Any], Any] | None":
         from ._attrs_converter import _build_attrs_to_dict  # pyright: ignore[reportPrivateUsage]
         return _build_attrs_to_dict(inner)
 
-    from ._pydantic_converter import _is_pydantic_model, _build_model_to_dict  # pyright: ignore[reportPrivateUsage]
+    from ._pydantic_converter import _build_model_to_dict, _is_pydantic_model  # pyright: ignore[reportPrivateUsage]
     if _is_pydantic_model(inner):
         return _build_model_to_dict(cast(type, inner))  # pyright: ignore[reportPrivateUsage]
 
@@ -87,7 +85,7 @@ def _build_to_rich_converter(typ: type) -> "Callable[[Any], Any] | None":
         from ._attrs_converter import _build_dict_to_attrs  # pyright: ignore[reportPrivateUsage]
         return _build_dict_to_attrs(inner)
 
-    from ._pydantic_converter import _is_pydantic_model, _build_dict_to_model  # pyright: ignore[reportPrivateUsage]
+    from ._pydantic_converter import _build_dict_to_model, _is_pydantic_model  # pyright: ignore[reportPrivateUsage]
     if _is_pydantic_model(inner):
         return _build_dict_to_model(cast(type, inner))  # pyright: ignore[reportPrivateUsage]
 

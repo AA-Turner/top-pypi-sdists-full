@@ -507,6 +507,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         dryRun=True,
                         misconfiguredAsWarning=True,
                         resource=None,
+                        domain=None,
                         createNonIngestedTables=False,
                         sqlValidation=True,
                     ),
@@ -527,6 +528,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         dryRun=False,
                         misconfiguredAsWarning=True,
                         resource=None,
+                        domain=None,
                         createNonIngestedTables=False,
                         sqlValidation=True,
                     ),
@@ -543,6 +545,65 @@ class MonteCarloConfigServiceTest(TestCase):
 
         self.assertEqual(responses[0].errors, {})
         self.assertEqual(len(responses[0].resource_modifications), 2)
+
+    def test_apply_with_default_domain(self):
+        namespace = "foo"
+        update_uuid = "eeeeeeee-58fd-44d0-8b2d-eeeeeeeeeeee"
+        update_response = MonolithResponse(
+            data={
+                "response": {
+                    "updateUuid": update_uuid,
+                    "errorsAsJson": "{}",
+                    "warningsAsJson": "{}",
+                }
+            }
+        )
+        poll_response = MonolithResponse(
+            data={
+                "state": "APPLIED",
+                "resourceModifications": [],
+                "changesApplied": True,
+                "errorsAsJson": "{}",
+                "warningsAsJson": "{}",
+            }
+        )
+        self._request_wrapper_mock.make_request_v2.side_effect = [
+            update_response,
+            poll_response,
+        ]
+
+        from montecarlodata.iac.schemas import ProjectConfig
+
+        with patch.object(
+            self.service,
+            "_load_project_config",
+            return_value=(
+                ProjectConfig(default_domain="my-domain"),
+                "montecarlo.yml",
+            ),
+        ):
+            self.service.apply(namespace, skip_confirmation=True, dry_run=True)
+
+        compiled_template = self._get_standalone_config_compiled_template(namespace)
+        self._request_wrapper_mock.make_request_v2.assert_has_calls(
+            [
+                call(
+                    query=CREATE_OR_UPDATE_MONTE_CARLO_CONFIG_TEMPLATE_ASYNC,
+                    operation="createOrUpdateMonteCarloConfigTemplateAsync",
+                    service="iac_service",
+                    variables=dict(
+                        namespace=namespace,
+                        configTemplateJson=json.dumps(compiled_template[namespace]),
+                        dryRun=True,
+                        misconfiguredAsWarning=True,
+                        resource=None,
+                        domain="my-domain",
+                        createNonIngestedTables=False,
+                        sqlValidation=True,
+                    ),
+                )
+            ]
+        )
 
     def test_apply_dry_run(self):
         namespace = "foo"
@@ -597,6 +658,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         dryRun=True,
                         misconfiguredAsWarning=True,
                         resource=None,
+                        domain=None,
                         createNonIngestedTables=False,
                         sqlValidation=True,
                     ),
@@ -639,6 +701,7 @@ class MonteCarloConfigServiceTest(TestCase):
                 dryRun=True,
                 misconfiguredAsWarning=True,
                 resource=None,
+                domain=None,
                 createNonIngestedTables=False,
                 sqlValidation=True,
             ),
@@ -733,6 +796,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         dryRun=True,
                         misconfiguredAsWarning=True,
                         resource=None,
+                        domain=None,
                         createNonIngestedTables=False,
                         sqlValidation=True,
                     ),
@@ -753,6 +817,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         dryRun=False,
                         misconfiguredAsWarning=True,
                         resource=None,
+                        domain=None,
                         createNonIngestedTables=False,
                         sqlValidation=True,
                     ),
@@ -861,6 +926,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         dryRun=True,
                         misconfiguredAsWarning=True,
                         resource=None,
+                        domain=None,
                         createNonIngestedTables=False,
                         sqlValidation=True,
                     ),
@@ -881,6 +947,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         dryRun=False,
                         misconfiguredAsWarning=True,
                         resource=None,
+                        domain=None,
                         createNonIngestedTables=False,
                         sqlValidation=True,
                     ),

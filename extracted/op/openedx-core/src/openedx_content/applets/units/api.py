@@ -13,8 +13,6 @@ from ..containers.models import ContainerVersion
 from ..publishing.models import LearningPackage
 from .models import Unit, UnitVersion
 
-# 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
-#              out our approach to dynamic content (randomized, A/B tests, etc.)
 __all__ = [
     "get_unit",
     "create_unit_and_version",
@@ -93,7 +91,6 @@ def create_next_unit_version(
 @dataclass(frozen=True)
 class UnitListEntry:
     """
-    [ 🛑 UNSTABLE ]
     Data about a single entity in a container, e.g. a component in a unit.
     """
 
@@ -111,7 +108,6 @@ def get_components_in_unit(
     published: bool,
 ) -> list[UnitListEntry]:
     """
-    [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft or published
     version of the given Unit.
 

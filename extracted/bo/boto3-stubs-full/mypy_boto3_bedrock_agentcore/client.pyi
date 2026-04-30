@@ -27,10 +27,13 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListABTestsPaginator,
     ListActorsPaginator,
+    ListBatchEvaluationsPaginator,
     ListEventsPaginator,
     ListMemoryExtractionJobsPaginator,
     ListMemoryRecordsPaginator,
+    ListRecommendationsPaginator,
     ListSessionsPaginator,
     RetrieveMemoryRecordsPaginator,
 )
@@ -42,16 +45,28 @@ from .type_defs import (
     BatchUpdateMemoryRecordsInputTypeDef,
     BatchUpdateMemoryRecordsOutputTypeDef,
     CompleteResourceTokenAuthRequestTypeDef,
+    CreateABTestRequestTypeDef,
+    CreateABTestResponseTypeDef,
     CreateEventInputTypeDef,
     CreateEventOutputTypeDef,
+    DeleteABTestRequestTypeDef,
+    DeleteABTestResponseTypeDef,
+    DeleteBatchEvaluationRequestTypeDef,
+    DeleteBatchEvaluationResponseTypeDef,
     DeleteEventInputTypeDef,
     DeleteEventOutputTypeDef,
     DeleteMemoryRecordInputTypeDef,
     DeleteMemoryRecordOutputTypeDef,
+    DeleteRecommendationRequestTypeDef,
+    DeleteRecommendationResponseTypeDef,
     EvaluateRequestTypeDef,
     EvaluateResponseTypeDef,
+    GetABTestRequestTypeDef,
+    GetABTestResponseTypeDef,
     GetAgentCardRequestTypeDef,
     GetAgentCardResponseTypeDef,
+    GetBatchEvaluationRequestTypeDef,
+    GetBatchEvaluationResponseTypeDef,
     GetBrowserSessionRequestTypeDef,
     GetBrowserSessionResponseTypeDef,
     GetCodeInterpreterSessionRequestTypeDef,
@@ -60,6 +75,8 @@ from .type_defs import (
     GetEventOutputTypeDef,
     GetMemoryRecordInputTypeDef,
     GetMemoryRecordOutputTypeDef,
+    GetRecommendationRequestTypeDef,
+    GetRecommendationResponseTypeDef,
     GetResourceApiKeyRequestTypeDef,
     GetResourceApiKeyResponseTypeDef,
     GetResourceOauth2TokenRequestTypeDef,
@@ -80,8 +97,12 @@ from .type_defs import (
     InvokeCodeInterpreterResponseTypeDef,
     InvokeHarnessRequestTypeDef,
     InvokeHarnessResponseTypeDef,
+    ListABTestsRequestTypeDef,
+    ListABTestsResponseTypeDef,
     ListActorsInputTypeDef,
     ListActorsOutputTypeDef,
+    ListBatchEvaluationsRequestTypeDef,
+    ListBatchEvaluationsResponseTypeDef,
     ListBrowserSessionsRequestTypeDef,
     ListBrowserSessionsResponseTypeDef,
     ListCodeInterpreterSessionsRequestTypeDef,
@@ -92,6 +113,8 @@ from .type_defs import (
     ListMemoryExtractionJobsOutputTypeDef,
     ListMemoryRecordsInputTypeDef,
     ListMemoryRecordsOutputTypeDef,
+    ListRecommendationsRequestTypeDef,
+    ListRecommendationsResponseTypeDef,
     ListSessionsInputTypeDef,
     ListSessionsOutputTypeDef,
     RetrieveMemoryRecordsInputTypeDef,
@@ -100,18 +123,26 @@ from .type_defs import (
     SaveBrowserSessionProfileResponseTypeDef,
     SearchRegistryRecordsRequestTypeDef,
     SearchRegistryRecordsResponseTypeDef,
+    StartBatchEvaluationRequestTypeDef,
+    StartBatchEvaluationResponseTypeDef,
     StartBrowserSessionRequestTypeDef,
     StartBrowserSessionResponseTypeDef,
     StartCodeInterpreterSessionRequestTypeDef,
     StartCodeInterpreterSessionResponseTypeDef,
     StartMemoryExtractionJobInputTypeDef,
     StartMemoryExtractionJobOutputTypeDef,
+    StartRecommendationRequestTypeDef,
+    StartRecommendationResponseTypeDef,
+    StopBatchEvaluationRequestTypeDef,
+    StopBatchEvaluationResponseTypeDef,
     StopBrowserSessionRequestTypeDef,
     StopBrowserSessionResponseTypeDef,
     StopCodeInterpreterSessionRequestTypeDef,
     StopCodeInterpreterSessionResponseTypeDef,
     StopRuntimeSessionRequestTypeDef,
     StopRuntimeSessionResponseTypeDef,
+    UpdateABTestRequestTypeDef,
+    UpdateABTestResponseTypeDef,
     UpdateBrowserStreamRequestTypeDef,
     UpdateBrowserStreamResponseTypeDef,
 )
@@ -219,12 +250,42 @@ class BedrockAgentCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#complete_resource_token_auth)
         """
 
+    def create_ab_test(
+        self, **kwargs: Unpack[CreateABTestRequestTypeDef]
+    ) -> CreateABTestResponseTypeDef:
+        """
+        Creates an A/B test for comparing agent configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/create_ab_test.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#create_ab_test)
+        """
+
     def create_event(self, **kwargs: Unpack[CreateEventInputTypeDef]) -> CreateEventOutputTypeDef:
         """
         Creates an event in an AgentCore Memory resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/create_event.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#create_event)
+        """
+
+    def delete_ab_test(
+        self, **kwargs: Unpack[DeleteABTestRequestTypeDef]
+    ) -> DeleteABTestResponseTypeDef:
+        """
+        Deletes an A/B test and its associated gateway rules.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_ab_test.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#delete_ab_test)
+        """
+
+    def delete_batch_evaluation(
+        self, **kwargs: Unpack[DeleteBatchEvaluationRequestTypeDef]
+    ) -> DeleteBatchEvaluationResponseTypeDef:
+        """
+        Deletes a batch evaluation and its associated results.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_batch_evaluation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#delete_batch_evaluation)
         """
 
     def delete_event(self, **kwargs: Unpack[DeleteEventInputTypeDef]) -> DeleteEventOutputTypeDef:
@@ -245,12 +306,31 @@ class BedrockAgentCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#delete_memory_record)
         """
 
+    def delete_recommendation(
+        self, **kwargs: Unpack[DeleteRecommendationRequestTypeDef]
+    ) -> DeleteRecommendationResponseTypeDef:
+        """
+        Deletes a recommendation and its associated results.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_recommendation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#delete_recommendation)
+        """
+
     def evaluate(self, **kwargs: Unpack[EvaluateRequestTypeDef]) -> EvaluateResponseTypeDef:
         """
         Performs on-demand evaluation of agent traces using a specified evaluator.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/evaluate.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#evaluate)
+        """
+
+    def get_ab_test(self, **kwargs: Unpack[GetABTestRequestTypeDef]) -> GetABTestResponseTypeDef:
+        """
+        Retrieves detailed information about an A/B test, including its configuration,
+        status, and statistical results.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_ab_test.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_ab_test)
         """
 
     def get_agent_card(
@@ -261,6 +341,17 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_agent_card.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_agent_card)
+        """
+
+    def get_batch_evaluation(
+        self, **kwargs: Unpack[GetBatchEvaluationRequestTypeDef]
+    ) -> GetBatchEvaluationResponseTypeDef:
+        """
+        Retrieves detailed information about a batch evaluation, including its status,
+        configuration, results, and any error details.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_batch_evaluation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_batch_evaluation)
         """
 
     def get_browser_session(
@@ -301,6 +392,17 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_memory_record.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_memory_record)
+        """
+
+    def get_recommendation(
+        self, **kwargs: Unpack[GetRecommendationRequestTypeDef]
+    ) -> GetRecommendationResponseTypeDef:
+        """
+        Retrieves detailed information about a recommendation, including its
+        configuration, status, and results.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_recommendation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_recommendation)
         """
 
     def get_resource_api_key(
@@ -410,12 +512,33 @@ class BedrockAgentCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#invoke_harness)
         """
 
+    def list_ab_tests(
+        self, **kwargs: Unpack[ListABTestsRequestTypeDef]
+    ) -> ListABTestsResponseTypeDef:
+        """
+        Lists all A/B tests in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_ab_tests.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#list_ab_tests)
+        """
+
     def list_actors(self, **kwargs: Unpack[ListActorsInputTypeDef]) -> ListActorsOutputTypeDef:
         """
         Lists all actors in an AgentCore Memory resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_actors.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#list_actors)
+        """
+
+    def list_batch_evaluations(
+        self, **kwargs: Unpack[ListBatchEvaluationsRequestTypeDef]
+    ) -> ListBatchEvaluationsResponseTypeDef:
+        """
+        Lists all batch evaluations in the account, providing summary information about
+        each evaluation's status and configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_batch_evaluations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#list_batch_evaluations)
         """
 
     def list_browser_sessions(
@@ -470,6 +593,16 @@ class BedrockAgentCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#list_memory_records)
         """
 
+    def list_recommendations(
+        self, **kwargs: Unpack[ListRecommendationsRequestTypeDef]
+    ) -> ListRecommendationsResponseTypeDef:
+        """
+        Lists all recommendations in the account, with optional filtering by status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_recommendations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#list_recommendations)
+        """
+
     def list_sessions(
         self, **kwargs: Unpack[ListSessionsInputTypeDef]
     ) -> ListSessionsOutputTypeDef:
@@ -512,6 +645,17 @@ class BedrockAgentCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#search_registry_records)
         """
 
+    def start_batch_evaluation(
+        self, **kwargs: Unpack[StartBatchEvaluationRequestTypeDef]
+    ) -> StartBatchEvaluationResponseTypeDef:
+        """
+        Starts a batch evaluation job that evaluates agent performance across multiple
+        sessions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/start_batch_evaluation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#start_batch_evaluation)
+        """
+
     def start_browser_session(
         self, **kwargs: Unpack[StartBrowserSessionRequestTypeDef]
     ) -> StartBrowserSessionResponseTypeDef:
@@ -544,6 +688,28 @@ class BedrockAgentCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#start_memory_extraction_job)
         """
 
+    def start_recommendation(
+        self, **kwargs: Unpack[StartRecommendationRequestTypeDef]
+    ) -> StartRecommendationResponseTypeDef:
+        """
+        Starts a recommendation job that analyzes agent traces and generates
+        optimization suggestions for system prompts or tool descriptions to improve
+        agent performance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/start_recommendation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#start_recommendation)
+        """
+
+    def stop_batch_evaluation(
+        self, **kwargs: Unpack[StopBatchEvaluationRequestTypeDef]
+    ) -> StopBatchEvaluationResponseTypeDef:
+        """
+        Stops a running batch evaluation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/stop_batch_evaluation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#stop_batch_evaluation)
+        """
+
     def stop_browser_session(
         self, **kwargs: Unpack[StopBrowserSessionRequestTypeDef]
     ) -> StopBrowserSessionResponseTypeDef:
@@ -574,6 +740,17 @@ class BedrockAgentCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#stop_runtime_session)
         """
 
+    def update_ab_test(
+        self, **kwargs: Unpack[UpdateABTestRequestTypeDef]
+    ) -> UpdateABTestResponseTypeDef:
+        """
+        Updates an A/B test's configuration, including variants, traffic allocation,
+        evaluation settings, or execution status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/update_ab_test.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#update_ab_test)
+        """
+
     def update_browser_stream(
         self, **kwargs: Unpack[UpdateBrowserStreamRequestTypeDef]
     ) -> UpdateBrowserStreamResponseTypeDef:
@@ -586,8 +763,30 @@ class BedrockAgentCoreClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_ab_tests"]
+    ) -> ListABTestsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_actors"]
     ) -> ListActorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_batch_evaluations"]
+    ) -> ListBatchEvaluationsPaginator:
         """
         Create a paginator for an operation.
 
@@ -621,6 +820,17 @@ class BedrockAgentCoreClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_memory_records"]
     ) -> ListMemoryRecordsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_recommendations"]
+    ) -> ListRecommendationsPaginator:
         """
         Create a paginator for an operation.
 

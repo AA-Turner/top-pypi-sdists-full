@@ -41,6 +41,11 @@ class RawMetricsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[QueryMetricsResponse]:
         """
+        **CLI:**
+        ```bash
+        agentmail pods:metrics query --pod-id <pod_id>
+        ```
+
         Parameters
         ----------
         pod_id : PodId
@@ -126,6 +131,11 @@ class AsyncRawMetricsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[QueryMetricsResponse]:
         """
+        **CLI:**
+        ```bash
+        agentmail pods:metrics query --pod-id <pod_id>
+        ```
+
         Parameters
         ----------
         pod_id : PodId

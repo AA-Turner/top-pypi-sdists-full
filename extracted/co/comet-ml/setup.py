@@ -23,7 +23,7 @@ def find_packages():
 setuptools.setup(
     name="comet_ml",
     packages=find_packages(),
-    package_data={"comet_ml": ["schemas/*.json"]},
+    package_data={"comet_ml": ["schemas/*.json", "py.typed"]},
     url="https://www.comet.com",
     author="Comet ML Inc.",
     author_email="mail@comet.com",
@@ -69,5 +69,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3.12",
     ],
     license="MIT",
-    version="3.57.3",
+    version="3.57.4",
 )

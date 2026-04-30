@@ -9,7 +9,12 @@ from schemathesis.core import NOT_SET, NotSet
 from schemathesis.core.result import Ok
 from schemathesis.core.schema_analysis import SchemaWarning
 from schemathesis.resources import ExtraDataSource, ResourceRepository
-from schemathesis.specs.openapi.extra_data_source import OpenApiExtraDataSource, build_parameter_requirements
+from schemathesis.specs.openapi.auth_jwt import seed_pool_from_basic_auth, seed_pool_from_headers
+from schemathesis.specs.openapi.extra_data_source import (
+    OpenApiExtraDataSource,
+    build_inputs_by_label,
+    build_parameter_requirements,
+)
 from schemathesis.specs.openapi.resources import build_descriptors
 from schemathesis.specs.openapi.stateful import dependencies
 from schemathesis.specs.openapi.stateful.dependencies.layers import compute_dependency_layers
@@ -89,19 +94,31 @@ class OpenAPIAnalysis:
 
     @property
     def extra_data_source(self) -> ExtraDataSource | None:
-        """Extra data source for augmenting test generation with captured API responses.
+        """Extra data source for augmenting test generation with captured API data.
 
-        Returns None if no resource descriptors are available.
+        Returns None when neither response-extractable descriptors nor request-side
+        input slots exist — there is nothing to capture in either case.
         """
         if self._extra_data_source is NOT_SET:
             descriptors = self.resource_descriptors
-            if not descriptors:
+            requirements = build_parameter_requirements(self.dependency_graph)
+            inputs_by_label = build_inputs_by_label(self.dependency_graph)
+            if not descriptors and not inputs_by_label:
                 self._extra_data_source = None
             else:
                 repository = ResourceRepository(descriptors)
                 self._populate_from_response_examples(repository)
-                requirements = build_parameter_requirements(self.dependency_graph)
-                self._extra_data_source = OpenApiExtraDataSource(repository=repository, requirements=requirements)
+                headers = self.schema.config.headers_for()
+                basic_auth = self.schema.config.auth.basic
+                if headers:
+                    seed_pool_from_headers(repository, headers, requirements.values())
+                if basic_auth is not None:
+                    seed_pool_from_basic_auth(repository, basic_auth, requirements.values())
+                self._extra_data_source = OpenApiExtraDataSource(
+                    repository=repository,
+                    requirements=requirements,
+                    inputs_by_label=inputs_by_label,
+                )
         assert not isinstance(self._extra_data_source, NotSet)
         return self._extra_data_source
 

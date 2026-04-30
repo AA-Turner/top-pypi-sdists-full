@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyaedt
-Version: 0.26.2
+Version: 0.26.3
 Summary: High-level Python API for Ansys Electronics Desktop Framework
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -31,13 +31,13 @@ Requires-Dist: ansys-tools-common
 Requires-Dist: grpcio<1.81,>=1.50.0
 Requires-Dist: jsonschema
 Requires-Dist: psutil>=6.0.0
-Requires-Dist: pyedb>=0.71.0
+Requires-Dist: pyedb==0.74.0
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: tomli-w
 Requires-Dist: pyyaml
 Requires-Dist: defusedxml<8.0,>=0.7
 Requires-Dist: numpy<2.3,>=1.20.0
-Requires-Dist: pydantic<2.13,>=2.6.4
+Requires-Dist: pydantic<2.14,>=2.6.4
 Provides-Extra: dotnet
 Requires-Dist: ansys-pythonnet>=3.1.0rc3; extra == "dotnet"
 Requires-Dist: cffi<2.1,>=1.16.0; platform_system == "Linux" and extra == "dotnet"
@@ -77,7 +77,7 @@ Requires-Dist: pandas<2.4,>=1.1.0; extra == "examples"
 Requires-Dist: pyvista[jupyter]<0.48,>=0.38.0; extra == "examples"
 Requires-Dist: fast-simplification>=0.1.7; extra == "examples"
 Requires-Dist: joblib<1.6,>=1.4.0; extra == "examples"
-Requires-Dist: plotly<6.7,>=6.0; extra == "examples"
+Requires-Dist: plotly<6.8,>=6.0; extra == "examples"
 Requires-Dist: scikit-rf<1.12,>=0.30.0; extra == "examples"
 Requires-Dist: fpdf2; extra == "examples"
 Requires-Dist: rpyc<6.1,>=6.0.0; extra == "examples"

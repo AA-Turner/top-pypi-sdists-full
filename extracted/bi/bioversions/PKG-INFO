@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bioversions
-Version: 0.10.2
+Version: 0.10.4
 Summary: Get the current version for biological databases
 Keywords: snekpack,cookiecutter,databases,biological databases,biomedical databases
 Author: Charles Tapley Hoyt
@@ -32,7 +32,7 @@ Requires-Dist: tabulate
 Requires-Dist: more-click
 Requires-Dist: pyyaml
 Requires-Dist: tqdm
-Requires-Dist: bioregistry[align]>=0.13.0
+Requires-Dist: bioregistry[align]>=0.13.47
 Requires-Dist: lxml
 Requires-Dist: pydantic>=2.0
 Requires-Dist: psycopg2-binary

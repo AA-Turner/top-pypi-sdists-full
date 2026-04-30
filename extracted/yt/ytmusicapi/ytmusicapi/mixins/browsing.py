@@ -209,6 +209,7 @@ class BrowsingMixin(MixinProtocol):
                         {
                             "title": "Stand By Me (Mustique Demo)",
                             "thumbnails": [...],
+                            "type": "Single",
                             "year": "2016",
                             "browseId": "MPREb_7MPKLhibN5G"
                         }
@@ -552,6 +553,7 @@ class BrowsingMixin(MixinProtocol):
                     "pin": "AB9zfpJ...",
                     "unpin": "AB9zfpL..."
                   },
+                  "creditsBrowseId": "MPTCiKLU7z_xdYQ"
                 }
               ],
               "other_versions": [
@@ -594,6 +596,83 @@ class BrowsingMixin(MixinProtocol):
             album["tracks"][i]["artists"] = album["tracks"][i]["artists"] or album["artists"]
 
         return album
+
+    def get_song_credits(self, browseId: str) -> JsonDict:
+        """
+        Get credits for a song. Top-level entries are limited to ``performed_by``,
+        ``written_by``, ``produced_by`` and ``music_metadata_provided_by``.
+        If YouTube returns additional data, it will be returned in ``other_sections``.
+
+        :param browseId: browseId for the credits of a song, for example returned as ``creditsBrowseId`` in the tracks of :py:func:`get_album`
+        :return: Dictionary with credit sections.
+
+        Example::
+
+            {
+              "performed_by": {
+                "localized_title": "Performed by"
+                "data": [
+                  "Eminem",
+                  "Beyoncé"
+                ]
+              },
+              "written_by": {
+                "localized_title": "Written by",
+                "data": [
+                  "Marshall Mathers",
+                  "Beyoncé Knowles",
+                  "Holly Hafermann"
+                ]
+              },
+              "produced_by": {
+                "localized_title": "Produced by",
+                "data": [
+                  "Rick Rubin"
+                ]
+              },
+              "music_metadata_provided_by": {
+                "localized_title": "Music metadata provided by"
+                "data": [
+                  "Eminem Catalog PS"
+                ]
+              },
+              "other_sections": [
+                {
+                  "localized_title": "Piano",
+                  "data": [
+                    "Skylar Grey"
+                  ]
+                }
+              ]
+            }
+        """
+        if not browseId or not browseId.startswith("MPTC"):
+            raise YTMusicUserError("Invalid song credits browseId provided, must start with MPTC.")
+
+        body = {"browseId": browseId}
+        endpoint = "browse"
+        response = self._send_request(endpoint, body)
+
+        credits: JsonDict = {"other_sections": []}
+        sections = nav(response, CREDITS_SECTIONS)
+        localized_section_map = self.parser.get_song_credit_section_map()
+        for section in sections:
+            section_content = section["dismissableDialogContentSectionRenderer"]
+
+            section_local_name: str = nav(section_content, TITLE_TEXT)
+            section_snake_case_name = localized_section_map.get(section_local_name)
+
+            section_data = {
+                "localized_title": section_local_name,
+                "data": [item["text"] for item in nav(section_content, SUBTITLE_RUNS)[::2]],
+            }
+
+            if section_snake_case_name is not None:
+                credits[section_snake_case_name] = section_data
+            else:  # pragma: no cover
+                credits["other_sections"].append(section_data)
+
+        return credits
 
     def get_song(self, videoId: str, signatureTimestamp: int | None = None) -> JsonDict:
         """

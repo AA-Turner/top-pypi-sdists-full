@@ -1018,7 +1018,7 @@ def cloud_update_storage_cors(
 
 @cloud_config_group.command("get", help="Get the current configuration for a cloud.")
 @click.argument("cloud-name", required=False)
-@click.option("--name", "-n", help="Update configuration of cloud by name.", type=str)
+@click.option("--name", "-n", help="Get configuration of cloud by name.", type=str)
 @click.option(
     "--cloud-id",
     "--id",
@@ -1192,14 +1192,14 @@ def _handle_system_cluster_config(enable_system_cluster: Optional[bool]) -> None
 )
 @click.option(
     "--resource",
-    help="Name of the cloud resource to get details for. If not provided, defaults to the primary resource for the cloud.",
+    help="Name of the cloud resource to update. If not provided, defaults to the primary resource for the cloud.",
     type=str,
     required=False,
 )
 @click.option(
     "--resource-id",
     "cloud_resource_id",
-    help="Cloud resource ID to get details for. Alternative to cloud resource name.",
+    help="Cloud resource ID to update. Alternative to cloud resource name.",
     type=str,
     required=False,
 )
@@ -1382,7 +1382,7 @@ def cloud_config_update(  # noqa: PLR0913
 )
 @click.option(
     "--firewall-policy-names",
-    help="Filewall policy names for GCP clouds",
+    help="Firewall policy names for GCP clouds",
     required=False,
     type=str,
 )
@@ -2358,7 +2358,7 @@ def generate_jobs_report(
     default=False,
     type=bool,
     is_flag=True,
-    help="Block this CLI command and print logs until the job finishes.",
+    help="Block this CLI command until the system cluster is terminated.",
 )
 def terminate_system_cluster(cloud_id: str, wait: Optional[bool]) -> None:
     """

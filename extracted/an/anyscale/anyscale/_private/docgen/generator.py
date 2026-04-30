@@ -33,6 +33,7 @@ ModelType = Union[ModelBaseType, ModelEnumType]
 CLI_OPTIONS_TO_SKIP = {"help"}
 CLI_NO_EXAMPLES = {
     "anyscale",
+    "anyscale auth",
     "anyscale cloud",
     "anyscale cloud config",
     "anyscale cloud set-default",

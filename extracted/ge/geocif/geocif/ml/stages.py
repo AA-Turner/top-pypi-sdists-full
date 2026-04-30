@@ -330,6 +330,16 @@ def update_feature_names(df, method):
         if parts[0] == "AEF" and len(parts) >= 2:
             cid = "_".join(parts[:2])  # AEF_1, AEF_2, ...
             stage_parts = parts[2:]
+        elif parts[0] in ("AVG", "SUM", "REV", "MAR") and len(parts) >= 2 and parts[1] in ("FLDAS", "S2S"):
+            # Engineered features: AVG_FLDAS_SoilMoist_PS_9
+            # Find PS/IS marker to split CID name from stage
+            ps_idx = next((i for i, p in enumerate(parts) if p in ("PS", "IS")), None)
+            if ps_idx is not None:
+                cid = "_".join(parts[:ps_idx])
+                stage_parts = parts[ps_idx:]
+            else:
+                cid = "_".join(parts)
+                stage_parts = []
         elif parts[0] == "MEAN" and len(parts) >= 2 and parts[1] in ("FLDAS", "S2S"):
             # MEAN_FLDAS_SoilMoist_tavg_LEAD0_1_2_3
             # Find LEADn token to split CID name from stage numbers

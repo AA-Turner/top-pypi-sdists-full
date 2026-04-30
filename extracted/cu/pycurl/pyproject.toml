@@ -1,3 +1,58 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pycurl"
+description = "PycURL -- A Python Interface To The cURL library"
+requires-python = ">=3.10"
+license = "LGPL-2.1-only OR MIT"
+license-files = ["COPYING-LGPL", "COPYING-MIT"]
+keywords = ["curl", "libcurl", "urllib", "wget", "download", "file transfer", "http", "www"]
+authors = [
+    { name = "Kjetil Jacobsen",         email = "kjetilja@gmail.com" },
+    { name = "Markus F.X.J. Oberhumer", email = "markus@oberhumer.com" },
+    { name = "Oleg Pudeyev",            email = "oleg@bsdpower.com" },
+]
+maintainers = [
+    { name = "Oleg Pudeyev", email = "oleg@bsdpower.com" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: File Transfer Protocol (FTP)",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dynamic = ["version", "readme"]
+
+[project.urls]
+Homepage      = "http://pycurl.io/"
+Documentation = "http://pycurl.io/docs/latest/"
+Source        = "https://github.com/pycurl/pycurl"
+Issues        = "https://github.com/pycurl/pycurl/issues"
+Changelog     = "https://github.com/pycurl/pycurl/blob/master/ChangeLog"
+
+[dependency-groups]
+dev = [
+    "flaky",
+    "flask",
+    "numpy",
+    "pyflakes",
+    "pytest>=5",
+    "sphinx",
+    "setuptools",
+    "websockets>=12",
+]
+
 [tool.cibuildwheel]
 build = "cp3*"
 skip = ["cp38-*", "*-musllinux*"]
@@ -9,12 +64,12 @@ test-command = "pytest -v -ra {project}/tests"
 
 [tool.cibuildwheel.linux]
 before-all = [
-    "dnf install -y git zip perl-IPC-Cmd perl-Time-Piece",
+    "dnf install -y git zip perl-IPC-Cmd perl-Time-Piece autoconf-archive libtool",
     "dnf copr enable -y swt2c/vcpkg-epel8",
     "dnf install -y vcpkg",
     "export VCPKG_ROOT=$HOME/.local/share/vcpkg",
     "git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT",
-    "vcpkg install curl[brotli,core,gssapi,http2,non-http,openssl,ssh] --triplet=$VCPKG_TRIPLET",
+    "vcpkg install curl[brotli,core,gssapi,http2,non-http,openssl,ssh,websockets] --triplet=$VCPKG_TRIPLET",
 ]
 before-test = [
     "pip install flake8 -r requirements-dev.txt",
@@ -40,8 +95,9 @@ environment.VCPKG_TRIPLET = "arm64-linux-dynamic"
 
 [tool.cibuildwheel.macos]
 before-all = [
+    "if ! which mono >/dev/null 2>&1; then brew install mono; fi",
     "if ! which vcpkg >/dev/null 2>&1; then brew install vcpkg && git clone https://github.com/microsoft/vcpkg.git $HOME/vcpkg; fi",
-    "vcpkg install curl[brotli,core,http2,non-http,openssl,ssh] --triplet=$VCPKG_TRIPLET",
+    "vcpkg install curl[brotli,core,http2,non-http,openssl,ssh,websockets] --triplet=$VCPKG_TRIPLET",
 ]
 before-test = [
     "pip install flake8 -r requirements-dev.txt",
@@ -52,6 +108,7 @@ repair-wheel-command = "DYLD_LIBRARY_PATH=$VCPKG_ROOT/installed/$VCPKG_TRIPLET/l
 [tool.cibuildwheel.macos.environment]
 PYCURL_CURL_CONFIG = "$VCPKG_ROOT/installed/$VCPKG_TRIPLET/tools/curl/bin/curl-config"
 PYCURL_SSL_LIBRARY = "openssl"
+LDFLAGS = "-headerpad_max_install_names"
 
 [[tool.cibuildwheel.overrides]]
 select = "cp*-macosx_x86_64"

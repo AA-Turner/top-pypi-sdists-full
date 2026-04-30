@@ -1,26 +1,14 @@
-#! /usr/bin/env python
-# -*- coding: utf-8 -*-
-# vi:ts=4:et
-
 """Setup script for the PycURL module distribution."""
 
 PACKAGE = "pycurl"
 PY_PACKAGE = "curl"
-VERSION = "7.45.7"
+VERSION = "7.46.0"
 
 import glob, os, re, shlex, sys, subprocess
 from setuptools import setup
 from setuptools.extension import Extension
 
-py3 = sys.version_info[0] == 3
-
-try:
-    # python 2
-    exception_base = StandardError
-except NameError:
-    # python 3
-    exception_base = Exception
-class ConfigurationError(exception_base):
+class ConfigurationError(Exception):
     pass
 
 
@@ -74,7 +62,7 @@ def scan_argvs(argv, s):
     return p
 
 
-class ExtensionConfiguration(object):
+class ExtensionConfiguration:
     def __init__(self, argv=[]):
         # we mutate argv, this is necessary because
         # setuptools does not recognize pycurl-specific options
@@ -201,13 +189,6 @@ class ExtensionConfiguration(object):
                         self.using_mbedtls()
                         ssl_lib_detected = 'mbedtls'
                         break
-
-        if not ssl_lib_detected and len(self.argv) == len(self.original_argv) \
-                and not os.environ.get('PYCURL_CURL_CONFIG') \
-                and not os.environ.get('PYCURL_SSL_LIBRARY'):
-            # this path should only be taken when no options or
-            # configuration environment variables are given to setup.py
-            ssl_lib_detected = self.detect_ssl_lib_on_centos6_plus()
 
         self.ssl_lib_detected = ssl_lib_detected
 
@@ -370,9 +351,8 @@ ignore this message.''')
         ssl_lib_detected = None
         curl_version_info = self.get_curl_version_info(libcurl_dll_path)
         ssl_version = curl_version_info.ssl_version
-        if py3:
-            # ssl_version is bytes on python 3
-            ssl_version = ssl_version.decode('ascii')
+        # ssl_version is bytes, decode to string
+        ssl_version = ssl_version.decode('ascii')
         if ssl_version.startswith('OpenSSL/') or ssl_version.startswith('LibreSSL/'):
             self.using_openssl()
             ssl_lib_detected = 'openssl'
@@ -389,20 +369,6 @@ ignore this message.''')
             self.using_sectransp()
             ssl_lib_detected = 'sectransp'
         return ssl_lib_detected
-
-    def detect_ssl_lib_on_centos6_plus(self):
-        import platform
-        from ctypes.util import find_library
-        os_name = platform.system()
-        if os_name != 'Linux' or not hasattr(platform, 'dist'):
-            return False
-        dist_name, dist_version, _ = platform.dist()
-        dist_version = dist_version.split('.')[0]
-        if dist_name != 'centos' or int(dist_version) < 6:
-            return False
-        libcurl_dll_path = find_library('curl')
-        print('libcurl_dll_path = "%s"' % libcurl_dll_path)
-        return self.detect_ssl_lib_from_libcurl_dll(libcurl_dll_path)
 
     def detect_ssl_lib_using_curl_config(self):
         ssl_lib_detected = None
@@ -656,7 +622,9 @@ def get_extension(argv, split_extension_source=False):
             os.path.join("src", "easyinfo.c"),
             os.path.join("src", "easyopt.c"),
             os.path.join("src", "easyperform.c"),
+            os.path.join("src", "easyws.c"),
             os.path.join("src", "module.c"),
+            os.path.join("src", "mime.c"),
             os.path.join("src", "multi.c"),
             os.path.join("src", "oscompat.c"),
             os.path.join("src", "pythoncompat.c"),
@@ -838,9 +806,8 @@ def gen_docstrings_sources():
 ###############################################################################
 
 setup_args = dict(
-    name=PACKAGE,
     version=VERSION,
-    description='PycURL -- A Python Interface To The cURL library',
+    long_description_content_type='text/x-rst',
     long_description='''\
 PycURL -- A Python Interface To The cURL library
 ================================================
@@ -870,7 +837,7 @@ libcurl, including:
 Requirements
 ------------
 
-- Python 3.9-3.14.
+- Python 3.10-3.14.
 - libcurl 7.19.0 or better.
 
 
@@ -922,36 +889,8 @@ in COPYING-LGPL_ and COPYING-MIT_ files in the source distribution.
 .. _COPYING-LGPL: https://raw.githubusercontent.com/pycurl/pycurl/master/COPYING-LGPL
 .. _COPYING-MIT: https://raw.githubusercontent.com/pycurl/pycurl/master/COPYING-MIT
 ''',
-    author="Kjetil Jacobsen, Markus F.X.J. Oberhumer, Oleg Pudeyev",
-    author_email="kjetilja@gmail.com, markus@oberhumer.com, oleg@bsdpower.com",
-    maintainer="Oleg Pudeyev",
-    maintainer_email="oleg@bsdpower.com",
-    url="http://pycurl.io/",
-    license="LGPL/MIT",
-    keywords=['curl', 'libcurl', 'urllib', 'wget', 'download', 'file transfer',
-        'http', 'www'],
-    classifiers=[
-        'Development Status :: 5 - Production/Stable',
-        'Environment :: Web Environment',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)',
-        'License :: OSI Approved :: MIT License',
-        'Operating System :: Microsoft :: Windows',
-        'Operating System :: POSIX',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
-        'Programming Language :: Python :: 3.12',
-        'Programming Language :: Python :: 3.13',
-        'Programming Language :: Python :: 3.14',
-        'Topic :: Internet :: File Transfer Protocol (FTP)',
-        'Topic :: Internet :: WWW/HTTP',
-    ],
     packages=[PY_PACKAGE],
     package_dir={ PY_PACKAGE: os.path.join('python', 'curl') },
-    python_requires='>=3.5',
-    platforms='All',
 )
 
 unix_help = '''\

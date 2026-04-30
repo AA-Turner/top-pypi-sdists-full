@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiokafka
-Version: 0.13.0
+Version: 0.14.0
 Summary: Kafka integration with asyncio
 Author-email: Andrew Svetlov <andrew.svetlov@gmail.com>
 License-Expression: Apache-2.0

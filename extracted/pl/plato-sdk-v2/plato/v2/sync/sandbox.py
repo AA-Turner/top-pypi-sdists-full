@@ -65,7 +65,7 @@ from plato._generated.models import (
     VMManagementRequest,
 )
 from plato.v1.models.sandbox import PlatoConfig
-from plato.v2._wait_for_ready import poll_until_ready_sync
+from plato.v2._wait_for_ready import is_terminal_status, poll_until_ready_sync
 from plato.v2.async_.flow_executor import FlowExecutor
 from plato.v2.models import SandboxState
 from plato.v2.types import Env, EnvFromArtifact, EnvFromResource, EnvFromSimulator, SimConfigCompute
@@ -795,7 +795,12 @@ class SandboxClient:
                 for jid, result in ready_response.results.items():
                     if not result.ready:
                         errors.append(f"{jid}: {result.error or 'Unknown error'}")
-            raise RuntimeError(f"VM failed to start: {', '.join(errors) if errors else 'timeout'}")
+            reason = (
+                ", ".join(errors)
+                if errors
+                else ("terminal status" if is_terminal_status(ready_response) else "timeout")
+            )
+            raise RuntimeError(f"VM failed to start: {reason}")
 
         job_id = response.envs[0].job_id if response.envs else None
         if not job_id:

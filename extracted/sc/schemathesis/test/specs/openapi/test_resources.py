@@ -92,6 +92,57 @@ def test_many_cardinality_extracts_each_item(user_schema_builder):
     assert {instance.data["id"] for instance in resources} == {"a", "b"}
 
 
+def test_captured_variants_filter_values_invalid_for_destination(ctx):
+    # Producer accepts `id: 0` but consumer's path requires `minimum: 1`; pool injection must filter.
+    spec = ctx.openapi.build_schema(
+        {
+            "/items": {
+                "post": {
+                    "operationId": "createItem",
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "integer"}},
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            "/items/{itemId}/sync": {
+                "post": {
+                    "operationId": "syncItem",
+                    "parameters": [
+                        {
+                            "name": "itemId",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "integer", "minimum": 1},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    schema = schemathesis.openapi.from_dict(spec)
+    data_source = schema.create_extra_data_source()
+
+    data_source.repository.record_response(operation="POST /items", status_code=201, payload={"id": 0})
+    data_source.repository.record_response(operation="POST /items", status_code=201, payload={"id": 5})
+
+    sync_op = schema["/items/{itemId}/sync"]["POST"]
+    variants = data_source.get_captured_variants(
+        operation=sync_op, location=ParameterLocation.PATH, schema=sync_op.path_parameters.schema
+    )
+
+    assert variants == [{"itemId": 5}]
+
+
 def test_data_source_provides_captured_variants(user_schema_builder):
     user_schema = {
         "type": "object",
@@ -601,6 +652,81 @@ def test_negative_aware_strategy_with_captured_values(ctx):
     assert all(isinstance(r, GeneratedValue) for r in results)
 
 
+def test_pool_overlay_keeps_required_fields_for_body_without_type_object(ctx):
+    # Body schema declares `properties` and `required` but omits `type: object`. The generator
+    # may then draw non-dict values (None, scalars) and the captured-variant overlay must not
+    # silently coerce those to `{}` and produce a body missing required fields.
+    spec = ctx.openapi.build_schema(
+        {
+            "/clients": {
+                "post": {
+                    "operationId": "createClient",
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"clientId": {"type": "string"}},
+                                    }
+                                }
+                            },
+                            "links": {
+                                "CreateTask": {
+                                    "operationId": "createTask",
+                                    "parameters": {"clientId": "$response.body#/clientId"},
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/tasks": {
+                "post": {
+                    "operationId": "createTask",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "clientId": {"type": "string"},
+                                        "clientSecret": {"type": "string"},
+                                    },
+                                    "required": ["clientId", "clientSecret"],
+                                }
+                            }
+                        },
+                        "required": True,
+                    },
+                    "responses": {"201": {"description": "Created"}},
+                }
+            },
+        }
+    )
+    schema = schemathesis.openapi.from_dict(spec)
+    data_source = schema.create_extra_data_source()
+
+    for i in range(5):
+        data_source.repository.record_response(
+            operation="POST /clients", status_code=201, payload={"clientId": f"client-{i}"}
+        )
+
+    operation = schema["/tasks"]["POST"]
+    body = operation.body[0]
+    config = GenerationConfig()
+
+    strategy = body.get_strategy(operation, config, GenerationMode.POSITIVE, extra_data_source=data_source)
+
+    @given(strategy)
+    @settings(max_examples=200, database=None, deadline=None)
+    def t(value):
+        if isinstance(value, dict):
+            for required in ("clientId", "clientSecret"):
+                assert required in value, f"required field {required!r} missing from POSITIVE body: {value!r}"
+
+    t()
+
+
 def test_negative_aware_strategy_with_captured_values_body(ctx):
     spec = ctx.openapi.build_schema(
         {
@@ -838,3 +964,215 @@ def test_primitive_integer_identifier(ctx):
     resources = list(data_source.repository.iter_instances("User"))
     assert len(resources) == 1
     assert resources[0].data == {"id": 12345}
+
+
+def test_pick_captured_value_returns_none_for_unbound_parameter(user_schema_builder):
+    schema = user_schema_builder()
+    data_source = schema.create_extra_data_source()
+
+    operation = schema["/users"]["POST"]
+    result = data_source.pick_captured_value(operation=operation, location=ParameterLocation.PATH, name="user_id")
+    assert result is None
+
+
+def test_pick_captured_value_returns_none_for_empty_pool(user_schema_builder):
+    user_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+        "required": ["id", "name"],
+    }
+    get_endpoint = {
+        "/users/{user_id}": {
+            "get": {
+                "operationId": "getUser",
+                "parameters": [{"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {
+                    "200": {"description": "Success", "content": {"application/json": {"schema": user_schema}}}
+                },
+            }
+        }
+    }
+    schema = user_schema_builder(response_schema=user_schema, extra_endpoints=get_endpoint)
+    data_source = schema.create_extra_data_source()
+
+    get_operation = schema["/users/{user_id}"]["GET"]
+    result = data_source.pick_captured_value(operation=get_operation, location=ParameterLocation.PATH, name="user_id")
+    assert result is None
+
+
+def test_pick_captured_value_returns_value_when_pool_has_data(user_schema_builder):
+    user_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+        "required": ["id", "name"],
+    }
+    get_endpoint = {
+        "/users/{user_id}": {
+            "get": {
+                "operationId": "getUser",
+                "parameters": [{"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {
+                    "200": {"description": "Success", "content": {"application/json": {"schema": user_schema}}}
+                },
+            }
+        }
+    }
+    schema = user_schema_builder(response_schema=user_schema, extra_endpoints=get_endpoint)
+    data_source = schema.create_extra_data_source()
+
+    data_source.repository.record_response(
+        operation=POST_USERS, status_code=CREATED, payload={"id": "1", "name": "Alice"}
+    )
+
+    get_operation = schema["/users/{user_id}"]["GET"]
+    result = data_source.pick_captured_value(operation=get_operation, location=ParameterLocation.PATH, name="user_id")
+    assert result == "1"
+
+
+def test_pick_captured_value_rotates_across_consecutive_picks(user_schema_builder):
+    user_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+        "required": ["id", "name"],
+    }
+    get_endpoint = {
+        "/users/{user_id}": {
+            "get": {
+                "operationId": "getUser",
+                "parameters": [{"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {
+                    "200": {"description": "Success", "content": {"application/json": {"schema": user_schema}}}
+                },
+            }
+        }
+    }
+    schema = user_schema_builder(response_schema=user_schema, extra_endpoints=get_endpoint)
+    data_source = schema.create_extra_data_source()
+
+    for value in ("a", "b", "c", "d"):
+        data_source.repository.record_response(
+            operation=POST_USERS, status_code=CREATED, payload={"id": value, "name": "x"}
+        )
+
+    get_operation = schema["/users/{user_id}"]["GET"]
+    picks = [
+        data_source.pick_captured_value(operation=get_operation, location=ParameterLocation.PATH, name="user_id")
+        for _ in range(4)
+    ]
+    # Deterministic rotation: each draw deprioritizes the chosen variant, so
+    # the first four picks cover all four values.
+    assert set(picks) == {"a", "b", "c", "d"}
+
+
+def test_pick_correlated_values_empty_for_unbound_operation(user_schema_builder):
+    schema = user_schema_builder()
+    data_source = schema.create_extra_data_source()
+    operation = schema["/users"]["POST"]
+    assert data_source.pick_correlated_values(operation=operation) == {}
+
+
+def test_pick_correlated_values_single_family_correlated_pair(user_schema_builder):
+    user_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+        "required": ["id", "name"],
+    }
+    nested = {
+        "/users/{user_id}": {
+            "get": {
+                "operationId": "getUser",
+                "parameters": [{"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": user_schema}}}},
+            }
+        }
+    }
+    schema = user_schema_builder(response_schema=user_schema, extra_endpoints=nested)
+    data_source = schema.create_extra_data_source()
+    data_source.repository.record_response(
+        operation=POST_USERS, status_code=CREATED, payload={"id": "1", "name": "Alice"}
+    )
+    operation = schema["/users/{user_id}"]["GET"]
+    result = data_source.pick_correlated_values(operation=operation)
+    assert result == {(ParameterLocation.PATH, "user_id"): "1"}
+
+
+def test_pick_correlated_values_falls_back_when_family_lacks_full_match(user_schema_builder):
+    user_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+        "required": ["id", "name"],
+    }
+    nested = {
+        "/users/{user_id}": {
+            "get": {
+                "operationId": "getUser",
+                "parameters": [{"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": user_schema}}}},
+            }
+        }
+    }
+    schema = user_schema_builder(response_schema=user_schema, extra_endpoints=nested)
+    data_source = schema.create_extra_data_source()
+    data_source.repository.record_response(
+        operation=POST_USERS, status_code=CREATED, payload={"id": "1", "name": "Alice"}
+    )
+    operation = schema["/users/{user_id}"]["GET"]
+    result = data_source.pick_correlated_values(operation=operation)
+    assert (ParameterLocation.PATH, "user_id") in result
+
+
+def test_pick_correlated_values_rotates_across_consecutive_calls(user_schema_builder):
+    user_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+        "required": ["id", "name"],
+    }
+    nested = {
+        "/users/{user_id}": {
+            "get": {
+                "operationId": "getUser",
+                "parameters": [{"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": user_schema}}}},
+            }
+        }
+    }
+    schema = user_schema_builder(response_schema=user_schema, extra_endpoints=nested)
+    data_source = schema.create_extra_data_source()
+    for value in ("a", "b", "c", "d"):
+        data_source.repository.record_response(
+            operation=POST_USERS, status_code=CREATED, payload={"id": value, "name": "x"}
+        )
+    operation = schema["/users/{user_id}"]["GET"]
+    picks = [
+        data_source.pick_correlated_values(operation=operation)[(ParameterLocation.PATH, "user_id")] for _ in range(4)
+    ]
+    assert set(picks) == {"a", "b", "c", "d"}
+
+
+def test_correlated_and_per_slot_share_rotation_state(user_schema_builder):
+    # Correlated and per-slot picks must deprioritize the same instance for cross-phase rotation.
+    user_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+        "required": ["id", "name"],
+    }
+    nested = {
+        "/users/{user_id}": {
+            "get": {
+                "operationId": "getUser",
+                "parameters": [{"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": user_schema}}}},
+            }
+        }
+    }
+    schema = user_schema_builder(response_schema=user_schema, extra_endpoints=nested)
+    data_source = schema.create_extra_data_source()
+    for value in ("a", "b"):
+        data_source.repository.record_response(
+            operation=POST_USERS, status_code=CREATED, payload={"id": value, "name": "x"}
+        )
+    operation = schema["/users/{user_id}"]["GET"]
+    correlated = data_source.pick_correlated_values(operation=operation)
+    drawn_id = correlated[(ParameterLocation.PATH, "user_id")]
+    next_pick = data_source.pick_captured_value(operation=operation, location=ParameterLocation.PATH, name="user_id")
+    assert next_pick != drawn_id

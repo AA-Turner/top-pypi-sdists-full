@@ -1,6 +1,4 @@
-from typing import Any, List, Literal, Mapping, Optional, Union
-
-from typing_extensions import final
+from typing import Any, List, Literal, Mapping, Optional, Union, final
 
 from chalk.features import Feature
 from chalk.sql.finalized_query import DataframeFinalizedChalkQuery, Finalizer, SingletonFinalizedChalkQuery

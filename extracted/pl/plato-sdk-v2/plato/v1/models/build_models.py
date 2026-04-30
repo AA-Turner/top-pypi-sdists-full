@@ -108,7 +108,7 @@ class SimConfigMetadata(BaseModel):
 class SimConfigService(AdaptiveObject, ABC):
     """Base class for simulator service configurations."""
 
-    type: Literal["docker-compose", "docker"] = Field(description="Service type")
+    type: Literal["docker-compose"] = Field(description="Service type")
 
 
 class DockerComposeServiceConfig(SimConfigService):

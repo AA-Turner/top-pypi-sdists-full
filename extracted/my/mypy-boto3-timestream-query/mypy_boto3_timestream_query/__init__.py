@@ -3,7 +3,7 @@ Main interface for timestream-query service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_query/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

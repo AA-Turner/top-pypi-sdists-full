@@ -3,7 +3,7 @@ Type annotations for devops-guru service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_guru/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

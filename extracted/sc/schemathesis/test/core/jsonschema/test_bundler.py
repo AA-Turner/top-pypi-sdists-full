@@ -3,7 +3,7 @@ import pytest
 from schemathesis.core.compat import RefResolutionError, RefResolver
 from schemathesis.core.errors import InfiniteRecursiveReference
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, bundle
-from schemathesis.core.jsonschema.bundler import BundleError
+from schemathesis.core.jsonschema.bundler import BundleError, unbundle, unbundle_path
 from schemathesis.core.transforms import deepclone
 from schemathesis.specs.openapi.definitions import OPENAPI_30, OPENAPI_31, SWAGGER_20
 
@@ -490,3 +490,189 @@ def test_bundle_infinite_recursive_required_cycle_message():
   #/definitions/C ->
   #/definitions/A"""
     )
+
+
+def test_bundle_self_recursion_through_pattern_properties_is_breakable():
+    # An object `{}` validates against `A`, so the cycle through `patternProperties`
+    # is structurally optional and should not raise.
+    schema = {"$ref": "#/definitions/A"}
+    store = {
+        "definitions": {
+            "A": {
+                "type": "object",
+                "patternProperties": {".*": {"$ref": "#/definitions/A"}},
+                "additionalProperties": False,
+            },
+        }
+    }
+
+    resolver = RefResolver.from_schema(store)
+
+    bundle(schema, resolver, inline_recursive=True)
+
+
+def test_bundle_self_cycle_through_dead_definitions_block():
+    # Self-referential `definitions` entries are unreachable once optional properties
+    # are pruned, so they should not surface as `InfiniteRecursiveReference`.
+    schema = {"$ref": "#/definitions/Meta"}
+    store = {
+        "definitions": {
+            "Meta": {
+                "type": "object",
+                "definitions": {
+                    "schemaArray": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {"$ref": "#/definitions/Meta"},
+                    },
+                },
+                "properties": {
+                    "allOf": {"$ref": "#/definitions/Meta/definitions/schemaArray"},
+                    "items": {"$ref": "#/definitions/Meta"},
+                },
+            },
+        }
+    }
+
+    resolver = RefResolver.from_schema(store)
+
+    bundle(schema, resolver, inline_recursive=True)
+
+
+def test_bundle_oneof_with_indirectly_recursive_branch_skips_it():
+    # An `oneOf` variant whose body cycles back through a deeper required path is
+    # breakable when at least one terminating variant remains.
+    schema = {"$ref": "#/definitions/Types"}
+    store = {
+        "definitions": {
+            "Types": {
+                "oneOf": [
+                    {"$ref": "#/definitions/PrimitiveType"},
+                    {"$ref": "#/definitions/Record"},
+                ]
+            },
+            "PrimitiveType": {"type": "string", "enum": ["int", "string"]},
+            "Record": {
+                "type": "object",
+                "required": ["fields"],
+                "properties": {
+                    "fields": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {"$ref": "#/definitions/Types"},
+                    }
+                },
+            },
+        }
+    }
+
+    resolver = RefResolver.from_schema(store)
+
+    bundle(schema, resolver, inline_recursive=True)
+
+
+def test_bundle_oneof_with_self_ref_picks_non_recursive_branch():
+    # `oneOf` with a non-recursive variant alongside a self-`$ref` is breakable.
+    schema = {"$ref": "#/definitions/configItemsType"}
+    store = {
+        "definitions": {
+            "simpleConfigType": {"type": "string"},
+            "configItemsType": {
+                "type": "object",
+                "required": ["type"],
+                "properties": {
+                    "type": {
+                        "oneOf": [
+                            {"$ref": "#/definitions/simpleConfigType"},
+                            {"$ref": "#/definitions/configItemsType"},
+                        ]
+                    }
+                },
+            },
+        }
+    }
+
+    resolver = RefResolver.from_schema(store)
+
+    bundle(schema, resolver, inline_recursive=True)
+
+
+def test_bundle_allof_with_self_ref_drops_trivial_self_constraint():
+    # A self-`$ref` in the schema's own top-level `allOf` is trivially satisfied,
+    # so it should not turn the schema into an unbreakable cycle.
+    schema = {"$ref": "#/definitions/Node"}
+    store = {
+        "definitions": {
+            "Node": {
+                "type": "object",
+                "allOf": [
+                    {"$ref": "#/definitions/Node"},
+                    {"properties": {"name": {"type": "string"}}},
+                ],
+            },
+        }
+    }
+
+    resolver = RefResolver.from_schema(store)
+
+    bundle(schema, resolver, inline_recursive=True)
+
+
+def test_bundle_mutual_cycle_through_pattern_properties_is_breakable():
+    # Mutual cycle terminated by an empty object that satisfies `patternProperties`
+    # (no `minProperties`) and an `oneOf` branch that doesn't recurse.
+    schema = {"$ref": "#/definitions/KitNode"}
+    store = {
+        "definitions": {
+            "KitNode": {
+                "oneOf": [
+                    {"$ref": "#/definitions/KitContainer"},
+                    {"$ref": "#/definitions/KitItem"},
+                ]
+            },
+            "KitContainer": {
+                "type": "object",
+                "required": ["children"],
+                "properties": {
+                    "children": {
+                        "type": "object",
+                        "patternProperties": {".*": {"$ref": "#/definitions/KitNode"}},
+                        "additionalProperties": False,
+                    },
+                },
+                "additionalProperties": False,
+            },
+            "KitItem": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "additionalProperties": False,
+            },
+        }
+    }
+
+    resolver = RefResolver.from_schema(store)
+
+    bundle(schema, resolver, inline_recursive=True)
+
+
+def test_unbundle_decodes_pointer_escaping_in_definition_names():
+    # Definition name with a literal `/` is encoded as `~1` in the URI fragment.
+    # Unbundling should recover the original key, not the encoded form.
+    name_to_uri = {"schema1": "#/definitions/User~1Profile"}
+    bundled = {
+        "$ref": "#/x-bundled/schema1",
+        BUNDLE_STORAGE_KEY: {"schema1": {"type": "object"}},
+    }
+    result = unbundle(bundled, name_to_uri)
+    assert result["components"]["schemas"] == {"User/Profile": {"type": "object"}}
+
+
+def test_unbundle_path_decodes_pointer_escaping():
+    # Path segments reconstructed from a URI fragment must be JSON-Pointer-decoded.
+    name_to_uri = {"schema1": "#/definitions/User~1Profile"}
+    assert unbundle_path([BUNDLE_STORAGE_KEY, "schema1", "properties", "id"], name_to_uri) == [
+        "definitions",
+        "User/Profile",
+        "properties",
+        "id",
+    ]

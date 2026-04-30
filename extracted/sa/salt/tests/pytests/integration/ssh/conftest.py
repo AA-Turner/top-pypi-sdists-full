@@ -60,44 +60,6 @@ def _auto_skip_on_buggy_openssh(grains):
         pass
 
 
-@pytest.fixture(scope="package", autouse=True)
-def _auto_skip_on_buggy_openssh(grains):
-    """
-    Skip SSH tests on systems with buggy OpenSSH versions that break salt-ssh.
-
-    Photon OS 5 version 9.3p2-18 has a bug that causes
-    "vdollar_percent_expand: NULL replacement for token n" errors
-    when using the User config option that salt-ssh depends on.
-    """
-    if not grains["osfinger"].startswith("VMware Photon OS-5"):
-        return
-
-    import subprocess  # pylint: disable=import-outside-toplevel
-
-    try:
-        result = subprocess.run(
-            ["rpm", "-q", "openssh-server"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        installed_version = result.stdout.strip()
-
-        # Check for the specific buggy version
-        if installed_version in [
-            "openssh-server-9.3p2-18.ph5.x86_64",
-            "openssh-server-9.3p2-18.ph5.aarch64",
-        ]:
-            pytest.skip(
-                f"Photon OS OpenSSH {installed_version} has a bug that breaks salt-ssh. "
-                "See: https://github.com/saltstack/salt/issues/xxxxx"
-            )
-    except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
-        # If we can't check the version, don't skip
-        pass
-
-
 @pytest.fixture(autouse=True)
 def _reap_stray_processes():
     # when tests timeout, we migth leave child processes behind
@@ -147,19 +109,23 @@ def state_tree_dir(base_env_state_tree_root_dir):
     State tree with files to test salt-ssh
     when the map.jinja file is in another directory
     """
+    # Remove unused import from top file to avoid salt-ssh file sync issues
+    # Use "testdir" instead of "test" to avoid conflicts with state_tree fixture
     top_file = """
-    {%- from "test/map.jinja" import abc with context %}
     base:
       'localhost':
-        - test
+        - testdir
       '127.0.0.1':
-        - test
+        - testdir
     """
     map_file = """
     {%- set abc = "def" %}
     """
+    # State file imports from subdirectory - this is what we're testing
+    # Use "subdir/" instead of "test/" to avoid potential conflicts with
+    # salt's built-in "test" module namespace.
     state_file = """
-    {%- from "test/map.jinja" import abc with context %}
+    {%- from "subdir/map.jinja" import abc with context %}
 
     Ok with {{ abc }}:
       test.succeed_without_changes
@@ -168,10 +134,11 @@ def state_tree_dir(base_env_state_tree_root_dir):
         "top.sls", top_file, base_env_state_tree_root_dir
     )
     map_tempfile = pytest.helpers.temp_file(
-        "test/map.jinja", map_file, base_env_state_tree_root_dir
+        "subdir/map.jinja", map_file, base_env_state_tree_root_dir
     )
+    # Use testdir.sls to avoid collision with state_tree's test.sls
     state_tempfile = pytest.helpers.temp_file(
-        "test.sls", state_file, base_env_state_tree_root_dir
+        "testdir.sls", state_file, base_env_state_tree_root_dir
     )
 
     with top_tempfile, map_tempfile, state_tempfile:

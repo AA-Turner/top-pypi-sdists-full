@@ -15,12 +15,13 @@
 """  # noqa: E501
 
 
-__version__ = "23.0.0"
+__version__ = "23.1.0"
 
 # Define package exports
 __all__ = [
     "CallsApi",
     "ConferencesApi",
+    "EndpointsApi",
     "MFAApi",
     "MediaApi",
     "MessagesApi",
@@ -47,6 +48,10 @@ __all__ = [
     "BlockedWebhook",
     "BridgeCompleteCallback",
     "BridgeTargetCompleteCallback",
+    "BrtcError",
+    "BrtcErrorResponse",
+    "BrtcErrorSource",
+    "BrtcLink",
     "BusinessEntityTypeEnum",
     "BusinessRegistrationTypeEnum",
     "CallDirectionEnum",
@@ -78,15 +83,28 @@ __all__ = [
     "CreateAsyncBulkLookupResponseData",
     "CreateCall",
     "CreateCallResponse",
+    "CreateEndpointRequestBase",
+    "CreateEndpointResponse",
+    "CreateEndpointResponseData",
     "CreateMessageRequestError",
     "CreateMultiChannelMessageResponse",
     "CreateSyncLookupResponse",
     "CreateSyncLookupResponseData",
+    "CreateWebRtcConnectionRequest",
     "DeactivationEventEnum",
+    "Device",
+    "DeviceStatusEnum",
     "DisconnectCallback",
     "Diversion",
     "DtmfCallback",
-    "Error",
+    "Endpoint",
+    "EndpointDirectionEnum",
+    "EndpointEvent",
+    "EndpointEventTypeEnum",
+    "EndpointResponse",
+    "EndpointStatusEnum",
+    "EndpointTypeEnum",
+    "Endpoints",
     "ErrorObject",
     "ErrorSource",
     "FailureWebhook",
@@ -105,6 +123,7 @@ __all__ = [
     "Link",
     "LinkSchema",
     "LinksObject",
+    "ListEndpointsResponse",
     "ListMessageDirectionEnum",
     "ListMessageItem",
     "LookupErrorResponse",
@@ -148,6 +167,7 @@ __all__ = [
     "MultiChannelMessageRequest",
     "MultiChannelMessageResponseData",
     "OptInWorkflow",
+    "Page",
     "PageInfo",
     "PriorityEnum",
     "ProductTypeEnum",
@@ -176,6 +196,8 @@ __all__ = [
     "RecordingTranscriptions",
     "RedirectCallback",
     "RedirectMethodEnum",
+    "SipConnectionMetadata",
+    "SipCredentials",
     "SmsMessageContent",
     "StandaloneCardOrientationEnum",
     "StatusCallback",
@@ -212,6 +234,7 @@ __all__ = [
     "VoiceCodeResponse",
     "WebhookSubscription",
     "WebhookSubscriptionBasicAuthentication",
+    "WebhookSubscriptionError",
     "WebhookSubscriptionRequestSchema",
     "WebhookSubscriptionTypeEnum",
     "WebhookSubscriptionsListBody",
@@ -220,6 +243,7 @@ __all__ = [
 # import apis into sdk package
 from bandwidth.api.calls_api import CallsApi as CallsApi
 from bandwidth.api.conferences_api import ConferencesApi as ConferencesApi
+from bandwidth.api.endpoints_api import EndpointsApi as EndpointsApi
 from bandwidth.api.mfa_api import MFAApi as MFAApi
 from bandwidth.api.media_api import MediaApi as MediaApi
 from bandwidth.api.messages_api import MessagesApi as MessagesApi
@@ -250,6 +274,10 @@ from bandwidth.models.async_lookup_request import AsyncLookupRequest as AsyncLoo
 from bandwidth.models.blocked_webhook import BlockedWebhook as BlockedWebhook
 from bandwidth.models.bridge_complete_callback import BridgeCompleteCallback as BridgeCompleteCallback
 from bandwidth.models.bridge_target_complete_callback import BridgeTargetCompleteCallback as BridgeTargetCompleteCallback
+from bandwidth.models.brtc_error import BrtcError as BrtcError
+from bandwidth.models.brtc_error_response import BrtcErrorResponse as BrtcErrorResponse
+from bandwidth.models.brtc_error_source import BrtcErrorSource as BrtcErrorSource
+from bandwidth.models.brtc_link import BrtcLink as BrtcLink
 from bandwidth.models.business_entity_type_enum import BusinessEntityTypeEnum as BusinessEntityTypeEnum
 from bandwidth.models.business_registration_type_enum import BusinessRegistrationTypeEnum as BusinessRegistrationTypeEnum
 from bandwidth.models.call_direction_enum import CallDirectionEnum as CallDirectionEnum
@@ -281,15 +309,28 @@ from bandwidth.models.create_async_bulk_lookup_response import CreateAsyncBulkLo
 from bandwidth.models.create_async_bulk_lookup_response_data import CreateAsyncBulkLookupResponseData as CreateAsyncBulkLookupResponseData
 from bandwidth.models.create_call import CreateCall as CreateCall
 from bandwidth.models.create_call_response import CreateCallResponse as CreateCallResponse
+from bandwidth.models.create_endpoint_request_base import CreateEndpointRequestBase as CreateEndpointRequestBase
+from bandwidth.models.create_endpoint_response import CreateEndpointResponse as CreateEndpointResponse
+from bandwidth.models.create_endpoint_response_data import CreateEndpointResponseData as CreateEndpointResponseData
 from bandwidth.models.create_message_request_error import CreateMessageRequestError as CreateMessageRequestError
 from bandwidth.models.create_multi_channel_message_response import CreateMultiChannelMessageResponse as CreateMultiChannelMessageResponse
 from bandwidth.models.create_sync_lookup_response import CreateSyncLookupResponse as CreateSyncLookupResponse
 from bandwidth.models.create_sync_lookup_response_data import CreateSyncLookupResponseData as CreateSyncLookupResponseData
+from bandwidth.models.create_web_rtc_connection_request import CreateWebRtcConnectionRequest as CreateWebRtcConnectionRequest
 from bandwidth.models.deactivation_event_enum import DeactivationEventEnum as DeactivationEventEnum
+from bandwidth.models.device import Device as Device
+from bandwidth.models.device_status_enum import DeviceStatusEnum as DeviceStatusEnum
 from bandwidth.models.disconnect_callback import DisconnectCallback as DisconnectCallback
 from bandwidth.models.diversion import Diversion as Diversion
 from bandwidth.models.dtmf_callback import DtmfCallback as DtmfCallback
-from bandwidth.models.error import Error as Error
+from bandwidth.models.endpoint import Endpoint as Endpoint
+from bandwidth.models.endpoint_direction_enum import EndpointDirectionEnum as EndpointDirectionEnum
+from bandwidth.models.endpoint_event import EndpointEvent as EndpointEvent
+from bandwidth.models.endpoint_event_type_enum import EndpointEventTypeEnum as EndpointEventTypeEnum
+from bandwidth.models.endpoint_response import EndpointResponse as EndpointResponse
+from bandwidth.models.endpoint_status_enum import EndpointStatusEnum as EndpointStatusEnum
+from bandwidth.models.endpoint_type_enum import EndpointTypeEnum as EndpointTypeEnum
+from bandwidth.models.endpoints import Endpoints as Endpoints
 from bandwidth.models.error_object import ErrorObject as ErrorObject
 from bandwidth.models.error_source import ErrorSource as ErrorSource
 from bandwidth.models.failure_webhook import FailureWebhook as FailureWebhook
@@ -308,6 +349,7 @@ from bandwidth.models.line_type_enum import LineTypeEnum as LineTypeEnum
 from bandwidth.models.link import Link as Link
 from bandwidth.models.link_schema import LinkSchema as LinkSchema
 from bandwidth.models.links_object import LinksObject as LinksObject
+from bandwidth.models.list_endpoints_response import ListEndpointsResponse as ListEndpointsResponse
 from bandwidth.models.list_message_direction_enum import ListMessageDirectionEnum as ListMessageDirectionEnum
 from bandwidth.models.list_message_item import ListMessageItem as ListMessageItem
 from bandwidth.models.lookup_error_response import LookupErrorResponse as LookupErrorResponse
@@ -351,6 +393,7 @@ from bandwidth.models.multi_channel_message_content import MultiChannelMessageCo
 from bandwidth.models.multi_channel_message_request import MultiChannelMessageRequest as MultiChannelMessageRequest
 from bandwidth.models.multi_channel_message_response_data import MultiChannelMessageResponseData as MultiChannelMessageResponseData
 from bandwidth.models.opt_in_workflow import OptInWorkflow as OptInWorkflow
+from bandwidth.models.page import Page as Page
 from bandwidth.models.page_info import PageInfo as PageInfo
 from bandwidth.models.priority_enum import PriorityEnum as PriorityEnum
 from bandwidth.models.product_type_enum import ProductTypeEnum as ProductTypeEnum
@@ -379,6 +422,8 @@ from bandwidth.models.recording_transcription_metadata import RecordingTranscrip
 from bandwidth.models.recording_transcriptions import RecordingTranscriptions as RecordingTranscriptions
 from bandwidth.models.redirect_callback import RedirectCallback as RedirectCallback
 from bandwidth.models.redirect_method_enum import RedirectMethodEnum as RedirectMethodEnum
+from bandwidth.models.sip_connection_metadata import SipConnectionMetadata as SipConnectionMetadata
+from bandwidth.models.sip_credentials import SipCredentials as SipCredentials
 from bandwidth.models.sms_message_content import SmsMessageContent as SmsMessageContent
 from bandwidth.models.standalone_card_orientation_enum import StandaloneCardOrientationEnum as StandaloneCardOrientationEnum
 from bandwidth.models.status_callback import StatusCallback as StatusCallback
@@ -415,6 +460,7 @@ from bandwidth.models.voice_api_error import VoiceApiError as VoiceApiError
 from bandwidth.models.voice_code_response import VoiceCodeResponse as VoiceCodeResponse
 from bandwidth.models.webhook_subscription import WebhookSubscription as WebhookSubscription
 from bandwidth.models.webhook_subscription_basic_authentication import WebhookSubscriptionBasicAuthentication as WebhookSubscriptionBasicAuthentication
+from bandwidth.models.webhook_subscription_error import WebhookSubscriptionError as WebhookSubscriptionError
 from bandwidth.models.webhook_subscription_request_schema import WebhookSubscriptionRequestSchema as WebhookSubscriptionRequestSchema
 from bandwidth.models.webhook_subscription_type_enum import WebhookSubscriptionTypeEnum as WebhookSubscriptionTypeEnum
 from bandwidth.models.webhook_subscriptions_list_body import WebhookSubscriptionsListBody as WebhookSubscriptionsListBody

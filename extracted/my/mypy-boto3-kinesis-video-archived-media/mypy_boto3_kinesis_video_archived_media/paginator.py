@@ -3,7 +3,7 @@ Type annotations for kinesis-video-archived-media service client paginators.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis_video_archived_media/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

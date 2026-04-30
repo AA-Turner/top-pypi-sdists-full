@@ -13,8 +13,6 @@ from ..publishing.models import LearningPackage
 from ..subsections.models import Subsection, SubsectionVersion
 from .models import Section, SectionVersion
 
-# 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
-#              out our approach to dynamic content (randomized, A/B tests, etc.)
 __all__ = [
     "get_section",
     "create_section_and_version",
@@ -93,7 +91,6 @@ def create_next_section_version(
 @dataclass(frozen=True)
 class SectionListEntry:
     """
-    [ 🛑 UNSTABLE ]
     Data about a single subsection in a section.
     """
 
@@ -111,7 +108,6 @@ def get_subsections_in_section(
     published: bool,
 ) -> list[SectionListEntry]:
     """
-    [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft or published
     version of the given Section.
 

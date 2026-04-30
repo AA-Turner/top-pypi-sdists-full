@@ -6,11 +6,13 @@ import ipaddress
 import math
 import uuid
 from datetime import date, datetime, time, timedelta
-from typing import List, Type, Union, cast
+from typing import List, Type, Union, cast, get_args, get_origin
 
-import dateutil.parser
-import isodate
-from typing_extensions import get_args, get_origin
+from chalk_rs import duration_isoformat as _duration_isoformat
+from chalk_rs import parse_datetime as _parse_datetime
+from chalk_rs import parse_iso_date as _parse_iso_date
+from chalk_rs import parse_iso_duration as _parse_iso_duration
+from chalk_rs import parse_iso_time as _parse_iso_time
 
 try:
     from pydantic.v1 import BaseModel
@@ -47,7 +49,7 @@ def unstructure_primitive_to_json(val: TPrimitive, encode_structs_as_objects: bo
     if isinstance(val, time):
         return val.isoformat()
     if isinstance(val, timedelta):
-        return isodate.duration_isoformat(val)
+        return _duration_isoformat(val)
     if isinstance(val, bytes):
         return base64.b64encode(val).decode("utf8")
     if isinstance(val, dict):
@@ -138,7 +140,7 @@ def structure_json_to_primitive(val: Union[TJSON, TPrimitive], typ: Type[TPrimit
             raise TypeError(
                 f"Datetime values must be serialized as ISO strings. Instead, received value '{val}' of type `{type(val).__name__}`"
             )
-        return dateutil.parser.parse(val)
+        return _parse_datetime(val)
 
     if isinstance(typ, type) and issubclass(typ, date) and not issubclass(typ, datetime):
         if isinstance(val, datetime):
@@ -149,7 +151,7 @@ def structure_json_to_primitive(val: Union[TJSON, TPrimitive], typ: Type[TPrimit
             raise TypeError(
                 f"Date values must be serialized as ISO strings. Instead, received value '{val}' of type `{type(val).__name__}`"
             )
-        return isodate.parse_date(val)
+        return _parse_iso_date(val)
 
     if typ is time:
         if isinstance(val, time):
@@ -158,7 +160,7 @@ def structure_json_to_primitive(val: Union[TJSON, TPrimitive], typ: Type[TPrimit
             raise TypeError(
                 f"Time values must be serialized as ISO strings. Instead, received value '{val}' of type `{type(val).__name__}`"
             )
-        return isodate.parse_time(val)
+        return _parse_iso_time(val)
 
     if typ is timedelta:
         if isinstance(val, timedelta):
@@ -167,7 +169,7 @@ def structure_json_to_primitive(val: Union[TJSON, TPrimitive], typ: Type[TPrimit
             raise TypeError(
                 f"Timedelta values should be serialized as strings. Instead, received value '{val}' of type `{type(val).__name__}`"
             )
-        return isodate.parse_duration(val)
+        return _parse_iso_duration(val)
 
     if typ is bytes:
         if isinstance(val, str):

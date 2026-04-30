@@ -14,7 +14,7 @@ from schemathesis.config import GenerationConfig
 from schemathesis.core import NOT_SET, NotSet
 from schemathesis.core.adapter import OperationParameter
 from schemathesis.core.errors import InvalidSchema
-from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, BundleError, Bundler
+from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, BundleError, Bundler, make_validator
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, BundleCache
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject
 from schemathesis.core.parameters import HEADER_LOCATIONS, ParameterLocation
@@ -101,7 +101,12 @@ def build_hybrid_strategy(
         # Always generate base values first, then overlay captured values.
         # This ensures parameters without resource requirements (like `file_name`)
         # still get generated values while resource-linked params use captured data.
-        base = draw(original_strategy) or {}
+        base = draw(original_strategy)
+
+        # Captured variants are partial dict overrides; meaningful only when the base is a dict.
+        # Schemas without `type: object` can produce scalars/lists — leave those untouched.
+        if not isinstance(base, dict):
+            return base
 
         # Single variant: no selection needed
         if n_variants == 1:
@@ -161,7 +166,13 @@ def _bias_path_integers_to_positive(params: dict[str, Any], random: Random) -> d
     """
     result = {}
     for key, value in params.items():
-        if isinstance(value, int) and value <= 0 and random.random() < PATH_INTEGER_POSITIVE_BIAS:
+        # `bool` is a subclass of `int`; without excluding it `False` would be rewritten to `1`.
+        if (
+            isinstance(value, int)
+            and not isinstance(value, bool)
+            and value <= 0
+            and random.random() < PATH_INTEGER_POSITIVE_BIAS
+        ):
             # Convert to positive: 0 -> 1, negative -> abs(value) or 1
             result[key] = max(1, abs(value))
         else:
@@ -182,6 +193,19 @@ def build_positive_biased_path_strategy(strategy: st.SearchStrategy) -> st.Searc
         return _bias_path_integers_to_positive(params, random)
 
     return biased()
+
+
+def filter_schema_valid_examples(examples: list[Any], schema: Any, validator_cls: type) -> list[Any]:
+    """Drop examples that don't conform to the given schema; real-world specs often disagree."""
+    if not examples:
+        return examples
+    from schemathesis.specs.openapi.examples import _example_is_valid
+
+    try:
+        validator = make_validator(schema, validator_cls)
+    except Exception:
+        return examples
+    return [ex for ex in examples if _example_is_valid(ex, validator)]
 
 
 def build_example_aware_strategy(
@@ -300,7 +324,10 @@ class OpenApiComponent(ABC):
 
     @property
     def validation_schema(self) -> JsonSchema:
-        """JSON schema for conformance validation — resolved but without generation-specific type injection."""
+        """JSON schema for conformance validation — resolved but without generation-specific type injection.
+
+        Keeps `prefixItems` intact so `Draft202012Validator` accepts the schema during construction.
+        """
         if self._validation_schema is NOT_SET:
             self._validation_schema = to_json_schema(
                 self.raw_schema,
@@ -309,6 +336,7 @@ class OpenApiComponent(ABC):
                 upgrade_legacy_exclusive_bounds=(
                     self.adapter.jsonschema_validator_cls is jsonschema_rs.Draft202012Validator
                 ),
+                convert_prefix_items=False,
                 name_to_uri=self.name_to_uri,
             )
         assert not isinstance(self._validation_schema, NotSet)
@@ -627,7 +655,11 @@ class OpenApiBody(OpenApiComponent):
         # Mix in schema examples for positive mode (20% example, 80% generated)
         # Skip during EXAMPLES phase since examples are handled separately there
         if mix_examples and generation_mode == GenerationMode.POSITIVE:
-            strategy_examples = self._get_strategy_examples(operation)
+            strategy_examples = filter_schema_valid_examples(
+                self._get_strategy_examples(operation),
+                self.validation_schema,
+                self.adapter.jsonschema_validator_cls,
+            )
             if strategy_examples:
                 strategy = build_example_aware_strategy(strategy, strategy_examples)
 
@@ -1024,27 +1056,28 @@ class OpenApiParameterSet(ParameterSet):
         if exclude_key in self._schema_cache:
             return self._schema_cache[exclude_key]
 
-        schema = self.schema
-        if exclude_key:
-            # Need to exclude some parameters - create a shallow copy to avoid mutating cached schema
-            schema = dict(schema)
-            if self.location == ParameterLocation.HEADER:
-                # Remove excluded headers case-insensitively
-                exclude_lower = {name.lower() for name in exclude_key}
-                schema["properties"] = {
-                    key: value for key, value in schema["properties"].items() if key.lower() not in exclude_lower
-                }
-                if "required" in schema:
-                    schema["required"] = [key for key in schema["required"] if key.lower() not in exclude_lower]
-            else:
-                # Non-header locations: remove by exact name
-                schema["properties"] = {
-                    key: value for key, value in schema["properties"].items() if key not in exclude_key
-                }
-                if "required" in schema:
-                    schema["required"] = [key for key in schema["required"] if key not in exclude_key]
-
+        schema = self._apply_exclusions(self.schema, exclude_key)
         self._schema_cache[exclude_key] = schema
+        return schema
+
+    def _apply_exclusions(self, base: dict[str, Any], exclude_key: frozenset[str]) -> dict[str, Any]:
+        if not exclude_key:
+            return base
+        # Need to exclude some parameters - create a shallow copy to avoid mutating cached schema
+        schema = dict(base)
+        if self.location == ParameterLocation.HEADER:
+            # Remove excluded headers case-insensitively
+            exclude_lower = {name.lower() for name in exclude_key}
+            schema["properties"] = {
+                key: value for key, value in schema["properties"].items() if key.lower() not in exclude_lower
+            }
+            if "required" in schema:
+                schema["required"] = [key for key in schema["required"] if key.lower() not in exclude_lower]
+        else:
+            # Non-header locations: remove by exact name
+            schema["properties"] = {key: value for key, value in schema["properties"].items() if key not in exclude_key}
+            if "required" in schema:
+                schema["required"] = [key for key in schema["required"] if key not in exclude_key]
         return schema
 
     def get_strategy(
@@ -1115,6 +1148,12 @@ class OpenApiParameterSet(ParameterSet):
             strategy = st.none()
         else:
             assert isinstance(operation.schema, OpenApiSchema)
+            # Negative filter needs `prefixItems` intact so `Draft202012Validator` can be constructed.
+            validation_schema_obj: JsonSchema | None = None
+            if strategy_factory is make_negative_strategy:
+                validation_schema_obj = self._apply_exclusions(
+                    parameters_to_validation_schema(self.items, self.location), exclude_key
+                )
             strategy = strategy_factory(
                 schema_obj,
                 operation.label,
@@ -1123,6 +1162,7 @@ class OpenApiParameterSet(ParameterSet):
                 generation_config,
                 operation.schema.adapter.jsonschema_validator_cls,
                 self.name_to_uri,
+                validation_schema=validation_schema_obj,
             )
 
             # For negative strategies, we need to handle GeneratedValue wrappers
@@ -1132,10 +1172,14 @@ class OpenApiParameterSet(ParameterSet):
             # Must be applied BEFORE serialization so examples go through the same transformations
             # Skip during EXAMPLES phase since examples are handled separately there
             if mix_examples and not is_negative:
+                validator_cls = operation.schema.adapter.jsonschema_validator_cls
                 parameter_examples: dict[str, list[Any]] = {}
                 for param in self.items:
-                    if param.name not in exclude_key and param.examples:
-                        parameter_examples[param.name] = param.examples
+                    if param.name in exclude_key or not param.examples:
+                        continue
+                    valid = filter_schema_valid_examples(param.examples, param.validation_schema, validator_cls)
+                    if valid:
+                        parameter_examples[param.name] = valid
                 if parameter_examples:
                     strategy = build_parameter_example_aware_strategy(strategy, parameter_examples)
 
@@ -1271,13 +1315,24 @@ def parameters_to_json_schema(parameters: Iterable[OpenApiParameter], location: 
     return _merge_parameters_to_object_schema(parameter_data, location)
 
 
+def parameters_to_validation_schema(
+    parameters: Iterable[OpenApiParameter], location: ParameterLocation
+) -> dict[str, Any]:
+    """Merge parameters' validation schemas — `prefixItems` intact, suitable for Draft 2020-12 validators."""
+    parameter_data = ((param.name, param.validation_schema, param.is_required) for param in parameters)
+
+    return _merge_parameters_to_object_schema(parameter_data, location)
+
+
 def _merge_parameters_to_object_schema(
     parameters: Iterable[tuple[str, Any, bool]], location: ParameterLocation
 ) -> dict[str, Any]:
     """Merge parameter data into a JSON Schema object."""
-    properties = {}
-    required = []
-    bundled = {}
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+    bundled: dict[str, Any] = {}
+    # HTTP header names are case-insensitive — collapse duplicates onto the first-seen casing.
+    canonical_by_lower: dict[str, str] = {}
 
     for name, subschema, is_required in parameters:
         # Extract bundled data if present
@@ -1299,6 +1354,15 @@ def _merge_parameters_to_object_schema(
             elif location == ParameterLocation.PATH and subschema.get("type") == "string":
                 if "minLength" not in subschema:
                     subschema = {**subschema, "minLength": 1}
+
+        if location.is_in_header:
+            canonical = canonical_by_lower.setdefault(name.lower(), name)
+            if canonical != name:
+                # Same header under different case — first definition wins.
+                if (location == ParameterLocation.PATH or is_required) and canonical not in required:
+                    required.append(canonical)
+                continue
+            name = canonical
 
         properties[name] = subschema
 

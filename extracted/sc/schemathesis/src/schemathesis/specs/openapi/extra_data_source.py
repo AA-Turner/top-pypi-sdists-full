@@ -8,11 +8,13 @@ from typing import TYPE_CHECKING, Any, TypeAlias
 import jsonschema_rs
 
 from schemathesis.core import NOT_SET, deserialization
+from schemathesis.core.jsonschema import make_validator, schema_with_bundle
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.parameters import ParameterLocation
+from schemathesis.generation import GenerationMode
 from schemathesis.resources import ExtraDataSource
-from schemathesis.resources.repository import ResourceRepository
-from schemathesis.specs.openapi.stateful.dependencies.models import DependencyGraph
+from schemathesis.resources.repository import ResourceInstance, ResourceRepository
+from schemathesis.specs.openapi.stateful.dependencies.models import DependencyGraph, InputSlot
 
 if TYPE_CHECKING:
     from random import Random
@@ -114,6 +116,18 @@ class VariantUsageTracker:
 
         return recency_weight * delete_weight
 
+    def argmax_by_weight(self, variant_keys: list[str]) -> int:
+        """Return the index of the highest-weight variant; ties broken by lowest index."""
+        with self._lock:
+            weights = [self._get_weight_unlocked(k) for k in variant_keys]
+        best_idx = 0
+        best_weight = weights[0]
+        for i in range(1, len(weights)):
+            if weights[i] > best_weight:
+                best_idx = i
+                best_weight = weights[i]
+        return best_idx
+
     def record_draw(self, variant_key: str) -> None:
         """Record that a variant was drawn, advancing the global step."""
         with self._lock:
@@ -156,22 +170,64 @@ def build_parameter_requirements(graph: DependencyGraph) -> dict[RequirementKey,
     return requirements
 
 
+def build_inputs_by_label(graph: DependencyGraph) -> dict[str, list[InputSlot]]:
+    """Index input slots by operation label for runtime lookup.
+
+    Only operations with at least one resource-bound slot are recorded; this
+    keeps the dict small and lets `should_record_request` short-circuit cheaply.
+    """
+    inputs_by_label: dict[str, list[InputSlot]] = {}
+    for label, operation in graph.operations.items():
+        slots = [slot for slot in operation.inputs if slot.resource_field is not None]
+        if slots:
+            inputs_by_label[label] = slots
+    return inputs_by_label
+
+
+def _variant_satisfies(variant: dict[str, Any], validators: dict[str, jsonschema_rs.Validator | None]) -> bool:
+    for name, value in variant.items():
+        validator = validators.get(name)
+        if validator is None:
+            continue
+        try:
+            if not validator.is_valid(value):
+                return False
+        except Exception:
+            continue
+    return True
+
+
+def _build_property_validator(
+    prop_schema: Any, container_schema: Any, validator_cls: type
+) -> jsonschema_rs.Validator | None:
+    """Validator for a single property, splicing the container's `x-bundled` for `$ref` resolution."""
+    if not isinstance(prop_schema, dict):
+        return None
+    try:
+        return make_validator(schema_with_bundle(prop_schema, container_schema), validator_cls)
+    except Exception:
+        return None
+
+
 @dataclass(slots=True)
 class OpenApiExtraDataSource(ExtraDataSource):
     """Provides extra data from captured API responses to augment parameter schemas."""
 
     repository: ResourceRepository
     requirements: dict[RequirementKey, ParameterRequirement]
+    inputs_by_label: dict[str, list[InputSlot]]
     usage_tracker: VariantUsageTracker
 
     def __init__(
         self,
         repository: ResourceRepository,
         requirements: dict[RequirementKey, ParameterRequirement],
+        inputs_by_label: dict[str, list[InputSlot]] | None = None,
         usage_tracker: VariantUsageTracker | None = None,
     ) -> None:
         self.repository = repository
         self.requirements = requirements
+        self.inputs_by_label = inputs_by_label if inputs_by_label is not None else {}
         self.usage_tracker = usage_tracker if usage_tracker is not None else VariantUsageTracker()
 
     def get_captured_variants(
@@ -207,13 +263,23 @@ class OpenApiExtraDataSource(ExtraDataSource):
         # Single requirement: return simple single-property variants
         if len(property_requirements) == 1:
             name, requirement = next(iter(property_requirements.items()))
-            values = self._collect_values(requirement)
-            if not values:
-                return None
-            return [{name: value} for value in values]
+            variants = [{name: value} for value in self._collect_values(requirement)]
+        else:
+            # Multiple requirements: return complete object variants preserving relationships
+            variants = self._collect_object_variants(property_requirements)
 
-        # Multiple requirements: return complete object variants preserving relationships
-        return self._collect_object_variants(property_requirements) or None
+        # Drop variants whose values violate the destination schema (e.g. producer's `id: 0`
+        # leaking into a consumer with `minimum: 1`).
+        from schemathesis.specs.openapi.schemas import OpenApiSchema
+
+        assert isinstance(operation.schema, OpenApiSchema)
+        validator_cls = operation.schema.adapter.jsonschema_validator_cls
+        validators = {
+            name: _build_property_validator(properties.get(name), schema, validator_cls)
+            for name in property_requirements
+        }
+        variants = [v for v in variants if _variant_satisfies(v, validators)]
+        return variants or None
 
     def _collect_object_variants(self, requirements: dict[str, ParameterRequirement]) -> list[dict[str, Any]]:
         """Collect complete value sets that preserve relationships between properties."""
@@ -277,9 +343,118 @@ class OpenApiExtraDataSource(ExtraDataSource):
 
         return values
 
+    def pick_captured_value(
+        self,
+        *,
+        operation: APIOperation,
+        location: ParameterLocation,
+        name: str,
+    ) -> Any | None:
+        """Return one weighted-selected pool value for a resource-bound parameter, or None."""
+        requirement = self.requirements.get((operation.label, location, name))
+        if requirement is None:
+            return None
+        candidates: list[tuple[ResourceInstance, Any]] = []
+        for instance in self.repository.iter_instances(requirement.resource_name):
+            value = instance.data.get(requirement.resource_field)
+            if value is not None:
+                candidates.append((instance, value))
+        if not candidates:
+            return None
+        variant_keys = [jsonschema_rs.canonical.json.to_string(instance.data) for instance, _ in candidates]
+        idx = self.usage_tracker.argmax_by_weight(variant_keys)
+        self.usage_tracker.record_draw(variant_keys[idx])
+        return candidates[idx][1]
+
+    def pick_correlated_values(
+        self,
+        *,
+        operation: APIOperation,
+    ) -> dict[tuple[ParameterLocation, str], Any]:
+        """Return one (location, name) -> value map keeping all resource-bound slots correlated, or {}."""
+        slots: list[InputSlot] = []
+        for slot in self.inputs_by_label.get(operation.label, ()):
+            if slot.resource_field is None or not isinstance(slot.parameter_name, str):
+                continue
+            slots.append(slot)
+        if not slots:
+            return {}
+
+        resource_names = {slot.resource.name for slot in slots}
+        satisfying: list[tuple[ResourceInstance, dict[tuple[ParameterLocation, str], Any]]] = []
+
+        for resource_name in resource_names:
+            for instance in self.repository.iter_instances(resource_name):
+                filled: dict[tuple[ParameterLocation, str], Any] = {}
+                for slot in slots:
+                    param_name = slot.parameter_name
+                    resource_field = slot.resource_field
+                    assert isinstance(param_name, str)
+                    assert resource_field is not None
+                    if slot.resource.name == resource_name:
+                        value = instance.data.get(resource_field)
+                    else:
+                        value = instance.context.get(param_name)
+                    if value is None:
+                        break
+                    filled[(slot.parameter_location, param_name)] = value
+                else:
+                    satisfying.append((instance, filled))
+
+        if satisfying:
+            variant_keys = [jsonschema_rs.canonical.json.to_string(inst.data) for inst, _ in satisfying]
+            idx = self.usage_tracker.argmax_by_weight(variant_keys)
+            self.usage_tracker.record_draw(variant_keys[idx])
+            return satisfying[idx][1]
+
+        result: dict[tuple[ParameterLocation, str], Any] = {}
+        for slot in slots:
+            param_name = slot.parameter_name
+            assert isinstance(param_name, str)
+            value = self.pick_captured_value(
+                operation=operation,
+                location=slot.parameter_location,
+                name=param_name,
+            )
+            if value is not None:
+                result[(slot.parameter_location, param_name)] = value
+        return result
+
     def should_record(self, *, operation: str) -> bool:
         """Check if responses should be recorded for this operation."""
         return bool(self.repository.descriptors_for_operation(operation))
+
+    def should_record_request(self, *, operation: str) -> bool:
+        """Check if request inputs should be captured for this operation."""
+        return operation in self.inputs_by_label
+
+    def record_request(
+        self,
+        *,
+        operation: APIOperation,
+        case: Case,
+        status_code: int,
+    ) -> None:
+        """Capture path-parameter and body-field values from a successful request."""
+        slots = self.inputs_by_label.get(operation.label)
+        if not slots:
+            return
+        if case.meta is not None:
+            slots = [
+                slot
+                for slot in slots
+                if (component := case.meta.components.get(slot.parameter_location)) is None
+                or component.mode == GenerationMode.POSITIVE
+            ]
+            if not slots:
+                return
+        self.repository.record_request(
+            operation=operation.label,
+            inputs=slots,
+            case=case,
+            status_code=status_code,
+            context=case.path_parameters or {},
+        )
 
     def record_response(
         self,

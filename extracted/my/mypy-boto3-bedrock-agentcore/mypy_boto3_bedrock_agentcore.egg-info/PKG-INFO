@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-bedrock-agentcore
-Version: 1.42.94
-Summary: Type annotations for boto3 BedrockAgentCore 1.42.94 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.0
+Summary: Type annotations for boto3 BedrockAgentCore 1.43.0 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 BedrockAgentCore 1.42.94](https://pypi.org/project/boto3/) compatible
+[boto3 BedrockAgentCore 1.43.0](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.94' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.0' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `BedrockAgentCore` service.
 4. Use provided commands to install generated packages.
@@ -341,10 +341,13 @@ from boto3.session import Session
 
 from mypy_boto3_bedrock_agentcore import BedrockAgentCoreClient
 from mypy_boto3_bedrock_agentcore.paginator import (
+    ListABTestsPaginator,
     ListActorsPaginator,
+    ListBatchEvaluationsPaginator,
     ListEventsPaginator,
     ListMemoryExtractionJobsPaginator,
     ListMemoryRecordsPaginator,
+    ListRecommendationsPaginator,
     ListSessionsPaginator,
     RetrieveMemoryRecordsPaginator,
 )
@@ -353,13 +356,20 @@ client: BedrockAgentCoreClient = Session().client("bedrock-agentcore")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+list_ab_tests_paginator: ListABTestsPaginator = client.get_paginator("list_ab_tests")
 list_actors_paginator: ListActorsPaginator = client.get_paginator("list_actors")
+list_batch_evaluations_paginator: ListBatchEvaluationsPaginator = client.get_paginator(
+    "list_batch_evaluations"
+)
 list_events_paginator: ListEventsPaginator = client.get_paginator("list_events")
 list_memory_extraction_jobs_paginator: ListMemoryExtractionJobsPaginator = client.get_paginator(
     "list_memory_extraction_jobs"
 )
 list_memory_records_paginator: ListMemoryRecordsPaginator = client.get_paginator(
     "list_memory_records"
+)
+list_recommendations_paginator: ListRecommendationsPaginator = client.get_paginator(
+    "list_recommendations"
 )
 list_sessions_paginator: ListSessionsPaginator = client.get_paginator("list_sessions")
 retrieve_memory_records_paginator: RetrieveMemoryRecordsPaginator = client.get_paginator(
@@ -378,10 +388,10 @@ Full list of `BedrockAgentCore` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/literals/).
 
 ```python
-from mypy_boto3_bedrock_agentcore.literals import AutomationStreamStatusType
+from mypy_boto3_bedrock_agentcore.literals import ABTestExecutionStatusType
 
 
-def check_value(value: AutomationStreamStatusType) -> bool: ...
+def check_value(value: ABTestExecutionStatusType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

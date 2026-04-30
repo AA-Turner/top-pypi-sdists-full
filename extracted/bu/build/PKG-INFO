@@ -1,14 +1,13 @@
 Metadata-Version: 2.4
 Name: build
-Version: 1.4.4
+Version: 1.5.0
 Summary: A simple, correct Python build frontend
 Author-email: Filipe Laíns <lains@riseup.net>, Bernát Gábor <gaborjbernat@gmail.com>, layday <layday@protonmail.com>, Henry Schreiner <henryschreineriii@gmail.com>
-Requires-Python: >= 3.9
+Requires-Python: >= 3.10
 Description-Content-Type: text/markdown
 License-Expression: MIT
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -24,7 +23,6 @@ Requires-Dist: importlib-metadata >= 4.6; python_full_version < "3.10.2"
 Requires-Dist: tomli >= 1.1.0; python_version < "3.11"
 Requires-Dist: keyring ; extra == "keyring"
 Requires-Dist: uv >= 0.1.18 ; extra == "uv"
-Requires-Dist: virtualenv >= 20.11 ; extra == "virtualenv" and ( python_version < '3.10')
 Requires-Dist: virtualenv >= 20.17 ; extra == "virtualenv" and ( python_version >= '3.10' and python_version < '3.14')
 Requires-Dist: virtualenv >= 20.31 ; extra == "virtualenv" and ( python_version >= '3.14')
 Project-URL: changelog, https://build.pypa.io/en/stable/changelog.html

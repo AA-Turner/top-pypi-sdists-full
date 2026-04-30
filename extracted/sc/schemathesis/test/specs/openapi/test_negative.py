@@ -474,6 +474,47 @@ def test_openapi_31_legacy_exclusive_bounds_in_negative_generation(ctx):
     test()
 
 
+def test_openapi_31_prefix_items_query_param_negative_generation(ctx):
+    # Draft 2020-12 `prefixItems` must not crash the negative-path validator with
+    # `items is not of types boolean, object` from meta-validation.
+    schema_dict = ctx.openapi.build_schema(
+        {
+            "/box": {
+                "parameters": [
+                    {
+                        "name": "box",
+                        "in": "query",
+                        "schema": {
+                            "type": "array",
+                            "minItems": 4,
+                            "maxItems": 4,
+                            "prefixItems": [
+                                {"type": "number", "minimum": -180.0, "maximum": 180.0},
+                                {"type": "number", "minimum": -90.0, "maximum": 90.0},
+                                {"type": "number", "minimum": -180.0, "maximum": 180.0},
+                                {"type": "number", "minimum": -90.0, "maximum": 90.0},
+                            ],
+                            "items": {"type": "number", "minimum": -180.0, "maximum": 180.0},
+                        },
+                    }
+                ],
+                "get": {"responses": {"200": {"description": "OK"}}},
+            },
+        },
+        version="3.1.0",
+    )
+
+    schema = schemathesis.openapi.from_dict(schema_dict)
+    operation = schema["/box"]["GET"]
+
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    @settings(max_examples=1, suppress_health_check=list(HealthCheck))
+    def test(case):
+        pass
+
+    test()
+
+
 @pytest.mark.hypothesis_nested
 def test_optional_query_param_negation(ctx):
     # When all query parameters are optional
@@ -887,6 +928,34 @@ def test_path_parameters_never_contain_slash():
     def test(case):
         for value in case.path_parameters.values():
             assert "/" not in unquote(str(value))
+
+    test()
+
+
+@pytest.mark.hypothesis_nested
+def test_path_boolean_param_is_not_coerced_to_int_alongside_integer_param(ctx):
+    # The integer positive-bias must not rewrite `False` into `1` for a sibling boolean param.
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/items/{id}/{flag}": {
+                "get": {
+                    "parameters": [
+                        {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}},
+                        {"name": "flag", "in": "path", "required": True, "schema": {"type": "boolean"}},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    operation = schema["/items/{id}/{flag}"]["GET"]
+
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
+    @settings(deadline=None, max_examples=100, suppress_health_check=SUPPRESSED_HEALTH_CHECKS)
+    def test(case):
+        flag = case.path_parameters["flag"]
+        assert flag in {"true", "false"}, f"boolean path param became {flag!r}"
 
     test()
 

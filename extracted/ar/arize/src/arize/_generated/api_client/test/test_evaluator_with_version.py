@@ -43,61 +43,7 @@ class TestEvaluatorWithVersion(unittest.TestCase):
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 created_by_user_id = '',
-                version = arize._generated.api_client.models.evaluator_version.EvaluatorVersion(
-                    id = '', 
-                    evaluator_id = '', 
-                    commit_hash = '', 
-                    commit_message = '', 
-                    template_config = arize._generated.api_client.models.template_config.TemplateConfig(
-                        name = '', 
-                        template = '', 
-                        include_explanations = True, 
-                        use_function_calling_if_available = True, 
-                        classification_choices = {
-                            'key' : 1.337
-                            }, 
-                        direction = 'maximize', 
-                        data_granularity = 'span', 
-                        llm_config = arize._generated.api_client.models.evaluator_llm_config.EvaluatorLlmConfig(
-                            ai_integration_id = '', 
-                            model_name = '', 
-                            invocation_parameters = arize._generated.api_client.models.invocation_params.InvocationParams(
-                                temperature = 1.337, 
-                                max_tokens = 56, 
-                                max_completion_tokens = 56, 
-                                top_p = 1.337, 
-                                frequency_penalty = 1.337, 
-                                presence_penalty = 1.337, 
-                                stop = [
-                                    ''
-                                    ], 
-                                response_format = arize._generated.api_client.models.response_format.ResponseFormat(
-                                    type = 'text', 
-                                    json_schema = arize._generated.api_client.models.response_format_json_schema.ResponseFormat_json_schema(
-                                        name = '', 
-                                        description = '', 
-                                        schema = arize._generated.api_client.models.schema.schema(), 
-                                        strict = True, ), ), 
-                                tool_config = arize._generated.api_client.models.tool_config.ToolConfig(
-                                    tools = [
-                                        None
-                                        ], 
-                                    tool_choice = null, ), ), 
-                            provider_parameters = arize._generated.api_client.models.provider_params.ProviderParams(
-                                azure_params = arize._generated.api_client.models.provider_params_azure_params.ProviderParams_azure_params(
-                                    azure_deployment_name = '', 
-                                    azure_openai_endpoint = '', 
-                                    azure_openai_version = '', ), 
-                                anthropic_headers = arize._generated.api_client.models.provider_params_anthropic_headers.ProviderParams_anthropic_headers(
-                                    anthropic_beta = [
-                                        ''
-                                        ], ), 
-                                anthropic_version = '', 
-                                bedrock_options = arize._generated.api_client.models.provider_params_bedrock_options.ProviderParams_bedrock_options(
-                                    use_converse_endpoint = True, ), 
-                                region = '', ), ), ), 
-                    created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                    created_by_user_id = '', )
+                version = None
             )
         else:
             return EvaluatorWithVersion(
@@ -108,61 +54,7 @@ class TestEvaluatorWithVersion(unittest.TestCase):
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 created_by_user_id = '',
-                version = arize._generated.api_client.models.evaluator_version.EvaluatorVersion(
-                    id = '', 
-                    evaluator_id = '', 
-                    commit_hash = '', 
-                    commit_message = '', 
-                    template_config = arize._generated.api_client.models.template_config.TemplateConfig(
-                        name = '', 
-                        template = '', 
-                        include_explanations = True, 
-                        use_function_calling_if_available = True, 
-                        classification_choices = {
-                            'key' : 1.337
-                            }, 
-                        direction = 'maximize', 
-                        data_granularity = 'span', 
-                        llm_config = arize._generated.api_client.models.evaluator_llm_config.EvaluatorLlmConfig(
-                            ai_integration_id = '', 
-                            model_name = '', 
-                            invocation_parameters = arize._generated.api_client.models.invocation_params.InvocationParams(
-                                temperature = 1.337, 
-                                max_tokens = 56, 
-                                max_completion_tokens = 56, 
-                                top_p = 1.337, 
-                                frequency_penalty = 1.337, 
-                                presence_penalty = 1.337, 
-                                stop = [
-                                    ''
-                                    ], 
-                                response_format = arize._generated.api_client.models.response_format.ResponseFormat(
-                                    type = 'text', 
-                                    json_schema = arize._generated.api_client.models.response_format_json_schema.ResponseFormat_json_schema(
-                                        name = '', 
-                                        description = '', 
-                                        schema = arize._generated.api_client.models.schema.schema(), 
-                                        strict = True, ), ), 
-                                tool_config = arize._generated.api_client.models.tool_config.ToolConfig(
-                                    tools = [
-                                        None
-                                        ], 
-                                    tool_choice = null, ), ), 
-                            provider_parameters = arize._generated.api_client.models.provider_params.ProviderParams(
-                                azure_params = arize._generated.api_client.models.provider_params_azure_params.ProviderParams_azure_params(
-                                    azure_deployment_name = '', 
-                                    azure_openai_endpoint = '', 
-                                    azure_openai_version = '', ), 
-                                anthropic_headers = arize._generated.api_client.models.provider_params_anthropic_headers.ProviderParams_anthropic_headers(
-                                    anthropic_beta = [
-                                        ''
-                                        ], ), 
-                                anthropic_version = '', 
-                                bedrock_options = arize._generated.api_client.models.provider_params_bedrock_options.ProviderParams_bedrock_options(
-                                    use_converse_endpoint = True, ), 
-                                region = '', ), ), ), 
-                    created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                    created_by_user_id = '', ),
+                version = None,
         )
         """
 

@@ -15,7 +15,7 @@ from _qwak_proto.qwak.administration.v0.environments import environment_pb2 as q
 from _qwak_proto.qwak.administration.v1.environments import environment_pb2 as qwak_dot_administration_dot_v1_dot_environments_dot_environment__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n=qwak/administration/v1/environments/environment_service.proto\x12\"qwak.administration.v1.environment\x1a\x35qwak/administration/v0/environments/environment.proto\x1a\x35qwak/administration/v1/environments/environment.proto\"\x98\x01\n\x18\x43reateEnvironmentRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x12\n\ncluster_id\x18\x02 \x01(\t\x12N\n\x04spec\x18\x03 \x01(\x0b\x32@.qwak.administration.v1.environment.EnvironmentRuntimeConfigSpec\"b\n\x19\x43reateEnvironmentResponse\x12\x45\n\x0b\x65nvironment\x18\x01 \x01(\x0b\x32\x30.qwak.administration.environment.QwakEnvironment2\xa7\x01\n\x12\x45nvironmentService\x12\x90\x01\n\x11\x43reateEnvironment\x12<.qwak.administration.v1.environment.CreateEnvironmentRequest\x1a=.qwak.administration.v1.environment.CreateEnvironmentResponseB\xb5\x01\n!com.qwak.ai.administration.v1.apiP\x01Z\x8d\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/v1/environments;environment_v1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n=qwak/administration/v1/environments/environment_service.proto\x12\"qwak.administration.v1.environment\x1a\x35qwak/administration/v0/environments/environment.proto\x1a\x35qwak/administration/v1/environments/environment.proto\"\xb8\x01\n\x18\x43reateEnvironmentRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x12\n\ncluster_id\x18\x02 \x01(\t\x12N\n\x04spec\x18\x03 \x01(\x0b\x32@.qwak.administration.v1.environment.EnvironmentRuntimeConfigSpec\x12\n\n\x02id\x18\x04 \x01(\t\x12\x12\n\naccount_id\x18\x05 \x01(\t\"b\n\x19\x43reateEnvironmentResponse\x12\x45\n\x0b\x65nvironment\x18\x01 \x01(\x0b\x32\x30.qwak.administration.environment.QwakEnvironment\"u\n\x18\x44\x65leteEnvironmentRequest\x12Y\n\x16\x65nvironment_identifier\x18\x01 \x01(\x0b\x32\x39.qwak.administration.v1.environment.EnvironmentIdentifier\"\x1b\n\x19\x44\x65leteEnvironmentResponse2\xba\x02\n\x12\x45nvironmentService\x12\x90\x01\n\x11\x43reateEnvironment\x12<.qwak.administration.v1.environment.CreateEnvironmentRequest\x1a=.qwak.administration.v1.environment.CreateEnvironmentResponse\x12\x90\x01\n\x11\x44\x65leteEnvironment\x12<.qwak.administration.v1.environment.DeleteEnvironmentRequest\x1a=.qwak.administration.v1.environment.DeleteEnvironmentResponseB\xb5\x01\n!com.qwak.ai.administration.v1.apiP\x01Z\x8d\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/v1/environments;environment_v1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -25,9 +25,13 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n!com.qwak.ai.administration.v1.apiP\001Z\215\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/v1/environments;environment_v1'
   _globals['_CREATEENVIRONMENTREQUEST']._serialized_start=212
-  _globals['_CREATEENVIRONMENTREQUEST']._serialized_end=364
-  _globals['_CREATEENVIRONMENTRESPONSE']._serialized_start=366
-  _globals['_CREATEENVIRONMENTRESPONSE']._serialized_end=464
-  _globals['_ENVIRONMENTSERVICE']._serialized_start=467
-  _globals['_ENVIRONMENTSERVICE']._serialized_end=634
+  _globals['_CREATEENVIRONMENTREQUEST']._serialized_end=396
+  _globals['_CREATEENVIRONMENTRESPONSE']._serialized_start=398
+  _globals['_CREATEENVIRONMENTRESPONSE']._serialized_end=496
+  _globals['_DELETEENVIRONMENTREQUEST']._serialized_start=498
+  _globals['_DELETEENVIRONMENTREQUEST']._serialized_end=615
+  _globals['_DELETEENVIRONMENTRESPONSE']._serialized_start=617
+  _globals['_DELETEENVIRONMENTRESPONSE']._serialized_end=644
+  _globals['_ENVIRONMENTSERVICE']._serialized_start=647
+  _globals['_ENVIRONMENTSERVICE']._serialized_end=961
 # @@protoc_insertion_point(module_scope)

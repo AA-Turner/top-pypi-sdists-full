@@ -1,24 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pycurl
-Version: 7.45.7
+Version: 7.46.0
 Summary: PycURL -- A Python Interface To The cURL library
-Home-page: http://pycurl.io/
-Author: Kjetil Jacobsen, Markus F.X.J. Oberhumer, Oleg Pudeyev
-Author-email: kjetilja@gmail.com, markus@oberhumer.com, oleg@bsdpower.com
-Maintainer: Oleg Pudeyev
-Maintainer-email: oleg@bsdpower.com
-License: LGPL/MIT
+Author-email: Kjetil Jacobsen <kjetilja@gmail.com>, "Markus F.X.J. Oberhumer" <markus@oberhumer.com>, Oleg Pudeyev <oleg@bsdpower.com>
+Maintainer-email: Oleg Pudeyev <oleg@bsdpower.com>
+License-Expression: LGPL-2.1-only OR MIT
+Project-URL: Homepage, http://pycurl.io/
+Project-URL: Documentation, http://pycurl.io/docs/latest/
+Project-URL: Source, https://github.com/pycurl/pycurl
+Project-URL: Issues, https://github.com/pycurl/pycurl/issues
+Project-URL: Changelog, https://github.com/pycurl/pycurl/blob/master/ChangeLog
 Keywords: curl,libcurl,urllib,wget,download,file transfer,http,www
-Platform: All
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -26,10 +24,13 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: File Transfer Protocol (FTP)
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.5
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: COPYING-LGPL
 License-File: COPYING-MIT
-License-File: AUTHORS
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license-file
 
 PycURL -- A Python Interface To The cURL library
 ================================================
@@ -59,7 +60,7 @@ libcurl, including:
 Requirements
 ------------
 
-- Python 3.9-3.14.
+- Python 3.10-3.14.
 - libcurl 7.19.0 or better.
 
 

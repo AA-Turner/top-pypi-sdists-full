@@ -14,7 +14,7 @@ from hypothesis_jsonschema import from_schema
 from schemathesis.config import GenerationConfig
 from schemathesis.core.compat import RefResolutionError, RefResolver
 from schemathesis.core.errors import InfiniteRecursiveReference, UnresolvableReference
-from schemathesis.core.jsonschema import is_valid
+from schemathesis.core.jsonschema import is_valid, make_validator_for
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone
@@ -24,7 +24,7 @@ from schemathesis.generation.hypothesis import examples
 from schemathesis.generation.meta import TestPhase
 from schemathesis.schemas import APIOperation
 from schemathesis.specs.openapi.adapter import OpenApiResponses
-from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameter
+from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameter, OpenApiParameterSet
 from schemathesis.specs.openapi.adapter.security import OpenApiSecurityParameters
 from schemathesis.specs.openapi.serialization import get_serializers_for_operation
 
@@ -76,6 +76,14 @@ def merge_kwargs(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
     return left
 
 
+def _combo_dedup_key(combo: Any) -> str:
+    """Build a stable dedup key for a combo, falling back to repr when values aren't JSON-serializable."""
+    try:
+        return jsonschema_rs.canonical.json.to_string(combo)
+    except (TypeError, ValueError):
+        return repr(combo)
+
+
 def _get_pool_combos(
     operation: APIOperation,
     extra_data_source: OpenApiExtraDataSource,
@@ -100,6 +108,18 @@ def _get_pool_combos(
             container = location.container_name
             per_location.append([{container: variant} for variant in variants])
 
+    for body in operation.body:
+        body_schema = body.definition.get("schema")
+        if not isinstance(body_schema, dict):
+            continue
+        variants = extra_data_source.get_captured_variants(
+            operation=operation,
+            location=ParameterLocation.BODY,
+            schema=body_schema,
+        )
+        if variants:
+            per_location.append([{"body": variant, "media_type": body.media_type} for variant in variants])
+
     if not per_location:
         return []
 
@@ -118,11 +138,14 @@ def _build_location_schema(
     operation: APIOperation,
     location: ParameterLocation,
 ) -> dict[str, Any] | None:
-    """Build a minimal JSON schema covering all parameters at a given location."""
-    properties = {
-        p.name: (p.definition.get("schema") or {}) for p in operation.iter_parameters() if p.location == location
-    }
-    return {"type": "object", "properties": properties} if properties else None
+    """Return the merged parameter-set schema for the given location, or None when empty."""
+    container = getattr(operation, location.container_name)
+    if not isinstance(container, OpenApiParameterSet):
+        return None
+    schema = container.schema
+    if not schema.get("properties"):
+        return None
+    return schema
 
 
 def get_strategies_from_examples(
@@ -163,10 +186,10 @@ def get_strategies_from_examples(
             for i in range(n)
         ]
         # Keep original schema combos; append pool-augmented ones that differ.
-        schema_combo_keys = {jsonschema_rs.canonical.json.to_string(c) for c in schema_combos}
+        schema_combo_keys = {_combo_dedup_key(c) for c in schema_combos}
         all_combos = [
             *schema_combos,
-            *(c for c in pool_augmented if jsonschema_rs.canonical.json.to_string(c) not in schema_combo_keys),
+            *(c for c in pool_augmented if _combo_dedup_key(c) not in schema_combo_keys),
         ]
     elif schema_combos:
         all_combos = schema_combos
@@ -215,9 +238,7 @@ def extract_top_level(
         try:
             param_schema = parameter.validation_schema
             param_validator: jsonschema_rs.Validator | None = (
-                None
-                if isinstance(param_schema, bool)
-                else jsonschema_rs.validator_for(param_schema, validate_formats=True)
+                None if isinstance(param_schema, bool) else make_validator_for(param_schema)
             )
         except Exception:
             param_validator = None
@@ -231,11 +252,7 @@ def extract_top_level(
                 # - A oneOf/anyOf branch example is validated against the branch (not the full
                 #   combined schema, which would reject strings valid for multiple branches).
                 try:
-                    validator = (
-                        None
-                        if isinstance(definition, bool)
-                        else jsonschema_rs.validator_for(definition, validate_formats=True)
-                    )
+                    validator = None if isinstance(definition, bool) else make_validator_for(definition)
                 except Exception:
                     validator = None
             # Open API 2 also supports `example`
@@ -282,7 +299,7 @@ def extract_top_level(
         try:
             body_schema = body.validation_schema
             body_validator: jsonschema_rs.Validator | None = (
-                None if isinstance(body_schema, bool) else jsonschema_rs.validator_for(body_schema)
+                None if isinstance(body_schema, bool) else make_validator_for(body_schema)
             )
         except Exception:
             body_validator = None
@@ -544,7 +561,7 @@ def extract_from_schemas(
         if isinstance(schema, bool):
             continue
         try:
-            body_validator: jsonschema_rs.Validator | None = jsonschema_rs.validator_for(schema)
+            body_validator: jsonschema_rs.Validator | None = make_validator_for(schema)
         except Exception:
             body_validator = None
         resolver = RefResolver.from_schema(schema)

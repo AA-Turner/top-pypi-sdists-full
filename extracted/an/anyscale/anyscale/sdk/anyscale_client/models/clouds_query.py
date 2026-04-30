@@ -34,29 +34,39 @@ class CloudsQuery(object):
     """
     openapi_types = {
         'name': 'TextQuery',
+        'creator_id': 'str',
+        'state_filter': 'list[CloudState]',
         'paging': 'PageQuery',
         'sort_by_clauses': 'list[SortByClauseCloudsSortField]'
     }
 
     attribute_map = {
         'name': 'name',
+        'creator_id': 'creator_id',
+        'state_filter': 'state_filter',
         'paging': 'paging',
         'sort_by_clauses': 'sort_by_clauses'
     }
 
-    def __init__(self, name=None, paging=None, sort_by_clauses=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, creator_id=None, state_filter=None, paging=None, sort_by_clauses=None, local_vars_configuration=None):  # noqa: E501
         """CloudsQuery - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._name = None
+        self._creator_id = None
+        self._state_filter = None
         self._paging = None
         self._sort_by_clauses = None
         self.discriminator = None
 
         if name is not None:
             self.name = name
+        if creator_id is not None:
+            self.creator_id = creator_id
+        if state_filter is not None:
+            self.state_filter = state_filter
         if paging is not None:
             self.paging = paging
         if sort_by_clauses is not None:
@@ -84,6 +94,52 @@ class CloudsQuery(object):
         """
 
         self._name = name
+
+    @property
+    def creator_id(self):
+        """Gets the creator_id of this CloudsQuery.  # noqa: E501
+
+        Filters Clouds by the ID of the user who deployed them. If absent, no filter is applied.  # noqa: E501
+
+        :return: The creator_id of this CloudsQuery.  # noqa: E501
+        :rtype: str
+        """
+        return self._creator_id
+
+    @creator_id.setter
+    def creator_id(self, creator_id):
+        """Sets the creator_id of this CloudsQuery.
+
+        Filters Clouds by the ID of the user who deployed them. If absent, no filter is applied.  # noqa: E501
+
+        :param creator_id: The creator_id of this CloudsQuery.  # noqa: E501
+        :type: str
+        """
+
+        self._creator_id = creator_id
+
+    @property
+    def state_filter(self):
+        """Gets the state_filter of this CloudsQuery.  # noqa: E501
+
+        Filters Clouds to the given state(s). If absent or empty, no filter is applied.  # noqa: E501
+
+        :return: The state_filter of this CloudsQuery.  # noqa: E501
+        :rtype: list[CloudState]
+        """
+        return self._state_filter
+
+    @state_filter.setter
+    def state_filter(self, state_filter):
+        """Sets the state_filter of this CloudsQuery.
+
+        Filters Clouds to the given state(s). If absent or empty, no filter is applied.  # noqa: E501
+
+        :param state_filter: The state_filter of this CloudsQuery.  # noqa: E501
+        :type: list[CloudState]
+        """
+
+        self._state_filter = state_filter
 
     @property
     def paging(self):

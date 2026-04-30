@@ -6,16 +6,17 @@
 // CurlSlistObject
 **************************************************************************/
 
-PYCURL_INTERNAL void
+PYCURL_INTERNAL int
 util_curlslist_update(CurlSlistObject **old, struct curl_slist *slist)
 {
-    /* Decref previous object */
+    CurlSlistObject *new_obj = PyObject_New(CurlSlistObject, p_CurlSlist_Type);
+    if (new_obj == NULL) {
+        return -1;
+    }
+    new_obj->slist = slist;
     Py_XDECREF(*old);
-    /* Create a new object */
-    *old = PyObject_New(CurlSlistObject, p_CurlSlist_Type);
-    assert(*old != NULL);
-    /* Store curl_slist into the new object */
-    (*old)->slist = slist;
+    *old = new_obj;
+    return 0;
 }
 
 PYCURL_INTERNAL void
@@ -28,12 +29,7 @@ do_curlslist_dealloc(CurlSlistObject *self) {
 }
 
 PYCURL_INTERNAL PyTypeObject CurlSlist_Type = {
-#if PY_MAJOR_VERSION >= 3
     PyVarObject_HEAD_INIT(NULL, 0)
-#else
-    PyObject_HEAD_INIT(NULL)
-    0,                          /* ob_size */
-#endif
     "pycurl.CurlSlist",         /* tp_name */
     sizeof(CurlSlistObject),    /* tp_basicsize */
     0,                          /* tp_itemsize */
@@ -78,14 +74,10 @@ PYCURL_INTERNAL PyTypeObject CurlSlist_Type = {
     0,                          /* tp_cache */
     0,                          /* tp_subclasses */
     0,                          /* tp_weaklist */
-#if PY_MAJOR_VERSION >= 3
     0,                          /* tp_del */
     0,                          /* tp_version_tag */
     0,                          /* tp_finalize */
-#if PY_VERSION_HEX >= 0x03080000
     0,                          /* tp_vectorcall */
-#endif
-#endif
 };
 
 
@@ -93,23 +85,26 @@ PYCURL_INTERNAL PyTypeObject CurlSlist_Type = {
 // CurlHttppostObject
 **************************************************************************/
 
-PYCURL_INTERNAL void
+PYCURL_INTERNAL int
 util_curlhttppost_update(CurlObject *obj, struct curl_httppost *httppost, PyObject *reflist)
 {
-    /* Decref previous object */
+    CurlHttppostObject *new_obj = PyObject_New(CurlHttppostObject, p_CurlHttppost_Type);
+    if (new_obj == NULL) {
+        return -1;
+    }
+    new_obj->httppost = httppost;
+    new_obj->reflist = reflist;
     Py_XDECREF(obj->httppost);
-    /* Create a new object */
-    obj->httppost = PyObject_New(CurlHttppostObject, p_CurlHttppost_Type);
-    assert(obj->httppost != NULL);
-    /* Store curl_httppost and reflist into the new object */
-    obj->httppost->httppost = httppost;
-    obj->httppost->reflist = reflist;
+    obj->httppost = new_obj;
+    return 0;
 }
 
 PYCURL_INTERNAL void
 do_curlhttppost_dealloc(CurlHttppostObject *self) {
     if (self->httppost != NULL) {
+        PYCURL_IGNORE_DEPRECATED_BEGIN
         curl_formfree(self->httppost);
+        PYCURL_IGNORE_DEPRECATED_END
         self->httppost = NULL;
     }
     Py_CLEAR(self->reflist);
@@ -117,12 +112,7 @@ do_curlhttppost_dealloc(CurlHttppostObject *self) {
 }
 
 PYCURL_INTERNAL PyTypeObject CurlHttppost_Type = {
-#if PY_MAJOR_VERSION >= 3
     PyVarObject_HEAD_INIT(NULL, 0)
-#else
-    PyObject_HEAD_INIT(NULL)
-    0,                          /* ob_size */
-#endif
     "pycurl.CurlHttppost",      /* tp_name */
     sizeof(CurlHttppostObject), /* tp_basicsize */
     0,                          /* tp_itemsize */
@@ -167,14 +157,10 @@ PYCURL_INTERNAL PyTypeObject CurlHttppost_Type = {
     0,                          /* tp_cache */
     0,                          /* tp_subclasses */
     0,                          /* tp_weaklist */
-#if PY_MAJOR_VERSION >= 3
     0,                          /* tp_del */
     0,                          /* tp_version_tag */
     0,                          /* tp_finalize */
-#if PY_VERSION_HEX >= 0x03080000
     0,                          /* tp_vectorcall */
-#endif
-#endif
 };
 
 
@@ -189,9 +175,7 @@ assert_curl_state(const CurlObject *self)
 {
     assert(self != NULL);
     assert(PyObject_IsInstance((PyObject *) self, (PyObject *) p_Curl_Type) == 1);
-#ifdef WITH_THREAD
     (void) pycurl_get_thread_state(self);
-#endif
 }
 
 
@@ -204,12 +188,10 @@ check_curl_state(const CurlObject *self, int flags, const char *name)
         PyErr_Format(ErrorObject, "cannot invoke %s() - no curl handle", name);
         return -1;
     }
-#ifdef WITH_THREAD
     if ((flags & 2) && pycurl_get_thread_state(self) != NULL) {
         PyErr_Format(ErrorObject, "cannot invoke %s() - perform() is currently running", name);
         return -1;
     }
-#endif
     return 0;
 }
 
@@ -258,18 +240,32 @@ util_curl_init(CurlObject *self)
         return (-1);
     }
 
-    /* Set CAINFO or CAPATH if runtime autodetection enabled */
+    /* Set CAINFO/PROXY_CAINFO or CAPATH/PROXY_CAPATH if runtime autodetection enabled */
     #ifdef PYCURL_AUTODETECT_CA
     if (g_pycurl_autodetected_cainfo) {
         res = curl_easy_setopt(self->handle, CURLOPT_CAINFO, g_pycurl_autodetected_cainfo);
         if (res != CURLE_OK) {
             return (-1);
         }
+
+        #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 52, 0)
+        res = curl_easy_setopt(self->handle, CURLOPT_PROXY_CAINFO, g_pycurl_autodetected_cainfo);
+        if (res != CURLE_OK) {
+            return (-1);
+        }
+        #endif
     } else if (g_pycurl_autodetected_capath) {
         res = curl_easy_setopt(self->handle, CURLOPT_CAPATH, g_pycurl_autodetected_capath);
         if (res != CURLE_OK) {
             return (-1);
         }
+
+        #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 52, 0)
+        res = curl_easy_setopt(self->handle, CURLOPT_PROXY_CAPATH, g_pycurl_autodetected_capath);
+        if (res != CURLE_OK) {
+            return (-1);
+        }
+        #endif
     }
     #endif
 
@@ -368,99 +364,141 @@ do_curl_duphandle(CurlObject *self, PyObject *Py_UNUSED(ignored))
 
     /* Assign and incref python callback and update data pointers */
     if (self->w_cb != NULL) {
-        dup->w_cb = my_Py_NewRef(self->w_cb);
+        dup->w_cb = Py_NewRef(self->w_cb);
         curl_easy_setopt(dup->handle, CURLOPT_WRITEDATA, dup);
     }
     if (self->h_cb != NULL) {
-        dup->h_cb = my_Py_NewRef(self->h_cb);
+        dup->h_cb = Py_NewRef(self->h_cb);
         curl_easy_setopt(dup->handle, CURLOPT_WRITEHEADER, dup);
     }
     if (self->r_cb != NULL) {
-        dup->r_cb = my_Py_NewRef(self->r_cb);
+        dup->r_cb = Py_NewRef(self->r_cb);
         curl_easy_setopt(dup->handle, CURLOPT_READDATA, dup);
     }
     if (self->pro_cb != NULL) {
-        dup->pro_cb = my_Py_NewRef(self->pro_cb);
+        dup->pro_cb = Py_NewRef(self->pro_cb);
         curl_easy_setopt(dup->handle, CURLOPT_PROGRESSDATA, dup);
     }
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 32, 0)
     if (self->xferinfo_cb != NULL) {
-        dup->xferinfo_cb = my_Py_NewRef(self->xferinfo_cb);
+        dup->xferinfo_cb = Py_NewRef(self->xferinfo_cb);
         curl_easy_setopt(dup->handle, CURLOPT_XFERINFODATA, dup);
     }
 #endif
     if (self->debug_cb != NULL) {
-        dup->debug_cb = my_Py_NewRef(self->debug_cb);
+        dup->debug_cb = Py_NewRef(self->debug_cb);
         curl_easy_setopt(dup->handle, CURLOPT_DEBUGDATA, dup);
     }
     if (self->ioctl_cb != NULL) {
-        dup->ioctl_cb = my_Py_NewRef(self->ioctl_cb);
+        dup->ioctl_cb = Py_NewRef(self->ioctl_cb);
+        PYCURL_IGNORE_DEPRECATED_BEGIN
         curl_easy_setopt(dup->handle, CURLOPT_IOCTLDATA, dup);
+        PYCURL_IGNORE_DEPRECATED_END
     }
     if (self->opensocket_cb != NULL) {
-        dup->opensocket_cb = my_Py_NewRef(self->opensocket_cb);
+        dup->opensocket_cb = Py_NewRef(self->opensocket_cb);
         curl_easy_setopt(dup->handle, CURLOPT_OPENSOCKETDATA, dup);
     }
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 21, 7)
     if (self->closesocket_cb != NULL) {
-        dup->closesocket_cb = my_Py_NewRef(self->closesocket_cb);
+        dup->closesocket_cb = Py_NewRef(self->closesocket_cb);
         curl_easy_setopt(dup->handle, CURLOPT_CLOSESOCKETDATA, dup);
     }
 #endif
     if (self->sockopt_cb != NULL) {
-        dup->sockopt_cb = my_Py_NewRef(self->sockopt_cb);
+        dup->sockopt_cb = Py_NewRef(self->sockopt_cb);
         curl_easy_setopt(dup->handle, CURLOPT_SOCKOPTDATA, dup);
     }
 #ifdef HAVE_CURL_7_19_6_OPTS
     if (self->ssh_key_cb != NULL) {
-        dup->ssh_key_cb = my_Py_NewRef(self->ssh_key_cb);
+        dup->ssh_key_cb = Py_NewRef(self->ssh_key_cb);
         curl_easy_setopt(dup->handle, CURLOPT_SSH_KEYDATA, dup);
     }
 #endif
     if (self->seek_cb != NULL) {
-        dup->seek_cb = my_Py_NewRef(self->seek_cb);
+        dup->seek_cb = Py_NewRef(self->seek_cb);
         curl_easy_setopt(dup->handle, CURLOPT_SEEKDATA, dup);
     }
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
     if (self->prereq_cb != NULL) {
-        dup->prereq_cb = my_Py_NewRef(self->prereq_cb);
+        dup->prereq_cb = Py_NewRef(self->prereq_cb);
         curl_easy_setopt(dup->handle, CURLOPT_PREREQDATA, dup);
+    }
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 21, 0)
+    if (self->fnmatch_cb != NULL) {
+        dup->fnmatch_cb = Py_NewRef(self->fnmatch_cb);
+        curl_easy_setopt(dup->handle, CURLOPT_FNMATCH_DATA, dup);
+    }
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 59, 0)
+    if (self->resolver_start_cb != NULL) {
+        dup->resolver_start_cb = Py_NewRef(self->resolver_start_cb);
+        curl_easy_setopt(dup->handle, CURLOPT_RESOLVER_START_DATA, dup);
+    }
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 64, 0)
+    if (self->trailer_cb != NULL) {
+        dup->trailer_cb = Py_NewRef(self->trailer_cb);
+        curl_easy_setopt(dup->handle, CURLOPT_TRAILERDATA, dup);
+    }
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 74, 0)
+    if (self->hstsread_cb != NULL) {
+        dup->hstsread_cb = Py_NewRef(self->hstsread_cb);
+        curl_easy_setopt(dup->handle, CURLOPT_HSTSREADDATA, dup);
+    }
+    if (self->hstswrite_cb != NULL) {
+        dup->hstswrite_cb = Py_NewRef(self->hstswrite_cb);
+        curl_easy_setopt(dup->handle, CURLOPT_HSTSWRITEDATA, dup);
     }
 #endif
 
     /* Assign and incref python file objects */
-    dup->readdata_fp = my_Py_XNewRef(self->readdata_fp);
-    dup->writedata_fp = my_Py_XNewRef(self->writedata_fp);
-    dup->writeheader_fp = my_Py_XNewRef(self->writeheader_fp);
+    dup->readdata_fp = Py_XNewRef(self->readdata_fp);
+    dup->writedata_fp = Py_XNewRef(self->writedata_fp);
+    dup->writeheader_fp = Py_XNewRef(self->writeheader_fp);
 
     /* Assign and incref postfields object */
-    dup->postfields_obj = my_Py_XNewRef(self->postfields_obj);
+    dup->postfields_obj = Py_XNewRef(self->postfields_obj);
 
     /* Assign and incref ca certs related references */
-    dup->ca_certs_obj = my_Py_XNewRef(self->ca_certs_obj);
+    dup->ca_certs_obj = Py_XNewRef(self->ca_certs_obj);
 
     /* Assign and incref every curl_slist allocated by setopt */
-    dup->httpheader = (CurlSlistObject *)my_Py_XNewRef((PyObject *)self->httpheader);
+    dup->httpheader = (CurlSlistObject *)Py_XNewRef((PyObject *)self->httpheader);
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 37, 0)
-    dup->proxyheader = (CurlSlistObject *)my_Py_XNewRef((PyObject *)self->proxyheader);
+    dup->proxyheader = (CurlSlistObject *)Py_XNewRef((PyObject *)self->proxyheader);
 #endif
-    dup->http200aliases = (CurlSlistObject *)my_Py_XNewRef((PyObject *)self->http200aliases);
-    dup->quote = (CurlSlistObject *)my_Py_XNewRef((PyObject *)self->quote);
-    dup->postquote = (CurlSlistObject *)my_Py_XNewRef((PyObject *)self->postquote);
-    dup->prequote = (CurlSlistObject *)my_Py_XNewRef((PyObject *)self->prequote);
-    dup->telnetoptions = (CurlSlistObject *)my_Py_XNewRef((PyObject *)self->telnetoptions);
+    dup->http200aliases = (CurlSlistObject *)Py_XNewRef((PyObject *)self->http200aliases);
+    dup->quote = (CurlSlistObject *)Py_XNewRef((PyObject *)self->quote);
+    dup->postquote = (CurlSlistObject *)Py_XNewRef((PyObject *)self->postquote);
+    dup->prequote = (CurlSlistObject *)Py_XNewRef((PyObject *)self->prequote);
+    dup->telnetoptions = (CurlSlistObject *)Py_XNewRef((PyObject *)self->telnetoptions);
 #ifdef HAVE_CURLOPT_RESOLVE
-    dup->resolve = (CurlSlistObject *)my_Py_XNewRef((PyObject *)self->resolve);
+    dup->resolve = (CurlSlistObject *)Py_XNewRef((PyObject *)self->resolve);
 #endif
 #ifdef HAVE_CURL_7_20_0_OPTS
-    dup->mail_rcpt = (CurlSlistObject *)my_Py_XNewRef((PyObject *)self->mail_rcpt);
+    dup->mail_rcpt = (CurlSlistObject *)Py_XNewRef((PyObject *)self->mail_rcpt);
 #endif
 #ifdef HAVE_CURLOPT_CONNECT_TO
-    dup->connect_to = (CurlSlistObject *)my_Py_XNewRef((PyObject *)self->connect_to);
+    dup->connect_to = (CurlSlistObject *)Py_XNewRef((PyObject *)self->connect_to);
 #endif
 
     /* Assign and incref httppost */
-    dup->httppost = (CurlHttppostObject *)my_Py_XNewRef((PyObject *)self->httppost);
+    dup->httppost = (CurlHttppostObject *)Py_XNewRef((PyObject *)self->httppost);
+#ifdef HAVE_CURL_MIME
+    dup->mimepost_obj = Py_XNewRef(self->mimepost_obj);
+
+    if (self->mimepost_obj != NULL) {
+        /*
+         * libcurl duplicates curl_mime_data_cb userdata pointers as-is.
+         * Add one logical owner reference for every duplicated easy handle so
+         * free callbacks run exactly once on the final release path.
+         */
+        curlmime_duphandle_incref_data_cb_owners(self->mimepost_obj);
+    }
+#endif
 
     /* Success - return cloned object */
     return dup;
@@ -483,22 +521,9 @@ util_curl_xdecref(CurlObject *self, int flags, CURL *handle)
     }
 
     if (flags & PYCURL_MEMGROUP_MULTI) {
-        /* Decrement refcount for multi_stack. */
-        if (self->multi_stack != NULL) {
-            CurlMultiObject *multi_stack = self->multi_stack;
-            if (multi_stack->multi_handle != NULL && handle != NULL) {
-                /* TODO this is where we could remove the easy object
-                from the multi object's easy_object_dict, but this
-                requires us to have a reference to the multi object
-                which right now we don't. */
-                /* Allow threads because callbacks can be invoked */
-                PYCURL_BEGIN_ALLOW_THREADS_EASY
-                (void) curl_multi_remove_handle(multi_stack->multi_handle, handle);
-                PYCURL_END_ALLOW_THREADS_EASY
-            }
-            self->multi_stack = NULL;
-            Py_DECREF(multi_stack);
-        }
+        /* multi_stack is borrowed; multi_weakref is owned */
+        self->multi_stack = NULL;
+        Py_CLEAR(self->multi_weakref);
     }
 
     if (flags & PYCURL_MEMGROUP_CALLBACK) {
@@ -522,6 +547,19 @@ util_curl_xdecref(CurlObject *self, int flags, CURL *handle)
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
         Py_CLEAR(self->prereq_cb);
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 21, 0)
+        Py_CLEAR(self->fnmatch_cb);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 59, 0)
+        Py_CLEAR(self->resolver_start_cb);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 64, 0)
+        Py_CLEAR(self->trailer_cb);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 74, 0)
+        Py_CLEAR(self->hstsread_cb);
+        Py_CLEAR(self->hstswrite_cb);
+#endif
     }
 
     if (flags & PYCURL_MEMGROUP_FILE) {
@@ -540,6 +578,7 @@ util_curl_xdecref(CurlObject *self, int flags, CURL *handle)
         /* Decrement refcount for share objects. */
         if (self->share != NULL) {
             CurlShareObject *share = self->share;
+            share_unregister_easy(share, self);
             self->share = NULL;
             if (share->share_handle != NULL && handle != NULL) {
                 curl_easy_setopt(handle, CURLOPT_SHARE, NULL);
@@ -552,6 +591,16 @@ util_curl_xdecref(CurlObject *self, int flags, CURL *handle)
         /* Decrement refcounts for httppost object. */
         Py_CLEAR(self->httppost);
     }
+
+#ifdef HAVE_CURL_MIME
+    if (flags & PYCURL_MEMGROUP_MIMEPOST) {
+        if (self->mimepost_obj != NULL && handle != NULL) {
+            (void)curl_easy_setopt(handle, CURLOPT_MIMEPOST, NULL);
+        }
+        /* Decrement refcounts for mimepost object. */
+        Py_CLEAR(self->mimepost_obj);
+    }
+#endif
 
     if (flags & PYCURL_MEMGROUP_CACERTS) {
         /* Decrement refcounts for ca certs related references. */
@@ -583,6 +632,29 @@ util_curl_xdecref(CurlObject *self, int flags, CURL *handle)
 
 
 static void
+util_easy_detach_from_multi(CurlObject *self, CURL *easy_handle)
+{
+    CurlMultiObject *multi;
+
+    assert(self != NULL);
+
+    multi = self->multi_stack;
+    if (multi == NULL || multi->multi_handle == NULL || easy_handle == NULL) {
+        return;
+    }
+
+    /* Allow threads because callbacks can be invoked */
+    PYCURL_BEGIN_ALLOW_THREADS_EASY
+    (void) curl_multi_remove_handle(multi->multi_handle, easy_handle);
+    PYCURL_END_ALLOW_THREADS_EASY
+
+    if (multi->easy_object_dict != NULL && PyDict_DelItem(multi->easy_object_dict, (PyObject *)self) < 0) {
+        PyErr_Clear();
+    }
+}
+
+
+static void
 util_curl_close(CurlObject *self)
 {
     CURL *handle;
@@ -592,38 +664,34 @@ util_curl_close(CurlObject *self)
     assert(self != NULL);
     assert(PyObject_IsInstance((PyObject *) self, (PyObject *) p_Curl_Type) == 1);
     handle = self->handle;
-    self->handle = NULL;
     if (handle == NULL) {
         /* Some paranoia assertions just to make sure the object
          * deallocation problem is finally really fixed... */
-#ifdef WITH_THREAD
         assert(self->state == NULL);
-#endif
         assert(self->multi_stack == NULL);
+        assert(self->multi_weakref == NULL);
         assert(self->share == NULL);
         return;             /* already closed */
     }
-#ifdef WITH_THREAD
     self->state = NULL;
-#endif
 
     /* Decref multi stuff which uses this handle */
+    if (self->multi_stack != NULL) {
+        util_easy_detach_from_multi(self, handle);
+    }
     util_curl_xdecref(self, PYCURL_MEMGROUP_MULTI, handle);
     /* Decref share which uses this handle */
     util_curl_xdecref(self, PYCURL_MEMGROUP_SHARE, handle);
 
     /* Cleanup curl handle - must be done without the gil */
-    Py_BEGIN_ALLOW_THREADS
+    PYCURL_BEGIN_ALLOW_THREADS
     curl_easy_cleanup(handle);
-    Py_END_ALLOW_THREADS
+    PYCURL_END_ALLOW_THREADS
+    self->handle = NULL;
     handle = NULL;
 
     /* Decref easy related objects */
     util_curl_xdecref(self, PYCURL_MEMGROUP_EASY, handle);
-
-    if (self->weakreflist != NULL) {
-        PyObject_ClearWeakRefs((PyObject *) self);
-    }
 }
 
 
@@ -631,13 +699,17 @@ PYCURL_INTERNAL void
 do_curl_dealloc(CurlObject *self)
 {
     PyObject_GC_UnTrack(self);
-    CPy_TRASHCAN_BEGIN(self, do_curl_dealloc);
+    Py_TRASHCAN_BEGIN(self, do_curl_dealloc);
 
     Py_CLEAR(self->dict);
     util_curl_close(self);
 
+    if (self->weakreflist != NULL) {
+        PyObject_ClearWeakRefs((PyObject *) self);
+    }
+
     Curl_Type.tp_free(self);
-    CPy_TRASHCAN_END(self);
+    Py_TRASHCAN_END;
 }
 
 
@@ -652,15 +724,23 @@ do_curl_close(CurlObject *self, PyObject *Py_UNUSED(ignored))
 }
 
 
+static PyObject *do_curl_closed(CurlObject *self, PyObject *Py_UNUSED(ignored))
+{
+    if (self->handle == NULL) {
+        Py_RETURN_TRUE;
+    } else {
+        Py_RETURN_FALSE;
+    }
+}
+
+
 /* --------------- GC support --------------- */
 
 /* Drop references that may have created reference cycles. */
 PYCURL_INTERNAL int
 do_curl_clear(CurlObject *self)
 {
-#ifdef WITH_THREAD
     assert(pycurl_get_thread_state(self) == NULL);
-#endif
     util_curl_xdecref(self, PYCURL_MEMGROUP_ALL, self->handle);
     return 0;
 }
@@ -674,7 +754,7 @@ do_curl_traverse(CurlObject *self, visitproc visit, void *arg)
 #define VISIT(v)    if ((v) != NULL && ((err = visit(v, arg)) != 0)) return err
 
     VISIT(self->dict);
-    VISIT((PyObject *) self->multi_stack);
+    VISIT(self->multi_weakref);
     VISIT((PyObject *) self->share);
 
     VISIT(self->w_cb);
@@ -696,12 +776,29 @@ do_curl_traverse(CurlObject *self, visitproc visit, void *arg)
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
     VISIT(self->prereq_cb);
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 21, 0)
+    VISIT(self->fnmatch_cb);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 59, 0)
+    VISIT(self->resolver_start_cb);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 64, 0)
+    VISIT(self->trailer_cb);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 74, 0)
+    VISIT(self->hstsread_cb);
+    VISIT(self->hstswrite_cb);
+#endif
 
     VISIT(self->readdata_fp);
     VISIT(self->writedata_fp);
     VISIT(self->writeheader_fp);
 
     VISIT(self->postfields_obj);
+
+#ifdef HAVE_CURL_MIME
+    VISIT(self->mimepost_obj);
+#endif
 
     VISIT(self->ca_certs_obj);
 
@@ -738,6 +835,10 @@ do_curl_reset(CurlObject *self, PyObject *Py_UNUSED(ignored))
 {
     int res;
 
+    if (check_curl_state(self, 1 | 2, "reset") != 0) {
+        return NULL;
+    }
+
     curl_easy_reset(self->handle);
 
     /* Decref easy interface related objects */
@@ -745,7 +846,10 @@ do_curl_reset(CurlObject *self, PyObject *Py_UNUSED(ignored))
 
     res = util_curl_init(self);
     if (res < 0) {
-        Py_DECREF(self);    /* this also closes self->handle */
+        /* util_curl_init failed to re-set the default options; the libcurl
+         * handle is in an inconsistent state. Close it so subsequent calls
+         * fail predictably instead of crashing on NULL derefs inside libcurl. */
+        util_curl_close(self);
         PyErr_SetString(ErrorObject, "resetting curl failed");
         return NULL;
     }
@@ -768,6 +872,71 @@ static PyObject *do_curl_setstate(CurlObject *self, PyObject *args)
 }
 
 
+static PyObject *do_curl_enter(CurlObject *self, PyObject *Py_UNUSED(ignored))
+{
+    Py_INCREF(self);
+    return (PyObject *)self;
+}
+
+
+static PyObject *
+do_curl_multi(CurlObject *self, PyObject *Py_UNUSED(ignored))
+{
+    PyObject *obj = NULL;;
+
+    assert_curl_state(self);
+
+    if (self->multi_weakref == NULL) {
+        Py_RETURN_NONE;
+    }
+
+#if PY_VERSION_HEX >= 0x030D0000  /* Python 3.13+ */
+    {
+        int rc = PyWeakref_GetRef(self->multi_weakref, &obj);
+        if (rc < 0) {
+            return NULL;
+        }
+        if (rc == 0 || obj == NULL) {
+            Py_RETURN_NONE;
+        }
+    }
+#else
+    obj = PyWeakref_GetObject(self->multi_weakref);
+    if (obj == Py_None) {
+        Py_RETURN_NONE;
+    }
+    Py_INCREF(obj);
+#endif
+
+    if (!PyObject_IsInstance(obj, (PyObject *)p_CurlMulti_Type)) {
+        Py_DECREF(obj);
+        PyErr_SetString(PyExc_TypeError, "multi object is not a CurlMulti");
+        return NULL;
+    }
+
+    return obj;
+}
+
+
+static PyObject *
+do_curl_share(CurlObject *self, PyObject *Py_UNUSED(ignored))
+{
+    assert_curl_state(self);
+
+    if (self->share == NULL) {
+        Py_RETURN_NONE;
+    }
+
+    if (!PyObject_IsInstance((PyObject *)self->share, (PyObject *)p_CurlShare_Type)) {
+        PyErr_SetString(PyExc_TypeError, "share object is not a CurlShare");
+        return NULL;
+    }
+
+    Py_INCREF(self->share);
+    return (PyObject *)self->share;
+}
+
+
 /*************************************************************************
 // type definitions
 **************************************************************************/
@@ -776,32 +945,46 @@ static PyObject *do_curl_setstate(CurlObject *self, PyObject *args)
 
 PYCURL_INTERNAL PyMethodDef curlobject_methods[] = {
     {"close", (PyCFunction)do_curl_close, METH_NOARGS, curl_close_doc},
+    {"closed", (PyCFunction)do_curl_closed, METH_NOARGS, curl_closed_doc},
+    {"duphandle", (PyCFunction)do_curl_duphandle, METH_NOARGS, curl_duphandle_doc},
     {"errstr", (PyCFunction)do_curl_errstr, METH_NOARGS, curl_errstr_doc},
     {"errstr_raw", (PyCFunction)do_curl_errstr_raw, METH_NOARGS, curl_errstr_raw_doc},
     {"getinfo", (PyCFunction)do_curl_getinfo, METH_VARARGS, curl_getinfo_doc},
     {"getinfo_raw", (PyCFunction)do_curl_getinfo_raw, METH_VARARGS, curl_getinfo_raw_doc},
+    {"multi", (PyCFunction)do_curl_multi, METH_NOARGS, curl_multi_doc},
     {"pause", (PyCFunction)do_curl_pause, METH_VARARGS, curl_pause_doc},
     {"perform", (PyCFunction)do_curl_perform, METH_NOARGS, curl_perform_doc},
     {"perform_rb", (PyCFunction)do_curl_perform_rb, METH_NOARGS, curl_perform_rb_doc},
     {"perform_rs", (PyCFunction)do_curl_perform_rs, METH_NOARGS, curl_perform_rs_doc},
+    {"recv", (PyCFunction)do_curl_recv, METH_VARARGS, curl_recv_doc},
+    {"recv_into", (PyCFunction)do_curl_recv_into, METH_VARARGS | METH_KEYWORDS, curl_recv_into_doc},
+    {"reset", (PyCFunction)do_curl_reset, METH_NOARGS, curl_reset_doc},
+    {"send", (PyCFunction)do_curl_send, METH_VARARGS, curl_send_doc},
     {"setopt", (PyCFunction)do_curl_setopt, METH_VARARGS, curl_setopt_doc},
     {"setopt_string", (PyCFunction)do_curl_setopt_string, METH_VARARGS, curl_setopt_string_doc},
+    {"share", (PyCFunction)do_curl_share, METH_NOARGS, curl_share_doc},
+    {"unpause", (PyCFunction)do_curl_unpause, METH_NOARGS, curl_unpause_doc},
     {"unsetopt", (PyCFunction)do_curl_unsetopt, METH_VARARGS, curl_unsetopt_doc},
-    {"reset", (PyCFunction)do_curl_reset, METH_NOARGS, curl_reset_doc},
-    {"duphandle", (PyCFunction)do_curl_duphandle, METH_NOARGS, curl_duphandle_doc},
 #if defined(HAVE_CURL_OPENSSL)
     {"set_ca_certs", (PyCFunction)do_curl_set_ca_certs, METH_VARARGS, curl_set_ca_certs_doc},
 #endif
+#ifdef HAVE_CURL_WEBSOCKETS
+    {"ws_send", (PyCFunction)do_curl_ws_send, METH_VARARGS | METH_KEYWORDS, curl_ws_send_doc},
+    {"ws_recv", (PyCFunction)do_curl_ws_recv, METH_VARARGS, curl_ws_recv_doc},
+    {"ws_recv_into", (PyCFunction)do_curl_ws_recv_into, METH_VARARGS | METH_KEYWORDS, curl_ws_recv_into_doc},
+    {"ws_meta", (PyCFunction)do_curl_ws_meta, METH_NOARGS, curl_ws_meta_doc},
+    {"ws_close", (PyCFunction)do_curl_ws_close, METH_VARARGS | METH_KEYWORDS, curl_ws_close_doc},
+#endif
     {"__getstate__", (PyCFunction)do_curl_getstate, METH_NOARGS, NULL},
     {"__setstate__", (PyCFunction)do_curl_setstate, METH_VARARGS, NULL},
+    {"__enter__", (PyCFunction)do_curl_enter, METH_NOARGS, NULL},
+    {"__exit__", (PyCFunction)do_curl_close, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
 };
 
 
 /* --------------- setattr/getattr --------------- */
 
-
-#if PY_MAJOR_VERSION >= 3
 
 PYCURL_INTERNAL PyObject *
 do_curl_getattro(PyObject *o, PyObject *n)
@@ -823,44 +1006,15 @@ do_curl_setattro(PyObject *o, PyObject *name, PyObject *v)
     return my_setattro(&((CurlObject *)o)->dict, name, v);
 }
 
-#else /* PY_MAJOR_VERSION >= 3 */
-
-PYCURL_INTERNAL PyObject *
-do_curl_getattr(CurlObject *co, char *name)
-{
-    assert_curl_state(co);
-    return my_getattr((PyObject *)co, name, co->dict,
-                      curlobject_constants, curlobject_methods);
-}
-
-PYCURL_INTERNAL int
-do_curl_setattr(CurlObject *co, char *name, PyObject *v)
-{
-    assert_curl_state(co);
-    return my_setattr(&co->dict, name, v);
-}
-
-#endif /* PY_MAJOR_VERSION >= 3 */
-
 PYCURL_INTERNAL PyTypeObject Curl_Type = {
-#if PY_MAJOR_VERSION >= 3
     PyVarObject_HEAD_INIT(NULL, 0)
-#else
-    PyObject_HEAD_INIT(NULL)
-    0,                          /* ob_size */
-#endif
     "pycurl.Curl",              /* tp_name */
     sizeof(CurlObject),         /* tp_basicsize */
     0,                          /* tp_itemsize */
     (destructor)do_curl_dealloc, /* tp_dealloc */
     0,                          /* tp_print */
-#if PY_MAJOR_VERSION >= 3
     0,                          /* tp_getattr */
     0,                          /* tp_setattr */
-#else
-    (getattrfunc)do_curl_getattr,  /* tp_getattr */
-    (setattrfunc)do_curl_setattr,  /* tp_setattr */
-#endif
     0,                          /* tp_reserved */
     0,                          /* tp_repr */
     0,                          /* tp_as_number */
@@ -869,13 +1023,8 @@ PYCURL_INTERNAL PyTypeObject Curl_Type = {
     0,                          /* tp_hash  */
     0,                          /* tp_call */
     0,                          /* tp_str */
-#if PY_MAJOR_VERSION >= 3
     (getattrofunc)do_curl_getattro, /* tp_getattro */
     (setattrofunc)do_curl_setattro, /* tp_setattro */
-#else
-    0,                          /* tp_getattro */
-    0,                          /* tp_setattro */
-#endif
     0,                          /* tp_as_buffer */
     PYCURL_TYPE_FLAGS,          /* tp_flags */
     curl_doc,                   /* tp_doc */

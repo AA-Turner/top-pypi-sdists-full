@@ -31,6 +31,13 @@ _VIEW_FILE_NAME = "dashboard_views.sql"
 _DEVIATION_BLOCK_OPEN = "-- @cr:deviation-block:open"
 _DEVIATION_BLOCK_CLOSE = "-- @cr:deviation-block:close"
 
+# Sentinel-delimited block for v_feature_provenance — gated on the optional
+# feature_meta + column_descriptions tables existing in UC. Older causal-track
+# builds did not produce these tables; the view's CREATE OR REPLACE would fail
+# at validation time on those clusters and take the whole publish call down.
+_PROVENANCE_BLOCK_OPEN = "-- @cr:provenance-block:open"
+_PROVENANCE_BLOCK_CLOSE = "-- @cr:provenance-block:close"
+
 DASHBOARD_VIEW_NAMES: tuple[str, ...] = (
     "v_ranked_at_risk_customers",
     "v_archetype_overview",
@@ -44,11 +51,13 @@ DASHBOARD_VIEW_NAMES: tuple[str, ...] = (
     "v_eligible_all_playbooks",
     "v_account_explanation",
     "v_run_context",
-    "v_feature_provenance",
 )
 DASHBOARD_DEVIATION_VIEW_NAMES: tuple[str, ...] = (
     "v_account_feature_deviation",
     "v_account_feature_deviation_topn",
+)
+DASHBOARD_PROVENANCE_VIEW_NAMES: tuple[str, ...] = (
+    "v_feature_provenance",
 )
 
 
@@ -82,25 +91,50 @@ def _strip_deviation_markers(sql_text: str) -> str:
     )
 
 
+def _strip_provenance_block(sql_text: str) -> str:
+    """Drop the ``@cr:provenance-block`` section so the rendered SQL parses
+    on clusters that don't yet have ``feature_meta`` / ``column_descriptions``.
+    """
+    pattern = re.compile(
+        re.escape(_PROVENANCE_BLOCK_OPEN) + r".*?" + re.escape(_PROVENANCE_BLOCK_CLOSE),
+        re.DOTALL,
+    )
+    return pattern.sub("", sql_text)
+
+
+def _strip_provenance_markers(sql_text: str) -> str:
+    return "\n".join(
+        line for line in sql_text.splitlines()
+        if line.strip() not in (_PROVENANCE_BLOCK_OPEN, _PROVENANCE_BLOCK_CLOSE)
+    )
+
+
 def render_dashboard_view_sql(
     catalog: str,
     schema: str,
     *,
     composite_name: Optional[str] = None,
+    include_provenance: bool = True,
 ) -> str:
     """Substitute ``{catalog}`` / ``{schema}`` (and optionally ``{composite_name}``)
     into the raw SQL template.
 
     When ``composite_name`` is omitted, the deviation views (which reference
     ``gold_features_{composite_name}``) are stripped from the output so the
-    remaining DDL stays parseable.  Existing callers that don't supply the
-    parameter keep their previous behaviour.
+    remaining DDL stays parseable. ``include_provenance=False`` strips the
+    ``v_feature_provenance`` block — used by the publisher when the optional
+    ``feature_meta`` / ``column_descriptions`` tables aren't materialized yet
+    so the view's CREATE OR REPLACE wouldn't validate.
     """
     text = load_dashboard_view_sql()
     if composite_name:
         text = _strip_deviation_markers(text).replace("{composite_name}", composite_name)
     else:
         text = _strip_deviation_block(text)
+    if include_provenance:
+        text = _strip_provenance_markers(text)
+    else:
+        text = _strip_provenance_block(text)
     return text.replace("{catalog}", catalog).replace("{schema}", schema)
 
 
@@ -230,6 +264,126 @@ def _try_materialize_population_stats_from_sidecar(
     return spark.catalog.tableExists(fqn)
 
 
+_PROVENANCE_PREREQ_TABLES: tuple[str, ...] = (
+    "feature_meta",
+    "column_descriptions",
+)
+
+
+def _try_materialize_feature_meta_from_sidecar(
+    spark: "SparkSession", catalog: str, schema: str
+) -> bool:
+    """Best-effort: materialize the ``feature_meta`` JSON sidecar into UC.
+
+    Mirrors ``_try_materialize_population_stats_from_sidecar``. The
+    framework writes feature lineage as a JSON sidecar in the run
+    namespace at gold-materialization time; the provenance view reads a
+    UC Delta table. When the table is missing but the sidecar exists,
+    materializing it on the fly lets ``publish_dashboard_views`` continue
+    without operator intervention. Returns ``True`` when the table now
+    exists, ``False`` when neither table nor sidecar is reachable.
+    """
+    fqn = f"{catalog}.{schema}.feature_meta"
+    if spark.catalog.tableExists(fqn):
+        return True
+    try:
+        from customer_retention.analysis.auto_explorer.run_namespace import RunNamespace
+        from customer_retention.stages.causal.feature_meta_writer import (
+            FeatureMetaConfig,
+            write_feature_meta,
+        )
+        from customer_retention.stages.causal.interpretation.sidecars import (
+            load_feature_meta_sidecar,
+        )
+    except ImportError:
+        return False
+    try:
+        ns = RunNamespace.from_env_or_latest()
+    except Exception:  # noqa: BLE001 -- best-effort, never fail the publish
+        ns = None
+    if ns is None:
+        return False
+    sidecar = load_feature_meta_sidecar(ns) or {}
+    if not sidecar:
+        return False
+    try:
+        rows = list(sidecar.values())
+        write_feature_meta(
+            FeatureMetaConfig(
+                spark=spark, table_fqn=fqn, run_id=ns.run_id, rows=rows,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 -- log + degrade
+        logger.warning(
+            "auto-materialization of %s from sidecar at %s failed: %s. "
+            "v_feature_provenance will be skipped this run.",
+            fqn, ns.feature_meta_dir, exc,
+        )
+        return spark.catalog.tableExists(fqn)
+    return spark.catalog.tableExists(fqn)
+
+
+def _try_materialize_column_descriptions_from_sidecar(
+    spark: "SparkSession", catalog: str, schema: str
+) -> bool:
+    """Best-effort: materialize the ``column_descriptions`` JSON sidecar into UC."""
+    fqn = f"{catalog}.{schema}.column_descriptions"
+    if spark.catalog.tableExists(fqn):
+        return True
+    try:
+        from customer_retention.analysis.auto_explorer.run_namespace import RunNamespace
+        from customer_retention.stages.causal.column_descriptions_writer import (
+            ColumnDescriptionsConfig,
+            write_column_descriptions,
+        )
+        from customer_retention.stages.causal.interpretation.sidecars import (
+            load_column_descriptions_sidecar,
+        )
+    except ImportError:
+        return False
+    try:
+        ns = RunNamespace.from_env_or_latest()
+    except Exception:  # noqa: BLE001
+        ns = None
+    if ns is None:
+        return False
+    sidecar = load_column_descriptions_sidecar(ns) or {}
+    if not sidecar:
+        return False
+    try:
+        rows = list(sidecar.values())
+        write_column_descriptions(
+            ColumnDescriptionsConfig(spark=spark, table_fqn=fqn, rows=rows)
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "auto-materialization of %s from sidecar failed: %s. "
+            "v_feature_provenance will be skipped this run.",
+            fqn, exc,
+        )
+        return spark.catalog.tableExists(fqn)
+    return spark.catalog.tableExists(fqn)
+
+
+def _provenance_prerequisites_present(
+    spark: "SparkSession", catalog: str, schema: str
+) -> tuple[bool, list[str]]:
+    """Return ``(ok, missing)`` for tables ``v_feature_provenance`` reads.
+
+    Tries to materialize each prereq table from its JSON sidecar in the
+    run namespace before failing — the framework's gold-materialization
+    step writes the lineage as JSON, but operators that skip exploration
+    (causal-track-only reruns) wouldn't otherwise have these tables in UC.
+    Older causal-track builds with neither table nor sidecar fall back to
+    skipping the provenance view so the rest of the dashboard publishes.
+    """
+    if not _try_materialize_feature_meta_from_sidecar(spark, catalog, schema):
+        return False, [f"{catalog}.{schema}.feature_meta"]
+    if not _try_materialize_column_descriptions_from_sidecar(spark, catalog, schema):
+        return False, [f"{catalog}.{schema}.column_descriptions"]
+    return True, []
+
+
 def _deviation_prerequisites_present(
     spark: "SparkSession", catalog: str, schema: str, composite_name: str
 ) -> tuple[bool, list[str]]:
@@ -296,7 +450,21 @@ def publish_dashboard_views(
             )
             effective_composite = None
 
-    rendered = render_dashboard_view_sql(catalog, schema, composite_name=effective_composite)
+    include_provenance, prov_missing = _provenance_prerequisites_present(spark, catalog, schema)
+    if not include_provenance:
+        logger.warning(
+            "v_feature_provenance skipped: missing prerequisite table(s) %s; "
+            "publishing the rest of the dashboard. Re-run gold materialization "
+            "to populate feature_meta / column_descriptions and republish.",
+            ", ".join(prov_missing),
+        )
+
+    rendered = render_dashboard_view_sql(
+        catalog,
+        schema,
+        composite_name=effective_composite,
+        include_provenance=include_provenance,
+    )
     statements = split_view_statements(rendered)
     submitted: List[str] = []
     for stmt in statements:

@@ -12,6 +12,7 @@ from time import perf_counter
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from schemathesis.resources import ExtraDataSource
     from schemathesis.specs.openapi.adapter.parameters import OpenApiBody
 
 import hypothesis
@@ -36,6 +37,7 @@ from schemathesis.core.errors import (
     UnresolvableReference,
     is_regex_validation_error,
 )
+from schemathesis.core.jsonschema import make_validator
 from schemathesis.core.marks import Mark
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
 from schemathesis.core.transforms import deepclone
@@ -82,6 +84,7 @@ class HypothesisTestConfig:
     as_strategy_kwargs: dict[str, Any]
     given_args: tuple[GivenInput, ...]
     given_kwargs: dict[str, GivenInput]
+    unexpected_methods_seen: set[tuple[str, str]] | None
 
     __slots__ = (
         "project",
@@ -92,6 +95,7 @@ class HypothesisTestConfig:
         "as_strategy_kwargs",
         "given_args",
         "given_kwargs",
+        "unexpected_methods_seen",
     )
 
     def __init__(
@@ -104,6 +108,7 @@ class HypothesisTestConfig:
         as_strategy_kwargs: dict[str, Any] | None = None,
         given_args: tuple[GivenInput, ...] = (),
         given_kwargs: dict[str, GivenInput] | None = None,
+        unexpected_methods_seen: set[tuple[str, str]] | None = None,
     ) -> None:
         self.project = project
         self.modes = modes
@@ -113,6 +118,7 @@ class HypothesisTestConfig:
         self.as_strategy_kwargs = as_strategy_kwargs or {}
         self.given_args = given_args
         self.given_kwargs = given_kwargs or {}
+        self.unexpected_methods_seen = unexpected_methods_seen
 
 
 def create_test(
@@ -245,6 +251,7 @@ def create_test(
             generate_duplicate_query_parameters=phases_config.coverage.generate_duplicate_query_parameters,
             unexpected_methods=phases_config.coverage.unexpected_methods,
             generation_config=generation,
+            unexpected_methods_seen=config.unexpected_methods_seen,
         )
 
     injected_path_parameter_names = [
@@ -377,13 +384,8 @@ def generate_example_cases(
 
 
 def adjust_urlencoded_payload(case: Case) -> None:
-    if case.media_type is not None:
-        try:
-            media_type = media_types.parse(case.media_type)
-            if media_type == ("application", "x-www-form-urlencoded"):
-                case.body = prepare_urlencoded(case.body)
-        except ValueError:
-            pass
+    if media_types.is_form_urlencoded(case.media_type):
+        case.body = prepare_urlencoded(case.body)
 
 
 def add_coverage(
@@ -395,6 +397,7 @@ def add_coverage(
     generate_duplicate_query_parameters: bool,
     unexpected_methods: set[str],
     generation_config: GenerationConfig,
+    unexpected_methods_seen: set[tuple[str, str]] | None = None,
 ) -> Callable:
     for case in generate_coverage_cases(
         operation=operation,
@@ -404,6 +407,7 @@ def add_coverage(
         generate_duplicate_query_parameters=generate_duplicate_query_parameters,
         unexpected_methods=unexpected_methods,
         generation_config=generation_config,
+        unexpected_methods_seen=unexpected_methods_seen,
     ):
         test = hypothesis.example(case=case)(test)
     return test
@@ -418,6 +422,7 @@ def generate_coverage_cases(
     generate_duplicate_query_parameters: bool,
     unexpected_methods: set[str],
     generation_config: GenerationConfig,
+    unexpected_methods_seen: set[tuple[str, str]] | None = None,
 ) -> Generator[Case]:
     from schemathesis.core.parameters import LOCATION_TO_CONTAINER
 
@@ -425,6 +430,7 @@ def generate_coverage_cases(
         operation=operation,
         app=operation.app,
     )
+    extra_data_source = as_strategy_kwargs.get("extra_data_source")
     overrides = {
         container: as_strategy_kwargs[container]
         for container in LOCATION_TO_CONTAINER.values()
@@ -444,6 +450,8 @@ def generate_coverage_cases(
             generate_duplicate_query_parameters=generate_duplicate_query_parameters,
             unexpected_methods=unexpected_methods,
             generation_config=generation_config,
+            extra_data_source=extra_data_source,
+            unexpected_methods_seen=unexpected_methods_seen,
         ):
             if case.media_type and operation.schema.transport.get_first_matching_media_type(case.media_type) is None:
                 continue
@@ -599,6 +607,41 @@ def _stringify_value(val: Any, container_name: str) -> Any:
     return val
 
 
+_GATING_KEYS = frozenset({"example", "examples", "default", "enum", "const"})
+
+
+def _is_pool_eligible(schema: Any) -> bool:
+    return isinstance(schema, dict) and not (_GATING_KEYS & schema.keys())
+
+
+def _body_pool_overlays(
+    *,
+    correlated: dict[tuple[ParameterLocation, str], Any],
+    body_schema: Any,
+    validator_cls: type,
+) -> dict[str, Any]:
+    """Return pool overlay values for top-level body properties — only those valid against the destination schema."""
+    if not isinstance(body_schema, dict):
+        return {}
+    properties = body_schema.get("properties")
+    if not isinstance(properties, dict):
+        return {}
+    overlays: dict[str, Any] = {}
+    for prop_name, prop_schema in properties.items():
+        if not _is_pool_eligible(prop_schema):
+            continue
+        value = correlated.get((ParameterLocation.BODY, prop_name))
+        if value is None:
+            continue
+        try:
+            if not make_validator(prop_schema, validator_cls).is_valid(value):
+                continue
+        except Exception:
+            continue
+        overlays[prop_name] = value
+    return overlays
+
+
 def _generate_coverage_values_from_custom_strategy(
     media_type: str,
 ) -> Generator[coverage.GeneratedValue, None, None]:
@@ -663,6 +706,8 @@ def _iter_coverage_cases(
     generate_duplicate_query_parameters: bool,
     unexpected_methods: set[str],
     generation_config: GenerationConfig,
+    extra_data_source: ExtraDataSource | None = None,
+    unexpected_methods_seen: set[tuple[str, str]] | None = None,
 ) -> Generator[Case, None, None]:
     from schemathesis.specs.openapi._hypothesis import _build_custom_formats
     from schemathesis.specs.openapi.examples import find_matching_in_responses
@@ -683,6 +728,15 @@ def _iter_coverage_cases(
     assert isinstance(operation.schema, OpenApiSchema)
     validator_cls = operation.schema.adapter.jsonschema_validator_cls
 
+    correlated: dict[tuple[ParameterLocation, str], Any]
+    if extra_data_source is not None:
+        try:
+            correlated = extra_data_source.pick_correlated_values(operation=operation)
+        except Exception:
+            correlated = {}
+    else:
+        correlated = {}
+
     for parameter in operation.iter_parameters():
         location = parameter.location
         name = parameter.name
@@ -693,6 +747,10 @@ def _iter_coverage_cases(
             schema["examples"] = examples
         for value in find_matching_in_responses(responses, parameter.name):
             schema.setdefault("examples", []).append(value)
+        if _is_pool_eligible(schema):
+            pool_value = correlated.get((location, name))
+            if pool_value is not None:
+                schema = {**schema, "examples": [pool_value]}
         gen = coverage.cover_schema_iter(
             coverage.CoverageContext(
                 root_schema=schema,
@@ -800,6 +858,15 @@ def _iter_coverage_cases(
                     schema["examples"] = [example for example in examples if isinstance(example, str | bytes)]
                 else:
                     schema["examples"] = examples
+            body_overlays = _body_pool_overlays(correlated=correlated, body_schema=schema, validator_cls=validator_cls)
+            if body_overlays:
+                schema = dict(schema)
+                schema_properties = dict(schema.get("properties") or {})
+                for prop_name, value in body_overlays.items():
+                    prop_schema = schema_properties.get(prop_name)
+                    if isinstance(prop_schema, dict):
+                        schema_properties[prop_name] = {**prop_schema, "examples": [value]}
+                schema["properties"] = schema_properties
             try:
                 media_type = media_types.parse(body.media_type)
             except MalformedMediaType as exc:
@@ -831,6 +898,8 @@ def _iter_coverage_cases(
                 template_time += elapsed
                 if value.generation_mode == GenerationMode.POSITIVE:
                     template.set_body(value, body.media_type)
+                    if body_overlays and isinstance(template._template.get("body"), dict):
+                        template._template["body"].update(body_overlays)
                 else:
                     # The template must be a valid positive baseline so that
                     # parameter-mutation cases (e.g. missing required header) only
@@ -855,6 +924,8 @@ def _iter_coverage_cases(
                         value if isinstance(first_positive, NotSet) else first_positive,
                         body.media_type,
                     )
+                    if body_overlays and isinstance(template._template.get("body"), dict):
+                        template._template["body"].update(body_overlays)
             data = template.with_body(value=value, media_type=body.media_type)
             yield operation.Case(
                 **data.kwargs,
@@ -951,9 +1022,14 @@ def _iter_coverage_cases(
                 ),
             )
     if GenerationMode.NEGATIVE in generation_modes:
-        # Generate HTTP methods that are not specified in the spec
-        methods = unexpected_methods - set(operation.schema[operation.path])
-        for method in sorted(methods):
+        # Path-level: each `(path, method)` pair runs once across declared operations.
+        methods = sorted(unexpected_methods - set(operation.schema[operation.path]))
+        for method in methods:
+            if unexpected_methods_seen is not None:
+                key = (operation.path, method)
+                if key in unexpected_methods_seen:
+                    continue
+                unexpected_methods_seen.add(key)
             instant = Instant()
             data = template.unmodified()
             yield operation.Case(

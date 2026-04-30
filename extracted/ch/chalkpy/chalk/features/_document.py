@@ -1,6 +1,4 @@
-from typing import TYPE_CHECKING, Type, TypeVar
-
-from typing_extensions import Annotated
+from typing import TYPE_CHECKING, Annotated, Type, TypeVar
 
 T = TypeVar("T")
 

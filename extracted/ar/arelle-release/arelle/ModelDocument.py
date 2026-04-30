@@ -13,17 +13,13 @@ from typing import Any, cast, TYPE_CHECKING
 from typing_extensions import Self
 from lxml import etree
 from xml.sax import SAXParseException
-
-from arelle import (
-    PackageManager, XbrlConst, XmlUtil, UrlUtil, ValidateFilingText,
-    XhtmlValidate, XmlValidateSchema, FunctionIxt,
-    )
-
-from arelle.ModelXbrl import ModelXbrl
+from arelle import (XbrlConst, XmlUtil, UrlUtil, ValidateFilingText,
+                    XhtmlValidate, XmlValidateSchema, FunctionIxt)
 from arelle.conformance.CSVTestcaseLoader import CSVTestcaseException, loadCsvTestcase
 from arelle.FileSource import FileSource
 from arelle.ModelObject import ModelObject
 from arelle.ModelValue import qname, QName
+from arelle.ModelXbrl import ModelXbrl
 from arelle.ModelDtsObject import ModelLink
 from arelle.ModelInstanceObject import ModelFact, ModelContext, ModelUnit, ModelInlineFact
 from arelle.ModelObjectFactory import parser, KnownNamespacesModelObjectClassLookup, DiscoveringClassLookup
@@ -115,10 +111,11 @@ def load(modelXbrl: ModelXbrl, uri: str, base: str | None = None, referringEleme
     if modelXbrl.modelManager.skipLoading and modelXbrl.modelManager.skipLoading.match(normalizedUri):
         return None
 
+    mappedUri: str | None
     if modelXbrl.fileSource.isMappedUrl(normalizedUri):
         mappedUri = modelXbrl.fileSource.mappedUrl(normalizedUri)
-    elif PackageManager.isMappedUrl(normalizedUri):
-        mappedUri = PackageManager.mappedUrl(normalizedUri)  # type: ignore[assignment]
+    elif modelXbrl.modelManager.cntlr.packages.is_mapped(normalizedUri):
+        mappedUri = modelXbrl.modelManager.cntlr.packages.map(normalizedUri)
     else:
         mappedUri = modelXbrl.modelManager.disclosureSystem.mappedUrl(normalizedUri)
 
@@ -130,7 +127,7 @@ def load(modelXbrl: ModelXbrl, uri: str, base: str | None = None, referringEleme
     if modelXbrl.fileSource.isInArchive(mappedUri):
         filepath = mappedUri
     else:
-        filepath = modelXbrl.modelManager.cntlr.webCache.getfilename(mappedUri, reload=reloadCache, checkModifiedTime=kwargs.get("checkModifiedTime",False))  # type: ignore[assignment]
+        filepath = modelXbrl.modelManager.cntlr.webCache.getfilename(mappedUri, reload=reloadCache, checkModifiedTime=kwargs.get("checkModifiedTime",False))
         if filepath:
             uri = modelXbrl.modelManager.cntlr.webCache.normalizeUrl(filepath)
     if filepath is None: # error such as HTTPerror is already logged
@@ -190,25 +187,25 @@ def load(modelXbrl: ModelXbrl, uri: str, base: str | None = None, referringEleme
             (isEntry and modelXbrl.modelManager.disclosureSystem.validateEntryText) or
             (modelXbrl.modelManager.disclosureSystem.validateFileText and
              not normalizedUri in modelXbrl.modelManager.disclosureSystem.standardTaxonomiesDict))):
-            file, _encoding = ValidateFilingText.checkfile(modelXbrl,filepath)  # type: ignore[no-untyped-call]
+            file, _encoding = ValidateFilingText.checkfile(modelXbrl,filepath)
         else:
-            file, _encoding = modelXbrl.fileSource.file(filepath, stripDeclaration=True)  # type: ignore[misc]
+            file, _encoding = modelXbrl.fileSource.file(filepath, stripDeclaration=True)  # type: ignore[misc,assignment]
         xmlDocument = None
         isPluginParserDocument = False
         for pluginMethod in modelXbrl.modelManager.cntlr.plugins.hooks("ModelDocument.CustomLoader"):
             modelDocument = pluginMethod(modelXbrl, file, mappedUri, filepath)
             if modelDocument is not None:
-                file.close()
+                file.close()  # type: ignore[union-attr]
                 return modelDocument
         _parser, _parserLookupName, _parserLookupClass = parser(modelXbrl,normalizedUri)
-        xmlDocument = etree.parse(file,parser=_parser,base_url=filepath)
+        xmlDocument = etree.parse(file,parser=_parser,base_url=filepath)  # type: ignore[arg-type]
         for error in _parser.error_log:
             modelXbrl.error("xmlSchema:syntax",
                     _("%(error)s, %(fileName)s, line %(line)s, column %(column)s"),
                     modelObject=(referringElement, os.path.basename(uri)),
                     fileName=os.path.basename(uri),
                     error=error.message, line=error.line, column=error.column)
-        file.close()
+        file.close()  # type: ignore[union-attr]
     except FileNotFoundError as err:
         if file:
             file.close()
@@ -386,7 +383,7 @@ def load(modelXbrl: ModelXbrl, uri: str, base: str | None = None, referringEleme
         modelDocument.parserLookupClass = _parserLookupClass
         modelDocument.xmlRootElement = modelDocument.targetXbrlRootElement = rootNode
         modelDocument.schemaLocationElements.add(rootNode)
-        modelDocument.documentEncoding = _encoding
+        modelDocument.documentEncoding = _encoding  # type: ignore[assignment]
 
         if isEntry or isDiscovered:
             modelDocument.inDTS = True

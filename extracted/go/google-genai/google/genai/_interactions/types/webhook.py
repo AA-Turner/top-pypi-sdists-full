@@ -32,13 +32,11 @@ class Webhook(BaseModel):
         Union[
             Literal[
                 "batch.succeeded",
-                "batch.cancelled",
                 "batch.expired",
                 "batch.failed",
                 "interaction.requires_action",
                 "interaction.completed",
                 "interaction.failed",
-                "interaction.cancelled",
                 "video.generated",
             ],
             str,
@@ -47,24 +45,25 @@ class Webhook(BaseModel):
     """Required. The events that the webhook is subscribed to. Available events:
 
     - batch.succeeded
-    - batch.cancelled
     - batch.expired
     - batch.failed
     - interaction.requires_action
     - interaction.completed
     - interaction.failed
-    - interaction.cancelled
     - video.generated
     """
 
     uri: str
     """Required. The URI to which webhook events will be sent."""
 
+    id: Optional[str] = None
+    """Output only. The ID of the webhook."""
+
     create_time: Optional[datetime] = None
     """Output only. The timestamp when the webhook was created."""
 
     name: Optional[str] = None
-    """Identifier. The name of the webhook. Format: `webhooks/{webhook_id}`"""
+    """Optional. The user-provided name of the webhook."""
 
     new_signing_secret: Optional[str] = None
     """Output only. The new signing secret for the webhook. Only populated on create."""
@@ -73,7 +72,7 @@ class Webhook(BaseModel):
     """Output only. The signing secrets associated with this webhook."""
 
     state: Optional[Literal["enabled", "disabled", "disabled_due_to_failed_deliveries"]] = None
-    """The state of the webhook."""
+    """Output only. The state of the webhook."""
 
     update_time: Optional[datetime] = None
     """Output only. The timestamp when the webhook was last updated."""

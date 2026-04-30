@@ -21,6 +21,7 @@ class ProjectConfig(DataClassJsonMixin):
         default_factory=lambda: DEFAULT_MONTECARLO_MONITOR_CONFIG_VERSION,
     )
     default_resource: Optional[str] = field_spec(fields.Str(required=False))
+    default_domain: Optional[str] = field_spec(fields.Str(required=False))
     include_file_patterns: Optional[List[str]] = field_spec(
         fields.List(fields.Str(required=True)),
         default_factory=lambda: DEFAULT_INCLUDE_PATTERNS,

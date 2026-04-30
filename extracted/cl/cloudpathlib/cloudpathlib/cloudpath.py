@@ -101,7 +101,6 @@ from .exceptions import (
     OverwriteNewerLocalError,
 )
 
-
 if TYPE_CHECKING:
     from .client import Client
 
@@ -1593,6 +1592,10 @@ class CloudPath(metaclass=CloudPathMeta):
             return core_schema.no_info_after_validator_function(
                 cls.validate,
                 core_schema.any_schema(),
+                serialization=core_schema.plain_serializer_function_ser_schema(
+                    lambda x: str(x),
+                    return_schema=core_schema.str_schema(),
+                ),
             )
         except ImportError:
             return None

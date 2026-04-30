@@ -1,9 +1,6 @@
 use std::collections::HashSet;
 
-use ruff_python_ast::{
-    Decorator, Expr, Stmt, StmtClassDef,
-    StmtFunctionDef,
-};
+use ruff_python_ast::{Decorator, Expr, Stmt, StmtClassDef, StmtFunctionDef};
 use ruff_python_parser::parse_module;
 use ruff_text_size::Ranged;
 
@@ -445,11 +442,7 @@ fn format_expr_as_source(expr: &Expr) -> String {
 
 /// Resolve string-quoted annotations like `"Jar.jar_id"` or `"OomB.id"`.
 /// These are forward references to feature fields used as foreign keys.
-fn resolve_string_annotation(
-    expr: &Expr,
-    _source: &str,
-    type_map: &TypeMap,
-) -> Option<String> {
+fn resolve_string_annotation(expr: &Expr, _source: &str, type_map: &TypeMap) -> Option<String> {
     let Expr::StringLiteral(string_lit) = expr else {
         return None;
     };
@@ -648,11 +641,16 @@ fn resolve_return_annotation(
     };
 
     // Check if this is Features[...] or DataFrame[...]
-    if imports
-        .features_type_names
-        .contains(base_name.id.as_str())
-    {
-        return resolve_features_subscript(&subscript.slice, source, type_map, imports, return_typedicts, typeddict_counter, func_name);
+    if imports.features_type_names.contains(base_name.id.as_str()) {
+        return resolve_features_subscript(
+            &subscript.slice,
+            source,
+            type_map,
+            imports,
+            return_typedicts,
+            typeddict_counter,
+            func_name,
+        );
     }
 
     if imports.dataframe_names.contains(base_name.id.as_str()) {
@@ -697,9 +695,7 @@ fn resolve_features_subscript(
             continue;
         };
         let field_name = attr.attr.as_str();
-        let info = type_map
-            .features
-            .get(&(class_name, field_name.to_string()));
+        let info = type_map.features.get(&(class_name, field_name.to_string()));
         let type_str = info
             .map(|i| localize_type(&i.annotation(), imports))
             .unwrap_or_else(|| "Any".to_string());
@@ -711,9 +707,7 @@ fn resolve_features_subscript(
     }
 
     // Generate a TypedDict name based on the function name.
-    let td_name = format!(
-        "__{func_name}_Return",
-    );
+    let td_name = format!("__{func_name}_Return",);
     *typeddict_counter += 1;
 
     let mut td = format!("class {td_name}(TypedDict):\n");
@@ -738,18 +732,16 @@ fn find_matching_decorator<'a>(
     decorators: &'a [Decorator],
     names: &HashSet<String>,
 ) -> Option<&'a Decorator> {
-    decorators.iter().find(|dec| {
-        match &dec.expression {
-            Expr::Name(name) => names.contains(name.id.as_str()),
-            Expr::Call(call) => {
-                if let Expr::Name(name) = call.func.as_ref() {
-                    names.contains(name.id.as_str())
-                } else {
-                    false
-                }
+    decorators.iter().find(|dec| match &dec.expression {
+        Expr::Name(name) => names.contains(name.id.as_str()),
+        Expr::Call(call) => {
+            if let Expr::Name(name) = call.func.as_ref() {
+                names.contains(name.id.as_str())
+            } else {
+                false
             }
-            _ => false,
         }
+        _ => false,
     })
 }
 

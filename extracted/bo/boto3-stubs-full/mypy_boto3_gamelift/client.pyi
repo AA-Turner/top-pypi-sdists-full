@@ -120,6 +120,8 @@ from .type_defs import (
     DescribeContainerFleetOutputTypeDef,
     DescribeContainerGroupDefinitionInputTypeDef,
     DescribeContainerGroupDefinitionOutputTypeDef,
+    DescribeContainerGroupPortMappingsInputTypeDef,
+    DescribeContainerGroupPortMappingsOutputTypeDef,
     DescribeEC2InstanceLimitsInputTypeDef,
     DescribeEC2InstanceLimitsOutputTypeDef,
     DescribeFleetAttributesInputTypeDef,
@@ -732,6 +734,16 @@ class GameLiftClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_container_group_definition.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gamelift/client/#describe_container_group_definition)
+        """
+
+    def describe_container_group_port_mappings(
+        self, **kwargs: Unpack[DescribeContainerGroupPortMappingsInputTypeDef]
+    ) -> DescribeContainerGroupPortMappingsOutputTypeDef:
+        """
+        <b>This API works with the following fleet types:</b> Container.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_container_group_port_mappings.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gamelift/client/#describe_container_group_port_mappings)
         """
 
     def describe_ec2_instance_limits(

@@ -5,11 +5,13 @@ import jsonschema_rs
 import pytest
 from hypothesis import HealthCheck, Phase, assume, find, given, settings
 from hypothesis import strategies as st
+from hypothesis.database import InMemoryExampleDatabase
 from hypothesis.internal.observability import with_observability_callback
 from hypothesis_jsonschema import _canonicalise as canonicalise
 
 import schemathesis
 from schemathesis.core import NOT_SET
+from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation.hypothesis import examples, setup
@@ -103,6 +105,57 @@ def test_merged_cache_returns_fresh_copy(left, right, mutation_path):
     assert second != first
 
 
+def test_ref_with_sibling_anyof_against_anyof_target(ctx):
+    body = {
+        "type": "object",
+        "properties": {
+            "loadStrategyClass": {
+                "$ref": "#/components/schemas/Strategy",
+                "anyOf": [
+                    {"const": "ai.starlake.IngestionNameStrategy"},
+                    {"const": "ai.starlake.IngestionTimeStrategy"},
+                ],
+            }
+        },
+    }
+    components = {
+        "schemas": {
+            "Strategy": {
+                "anyOf": [
+                    {"type": "string"},
+                    {"type": "boolean"},
+                    {"type": "number"},
+                    {"type": "integer"},
+                    {"type": "null"},
+                ],
+            }
+        }
+    }
+    schema_dict = ctx.openapi.build_schema(
+        {
+            "/data": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": body}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        },
+        components=components,
+    )
+    schema = schemathesis.openapi.from_dict(schema_dict)
+    validator = jsonschema_rs.validator_for({**body, "components": components})
+
+    @given(schema["/data"]["POST"].as_strategy())
+    @settings(max_examples=1, deadline=None, database=InMemoryExampleDatabase())
+    def test(case):
+        validator.validate(case.body)
+
+    test()
+
+
 @pytest.mark.parametrize(
     ("schema", "expected_module"),
     [
@@ -141,6 +194,89 @@ def test_get_validator_class_falls_back_to_older_drafts_for_tuple_items():
     schema = {"type": "array", "items": [{"type": "string"}]}
 
     assert canonicalise._get_validator_class(schema) is jsonschema_rs.Draft7Validator
+
+
+def test_draft_03_raises_invalid_schema(ctx):
+    body = {
+        "$schema": "http://json-schema.org/draft-03/schema#",
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+    }
+    schema_dict = ctx.openapi.build_schema(
+        {
+            "/data": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": body}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        },
+    )
+    schema = schemathesis.openapi.from_dict(schema_dict)
+
+    @given(schema["/data"]["POST"].as_strategy())
+    @settings(max_examples=1, deadline=None, database=InMemoryExampleDatabase())
+    def test(case):
+        pass
+
+    with pytest.raises(InvalidSchema, match="Draft-03"):
+        test()
+
+
+def test_canonicalise_constants_restored_after_polluting_schema(ctx):
+    # hypothesis-jsonschema's FALSEY/TRUTHY are shared mutable globals that get
+    # clobbered during generation; schemathesis must restore them.
+    setup()
+    schema_dict = ctx.openapi.build_schema(
+        {
+            "/probe": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "routes": {
+                                            "type": "array",
+                                            "items": {"$ref": "#/components/schemas/staticRoutes"},
+                                        }
+                                    },
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "staticRoutes": {
+                    "type": "object",
+                    "if": {"properties": {"type": {"const": "uri"}}},
+                    "then": {"properties": {"source": {"type": "string"}}, "required": ["source"]},
+                    "else": {"properties": {"content": {"type": "string"}}, "required": ["content"]},
+                    "required": ["route", "type"],
+                    "additionalProperties": False,
+                }
+            }
+        },
+    )
+    schema = schemathesis.openapi.from_dict(schema_dict)
+
+    @given(schema["/probe"]["POST"].as_strategy())
+    @settings(max_examples=1, deadline=None, database=InMemoryExampleDatabase())
+    def test(case):
+        pass
+
+    test()
+
+    assert canonicalise.FALSEY == {"not": {}}
+    assert canonicalise.TRUTHY == {}
 
 
 @pytest.mark.parametrize("location", sorted(set(ParameterLocation) - {ParameterLocation.UNKNOWN}))
@@ -361,6 +497,173 @@ def test_required_without_properties(ctx):
         pass
 
     test()
+
+
+def test_non_schema_property_value(ctx):
+    schema = ctx.openapi.build_schema(
+        {
+            "/data": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "maxItems": 0,
+                                    },
+                                },
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        }
+    )
+
+    schema = schemathesis.openapi.from_dict(schema)
+    operation = schema["/data"]["POST"]
+
+    @given(operation.as_strategy())
+    @settings(max_examples=1)
+    def test(case):
+        pass
+
+    test()
+
+
+def test_as_strategy_example_resolves_bundled_refs(tmp_path):
+    # The public Python API path must work without prior CLI/pytest imports.
+    import subprocess
+    import sys
+    import textwrap
+
+    script = tmp_path / "probe.py"
+    script.write_text(
+        textwrap.dedent("""
+        import schemathesis
+
+        schema = {
+            "openapi": "3.0.0",
+            "info": {"title": "T", "version": "1.0.0"},
+            "paths": {
+                "/probe": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "outer": {
+                                                "$ref": "#/components/schemas/Outer",
+                                                "properties": {
+                                                    "inner": {"$ref": "#/components/schemas/Inner"}
+                                                },
+                                            }
+                                        },
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+            },
+            "components": {
+                "schemas": {
+                    "Outer": {
+                        "type": "object",
+                        "properties": {"enabled": {"type": "boolean"}},
+                    },
+                    "Inner": {"type": "object", "properties": {"flag": {"type": "boolean"}}},
+                }
+            },
+        }
+        api = schemathesis.openapi.from_dict(schema)
+        case = api["/probe"]["POST"].as_strategy().example()
+        assert case is not None
+    """)
+    )
+    result = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+
+
+def test_invalid_schema_for_malformed_subschema(ctx):
+    # `description: null` violates JSON Schema; surface it as InvalidSchema rather than a raw validator error.
+    schema_dict = ctx.openapi.build_schema(
+        {
+            "/probe": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "properties": {"field": {"$ref": "#/components/schemas/Bad"}},
+                                },
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={"schemas": {"Bad": {"type": "string", "description": None}}},
+    )
+    schema = schemathesis.openapi.from_dict(schema_dict)
+
+    with pytest.raises(InvalidSchema, match="description"):
+        examples.generate_one(schema["/probe"]["POST"].as_strategy())
+
+
+def test_array_with_allof_of_multiple_contains(ctx):
+    # `allOf` of multiple `contains` schemas can't be merged; without help, generation
+    # falls back to filtering and exhausts before satisfying both consts.
+    schema_dict = ctx.openapi.build_schema(
+        {
+            "/probe": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["type"],
+                                    "properties": {
+                                        "type": {
+                                            "type": "array",
+                                            "minItems": 1,
+                                            "uniqueItems": True,
+                                            "items": {"type": "string"},
+                                            "allOf": [
+                                                {"contains": {"const": "VerifiablePresentation"}},
+                                                {"contains": {"const": "KyaManifest"}},
+                                            ],
+                                        }
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    schema = schemathesis.openapi.from_dict(schema_dict)
+
+    case = examples.generate_one(schema["/probe"]["POST"].as_strategy())
+
+    assert "VerifiablePresentation" in case.body["type"]
+    assert "KyaManifest" in case.body["type"]
 
 
 @pytest.mark.parametrize("media_type", ["application/json", "text/yaml"])
@@ -742,7 +1045,7 @@ def test_health_check_failed_large_base_example(ctx, cli, snapshot_cli, openapi3
     ],
     ids=["implicit", "explicit"],
 )
-def test_discriminator_const_injection_in_generation(ctx, discriminator, valid_values):
+def test_discriminator_property_pinned_in_generation(ctx, discriminator, valid_values):
     raw_schema = ctx.openapi.build_schema(
         {
             "/pets": {

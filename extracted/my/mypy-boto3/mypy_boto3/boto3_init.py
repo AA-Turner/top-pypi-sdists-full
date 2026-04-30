@@ -1,7 +1,7 @@
 """
 boto3.__init__ stub.
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 """
 
 try:

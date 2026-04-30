@@ -1,25 +1,26 @@
 from __future__ import annotations
 
+import dataclasses as _dataclasses
 import decimal
 import enum
 import ipaddress
 import uuid as _uuid_module
-from types import FunctionType
-
-import dataclasses as _dataclasses
 from datetime import date, datetime, time, timedelta
+from types import FunctionType
 from typing import (
     Any,
     List,
     Type,
     cast,
+    get_args,
+    get_origin,
+    is_typeddict,
 )
 
 import pyarrow as pa
-from typing_extensions import get_args, get_origin, is_typeddict
 
 from chalk.features._encoding.pyarrow import pyarrow_to_primitive, rich_to_pyarrow
-from chalk.features.feature_wrapper import UnresolvedFeature, FeatureWrapper
+from chalk.features.feature_wrapper import FeatureWrapper, UnresolvedFeature
 from chalk.utils.attrs_utils import attrs_fields, is_attrs_class
 from chalk.utils.collections import is_namedtuple, unwrap_annotated_if_needed, unwrap_optional_and_annotated_if_needed
 
@@ -27,13 +28,12 @@ from ._base import FeatureConverter
 from ._bool_converter import BoolFeatureConverter
 from ._bytes_converter import BytesFeatureConverter, LargeBinaryFeatureConverter
 from ._dataclass_converter import DataclassFeatureConverter
-from ._decimal_converter import DecimalFeatureConverter
-from ._typed_dict_converter import TypedDictFeatureConverter
 from ._date_converter import Date32FeatureConverter, Date64FeatureConverter
 from ._datetime_converter import DatetimeFeatureConverter
+from ._decimal_converter import DecimalFeatureConverter
+from ._encoder_decoder_converter import EncoderDecoderFeatureConverter
+from ._fixed_size_list_converter import FixedSizeListFeatureConverter
 from ._float_converter import Float16FeatureConverter, Float32FeatureConverter, Float64FeatureConverter
-from ._time_converter import Time32sFeatureConverter, Time32msFeatureConverter, Time64usFeatureConverter, Time64nsFeatureConverter
-from ._timedelta_converter import TimedeltaFeatureConverter
 from ._generic_converter import TDecoder, TEncoder
 from ._int_converter import (
     Int8FeatureConverter,
@@ -45,12 +45,18 @@ from ._int_converter import (
     UInt32FeatureConverter,
     UInt64FeatureConverter,
 )
-from ._fixed_size_list_converter import FixedSizeListFeatureConverter
+from ._json_converter import JsonFeatureConverter
 from ._list_converter import ListFeatureConverter
 from ._string_converter import LargeStringFeatureConverter, StringFeatureConverter
-from ._uuid_ip_converters import UUIDFeatureConverter, IPv4FeatureConverter, IPv6FeatureConverter
-from ._encoder_decoder_converter import EncoderDecoderFeatureConverter
-from ._json_converter import JsonFeatureConverter
+from ._time_converter import (
+    Time32msFeatureConverter,
+    Time32sFeatureConverter,
+    Time64nsFeatureConverter,
+    Time64usFeatureConverter,
+)
+from ._timedelta_converter import TimedeltaFeatureConverter
+from ._typed_dict_converter import TypedDictFeatureConverter
+from ._uuid_ip_converters import IPv4FeatureConverter, IPv6FeatureConverter, UUIDFeatureConverter
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false, reportImplicitStringConcatenation=false
 
@@ -111,6 +117,7 @@ def make_field_converters_for_pydantic(model_class: type) -> "dict[str, FeatureC
     Passes pyarrow_dtype explicitly so field converters use the same dtype as the parent struct.
     """
     import typing as _typing_mod
+
     from ._pydantic_converter import PydanticFeatureConverter, _is_pydantic_model
     fields = getattr(model_class, "model_fields", None) or getattr(model_class, "__fields__", {})
     field_names = tuple(fields.keys())
@@ -133,6 +140,7 @@ def make_field_converters_for_attrs(cls: type) -> "dict[str, FeatureConverter]":
     Passes pyarrow_dtype explicitly so field converters use the same dtype as the parent struct.
     """
     import typing as _typing_mod
+
     from ._attrs_converter import AttrsFeatureConverter
     field_names = tuple(f.name for f in attrs_fields(cls))
     hints = _typing_mod.get_type_hints(cls)
@@ -154,6 +162,7 @@ def make_field_converters_for_namedtuple(nt_class: type) -> "dict[str, FeatureCo
     Passes pyarrow_dtype explicitly so field converters use the same dtype as the parent struct.
     """
     import typing as _typing_mod
+
     from ._named_tuple_converter import NamedTupleFeatureConverter
     field_names: tuple[str, ...] = nt_class._fields
     hints = _typing_mod.get_type_hints(nt_class)

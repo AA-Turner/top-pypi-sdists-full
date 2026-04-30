@@ -44,7 +44,7 @@ extras["ann"] = [
 extras["api"] = [
     "aiohttp>=3.8.1",
     "fastapi>=0.94.0",
-    "fastapi-mcp>=0.2.0",
+    "fastapi-mcp>=0.4.0",
     "httpx>=0.28.1",
     "pillow>=7.1.2",
     "python-multipart>=0.0.7",
@@ -140,7 +140,7 @@ extras["all"] = (
 
 setup(
     name="txtai",
-    version="9.7.0",
+    version="9.8.0",
     author="NeuML",
     description="All-in-one open-source AI framework for semantic search, LLM orchestration and language model workflows",
     long_description=DESCRIPTION,

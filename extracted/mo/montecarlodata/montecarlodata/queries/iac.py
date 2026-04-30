@@ -6,7 +6,8 @@ mutation createOrUpdateMonteCarloConfigTemplateAsync(
     $misconfiguredAsWarning: Boolean,
     $resource: String,
     $createNonIngestedTables: Boolean,
-    $sqlValidation: Boolean
+    $sqlValidation: Boolean,
+    $domain: String
 ) {
     createOrUpdateMonteCarloConfigTemplateAsync(
         configTemplateJson: $configTemplateJson,
@@ -15,7 +16,8 @@ mutation createOrUpdateMonteCarloConfigTemplateAsync(
         misconfiguredAsWarning: $misconfiguredAsWarning,
         resource: $resource,
         createNonIngestedTables: $createNonIngestedTables,
-        sqlValidation: $sqlValidation
+        sqlValidation: $sqlValidation,
+        domain: $domain
     ) {
         response {
             updateUuid

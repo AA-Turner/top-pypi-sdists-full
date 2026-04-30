@@ -12,10 +12,13 @@ Usage::
 
     from types_boto3_bedrock_agentcore.client import BedrockAgentCoreClient
     from types_boto3_bedrock_agentcore.paginator import (
+        ListABTestsPaginator,
         ListActorsPaginator,
+        ListBatchEvaluationsPaginator,
         ListEventsPaginator,
         ListMemoryExtractionJobsPaginator,
         ListMemoryRecordsPaginator,
+        ListRecommendationsPaginator,
         ListSessionsPaginator,
         RetrieveMemoryRecordsPaginator,
     )
@@ -23,10 +26,13 @@ Usage::
     session = Session()
     client: BedrockAgentCoreClient = session.client("bedrock-agentcore")
 
+    list_ab_tests_paginator: ListABTestsPaginator = client.get_paginator("list_ab_tests")
     list_actors_paginator: ListActorsPaginator = client.get_paginator("list_actors")
+    list_batch_evaluations_paginator: ListBatchEvaluationsPaginator = client.get_paginator("list_batch_evaluations")
     list_events_paginator: ListEventsPaginator = client.get_paginator("list_events")
     list_memory_extraction_jobs_paginator: ListMemoryExtractionJobsPaginator = client.get_paginator("list_memory_extraction_jobs")
     list_memory_records_paginator: ListMemoryRecordsPaginator = client.get_paginator("list_memory_records")
+    list_recommendations_paginator: ListRecommendationsPaginator = client.get_paginator("list_recommendations")
     list_sessions_paginator: ListSessionsPaginator = client.get_paginator("list_sessions")
     retrieve_memory_records_paginator: RetrieveMemoryRecordsPaginator = client.get_paginator("retrieve_memory_records")
     ```
@@ -40,14 +46,20 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListABTestsRequestPaginateTypeDef,
+    ListABTestsResponseTypeDef,
     ListActorsInputPaginateTypeDef,
     ListActorsOutputTypeDef,
+    ListBatchEvaluationsRequestPaginateTypeDef,
+    ListBatchEvaluationsResponseTypeDef,
     ListEventsInputPaginateTypeDef,
     ListEventsOutputTypeDef,
     ListMemoryExtractionJobsInputPaginateTypeDef,
     ListMemoryExtractionJobsOutputTypeDef,
     ListMemoryRecordsInputPaginateTypeDef,
     ListMemoryRecordsOutputTypeDef,
+    ListRecommendationsRequestPaginateTypeDef,
+    ListRecommendationsResponseTypeDef,
     ListSessionsInputPaginateTypeDef,
     ListSessionsOutputTypeDef,
     RetrieveMemoryRecordsInputPaginateTypeDef,
@@ -60,13 +72,34 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListABTestsPaginator",
     "ListActorsPaginator",
+    "ListBatchEvaluationsPaginator",
     "ListEventsPaginator",
     "ListMemoryExtractionJobsPaginator",
     "ListMemoryRecordsPaginator",
+    "ListRecommendationsPaginator",
     "ListSessionsPaginator",
     "RetrieveMemoryRecordsPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListABTestsPaginatorBase = Paginator[ListABTestsResponseTypeDef]
+else:
+    _ListABTestsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListABTestsPaginator(_ListABTestsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListABTests.html#BedrockAgentCore.Paginator.ListABTests)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/paginators/#listabtestspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListABTestsRequestPaginateTypeDef]
+    ) -> PageIterator[ListABTestsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListABTests.html#BedrockAgentCore.Paginator.ListABTests.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/paginators/#listabtestspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListActorsPaginatorBase = Paginator[ListActorsOutputTypeDef]
@@ -84,6 +117,24 @@ class ListActorsPaginator(_ListActorsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListActors.html#BedrockAgentCore.Paginator.ListActors.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/paginators/#listactorspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListBatchEvaluationsPaginatorBase = Paginator[ListBatchEvaluationsResponseTypeDef]
+else:
+    _ListBatchEvaluationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListBatchEvaluationsPaginator(_ListBatchEvaluationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListBatchEvaluations.html#BedrockAgentCore.Paginator.ListBatchEvaluations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/paginators/#listbatchevaluationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListBatchEvaluationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListBatchEvaluationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListBatchEvaluations.html#BedrockAgentCore.Paginator.ListBatchEvaluations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/paginators/#listbatchevaluationspaginator)
         """
 
 if TYPE_CHECKING:
@@ -138,6 +189,24 @@ class ListMemoryRecordsPaginator(_ListMemoryRecordsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListMemoryRecords.html#BedrockAgentCore.Paginator.ListMemoryRecords.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/paginators/#listmemoryrecordspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRecommendationsPaginatorBase = Paginator[ListRecommendationsResponseTypeDef]
+else:
+    _ListRecommendationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListRecommendationsPaginator(_ListRecommendationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListRecommendations.html#BedrockAgentCore.Paginator.ListRecommendations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/paginators/#listrecommendationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRecommendationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListRecommendationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListRecommendations.html#BedrockAgentCore.Paginator.ListRecommendations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/paginators/#listrecommendationspaginator)
         """
 
 if TYPE_CHECKING:

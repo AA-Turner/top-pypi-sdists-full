@@ -215,7 +215,7 @@ host_name, config_file = anyscale.workspace.generate_ssh_config_file(
 )
 
 # run an ssh command using the generated config file
-subprocess.run(["ssh", "-F", config_path, host_name, "ray --version"])
+subprocess.run(["ssh", "-F", config_file, host_name, "ray --version"])
 """
 
 _GENERATE_SSH_CONFIG_FILE_ARG_DOCSTRINGS = {
@@ -340,11 +340,9 @@ def pull(  # noqa: PLR0913
 ) -> None:
     """Pull a workspace to a local directory.
 
-    New files will be created, existing files will be overwritten. With --delete, files
+    New files will be created, existing files will be overwritten. With delete=True, files
     in the local directory that don't exist in the workspace will be removed. Excluded
-    files (like .git) are preserved and not deleted even with --delete.
-
-    Returns the path to the pulled workspace.
+    files (like .git) are preserved and not deleted even with delete=True.
     """
     _private_sdk.pull(  # type: ignore
         name=name,
@@ -402,11 +400,9 @@ def push(  # noqa: PLR0913
 ) -> None:
     """Push a local directory to a workspace.
 
-    New files will be created, existing files will be overwritten. With --delete, files
+    New files will be created, existing files will be overwritten. With delete=True, files
     in the workspace that don't exist locally will be removed. Excluded files (like .git)
-    are preserved and not deleted even with --delete.
-
-    Returns the path to the pushed workspace.
+    are preserved and not deleted even with delete=True.
     """
     _private_sdk.push(  # type: ignore
         name=name,
@@ -471,6 +467,7 @@ _GET_ARG_DOCSTRINGS = {
     "id": "Unique ID of the workspace",
     "cloud": "The Anyscale Cloud to run this workload on. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
     "project": "Named project to use for the workspace. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+    "include_config": "Whether to include full workspace config details such as compute and build config. Defaults to True.",
 }
 
 

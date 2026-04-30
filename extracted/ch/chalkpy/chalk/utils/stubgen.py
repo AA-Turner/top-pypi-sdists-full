@@ -4,11 +4,9 @@ import pathlib
 import typing
 import warnings
 from collections import defaultdict
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type, Union, cast
+from typing import Annotated, Any, Dict, List, NamedTuple, Optional, Tuple, Type, Union, cast, get_args, get_origin
 
-from typing_extensions import Annotated, get_args, get_origin
-
-from chalk.features import Feature, Features, FeatureSetBase, Vector, FeatureWrapper, unwrap_feature
+from chalk.features import Feature, Features, FeatureSetBase, FeatureWrapper, Vector, unwrap_feature
 from chalk.importer import import_all_python_files_from_dir
 from chalk.utils.paths import get_directory_root
 

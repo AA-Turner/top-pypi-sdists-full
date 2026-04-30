@@ -19,7 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
-from arize._generated.api_client.models.evaluators_create_request_version import EvaluatorsCreateRequestVersion
+from arize._generated.api_client.models.evaluator_version_create import EvaluatorVersionCreate
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -30,8 +30,8 @@ class EvaluatorsCreateRequest(BaseModel):
     space_id: StrictStr = Field(description="Space global ID (base64)")
     name: StrictStr = Field(description="Evaluator name (must be unique within the space)")
     description: Optional[StrictStr] = Field(default=None, description="Evaluator description")
-    type: StrictStr = Field(description="Evaluator type. Only template is supported in this iteration.")
-    version: EvaluatorsCreateRequestVersion
+    type: StrictStr = Field(description="Evaluator type. Use `template` with `version.template_config`, or `code` with `version.code_config`. ")
+    version: EvaluatorVersionCreate
     __properties: ClassVar[List[str]] = ["space_id", "name", "description", "type", "version"]
 
     @field_validator('type')
@@ -104,7 +104,7 @@ class EvaluatorsCreateRequest(BaseModel):
             "name": obj.get("name"),
             "description": obj.get("description"),
             "type": obj.get("type"),
-            "version": EvaluatorsCreateRequestVersion.from_dict(obj["version"]) if obj.get("version") is not None else None
+            "version": EvaluatorVersionCreate.from_dict(obj["version"]) if obj.get("version") is not None else None
         })
         return _obj
 

@@ -58,7 +58,7 @@ NAME = "netius"
 identification of both the clients and the services this
 value may be prefixed or suffixed """
 
-VERSION = "1.53.13"
+VERSION = "1.55.0"
 """ The version value that identifies the version of the
 current infra-structure, all of the services and clients
 may share this value """
@@ -178,6 +178,7 @@ SSL_SILENT_REASONS = (
     "BAD_KEY_SHARE",
     "HTTP_REQUEST",
     "NO_SHARED_CIPHER",
+    "NO_SUITABLE_KEY_SHARE",
     "NO_SUITABLE_SIGNATURE_ALGORITHM",
     "PEER_DID_NOT_RETURN_A_CERTIFICATE",
     "RECORD_LAYER_FAILURE",
@@ -1262,6 +1263,10 @@ class AbstractBase(observer.Observable):
         # redirected to the proper logic through exceptions
         self.bind_signals()
 
+        # runs the binding of the config signals so that the config
+        # event is triggered allowing reload of the configuration
+        self.bind_config()
+
         # sets the private loading flag ensuring that no extra load operations
         # will be done after this first call to the loading (no duplicates)
         self._loaded = True
@@ -1291,6 +1296,10 @@ class AbstractBase(observer.Observable):
         # logging infra-structure of the current system
         if full:
             self.unload_logging()
+
+        # runs the unbind config signals operation, effectively disallowing
+        # the configuration event from producing any more actions
+        self.unbind_config()
 
         # runs the unbind operation for the signals so that no side effects
         # occur while the unloading is going to take place
@@ -1644,9 +1653,6 @@ class AbstractBase(observer.Observable):
             signal.SIGINT,
             signal.SIGTERM,
             (
-                signal.SIGHUP if hasattr(signal, "SIGHUP") else None
-            ),  # @UndefinedVariable pylint: disable=E1101
-            (
                 signal.SIGQUIT if hasattr(signal, "SIGQUIT") else None
             ),  # @UndefinedVariable pylint: disable=E1101
         ),
@@ -1671,10 +1677,38 @@ class AbstractBase(observer.Observable):
         signals=(
             signal.SIGINT,
             signal.SIGTERM,
-            signal.SIGHUP if hasattr(signal, "SIGHUP") else None,  # @UndefinedVariable
             (
                 signal.SIGQUIT if hasattr(signal, "SIGQUIT") else None
             ),  # @UndefinedVariable
+        ),
+    ):
+        self.bind_signals(signals=signals, handler=signal.SIG_IGN)
+
+    def bind_config(
+        self,
+        signals=(
+            (
+                signal.SIGHUP if hasattr(signal, "SIGHUP") else None
+            ),  # @UndefinedVariable pylint: disable=E1101
+        ),
+    ):
+        def base_handler(signum=None, frame=None):
+            self.delay(lambda: self.on_config(), immediately=True)
+
+        for signum in signals:
+            if signum == None:
+                continue
+            try:
+                signal.signal(signum, base_handler)
+            except Exception:
+                self.debug("Failed to register %d handler", signum)
+
+    def unbind_config(
+        self,
+        signals=(
+            (
+                signal.SIGHUP if hasattr(signal, "SIGHUP") else None
+            ),  # @UndefinedVariable pylint: disable=E1101
         ),
     ):
         self.bind_signals(signals=signals, handler=signal.SIG_IGN)
@@ -3066,6 +3100,9 @@ class AbstractBase(observer.Observable):
     def on_resume(self):
         self.trigger("resume", self)
 
+    def on_config(self):
+        self.trigger("config", self)
+
     def on_read(self, _socket):
         # tries to retrieve a possible callback registered for the socket
         # and if there's one calls it to be able to "append" extra operations
@@ -4438,8 +4475,7 @@ class AbstractBase(observer.Observable):
         # the file system without requiring a full restart
         if not hasattr(self._ssl_contexts, "reload"):
             return
-        domains = list(self._ssl_contexts.keys())
-        changed = self._ssl_contexts.reload(domains)
+        changed = self._ssl_contexts.reload()
         if changed:
             self.info("Reloaded SSL certificates for updated domains")
 

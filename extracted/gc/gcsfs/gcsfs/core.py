@@ -14,6 +14,7 @@ import uuid
 import warnings
 import weakref
 from datetime import datetime, timedelta
+from glob import has_magic
 from urllib.parse import parse_qs
 from urllib.parse import quote as quote_urllib
 from urllib.parse import urlsplit
@@ -23,13 +24,15 @@ import fsspec
 from fsspec import asyn
 from fsspec.callbacks import NoOpCallback
 from fsspec.implementations.http import get_client
-from fsspec.utils import setup_logging, stringify_path
+from fsspec.utils import other_paths, setup_logging, stringify_path
 
 from . import __version__ as version
 from .checkers import get_consistency_checker
+from .concurrency import parallel_tasks_first_completed
 from .credentials import GoogleCredentials
 from .inventory_report import InventoryReport
 from .retry import errs, retry_request, validate_response
+from .zb_hns_utils import DEFAULT_CONCURRENCY, MAX_PREFETCH_SIZE
 
 logger = logging.getLogger("gcsfs")
 
@@ -299,6 +302,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
     default_block_size = DEFAULT_BLOCK_SIZE
     protocol = "gs", "gcs"
     async_impl = True
+    MIN_CHUNK_SIZE_FOR_CONCURRENCY = 5 * 1024 * 1024
 
     def __init__(
         self,
@@ -374,7 +378,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
 
     # Clean up the aiohttp session
     #
-    # This can run from the main thread if invoked via the weakref callbcak.
+    # This can run from the main thread if invoked via the weakref callback.
     # This can happen even if the `loop` parameter belongs to another thread
     # (e.g. the fsspec IO worker). The control flow here is intended to attempt
     # in-thread asynchronous cleanup first, then fallback to synchronous
@@ -1080,15 +1084,22 @@ class GCSFileSystem(asyn.AsyncFileSystem):
                 "storageClass": "DIRECTORY",
                 "type": "directory",
             }
-        # Check exact file path
-        try:
-            exact = await self._get_object(path)
-            # this condition finds a "placeholder" - still need to check if it's a directory
-            if not _is_directory_marker(exact):
-                return exact
-        except FileNotFoundError:
-            pass
-        return await self._get_directory_info(path, bucket, key, generation)
+
+        async with parallel_tasks_first_completed(
+            [
+                self._get_object(path),
+                self._get_directory_info(path, bucket, key, generation),
+            ]
+        ) as (tasks, done, pending):
+            get_object_task, get_directory_info_task = tasks
+
+            try:
+                get_object_res = await get_object_task
+                if not _is_directory_marker(get_object_res):
+                    return get_object_res
+            except FileNotFoundError:
+                pass
+            return await get_directory_info_task
 
     async def _get_directory_info(self, path, bucket, key, generation):
         """
@@ -1166,21 +1177,77 @@ class GCSFileSystem(asyn.AsyncFileSystem):
             f"&generation={generation}" if generation else "",
         )
 
-    async def _cat_file(self, path, start=None, end=None, **kwargs):
+    async def _cat_file_sequential(self, path, start=None, end=None, **kwargs):
         """Simple one-shot get of file data"""
         # if start and end are both provided and valid, but start >= end, return empty bytes
         # Otherwise, _process_limits would generate an invalid HTTP range (e.g. "bytes=5-4"
         # for start=5, end=5), causing the server to return the whole file instead of nothing.
         if start is not None and end is not None and start >= end >= 0:
             return b""
+
         u2 = self.url(path)
-        # 'if start or end' fails when start=0 or end=0 because 0 is Falsey.
         if start is not None or end is not None:
             head = {"Range": await self._process_limits(path, start, end)}
         else:
             head = {}
+
         headers, out = await self._call("GET", u2, headers=head)
         return out
+
+    async def _cat_file_concurrent(
+        self, path, start=None, end=None, concurrency=DEFAULT_CONCURRENCY, **kwargs
+    ):
+        """Concurrent fetch of file data"""
+        if start is None:
+            start = 0
+        if end is None:
+            end = (await self._info(path))["size"]
+        if start >= end:
+            return b""
+
+        if concurrency <= 1 or end - start < self.MIN_CHUNK_SIZE_FOR_CONCURRENCY:
+            return await self._cat_file_sequential(path, start=start, end=end, **kwargs)
+
+        total_size = end - start
+        part_size = total_size // concurrency
+        tasks = []
+
+        for i in range(concurrency):
+            offset = start + (i * part_size)
+            actual_size = (
+                part_size if i < concurrency - 1 else total_size - (i * part_size)
+            )
+            tasks.append(
+                asyncio.create_task(
+                    self._cat_file_sequential(
+                        path, start=offset, end=offset + actual_size, **kwargs
+                    )
+                )
+            )
+
+        try:
+            results = await asyncio.gather(*tasks)
+            return b"".join(results)
+        except BaseException as e:
+            for t in tasks:
+                if not t.done():
+                    t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise e
+
+    async def _cat_file(
+        self, path, start=None, end=None, concurrency=DEFAULT_CONCURRENCY, **kwargs
+    ):
+        """Simple one-shot, or concurrent get of file data"""
+        if concurrency > 1:
+            return await self._cat_file_concurrent(
+                path, start=start, end=end, concurrency=concurrency, **kwargs
+            )
+
+        # While we could just call _cat_file_concurrent(concurrency=1), we are choosing
+        # to keep it separate because concurrency code path is still in an experimental phase.
+        # Once concurrency code path is stabilized, we can remove this if-else condition.
+        return await self._cat_file_sequential(path, start=start, end=end, **kwargs)
 
     async def _getxattr(self, path, attr):
         """Get user-defined metadata attribute"""
@@ -1272,16 +1339,70 @@ class GCSFileSystem(asyn.AsyncFileSystem):
 
     merge = asyn.sync_wrapper(_merge)
 
-    # mv method is already available as sync method in the fsspec.py
-    # Async version of it is introduced here so that mv can be used in async methods.
     # TODO: Add async mv method in the async.py and remove from GCSFileSystem.
-    async def _mv(self, path1, path2, recursive=False, maxdepth=None, **kwargs):
+    async def _mv(
+        self, path1, path2, recursive=False, maxdepth=None, batch_size=None, **kwargs
+    ):
         if path1 == path2:
             return
-        # TODO: Pass on_error parameter after copy method handles FileNotFoundError
-        # for folders when recursive is set to true.
-        await self._copy(path1, path2, recursive=recursive, maxdepth=maxdepth)
-        await self._rm(path1, recursive=recursive)
+
+        if isinstance(path1, list) and isinstance(path2, list):
+            # No need to expand paths when both source and destination
+            # are provided as lists
+            paths1 = path1
+            paths2 = path2
+        else:
+            source_is_str = isinstance(path1, str)
+            paths1 = await self._expand_path(
+                path1, maxdepth=maxdepth, recursive=recursive
+            )
+            if source_is_str and (not recursive or maxdepth is not None):
+                # Non-recursive glob does not move directories
+                paths1 = [
+                    p
+                    for p in paths1
+                    if not (asyn.trailing_sep(p) or await self._isdir(p))
+                ]
+                if not paths1:
+                    return
+
+            source_is_file = len(paths1) == 1
+            dest_is_dir = isinstance(path2, str) and (
+                asyn.trailing_sep(path2) or await self._isdir(path2)
+            )
+
+            exists = source_is_str and (
+                (has_magic(path1) and source_is_file)
+                or (
+                    not has_magic(path1)
+                    and dest_is_dir
+                    and not asyn.trailing_sep(path1)
+                )
+            )
+            paths2 = other_paths(
+                paths1,
+                path2,
+                exists=exists,
+                flatten=not source_is_str,
+            )
+
+        batch_size = batch_size or self.batch_size
+        result = await asyn._run_coros_in_chunks(
+            [self._mv_file(p1, p2, **kwargs) for p1, p2 in zip(paths1, paths2)],
+            batch_size=batch_size,
+            return_exceptions=True,
+            nofiles=True,
+        )
+
+        for res, p1 in zip(result, paths1):
+            if isinstance(res, Exception):
+                if isinstance(res, FileNotFoundError) and recursive:
+                    # Ignore FileNotFoundError for implicit directories returned by _expand_path.
+                    if any(p.startswith(p1.rstrip("/") + "/") for p in paths1):
+                        continue
+                raise res
+
+    mv = asyn.sync_wrapper(_mv)
 
     async def _cp_file(self, path1, path2, acl=None, **kwargs):
         """Duplicate remote file"""
@@ -1345,8 +1466,11 @@ class GCSFileSystem(asyn.AsyncFileSystem):
                 )
                 await self._mv_file_cache_update(path1, path2, out)
                 return
+            except FileNotFoundError:
+                # Raise immediately because fallback will also fail when file is not found.
+                raise
             except Exception as e:
-                # TODO: Fallback is added to make sure there is smooth tranistion, it can be removed
+                # TODO: Fallback is added to make sure there is smooth transition, it can be removed
                 # once we have metrics proving that moveTo API is working properly for all bucket types.
                 logger.warning(
                     f"Failed to move file using moveTo API: {e}. Falling back to copy/delete."
@@ -1435,7 +1559,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
                     if msg and msg2:
                         out.append(OSError(msg2.groups()[0]))
                     else:
-                        out.append(OSError(str(path, code)))
+                        out.append(OSError(f"{path}: {code}"))
             if remaining:
                 paths = remaining
                 await asyncio.sleep(min(random.random() + 2 ** (retry - 1), 32))
@@ -1445,6 +1569,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
 
     @property
     def on_google(self):
+        # match "torage" to handle both "storage" and "Storage"
         return f"torage.{_gcp_universe_domain()}" in self._location
 
     async def _delete_files(self, files, batchsize):
@@ -1627,7 +1752,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
                 except Exception:
                     await self._call(
                         "DELETE",
-                        self.location.replace("&ifGenerationMatch=0", ""),
+                        location.replace("&ifGenerationMatch=0", ""),
                     )
                     raise
 
@@ -1859,7 +1984,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
 
         GCS allows object generation (object version) to be specified in either
         the URL fragment or the `generation` query parameter. When provided,
-        the fragment will take priority over the `generation` query paramenter.
+        the fragment will take priority over the `generation` query parameter.
 
         Returns
         -------
@@ -2004,6 +2129,7 @@ class GCSFile(fsspec.spec.AbstractBufferedFile):
         if not key:
             raise OSError("Attempt to open a bucket")
         self.generation = _coalesce_generation(generation, path_generation)
+        self.concurrency = kwargs.get("concurrency", DEFAULT_CONCURRENCY)
         super().__init__(
             gcsfs,
             path,
@@ -2020,6 +2146,34 @@ class GCSFile(fsspec.spec.AbstractBufferedFile):
         self.acl = acl
         self.consistency = consistency
         self.checker = get_consistency_checker(consistency)
+
+        # Ideally, all of these fields should be part of `cache_options`. Because current
+        # `fsspec` caches do not accept arbitrary `*args` and `**kwargs`, passing them
+        # there currently causes instantiation errors. We are holding off on introducing
+        # them as explicit keyword arguments to ensure existing user workloads are not
+        # disrupted. This will be refactored once the upstream `fsspec` changes are merged.
+        use_prefetch_reader = kwargs.get(
+            "use_experimental_adaptive_prefetching", False
+        ) or os.environ.get(
+            "USE_EXPERIMENTAL_ADAPTIVE_PREFETCHING", "false"
+        ).lower() in (
+            "true",
+            "1",
+        )
+
+        if "r" in mode and use_prefetch_reader:
+            max_prefetch_size = kwargs.get("max_prefetch_size", MAX_PREFETCH_SIZE)
+            from .prefetcher import BackgroundPrefetcher
+
+            self._prefetch_engine = BackgroundPrefetcher(
+                self._async_fetch_range,
+                self.size,
+                max_prefetch_size=max_prefetch_size,
+                concurrency=self.concurrency,
+            )
+        else:
+            self._prefetch_engine = None
+
         # _supports_append is an internal argument not meant to be used directly.
         # If True, allows opening file in append mode. This is generally not supported
         # by GCS, but may be supported by subclasses (e.g. ZonalFile). This flag should
@@ -2202,11 +2356,29 @@ class GCSFile(fsspec.spec.AbstractBufferedFile):
             if not both None, fetch only given range
         """
         try:
-            return self.gcsfs.cat_file(self.path, start=start, end=end)
+            if hasattr(self, "_prefetch_engine") and self._prefetch_engine:
+                return self._prefetch_engine._fetch(start=start, end=end)
+            return self.fs.cat_file(
+                self.path, start=start, end=end, concurrency=self.concurrency
+            )
         except RuntimeError as e:
             if "not satisfiable" in str(e):
                 return b""
             raise
+
+    async def _async_fetch_range(self, start_offset, total_size, split_factor=1):
+        """Async fetcher mapped to the Prefetcher engine for regional buckets."""
+        return await self.gcsfs._cat_file_concurrent(
+            self.path,
+            start=start_offset,
+            end=start_offset + total_size,
+            concurrency=split_factor,
+        )
+
+    def close(self):
+        super().close()
+        if hasattr(self, "_prefetch_engine") and self._prefetch_engine:
+            self._prefetch_engine.close()
 
 
 def _convert_fixed_key_metadata(metadata, *, from_google=False):

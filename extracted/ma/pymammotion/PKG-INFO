@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: pymammotion
-Version: 0.7.82
+Version: 0.7.84
 Author: jLynx
 Author-email: Michael Arthur <michael@jumblesoft.co.nz>
 License-Expression: GPL-3.0
 License-File: LICENSE
-Requires-Python: <4.0,>=3.12
+Requires-Python: <4.0,>=3.14
 Requires-Dist: aiohttp>=3.9.1
 Requires-Dist: aiomqtt>=2.5.1
 Requires-Dist: alibabacloud-apigateway-util<0.0.3,>=0.0.2
@@ -22,6 +22,7 @@ Requires-Dist: orjson<4,>=3.9.15
 Requires-Dist: protobuf>=4.23.1
 Requires-Dist: pyjwt>=2.10.1
 Requires-Dist: pyrsistent>=0.20.0
+Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: sdp-transform>=1.1.0
 Requires-Dist: shapely>=2.1.2
 Requires-Dist: webrtc-models>=0.3.0

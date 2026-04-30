@@ -19,6 +19,8 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Protocol, TypeVar
 
+from plato._generated.models import JobStatus, Status4
+
 DEFAULT_POLL_SECONDS = 300
 # Small fixed sleep between polls when the backend returns ``ready=False``.
 # Guards against hot-loops if a long-poll ever returns instantly without the
@@ -26,10 +28,22 @@ DEFAULT_POLL_SECONDS = 300
 # connection for ``per_call`` seconds before returning.
 _INTER_POLL_SLEEP_SECONDS = 1.0
 
+# Status values that mean the job/session will never become ready. Once one of
+# these is observed, polling exits immediately instead of waiting out the
+# budget. Sessions only ever expose ``failed`` at the aggregate level; jobs
+# additionally expose ``cancelled``/``timeout``/``completed``.
+_TERMINAL_JOB_STATUSES: frozenset[JobStatus] = frozenset(
+    {JobStatus.failed, JobStatus.cancelled, JobStatus.timeout, JobStatus.completed}
+)
+_TERMINAL_SESSION_STATUSES: frozenset[Status4] = frozenset({Status4.failed})
+
 
 class _ReadyResponse(Protocol):
     @property
     def ready(self) -> bool: ...
+
+    @property
+    def status(self) -> JobStatus | Status4 | None: ...
 
 
 T = TypeVar("T", bound=_ReadyResponse)
@@ -42,6 +56,49 @@ def _per_call_timeout(deadline: float, poll_seconds: int) -> int:
     return max(1, min(poll_seconds, int(remaining)))
 
 
+def is_terminal_status(response: _ReadyResponse) -> bool:
+    """Return True if ``response.status`` indicates a no-retry terminal state.
+
+    A terminal status means the job/session will not become ready, so callers
+    should surface a permanent-failure error rather than a timeout.
+    """
+    status = response.status
+    if status is None:
+        return False
+    if isinstance(status, JobStatus):
+        return status in _TERMINAL_JOB_STATUSES
+    return status in _TERMINAL_SESSION_STATUSES
+
+
+class JobTerminalStatusError(RuntimeError):
+    """Raised when ``wait_for_ready`` reports a terminal status before ``ready=True``.
+
+    Subclasses :class:`RuntimeError` so existing ``except RuntimeError`` handlers
+    keep working. Callers that want to retry on the *transient* case (e.g. a
+    crashed VM that a fresh ``add_env`` could replace) can catch this type
+    specifically without retrying on hard backend errors like an invalid request.
+
+    Attributes:
+        job_id: The job/session id that reached a terminal status, or ``None`` for
+            session-level wait_for_ready failures that don't carry a job id.
+        status: The terminal status value reported by the backend.
+        backend_error: The error string the backend attached to the response, if any.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        job_id: str | None,
+        status: str,
+        backend_error: str | None,
+    ) -> None:
+        super().__init__(message)
+        self.job_id = job_id
+        self.status = status
+        self.backend_error = backend_error
+
+
 def poll_until_ready_sync(
     call: Callable[[int], T],
     *,
@@ -52,12 +109,13 @@ def poll_until_ready_sync(
 
     ``call`` receives the per-call long-poll timeout in seconds and returns a
     response with a ``ready: bool`` attribute. The final response is returned
-    regardless of readiness; callers check ``.ready`` themselves.
+    when ``ready=True``, when ``status`` is in the terminal set, or when the
+    total budget is exhausted; callers inspect ``.ready`` / ``.status``.
     """
     deadline = time.monotonic() + timeout
     while True:
         response = call(_per_call_timeout(deadline, poll_seconds))
-        if response.ready:
+        if response.ready or is_terminal_status(response):
             return response
         remaining = deadline - time.monotonic()
         if remaining <= 0:
@@ -76,7 +134,7 @@ async def poll_until_ready_async(
     deadline = time.monotonic() + timeout
     while True:
         response = await call(_per_call_timeout(deadline, poll_seconds))
-        if response.ready:
+        if response.ready or is_terminal_status(response):
             return response
         remaining = deadline - time.monotonic()
         if remaining <= 0:

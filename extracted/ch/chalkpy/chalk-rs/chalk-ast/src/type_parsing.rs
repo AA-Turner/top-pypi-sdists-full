@@ -566,29 +566,27 @@ fn collect_function_asts(
                 expr_to_range(&decorator.expression, &source_code),
             )
         });
-        let (kwarg_names, kwargs, kwarg_dict_key_names, kwarg_dict_values) =
-            match matched_decorator.map(|decorator| &decorator.expression) {
-                Some(Expr::Call(call)) => {
-                    let (kwarg_names, kwargs) = keyword_location_maps(
-                        &call.arguments.keywords,
-                        &file.source,
-                        &source_code,
-                        &file.path,
-                    );
-                    let (kwarg_dict_key_names, kwarg_dict_values) = keyword_dict_location_maps(
-                        &call.arguments.keywords,
-                        &source_code,
-                        &file.path,
-                    );
-                    (kwarg_names, kwargs, kwarg_dict_key_names, kwarg_dict_values)
-                }
-                _ => (
-                    HashMap::new(),
-                    HashMap::new(),
-                    HashMap::new(),
-                    HashMap::new(),
-                ),
-            };
+        let (kwarg_names, kwargs, kwarg_dict_key_names, kwarg_dict_values) = match matched_decorator
+            .map(|decorator| &decorator.expression)
+        {
+            Some(Expr::Call(call)) => {
+                let (kwarg_names, kwargs) = keyword_location_maps(
+                    &call.arguments.keywords,
+                    &file.source,
+                    &source_code,
+                    &file.path,
+                );
+                let (kwarg_dict_key_names, kwarg_dict_values) =
+                    keyword_dict_location_maps(&call.arguments.keywords, &source_code, &file.path);
+                (kwarg_names, kwargs, kwarg_dict_key_names, kwarg_dict_values)
+            }
+            _ => (
+                HashMap::new(),
+                HashMap::new(),
+                HashMap::new(),
+                HashMap::new(),
+            ),
+        };
 
         asts.push(ResolverAST {
             module: module_name.to_string(),

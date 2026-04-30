@@ -571,6 +571,17 @@ def _process_field(
     class_cache_strategy: CacheStrategy = CacheStrategy.ALL,
 ) -> Feature:
     field_comment_metadata = comment_metadata.get(f.attribute_name)
+    if (
+        field_comment_metadata is None
+        and f.unversioned_attribute_name is not None
+        and f.unversioned_attribute_name != f.attribute_name
+    ):
+        # Versioned-feature children have an attribute_name like `x_v1`, but the
+        # comment is keyed on the alias's annotation name (`x`). Fall back so
+        # per-version children inherit the same comment-derived description/owner/
+        # tags as the alias. Without this, the alias and its default-version child
+        # desync — visible as a proto roundtrip failure on the FQN.
+        field_comment_metadata = comment_metadata.get(f.unversioned_attribute_name)
     comment_based_description = field_comment_metadata and field_comment_metadata.description
     comment_based_owner = field_comment_metadata and field_comment_metadata.owner
     comment_based_tags = (
@@ -1532,9 +1543,40 @@ def _process_class(
                         f.underscore_expression = f_i.underscore_expression
                     if f.offline_underscore_expression is None and f_i.offline_underscore_expression is not None:
                         f.offline_underscore_expression = f_i.offline_underscore_expression
-                    # Copy description from the explicitly defined default version
+                    # Copy description from the explicitly defined default version,
+                    # or fall back the other direction so the alias's comment-derived
+                    # description reaches the default-version child. Without this
+                    # fallback, the unversioned alias and its v1 child desync, and a
+                    # proto roundtrip on the FQN returns a feature with description=None.
                     if f.description is None and f_i.description is not None:
                         f.description = f_i.description
+                    elif f_i.description is None and f.description is not None:
+                        f_i.description = f.description
+                    # Propagate per-version properties from the default version to the
+                    # unversioned-access alias. Without this, `A.x` returns a Feature that
+                    # only carries class-level settings, ignoring anything set per-version.
+                    f.max_staleness = f_i.max_staleness
+                    f._raw_max_staleness = f_i._raw_max_staleness
+                    f.etl_offline_to_online = f_i.etl_offline_to_online
+                    f.raw_etl_offline_to_online = f_i.raw_etl_offline_to_online
+                    f.offline_ttl = f_i.offline_ttl
+                    f.cache_strategy = f_i.cache_strategy
+                    f.owner = f_i.owner
+                    f.tags = f_i.tags
+                    # `_default`, `_typ`, `_converter`, `_encoder`, `_decoder`,
+                    # `_pyarrow_dtype` are typed Final at runtime (feature_field.py:390-393);
+                    # bypass the typing restriction since we legitimately need to re-target
+                    # the alias's type/converter to the default version's (e.g. versioned
+                    # dtype like uint32 on v1 vs int32 on v2).
+                    object.__setattr__(f, "_default", f_i._default)
+                    object.__setattr__(f, "_typ", f_i._typ)
+                    object.__setattr__(f, "_converter", f_i._converter)
+                    object.__setattr__(f, "_encoder", f_i._encoder)
+                    object.__setattr__(f, "_decoder", f_i._decoder)
+                    object.__setattr__(f, "_pyarrow_dtype", f_i._pyarrow_dtype)
+                    f.is_deprecated = f_i.is_deprecated
+                    f.store_online = f_i.store_online
+                    f.store_offline = f_i.store_offline
 
                 f.version.reference[i] = f_i
                 # The default feature already exists.

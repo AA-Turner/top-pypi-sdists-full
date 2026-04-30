@@ -745,7 +745,7 @@ def create(  # noqa: PLR0913, PLR0912, C901
     required=False,
     default=None,
     type=str,
-    help="Named project to use for the workpsace. If not provided, the default project for the cloud will be used.",
+    help="Named project to use for the workspace. If not provided, the default project for the cloud will be used.",
 )
 def start(
     id: Optional[str],  # noqa: A002
@@ -787,7 +787,7 @@ id should be used, specifying both will result in an error.
     required=False,
     default=None,
     type=str,
-    help="Named project to use for the workpsace. If not provided, the default project for the cloud will be used.",
+    help="Named project to use for the workspace. If not provided, the default project for the cloud will be used.",
 )
 def terminate(
     id: Optional[str],  # noqa: A002
@@ -826,7 +826,7 @@ id should be used, specifying both will result in an error.
     required=False,
     default=None,
     type=str,
-    help="Named project to use for the workpsace. If not provided, the default project for the cloud will be used.",
+    help="Named project to use for the workspace. If not provided, the default project for the cloud will be used.",
 )
 def status(
     id: Optional[str],  # noqa: A002
@@ -866,7 +866,7 @@ id should be used, specifying both will result in an error.
     required=False,
     default=None,
     type=str,
-    help="Named project to use for the workpsace. If not provided, the default project for the cloud will be used.",
+    help="Named project to use for the workspace. If not provided, the default project for the cloud will be used.",
 )
 @click.option(
     "--timeout-s",
@@ -1085,7 +1085,7 @@ def list_tags(
     required=False,
     default=None,
     type=str,
-    help="Named project to use for the workpsace. If not provided, the default project for the cloud will be used.",
+    help="Named project to use for the workspace. If not provided, the default project for the cloud will be used.",
 )
 @click.option(
     "--legacy",
@@ -1257,7 +1257,7 @@ id should be used, specifying both will result in an error.
     required=False,
     default=None,
     type=str,
-    help="Named project to use for the workpsace. If not provided, the default project for the cloud will be used.",
+    help="Named project to use for the workspace. If not provided, the default project for the cloud will be used.",
 )
 @click.argument("command", type=str)
 def run_command(
@@ -1301,7 +1301,7 @@ id should be used, specifying both will result in an error.
     required=False,
     default=None,
     type=str,
-    help="Named project to use for the workpsace. If not provided, the default project for the cloud will be used.",
+    help="Named project to use for the workspace. If not provided, the default project for the cloud will be used.",
 )
 @click.option(
     "--local-dir",
@@ -1392,7 +1392,7 @@ id should be used, specifying both will result in an error.
     required=False,
     default=None,
     type=str,
-    help="Named project to use for the workpsace. If not provided, the default project for the cloud will be used.",
+    help="Named project to use for the workspace. If not provided, the default project for the cloud will be used.",
 )
 @click.option(
     "--local-dir",
@@ -1635,7 +1635,7 @@ def update(  # noqa: PLR0913, PLR0912
     required=False,
     default=None,
     type=str,
-    help="Named project to use for the workpsace. If not provided, the default project for the cloud will be used.",
+    help="Named project to use for the workspace. If not provided, the default project for the cloud will be used.",
 )
 @click.option(
     "-j",

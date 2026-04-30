@@ -47,6 +47,7 @@ class CreateCloudResourceGCP(object):
         'nfs_mount_targets': 'list[NFSMountTarget]',
         'nfs_mount_path': 'str',
         'user_tag_annotation_prefix': 'str',
+        'kubernetes_redis_endpoint': 'str',
         'gcp_vpc_id': 'str',
         'gcp_subnet_ids': 'list[str]',
         'gcp_cluster_node_service_account_email': 'str',
@@ -73,6 +74,7 @@ class CreateCloudResourceGCP(object):
         'nfs_mount_targets': 'nfs_mount_targets',
         'nfs_mount_path': 'nfs_mount_path',
         'user_tag_annotation_prefix': 'user_tag_annotation_prefix',
+        'kubernetes_redis_endpoint': 'kubernetes_redis_endpoint',
         'gcp_vpc_id': 'gcp_vpc_id',
         'gcp_subnet_ids': 'gcp_subnet_ids',
         'gcp_cluster_node_service_account_email': 'gcp_cluster_node_service_account_email',
@@ -84,7 +86,7 @@ class CreateCloudResourceGCP(object):
         'memorystore_instance_config': 'memorystore_instance_config'
     }
 
-    def __init__(self, compute_stack=None, kubernetes_ingress_external_address=None, kubernetes_namespaces=None, kubernetes_zones=None, kubernetes_dataplane_identity=None, kubernetes_nfs_persistent_volume_claim=None, persistent_volume_claim=None, csi_ephemeral_volume_driver=None, cloud_storage_bucket_name=None, cloud_storage_bucket_endpoint=None, cloud_storage_bucket_region=None, nfs_mount_targets=None, nfs_mount_path=None, user_tag_annotation_prefix=None, gcp_vpc_id=None, gcp_subnet_ids=None, gcp_cluster_node_service_account_email=None, gcp_anyscale_iam_service_account_email=None, gcp_filestore_config=None, gcp_firewall_policy_ids=None, gcp_cloud_storage_bucket_id=None, gcp_deployment_manager_id=None, memorystore_instance_config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, compute_stack=None, kubernetes_ingress_external_address=None, kubernetes_namespaces=None, kubernetes_zones=None, kubernetes_dataplane_identity=None, kubernetes_nfs_persistent_volume_claim=None, persistent_volume_claim=None, csi_ephemeral_volume_driver=None, cloud_storage_bucket_name=None, cloud_storage_bucket_endpoint=None, cloud_storage_bucket_region=None, nfs_mount_targets=None, nfs_mount_path=None, user_tag_annotation_prefix=None, kubernetes_redis_endpoint=None, gcp_vpc_id=None, gcp_subnet_ids=None, gcp_cluster_node_service_account_email=None, gcp_anyscale_iam_service_account_email=None, gcp_filestore_config=None, gcp_firewall_policy_ids=None, gcp_cloud_storage_bucket_id=None, gcp_deployment_manager_id=None, memorystore_instance_config=None, local_vars_configuration=None):  # noqa: E501
         """CreateCloudResourceGCP - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -104,6 +106,7 @@ class CreateCloudResourceGCP(object):
         self._nfs_mount_targets = None
         self._nfs_mount_path = None
         self._user_tag_annotation_prefix = None
+        self._kubernetes_redis_endpoint = None
         self._gcp_vpc_id = None
         self._gcp_subnet_ids = None
         self._gcp_cluster_node_service_account_email = None
@@ -143,6 +146,8 @@ class CreateCloudResourceGCP(object):
             self.nfs_mount_path = nfs_mount_path
         if user_tag_annotation_prefix is not None:
             self.user_tag_annotation_prefix = user_tag_annotation_prefix
+        if kubernetes_redis_endpoint is not None:
+            self.kubernetes_redis_endpoint = kubernetes_redis_endpoint
         self.gcp_vpc_id = gcp_vpc_id
         self.gcp_subnet_ids = gcp_subnet_ids
         self.gcp_cluster_node_service_account_email = gcp_cluster_node_service_account_email
@@ -477,6 +482,29 @@ class CreateCloudResourceGCP(object):
         """
 
         self._user_tag_annotation_prefix = user_tag_annotation_prefix
+
+    @property
+    def kubernetes_redis_endpoint(self):
+        """Gets the kubernetes_redis_endpoint of this CreateCloudResourceGCP.  # noqa: E501
+
+        For Kubernetes deployments, the endpoint of a Redis service reachable from the data plane. Used for Ray GCS fault tolerance.  # noqa: E501
+
+        :return: The kubernetes_redis_endpoint of this CreateCloudResourceGCP.  # noqa: E501
+        :rtype: str
+        """
+        return self._kubernetes_redis_endpoint
+
+    @kubernetes_redis_endpoint.setter
+    def kubernetes_redis_endpoint(self, kubernetes_redis_endpoint):
+        """Sets the kubernetes_redis_endpoint of this CreateCloudResourceGCP.
+
+        For Kubernetes deployments, the endpoint of a Redis service reachable from the data plane. Used for Ray GCS fault tolerance.  # noqa: E501
+
+        :param kubernetes_redis_endpoint: The kubernetes_redis_endpoint of this CreateCloudResourceGCP.  # noqa: E501
+        :type: str
+        """
+
+        self._kubernetes_redis_endpoint = kubernetes_redis_endpoint
 
     @property
     def gcp_vpc_id(self):

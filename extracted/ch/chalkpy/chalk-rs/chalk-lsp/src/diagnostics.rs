@@ -75,7 +75,9 @@ fn lint_chalk_config(source: &str) -> Vec<Diagnostic> {
                 diags.push(Diagnostic {
                     range: Range::new(Position::new(0, 0), Position::new(0, 0)),
                     severity: Some(DiagnosticSeverity::WARNING),
-                    code: Some(NumberOrString::String("chalk-config-no-environments".into())),
+                    code: Some(NumberOrString::String(
+                        "chalk-config-no-environments".into(),
+                    )),
                     source: Some(SOURCE.into()),
                     message: "No environments defined in chalk config.".into(),
                     ..Default::default()
@@ -88,9 +90,7 @@ fn lint_chalk_config(source: &str) -> Vec<Diagnostic> {
                         severity: Some(DiagnosticSeverity::WARNING),
                         code: Some(NumberOrString::String("chalk-config-no-runtime".into())),
                         source: Some(SOURCE.into()),
-                        message: format!(
-                            "Environment `{name}` does not specify a `runtime`."
-                        ),
+                        message: format!("Environment `{name}` does not specify a `runtime`."),
                         ..Default::default()
                     });
                 }
@@ -374,11 +374,7 @@ class User:
 "#;
         std::fs::write(&py_path, source).unwrap();
 
-        let diags = lint(
-            Some(dir.path()),
-            &py_path,
-            source,
-        );
+        let diags = lint(Some(dir.path()), &py_path, source);
         assert!(has_code(&diags, "chalk-duplicate-field"));
     }
 

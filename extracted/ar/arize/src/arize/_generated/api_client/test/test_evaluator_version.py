@@ -39,6 +39,9 @@ class TestEvaluatorVersion(unittest.TestCase):
                 evaluator_id = '',
                 commit_hash = '',
                 commit_message = '',
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                created_by_user_id = '',
+                type = 'template',
                 template_config = arize._generated.api_client.models.template_config.TemplateConfig(
                     name = '', 
                     template = '', 
@@ -87,8 +90,7 @@ class TestEvaluatorVersion(unittest.TestCase):
                             bedrock_options = arize._generated.api_client.models.provider_params_bedrock_options.ProviderParams_bedrock_options(
                                 use_converse_endpoint = True, ), 
                             region = '', ), ), ),
-                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                created_by_user_id = ''
+                code_config = None
             )
         else:
             return EvaluatorVersion(
@@ -96,6 +98,9 @@ class TestEvaluatorVersion(unittest.TestCase):
                 evaluator_id = '',
                 commit_hash = '',
                 commit_message = '',
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                created_by_user_id = '',
+                type = 'template',
                 template_config = arize._generated.api_client.models.template_config.TemplateConfig(
                     name = '', 
                     template = '', 
@@ -144,8 +149,7 @@ class TestEvaluatorVersion(unittest.TestCase):
                             bedrock_options = arize._generated.api_client.models.provider_params_bedrock_options.ProviderParams_bedrock_options(
                                 use_converse_endpoint = True, ), 
                             region = '', ), ), ),
-                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                created_by_user_id = '',
+                code_config = None,
         )
         """
 

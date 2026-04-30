@@ -3,7 +3,7 @@ Main interface for cloud9 service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloud9/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

@@ -37,6 +37,7 @@ AI_OPENAI = "OpenAI"
 AI_OLLAMA = "Ollama"
 AI_LM_STUDIO = "LM Studio"
 AI_GSM_CLOUD = "GSM Cloud"
+AI_DEEPL = "DeepL"
 
 GSM_CLOUD_DEFAULT_MODEL = "gpt-4.1-nano-2025-04-14"
 GSM_CLOUD_PREVIEW_ENV = "GSM_CLOUD_PREVIEW"
@@ -730,6 +731,7 @@ class Anki:
     autoplay_audio: bool = False
     replay_audio_on_tts_generation: bool = True
     tag_unvoiced_cards: bool = False
+    remove_overlay_tag: bool = False
 
     def __post_init__(self):
         if self.custom_tags is None:
@@ -1100,6 +1102,8 @@ class Ai:
     enabled: bool = False  # DEPRECATED, use is_configured() instead
     add_to_anki: bool = False
     anki_field: str = ""
+    deepl_api_key: str = ""
+    deepl_target_lang: str = "EN"
     provider: str = AI_GEMINI
     gemini_model: str = "gemma-3-27b-it"
     gemini_backup_model: str = ""
@@ -1143,6 +1147,7 @@ class Ai:
             "groq": AI_GROQ,
             "openai": AI_OPENAI,
             "ollama": AI_OLLAMA,
+            "deepl": AI_DEEPL,
             "lm_studio": AI_LM_STUDIO,
             "lm studio": AI_LM_STUDIO,
             "gsm_cloud": AI_GSM_CLOUD,
@@ -1170,6 +1175,8 @@ class Ai:
             self.ollama_backup_model = ""
         if self.lm_studio_backup_model == OFF:
             self.lm_studio_backup_model = ""
+        if self.deepl_api_key == OFF:
+            self.deepl_api_key = ""
 
         if self.enabled:
             self.add_to_anki = True
@@ -1228,6 +1235,8 @@ class Ai:
             return True
         if self.provider == AI_GSM_CLOUD and self.gsm_cloud_access_token and self.get_gsm_cloud_primary_model():
             return True
+        if self.provider == AI_DEEPL and self.deepl_api_key:
+            return True
         return False
 
     def get_gsm_cloud_primary_model(self) -> str:
@@ -1267,15 +1276,12 @@ class Overlay:
     ocr_area_config_include_secondary_areas: bool = True
     ocr_area_config_use_exclusion_zones: bool = True
     use_ocr_result_v2: bool = False
+    check_previous_lines_for_recycled_indicator: bool = False
     ocr_full_screen_instead_of_obs: bool = False
 
     def __post_init__(self):
         if self.monitor_to_capture == -1:
             self.monitor_to_capture = 0  # Default to the first monitor if not set
-
-        # Keep the legacy field for config compatibility, but always use the
-        # current OCR-result overlay behavior.
-        self.use_ocr_result_v2 = False
 
         try:
             import mss as mss
@@ -1435,6 +1441,7 @@ class StatsConfig:
     cards_mined_daily_target: int = 10  # Daily target for cards mined (default: 10 cards per day)
     regex_out_punctuation: bool = True
     regex_out_repetitions: bool = False
+    extra_punctuation_regex: str = ""
     easy_days_settings: Dict[str, int] = field(
         default_factory=lambda: {
             "monday": 100,
@@ -1614,6 +1621,18 @@ class Config:
         configs = data.get("configs")
         if not isinstance(configs, dict):
             return data
+
+        if not isinstance(data.get("overlay"), dict):
+            current_profile = data.get("current_profile") or DEFAULT_CONFIG
+            profile_data = configs.get(current_profile)
+            if not isinstance(profile_data, dict):
+                profile_data = configs.get(DEFAULT_CONFIG)
+            if not isinstance(profile_data, dict):
+                profile_data = next((value for value in configs.values() if isinstance(value, dict)), None)
+            legacy_overlay = profile_data.get("overlay") if isinstance(profile_data, dict) else None
+            if isinstance(legacy_overlay, dict):
+                data["overlay"] = dict(legacy_overlay)
+
         for profile_data in configs.values():
             cls._migrate_anki_profile_data(profile_data)
             cls._migrate_single_port_fields(profile_data)
@@ -1722,7 +1741,8 @@ class Config:
             return cls.new()
 
     def __post_init__(self):
-        self.overlay = self.get_config().overlay
+        if self.current_profile in self.configs:
+            self.configs[self.current_profile].overlay = self.overlay
 
         # Add a way to migrate certain things based on version if needed, also help with better defaults
         if self.version:
@@ -1752,6 +1772,8 @@ class Config:
                 logger.info(f"Config name '{name}' updated to match its key in the configs dictionary.")
 
     def save(self):
+        if self.current_profile in self.configs:
+            self.configs[self.current_profile].overlay = self.overlay
         with open(get_config_path(), "w") as file:
             json.dump(self.to_dict(), file, indent=4)
         return self
@@ -1760,7 +1782,9 @@ class Config:
         if self.current_profile not in self.configs:
             logger.warning(f"Profile '{self.current_profile}' not found. Switching to default profile.")
             self.current_profile = DEFAULT_CONFIG
-        return self.configs[self.current_profile]
+        config = self.configs[self.current_profile]
+        config.overlay = self.overlay
+        return config
 
     def set_config_for_profile(self, profile: str, config: ProfileConfig):
         config.name = profile
@@ -2114,6 +2138,7 @@ def load_config():
                 config_file = json.load(file)
                 config_file = _remove_legacy_hotkeys(config_file)
                 config_file = _remove_deprecated_config_settings(config_file)
+                config_file = Config._migrate_raw_data(config_file)
                 if "current_profile" in config_file:
                     return Config.from_dict(config_file)
                 else:
@@ -2156,7 +2181,10 @@ def get_config():
 
 
 def get_overlay_config():
-    return get_config().overlay
+    global config_instance
+    if config_instance is None:
+        config_instance = load_config()
+    return config_instance.overlay
     # global config_instance
     # if config_instance is None:
     #     config_instance = load_config()
@@ -2180,6 +2208,8 @@ def get_master_config():
 
 
 def save_full_config(config):
+    if hasattr(config, "get_config") and getattr(config, "current_profile", None) in getattr(config, "configs", {}):
+        config.configs[config.current_profile].overlay = config.overlay
     with open(get_config_path(), "w") as file:
         json.dump(config.to_dict(), file, indent=4)
 
@@ -2310,7 +2340,7 @@ class GsmStatus:
     ready: bool = False
     status: bool = "Initializing"
     cards_created: int = 0
-    websockets_connected: List[str] = field(default_factory=list)
+    websockets_connected: Dict[str, str] = field(default_factory=dict)
     obs_connected: bool = False
     anki_connected: bool = False
     last_line_received: str = None

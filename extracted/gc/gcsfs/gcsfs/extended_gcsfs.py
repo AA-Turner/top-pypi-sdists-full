@@ -20,11 +20,13 @@ from google.cloud.storage.asyncio.async_grpc_client import AsyncGrpcClient
 from gcsfs import __version__ as version
 from gcsfs import zb_hns_utils
 from gcsfs.core import GCSFile, GCSFileSystem
+from gcsfs.retry import DEFAULT_RETRY_CONFIG, get_storage_control_retry_config
 from gcsfs.zonal_file import ZonalFile
 
 logger = logging.getLogger("gcsfs")
 
 USER_AGENT = "python-gcsfs"
+STORAGE_CONTROL_RPC_TIMEOUT = 30.0
 
 
 class BucketType(Enum):
@@ -51,6 +53,26 @@ class ExtendedGcsFileSystem(GCSFileSystem):
     """
 
     def __init__(self, *args, finalize_on_close=False, **kwargs):
+        """
+        Parameters
+        ----------
+        finalize_on_close : bool, default False
+            By default, files in zonal buckets are left unfinalized to allow appends.
+        **kwargs : dict
+            Additional arguments passed to GCSFileSystem.
+            Supports retry configuration overrides for Storage Control API:
+            - retry_timeout: Total time to spend retrying (seconds).
+            - retry_initial: Initial delay between retries (seconds).
+            - retry_maximum: Maximum delay between retries (seconds).
+            - retry_multiplier: Multiplier for delay between retries.
+            These map to `google.api_core.retry.AsyncRetry` arguments (without 'retry_' prefix).
+        """
+        valid_keys = DEFAULT_RETRY_CONFIG.keys()
+        self.retry_config = {
+            k[6:]: v
+            for k, v in kwargs.items()
+            if k.startswith("retry_") and k[6:] in valid_keys and v is not None
+        }
         super().__init__(*args, **kwargs)
         # By default, files in zonal buckets are left unfinalized to allow appends.
         self.finalize_on_close = finalize_on_close
@@ -69,6 +91,20 @@ class ExtendedGcsFileSystem(GCSFileSystem):
         self._storage_layout_cache = {}
 
     @property
+    def _user_project(self):
+        """Value used for billing - enabling "requestor pays" access"""
+        if self.requester_pays:
+            return (
+                self.requester_pays
+                if isinstance(self.requester_pays, str)
+                else self.project
+            )
+        return None
+
+    def _get_retry_config(self, **kwargs):
+        return get_storage_control_retry_config(self.retry_config, **kwargs)
+
+    @property
     def grpc_client(self):
         if self.asynchronous and self._grpc_client is None:
             raise RuntimeError(
@@ -80,11 +116,11 @@ class ExtendedGcsFileSystem(GCSFileSystem):
 
     async def _get_grpc_client(self):
         if self._grpc_client is None:
-            client_options = None
+            client_options = ClientOptions(quota_project_id=self._user_project)
             if self._location:
                 # client_options expects only the host:port, without the protocol.
                 endpoint = self._location.split("://")[-1]
-                client_options = ClientOptions(api_endpoint=endpoint)
+                client_options.api_endpoint = endpoint
             self._grpc_client = AsyncGrpcClient(
                 credentials=self.credential,
                 client_info=ClientInfo(user_agent=f"{USER_AGENT}/{version}"),
@@ -105,6 +141,7 @@ class ExtendedGcsFileSystem(GCSFileSystem):
             channel = transport_cls.create_channel(
                 credentials=self.credential,
                 options=[("grpc.primary_user_agent", f"{USER_AGENT}/{version}")],
+                quota_project_id=self._user_project,
             )
             transport = transport_cls(channel=channel)
             self._storage_control_client = storage_control_v2.StorageControlAsyncClient(
@@ -129,7 +166,11 @@ class ExtendedGcsFileSystem(GCSFileSystem):
             client = await self._get_control_plane_client()
             bucket_name_value = f"projects/_/buckets/{bucket}/storageLayout"
             logger.debug(f"get_storage_layout request for name: {bucket_name_value}")
-            response = await client.get_storage_layout(name=bucket_name_value)
+            response = await client.get_storage_layout(
+                name=bucket_name_value,
+                retry=self._get_retry_config(),
+                timeout=STORAGE_CONTROL_RPC_TIMEOUT,
+            )
 
             if response.location_type == "zone":
                 return BucketType.ZONAL_HIERARCHICAL
@@ -140,11 +181,14 @@ class ExtendedGcsFileSystem(GCSFileSystem):
                 return BucketType.HIERARCHICAL
             return BucketType.NON_HIERARCHICAL
         except api_exceptions.NotFound:
-            logger.warning(f"Error: Bucket {bucket} not found or you lack permissions.")
+            logger.warning(
+                f"Error: Bucket {bucket} not found or you lack permissions for "
+                f"storage layout api used to detect bucket type. Falling back to GCSFileSystem."
+            )
             return BucketType.UNKNOWN
         except Exception as e:
-            logger.error(
-                f"Could not determine bucket type for bucket name {bucket}: {e}"
+            logger.warning(
+                f"Could not determine bucket type for bucket name {bucket}: {e}, falling back to GCSFileSystem"
             )
             # Default to UNKNOWN in case bucket type is not obtained
             return BucketType.UNKNOWN
@@ -460,6 +504,13 @@ class ExtendedGcsFileSystem(GCSFileSystem):
             )
             return
 
+        if (
+            isinstance(path1, list)
+            or isinstance(path2, list)
+            or (isinstance(path1, str) and has_magic(path1))
+        ):
+            return await super()._mv(path1, path2, **kwargs)
+
         bucket1, key1, _ = self.split_path(path1)
         bucket2, key2, _ = self.split_path(path2)
 
@@ -492,7 +543,11 @@ class ExtendedGcsFileSystem(GCSFileSystem):
 
                 logger.debug(f"rename_folder request: {request}")
                 client = await self._get_control_plane_client()
-                operation = await client.rename_folder(request=request)
+                operation = await client.rename_folder(
+                    request=request,
+                    retry=self._get_retry_config(),
+                    timeout=STORAGE_CONTROL_RPC_TIMEOUT,
+                )
                 await operation.result()
                 self._update_dircache_after_rename(path1, path2)
 
@@ -657,7 +712,11 @@ class ExtendedGcsFileSystem(GCSFileSystem):
         try:
             logger.debug(f"create_folder request: {request}")
             client = await self._get_control_plane_client()
-            await client.create_folder(request=request)
+            await client.create_folder(
+                request=request,
+                retry=self._get_retry_config(),
+                timeout=STORAGE_CONTROL_RPC_TIMEOUT,
+            )
             # Instead of invalidating the parent cache, update it to add the new entry.
             parent_path = self._parent(path)
             if parent_path in self.dircache:
@@ -703,7 +762,11 @@ class ExtendedGcsFileSystem(GCSFileSystem):
 
                 # Verify existence using get_folder API
                 client = await self._get_control_plane_client()
-                response = await client.get_folder(request=request)
+                response = await client.get_folder(
+                    request=request,
+                    retry=self._get_retry_config(),
+                    timeout=STORAGE_CONTROL_RPC_TIMEOUT,
+                )
 
                 # If successful, return directory metadata
                 return {
@@ -776,7 +839,11 @@ class ExtendedGcsFileSystem(GCSFileSystem):
 
             logger.debug(f"delete_folder request: {request}")
             client = await self._get_control_plane_client()
-            await client.delete_folder(request=request)
+            await client.delete_folder(
+                request=request,
+                retry=self._get_retry_config(),
+                timeout=STORAGE_CONTROL_RPC_TIMEOUT,
+            )
 
             # Remove the directory from the cache and from its parent's listing.
             self.dircache.pop(path, None)
@@ -811,7 +878,7 @@ class ExtendedGcsFileSystem(GCSFileSystem):
             raise ValueError("maxdepth must be at least 1")
 
         if isinstance(path, str):
-            out = await self._expand_path_with_details(
+            return await self._expand_path_with_details(
                 [path], recursive, maxdepth, detail=detail
             )
         else:
@@ -963,6 +1030,7 @@ class ExtendedGcsFileSystem(GCSFileSystem):
             and not isinstance(ex, (FileNotFoundError, api_exceptions.NotFound))
             and "No such object" not in str(ex)
         ]
+
         if errors:
             raise errors[0]
 
@@ -1000,6 +1068,8 @@ class ExtendedGcsFileSystem(GCSFileSystem):
         For buckets with flat structure, it falls back to the parent implementation.
         """
         path = self._strip_protocol(path)
+        if maxdepth is not None and maxdepth < 1:
+            raise ValueError("maxdepth must be at least 1")
         bucket, _, _ = self.split_path(path)
 
         is_hns = await self._is_bucket_hns_enabled(bucket)
@@ -1017,6 +1087,8 @@ class ExtendedGcsFileSystem(GCSFileSystem):
 
         # Hybrid approach for HNS enabled buckets
         # 1. Fetch all files from super find() method by passing withdirs as False.
+        # We pass maxdepth as None here to ensure we fetch all files for caching,
+        # and then filter by maxdepth at the end of this method.
         files_task = asyncio.create_task(
             super()._find(
                 path,
@@ -1024,7 +1096,7 @@ class ExtendedGcsFileSystem(GCSFileSystem):
                 detail=True,  # Get full details for merging and populating cache
                 prefix=prefix,
                 versions=versions,
-                maxdepth=maxdepth,
+                maxdepth=None,
                 update_cache=False,  # Defer caching until merging files and folders
                 **kwargs,
             )
@@ -1094,7 +1166,11 @@ class ExtendedGcsFileSystem(GCSFileSystem):
         logger.debug(f"list_folders request: {request}")
 
         client = await self._get_control_plane_client()
-        async for folder in await client.list_folders(request=request):
+        async for folder in await client.list_folders(
+            request=request,
+            retry=self._get_retry_config(),
+            timeout=STORAGE_CONTROL_RPC_TIMEOUT,
+        ):
             folders.append(self._create_folder_entry(bucket, folder))
 
         return folders

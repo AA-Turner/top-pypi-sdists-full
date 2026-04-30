@@ -1010,7 +1010,7 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
             nonPfsConceptsRootInELR = set()
 
             for rootConcept in relSet.rootConcepts:
-                checkLabels(rootConcept, relSet, None, set())
+                checkLabels(rootConcept, relSet, None, set())  # type: ignore[arg-type]
                 # check for PFS element which isn't an orphan
                 if relSet.fromModelObject(rootConcept):
                     if rootConcept.qname in esefPrimaryStatementPlaceholders:
@@ -1020,7 +1020,7 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                         nonPfsConceptsRootInELR.add(rootConcept)
                 # check for statement declaration of monetary concepts
                 if rootConcept.qname in esefPrimaryStatementPlaceholders:
-                    checkMonetaryUnits(rootConcept, relSet, set())
+                    checkMonetaryUnits(rootConcept, relSet, set())  # type: ignore[arg-type]
             if pfsConceptsRootInELR and (len(pfsConceptsRootInELR) + len(nonPfsConceptsRootInELR) ) > 1:
                 roots = pfsConceptsRootInELR | nonPfsConceptsRootInELR
                 modelXbrl.error("ESEF.3.4.7.singleExtendedLinkRoleUsedForAllPFSs",

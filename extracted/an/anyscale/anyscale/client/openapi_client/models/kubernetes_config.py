@@ -34,15 +34,17 @@ class KubernetesConfig(object):
     """
     openapi_types = {
         'anyscale_operator_iam_identity': 'str',
-        'zones': 'list[str]'
+        'zones': 'list[str]',
+        'redis_endpoint': 'str'
     }
 
     attribute_map = {
         'anyscale_operator_iam_identity': 'anyscale_operator_iam_identity',
-        'zones': 'zones'
+        'zones': 'zones',
+        'redis_endpoint': 'redis_endpoint'
     }
 
-    def __init__(self, anyscale_operator_iam_identity=None, zones=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, anyscale_operator_iam_identity=None, zones=None, redis_endpoint=None, local_vars_configuration=None):  # noqa: E501
         """KubernetesConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,12 +52,15 @@ class KubernetesConfig(object):
 
         self._anyscale_operator_iam_identity = None
         self._zones = None
+        self._redis_endpoint = None
         self.discriminator = None
 
         if anyscale_operator_iam_identity is not None:
             self.anyscale_operator_iam_identity = anyscale_operator_iam_identity
         if zones is not None:
             self.zones = zones
+        if redis_endpoint is not None:
+            self.redis_endpoint = redis_endpoint
 
     @property
     def anyscale_operator_iam_identity(self):
@@ -102,6 +107,29 @@ class KubernetesConfig(object):
         """
 
         self._zones = zones
+
+    @property
+    def redis_endpoint(self):
+        """Gets the redis_endpoint of this KubernetesConfig.  # noqa: E501
+
+        Redis endpoint reachable from the data plane (e.g. 'redis.ray-system.svc.cluster.local:6379'). Used for Ray GCS fault tolerance.  # noqa: E501
+
+        :return: The redis_endpoint of this KubernetesConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._redis_endpoint
+
+    @redis_endpoint.setter
+    def redis_endpoint(self, redis_endpoint):
+        """Sets the redis_endpoint of this KubernetesConfig.
+
+        Redis endpoint reachable from the data plane (e.g. 'redis.ray-system.svc.cluster.local:6379'). Used for Ray GCS fault tolerance.  # noqa: E501
+
+        :param redis_endpoint: The redis_endpoint of this KubernetesConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._redis_endpoint = redis_endpoint
 
     def to_dict(self):
         """Returns the model properties as a dict"""

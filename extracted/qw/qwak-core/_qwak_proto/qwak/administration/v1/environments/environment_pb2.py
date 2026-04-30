@@ -15,7 +15,7 @@ from _qwak_proto.qwak.administration.runtime_configuration.v0 import runtime_con
 from _qwak_proto.qwak.administration.runtime_configuration.v0 import network_config_pb2 as qwak_dot_administration_dot_runtime__configuration_dot_v0_dot_network__config__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5qwak/administration/v1/environments/environment.proto\x12\"qwak.administration.v1.environment\x1a\x41qwak/administration/runtime_configuration/v0/runtime_config.proto\x1a\x41qwak/administration/runtime_configuration/v0/network_config.proto\"\x9b\x02\n\x1c\x45nvironmentRuntimeConfigSpec\x12\x63\n\x15runtime_configuration\x18\x01 \x01(\x0b\x32\x42.qwak.administration.runtime_configuration.v0.RuntimeConfigurationH\x00\x12{\n\x15network_configuration\x18\x02 \x01(\x0b\x32\\.qwak.administration.runtime_configuration.v0.network_config.EnvironmentNetworkConfigurationB\x19\n\x17optional_runtime_configB\xb5\x01\n!com.qwak.ai.administration.v1.apiP\x01Z\x8d\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/v1/environments;environment_v1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5qwak/administration/v1/environments/environment.proto\x12\"qwak.administration.v1.environment\x1a\x41qwak/administration/runtime_configuration/v0/runtime_config.proto\x1a\x41qwak/administration/runtime_configuration/v0/network_config.proto\"\x9b\x02\n\x1c\x45nvironmentRuntimeConfigSpec\x12\x63\n\x15runtime_configuration\x18\x01 \x01(\x0b\x32\x42.qwak.administration.runtime_configuration.v0.RuntimeConfigurationH\x00\x12{\n\x15network_configuration\x18\x02 \x01(\x0b\x32\\.qwak.administration.runtime_configuration.v0.network_config.EnvironmentNetworkConfigurationB\x19\n\x17optional_runtime_config\"\xb9\x01\n\x15\x45nvironmentIdentifier\x12\x18\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00\x12x\n&account_to_environment_name_identifier\x18\x02 \x01(\x0b\x32\x46.qwak.administration.v1.environment.AccountToEnvironmentNameIdentifierH\x00\x42\x0c\n\nidentifier\"R\n\"AccountToEnvironmentNameIdentifier\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x12\n\naccount_id\x18\x02 \x01(\tB\xb5\x01\n!com.qwak.ai.administration.v1.apiP\x01Z\x8d\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/v1/environments;environment_v1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -26,4 +26,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._serialized_options = b'\n!com.qwak.ai.administration.v1.apiP\001Z\215\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/v1/environments;environment_v1'
   _globals['_ENVIRONMENTRUNTIMECONFIGSPEC']._serialized_start=228
   _globals['_ENVIRONMENTRUNTIMECONFIGSPEC']._serialized_end=511
+  _globals['_ENVIRONMENTIDENTIFIER']._serialized_start=514
+  _globals['_ENVIRONMENTIDENTIFIER']._serialized_end=699
+  _globals['_ACCOUNTTOENVIRONMENTNAMEIDENTIFIER']._serialized_start=701
+  _globals['_ACCOUNTTOENVIRONMENTNAMEIDENTIFIER']._serialized_end=783
 # @@protoc_insertion_point(module_scope)

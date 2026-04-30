@@ -10,6 +10,8 @@ from pathlib import Path
 from types import TracebackType
 from typing import IO, TYPE_CHECKING, Any
 
+import requests
+
 from schemathesis.core import NOT_SET
 from schemathesis.core.output.sanitization import sanitize_url, sanitize_value
 from schemathesis.core.result import Err, Ok
@@ -30,6 +32,12 @@ SKIP_FIELDS: dict[str, frozenset[str]] = {
     "Case": frozenset({"operation"}),
     "NonFatalError": frozenset({"info"}),  # Duplicate of `value`
     "CheckFailureInfo": frozenset({"code_sample"}),  # Reconstructable from case + interaction
+}
+
+# Underscore-prefixed dataclass fields are skipped by default. EXPOSE_PRIVATE_FIELDS
+# whitelists per-class fields to keep, mapped to the public name they emit under.
+EXPOSE_PRIVATE_FIELDS: dict[str, dict[str, str]] = {
+    "Case": {"_meta": "meta"},
 }
 
 # Standard request headers that are always the same and not useful for analysis
@@ -54,8 +62,6 @@ SKIP_RESPONSE_HEADERS: frozenset[str] = frozenset(
 
 def serialize(obj: Any, *, sanitization: SanitizationConfig | None = None) -> Any:
     """Recursively serialize objects to JSON-compatible types."""
-    import requests
-
     if obj is NOT_SET:
         return None
     if isinstance(obj, Unresolvable):
@@ -119,14 +125,19 @@ def serialize(obj: Any, *, sanitization: SanitizationConfig | None = None) -> An
             result["body"] = serialize(obj.body, sanitization=sanitization)
         return result
     if is_dataclass(obj) and not isinstance(obj, type):
+        cls_name = type(obj).__name__
+        skip = SKIP_FIELDS.get(cls_name, frozenset())
+        expose = EXPOSE_PRIVATE_FIELDS.get(cls_name, {})
         dc_data = {}
-        skip = SKIP_FIELDS.get(type(obj).__name__, frozenset())
         for field in fields(obj):
-            if field.name.startswith("_") or field.name in skip:
+            if field.name in skip:
                 continue
+            if field.name.startswith("_") and field.name not in expose:
+                continue
+            public_name = expose.get(field.name, field.name)
             value = serialize(getattr(obj, field.name), sanitization=sanitization)
             if value is not None and value != {} and value != []:
-                dc_data[field.name] = value
+                dc_data[public_name] = value
         return dc_data
     return str(obj)
 

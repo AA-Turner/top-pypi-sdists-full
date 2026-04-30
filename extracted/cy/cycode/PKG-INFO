@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cycode
-Version: 3.14.0
+Version: 3.15.0
 Summary: Boost security in your dev lifecycle via SAST, SCA, Secrets & IaC scanning.
 License-Expression: MIT
 License-File: LICENCE
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: arrow (>=1.0.0,<1.5.0)
 Requires-Dist: click (>=8.1.0,<8.2.0)
 Requires-Dist: colorama (>=0.4.3,<0.5.0)
-Requires-Dist: gitpython (>=3.1.30,<3.2.0)
+Requires-Dist: gitpython (>=3.1.47,<3.2.0)
 Requires-Dist: marshmallow (>=3.15.0,<4.0.0)
 Requires-Dist: mcp (>=1.9.3,<2.0.0) ; python_version >= "3.10"
 Requires-Dist: patch-ng (==1.19.0)
@@ -842,6 +842,14 @@ cycode scan -t sca --stop-on-error path ~/home/git/codebase
 ```
 
 This is useful in CI pipelines where a silent failure would produce an incomplete scan result. When `--stop-on-error` is triggered you can either fix the underlying issue or, for SCA restore failures specifically, add `--no-restore` to skip lockfile generation and scan direct dependencies only.
+
+When `--stop-on-error` is used, the CLI distinguishes between scan errors and policy violations via exit codes:
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | Scan completed with no violations |
+| `1` | Scan completed and violations were found |
+| `2` | Scan aborted due to an error (only when `--stop-on-error` is set) |
 
 ### Repository Scan
 

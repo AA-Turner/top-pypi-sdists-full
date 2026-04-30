@@ -73,10 +73,7 @@ fn fixture_dir() -> PathBuf {
 }
 
 fn collect_sql_fixtures() -> Vec<PathBuf> {
-    let pattern = fixture_dir()
-        .join("*.a.sql")
-        .to_string_lossy()
-        .to_string();
+    let pattern = fixture_dir().join("*.a.sql").to_string_lossy().to_string();
     let mut paths: Vec<PathBuf> = glob::glob(&pattern)
         .expect("bad glob pattern")
         .filter_map(Result::ok)

@@ -1,0 +1,28 @@
+name: gcsfs_test
+channels:
+  - conda-forge
+dependencies:
+  - python==3.11
+  - aiohttp
+  - build
+  - crcmod
+  - decorator
+  - fsspec
+  - google-api-core
+  - google-api-python-client
+  - google-auth
+  - google-auth-oauthlib
+  - google-cloud-core
+  - google-cloud-storage
+  - grpcio
+  - hatchling
+  - hatch-vcs
+  - pytest
+  - pytest-timeout
+  - pytest-asyncio
+  - pytest-cov
+  - pytest-subtests
+  - requests
+  - ujson
+  - pip:
+      - git+https://github.com/fsspec/filesystem_spec

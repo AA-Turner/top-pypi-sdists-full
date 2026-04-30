@@ -189,7 +189,7 @@ def add_season_information(
         pd.DataFrame: Updated DataFrame with an additional grouping column.
     """
     # Group by region/Season so each region gets its own partition
-    grps = df.groupby(["adm1_name", "Season"])
+    grps = df.groupby(["adm1_name", "Season"], dropna=False)
     frames = []
 
     for key, df_adm1_season in grps:
@@ -463,6 +463,11 @@ class CIDs:
             self.parser.get("ML", "run_time_steps", fallback="latest") in ("pre_season", "auto")
         )
 
+        # Compute engineered forecast aggregates (SUM, AVG, REV, MAR) from leads
+        self.compute_forecast_aggregates: bool = (
+            self.parser.getboolean("ML", "compute_forecast_aggregates", fallback=True)
+        )
+
     def get_unique_country_name(
         self,
         df: pd.DataFrame = None,
@@ -703,6 +708,21 @@ class CIDs:
             )
             return pd.DataFrame()
 
+        # Read previous init month's row for revision features
+        prev_init = (init_month - 2) % 12 + 1  # month before init_month
+        prev_year = month_to_year.get(prev_init, target_year)
+        df_prev = df_region[
+            (df_region["Month"] == prev_init) &
+            (df_region["time"].dt.year == prev_year)
+        ]
+        if not df_prev.empty:
+            if "time" in df_prev.columns:
+                prev_row = df_prev.loc[df_prev["time"].idxmax()]
+            else:
+                prev_row = df_prev.iloc[0]
+        else:
+            prev_row = None
+
         # Use latest row by time if multiple rows exist for the month
         if "time" in df_init.columns:
             latest_idx = df_init["time"].idxmax()
@@ -711,6 +731,17 @@ class CIDs:
         row = df_init.loc[latest_idx]
 
         area = df_region["Area"].unique()[0] if "Area" in df_region.columns else 0
+
+        # Debug: log first FLDAS column value for this row
+        _first_fldas = di.fldas_col_map.get("MEAN_FLDAS_SoilMoist_tavg_LEAD0")
+        _has_col = _first_fldas in row.index if _first_fldas else False
+        _val = row[_first_fldas] if _has_col else "MISSING_COL"
+        logger.debug(
+            f"Pre-season extract: region={key[1]}, month={init_month}, "
+            f"year={target_year}, fldas_col={_first_fldas}, "
+            f"in_index={_has_col}, value={_val}, "
+            f"row_time={row.get('time','?')}, row_crop_cal={row.get('crop_cal','?')}"
+        )
 
         rows = []
         # FLDAS features
@@ -752,6 +783,122 @@ class CIDs:
                     "Index": iname,
                     "Type": itype,
                 })
+
+        # --- Engineered aggregate features (guarded by config flag) ---
+        if not self.compute_forecast_aggregates:
+            return pd.DataFrame(rows)
+        def _make_row(index_name, val, itype):
+            # Sanitize: replace inf with NaN
+            if not np.isfinite(val):
+                val = np.nan
+            desc = (di.dict_fldas_engineered.get(index_name,
+                    di.dict_s2s_engineered.get(index_name, ["", ""]))[1])
+            return {
+                "Description": desc,
+                "CID": val,
+                "Country": key[0].replace("_", " ").title(),
+                "Region": key[1].replace("_", " ").title(),
+                "Area": area,
+                "Crop": self.crop.replace("_", " ").title(),
+                "Season": self.season,
+                "Method": self.method,
+                "Stage": f"PS_{init_month}",
+                "Harvest Year": self.harvest_year,
+                "Index": index_name,
+                "Type": itype,
+            }
+
+        # 1. Sum precipitation across leads
+        fldas_precip = [row.get(f"fldas_totalprecip_tavg_lead{i}", np.nan) for i in range(6)]
+        if not all(np.isnan(v) for v in fldas_precip if isinstance(v, float)):
+            rows.append(_make_row("SUM_FLDAS_TotalPrecip", float(np.nansum(fldas_precip)), "FLDAS"))
+
+        s2s_precip = [row.get(f"s2s_tprate_lead{i}", np.nan) for i in range(1, 7)]
+        if not all(np.isnan(v) for v in s2s_precip if isinstance(v, float)):
+            rows.append(_make_row("SUM_S2S_tprate", float(np.nansum(s2s_precip)), "S2S"))
+
+        # 2. Average non-precipitation variables across leads
+        for var, idx_name, itype in [
+            ("soilmoist_tavg", "AVG_FLDAS_SoilMoist", "FLDAS"),
+            ("tair_tavg", "AVG_FLDAS_Tair", "FLDAS"),
+            ("evap_tavg", "AVG_FLDAS_Evap", "FLDAS"),
+            ("tws_tavg", "AVG_FLDAS_TWS", "FLDAS"),
+        ]:
+            vals = [row.get(f"fldas_{var}_lead{i}", np.nan) for i in range(6)]
+            if not all(np.isnan(v) for v in vals if isinstance(v, float)):
+                rows.append(_make_row(idx_name, float(np.nanmean(vals)), itype))
+
+        s2s_t2m = [row.get(f"s2s_t2m_lead{i}", np.nan) for i in range(1, 7)]
+        if not all(np.isnan(v) for v in s2s_t2m if isinstance(v, float)):
+            rows.append(_make_row("AVG_S2S_t2m", float(np.nanmean(s2s_t2m)), "S2S"))
+
+        # 3a. Within-year forecast revision (needs prev_row)
+        if prev_row is not None:
+            for var, idx_name, itype, leads, prefix in [
+                ("SoilMoist_tavg", "REV_FLDAS_SoilMoist_tavg", "FLDAS", range(6), "fldas"),
+                ("TotalPrecip_tavg", "REV_FLDAS_TotalPrecip_tavg", "FLDAS", range(6), "fldas"),
+                ("Tair_tavg", "REV_FLDAS_Tair_tavg", "FLDAS", range(6), "fldas"),
+                ("Evap_tavg", "REV_FLDAS_Evap_tavg", "FLDAS", range(6), "fldas"),
+                ("TWS_tavg", "REV_FLDAS_TWS_tavg", "FLDAS", range(6), "fldas"),
+                ("t2m", "REV_S2S_t2m", "S2S", range(1, 7), "s2s"),
+                ("tprate", "REV_S2S_tprate", "S2S", range(1, 7), "s2s"),
+            ]:
+                # Compare overlapping target months between current and previous init
+                diffs = []
+                for lead in leads:
+                    col = f"{prefix}_{var.lower()}_lead{lead}"
+                    curr_val = row.get(col, np.nan)
+                    # Previous init month's lead+1 targets the same month
+                    prev_lead = lead + 1
+                    prev_col = f"{prefix}_{var.lower()}_lead{prev_lead}"
+                    prev_val = prev_row.get(prev_col, np.nan)
+                    try:
+                        if not (np.isnan(curr_val) or np.isnan(prev_val)):
+                            diffs.append(abs(float(curr_val) - float(prev_val)))
+                    except (TypeError, ValueError):
+                        pass
+                if diffs:
+                    rows.append(_make_row(idx_name, float(np.mean(diffs)), itype))
+
+        # 3b. MAR — Multi-year Mean Absolute Revision (static per-region)
+        # Computed from ALL years in df_region for this region.
+        # For each variable, compute average |consecutive-month revision|
+        # across all available years.
+        for var, idx_name, itype, leads, prefix in [
+            ("SoilMoist_tavg", "MAR_FLDAS_SoilMoist_tavg", "FLDAS", range(6), "fldas"),
+            ("TotalPrecip_tavg", "MAR_FLDAS_TotalPrecip_tavg", "FLDAS", range(6), "fldas"),
+            ("Tair_tavg", "MAR_FLDAS_Tair_tavg", "FLDAS", range(6), "fldas"),
+            ("Evap_tavg", "MAR_FLDAS_Evap_tavg", "FLDAS", range(6), "fldas"),
+            ("TWS_tavg", "MAR_FLDAS_TWS_tavg", "FLDAS", range(6), "fldas"),
+            ("t2m", "MAR_S2S_t2m", "S2S", range(1, 7), "s2s"),
+            ("tprate", "MAR_S2S_tprate", "S2S", range(1, 7), "s2s"),
+        ]:
+            all_diffs = []
+            # Group by year and compute revision across consecutive months
+            for yr in df_region["time"].dt.year.unique():
+                df_yr = df_region[df_region["time"].dt.year == yr]
+                months_in_yr = sorted(df_yr["Month"].unique())
+                for m_idx in range(1, len(months_in_yr)):
+                    m_curr = months_in_yr[m_idx]
+                    m_prev = months_in_yr[m_idx - 1]
+                    r_curr = df_yr[df_yr["Month"] == m_curr]
+                    r_prev = df_yr[df_yr["Month"] == m_prev]
+                    if r_curr.empty or r_prev.empty:
+                        continue
+                    rc = r_curr.iloc[0]
+                    rp = r_prev.iloc[0]
+                    for lead in leads:
+                        col = f"{prefix}_{var.lower()}_lead{lead}"
+                        try:
+                            cv = float(rc.get(col, np.nan))
+                            pv_col = f"{prefix}_{var.lower()}_lead{lead + 1}"
+                            pv = float(rp.get(pv_col, np.nan))
+                            if not (np.isnan(cv) or np.isnan(pv)):
+                                all_diffs.append(abs(cv - pv))
+                        except (TypeError, ValueError):
+                            pass
+            if all_diffs:
+                rows.append(_make_row(idx_name, float(np.mean(all_diffs)), itype))
 
         return pd.DataFrame(rows)
 
@@ -1421,8 +1568,10 @@ def process_task(args: ProcessTaskArgs) -> tuple:
 
         df_result = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     except Exception as e:
+        import traceback
         logger.error(
-            f"Error in process_task for {args.file_name} yr {args.year} rgn {adm1}: {e}"
+            f"Error in process_task for {args.file_name} yr {args.year} rgn {adm1}: {e}\n"
+            f"{traceback.format_exc()}"
         )
         return ("", pd.DataFrame(), task_desc)
 

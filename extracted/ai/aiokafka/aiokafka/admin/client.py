@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import warnings
 from collections import defaultdict
 from ssl import SSLContext
 from typing import Any
@@ -7,6 +8,7 @@ from typing import Any
 import async_timeout
 
 from aiokafka import __version__
+from aiokafka.abc import AbstractTokenProvider
 from aiokafka.client import AIOKafkaClient
 from aiokafka.errors import (
     LeaderNotAvailableError,
@@ -91,13 +93,22 @@ class AIOKafkaAdminClient:
         metadata_max_age_ms: int = 300000,
         security_protocol: str = "PLAINTEXT",
         ssl_context: SSLContext | None = None,
+        api_version: None = None,
         sasl_mechanism: str = "PLAIN",
         sasl_plain_username: str | None = None,
         sasl_plain_password: str | None = None,
         sasl_kerberos_service_name: str = "kafka",
         sasl_kerberos_domain_name: str | None = None,
-        sasl_oauth_token_provider: str | None = None,
+        sasl_oauth_token_provider: AbstractTokenProvider | None = None,
     ):
+        if api_version is not None:
+            warnings.warn(
+                "The `api_version` parameter has been deprecated since 0.13.0. "
+                "It is now a no-op and will be removed in a future release. ",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         self._closed = False
         self._started = False
         self._version_info = {}

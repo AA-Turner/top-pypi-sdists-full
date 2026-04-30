@@ -1,10 +1,10 @@
 [build-system]
-requires = ["poetry-core>=1.2.0,<2.1.0"]
+requires = ["poetry-core>=2.3.2,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "anomalo"
-version = "0.41.0"
+version = "0.41.1"
 description = "Python bindings for the Anomalo API"
 homepage = "https://anomalo.com"
 license = "Apache-2.0"

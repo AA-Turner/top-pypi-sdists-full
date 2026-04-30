@@ -23,7 +23,11 @@ impl ProjectState {
             })
             .or_else(|| {
                 #[allow(deprecated)]
-                params.root_uri.as_ref().and_then(|u| uri_to_file_path(u)).map(|p| vec![p])
+                params
+                    .root_uri
+                    .as_ref()
+                    .and_then(|u| uri_to_file_path(u))
+                    .map(|p| vec![p])
             })
             .unwrap_or_default();
 

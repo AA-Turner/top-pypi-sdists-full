@@ -74,7 +74,7 @@ job_queue_spec:
     def _validate_idle_timeout_s(self, idle_timeout_s: int):
         if not isinstance(idle_timeout_s, int):
             raise TypeError(
-                f"'idle_timeout_sec' must be an int (it is {type(idle_timeout_s)})."
+                f"'idle_timeout_s' must be an int (it is {type(idle_timeout_s)})."
             )
 
         elif idle_timeout_s < 0:
@@ -96,7 +96,7 @@ job_queue_spec:
         default=JobQueueExecutionMode.FIFO,  # type: ignore
         metadata={
             "docstring": "Execution mode of the jobs submitted into the queue "  # type: ignore
-            f"(one of: {','.join([str(m.value) for m in JobQueueExecutionMode])}",  # type: ignore
+            f"(one of: {','.join([str(m.value) for m in JobQueueExecutionMode])}).",  # type: ignore
         },
     )
 
@@ -123,13 +123,13 @@ job_queue_spec:
     def _validate_compute_config(self, compute_config: Optional[str]):
         if compute_config is not None and not isinstance(compute_config, str):
             raise TypeError(
-                f"'compute_config_id' must be a string (it is {type(compute_config)})."
+                f"'compute_config' must be a string (it is {type(compute_config)})."
             )
 
     max_concurrency: int = field(
         default=1,
         metadata={
-            "docstring": "Max number of jobs that can run concurrently."
+            "docstring": "Max number of jobs that can run concurrently. "
             "Defaults to 1, meaning only one job can run at a given time.",
         },
     )

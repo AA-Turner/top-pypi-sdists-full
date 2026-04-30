@@ -35,39 +35,11 @@ from couchbase.kv_range_scan import (PrefixScan,
                                      RangeScanRequest,
                                      SamplingScan,
                                      ScanType)
-from couchbase.logic.collection_types import (AppendRequest,
-                                              AppendWithLegacyDurabilityRequest,
-                                              CollectionDetails,
-                                              DecrementRequest,
-                                              DecrementWithLegacyDurabilityRequest,
-                                              ExistsRequest,
-                                              GetAllReplicasRequest,
-                                              GetAndLockRequest,
-                                              GetAndTouchRequest,
-                                              GetAnyReplicaRequest,
-                                              GetProjectedRequest,
-                                              GetRequest,
-                                              IncrementRequest,
-                                              IncrementWithLegacyDurabilityRequest,
-                                              InsertRequest,
-                                              InsertWithLegacyDurabilityRequest,
-                                              LookupInAllReplicasRequest,
-                                              LookupInAnyReplicaRequest,
-                                              LookupInRequest,
-                                              MutateInRequest,
-                                              MutateInWithLegacyDurabilityRequest,
-                                              PrependRequest,
-                                              PrependWithLegacyDurabilityRequest,
-                                              RemoveRequest,
-                                              RemoveWithLegacyDurabilityRequest,
-                                              ReplaceRequest,
-                                              ReplaceWithLegacyDurabilityRequest,
-                                              TouchRequest,
-                                              UnlockRequest,
-                                              UpsertRequest,
-                                              UpsertWithLegacyDurabilityRequest)
+from couchbase.logic.collection_types import CollectionDetails
 from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import KeyValueOperationCode
 from couchbase.logic.options import DeltaValueBase, SignedInt64Base
+from couchbase.logic.pycbc_core import pycbc_kv_request as PycbcCoreKeyValueRequest
 from couchbase.logic.transforms import timedelta_as_milliseconds
 from couchbase.mutation_state import MutationState
 from couchbase.options import forward_args
@@ -75,6 +47,7 @@ from couchbase.subdocument import (StoreSemantics,
                                    SubDocOp,
                                    build_lookup_in_path_flags,
                                    build_mutate_in_path_flags)
+from couchbase.transcoder import Transcoder
 
 if TYPE_CHECKING:
     from asyncio import AbstractEventLoop
@@ -107,6 +80,28 @@ class CollectionRequestBuilder:
     def __init__(self, collection_details: CollectionDetails, loop: Optional[AbstractEventLoop] = None) -> None:
         self._collection_dtls = collection_details
         self._loop = loop
+
+    def _create_kv_request(self,
+                           opcode: int,
+                           key: str,
+                           obs_handler: Optional[ObservableRequestHandler]) -> PycbcCoreKeyValueRequest:
+        req = PycbcCoreKeyValueRequest()
+        req.opcode = opcode
+        req.bucket = self._collection_dtls.bucket_name
+        req.scope = self._collection_dtls.scope_name
+        req.collection = self._collection_dtls.collection_name
+        req.key = key
+
+        if obs_handler:
+            # TODO(PYCBC-1746): Update once legacy tracing logic is removed
+            if obs_handler.is_legacy_tracer:
+                legacy_request_span = obs_handler.legacy_request_span
+                if legacy_request_span:
+                    req.parent_span = legacy_request_span
+            else:
+                req.wrapper_span_name = obs_handler.wrapper_span_name
+            req.with_metrics = obs_handler.with_metrics
+        return req
 
     def _maybe_update_durable_timeout(self, op_args: Dict[str, Any]) -> None:
         if 'durability' in op_args and isinstance(op_args['durability'], int) and 'timeout' not in op_args:
@@ -182,307 +177,341 @@ class CollectionRequestBuilder:
     def build_append_request(self,
                              key: str,
                              value: Union[str, bytes, bytearray],
-                             obs_handler: ObservableRequestHandler,
+                             obs_handler: Optional[ObservableRequestHandler],
                              *opts: object,
-                             **kwargs: object) -> Union[AppendRequest, AppendWithLegacyDurabilityRequest]:
+                             **kwargs: object) -> PycbcCoreKeyValueRequest:
         final_args = forward_args(kwargs, *opts)
         self._maybe_update_durable_timeout(final_args)
         durability = final_args.pop('durability', None)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
         value_bytes, flags = self._process_binary_value(value)
+
+        opcode = KeyValueOperationCode.Append.value
         if isinstance(durability, dict):
-            req = AppendWithLegacyDurabilityRequest(key,
-                                                    *self._collection_dtls.get_details(),
-                                                    value=value_bytes,
-                                                    flags=flags,
-                                                    persist_to=durability['persist_to'],
-                                                    replicate_to=durability['replicate_to'],
-                                                    **final_args)
+            opcode = KeyValueOperationCode.AppendWithLegacyDurability.value
+            final_args['persist_to'] = durability['persist_to']
+            final_args['replicate_to'] = durability['replicate_to']
         else:
-            if durability:
+            if durability and obs_handler:
                 obs_handler.add_kv_durability_attribute(DurabilityLevel(durability))
-            req = AppendRequest(key,
-                                *self._collection_dtls.get_details(),
-                                value=value_bytes,
-                                flags=flags,
-                                durability_level=durability,
-                                **final_args)
+            final_args['durability_level'] = durability
+
+        req = self._create_kv_request(opcode, key, obs_handler)
+        req.value = value_bytes
+        req.flags = flags
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req
 
     def build_decrement_request(self,
                                 key: str,
-                                obs_handler: ObservableRequestHandler,
+                                obs_handler: Optional[ObservableRequestHandler],
                                 *opts: object,
-                                **kwargs: object) -> Union[DecrementRequest, DecrementWithLegacyDurabilityRequest]:
+                                **kwargs: object) -> PycbcCoreKeyValueRequest:
         final_args = forward_args(kwargs, *opts)
         durability = final_args.pop('durability', None)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
         self._process_counter_options(final_args)
+
+        opcode = KeyValueOperationCode.Decrement.value
         if isinstance(durability, dict):
-            req = DecrementWithLegacyDurabilityRequest(key,
-                                                       *self._collection_dtls.get_details(),
-                                                       persist_to=durability['persist_to'],
-                                                       replicate_to=durability['replicate_to'],
-                                                       **final_args)
+            opcode = KeyValueOperationCode.DecrementWithLegacyDurability.value
+            final_args['persist_to'] = durability['persist_to']
+            final_args['replicate_to'] = durability['replicate_to']
         else:
-            if durability:
+            if durability and obs_handler:
                 obs_handler.add_kv_durability_attribute(DurabilityLevel(durability))
-            req = DecrementRequest(key,
-                                   *self._collection_dtls.get_details(),
-                                   durability_level=durability,
-                                   **final_args)
+            final_args['durability_level'] = durability
+
+        req = self._create_kv_request(opcode, key, obs_handler)
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req
 
     def build_exists_request(self,
                              key: str,
-                             obs_handler: ObservableRequestHandler,
+                             obs_handler: Optional[ObservableRequestHandler],
                              *opts: object,
-                             **kwargs: object) -> ExistsRequest:
+                             **kwargs: object) -> PycbcCoreKeyValueRequest:
         final_args = forward_args(kwargs, *opts)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
-        req = ExistsRequest(key,
-                            *self._collection_dtls.get_details(),
-                            **final_args)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        req = self._create_kv_request(KeyValueOperationCode.Exists.value, key, obs_handler)
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req
 
     def build_get_all_replicas_request(self,
                                        key: str,
-                                       obs_handler: ObservableRequestHandler,
+                                       obs_handler: Optional[ObservableRequestHandler],
                                        *opts: object,
-                                       **kwargs: object) -> GetAllReplicasRequest:
+                                       **kwargs: object) -> Tuple[PycbcCoreKeyValueRequest, Transcoder]:
         final_args = forward_args(kwargs, *opts)
         transcoder = self._collection_dtls.get_request_transcoder(final_args)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
-        req = GetAllReplicasRequest(key,
-                                    *self._collection_dtls.get_details(),
-                                    transcoder=transcoder,
-                                    **final_args)
-        return req
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        req = self._create_kv_request(KeyValueOperationCode.GetAllReplicas.value, key, obs_handler)
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
+        return req, transcoder
 
     def build_get_and_lock_request(self,
                                    key: str,
                                    lock_time: timedelta,
-                                   obs_handler: ObservableRequestHandler,
+                                   obs_handler: Optional[ObservableRequestHandler],
                                    *opts: object,
-                                   **kwargs: object) -> GetAndLockRequest:
+                                   **kwargs: object) -> Tuple[PycbcCoreKeyValueRequest, Transcoder]:
         # add to kwargs for conversion to int
         kwargs['lock_time'] = lock_time
         final_args = forward_args(kwargs, *opts)
         transcoder = self._collection_dtls.get_request_transcoder(final_args)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
-        req = GetAndLockRequest(key,
-                                *self._collection_dtls.get_details(),
-                                transcoder=transcoder,
-                                **final_args)
-        return req
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        req = self._create_kv_request(KeyValueOperationCode.GetAndLock.value, key, obs_handler)
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
+        return req, transcoder
 
     def build_get_and_touch_request(self,
                                     key: str,
                                     expiry: timedelta,
-                                    obs_handler: ObservableRequestHandler,
+                                    obs_handler: Optional[ObservableRequestHandler],
                                     *opts: object,
-                                    **kwargs: object) -> GetAndTouchRequest:
+                                    **kwargs: object) -> Tuple[PycbcCoreKeyValueRequest, Transcoder]:
         # add to kwargs for conversion to int
         kwargs['expiry'] = expiry
         final_args = forward_args(kwargs, *opts)
         transcoder = self._collection_dtls.get_request_transcoder(final_args)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
-        req = GetAndTouchRequest(key,
-                                 *self._collection_dtls.get_details(),
-                                 transcoder=transcoder,
-                                 **final_args)
-        return req
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        req = self._create_kv_request(KeyValueOperationCode.GetAndTouch.value, key, obs_handler)
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
+        return req, transcoder
 
     def build_get_any_replica_request(self,
                                       key: str,
-                                      obs_handler: ObservableRequestHandler,
+                                      obs_handler: Optional[ObservableRequestHandler],
                                       *opts: object,
-                                      **kwargs: object) -> GetAnyReplicaRequest:
+                                      **kwargs: object) -> Tuple[PycbcCoreKeyValueRequest, Transcoder]:
         final_args = forward_args(kwargs, *opts)
         transcoder = self._collection_dtls.get_request_transcoder(final_args)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
-        req = GetAnyReplicaRequest(key,
-                                   *self._collection_dtls.get_details(),
-                                   transcoder=transcoder,
-                                   **final_args)
-        return req
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        req = self._create_kv_request(KeyValueOperationCode.GetAnyReplica.value, key, obs_handler)
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
+        return req, transcoder
 
     def build_get_request(self,
                           key: str,
-                          obs_handler: ObservableRequestHandler,
+                          obs_handler: Optional[ObservableRequestHandler],
                           *opts: object,
-                          **kwargs: object) -> Union[GetProjectedRequest, GetRequest]:
+                          **kwargs: object) -> Tuple[PycbcCoreKeyValueRequest, Transcoder]:
         final_args = forward_args(kwargs, *opts)
         transcoder = self._collection_dtls.get_request_transcoder(final_args)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+
+        opcode = KeyValueOperationCode.Get.value
         if final_args.get('with_expiry') or 'project' in final_args:
+            opcode = KeyValueOperationCode.GetProjected.value
             projections = final_args.pop('project', None)
             if projections:
                 if not (isinstance(projections, list) and all(map(lambda p: isinstance(p, str), projections))):
                     raise InvalidArgumentException('Project must be a list of strings.')
                 final_args['projections'] = projections
 
-            req = GetProjectedRequest(key,
-                                      *self._collection_dtls.get_details(),
-                                      transcoder=transcoder,
-                                      **final_args)
-        else:
-            req = GetRequest(key,
-                             *self._collection_dtls.get_details(),
-                             transcoder=transcoder,
-                             **final_args)
-        return req
+        req = self._create_kv_request(opcode, key, obs_handler)
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
+        return req, transcoder
 
     def build_increment_request(self,
                                 key: str,
-                                obs_handler: ObservableRequestHandler,
+                                obs_handler: Optional[ObservableRequestHandler],
                                 *opts: object,
-                                **kwargs: object) -> Union[IncrementRequest, IncrementWithLegacyDurabilityRequest]:
+                                **kwargs: object) -> PycbcCoreKeyValueRequest:
         final_args = forward_args(kwargs, *opts)
         durability = final_args.pop('durability', None)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
         self._process_counter_options(final_args)
+
+        opcode = KeyValueOperationCode.Increment.value
         if isinstance(durability, dict):
-            req = IncrementWithLegacyDurabilityRequest(key,
-                                                       *self._collection_dtls.get_details(),
-                                                       persist_to=durability['persist_to'],
-                                                       replicate_to=durability['replicate_to'],
-                                                       **final_args)
+            opcode = KeyValueOperationCode.IncrementWithLegacyDurability.value
+            final_args['persist_to'] = durability['persist_to']
+            final_args['replicate_to'] = durability['replicate_to']
         else:
-            if durability:
+            if durability and obs_handler:
                 obs_handler.add_kv_durability_attribute(DurabilityLevel(durability))
-            req = IncrementRequest(key,
-                                   *self._collection_dtls.get_details(),
-                                   durability_level=durability,
-                                   **final_args)
+            final_args['durability_level'] = durability
+
+        req = self._create_kv_request(opcode, key, obs_handler)
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req
 
     def build_insert_request(self,
                              key: str,
                              value: JSONType,
-                             obs_handler: ObservableRequestHandler,
+                             obs_handler: Optional[ObservableRequestHandler],
                              *opts: object,
-                             **kwargs: object) -> Union[InsertRequest, InsertWithLegacyDurabilityRequest]:
+                             **kwargs: object) -> PycbcCoreKeyValueRequest:
         final_args = forward_args(kwargs, *opts)
         self._maybe_update_durable_timeout(final_args)
         durability = final_args.pop('durability', None)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
         transcoder = self._collection_dtls.get_request_transcoder(final_args)
-        transcoded_value, flags = obs_handler.maybe_create_encoding_span(lambda: transcoder.encode_value(value))
-        if isinstance(durability, dict):
-            req = InsertWithLegacyDurabilityRequest(key,
-                                                    *self._collection_dtls.get_details(),
-                                                    value=transcoded_value,
-                                                    flags=flags,
-                                                    persist_to=durability['persist_to'],
-                                                    replicate_to=durability['replicate_to'],
-                                                    **final_args)
+        if not obs_handler or obs_handler.is_noop:
+            transcoded_value, flags = transcoder.encode_value(value)
         else:
-            if durability:
+            transcoded_value, flags = obs_handler.maybe_create_encoding_span(lambda: transcoder.encode_value(value))
+
+        opcode = KeyValueOperationCode.Insert.value
+        if isinstance(durability, dict):
+            opcode = KeyValueOperationCode.InsertWithLegacyDurability.value
+            final_args['persist_to'] = durability['persist_to']
+            final_args['replicate_to'] = durability['replicate_to']
+        else:
+            if durability and obs_handler:
                 obs_handler.add_kv_durability_attribute(DurabilityLevel(durability))
-            req = InsertRequest(key,
-                                *self._collection_dtls.get_details(),
-                                value=transcoded_value,
-                                flags=flags,
-                                durability_level=durability,
-                                **final_args)
+            final_args['durability_level'] = durability
+
+        req = self._create_kv_request(opcode, key, obs_handler)
+        req.value = transcoded_value
+        req.flags = flags
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req
 
     def build_lookup_in_all_replicas_request(self,
                                              key: str,
                                              specs: Union[List[Spec], Tuple[Spec]],
-                                             obs_handler: ObservableRequestHandler,
+                                             obs_handler: Optional[ObservableRequestHandler],
                                              *opts: object,
-                                             **kwargs: object) -> LookupInAllReplicasRequest:
+                                             **kwargs: object) -> Tuple[PycbcCoreKeyValueRequest, Transcoder]:
         final_args = forward_args(kwargs, *opts)
         transcoder = self._collection_dtls.get_request_transcoder(final_args)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
         final_specs = []
         for idx, spec in enumerate(specs):
             final_specs.append(self._spec_as_dict(spec, idx))
-        req = LookupInAllReplicasRequest(key,
-                                         *self._collection_dtls.get_details(),
-                                         specs=final_specs,
-                                         transcoder=transcoder,
-                                         **final_args)
-        return req
+        req = self._create_kv_request(KeyValueOperationCode.LookupInAllReplicas.value, key, obs_handler)
+        req.specs = final_specs
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
+        return req, transcoder
 
     def build_lookup_in_any_replica_request(self,
                                             key: str,
                                             specs: Union[List[Spec], Tuple[Spec]],
-                                            obs_handler: ObservableRequestHandler,
+                                            obs_handler: Optional[ObservableRequestHandler],
                                             *opts: object,
-                                            **kwargs: object) -> LookupInAnyReplicaRequest:
+                                            **kwargs: object) -> Tuple[PycbcCoreKeyValueRequest, Transcoder]:
         final_args = forward_args(kwargs, *opts)
         transcoder = self._collection_dtls.get_request_transcoder(final_args)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
         final_specs = []
         for idx, spec in enumerate(specs):
             final_specs.append(self._spec_as_dict(spec, idx))
-        req = LookupInAnyReplicaRequest(key,
-                                        *self._collection_dtls.get_details(),
-                                        specs=final_specs,
-                                        transcoder=transcoder,
-                                        **final_args)
-        return req
+        req = self._create_kv_request(KeyValueOperationCode.LookupInAnyReplica.value, key, obs_handler)
+        req.specs = final_specs
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
+        return req, transcoder
 
     def build_lookup_in_request(self,
                                 key: str,
                                 specs: Union[List[Spec], Tuple[Spec]],
-                                obs_handler: ObservableRequestHandler,
+                                obs_handler: Optional[ObservableRequestHandler],
                                 *opts: object,
-                                **kwargs: object) -> LookupInRequest:
+                                **kwargs: object) -> Tuple[PycbcCoreKeyValueRequest, Transcoder]:
         final_args = forward_args(kwargs, *opts)
         transcoder = self._collection_dtls.get_request_transcoder(final_args)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
         final_specs = []
         for idx, spec in enumerate(specs):
             final_specs.append(self._spec_as_dict(spec, idx))
-        req = LookupInRequest(key,
-                              *self._collection_dtls.get_details(),
-                              specs=final_specs,
-                              transcoder=transcoder,
-                              **final_args)
-        return req
+        req = self._create_kv_request(KeyValueOperationCode.LookupIn.value, key, obs_handler)
+        req.specs = final_specs
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
+        return req, transcoder
 
     def build_mutate_in_request(self,  # noqa: C901
                                 key: str,
                                 specs: Union[List[Spec], Tuple[Spec]],
-                                obs_handler: ObservableRequestHandler,
+                                obs_handler: Optional[ObservableRequestHandler],
                                 *opts: object,
-                                **kwargs: object) -> Union[MutateInRequest, MutateInWithLegacyDurabilityRequest]:
+                                **kwargs: object) -> PycbcCoreKeyValueRequest:
         final_args = forward_args(kwargs, *opts)
         self._maybe_update_durable_timeout(final_args)
         durability = final_args.pop('durability', None)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
         expiry = final_args.get('expiry', None)
         preserve_expiry = final_args.get('preserve_expiry', False)
         spec_ops = [s[0] for s in specs]
@@ -510,63 +539,77 @@ class CollectionRequestBuilder:
         for idx, spec in enumerate(specs):
             if len(spec) == 6:
                 tmp = list(spec[:5])
+                spec_value = spec[5]
                 # no need to propagate the flags for mutate_in specs
                 if ALLOWED_MULTI_OP_LOOKUP.get(spec[0], False) is True:
-                    transcoded_value, _ = obs_handler.maybe_add_encoding_span(lambda: _json_encode(spec[5]))
+                    if not obs_handler or obs_handler.is_noop:
+                        transcoded_value, _ = _json_encode(spec_value)
+                    else:
+                        transcoded_value, _ = obs_handler.maybe_add_encoding_span(
+                            lambda v=spec_value: _json_encode(v)
+                        )
                 else:
-                    transcoded_value, _ = obs_handler.maybe_add_encoding_span(lambda: transcoder.encode_value(spec[5]))
+                    if not obs_handler or obs_handler.is_noop:
+                        transcoded_value, _ = transcoder.encode_value(spec_value)
+                    else:
+                        transcoded_value, _ = obs_handler.maybe_add_encoding_span(
+                            lambda v=spec_value: transcoder.encode_value(v)
+                        )
+
                 tmp.append(transcoded_value)
                 final_specs.append(self._spec_as_dict(tmp, idx))
             else:
                 final_specs.append(self._spec_as_dict(spec, idx))
 
+        opcode = KeyValueOperationCode.MutateIn.value
         if isinstance(durability, dict):
-            req = MutateInWithLegacyDurabilityRequest(key,
-                                                      *self._collection_dtls.get_details(),
-                                                      specs=final_specs,
-                                                      persist_to=durability['persist_to'],
-                                                      replicate_to=durability['replicate_to'],
-                                                      **final_args)
+            opcode = KeyValueOperationCode.MutateInWithLegacyDurability.value
+            final_args['persist_to'] = durability['persist_to']
+            final_args['replicate_to'] = durability['replicate_to']
         else:
-            if durability:
+            if durability and obs_handler:
                 obs_handler.add_kv_durability_attribute(DurabilityLevel(durability))
-            req = MutateInRequest(key,
-                                  *self._collection_dtls.get_details(),
-                                  specs=final_specs,
-                                  durability_level=durability,
-                                  **final_args)
+            final_args['durability_level'] = durability
+
+        req = self._create_kv_request(opcode, key, obs_handler)
+        req.specs = final_specs
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req
 
     def build_prepend_request(self,
                               key: str,
                               value: Union[str, bytes, bytearray],
-                              obs_handler: ObservableRequestHandler,
+                              obs_handler: Optional[ObservableRequestHandler],
                               *opts: object,
-                              **kwargs: object) -> Union[PrependRequest, PrependWithLegacyDurabilityRequest]:
+                              **kwargs: object) -> PycbcCoreKeyValueRequest:
         final_args = forward_args(kwargs, *opts)
         self._maybe_update_durable_timeout(final_args)
         durability = final_args.pop('durability', None)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
         value_bytes, flags = self._process_binary_value(value)
+
+        opcode = KeyValueOperationCode.Prepend.value
         if isinstance(durability, dict):
-            req = PrependWithLegacyDurabilityRequest(key,
-                                                     *self._collection_dtls.get_details(),
-                                                     value=value_bytes,
-                                                     flags=flags,
-                                                     persist_to=durability['persist_to'],
-                                                     replicate_to=durability['replicate_to'],
-                                                     **final_args)
+            opcode = KeyValueOperationCode.PrependWithLegacyDurability.value
+            final_args['persist_to'] = durability['persist_to']
+            final_args['replicate_to'] = durability['replicate_to']
         else:
-            if durability:
+            if durability and obs_handler:
                 obs_handler.add_kv_durability_attribute(DurabilityLevel(durability))
-            req = PrependRequest(key,
-                                 *self._collection_dtls.get_details(),
-                                 value=value_bytes,
-                                 flags=flags,
-                                 durability_level=durability,
-                                 **final_args)
+            final_args['durability_level'] = durability
+
+        req = self._create_kv_request(opcode, key, obs_handler)
+        req.value = value_bytes
+        req.flags = flags
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req
 
     def _process_scan_orchestrator_ops(self, orchestrator_opts: Dict[str, Any]) -> None:
@@ -650,41 +693,47 @@ class CollectionRequestBuilder:
 
     def build_remove_request(self,
                              key: str,
-                             obs_handler: ObservableRequestHandler,
+                             obs_handler: Optional[ObservableRequestHandler],
                              *opts: object,
-                             **kwargs: object) -> Union[RemoveRequest, RemoveWithLegacyDurabilityRequest]:
+                             **kwargs: object) -> PycbcCoreKeyValueRequest:
         final_args = forward_args(kwargs, *opts)
         self._maybe_update_durable_timeout(final_args)
         durability = final_args.pop('durability', None)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+
+        opcode = KeyValueOperationCode.Remove.value
         if isinstance(durability, dict):
-            req = RemoveWithLegacyDurabilityRequest(key,
-                                                    *self._collection_dtls.get_details(),
-                                                    persist_to=durability['persist_to'],
-                                                    replicate_to=durability['replicate_to'],
-                                                    **final_args)
+            opcode = KeyValueOperationCode.RemoveWithLegacyDurability.value
+            final_args['persist_to'] = durability['persist_to']
+            final_args['replicate_to'] = durability['replicate_to']
         else:
-            if durability:
+            if durability and obs_handler:
                 obs_handler.add_kv_durability_attribute(DurabilityLevel(durability))
-            req = RemoveRequest(key,
-                                *self._collection_dtls.get_details(),
-                                durability_level=durability,
-                                **final_args)
+            final_args['durability_level'] = durability
+
+        req = self._create_kv_request(opcode, key, obs_handler)
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req
 
     def build_replace_request(self,
                               key: str,
                               value: JSONType,
-                              obs_handler: ObservableRequestHandler,
+                              obs_handler: Optional[ObservableRequestHandler],
                               *opts: object,
-                              **kwargs: object) -> Union[ReplaceRequest, ReplaceWithLegacyDurabilityRequest]:
+                              **kwargs: object) -> PycbcCoreKeyValueRequest:
         final_args = forward_args(kwargs, *opts)
         durability = final_args.pop('durability', None)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
         expiry = final_args.get('expiry', None)
         preserve_expiry = final_args.get('preserve_expiry', False)
         if expiry and preserve_expiry is True:
@@ -693,87 +742,101 @@ class CollectionRequestBuilder:
             )
         self._maybe_update_durable_timeout(final_args)
         transcoder = self._collection_dtls.get_request_transcoder(final_args)
-        transcoded_value, flags = obs_handler.maybe_create_encoding_span(lambda: transcoder.encode_value(value))
-        if isinstance(durability, dict):
-            req = ReplaceWithLegacyDurabilityRequest(key,
-                                                     *self._collection_dtls.get_details(),
-                                                     value=transcoded_value,
-                                                     flags=flags,
-                                                     persist_to=durability['persist_to'],
-                                                     replicate_to=durability['replicate_to'],
-                                                     **final_args)
+        if not obs_handler or obs_handler.is_noop:
+            transcoded_value, flags = transcoder.encode_value(value)
         else:
-            if durability:
+            transcoded_value, flags = obs_handler.maybe_create_encoding_span(lambda: transcoder.encode_value(value))
+
+        opcode = KeyValueOperationCode.Replace.value
+        if isinstance(durability, dict):
+            opcode = KeyValueOperationCode.ReplaceWithLegacyDurability.value
+            final_args['persist_to'] = durability['persist_to']
+            final_args['replicate_to'] = durability['replicate_to']
+        else:
+            if durability and obs_handler:
                 obs_handler.add_kv_durability_attribute(DurabilityLevel(durability))
-            req = ReplaceRequest(key,
-                                 *self._collection_dtls.get_details(),
-                                 value=transcoded_value,
-                                 flags=flags,
-                                 durability_level=durability,
-                                 **final_args)
+            final_args['durability_level'] = durability
+
+        req = self._create_kv_request(opcode, key, obs_handler)
+        req.value = transcoded_value
+        req.flags = flags
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req
 
     def build_touch_request(self,
                             key: str,
                             expiry: timedelta,
-                            obs_handler: ObservableRequestHandler,
+                            obs_handler: Optional[ObservableRequestHandler],
                             *opts: object,
-                            **kwargs: object) -> TouchRequest:
+                            **kwargs: object) -> PycbcCoreKeyValueRequest:
         kwargs['expiry'] = expiry
         final_args = forward_args(kwargs, *opts)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
-        req = TouchRequest(key,
-                           *self._collection_dtls.get_details(),
-                           **final_args)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        req = self._create_kv_request(KeyValueOperationCode.Touch.value, key, obs_handler)
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req
 
     def build_unlock_request(self,
                              key: str,
                              cas: int,
-                             obs_handler: ObservableRequestHandler,
+                             obs_handler: Optional[ObservableRequestHandler],
                              *opts: object,
-                             **kwargs: object) -> UnlockRequest:
+                             **kwargs: object) -> PycbcCoreKeyValueRequest:
         kwargs['cas'] = cas
         final_args = forward_args(kwargs, *opts)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
-        req = UnlockRequest(key,
-                            *self._collection_dtls.get_details(),
-                            **final_args)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        req = self._create_kv_request(KeyValueOperationCode.Unlock.value, key, obs_handler)
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req
 
     def build_upsert_request(self,
                              key: str,
                              value: JSONType,
-                             obs_handler: ObservableRequestHandler,
+                             obs_handler: Optional[ObservableRequestHandler],
                              *opts: object,
-                             **kwargs: object) -> Union[UpsertRequest, UpsertWithLegacyDurabilityRequest]:
+                             **kwargs: object) -> PycbcCoreKeyValueRequest:
         final_args = forward_args(kwargs, *opts)
         self._maybe_update_durable_timeout(final_args)
         durability = final_args.pop('durability', None)
-        parent_span = ObservableRequestHandler.maybe_get_parent_span(span=final_args.pop('span', None),
-                                                                     parent_span=final_args.pop('parent_span', None))
-        obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
+        parent_span = ObservableRequestHandler.maybe_get_parent_span(
+            span=final_args.pop('span', None), parent_span=final_args.pop('parent_span', None)
+        )
+        if obs_handler:
+            obs_handler.create_kv_span(self._collection_dtls.get_details_as_dict(), parent_span=parent_span)
         transcoder = self._collection_dtls.get_request_transcoder(final_args)
-        transcoded_value, flags = obs_handler.maybe_create_encoding_span(lambda: transcoder.encode_value(value))
-        if isinstance(durability, dict):
-            req = UpsertWithLegacyDurabilityRequest(key,
-                                                    *self._collection_dtls.get_details(),
-                                                    value=transcoded_value,
-                                                    flags=flags,
-                                                    persist_to=durability['persist_to'],
-                                                    replicate_to=durability['replicate_to'],
-                                                    **final_args)
+        if not obs_handler or obs_handler.is_noop:
+            transcoded_value, flags = transcoder.encode_value(value)
         else:
-            if durability:
+            transcoded_value, flags = obs_handler.maybe_create_encoding_span(lambda: transcoder.encode_value(value))
+
+        opcode = KeyValueOperationCode.Upsert.value
+        if isinstance(durability, dict):
+            opcode = KeyValueOperationCode.UpsertWithLegacyDurability.value
+            final_args['persist_to'] = durability['persist_to']
+            final_args['replicate_to'] = durability['replicate_to']
+        else:
+            if durability and obs_handler:
                 obs_handler.add_kv_durability_attribute(DurabilityLevel(durability))
-            req = UpsertRequest(key,
-                                *self._collection_dtls.get_details(),
-                                value=transcoded_value,
-                                flags=flags,
-                                durability_level=durability,
-                                **final_args)
+            final_args['durability_level'] = durability
+
+        req = self._create_kv_request(opcode, key, obs_handler)
+        req.value = transcoded_value
+        req.flags = flags
+        for k, v in final_args.items():
+            if v is not None:
+                setattr(req, k, v)
         return req

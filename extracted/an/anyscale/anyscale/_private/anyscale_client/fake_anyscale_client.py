@@ -23,7 +23,6 @@ from anyscale.client.openapi_client.models import (
     Binding,
     CatalogEntry,
     Cloud,
-    CloudListResponse,
     CloudProviders,
     ClusterOperation,
     ClusteroperationResponse,
@@ -35,6 +34,7 @@ from anyscale.client.openapi_client.models import (
     CreateInternalProductionJob,
     CreateResourceQuota,
     CreateUserProjectCollaborator,
+    DecoratedcloudListResponse,
     DecoratedCloudResource,
     DecoratedComputeTemplate,
     DecoratedlistserviceapimodelListResponse,
@@ -788,12 +788,12 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def list_clouds(
         self, *, paging_token: Optional[str] = None, count: Optional[int] = None
-    ) -> CloudListResponse:
+    ) -> DecoratedcloudListResponse:
         # Simple fake: ignore paging_token and just return up to `count` items
         clouds = list(self._clouds.values())
         if count is not None:
             clouds = clouds[:count]
-        return CloudListResponse(
+        return DecoratedcloudListResponse(
             results=clouds,
             metadata=ListResponseMetadata(
                 next_paging_token=paging_token,

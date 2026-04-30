@@ -11,9 +11,11 @@ from typing import (
     cast,
 )
 
-import dateutil.parser
-import dateutil.tz
 import pyarrow as pa
+from chalk_rs import (
+    parse_datetime as _parse_datetime,
+    timezone_from_name as _timezone_from_name,
+)
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.json import FeatureEncodingOptions
@@ -66,7 +68,7 @@ def _coerce_datetime(x: Any) -> datetime:
     if isinstance(x, datetime):
         return x
     if isinstance(x, str):
-        return dateutil.parser.parse(x)
+        return _parse_datetime(x)
     if isinstance(x, date):
         return datetime.combine(x, time())
     raise TypeError(f"Cannot convert '{x}' to a datetime")
@@ -202,7 +204,7 @@ class DatetimeFeatureConverter(
             return pa.nulls(1, type=self.pyarrow_dtype)[0]
         if pb_value.HasField("timestamp_value"):
             tz_str = pb_value.timestamp_value.timezone
-            tz = dateutil.tz.gettz(tz_str) if tz_str else None
+            tz = _timezone_from_name(tz_str) if tz_str else None
             if pb_value.timestamp_value.HasField("time_second_value"):
                 seconds = pb_value.timestamp_value.time_second_value
                 return pa.scalar(datetime.fromtimestamp(seconds, tz=tz), pa.timestamp("s", tz=tz_str))
@@ -220,5 +222,4 @@ class DatetimeFeatureConverter(
                 + "`time_millisecond_value`, `time_microsecond_value`, and `time_nanosecond_value`"
             )
         raise ValueError(f"Unsupported Protobuf type for datetime: {pb_value}")
-
 

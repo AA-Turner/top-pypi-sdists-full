@@ -9,6 +9,7 @@ from typing import Any, Literal
 def setup() -> None:
     import jsonschema_rs
     from hypothesis import core as root_core
+    from hypothesis.errors import InvalidArgument
     from hypothesis.internal.conjecture import engine
     from hypothesis.internal.entropy import deterministic_PRNG
     from hypothesis.internal.reflection import is_first_param_referenced_in_function
@@ -20,7 +21,13 @@ def setup() -> None:
     from hypothesis_jsonschema._resolve import LocalResolver
 
     from schemathesis.core import INTERNAL_BUFFER_SIZE
-    from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, FANCY_REGEX_OPTIONS, REFERENCE_TO_BUNDLE_PREFIX
+    from schemathesis.core.errors import InvalidSchema
+    from schemathesis.core.jsonschema import (
+        BUNDLE_STORAGE_KEY,
+        REFERENCE_TO_BUNDLE_PREFIX,
+        make_validator,
+        make_validator_for,
+    )
     from schemathesis.core.jsonschema.types import _get_type
     from schemathesis.core.transforms import deepclone
 
@@ -166,6 +173,29 @@ def setup() -> None:
         _canonicalise._get_validator_class(result)
         return result
 
+    def _distribute_anyof(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any] | None:
+        # `_original_merged` returns None for two distinct `anyOf` lists; distribute
+        # the intersection over their branches and drop empty results.
+        left_branches = left.get("anyOf")
+        right_branches = right.get("anyOf")
+        if not isinstance(left_branches, list) or not isinstance(right_branches, list):
+            return None
+        left_rest = {k: v for k, v in left.items() if k != "anyOf"}
+        right_rest = {k: v for k, v in right.items() if k != "anyOf"}
+        branches: list[dict[str, Any]] = []
+        for left_branch in left_branches:
+            for right_branch in right_branches:
+                left_combined = {**left_rest, **left_branch} if isinstance(left_branch, dict) else left_branch
+                right_combined = {**right_rest, **right_branch} if isinstance(right_branch, dict) else right_branch
+                branch = _original_merged([left_combined, right_combined])
+                if branch is not None and branch != _canonicalise.FALSEY:
+                    branches.append(branch)
+        if not branches:
+            return None
+        if len(branches) == 1:
+            return branches[0]
+        return {"anyOf": branches}
+
     def _merged(schemas: list[Any]) -> dict[str, Any] | None:
         if len(schemas) > 1:
             filtered = [schema for schema in schemas if not _is_trivial_truthy(schema)]
@@ -191,6 +221,8 @@ def setup() -> None:
                     return cached
 
             result = _original_merged(schemas)
+            if result is None and isinstance(schemas[0], dict) and isinstance(schemas[1], dict):
+                result = _distribute_anyof(schemas[0], schemas[1])
             if cache_key is not None:
                 _merge_cache_set(cache_key, result)
             return result
@@ -200,7 +232,16 @@ def setup() -> None:
     _original_from_schema = _from_schema.__dict__["__from_schema"]
     _original_merged_as_strategies = _from_schema.merged_as_strategies
 
+    def _ensure_canonical_constants() -> None:
+        # hypothesis-jsonschema returns these by reference and downstream callers mutate them.
+        if _canonicalise.FALSEY != {"not": {}}:
+            _canonicalise.FALSEY.clear()
+            _canonicalise.FALSEY["not"] = {}
+        if _canonicalise.TRUTHY:
+            _canonicalise.TRUTHY.clear()
+
     def _cached_from_schema(schema: Any, *, alphabet: Any, custom_formats: Any) -> Any:
+        _ensure_canonical_constants()
         try:
             key = (_schema_cache_key(schema), id(alphabet), id(custom_formats))
         except (TypeError, ValueError):
@@ -213,7 +254,12 @@ def setup() -> None:
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="Overriding standard format", category=Warning)
-            strategy = _original_from_schema(schema, alphabet=alphabet, custom_formats=custom_formats)
+            try:
+                strategy = _original_from_schema(schema, alphabet=alphabet, custom_formats=custom_formats)
+            except InvalidArgument as exc:
+                if isinstance(schema, dict) and schema.get("$schema") == "http://json-schema.org/draft-03/schema#":
+                    raise InvalidSchema("Draft-03 JSON Schema is not supported") from exc
+                raise
 
         if key is not None:
             _from_schema_cache_set(key, strategy)
@@ -386,7 +432,7 @@ def setup() -> None:
     def _make_rust_validator(schema: dict[str, Any]) -> Any:
         last_error: jsonschema_rs.ValidationError | None = None
         try:
-            return jsonschema_rs.validator_for(schema, pattern_options=FANCY_REGEX_OPTIONS)
+            return make_validator_for(schema)
         except jsonschema_rs.ValidationError as exc:
             last_error = exc
             if is_regex_validation_error(exc):
@@ -394,7 +440,7 @@ def setup() -> None:
 
         for cls in (jsonschema_rs.Draft7Validator, jsonschema_rs.Draft4Validator):
             try:
-                return cls(schema, pattern_options=FANCY_REGEX_OPTIONS)
+                return make_validator(schema, cls)
             except jsonschema_rs.ValidationError as exc:
                 last_error = exc
                 if is_regex_validation_error(exc):
@@ -403,7 +449,7 @@ def setup() -> None:
         assert last_error is not None
         raise last_error
 
-    def make_validator(schema: dict[str, Any]) -> _ValidatorWrapper:
+    def _make_wrapped_validator(schema: dict[str, Any]) -> _ValidatorWrapper:
         try:
             validator = _make_rust_validator(schema)
             return _ValidatorWrapper(validator)
@@ -427,7 +473,7 @@ def setup() -> None:
                 continue
             seen.add(cls)
             try:
-                cls(schema, pattern_options=FANCY_REGEX_OPTIONS)
+                make_validator(schema, cls)
                 return cls
             except jsonschema_rs.ValidationError as exc:
                 last_error = exc
@@ -444,7 +490,7 @@ def setup() -> None:
             return _original_get_validator_class(schema)
         raise last_error
 
-    _canonicalise.make_validator = make_validator
-    _from_schema.make_validator = make_validator
+    _canonicalise.make_validator = _make_wrapped_validator
+    _from_schema.make_validator = _make_wrapped_validator
     _canonicalise._get_validator_class = _get_validator_class
     setup._is_patched = True  # type: ignore[attr-defined]

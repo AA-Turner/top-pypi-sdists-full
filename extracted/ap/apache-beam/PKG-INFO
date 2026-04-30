@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-beam
-Version: 2.72.0
+Version: 2.73.0
 Summary: Apache Beam SDK for Python
 Home-page: https://beam.apache.org
 Download-URL: https://pypi.python.org/pypi/apache-beam
@@ -15,13 +15,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: cryptography<48.0.0,>=39.0.0
-Requires-Dist: envoy-data-plane<2,>=1.0.3; python_version >= "3.13"
-Requires-Dist: envoy-data-plane<0.3.0; python_version < "3.13"
+Requires-Dist: envoy-data-plane<2,>=1.0.3; python_version >= "3.11"
+Requires-Dist: envoy-data-plane<0.3.0; python_version < "3.11"
 Requires-Dist: fastavro<2,>=0.23.6
 Requires-Dist: fasteners<1.0,>=0.3
 Requires-Dist: grpcio!=1.48.0,!=1.59.*,!=1.60.*,!=1.61.*,!=1.62.0,!=1.62.1,!=1.66.*,!=1.67.*,!=1.68.*,!=1.69.*,!=1.70.*,<2,>=1.33.1
@@ -64,9 +65,10 @@ Requires-Dist: joblib>=1.0.1; extra == "test"
 Requires-Dist: mock<6.0.0,>=1.0.1; extra == "test"
 Requires-Dist: pandas<2.3.0; extra == "test"
 Requires-Dist: parameterized<0.10.0,>=0.7.1; extra == "test"
+Requires-Dist: pydot<2,>=1.2.0; extra == "test"
 Requires-Dist: pyhamcrest!=1.10.0,<3.0.0,>=1.9; extra == "test"
 Requires-Dist: requests_mock<2.0,>=1.7; extra == "test"
-Requires-Dist: tenacity<9,>=8.0.0; extra == "test"
+Requires-Dist: tenacity<10,>=8.0.0; extra == "test"
 Requires-Dist: pytest<9.0,>=7.1.2; extra == "test"
 Requires-Dist: pytest-xdist<4,>=2.5.0; extra == "test"
 Requires-Dist: pytest-timeout<3,>=2.1.0; extra == "test"
@@ -133,9 +135,12 @@ Requires-Dist: urllib3<2,>=1.21.1; extra == "interactive-test"
 Provides-Extra: ml-test
 Requires-Dist: datatable; extra == "ml-test"
 Requires-Dist: dill; extra == "ml-test"
-Requires-Dist: tensorflow-transform; extra == "ml-test"
+Requires-Dist: tensorflow_transform<1.15.0,>=1.14.0; extra == "ml-test"
+Requires-Dist: numpy<2; extra == "ml-test"
+Requires-Dist: tf2onnx<1.17,>=1.16.1; extra == "ml-test"
 Requires-Dist: embeddings>=0.0.4; extra == "ml-test"
 Requires-Dist: onnxruntime; extra == "ml-test"
+Requires-Dist: onnx<2,>=1.14.1; extra == "ml-test"
 Requires-Dist: langchain; extra == "ml-test"
 Requires-Dist: sentence-transformers>=2.2.2; extra == "ml-test"
 Requires-Dist: skl2onnx; extra == "ml-test"
@@ -143,13 +148,13 @@ Requires-Dist: pyod>=0.7.6; extra == "ml-test"
 Requires-Dist: tensorflow; extra == "ml-test"
 Requires-Dist: absl-py>=0.12.0; extra == "ml-test"
 Requires-Dist: tensorflow-hub; extra == "ml-test"
-Requires-Dist: tf2onnx; extra == "ml-test"
 Requires-Dist: torch; extra == "ml-test"
 Requires-Dist: transformers; extra == "ml-test"
 Provides-Extra: p310-ml-test
 Requires-Dist: datatable; extra == "p310-ml-test"
 Requires-Dist: embeddings>=0.0.4; extra == "p310-ml-test"
 Requires-Dist: onnxruntime; extra == "p310-ml-test"
+Requires-Dist: onnx<2,>=1.14.1; extra == "p310-ml-test"
 Requires-Dist: langchain; extra == "p310-ml-test"
 Requires-Dist: sentence-transformers>=2.2.2; extra == "p310-ml-test"
 Requires-Dist: skl2onnx; extra == "p310-ml-test"
@@ -157,13 +162,19 @@ Requires-Dist: pyod>=0.7.6; extra == "p310-ml-test"
 Requires-Dist: tensorflow; extra == "p310-ml-test"
 Requires-Dist: absl-py>=0.12.0; extra == "p310-ml-test"
 Requires-Dist: tensorflow-hub; extra == "p310-ml-test"
-Requires-Dist: tf2onnx; extra == "p310-ml-test"
 Requires-Dist: torch; extra == "p310-ml-test"
 Requires-Dist: transformers; extra == "p310-ml-test"
+Requires-Dist: google-adk==1.28.1; extra == "p310-ml-test"
+Requires-Dist: proto-plus<2,>=1.26.1; extra == "p310-ml-test"
+Requires-Dist: opentelemetry-api==1.37.0; extra == "p310-ml-test"
+Requires-Dist: opentelemetry-sdk==1.37.0; extra == "p310-ml-test"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.37.0; extra == "p310-ml-test"
+Requires-Dist: tf2onnx<1.18,>=1.17.0; extra == "p310-ml-test"
 Provides-Extra: p312-ml-test
 Requires-Dist: datatable; extra == "p312-ml-test"
 Requires-Dist: embeddings>=0.0.4; extra == "p312-ml-test"
 Requires-Dist: onnxruntime; extra == "p312-ml-test"
+Requires-Dist: onnx<2,>=1.14.1; extra == "p312-ml-test"
 Requires-Dist: langchain; extra == "p312-ml-test"
 Requires-Dist: sentence-transformers>=2.2.2; extra == "p312-ml-test"
 Requires-Dist: skl2onnx; extra == "p312-ml-test"
@@ -171,12 +182,18 @@ Requires-Dist: pyod>=0.7.6; extra == "p312-ml-test"
 Requires-Dist: tensorflow; extra == "p312-ml-test"
 Requires-Dist: absl-py>=0.12.0; extra == "p312-ml-test"
 Requires-Dist: tensorflow-hub; extra == "p312-ml-test"
-Requires-Dist: tf2onnx; extra == "p312-ml-test"
 Requires-Dist: torch; extra == "p312-ml-test"
 Requires-Dist: transformers; extra == "p312-ml-test"
+Requires-Dist: google-adk==1.28.1; extra == "p312-ml-test"
+Requires-Dist: proto-plus<2,>=1.26.1; extra == "p312-ml-test"
+Requires-Dist: opentelemetry-api==1.37.0; extra == "p312-ml-test"
+Requires-Dist: opentelemetry-sdk==1.37.0; extra == "p312-ml-test"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.37.0; extra == "p312-ml-test"
+Requires-Dist: tf2onnx<1.18,>=1.17.0; extra == "p312-ml-test"
 Provides-Extra: p313-ml-test
 Requires-Dist: embeddings>=0.0.4; extra == "p313-ml-test"
 Requires-Dist: onnxruntime; extra == "p313-ml-test"
+Requires-Dist: onnx<2,>=1.14.1; extra == "p313-ml-test"
 Requires-Dist: langchain; extra == "p313-ml-test"
 Requires-Dist: sentence-transformers>=2.2.2; extra == "p313-ml-test"
 Requires-Dist: skl2onnx; extra == "p313-ml-test"
@@ -184,9 +201,14 @@ Requires-Dist: pyod>=0.7.6; extra == "p313-ml-test"
 Requires-Dist: tensorflow; extra == "p313-ml-test"
 Requires-Dist: absl-py>=0.12.0; extra == "p313-ml-test"
 Requires-Dist: tensorflow-hub; extra == "p313-ml-test"
-Requires-Dist: tf2onnx; extra == "p313-ml-test"
 Requires-Dist: torch; extra == "p313-ml-test"
 Requires-Dist: transformers; extra == "p313-ml-test"
+Requires-Dist: google-adk==1.28.1; extra == "p313-ml-test"
+Requires-Dist: proto-plus<2,>=1.26.1; extra == "p313-ml-test"
+Requires-Dist: opentelemetry-api==1.37.0; extra == "p313-ml-test"
+Requires-Dist: opentelemetry-sdk==1.37.0; extra == "p313-ml-test"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.37.0; extra == "p313-ml-test"
+Requires-Dist: tf2onnx<1.18,>=1.17.0; extra == "p313-ml-test"
 Requires-Dist: pymilvus<3.0.0,>=2.5.10; extra == "p313-ml-test"
 Provides-Extra: aws
 Requires-Dist: boto3<2,>=1.9; extra == "aws"
@@ -226,6 +248,7 @@ Provides-Extra: redis
 Requires-Dist: redis<6,>=5.0.0; extra == "redis"
 Provides-Extra: tft
 Requires-Dist: tensorflow_transform<1.15.0,>=1.14.0; extra == "tft"
+Requires-Dist: numpy<2; extra == "tft"
 Requires-Dist: dill; extra == "tft"
 Provides-Extra: tfrecord
 Requires-Dist: crcmod<2.0,>=1.7; extra == "tfrecord"

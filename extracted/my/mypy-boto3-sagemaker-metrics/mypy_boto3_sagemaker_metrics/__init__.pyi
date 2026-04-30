@@ -3,7 +3,7 @@ Main interface for sagemaker-metrics service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker_metrics/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

@@ -26,6 +26,7 @@ from .literals import (
     AdMarkerHlsType,
     CmafEncryptionMethodType,
     ContainerTypeType,
+    CustomAdTypeType,
     DashCompactnessType,
     DashDrmSignalingType,
     DashPeriodTriggerType,
@@ -39,8 +40,11 @@ from .literals import (
     PresetSpeke20AudioType,
     PresetSpeke20VideoType,
     ScteFilterType,
+    ScteInManifestsType,
     ScteInSegmentsType,
     TsEncryptionMethodType,
+    UriPathTypeType,
+    UriSeparatorType,
 )
 
 if sys.version_info >= (3, 12):
@@ -248,6 +252,7 @@ class DashUtcTimingTypeDef(TypedDict):
 
 class ScteDashTypeDef(TypedDict):
     AdMarkerDash: NotRequired[AdMarkerDashType]
+    ScteInManifests: NotRequired[ScteInManifestsType]
 
 class HarvesterScheduleConfigurationOutputTypeDef(TypedDict):
     StartTime: datetime
@@ -255,6 +260,7 @@ class HarvesterScheduleConfigurationOutputTypeDef(TypedDict):
 
 class ScteHlsTypeDef(TypedDict):
     AdMarkerHls: NotRequired[AdMarkerHlsType]
+    ScteInManifests: NotRequired[ScteInManifestsType]
 
 class StartTagTypeDef(TypedDict):
     TimeOffset: float
@@ -428,10 +434,12 @@ class ResetOriginEndpointStateRequestTypeDef(TypedDict):
 class ScteOutputTypeDef(TypedDict):
     ScteFilter: NotRequired[list[ScteFilterType]]
     ScteInSegments: NotRequired[ScteInSegmentsType]
+    CustomAdTypes: NotRequired[list[CustomAdTypeType]]
 
 class ScteTypeDef(TypedDict):
     ScteFilter: NotRequired[Sequence[ScteFilterType]]
     ScteInSegments: NotRequired[ScteInSegmentsType]
+    CustomAdTypes: NotRequired[Sequence[CustomAdTypeType]]
 
 class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -633,6 +641,7 @@ class GetHlsManifestConfigurationTypeDef(TypedDict):
     FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
     StartTag: NotRequired[StartTagTypeDef]
     UrlEncodeChildManifest: NotRequired[bool]
+    UriPathType: NotRequired[UriPathTypeType]
 
 class GetLowLatencyHlsManifestConfigurationTypeDef(TypedDict):
     ManifestName: str
@@ -644,6 +653,7 @@ class GetLowLatencyHlsManifestConfigurationTypeDef(TypedDict):
     FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
     StartTag: NotRequired[StartTagTypeDef]
     UrlEncodeChildManifest: NotRequired[bool]
+    UriPathType: NotRequired[UriPathTypeType]
 
 class GetMssManifestConfigurationTypeDef(TypedDict):
     ManifestName: str
@@ -718,6 +728,7 @@ class OriginEndpointListConfigurationTypeDef(TypedDict):
     DashManifests: NotRequired[list[ListDashManifestConfigurationTypeDef]]
     MssManifests: NotRequired[list[ListMssManifestConfigurationTypeDef]]
     ForceEndpointErrorConfiguration: NotRequired[ForceEndpointErrorConfigurationOutputTypeDef]
+    UriSeparator: NotRequired[UriSeparatorType]
 
 class PutOriginEndpointPolicyRequestTypeDef(TypedDict):
     ChannelGroupName: str
@@ -747,6 +758,7 @@ class GetDashManifestConfigurationTypeDef(TypedDict):
     DvbSettings: NotRequired[DashDvbSettingsOutputTypeDef]
     Compactness: NotRequired[DashCompactnessType]
     SubtitleConfiguration: NotRequired[DashSubtitleConfigurationTypeDef]
+    UriPathType: NotRequired[UriPathTypeType]
 
 class EncryptionOutputTypeDef(TypedDict):
     EncryptionMethod: EncryptionMethodTypeDef
@@ -864,6 +876,7 @@ class CreateDashManifestConfigurationTypeDef(TypedDict):
     DvbSettings: NotRequired[DashDvbSettingsUnionTypeDef]
     Compactness: NotRequired[DashCompactnessType]
     SubtitleConfiguration: NotRequired[DashSubtitleConfigurationTypeDef]
+    UriPathType: NotRequired[UriPathTypeType]
 
 class CreateHlsManifestConfigurationTypeDef(TypedDict):
     ManifestName: str
@@ -874,6 +887,7 @@ class CreateHlsManifestConfigurationTypeDef(TypedDict):
     ProgramDateTimeIntervalSeconds: NotRequired[int]
     FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
     UrlEncodeChildManifest: NotRequired[bool]
+    UriPathType: NotRequired[UriPathTypeType]
 
 class CreateLowLatencyHlsManifestConfigurationTypeDef(TypedDict):
     ManifestName: str
@@ -884,6 +898,7 @@ class CreateLowLatencyHlsManifestConfigurationTypeDef(TypedDict):
     ProgramDateTimeIntervalSeconds: NotRequired[int]
     FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
     UrlEncodeChildManifest: NotRequired[bool]
+    UriPathType: NotRequired[UriPathTypeType]
 
 class CreateMssManifestConfigurationTypeDef(TypedDict):
     ManifestName: str
@@ -924,6 +939,7 @@ class CreateOriginEndpointResponseTypeDef(TypedDict):
     DashManifests: list[GetDashManifestConfigurationTypeDef]
     MssManifests: list[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
+    UriSeparator: UriSeparatorType
     ETag: str
     Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -945,6 +961,7 @@ class GetOriginEndpointResponseTypeDef(TypedDict):
     DashManifests: list[GetDashManifestConfigurationTypeDef]
     MssManifests: list[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
+    UriSeparator: UriSeparatorType
     ETag: str
     Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -964,6 +981,7 @@ class UpdateOriginEndpointResponseTypeDef(TypedDict):
     LowLatencyHlsManifests: list[GetLowLatencyHlsManifestConfigurationTypeDef]
     MssManifests: list[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
+    UriSeparator: UriSeparatorType
     ETag: str
     Tags: dict[str, str]
     DashManifests: list[GetDashManifestConfigurationTypeDef]
@@ -985,6 +1003,7 @@ class CreateOriginEndpointRequestTypeDef(TypedDict):
     DashManifests: NotRequired[Sequence[CreateDashManifestConfigurationTypeDef]]
     MssManifests: NotRequired[Sequence[CreateMssManifestConfigurationTypeDef]]
     ForceEndpointErrorConfiguration: NotRequired[ForceEndpointErrorConfigurationUnionTypeDef]
+    UriSeparator: NotRequired[UriSeparatorType]
     Tags: NotRequired[Mapping[str, str]]
 
 class UpdateOriginEndpointRequestTypeDef(TypedDict):
@@ -1000,4 +1019,5 @@ class UpdateOriginEndpointRequestTypeDef(TypedDict):
     DashManifests: NotRequired[Sequence[CreateDashManifestConfigurationTypeDef]]
     MssManifests: NotRequired[Sequence[CreateMssManifestConfigurationTypeDef]]
     ForceEndpointErrorConfiguration: NotRequired[ForceEndpointErrorConfigurationUnionTypeDef]
+    UriSeparator: NotRequired[UriSeparatorType]
     ETag: NotRequired[str]

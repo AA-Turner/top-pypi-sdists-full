@@ -22,6 +22,7 @@ Management commands (bundled)::
     python manage.py push_forms --dest-url=https://prod.example.com --token=SECRET --slugs=time-off,onboarding
 """
 
+import json
 import logging
 from decimal import Decimal
 
@@ -241,6 +242,34 @@ def _serialize_field(field, wf_pk_to_index=None):
     }
 
 
+def _serialize_notification_rule(r):
+    # Sort notify_groups so order is deterministic across environments
+    # (M2M default ordering relies on row id, which differs per-instance).
+    return {
+        "event": r.event,
+        "use_triggering_stage": r.use_triggering_stage,
+        "notify_submitter": r.notify_submitter,
+        "email_field": r.email_field,
+        "static_emails": r.static_emails,
+        "cc_email_field": r.cc_email_field,
+        "cc_static_emails": r.cc_static_emails,
+        "notify_stage_assignees": r.notify_stage_assignees,
+        "notify_stage_groups": r.notify_stage_groups,
+        "subject_template": r.subject_template,
+        "body_template": r.body_template,
+        "conditions": r.conditions,
+        "notify_groups": sorted(g.name for g in r.notify_groups.all()),
+    }
+
+
+def _sorted_rule_payloads(rules):
+    # Sort by serialized content so order is deterministic across environments.
+    # Two rules with the same event would otherwise come back from the DB in
+    # indeterminate order, producing false-positive diffs on push/pull.
+    serialized = [_serialize_notification_rule(r) for r in rules]
+    return sorted(serialized, key=lambda d: json.dumps(d, sort_keys=True, default=str))
+
+
 def _serialize_workflow_stage(stage):
     # Serialize approval groups with their sequence position so that
     # "sequence" stages are restored in the correct order on import.
@@ -265,20 +294,7 @@ def _serialize_workflow_stage(stage):
         "allow_reassign": stage.allow_reassign,
         "allow_send_back": stage.allow_send_back,
         "allow_edit_form_data": stage.allow_edit_form_data,
-        "notification_rules": [
-            {
-                "event": r.event,
-                "notify_submitter": r.notify_submitter,
-                "email_field": r.email_field,
-                "static_emails": r.static_emails,
-                "notify_stage_assignees": r.notify_stage_assignees,
-                "notify_stage_groups": r.notify_stage_groups,
-                "subject_template": r.subject_template,
-                "conditions": r.conditions,
-                "notify_groups": [g.name for g in r.notify_groups.all()],
-            }
-            for r in stage.notification_rules.all()
-        ],
+        "notification_rules": _sorted_rule_payloads(stage.notification_rules.all()),
     }
 
 
@@ -351,20 +367,9 @@ def _serialize_workflow(wf):
         # Visual editor data
         "visual_workflow_data": wf.visual_workflow_data,
         # Workflow-level notification rules (stage=null)
-        "notification_rules": [
-            {
-                "event": r.event,
-                "notify_submitter": r.notify_submitter,
-                "email_field": r.email_field,
-                "static_emails": r.static_emails,
-                "notify_stage_assignees": r.notify_stage_assignees,
-                "notify_stage_groups": r.notify_stage_groups,
-                "subject_template": r.subject_template,
-                "conditions": r.conditions,
-                "notify_groups": [g.name for g in r.notify_groups.all()],
-            }
-            for r in wf.notification_rules.filter(stage__isnull=True)
-        ],
+        "notification_rules": _sorted_rule_payloads(
+            wf.notification_rules.filter(stage__isnull=True)
+        ),
         "webhook_endpoints": [
             _serialize_webhook_endpoint(endpoint)
             for endpoint in wf.webhook_endpoints.all().order_by("name")
@@ -1149,6 +1154,13 @@ def import_payload(payload, conflict="update"):
     """
     category_cache = {}
 
+    # ── 0. Reset PostgreSQL sequences BEFORE inserts ──────────────────────────
+    # If a previous load (pg_dump/restore, manual fixture insert, prior sync
+    # that deleted rows) left a sequence behind the actual MAX(id), the very
+    # first INSERT in this import will 500 with a duplicate-pkey IntegrityError.
+    # Resetting up-front is cheap and prevents the failure.
+    _reset_sequences()
+
     # ── 1. Upsert all categories (parents before children) ────────────────────
     for cat_data in _topo_sort_categories(payload.get("categories", [])):
         _get_or_create_category(cat_data, category_cache)
@@ -1165,7 +1177,7 @@ def import_payload(payload, conflict="update"):
         )
         results.append(result)
 
-    # ── 4. Reset PostgreSQL sequences ─────────────────────────────────────────
+    # ── 4. Reset PostgreSQL sequences again to absorb this import's churn ─────
     # Sync deletes and re-creates rows (e.g. NotificationRule, StageApprovalGroup,
     # PostSubmissionAction) which can leave auto-increment sequences behind the
     # actual max ID in the table, causing IntegrityError on the next insert.
@@ -1184,14 +1196,20 @@ def _reset_sequences():
     if connection.vendor != "postgresql":
         return
 
+    # Every model the sync may insert into; missing entries here cause
+    # duplicate-pkey IntegrityErrors on import when a sequence has drifted.
     models_to_reset = [
+        FormCategory,
         FormDefinition,
-        NotificationRule,
-        StageApprovalGroup,
-        PostSubmissionAction,
-        WebhookEndpoint,
-        WorkflowStage,
         FormField,
+        NotificationRule,
+        PostSubmissionAction,
+        PrefillSource,
+        StageApprovalGroup,
+        SubWorkflowDefinition,
+        WebhookEndpoint,
+        WorkflowDefinition,
+        WorkflowStage,
     ]
     with connection.cursor() as cursor:
         for model in models_to_reset:

@@ -1,7 +1,5 @@
 from datetime import datetime
-from typing import Any
-
-from typing_extensions import Annotated
+from typing import Annotated, Any
 
 from chalk.features.feature_field import Feature
 from chalk.features.feature_wrapper import unwrap_feature

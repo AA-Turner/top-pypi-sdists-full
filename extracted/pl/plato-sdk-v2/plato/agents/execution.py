@@ -24,6 +24,12 @@ if TYPE_CHECKING:
     from plato.worlds.config import AgentConfig
 
 logger = logging.getLogger(__name__)
+_WARM_POOL_RUN_ATTEMPTS = 2
+
+
+def _is_retryable_warm_pool_run_error(exc: BaseException) -> bool:
+    message = str(exc)
+    return "Permission denied (publickey)" in message or "lost connection" in message
 
 
 class AgentExecutionManager:
@@ -99,28 +105,51 @@ class AgentExecutionManager:
         # main as it actually starts running.
         review_fn = task._review_fn
 
-        pooled_runtime = await self._warm_pool.acquire()
-        published_transport: GitTransport | None = None
-        try:
-            published_transport = await self._prepare_git_mount(run_mounts, task_name)
-            if review_fn is not None and published_transport is not None:
-                self._attach_review_gate(task, task_name, published_transport, review_fn)
-            agent_id = await task._run_on_runtime(
-                pooled_runtime.runtime_info,
-                instruction,
-                display_name=display_name,
-                mounts=run_mounts,
-            )
-        except Exception:
-            await self._warm_pool.release(
-                pooled_runtime,
-                workspace_paths=[mount.agent_path for mount in run_mounts],
-                destroy=True,
-            )
-            raise
+        agent_id: str | None = None
+        successful_runtime = None
+        last_error: Exception | None = None
+        for attempt in range(1, _WARM_POOL_RUN_ATTEMPTS + 1):
+            pooled_runtime = await self._warm_pool.acquire()
+            published_transport: GitTransport | None = None
+            try:
+                published_transport = await self._prepare_git_mount(run_mounts, task_name)
+                if review_fn is not None and published_transport is not None:
+                    self._attach_review_gate(task, task_name, published_transport, review_fn)
+                agent_id = await task._run_on_runtime(
+                    pooled_runtime.runtime_info,
+                    instruction,
+                    display_name=display_name,
+                    mounts=run_mounts,
+                )
+                successful_runtime = pooled_runtime
+                break
+            except Exception as exc:
+                await self._warm_pool.release(
+                    pooled_runtime,
+                    workspace_paths=[mount.agent_path for mount in run_mounts],
+                    destroy=True,
+                )
+                last_error = exc
+                if attempt >= _WARM_POOL_RUN_ATTEMPTS or not _is_retryable_warm_pool_run_error(exc):
+                    raise
+                logger.warning(
+                    "Warm-pooled agent run failed with transient SSH error on %s "
+                    "(attempt %d/%d); retrying with a fresh VM",
+                    pooled_runtime.runtime_info.runtime_id,
+                    attempt,
+                    _WARM_POOL_RUN_ATTEMPTS,
+                )
+                continue
+        else:
+            if last_error is not None:
+                raise last_error
+            raise RuntimeError(f"Agent task {task_name} did not produce a result")
+
+        if agent_id is None or successful_runtime is None:
+            raise RuntimeError(f"Agent task {task_name} did not produce a result")
 
         await self._warm_pool.release(
-            pooled_runtime,
+            successful_runtime,
             workspace_paths=[mount.agent_path for mount in run_mounts],
         )
 
@@ -179,36 +208,11 @@ class AgentExecutionManager:
                 task.merged = True
                 return ReviewGateMergeResult(merged=True)
 
-        _review_attempt = 0
-
-        async def _review_with_no_change_guard(hostname: str, *, attempt_number: int = 1) -> ReviewGateResult:
-            from plato.agents.review_gate import ReviewGateResult
-
-            nonlocal _review_attempt
-            _review_attempt += 1
-
-            if published_transport.published_ref is None and _review_attempt > 1:
-                logger.warning(
-                    "No published ref for %s on attempt %d — builder made no changes, skipping review",
-                    task_name,
-                    _review_attempt,
-                )
-                return ReviewGateResult(
-                    passed=False,
-                    feedback=(
-                        "Your code was not submitted for review because no changes were committed. "
-                        "You must actually modify the code to address the requested changes, "
-                        "then commit your work. Re-read the instructions and make the required changes."
-                    ),
-                    result_data={},
-                )
-            return await review_fn(hostname, attempt_number=attempt_number)
-
         result_dir = self._primary_mount.world_path if self._primary_mount else None
 
         attach_review_gate(
             task,
-            review_fn=_review_with_no_change_guard,
+            review_fn=review_fn,
             branch_name=f"plato-task/{task_name}",
             merge_fn=_merge,
             reviewed_commit_fn=lambda: (

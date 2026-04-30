@@ -210,14 +210,17 @@ def get_process_info(pid=None):
     # another reasons is the process requires kernel permissions
     try:
         raw_process_info.status()
-    except psutil.NoSuchProcess:
+    except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied):
         return None
 
-    return {
-        "pid": raw_process_info.pid,
-        "name": raw_process_info.name(),
-        "start_time": raw_process_info.create_time(),
-    }
+    try:
+        return {
+            "pid": raw_process_info.pid,
+            "name": raw_process_info.name(),
+            "start_time": raw_process_info.create_time(),
+        }
+    except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied):
+        return None
 
 
 def claim_mantle_of_responsibility(file_name):
@@ -899,11 +902,13 @@ class Process(multiprocessing.Process):
         instance._finalize_methods = []
         instance.__logging_config__ = salt._logging.get_logging_options_dict()
 
-        if salt.utils.platform.spawning_platform():
-            # On spawning platforms, subclasses should call super if they define
-            # __setstate__ and/or __getstate__
-            instance._args_for_getstate = copy.copy(args)
-            instance._kwargs_for_getstate = copy.copy(kwargs)
+        # Always capture args/kwargs for pickling support.  On macOS/Windows
+        # (spawning platforms) this has always been needed.  On Linux, Python
+        # 3.14+ defaults to the "forkserver" multiprocessing start method which
+        # also requires pickling (e.g. in salt-ssh thin minion parallel states),
+        # so we set these unconditionally.
+        instance._args_for_getstate = copy.copy(args)
+        instance._kwargs_for_getstate = copy.copy(kwargs)
 
         # Because we need to enforce our after fork and finalize routines,
         # we must wrap this class run method to allow for these extra steps

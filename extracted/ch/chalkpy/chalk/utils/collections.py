@@ -1,9 +1,24 @@
 from __future__ import annotations
 
 import collections.abc
-from typing import Any, Collection, Dict, Generic, Iterable, List, Sequence, Set, Tuple, TypeVar, Union, cast, overload
-
-from typing_extensions import Annotated, get_args, get_origin
+from typing import (
+    Annotated,
+    Any,
+    Collection,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Sequence,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    overload,
+)
 
 try:
     from types import UnionType

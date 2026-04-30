@@ -139,6 +139,10 @@ class Application:
                     config["embeddings"] = None
                     config["similarity"] = self.pipelines["similarity"]
 
+                elif pipeline == "textractor":
+                    # Default to safeopen enabled
+                    config["safeopen"] = config.get("safeopen", True)
+
                 self.pipelines[pipeline] = PipelineFactory.create(config, pipeline)
 
     def createworkflows(self):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: drf-standardized-errors
-Version: 0.15.0
+Version: 0.16.0
 Summary: Standardize your API error responses.
 Keywords: standardized errors,errors formatter,django rest framework,exception handler
 Author: Ghazi Abbassi
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: django >=3.2
 Requires-Dist: djangorestframework >=3.12
@@ -23,7 +24,7 @@ Requires-Dist: sphinx!=5.2.0.post0 ; extra == "doc"
 Requires-Dist: sphinx-autobuild ; extra == "doc"
 Requires-Dist: sphinx-rtd-theme>=1.1.0 ; extra == "doc"
 Requires-Dist: myst-parser ; extra == "doc"
-Requires-Dist: drf-spectacular>=0.27.1 ; extra == "openapi"
+Requires-Dist: drf-spectacular>=0.29.0 ; extra == "openapi"
 Requires-Dist: inflection ; extra == "openapi"
 Requires-Dist: flit ; extra == "release"
 Requires-Dist: keyring ; extra == "release"

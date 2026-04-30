@@ -1,7 +1,7 @@
 import datetime
 from enum import Enum
 from types import TracebackType
-from typing import Any, Optional, Sequence, TypeVar, Union
+from typing import Any, Optional, Sequence, TypeAlias, TypeVar, Union
 from typing_extensions import Self
 
 
@@ -219,6 +219,8 @@ _RangeType = TypeVar(
     "_RangeType", bound=int | float | datetime.datetime | bool | str | bytes
 )
 
+DocumentFieldInput: TypeAlias = dict[str, Any | list[Any]]
+
 
 class Query:
     @staticmethod
@@ -242,6 +244,12 @@ class Query:
 
     @staticmethod
     def empty_query() -> Query:
+        pass
+
+    @staticmethod
+    def exists_query(
+        fast_field_name: str, json_subpaths: bool = False
+        ) -> Query:
         pass
 
     @staticmethod
@@ -282,7 +290,10 @@ class Query:
         pass
 
     @staticmethod
-    def boolean_query(subqueries: Sequence[tuple[Occur, Query]]) -> Query:
+    def boolean_query(
+        subqueries: Sequence[tuple[Occur, Query]],
+        minimum_number_should_match: int | None = None,
+    ) -> Query:
         pass
 
     @staticmethod
@@ -314,6 +325,21 @@ class Query:
         pass
 
     @staticmethod
+    def more_like_this_document_fields_query(
+        schema: Schema,
+        document_fields: DocumentFieldInput,
+        min_doc_frequency: Optional[int] = 5,
+        max_doc_frequency: Optional[int] = None,
+        min_term_frequency: Optional[int] = 2,
+        max_query_terms: Optional[int] = 25,
+        min_word_length: Optional[int] = None,
+        max_word_length: Optional[int] = None,
+        boost_factor: Optional[float] = 1.0,
+        stop_words: list[str] = [],
+    ) -> Query:
+        pass
+
+    @staticmethod
     def const_score_query(query: Query, score: float) -> Query:
         pass
 
@@ -322,8 +348,8 @@ class Query:
         schema: Schema,
         field_name: str,
         field_type: FieldType,
-        lower_bound: _RangeType,
-        upper_bound: _RangeType,
+        lower_bound: Optional[_RangeType] = None,
+        upper_bound: Optional[_RangeType] = None,
         include_lower: bool = True,
         include_upper: bool = True,
         use_inverted_index: bool = False,
@@ -372,13 +398,14 @@ class Searcher:
         order_by_field: Optional[str] = None,
         offset: int = 0,
         order: Order = Order.Desc,
+        weight_by_field: str | None = None,
     ) -> SearchResult:
         pass
 
     def aggregate(
         self,
-        search_query: Query,
-        agg_query: dict,
+        query: Query,
+        agg: dict,
     ) -> dict:
         pass
 
@@ -393,8 +420,23 @@ class Searcher:
     def doc(self, doc_address: DocAddress) -> Document:
         pass
 
+    def fast_field_values(
+        self,
+        field_name: str,
+        doc_addresses: list[DocAddress],
+    ) -> list[int | float | bool | None]:
+        pass
+
     def doc_freq(self, field_name: str, field_value: Any) -> int:
         pass
+
+    def terms_with_prefix(
+        self,
+        field_name: str,
+        prefix: str,
+        filter_query: Query | None = None,
+        limit: int | None = None,
+    ) -> list[tuple[str, int]]: ...
 
     def cardinality(self, query: Query, field_name: str) -> float:
         pass
@@ -486,6 +528,7 @@ class Index:
         field_boosts: Optional[dict[str, float]] = None,
         fuzzy_fields: Optional[dict[str, tuple[bool, int, bool]]] = None,
         conjunction_by_default: bool = False,
+        allow_regexes: bool = False
     ) -> Query:
         pass
 
@@ -496,6 +539,7 @@ class Index:
         field_boosts: Optional[dict[str, float]] = None,
         fuzzy_fields: Optional[dict[str, tuple[bool, int, bool]]] = None,
         conjunction_by_default: bool = False,
+        allow_regexes: bool = False,
     ) -> tuple[Query, list[Any]]:
         pass
 

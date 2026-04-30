@@ -1,7 +1,7 @@
 """
 mypy-boto3 CLI entrypoint.
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 """
 
 import argparse

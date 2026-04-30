@@ -23,10 +23,6 @@ import sys
 import logging
 import argparse
 
-# Intrapackage imports
-libpath = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-if os.path.isdir(libpath):
-    sys.path.insert(0, libpath)
 import pyx12
 import pyx12.x12n_document
 import pyx12.params
@@ -37,7 +33,6 @@ __status__ = pyx12.__status__
 __version__ = pyx12.__version__
 __date__ = pyx12.__date__
 
-
 def check_map_path_arg(map_path):
     if not isdir(map_path):
         raise argparse.ArgumentError(None, "The MAP_PATH '{}' is not a valid directory".format(map_path))
@@ -47,7 +42,6 @@ def check_map_path_arg(map_path):
                     "The MAP_PATH '{}' does not contain the map index file '{}'".format(map_path, index_file))
     return map_path
 
-
 def main():
     """Script main program."""
     parser = argparse.ArgumentParser(description='X12 to XML conversion')
@@ -55,7 +49,7 @@ def main():
                         dest="configfile", default=None)
     parser.add_argument('--log-file', '-l', action='store', dest="logfile", default=None)
     parser.add_argument('--map-path', '-m', action='store', dest="map_path", default=None, type=check_map_path_arg)
-    parser.add_argument('--verbose', '-v', action='count')
+    parser.add_argument('--verbose', '-v', action='count', default=0)
     parser.add_argument('--debug', '-d', action='store_true')
     parser.add_argument('--quiet', '-q', action='store_true')
     parser.add_argument('--html', '-H', action='store_true')
@@ -100,18 +94,14 @@ def main():
             logger.exception('Could not open log file: %s' % (args.logfile))
 
     if args.input_file:
-        try:
-            fd_src = args.input_file
-        except:
-            logger.error('Could not open file %s' % (args.input_file))
-            return False
+        fd_src = args.input_file
     else:
         fd_src = sys.stdin
     if args.outputfile:
         try:
-            fd_xml = open(args.outputfile, 'w')
-        except:
-            logger.error('Could not open file %s' % (args.outputfile))
+            fd_xml = open(args.outputfile, 'w', encoding='utf-8')
+        except OSError:
+            logger.exception('Could not open file %s' % (args.outputfile))
             return False
     else:
         fd_xml = sys.stdout

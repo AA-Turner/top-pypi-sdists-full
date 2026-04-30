@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aikido_zen
-Version: 1.2.34
+Version: 1.2.35
 Summary: Aikido Zen for Python
 License: AGPL-3.0-or-later
 License-File: LICENSE
@@ -75,6 +75,7 @@ Zen for Python 3 is compatible with:
 * ✅ [uWSGI](docs/uwsgi.md)
 
 ### ASGI
+* ✅ [Django](docs/django.md)
 * ✅ [Quart](docs/quart.md)
 * ✅ [Starlette](docs/starlette.md) ^0.16
 * ✅ [FastAPI](docs/fastapi.md) ^0.70

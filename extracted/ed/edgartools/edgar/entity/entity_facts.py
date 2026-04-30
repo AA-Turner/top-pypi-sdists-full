@@ -715,22 +715,41 @@ class EntityFacts:
         """
         Get time series data for a concept.
 
+        Returned columns include ``period_start`` and ``duration_days`` so that
+        facts sharing a ``period_end`` but representing different reporting
+        windows (e.g., a 3-month Q2 vs. a 6-month YTD H1) remain distinguishable.
+
         Args:
             concept: Concept name or label
             periods: Number of periods to retrieve
 
         Returns:
-            DataFrame with time series data
+            DataFrame with columns ``[period_start, period_end, duration_days,
+            numeric_value, fiscal_period, fiscal_year]``.
         """
         from edgar.entity.query import FactQuery
         query = FactQuery(self._facts, self._fact_index)
 
-        # Get facts and limit
-        return query \
+        df = query \
             .by_concept(concept) \
             .sort_by('filing_date', ascending=False) \
-            .to_dataframe('period_end', 'numeric_value', 'fiscal_period', 'fiscal_year') \
+            .to_dataframe('period_start', 'period_end', 'numeric_value',
+                          'fiscal_period', 'fiscal_year') \
             .head(periods)
+
+        if not df.empty:
+            # Compute duration_days for duration facts; instant facts get None.
+            # Use a comprehension so date/datetime/None mixes are handled safely.
+            df = df.assign(
+                duration_days=[
+                    (e - s).days if (s is not None and e is not None) else None
+                    for s, e in zip(df['period_start'], df['period_end'])
+                ]
+            )
+            df = df[['period_start', 'period_end', 'duration_days',
+                     'numeric_value', 'fiscal_period', 'fiscal_year']]
+
+        return df
 
     # DEI (Document and Entity Information) helpers
     def dei_facts(self, as_of: Optional[date] = None) -> pd.DataFrame:
@@ -1445,16 +1464,23 @@ class EntityFacts:
     def _prepare_quarterly_facts(self, facts: List[FinancialFact]) -> List[FinancialFact]:
         """Enhance facts with derived quarter-level duration facts for TTM/quarterly views."""
         from edgar.ttm.calculator import TTMCalculator
-        from edgar.entity.enhanced_statement import validate_fiscal_year_period_end
+        from edgar.entity.enhanced_statement import (
+            detect_fiscal_year_end,
+            validate_fiscal_year_period_end,
+        )
 
-        # Filter out forward-looking schedule data before TTM derivation (Issue #781)
+        # Filter out forward-looking schedule data before TTM derivation (Issues #781, #779).
         # These are footnote disclosures (e.g., expected amortization) tagged with
         # real fp values but future end dates inconsistent with their fiscal_year.
         # Must be filtered here, before the TTM calculator derives quarters from them.
+        # Pass the company's FYE month so non-calendar-FYE companies (ADSK, WMT, MSFT)
+        # don't have their forward-fiscal-year quarters incorrectly rejected.
+        fiscal_year_end_month = detect_fiscal_year_end(facts)
         filtered_facts = []
         for fact in facts:
             if fact.period_end and fact.fiscal_year:
-                if not validate_fiscal_year_period_end(fact.fiscal_year, fact.period_end):
+                if not validate_fiscal_year_period_end(fact.fiscal_year, fact.period_end,
+                                                      fiscal_year_end_month):
                     continue
             filtered_facts.append(fact)
 

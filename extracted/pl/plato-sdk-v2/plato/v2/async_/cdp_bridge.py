@@ -92,7 +92,10 @@ for name in google-chrome google-chrome-stable chromium chromium-browser; do
   if [ -n "$p" ]; then printf '%s' "$p"; exit 0; fi
 done
 # Nothing matched. Dump an inventory to stderr so a future failure tells us
-# exactly what's present instead of "rc=1 stderr=''".
+# exactly what's present instead of "rc=1 stderr=''". Uses bash builtins only
+# (no ``sed``/``head``/``ls``) so the script still emits useful output if PATH
+# is stripped — observed when running under a sandboxed exec channel.
+shopt -s nullglob dotglob
 {
   echo "no chromium found; inventory follows:"
   echo "  HOME=$HOME PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-UNSET}"
@@ -101,7 +104,11 @@ done
     [ -n "$d" ] || continue
     if [ -d "$d" ]; then
       echo "  $d:"
-      ls -la "$d" 2>&1 | sed 's/^/    /' | head -20
+      i=0
+      for entry in "$d"/*; do
+        [ "$i" -lt 20 ] && echo "    $entry"
+        i=$((i+1))
+      done
     else
       echo "  $d: MISSING"
     fi
@@ -112,13 +119,16 @@ exit 1
     rc, out, err = await run_cmd(["bash", "-c", script])
     resolved = out.strip()
     if rc != 0 or not resolved:
+        # The inventory dump is bounded per-dir by the script. 2000 chars is
+        # enough to keep the leading ``no chromium found`` marker visible even
+        # when a few candidate dirs each contribute long absolute paths.
         raise RuntimeError(
             "Could not locate a chromium binary on the remote host. Checked "
             "Playwright's cache ($PLAYWRIGHT_BROWSERS_PATH, "
             "/opt/playwright-browsers, ~/.cache/ms-playwright), agent-browser's "
             "cache (~/.agent-browser/browsers/chrome-*/{chrome,chrome-linux64/chrome,"
             "chrome-linux/chrome}), and system google-chrome/chromium. "
-            f"rc={rc} stdout={out[-200:]!r} stderr={err[-600:]!r}"
+            f"rc={rc} stdout={out[-200:]!r} stderr={err[-2000:]!r}"
         )
     return resolved
 

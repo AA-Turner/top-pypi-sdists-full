@@ -1,7 +1,7 @@
 """
 boto3.session stub.
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 """
 
 from typing import Any, Optional, Union

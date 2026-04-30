@@ -146,15 +146,17 @@ def test_b(case, a):
     assert True
 """,
     )
-    # When a test is run with treating warnings as errors
-    # The socket/MemoryObject ignores must come AFTER -Werror on the command line so they
-    # get higher priority (warning filters are a stack; last-inserted = first-checked).
+    # Ignore filters must come AFTER -Werror so they take priority (filters are a stack).
     result = testdir.runpytest(
         "-Werror",
         "-W",
         "ignore:unclosed <socket.socket:ResourceWarning",
         "-W",
         "ignore:Exception ignored in.*socket.socket:pytest.PytestUnraisableExceptionWarning",
+        "-W",
+        "ignore:Unclosed <MemoryObject:ResourceWarning",
+        "-W",
+        "ignore:Exception ignored.*MemoryObject:pytest.PytestUnraisableExceptionWarning",
         "--asyncio-mode=strict",
     )
     # There should be no errors. There are no warnings from Schemathesis pytest plugin.
@@ -1510,8 +1512,8 @@ def test(case):
     assert "test[PUT /users] FAILED" in output
     assert output.count("ValueError: GET error") == 1
     assert output.count("TypeError: POST error") == 1
-    # This one happens in all 3 tests
-    assert output.count("RuntimeError: Other error") == 3
+    # PUT's case raises RuntimeError; undeclared-method probes also fall into the "other" branch.
+    assert output.count("RuntimeError: Other error") >= 1
 
 
 def test_curl_generation_does_not_hide_main_error(testdir):
@@ -1717,3 +1719,38 @@ async def test_async(case):
             r"test_pytest_parametrize_multiple_schemas.py::test_async\[orders\]\[GET /orders\]",
         ]
     )
+
+
+def test_pytest_coverage_undeclared_method_probes_dedup_per_path(testdir, openapi3_base_url, tmp_path):
+    # Each (path, unexpected_method) pair runs once across `@schema.parametrize()` operations.
+    log_path = tmp_path / "unexpected_methods.log"
+    schema_dict = {
+        "openapi": "3.0.0",
+        "info": {"title": "Items", "version": "1.0"},
+        "paths": {
+            "/items": {
+                method: {"responses": {"200": {"description": "OK"}}} for method in ("get", "post", "put", "delete")
+            }
+        },
+    }
+    testdir.make_test(
+        f"""
+schema.config.update(base_url="{openapi3_base_url}")
+schema.config.phases.examples.enabled = False
+schema.config.phases.fuzzing.enabled = False
+
+@schema.parametrize()
+def test(case):
+    if case.meta and case.meta.phase.data.scenario.value == "unspecified_http_method":
+        with open({str(log_path)!r}, "a") as f:
+            f.write(f"{{case.method}} {{case.operation.path}}\\n")
+""",
+        schema=schema_dict,
+    )
+    testdir.runpytest()
+
+    unexpected = {"OPTIONS", "PATCH", "TRACE", "QUERY"}
+    lines = log_path.read_text().splitlines() if log_path.exists() else []
+    pairs = [tuple(line.split(maxsplit=1)) for line in lines]
+    unexpected_pairs = [p for p in pairs if p[0] in unexpected]
+    assert sorted(unexpected_pairs) == sorted([(m, "/items") for m in unexpected]), unexpected_pairs

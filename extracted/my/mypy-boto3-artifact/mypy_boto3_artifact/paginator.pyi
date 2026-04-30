@@ -3,7 +3,7 @@ Type annotations for artifact service client paginators.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

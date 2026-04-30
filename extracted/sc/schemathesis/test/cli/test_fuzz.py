@@ -25,6 +25,7 @@ from schemathesis.engine import Status, events
 from schemathesis.engine.events import EngineFinished
 from schemathesis.engine.fuzz._executor import FUZZ_TESTS_LABEL
 from schemathesis.engine.recorder import ScenarioRecorder
+from test.utils import assert_cli_snapshot
 
 
 class _RaisingEngine:
@@ -41,7 +42,7 @@ def test_fuzz_basic(cli, ctx, app_runner, snapshot_cli):
         return jsonify([])
 
     port = app_runner.run_flask_app(app)
-    assert cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2") == snapshot_cli
+    assert_cli_snapshot(cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2"), snapshot_cli)
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -53,7 +54,9 @@ def test_fuzz_final_line_with_failure(cli, ctx, app_runner, snapshot_cli):
         return jsonify({}), 500
 
     port = app_runner.run_flask_app(app)
-    assert cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2", "--seed=42") == snapshot_cli
+    assert_cli_snapshot(
+        cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2", "--seed=42"), snapshot_cli
+    )
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -66,11 +69,11 @@ def test_fuzz_final_line_with_error(cli, ctx, app_runner, snapshot_cli):
         return jsonify([])
 
     port = app_runner.run_flask_app(app)
-    assert (
+    assert_cli_snapshot(
         cli.main(
             "fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2", "--request-timeout=0.001", "--seed=42"
-        )
-        == snapshot_cli
+        ),
+        snapshot_cli,
     )
 
 
@@ -83,12 +86,14 @@ def test_fuzz_final_line_empty_test_suite(cli, ctx, app_runner, snapshot_cli):
         return jsonify([])
 
     port = app_runner.run_flask_app(app)
-    assert cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--include-path=/nonexistent") == snapshot_cli
+    assert_cli_snapshot(
+        cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--include-path=/nonexistent"), snapshot_cli
+    )
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_fuzz_fatal_error_loader(cli, snapshot_cli):
-    assert cli.main("fuzz", "http://127.0.0.1:1/openapi.json") == snapshot_cli
+    assert_cli_snapshot(cli.main("fuzz", "http://127.0.0.1:1/openapi.json"), snapshot_cli)
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -102,7 +107,7 @@ def test_fuzz_fatal_error_internal(cli, ctx, app_runner, snapshot_cli, monkeypat
     monkeypatch.setattr(fuzz_executor, "from_schema", lambda schema: _RaisingEngine())
 
     port = app_runner.run_flask_app(app)
-    assert cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json") == snapshot_cli
+    assert_cli_snapshot(cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json"), snapshot_cli)
 
 
 def _make_fuzz_app(ctx, app_runner):
@@ -373,7 +378,7 @@ def test_fuzz_custom_handler_error(cli, ctx, app_runner, snapshot_cli):
         return jsonify([])
 
     port = app_runner.run_flask_app(app)
-    assert cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2") == snapshot_cli
+    assert_cli_snapshot(cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2"), snapshot_cli)
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -391,7 +396,7 @@ def test_fuzz_custom_handler(cli, ctx, app_runner, snapshot_cli):
         return jsonify([])
 
     port = app_runner.run_flask_app(app)
-    assert cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2") == snapshot_cli
+    assert_cli_snapshot(cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2"), snapshot_cli)
 
 
 def test_fuzz_custom_handler_with_custom_option(ctx, cli, app_runner):
@@ -423,3 +428,244 @@ def test_fuzz_custom_handler_with_custom_option(ctx, cli, app_runner):
 
     assert result.exit_code == 0, result.output
     assert "Counter: 42" in result.output
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_fuzz_chains_post_with_get_via_link(cli, ctx, app_runner, snapshot_cli):
+    # Server-generated productId means GET path can only match if it comes from POST's response.
+    paths = {
+        "/products": {
+            "post": {
+                "operationId": "createProduct",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["productId"],
+                                    "properties": {"productId": {"type": "string"}},
+                                }
+                            }
+                        },
+                    }
+                },
+            }
+        },
+        "/products/{productId}": {
+            "get": {
+                "operationId": "getProduct",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["name"],
+                                    "properties": {"name": {"type": "string"}},
+                                }
+                            }
+                        },
+                    },
+                    "404": {"description": "Not found"},
+                },
+            }
+        },
+    }
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    products: set[str] = set()
+
+    @app.route("/products", methods=["POST"])
+    def create_product():
+        product_id = uuid.uuid4().hex
+        products.add(product_id)
+        return jsonify({"productId": product_id}), 201
+
+    @app.route("/products/<product_id>", methods=["GET"])
+    def get_product(product_id):
+        if product_id not in products:
+            return "", 404
+        # Planted bug: required `name` is null for products that exist.
+        return jsonify({"name": None}), 200
+
+    port = app_runner.run_flask_app(app)
+    assert_cli_snapshot(
+        cli.main(
+            "fuzz",
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--max-time=15",
+            "--seed=42",
+            "-c",
+            "response_schema_conformance",
+        ),
+        snapshot_cli,
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_fuzz_chains_via_request_body_link(cli, ctx, app_runner, snapshot_cli):
+    # POST /products returns a fixed high-entropy (productId, secret) pair; only when /audit
+    # body carries that exact pair does the planted schema violation surface. Random fuzz
+    # has no way to guess the pair, so without body-link forwarding the bug is invisible.
+    valid_product_id = "alpha-product-7af3-bbfd-4b2d-9b5d"
+    valid_secret = "bravo-secret-9c11-c209-1cac-a29f"
+    paths = {
+        "/products": {
+            "post": {
+                "operationId": "createProduct",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["productId", "secret"],
+                                    "properties": {
+                                        "productId": {"type": "string"},
+                                        "secret": {"type": "string"},
+                                    },
+                                }
+                            }
+                        },
+                        "links": {
+                            "AuditProduct": {
+                                "operationId": "auditProduct",
+                                "requestBody": "$response.body",
+                            }
+                        },
+                    }
+                },
+            }
+        },
+        "/audit": {
+            "post": {
+                "operationId": "auditProduct",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["productId", "secret"],
+                                "properties": {
+                                    "productId": {"type": "string"},
+                                    "secret": {"type": "string"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["name"],
+                                    "properties": {"name": {"type": "string"}},
+                                }
+                            }
+                        },
+                    },
+                    "400": {"description": "Bad request"},
+                },
+            }
+        },
+    }
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    @app.route("/products", methods=["POST"])
+    def create_product():
+        return jsonify({"productId": valid_product_id, "secret": valid_secret}), 201
+
+    @app.route("/audit", methods=["POST"])
+    def audit_product():
+        from flask import request
+
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data, dict):
+            return "", 400
+        if (data.get("productId"), data.get("secret")) != (valid_product_id, valid_secret):
+            return "", 400
+        # Planted bug: required `name` is null for valid pairs.
+        return jsonify({"name": None}), 200
+
+    port = app_runner.run_flask_app(app)
+    assert_cli_snapshot(
+        cli.main(
+            "fuzz",
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--max-time=5",
+            "--seed=42",
+            "-c",
+            "response_schema_conformance",
+        ),
+        snapshot_cli,
+    )
+
+
+def test_fuzz_deadline_does_not_flake_strategy(cli, ctx, app_runner):
+    # Time limit tripping mid-scenario must not surface as a Runtime Error.
+    paths = {
+        "/products": {
+            "post": {
+                "operationId": "createProduct",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {"application/json": {"schema": {"type": "object", "properties": {}}}},
+                        "links": {
+                            "GetProduct": {
+                                "operationId": "getProduct",
+                                "parameters": {"productId": "$response.body#/productId"},
+                            }
+                        },
+                    }
+                },
+            }
+        },
+        "/products/{productId}": {
+            "get": {
+                "operationId": "getProduct",
+                "parameters": [
+                    {"name": "productId", "in": "path", "required": True, "schema": {"type": "string"}},
+                ],
+                "responses": {"200": {"description": "OK"}, "404": {"description": "Not found"}},
+            }
+        },
+    }
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    @app.route("/products", methods=["POST"])
+    def create_product():
+        return jsonify({}), 201
+
+    @app.route("/products/<product_id>", methods=["GET"])
+    def get_product(product_id):
+        return "", 404
+
+    port = app_runner.run_flask_app(app)
+    result = cli.main(
+        "fuzz",
+        f"http://127.0.0.1:{port}/openapi.json",
+        "--max-time=5",
+        "--seed=42",
+        "-c",
+        "not_a_server_error",
+    )
+    assert "FlakyStrategyDefinition" not in result.stdout, result.stdout
+    assert "Runtime Error" not in result.stdout, result.stdout
+    assert result.exit_code == 0

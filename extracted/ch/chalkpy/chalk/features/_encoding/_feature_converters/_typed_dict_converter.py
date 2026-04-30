@@ -12,10 +12,12 @@ from typing import (
     Sequence,
     Tuple,
     cast,
+    get_args,
+    get_origin,
+    is_typeddict,
 )
 
 import pyarrow as pa
-from typing_extensions import get_args, get_origin, is_typeddict
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.json import (
@@ -38,10 +40,10 @@ from ._base import (
     _DEFAULT_FEATURE_ENCODING_OPTIONS,
     _FROM_NEW,
     _SCALAR_COERCIBLE_TYPES,
-    _scalar_coerce_fn,
     FeatureConverter,
     MissingValueError,
     _raise_unsupported_missing_value_strategy,
+    _scalar_coerce_fn,
 )
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportMissingSuperCall=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false, reportImplicitStringConcatenation=false

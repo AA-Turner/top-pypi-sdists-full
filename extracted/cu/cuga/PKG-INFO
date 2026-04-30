@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cuga
-Version: 0.2.25
+Version: 0.2.26
 Summary: CUGA is an open-source generalist agent for the enterprise, supporting complex task execution on web and APIs, OpenAPI/MCP integrations, composable architecture, reasoning modes, and policy-aware features.
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://cuga.dev
@@ -12,7 +12,7 @@ Requires-Dist: langchain>=1.0
 Requires-Dist: langchain-ibm>=0.3.9
 Requires-Dist: langchain-openai
 Requires-Dist: langchain-core>=1.2.22
-Requires-Dist: aiohttp>=3.13.5
+Requires-Dist: aiohttp>=3.13.4
 Requires-Dist: httpx
 Requires-Dist: docker
 Requires-Dist: langgraph
@@ -35,7 +35,7 @@ Requires-Dist: pyyaml>=6.0.3
 Requires-Dist: pymilvus[milvus-lite]>=2.6.4
 Requires-Dist: langchain-groq>=0.3.8
 Requires-Dist: langchain-litellm
-Requires-Dist: litellm>=1.83.0
+Requires-Dist: litellm>=1.83.14
 Requires-Dist: tavily-python
 Requires-Dist: fastembed>=0.4.0
 Requires-Dist: a2a-sdk[http-server]>=0.3.22

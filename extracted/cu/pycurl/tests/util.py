@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # vi:ts=4:et
 
 import tempfile
@@ -7,51 +6,13 @@ import time as _time
 import functools
 import unittest
 
-py3 = sys.version_info[0] == 3
+def b(s):
+    '''Byte literal'''
+    return s.encode("latin-1")
 
-# python 2/3 compatibility
-if py3:
-    from io import StringIO, BytesIO
-
-    # borrowed from six
-    def b(s):
-        '''Byte literal'''
-        return s.encode("latin-1")
-    def u(s):
-        '''Text literal'''
-        return s
-    text_type = str
-    binary_type = bytes
-
-    long_int = int
-else:
-    try:
-        from cStringIO import StringIO
-    except ImportError:
-        from StringIO import StringIO
-    BytesIO = StringIO
-
-    # pyflakes workaround
-    # https://github.com/kevinw/pyflakes/issues/13
-    # https://bugs.launchpad.net/pyflakes/+bug/1308508/comments/3
-    if False:
-        unicode = object
-
-    # borrowed from six
-    def b(s):
-        '''Byte literal'''
-        return s
-    # Workaround for standalone backslash
-    def u(s):
-        '''Text literal'''
-        return unicode(s.replace(r'\\', r'\\\\'), "unicode_escape")
-    text_type = unicode
-    binary_type = str
-
-    if False:
-        # pacify pyflakes
-        long = int
-    long_int = long
+def u(s):
+    '''Text literal'''
+    return s
 
 def version_less_than_spec(version_tuple, spec_tuple):
     # spec_tuple may have 2 elements, expect version_tuple to have 3 elements
@@ -69,26 +30,6 @@ def pycurl_version_less_than(*spec):
     c = pycurl.COMPILE_LIBCURL_VERSION_NUM
     version = [c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF]
     return version_less_than_spec(version, spec)
-
-def only_python2(fn):
-    @functools.wraps(fn)
-    def decorated(*args, **kwargs):
-        if sys.version_info[0] >= 3:
-            raise unittest.SkipTest('python >= 3')
-
-        return fn(*args, **kwargs)
-
-    return decorated
-
-def only_python3(fn):
-    @functools.wraps(fn)
-    def decorated(*args, **kwargs):
-        if sys.version_info[0] < 3:
-            raise unittest.SkipTest('python < 3')
-
-        return fn(*args, **kwargs)
-
-    return decorated
 
 def min_python(major, minor):
     def decorator(fn):
@@ -128,6 +69,37 @@ def removed_in_libcurl(major, minor, patch):
         return decorated
 
     return decorator
+
+def skip_in_libcurl_versions(*versions):
+    import pycurl
+
+    def decorator(fn):
+        @functools.wraps(fn)
+        def decorated(*args, **kwargs):
+            c = pycurl.COMPILE_LIBCURL_VERSION_NUM
+            version = (c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF)
+            if version in versions:
+                raise unittest.SkipTest('libcurl == %d.%d.%d' % version)
+
+            return fn(*args, **kwargs)
+
+        return decorated
+
+    return decorator
+
+def skip_module_without_websockets():
+    """Call at module level (via :func:`pytest.skip(allow_module_level=True)`)
+    in WS test files. Requires both libcurl >= 7.86.0 AND the runtime
+    library built with WebSocket support — distro libcurl often ships
+    with ``--disable-websockets``."""
+    import pycurl
+    import pytest
+
+    if pycurl_version_less_than(7, 86, 0) or "ws" not in pycurl.version_info()[8]:
+        pytest.skip(
+            "libcurl built without WebSocket support", allow_module_level=True
+        )
+
 
 def only_ssl(fn):
     import pycurl
@@ -171,6 +143,31 @@ def only_ssl_backends(*backends):
 
             if pycurl.COMPILE_SSL_LIB not in backends:
                 raise unittest.SkipTest('SSL backend is %s' % pycurl.COMPILE_SSL_LIB)
+
+            return fn(*args, **kwargs)
+
+        return decorated
+    return decorator
+
+def only_ssl_backends_with_min_libcurl(backend_versions: dict[str, tuple[int, int, int]]):
+    import pytest
+
+    def decorator(fn):
+        import pycurl
+
+        @functools.wraps(fn)
+        def decorated(*args, **kwargs):
+            if 'https' not in pycurl.version_info()[8]:
+                pytest.skip('libcurl does not support ssl')
+
+            backend = pycurl.COMPILE_SSL_LIB
+            if backend not in backend_versions:
+                pytest.skip('SSL backend is %s' % backend)
+
+            min_ver = backend_versions[backend]
+            if pycurl_version_less_than(*min_ver):
+                pytest.skip(
+                    'SSL backend %s requires libcurl >= %d.%d.%d' % (backend, *min_ver))
 
             return fn(*args, **kwargs)
 
@@ -289,17 +286,7 @@ def guard_unknown_libcurl_option(fn):
 
     return decorated
 
-try:
-    create_connection = socket.create_connection
-except AttributeError:
-    # python 2.5
-    def create_connection(netloc, timeout=None):
-        # XXX ipv4 only
-        s = socket.socket()
-        if timeout is not None:
-            s.settimeout(timeout)
-        s.connect(netloc)
-        return s
+create_connection = socket.create_connection
 
 def wait_for_network_service(netloc, check_interval, num_attempts):
     ok = False
@@ -326,12 +313,12 @@ def DefaultCurlLocalhost(port):
     '''This is a default curl with localhost -> 127.0.0.1 name mapping
     on windows systems, because they don't have it in the hosts file.
     '''
-    
+
     curl = DefaultCurl()
-    
+
     if sys.platform == 'win32':
         curl.setopt(curl.RESOLVE, ['localhost:%d:127.0.0.1' % port])
-    
+
     return curl
 
 def with_real_write_file(fn):

@@ -32,7 +32,7 @@ classifiers = [
 
 dynamic = ["version"]
 
-dependencies = ["tmodbus[async-serial]>=0.2.3"]
+dependencies = ["tmodbus[async-serial]>=0.3"]
 
 [project.urls]
 Homepage = "https://github.com/wlcrs/huawei-solar-lib"
@@ -110,7 +110,7 @@ asyncio_mode = "auto"
 dev = [
     "codespell>=2.4.2",
     "tox>=4.15",
-    "mypy==1.18.2",
+    "mypy>=1.20.2",
     "pre-commit>=4.5.1",
     "pre-commit-hooks==6.0.0",
     "pytest>=9.0.2",

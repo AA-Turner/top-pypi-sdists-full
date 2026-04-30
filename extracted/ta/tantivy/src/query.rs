@@ -1,12 +1,13 @@
 use crate::{
-    explanation::Explanation, get_field, make_term, make_term_for_type,
-    schema::FieldType, searcher::Searcher, to_pyerr, DocAddress, Schema,
+    document::Document, explanation::Explanation, get_field, make_term,
+    make_term_for_type, schema::FieldType, searcher::Searcher, to_pyerr,
+    DocAddress, Schema,
 };
 use core::ops::Bound as OpsBound;
 use pyo3::{
     exceptions,
     prelude::*,
-    types::{PyAny, PyFloat, PyString},
+    types::{PyAny, PyDict, PyFloat, PyString},
 };
 use tantivy as tv;
 
@@ -46,6 +47,54 @@ impl Clone for Query {
 impl Query {
     pub(crate) fn get(&self) -> &dyn tv::query::Query {
         &self.inner
+    }
+
+    fn more_like_this_builder(
+        min_doc_frequency: Option<u64>,
+        max_doc_frequency: Option<u64>,
+        min_term_frequency: Option<usize>,
+        max_query_terms: Option<usize>,
+        min_word_length: Option<usize>,
+        max_word_length: Option<usize>,
+        boost_factor: Option<f32>,
+        stop_words: Vec<String>,
+    ) -> tv::query::MoreLikeThisQueryBuilder {
+        let mut builder = tv::query::MoreLikeThisQuery::builder();
+        if let Some(value) = min_doc_frequency {
+            builder = builder.with_min_doc_frequency(value);
+        }
+        if let Some(value) = max_doc_frequency {
+            builder = builder.with_max_doc_frequency(value);
+        }
+        if let Some(value) = min_term_frequency {
+            builder = builder.with_min_term_frequency(value);
+        }
+        if let Some(value) = max_query_terms {
+            builder = builder.with_max_query_terms(value);
+        }
+        if let Some(value) = min_word_length {
+            builder = builder.with_min_word_length(value);
+        }
+        if let Some(value) = max_word_length {
+            builder = builder.with_max_word_length(value);
+        }
+        if let Some(value) = boost_factor {
+            builder = builder.with_boost_factor(value);
+        }
+        builder.with_stop_words(stop_words)
+    }
+
+    fn named_document_fields(
+        schema: &Schema,
+        document_fields: &Bound<PyDict>,
+    ) -> PyResult<Vec<(tv::schema::Field, Vec<tv::schema::OwnedValue>)>> {
+        Document::field_values_from_dict(document_fields, schema)?
+            .iter()
+            .map(|(field_name, values)| {
+                let field = get_field(&schema.inner, field_name)?;
+                Ok((field, values.clone()))
+            })
+            .collect()
     }
 }
 
@@ -112,6 +161,26 @@ impl Query {
     #[staticmethod]
     pub(crate) fn empty_query() -> PyResult<Query> {
         let inner = tv::query::EmptyQuery {};
+        Ok(Query {
+            inner: Box::new(inner),
+        })
+    }
+
+    /// Construct a Tantivy's ExistsQuery
+    /// Executing a search with this query will fail if the specified field doesn’t exists or is not a fast field.
+    ///
+    /// # Arguments
+    ///
+    /// * `fast_field_name` - Field name to be searched.
+    /// * `json_subpaths` - If true, check all the subpaths inside a JSON field
+
+    #[staticmethod]
+    #[pyo3(signature = (fast_field_name, json_subpaths=false))]
+    pub(crate) fn exists_query(
+        fast_field_name: String,
+        json_subpaths: bool,
+    ) -> PyResult<Query> {
+        let inner = tv::query::ExistsQuery::new(fast_field_name, json_subpaths);
         Ok(Query {
             inner: Box::new(inner),
         })
@@ -285,17 +354,23 @@ impl Query {
 
     /// Construct a Tantivy's BooleanQuery
     #[staticmethod]
-    #[pyo3(signature = (subqueries))]
+    #[pyo3(signature = (subqueries, minimum_number_should_match=None))]
     pub(crate) fn boolean_query(
         subqueries: Vec<(Occur, Query)>,
+        minimum_number_should_match: Option<usize>,
     ) -> PyResult<Query> {
         let dyn_subqueries = subqueries
             .into_iter()
             .map(|(occur, query)| (occur.into(), query.inner.box_clone()))
             .collect::<Vec<_>>();
 
-        let inner = tv::query::BooleanQuery::from(dyn_subqueries);
-
+        let inner = match minimum_number_should_match {
+            None => tv::query::BooleanQuery::from(dyn_subqueries),
+            Some(n) => tv::query::BooleanQuery::with_minimum_required_clauses(
+                dyn_subqueries,
+                n,
+            ),
+        };
         Ok(Query {
             inner: Box::new(inner),
         })
@@ -371,31 +446,55 @@ impl Query {
         boost_factor: Option<f32>,
         stop_words: Vec<String>,
     ) -> PyResult<Query> {
-        let mut builder = tv::query::MoreLikeThisQuery::builder();
-        if let Some(value) = min_doc_frequency {
-            builder = builder.with_min_doc_frequency(value);
-        }
-        if let Some(value) = max_doc_frequency {
-            builder = builder.with_max_doc_frequency(value);
-        }
-        if let Some(value) = min_term_frequency {
-            builder = builder.with_min_term_frequency(value);
-        }
-        if let Some(value) = max_query_terms {
-            builder = builder.with_max_query_terms(value);
-        }
-        if let Some(value) = min_word_length {
-            builder = builder.with_min_word_length(value);
-        }
-        if let Some(value) = max_word_length {
-            builder = builder.with_max_word_length(value);
-        }
-        if let Some(value) = boost_factor {
-            builder = builder.with_boost_factor(value);
-        }
-        builder = builder.with_stop_words(stop_words);
+        let builder = Query::more_like_this_builder(
+            min_doc_frequency,
+            max_doc_frequency,
+            min_term_frequency,
+            max_query_terms,
+            min_word_length,
+            max_word_length,
+            boost_factor,
+            stop_words,
+        );
 
         let inner = builder.with_document(tv::DocAddress::from(doc_address));
+        Ok(Query {
+            inner: Box::new(inner),
+        })
+    }
+
+    /// Construct a Tantivy's MoreLikeThisQuery from caller-provided field values.
+    #[staticmethod]
+    #[pyo3(signature = (schema, document_fields, min_doc_frequency = Some(5), max_doc_frequency = None, min_term_frequency = Some(2), max_query_terms = Some(25), min_word_length = None, max_word_length = None, boost_factor = Some(1.0), stop_words = vec![]))]
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn more_like_this_document_fields_query(
+        schema: &Schema,
+        document_fields: &Bound<PyDict>,
+        min_doc_frequency: Option<u64>,
+        max_doc_frequency: Option<u64>,
+        min_term_frequency: Option<usize>,
+        max_query_terms: Option<usize>,
+        min_word_length: Option<usize>,
+        max_word_length: Option<usize>,
+        boost_factor: Option<f32>,
+        stop_words: Vec<String>,
+    ) -> PyResult<Query> {
+        // Tantivy's provided-fields MLT path operates on field ids, so the
+        // Python binding must resolve caller-provided field values against the
+        // target schema before constructing the query object.
+        let doc_fields = Query::named_document_fields(schema, document_fields)?;
+        let builder = Query::more_like_this_builder(
+            min_doc_frequency,
+            max_doc_frequency,
+            min_term_frequency,
+            max_query_terms,
+            min_word_length,
+            max_word_length,
+            boost_factor,
+            stop_words,
+        );
+
+        let inner = builder.with_document_fields(doc_fields);
         Ok(Query {
             inner: Box::new(inner),
         })
@@ -414,14 +513,31 @@ impl Query {
         })
     }
 
+    /// Construct a range query over a numeric, date, or IP address field.
+    ///
+    /// Pass `None` for `lower_bound` or `upper_bound` to leave that side unbounded.
+    /// Both bounds cannot be `None`; use `Query.all_query()` to match all documents.
+    /// Setting `include_lower` or `include_upper` to `False` while the corresponding
+    /// bound is `None` is an error—unbounded sides are always inclusive by definition.
+    ///
+    /// # Arguments
+    ///
+    /// * `schema` - Schema of the target index.
+    /// * `field_name` - Field name to be searched.
+    /// * `field_type` - Type of the field (`FieldType.Integer`, `FieldType.Float`, `FieldType.Date`, etc.).
+    /// * `lower_bound` - Lower bound value, or `None` for unbounded.
+    /// * `upper_bound` - Upper bound value, or `None` for unbounded.
+    /// * `include_lower` - Whether the lower bound is inclusive. Ignored (and must be `True`) when `lower_bound` is `None`.
+    /// * `include_upper` - Whether the upper bound is inclusive. Ignored (and must be `True`) when `upper_bound` is `None`.
+    /// * `use_inverted_index` - If `True`, use an inverted index range query instead of a fast-field range query.
     #[staticmethod]
-    #[pyo3(signature = (schema, field_name, field_type, lower_bound, upper_bound, include_lower = true, include_upper = true, use_inverted_index = false))]
+    #[pyo3(signature = (schema, field_name, field_type, lower_bound=None, upper_bound=None, include_lower = true, include_upper = true, use_inverted_index = false))]
     pub(crate) fn range_query(
         schema: &Schema,
         field_name: &str,
         field_type: FieldType,
-        lower_bound: &Bound<PyAny>,
-        upper_bound: &Bound<PyAny>,
+        lower_bound: Option<&Bound<PyAny>>,
+        upper_bound: Option<&Bound<PyAny>>,
         include_lower: bool,
         include_upper: bool,
         use_inverted_index: bool,
@@ -469,45 +585,72 @@ impl Query {
             )));
         }
 
-        let lower_bound_term = make_term_for_type(
-            &schema.inner,
-            field_name,
-            field_type.clone(),
-            lower_bound,
-        )?;
-        let upper_bound_term = make_term_for_type(
-            &schema.inner,
-            field_name,
-            field_type.clone(),
-            upper_bound,
-        )?;
+        if lower_bound.is_none() && upper_bound.is_none() {
+            // tv::query::RangeQuery::field() panics if both bounds are Unbounded,
+            // so we must reject this combination before constructing the query.
+            return Err(exceptions::PyValueError::new_err(
+                "At least one of lower_bound or upper_bound must be provided. \
+                 To match all documents, use Query.all_query() instead.",
+            ));
+        }
 
-        let lower_bound = if include_lower {
-            OpsBound::Included(lower_bound_term)
-        } else {
-            OpsBound::Excluded(lower_bound_term)
+        if lower_bound.is_none() && !include_lower {
+            return Err(exceptions::PyValueError::new_err(
+                "include_lower=False is invalid when lower_bound is None: \
+                 an unbounded side is always inclusive.",
+            ));
+        }
+
+        if upper_bound.is_none() && !include_upper {
+            return Err(exceptions::PyValueError::new_err(
+                "include_upper=False is invalid when upper_bound is None: \
+                 an unbounded side is always inclusive.",
+            ));
+        }
+
+        let lower_bound = match lower_bound {
+            None => OpsBound::Unbounded,
+            Some(lb) => {
+                let term = make_term_for_type(
+                    &schema.inner,
+                    field_name,
+                    field_type.clone(),
+                    lb,
+                )?;
+                if include_lower {
+                    OpsBound::Included(term)
+                } else {
+                    OpsBound::Excluded(term)
+                }
+            }
         };
 
-        let upper_bound = if include_upper {
-            OpsBound::Included(upper_bound_term)
-        } else {
-            OpsBound::Excluded(upper_bound_term)
+        let upper_bound = match upper_bound {
+            None => OpsBound::Unbounded,
+            Some(ub) => {
+                let term = make_term_for_type(
+                    &schema.inner,
+                    field_name,
+                    field_type.clone(),
+                    ub,
+                )?;
+                if include_upper {
+                    OpsBound::Included(term)
+                } else {
+                    OpsBound::Excluded(term)
+                }
+            }
         };
 
-        if use_inverted_index {
-            let inner = tv::query::InvertedIndexRangeQuery::new(
+        let inner: Box<dyn tv::query::Query> = if use_inverted_index {
+            Box::new(tv::query::InvertedIndexRangeQuery::new(
                 lower_bound,
                 upper_bound,
-            );
-            Ok(Query {
-                inner: Box::new(inner),
-            })
+            ))
         } else {
-            let inner = tv::query::RangeQuery::new(lower_bound, upper_bound);
-            Ok(Query {
-                inner: Box::new(inner),
-            })
-        }
+            Box::new(tv::query::RangeQuery::new(lower_bound, upper_bound))
+        };
+        Ok(Query { inner })
     }
 
     /// Explain how this query matches a given document.

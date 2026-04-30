@@ -11,8 +11,8 @@ from typing import (
 
 import pyarrow as pa
 
-from ._list_converter import ListFeatureConverter
 from ._base import FeatureConverter
+from ._list_converter import ListFeatureConverter
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportMissingSuperCall=false, reportReturnType=false, reportUnnecessaryCast=false
 
@@ -42,8 +42,8 @@ class SetFeatureConverter(ListFeatureConverter):
         item_converter: "FeatureConverter | None" = None,
     ) -> "SetFeatureConverter":
         """Factory with caching for simple defaults (None / ...)."""
-        from typing_extensions import get_args, get_origin
         import builtins
+        from typing import get_args, get_origin
 
         origin = get_origin(rich_type)
         _sort = origin in (builtins.set, builtins.frozenset)

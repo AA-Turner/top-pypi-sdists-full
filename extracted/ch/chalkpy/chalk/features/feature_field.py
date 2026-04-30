@@ -101,6 +101,20 @@ class VersionInfo:
         return self.base_name if version == 1 else f"{self.base_name}@{version}"
 
 
+def parse_versioned_name(name: str) -> tuple[str, "int | None"]:
+    """Inverse of `VersionInfo.name_for_version`: split `"x@N"` into `("x", N)`.
+
+    Returns `(name, None)` when no version suffix is present or the suffix isn't
+    a positive integer (e.g., real attribute names that contain `@`).
+    """
+    if "@" not in name:
+        return name, None
+    base, _, suffix = name.rpartition("@")
+    if not base or not suffix.isdigit():
+        return name, None
+    return base, int(suffix)
+
+
 class JoinCatalogue:
     def __init__(self):
         super().__init__()

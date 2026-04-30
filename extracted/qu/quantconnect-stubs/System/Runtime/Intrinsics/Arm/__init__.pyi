@@ -18,7 +18,13 @@ class ArmBase(System.Object, metaclass=abc.ABCMeta):
         IS_SUPPORTED: bool
 
         @staticmethod
+        @overload
         def leading_sign_count(value: int) -> int:
+            ...
+
+        @staticmethod
+        @overload
+        def leading_sign_count(value: System.IntPtr) -> int:
             ...
 
         @staticmethod
@@ -36,11 +42,33 @@ class ArmBase(System.Object, metaclass=abc.ABCMeta):
     IS_SUPPORTED: bool
 
     @staticmethod
+    @overload
     def leading_zero_count(value: int) -> int:
         ...
 
     @staticmethod
+    @overload
+    def leading_zero_count(value: System.IntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def leading_zero_count(value: System.UIntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
     def reverse_element_bits(value: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def reverse_element_bits(value: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def reverse_element_bits(value: System.UIntPtr) -> System.UIntPtr:
         ...
 
     @staticmethod
@@ -4119,11 +4147,23 @@ class Crc32(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
     IS_SUPPORTED: bool
 
     @staticmethod
+    @overload
     def compute_crc_32(crc: int, data: int) -> int:
         ...
 
     @staticmethod
+    @overload
+    def compute_crc_32(crc: int, data: System.UIntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
     def compute_crc_32c(crc: int, data: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compute_crc_32c(crc: int, data: System.UIntPtr) -> int:
         ...
 
 

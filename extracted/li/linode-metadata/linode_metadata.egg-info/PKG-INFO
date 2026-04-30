@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linode_metadata
-Version: 0.3.4
+Version: 0.3.5
 Summary: A client to interact with the Linode Metadata service in Python.
 Author-email: Linode <developers@linode.com>
 License: BSD-3-Clause

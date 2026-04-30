@@ -270,7 +270,7 @@ class VMRuntime(Runtime):
                 hostname,
                 "echo ready",
                 user="root",
-                timeout=10,
+                timeout=60,
                 extra_opts=extra_opts,
             )
             if exit_code == 0:

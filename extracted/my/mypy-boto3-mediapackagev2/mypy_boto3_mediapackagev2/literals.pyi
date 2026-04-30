@@ -26,6 +26,7 @@ __all__ = (
     "AdMarkerHlsType",
     "CmafEncryptionMethodType",
     "ContainerTypeType",
+    "CustomAdTypeType",
     "DashCompactnessType",
     "DashDrmSignalingType",
     "DashPeriodTriggerType",
@@ -51,9 +52,12 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "ScteFilterType",
+    "ScteInManifestsType",
     "ScteInSegmentsType",
     "ServiceName",
     "TsEncryptionMethodType",
+    "UriPathTypeType",
+    "UriSeparatorType",
     "WaiterName",
 )
 
@@ -61,6 +65,9 @@ AdMarkerDashType = Literal["BINARY", "XML"]
 AdMarkerHlsType = Literal["DATERANGE", "SCTE35_ENHANCED"]
 CmafEncryptionMethodType = Literal["CBCS", "CENC"]
 ContainerTypeType = Literal["CMAF", "ISM", "TS"]
+CustomAdTypeType = Literal[
+    "ALTERNATE_CONTENT_OPPORTUNITY", "CHAPTER", "NETWORK", "PROGRAM", "UNSCHEDULED_EVENT"
+]
 DashCompactnessType = Literal["NONE", "STANDARD"]
 DashDrmSignalingType = Literal["INDIVIDUAL", "REFERENCED"]
 DashPeriodTriggerType = Literal[
@@ -99,18 +106,29 @@ PresetSpeke20VideoType = Literal[
     "UNENCRYPTED",
 ]
 ScteFilterType = Literal[
+    "ALTERNATE_CONTENT_OPPORTUNITY",
     "BREAK",
+    "CHAPTER",
     "DISTRIBUTOR_ADVERTISEMENT",
+    "DISTRIBUTOR_AD_BLOCK",
     "DISTRIBUTOR_OVERLAY_PLACEMENT_OPPORTUNITY",
     "DISTRIBUTOR_PLACEMENT_OPPORTUNITY",
+    "DISTRIBUTOR_PROMO",
+    "NETWORK",
     "PROGRAM",
     "PROVIDER_ADVERTISEMENT",
+    "PROVIDER_AD_BLOCK",
     "PROVIDER_OVERLAY_PLACEMENT_OPPORTUNITY",
     "PROVIDER_PLACEMENT_OPPORTUNITY",
+    "PROVIDER_PROMO",
     "SPLICE_INSERT",
+    "UNSCHEDULED_EVENT",
 ]
-ScteInSegmentsType = Literal["ALL", "NONE"]
+ScteInManifestsType = Literal["ALL", "MATCHES_FILTER"]
+ScteInSegmentsType = Literal["ALL", "MATCHES_FILTER", "NONE"]
 TsEncryptionMethodType = Literal["AES_128", "SAMPLE_AES"]
+UriPathTypeType = Literal["LEAF", "ROOT"]
+UriSeparatorType = Literal["HYPHEN", "UNDERSCORE"]
 Mediapackagev2ServiceName = Literal["mediapackagev2"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -230,6 +248,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -296,6 +315,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -352,6 +372,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -449,6 +470,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -465,6 +487,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -500,6 +523,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -512,6 +536,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smithy-aws-event-stream
-Version: 0.2.1
+Version: 0.2.2
 Summary: Smithy components for Amazon Event Streams.
 Project-URL: Changelog, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-aws-event-stream/CHANGELOG.md
 Project-URL: Code, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-aws-event-stream/

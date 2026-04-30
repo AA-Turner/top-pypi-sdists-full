@@ -54,6 +54,8 @@ class api_DataSourceType(ConjureEnumType):
     '''CONNECTION'''
     VIDEO = 'VIDEO'
     '''VIDEO'''
+    SPATIAL = 'SPATIAL'
+    '''SPATIAL'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -630,6 +632,8 @@ class api_SeriesDataType(ConjureEnumType):
     '''STRUCT'''
     VIDEO = 'VIDEO'
     '''VIDEO'''
+    SPATIAL = 'SPATIAL'
+    '''SPATIAL'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -11698,6 +11702,29 @@ ingest_api_ExistingDatasetIngestDestination.__qualname__ = "ExistingDatasetInges
 ingest_api_ExistingDatasetIngestDestination.__module__ = "nominal_api.ingest_api"
 
 
+class ingest_api_ExistingSpatialIngestDestination(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'spatial_rid': ConjureFieldDefinition('spatialRid', api_rids_SpatialRid)
+        }
+
+    __slots__: List[str] = ['_spatial_rid']
+
+    def __init__(self, spatial_rid: str) -> None:
+        self._spatial_rid = spatial_rid
+
+    @builtins.property
+    def spatial_rid(self) -> str:
+        return self._spatial_rid
+
+
+ingest_api_ExistingSpatialIngestDestination.__name__ = "ExistingSpatialIngestDestination"
+ingest_api_ExistingSpatialIngestDestination.__qualname__ = "ExistingSpatialIngestDestination"
+ingest_api_ExistingSpatialIngestDestination.__module__ = "nominal_api.ingest_api"
+
+
 class ingest_api_ExistingVideoIngestDestination(ConjureBeanType):
 
     @builtins.classmethod
@@ -12235,22 +12262,25 @@ ingest_api_IngestDestinationVisitor.__module__ = "nominal_api.ingest_api"
 class ingest_api_IngestDetails(ConjureUnionType):
     _dataset: Optional["ingest_api_IngestDatasetFileDetails"] = None
     _video: Optional["ingest_api_IngestVideoFileDetails"] = None
+    _spatial: Optional["ingest_api_IngestSpatialDetails"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'dataset': ConjureFieldDefinition('dataset', ingest_api_IngestDatasetFileDetails),
-            'video': ConjureFieldDefinition('video', ingest_api_IngestVideoFileDetails)
+            'video': ConjureFieldDefinition('video', ingest_api_IngestVideoFileDetails),
+            'spatial': ConjureFieldDefinition('spatial', ingest_api_IngestSpatialDetails)
         }
 
     def __init__(
             self,
             dataset: Optional["ingest_api_IngestDatasetFileDetails"] = None,
             video: Optional["ingest_api_IngestVideoFileDetails"] = None,
+            spatial: Optional["ingest_api_IngestSpatialDetails"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (dataset is not None) + (video is not None) != 1:
+            if (dataset is not None) + (video is not None) + (spatial is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if dataset is not None:
@@ -12259,6 +12289,9 @@ class ingest_api_IngestDetails(ConjureUnionType):
             if video is not None:
                 self._video = video
                 self._type = 'video'
+            if spatial is not None:
+                self._spatial = spatial
+                self._type = 'spatial'
 
         elif type_of_union == 'dataset':
             if dataset is None:
@@ -12270,6 +12303,11 @@ class ingest_api_IngestDetails(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._video = video
             self._type = 'video'
+        elif type_of_union == 'spatial':
+            if spatial is None:
+                raise ValueError('a union value must not be None')
+            self._spatial = spatial
+            self._type = 'spatial'
 
     @builtins.property
     def dataset(self) -> Optional["ingest_api_IngestDatasetFileDetails"]:
@@ -12279,6 +12317,10 @@ class ingest_api_IngestDetails(ConjureUnionType):
     def video(self) -> Optional["ingest_api_IngestVideoFileDetails"]:
         return self._video
 
+    @builtins.property
+    def spatial(self) -> Optional["ingest_api_IngestSpatialDetails"]:
+        return self._spatial
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, ingest_api_IngestDetailsVisitor):
             raise ValueError('{} is not an instance of ingest_api_IngestDetailsVisitor'.format(visitor.__class__.__name__))
@@ -12286,6 +12328,8 @@ class ingest_api_IngestDetails(ConjureUnionType):
             return visitor._dataset(self.dataset)
         if self._type == 'video' and self.video is not None:
             return visitor._video(self.video)
+        if self._type == 'spatial' and self.spatial is not None:
+            return visitor._spatial(self.spatial)
 
 
 ingest_api_IngestDetails.__name__ = "IngestDetails"
@@ -12301,6 +12345,10 @@ class ingest_api_IngestDetailsVisitor:
 
     @abstractmethod
     def _video(self, video: "ingest_api_IngestVideoFileDetails") -> Any:
+        pass
+
+    @abstractmethod
+    def _spatial(self, spatial: "ingest_api_IngestSpatialDetails") -> Any:
         pass
 
 
@@ -12768,6 +12816,7 @@ class ingest_api_IngestOptions(ConjureUnionType):
     _video_v2: Optional["ingest_api_VideoOptsV2"] = None
     _containerized: Optional["ingest_api_ContainerizedOpts"] = None
     _avro_stream: Optional["ingest_api_AvroStreamOpts"] = None
+    _point_cloud: Optional["ingest_api_PointCloudOpts"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -12780,7 +12829,8 @@ class ingest_api_IngestOptions(ConjureUnionType):
             'video': ConjureFieldDefinition('video', ingest_api_VideoOpts),
             'video_v2': ConjureFieldDefinition('videoV2', ingest_api_VideoOptsV2),
             'containerized': ConjureFieldDefinition('containerized', ingest_api_ContainerizedOpts),
-            'avro_stream': ConjureFieldDefinition('avroStream', ingest_api_AvroStreamOpts)
+            'avro_stream': ConjureFieldDefinition('avroStream', ingest_api_AvroStreamOpts),
+            'point_cloud': ConjureFieldDefinition('pointCloud', ingest_api_PointCloudOpts)
         }
 
     def __init__(
@@ -12794,10 +12844,11 @@ class ingest_api_IngestOptions(ConjureUnionType):
             video_v2: Optional["ingest_api_VideoOptsV2"] = None,
             containerized: Optional["ingest_api_ContainerizedOpts"] = None,
             avro_stream: Optional["ingest_api_AvroStreamOpts"] = None,
+            point_cloud: Optional["ingest_api_PointCloudOpts"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (dataflash is not None) + (mcap_protobuf_timeseries is not None) + (journal_json is not None) + (csv is not None) + (parquet is not None) + (video is not None) + (video_v2 is not None) + (containerized is not None) + (avro_stream is not None) != 1:
+            if (dataflash is not None) + (mcap_protobuf_timeseries is not None) + (journal_json is not None) + (csv is not None) + (parquet is not None) + (video is not None) + (video_v2 is not None) + (containerized is not None) + (avro_stream is not None) + (point_cloud is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if dataflash is not None:
@@ -12827,6 +12878,9 @@ class ingest_api_IngestOptions(ConjureUnionType):
             if avro_stream is not None:
                 self._avro_stream = avro_stream
                 self._type = 'avroStream'
+            if point_cloud is not None:
+                self._point_cloud = point_cloud
+                self._type = 'pointCloud'
 
         elif type_of_union == 'dataflash':
             if dataflash is None:
@@ -12873,6 +12927,11 @@ class ingest_api_IngestOptions(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._avro_stream = avro_stream
             self._type = 'avroStream'
+        elif type_of_union == 'pointCloud':
+            if point_cloud is None:
+                raise ValueError('a union value must not be None')
+            self._point_cloud = point_cloud
+            self._type = 'pointCloud'
 
     @builtins.property
     def dataflash(self) -> Optional["ingest_api_DataflashOpts"]:
@@ -12910,6 +12969,10 @@ class ingest_api_IngestOptions(ConjureUnionType):
     def avro_stream(self) -> Optional["ingest_api_AvroStreamOpts"]:
         return self._avro_stream
 
+    @builtins.property
+    def point_cloud(self) -> Optional["ingest_api_PointCloudOpts"]:
+        return self._point_cloud
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, ingest_api_IngestOptionsVisitor):
             raise ValueError('{} is not an instance of ingest_api_IngestOptionsVisitor'.format(visitor.__class__.__name__))
@@ -12931,6 +12994,8 @@ class ingest_api_IngestOptions(ConjureUnionType):
             return visitor._containerized(self.containerized)
         if self._type == 'avroStream' and self.avro_stream is not None:
             return visitor._avro_stream(self.avro_stream)
+        if self._type == 'pointCloud' and self.point_cloud is not None:
+            return visitor._point_cloud(self.point_cloud)
 
 
 ingest_api_IngestOptions.__name__ = "IngestOptions"
@@ -12974,6 +13039,10 @@ class ingest_api_IngestOptionsVisitor:
 
     @abstractmethod
     def _avro_stream(self, avro_stream: "ingest_api_AvroStreamOpts") -> Any:
+        pass
+
+    @abstractmethod
+    def _point_cloud(self, point_cloud: "ingest_api_PointCloudOpts") -> Any:
         pass
 
 
@@ -13552,6 +13621,29 @@ ingest_api_IngestSourceMetadata.__qualname__ = "IngestSourceMetadata"
 ingest_api_IngestSourceMetadata.__module__ = "nominal_api.ingest_api"
 
 
+class ingest_api_IngestSpatialDetails(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'spatial_rid': ConjureFieldDefinition('spatialRid', api_rids_SpatialRid)
+        }
+
+    __slots__: List[str] = ['_spatial_rid']
+
+    def __init__(self, spatial_rid: str) -> None:
+        self._spatial_rid = spatial_rid
+
+    @builtins.property
+    def spatial_rid(self) -> str:
+        return self._spatial_rid
+
+
+ingest_api_IngestSpatialDetails.__name__ = "IngestSpatialDetails"
+ingest_api_IngestSpatialDetails.__qualname__ = "IngestSpatialDetails"
+ingest_api_IngestSpatialDetails.__module__ = "nominal_api.ingest_api"
+
+
 class ingest_api_IngestStatus(ConjureEnumType):
 
     IN_PROGRESS = 'IN_PROGRESS'
@@ -13588,6 +13680,8 @@ class ingest_api_IngestType(ConjureEnumType):
     '''VIDEO'''
     AVRO_STREAM = 'AVRO_STREAM'
     '''AVRO_STREAM'''
+    POINT_CLOUD = 'POINT_CLOUD'
+    '''POINT_CLOUD'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -14762,6 +14856,66 @@ ingest_api_NewDatasetIngestDestination.__qualname__ = "NewDatasetIngestDestinati
 ingest_api_NewDatasetIngestDestination.__module__ = "nominal_api.ingest_api"
 
 
+class ingest_api_NewPointCloudIngestDestination(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
+            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
+            'properties': ConjureFieldDefinition('properties', Dict[api_PropertyName, api_PropertyValue]),
+            'labels': ConjureFieldDefinition('labels', List[api_Label]),
+            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid]),
+            'marking_rids': ConjureFieldDefinition('markingRids', List[scout_rids_api_MarkingRid])
+        }
+
+    __slots__: List[str] = ['_title', '_description', '_properties', '_labels', '_workspace', '_marking_rids']
+
+    def __init__(self, labels: List[str], marking_rids: List[str], properties: Dict[str, str], description: Optional[str] = None, title: Optional[str] = None, workspace: Optional[str] = None) -> None:
+        self._title = title
+        self._description = description
+        self._properties = properties
+        self._labels = labels
+        self._workspace = workspace
+        self._marking_rids = marking_rids
+
+    @builtins.property
+    def title(self) -> Optional[str]:
+        """Title of the point cloud that will be created.
+        """
+        return self._title
+
+    @builtins.property
+    def description(self) -> Optional[str]:
+        return self._description
+
+    @builtins.property
+    def properties(self) -> Dict[str, str]:
+        return self._properties
+
+    @builtins.property
+    def labels(self) -> List[str]:
+        return self._labels
+
+    @builtins.property
+    def workspace(self) -> Optional[str]:
+        """The workspace in which to create the point cloud. If not provided, the point cloud will be created in the
+default workspace for the user's organization, if the default workspace is configured.
+        """
+        return self._workspace
+
+    @builtins.property
+    def marking_rids(self) -> List[str]:
+        """The markings to apply to the created point cloud.
+        """
+        return self._marking_rids
+
+
+ingest_api_NewPointCloudIngestDestination.__name__ = "NewPointCloudIngestDestination"
+ingest_api_NewPointCloudIngestDestination.__qualname__ = "NewPointCloudIngestDestination"
+ingest_api_NewPointCloudIngestDestination.__module__ = "nominal_api.ingest_api"
+
+
 class ingest_api_NewVideoIngestDestination(ConjureBeanType):
 
     @builtins.classmethod
@@ -15018,6 +15172,138 @@ class ingest_api_PartWithSize(ConjureBeanType):
 ingest_api_PartWithSize.__name__ = "PartWithSize"
 ingest_api_PartWithSize.__qualname__ = "PartWithSize"
 ingest_api_PartWithSize.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_PointCloudIngestTarget(ConjureUnionType):
+    _new: Optional["ingest_api_NewPointCloudIngestDestination"] = None
+    _existing: Optional["ingest_api_ExistingSpatialIngestDestination"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'new': ConjureFieldDefinition('new', ingest_api_NewPointCloudIngestDestination),
+            'existing': ConjureFieldDefinition('existing', ingest_api_ExistingSpatialIngestDestination)
+        }
+
+    def __init__(
+            self,
+            new: Optional["ingest_api_NewPointCloudIngestDestination"] = None,
+            existing: Optional["ingest_api_ExistingSpatialIngestDestination"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (new is not None) + (existing is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if new is not None:
+                self._new = new
+                self._type = 'new'
+            if existing is not None:
+                self._existing = existing
+                self._type = 'existing'
+
+        elif type_of_union == 'new':
+            if new is None:
+                raise ValueError('a union value must not be None')
+            self._new = new
+            self._type = 'new'
+        elif type_of_union == 'existing':
+            if existing is None:
+                raise ValueError('a union value must not be None')
+            self._existing = existing
+            self._type = 'existing'
+
+    @builtins.property
+    def new(self) -> Optional["ingest_api_NewPointCloudIngestDestination"]:
+        return self._new
+
+    @builtins.property
+    def existing(self) -> Optional["ingest_api_ExistingSpatialIngestDestination"]:
+        return self._existing
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, ingest_api_PointCloudIngestTargetVisitor):
+            raise ValueError('{} is not an instance of ingest_api_PointCloudIngestTargetVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'new' and self.new is not None:
+            return visitor._new(self.new)
+        if self._type == 'existing' and self.existing is not None:
+            return visitor._existing(self.existing)
+
+
+ingest_api_PointCloudIngestTarget.__name__ = "PointCloudIngestTarget"
+ingest_api_PointCloudIngestTarget.__qualname__ = "PointCloudIngestTarget"
+ingest_api_PointCloudIngestTarget.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_PointCloudIngestTargetVisitor:
+
+    @abstractmethod
+    def _new(self, new: "ingest_api_NewPointCloudIngestDestination") -> Any:
+        pass
+
+    @abstractmethod
+    def _existing(self, existing: "ingest_api_ExistingSpatialIngestDestination") -> Any:
+        pass
+
+
+ingest_api_PointCloudIngestTargetVisitor.__name__ = "PointCloudIngestTargetVisitor"
+ingest_api_PointCloudIngestTargetVisitor.__qualname__ = "PointCloudIngestTargetVisitor"
+ingest_api_PointCloudIngestTargetVisitor.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_PointCloudOpts(ConjureBeanType):
+    """Options for ingesting point cloud data into Dagger via Scout.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'source': ConjureFieldDefinition('source', ingest_api_IngestSource),
+            'target': ConjureFieldDefinition('target', ingest_api_PointCloudIngestTarget),
+            'sensor_metadata': ConjureFieldDefinition('sensorMetadata', OptionalTypeWrapper[scout_spatial_api_PointCloudMetadata]),
+            'channel': ConjureFieldDefinition('channel', api_Channel),
+            'tags': ConjureFieldDefinition('tags', Dict[api_TagName, api_TagValue])
+        }
+
+    __slots__: List[str] = ['_source', '_target', '_sensor_metadata', '_channel', '_tags']
+
+    def __init__(self, channel: str, source: "ingest_api_IngestSource", tags: Dict[str, str], target: "ingest_api_PointCloudIngestTarget", sensor_metadata: Optional["scout_spatial_api_PointCloudMetadata"] = None) -> None:
+        self._source = source
+        self._target = target
+        self._sensor_metadata = sensor_metadata
+        self._channel = channel
+        self._tags = tags
+
+    @builtins.property
+    def source(self) -> "ingest_api_IngestSource":
+        return self._source
+
+    @builtins.property
+    def target(self) -> "ingest_api_PointCloudIngestTarget":
+        return self._target
+
+    @builtins.property
+    def sensor_metadata(self) -> Optional["scout_spatial_api_PointCloudMetadata"]:
+        """Sensor metadata to associate with the point cloud.
+        """
+        return self._sensor_metadata
+
+    @builtins.property
+    def channel(self) -> str:
+        """Channel name for workbook integration.
+        """
+        return self._channel
+
+    @builtins.property
+    def tags(self) -> Dict[str, str]:
+        """Tags to apply to the point cloud series.
+        """
+        return self._tags
+
+
+ingest_api_PointCloudOpts.__name__ = "PointCloudOpts"
+ingest_api_PointCloudOpts.__qualname__ = "PointCloudOpts"
+ingest_api_PointCloudOpts.__module__ = "nominal_api.ingest_api"
 
 
 class ingest_api_PresignedFileIngestSource(ConjureBeanType):
@@ -19664,6 +19950,8 @@ when accounting for out-of-order points.
     _arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None
     _arrow_bucketed_enum: Optional["scout_compute_api_ArrowBucketedEnumPlot"] = None
     _arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None
+    _arrow_bucketed_struct: Optional["scout_compute_api_ArrowBucketedStructPlot"] = None
+    _arrow_struct: Optional["scout_compute_api_ArrowStructPlot"] = None
     _grouped: Optional["persistent_compute_api_GroupedComputeNodeAppendResponses"] = None
 
     @builtins.classmethod
@@ -19685,6 +19973,8 @@ when accounting for out-of-order points.
             'arrow_bucketed_numeric': ConjureFieldDefinition('arrowBucketedNumeric', scout_compute_api_ArrowBucketedNumericPlot),
             'arrow_bucketed_enum': ConjureFieldDefinition('arrowBucketedEnum', scout_compute_api_ArrowBucketedEnumPlot),
             'arrow_bucketed_multivariate': ConjureFieldDefinition('arrowBucketedMultivariate', scout_compute_api_ArrowBucketedMultivariatePlot),
+            'arrow_bucketed_struct': ConjureFieldDefinition('arrowBucketedStruct', scout_compute_api_ArrowBucketedStructPlot),
+            'arrow_struct': ConjureFieldDefinition('arrowStruct', scout_compute_api_ArrowStructPlot),
             'grouped': ConjureFieldDefinition('grouped', persistent_compute_api_GroupedComputeNodeAppendResponses)
         }
 
@@ -19706,11 +19996,13 @@ when accounting for out-of-order points.
             arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None,
             arrow_bucketed_enum: Optional["scout_compute_api_ArrowBucketedEnumPlot"] = None,
             arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None,
+            arrow_bucketed_struct: Optional["scout_compute_api_ArrowBucketedStructPlot"] = None,
+            arrow_struct: Optional["scout_compute_api_ArrowStructPlot"] = None,
             grouped: Optional["persistent_compute_api_GroupedComputeNodeAppendResponses"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (range is not None) + (enum_point is not None) + (numeric_point is not None) + (single_point is not None) + (log_point is not None) + (range_value is not None) + (numeric is not None) + (enum is not None) + (bucketed_numeric is not None) + (bucketed_enum is not None) + (multivariate is not None) + (arrow_numeric is not None) + (arrow_enum is not None) + (arrow_bucketed_numeric is not None) + (arrow_bucketed_enum is not None) + (arrow_bucketed_multivariate is not None) + (grouped is not None) != 1:
+            if (range is not None) + (enum_point is not None) + (numeric_point is not None) + (single_point is not None) + (log_point is not None) + (range_value is not None) + (numeric is not None) + (enum is not None) + (bucketed_numeric is not None) + (bucketed_enum is not None) + (multivariate is not None) + (arrow_numeric is not None) + (arrow_enum is not None) + (arrow_bucketed_numeric is not None) + (arrow_bucketed_enum is not None) + (arrow_bucketed_multivariate is not None) + (arrow_bucketed_struct is not None) + (arrow_struct is not None) + (grouped is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if range is not None:
@@ -19761,6 +20053,12 @@ when accounting for out-of-order points.
             if arrow_bucketed_multivariate is not None:
                 self._arrow_bucketed_multivariate = arrow_bucketed_multivariate
                 self._type = 'arrowBucketedMultivariate'
+            if arrow_bucketed_struct is not None:
+                self._arrow_bucketed_struct = arrow_bucketed_struct
+                self._type = 'arrowBucketedStruct'
+            if arrow_struct is not None:
+                self._arrow_struct = arrow_struct
+                self._type = 'arrowStruct'
             if grouped is not None:
                 self._grouped = grouped
                 self._type = 'grouped'
@@ -19845,6 +20143,16 @@ when accounting for out-of-order points.
                 raise ValueError('a union value must not be None')
             self._arrow_bucketed_multivariate = arrow_bucketed_multivariate
             self._type = 'arrowBucketedMultivariate'
+        elif type_of_union == 'arrowBucketedStruct':
+            if arrow_bucketed_struct is None:
+                raise ValueError('a union value must not be None')
+            self._arrow_bucketed_struct = arrow_bucketed_struct
+            self._type = 'arrowBucketedStruct'
+        elif type_of_union == 'arrowStruct':
+            if arrow_struct is None:
+                raise ValueError('a union value must not be None')
+            self._arrow_struct = arrow_struct
+            self._type = 'arrowStruct'
         elif type_of_union == 'grouped':
             if grouped is None:
                 raise ValueError('a union value must not be None')
@@ -19962,6 +20270,20 @@ with the newer ones.
         return self._arrow_bucketed_multivariate
 
     @builtins.property
+    def arrow_bucketed_struct(self) -> Optional["scout_compute_api_ArrowBucketedStructPlot"]:
+        """Merging can be done by dropping any old buckets and adding the new ones. Overlapping buckets are
+guaranteed to align (same bucket end timestamp) and the older version of the bucket can be replaced
+with the newer ones.
+        """
+        return self._arrow_bucketed_struct
+
+    @builtins.property
+    def arrow_struct(self) -> Optional["scout_compute_api_ArrowStructPlot"]:
+        """Merging can be done by dropping any old points and adding the new ones, accounting for overlaps
+        """
+        return self._arrow_struct
+
+    @builtins.property
     def grouped(self) -> Optional["persistent_compute_api_GroupedComputeNodeAppendResponses"]:
         """Appends can be done by doing an append individually for each contained `ComputeNodeAppendResponse`.
         """
@@ -20002,6 +20324,10 @@ with the newer ones.
             return visitor._arrow_bucketed_enum(self.arrow_bucketed_enum)
         if self._type == 'arrowBucketedMultivariate' and self.arrow_bucketed_multivariate is not None:
             return visitor._arrow_bucketed_multivariate(self.arrow_bucketed_multivariate)
+        if self._type == 'arrowBucketedStruct' and self.arrow_bucketed_struct is not None:
+            return visitor._arrow_bucketed_struct(self.arrow_bucketed_struct)
+        if self._type == 'arrowStruct' and self.arrow_struct is not None:
+            return visitor._arrow_struct(self.arrow_struct)
         if self._type == 'grouped' and self.grouped is not None:
             return visitor._grouped(self.grouped)
 
@@ -20075,6 +20401,14 @@ class persistent_compute_api_ComputeNodeAppendResponseVisitor:
 
     @abstractmethod
     def _arrow_bucketed_multivariate(self, arrow_bucketed_multivariate: "scout_compute_api_ArrowBucketedMultivariatePlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow_bucketed_struct(self, arrow_bucketed_struct: "scout_compute_api_ArrowBucketedStructPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow_struct(self, arrow_struct: "scout_compute_api_ArrowStructPlot") -> Any:
         pass
 
     @abstractmethod
@@ -33579,6 +33913,7 @@ class scout_chartdefinition_api_FrequencyPlotTypeBode(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration]),
             'stft_options': ConjureFieldDefinition('stftOptions', OptionalTypeWrapper[scout_compute_api_StftOptions]),
             'magnitude_scaling': ConjureFieldDefinition('magnitudeScaling', OptionalTypeWrapper[scout_compute_api_MagnitudeScaling]),
             'output_frequency_type': ConjureFieldDefinition('outputFrequencyType', OptionalTypeWrapper[scout_compute_api_OutputFrequencyType]),
@@ -33586,14 +33921,22 @@ class scout_chartdefinition_api_FrequencyPlotTypeBode(ConjureBeanType):
             'display_mode': ConjureFieldDefinition('displayMode', OptionalTypeWrapper[scout_chartdefinition_api_MagnitudeAndPhaseDisplayMode])
         }
 
-    __slots__: List[str] = ['_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase', '_display_mode']
+    __slots__: List[str] = ['_interpolation_configuration', '_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase', '_display_mode']
 
-    def __init__(self, display_mode: Optional["scout_chartdefinition_api_MagnitudeAndPhaseDisplayMode"] = None, magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
+    def __init__(self, display_mode: Optional["scout_chartdefinition_api_MagnitudeAndPhaseDisplayMode"] = None, interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None, magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
+        self._interpolation_configuration = interpolation_configuration
         self._stft_options = stft_options
         self._magnitude_scaling = magnitude_scaling
         self._output_frequency_type = output_frequency_type
         self._unwrap_phase = unwrap_phase
         self._display_mode = display_mode
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """When present, aligns the output signal to the input signal's timestamps using the configured
+interpolation before estimating the frequency response.
+        """
+        return self._interpolation_configuration
 
     @builtins.property
     def stft_options(self) -> Optional["scout_compute_api_StftOptions"]:
@@ -49614,6 +49957,40 @@ scout_compute_api_ArrowNumericPlot.__qualname__ = "ArrowNumericPlot"
 scout_compute_api_ArrowNumericPlot.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_ArrowStructPlot(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
+            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
+        }
+
+    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
+
+    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
+        self._arrow_binary = arrow_binary
+        self._group_by_keys = group_by_keys
+
+    @builtins.property
+    def arrow_binary(self) -> Any:
+        """The raw binary containing Arrow IPC stream for struct plot
+        """
+        return self._arrow_binary
+
+    @builtins.property
+    def group_by_keys(self) -> Optional[List[str]]:
+        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
+this list represents the superset of all group by keys used across every individual channel.
+        """
+        return self._group_by_keys
+
+
+scout_compute_api_ArrowStructPlot.__name__ = "ArrowStructPlot"
+scout_compute_api_ArrowStructPlot.__qualname__ = "ArrowStructPlot"
+scout_compute_api_ArrowStructPlot.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_Asin(ConjureBeanType):
     """Computes the arcsine of each value, returning radians.
     """
@@ -50604,17 +50981,19 @@ class scout_compute_api_Bode(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
             'output': ConjureFieldDefinition('output', scout_compute_api_NumericSeries),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration]),
             'stft_options': ConjureFieldDefinition('stftOptions', OptionalTypeWrapper[scout_compute_api_StftOptions]),
             'magnitude_scaling': ConjureFieldDefinition('magnitudeScaling', OptionalTypeWrapper[scout_compute_api_MagnitudeScaling]),
             'output_frequency_type': ConjureFieldDefinition('outputFrequencyType', OptionalTypeWrapper[scout_compute_api_OutputFrequencyType]),
             'unwrap_phase': ConjureFieldDefinition('unwrapPhase', OptionalTypeWrapper[bool])
         }
 
-    __slots__: List[str] = ['_input', '_output', '_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase']
+    __slots__: List[str] = ['_input', '_output', '_interpolation_configuration', '_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase']
 
-    def __init__(self, input: "scout_compute_api_NumericSeries", output: "scout_compute_api_NumericSeries", magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
+    def __init__(self, input: "scout_compute_api_NumericSeries", output: "scout_compute_api_NumericSeries", interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None, magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
         self._input = input
         self._output = output
+        self._interpolation_configuration = interpolation_configuration
         self._stft_options = stft_options
         self._magnitude_scaling = magnitude_scaling
         self._output_frequency_type = output_frequency_type
@@ -50627,6 +51006,14 @@ class scout_compute_api_Bode(ConjureBeanType):
     @builtins.property
     def output(self) -> "scout_compute_api_NumericSeries":
         return self._output
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """When present, aligns the output signal to the input signal's timestamps using the configured
+interpolation before estimating the frequency response. When absent, Bode preserves the existing strict
+behavior and requires the input and output value arrays to have equal length.
+        """
+        return self._interpolation_configuration
 
     @builtins.property
     def stft_options(self) -> Optional["scout_compute_api_StftOptions"]:
@@ -52510,6 +52897,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
     _grouped: Optional["scout_compute_api_GroupedComputeNodeResponses"] = None
     _array: Optional["scout_compute_api_ArrowArrayPlot"] = None
     _bucketed_struct: Optional["scout_compute_api_ArrowBucketedStructPlot"] = None
+    _arrow_struct: Optional["scout_compute_api_ArrowStructPlot"] = None
     _full_resolution: Optional["scout_compute_api_ArrowFullResolutionPlot"] = None
     _arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None
     _multivariate: Optional["scout_compute_api_BucketedMultivariatePlot"] = None
@@ -52545,6 +52933,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             'grouped': ConjureFieldDefinition('grouped', scout_compute_api_GroupedComputeNodeResponses),
             'array': ConjureFieldDefinition('array', scout_compute_api_ArrowArrayPlot),
             'bucketed_struct': ConjureFieldDefinition('bucketedStruct', scout_compute_api_ArrowBucketedStructPlot),
+            'arrow_struct': ConjureFieldDefinition('arrowStruct', scout_compute_api_ArrowStructPlot),
             'full_resolution': ConjureFieldDefinition('fullResolution', scout_compute_api_ArrowFullResolutionPlot),
             'arrow_bucketed_multivariate': ConjureFieldDefinition('arrowBucketedMultivariate', scout_compute_api_ArrowBucketedMultivariatePlot),
             'multivariate': ConjureFieldDefinition('multivariate', scout_compute_api_BucketedMultivariatePlot)
@@ -52580,13 +52969,14 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             grouped: Optional["scout_compute_api_GroupedComputeNodeResponses"] = None,
             array: Optional["scout_compute_api_ArrowArrayPlot"] = None,
             bucketed_struct: Optional["scout_compute_api_ArrowBucketedStructPlot"] = None,
+            arrow_struct: Optional["scout_compute_api_ArrowStructPlot"] = None,
             full_resolution: Optional["scout_compute_api_ArrowFullResolutionPlot"] = None,
             arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None,
             multivariate: Optional["scout_compute_api_BucketedMultivariatePlot"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (single_point is not None) + (arrow_numeric is not None) + (arrow_bucketed_numeric is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (arrow_enum is not None) + (arrow_bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (frequency_domain is not None) + (frequency_domain_v2 is not None) + (bucketed_frequency_domain is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) + (array is not None) + (bucketed_struct is not None) + (full_resolution is not None) + (arrow_bucketed_multivariate is not None) + (multivariate is not None) != 1:
+            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (single_point is not None) + (arrow_numeric is not None) + (arrow_bucketed_numeric is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (arrow_enum is not None) + (arrow_bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (frequency_domain is not None) + (frequency_domain_v2 is not None) + (bucketed_frequency_domain is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) + (array is not None) + (bucketed_struct is not None) + (arrow_struct is not None) + (full_resolution is not None) + (arrow_bucketed_multivariate is not None) + (multivariate is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if range is not None:
@@ -52673,6 +53063,9 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             if bucketed_struct is not None:
                 self._bucketed_struct = bucketed_struct
                 self._type = 'bucketedStruct'
+            if arrow_struct is not None:
+                self._arrow_struct = arrow_struct
+                self._type = 'arrowStruct'
             if full_resolution is not None:
                 self._full_resolution = full_resolution
                 self._type = 'fullResolution'
@@ -52823,6 +53216,11 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._bucketed_struct = bucketed_struct
             self._type = 'bucketedStruct'
+        elif type_of_union == 'arrowStruct':
+            if arrow_struct is None:
+                raise ValueError('a union value must not be None')
+            self._arrow_struct = arrow_struct
+            self._type = 'arrowStruct'
         elif type_of_union == 'fullResolution':
             if full_resolution is None:
                 raise ValueError('a union value must not be None')
@@ -52952,6 +53350,10 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
         return self._bucketed_struct
 
     @builtins.property
+    def arrow_struct(self) -> Optional["scout_compute_api_ArrowStructPlot"]:
+        return self._arrow_struct
+
+    @builtins.property
     def full_resolution(self) -> Optional["scout_compute_api_ArrowFullResolutionPlot"]:
         return self._full_resolution
 
@@ -53022,6 +53424,8 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             return visitor._array(self.array)
         if self._type == 'bucketedStruct' and self.bucketed_struct is not None:
             return visitor._bucketed_struct(self.bucketed_struct)
+        if self._type == 'arrowStruct' and self.arrow_struct is not None:
+            return visitor._arrow_struct(self.arrow_struct)
         if self._type == 'fullResolution' and self.full_resolution is not None:
             return visitor._full_resolution(self.full_resolution)
         if self._type == 'arrowBucketedMultivariate' and self.arrow_bucketed_multivariate is not None:
@@ -53147,6 +53551,10 @@ class scout_compute_api_ComputeNodeResponseVisitor:
 
     @abstractmethod
     def _bucketed_struct(self, bucketed_struct: "scout_compute_api_ArrowBucketedStructPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow_struct(self, arrow_struct: "scout_compute_api_ArrowStructPlot") -> Any:
         pass
 
     @abstractmethod
@@ -66126,6 +66534,43 @@ scout_compute_api_RefpropSubstance.__qualname__ = "RefpropSubstance"
 scout_compute_api_RefpropSubstance.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_ReservedTagKey(ConjureEnumType):
+    """Tag keys reserved by the compute system. 
+Notes:
+- ASSET_RID, DATA_SCOPE, RUN_RID are emitted as branch tags by frame
+  expansion (assets and runs).
+- INTERVAL_INDEX, INTERVAL_START, EVENT_LEVEL are emitted as interval tags by
+  tagByIntervals.
+- EVENT_LABEL_PREFIX is a prefix, not a fixed key. The full key for an event label
+  is EVENT_LABEL_PREFIX + ":" + labelName (for example "EVENT_LABEL_PREFIX:reviewed").
+    """
+
+    ASSET_RID = 'ASSET_RID'
+    '''ASSET_RID'''
+    DATA_SCOPE = 'DATA_SCOPE'
+    '''DATA_SCOPE'''
+    RUN_RID = 'RUN_RID'
+    '''RUN_RID'''
+    INTERVAL_INDEX = 'INTERVAL_INDEX'
+    '''INTERVAL_INDEX'''
+    INTERVAL_START = 'INTERVAL_START'
+    '''INTERVAL_START'''
+    EVENT_LEVEL = 'EVENT_LEVEL'
+    '''EVENT_LEVEL'''
+    EVENT_LABEL_PREFIX = 'EVENT_LABEL_PREFIX'
+    '''EVENT_LABEL_PREFIX'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_ReservedTagKey.__name__ = "ReservedTagKey"
+scout_compute_api_ReservedTagKey.__qualname__ = "ReservedTagKey"
+scout_compute_api_ReservedTagKey.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_ResourceSearchQuery(ConjureUnionType):
     """Predicate tree for filtering.
     """
@@ -73591,17 +74036,19 @@ class scout_compute_resolved_api_BodeNode(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
             'output': ConjureFieldDefinition('output', scout_compute_resolved_api_NumericSeriesNode),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_resolved_api_InterpolationConfiguration]),
             'stft_options': ConjureFieldDefinition('stftOptions', OptionalTypeWrapper[scout_compute_api_StftOptions]),
             'magnitude_scaling': ConjureFieldDefinition('magnitudeScaling', OptionalTypeWrapper[scout_compute_api_MagnitudeScaling]),
             'output_frequency_type': ConjureFieldDefinition('outputFrequencyType', OptionalTypeWrapper[scout_compute_api_OutputFrequencyType]),
             'unwrap_phase': ConjureFieldDefinition('unwrapPhase', OptionalTypeWrapper[bool])
         }
 
-    __slots__: List[str] = ['_input', '_output', '_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase']
+    __slots__: List[str] = ['_input', '_output', '_interpolation_configuration', '_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase']
 
-    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", output: "scout_compute_resolved_api_NumericSeriesNode", magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
+    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", output: "scout_compute_resolved_api_NumericSeriesNode", interpolation_configuration: Optional["scout_compute_resolved_api_InterpolationConfiguration"] = None, magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
         self._input = input
         self._output = output
+        self._interpolation_configuration = interpolation_configuration
         self._stft_options = stft_options
         self._magnitude_scaling = magnitude_scaling
         self._output_frequency_type = output_frequency_type
@@ -73614,6 +74061,10 @@ class scout_compute_resolved_api_BodeNode(ConjureBeanType):
     @builtins.property
     def output(self) -> "scout_compute_resolved_api_NumericSeriesNode":
         return self._output
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_resolved_api_InterpolationConfiguration"]:
+        return self._interpolation_configuration
 
     @builtins.property
     def stft_options(self) -> Optional["scout_compute_api_StftOptions"]:
@@ -100153,6 +100604,7 @@ class scout_run_api_DataSource(ConjureUnionType):
     _connection: Optional[str] = None
     _log_set: Optional[str] = None
     _video: Optional[str] = None
+    _spatial: Optional[str] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -100160,7 +100612,8 @@ class scout_run_api_DataSource(ConjureUnionType):
             'dataset': ConjureFieldDefinition('dataset', api_rids_DatasetRid),
             'connection': ConjureFieldDefinition('connection', scout_run_api_ConnectionRid),
             'log_set': ConjureFieldDefinition('logSet', scout_run_api_LogSetRid),
-            'video': ConjureFieldDefinition('video', api_rids_VideoRid)
+            'video': ConjureFieldDefinition('video', api_rids_VideoRid),
+            'spatial': ConjureFieldDefinition('spatial', api_rids_SpatialRid)
         }
 
     def __init__(
@@ -100169,10 +100622,11 @@ class scout_run_api_DataSource(ConjureUnionType):
             connection: Optional[str] = None,
             log_set: Optional[str] = None,
             video: Optional[str] = None,
+            spatial: Optional[str] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (dataset is not None) + (connection is not None) + (log_set is not None) + (video is not None) != 1:
+            if (dataset is not None) + (connection is not None) + (log_set is not None) + (video is not None) + (spatial is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if dataset is not None:
@@ -100187,6 +100641,9 @@ class scout_run_api_DataSource(ConjureUnionType):
             if video is not None:
                 self._video = video
                 self._type = 'video'
+            if spatial is not None:
+                self._spatial = spatial
+                self._type = 'spatial'
 
         elif type_of_union == 'dataset':
             if dataset is None:
@@ -100208,6 +100665,11 @@ class scout_run_api_DataSource(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._video = video
             self._type = 'video'
+        elif type_of_union == 'spatial':
+            if spatial is None:
+                raise ValueError('a union value must not be None')
+            self._spatial = spatial
+            self._type = 'spatial'
 
     @builtins.property
     def dataset(self) -> Optional[str]:
@@ -100225,6 +100687,10 @@ class scout_run_api_DataSource(ConjureUnionType):
     def video(self) -> Optional[str]:
         return self._video
 
+    @builtins.property
+    def spatial(self) -> Optional[str]:
+        return self._spatial
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_run_api_DataSourceVisitor):
             raise ValueError('{} is not an instance of scout_run_api_DataSourceVisitor'.format(visitor.__class__.__name__))
@@ -100236,6 +100702,8 @@ class scout_run_api_DataSource(ConjureUnionType):
             return visitor._log_set(self.log_set)
         if self._type == 'video' and self.video is not None:
             return visitor._video(self.video)
+        if self._type == 'spatial' and self.spatial is not None:
+            return visitor._spatial(self.spatial)
 
 
 scout_run_api_DataSource.__name__ = "DataSource"
@@ -100259,6 +100727,10 @@ class scout_run_api_DataSourceVisitor:
 
     @abstractmethod
     def _video(self, video: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _spatial(self, spatial: str) -> Any:
         pass
 
 
@@ -100306,6 +100778,8 @@ class scout_run_api_DataSourceType(ConjureEnumType):
     '''LOGSET'''
     VIDEO = 'VIDEO'
     '''VIDEO'''
+    SPATIAL = 'SPATIAL'
+    '''SPATIAL'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -104470,6 +104944,1296 @@ class scout_savedviews_api_WorkbookSearchState(ConjureBeanType):
 scout_savedviews_api_WorkbookSearchState.__name__ = "WorkbookSearchState"
 scout_savedviews_api_WorkbookSearchState.__qualname__ = "WorkbookSearchState"
 scout_savedviews_api_WorkbookSearchState.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_spatial_SpatialService(Service):
+    """The spatial asset service manages spatial assets (point clouds, etc.) and their metadata.
+Spatial asset data is stored in Dagger; Scout tracks metadata and references.
+    """
+
+    def get(self, auth_header: str, spatial_rid: str) -> "scout_spatial_api_Spatial":
+        """Returns spatial asset metadata associated with a spatial asset rid.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'spatialRid': quote(str(_conjure_encoder.default(spatial_rid)), safe=''),
+        }
+
+        _json: Any = None
+
+        _path = '/spatial/v1/spatials/{spatialRid}'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'GET',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_spatial_api_Spatial, self._return_none_for_unknown_union_types)
+
+    def batch_get(self, auth_header: str, request: "scout_spatial_api_GetSpatialsRequest") -> "scout_spatial_api_GetSpatialsResponse":
+        """Returns spatial asset metadata for each given spatial asset rid.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/spatial/v1/spatials/batchGet'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_spatial_api_GetSpatialsResponse, self._return_none_for_unknown_union_types)
+
+    def search(self, auth_header: str, request: "scout_spatial_api_SearchSpatialsRequest") -> "scout_spatial_api_SearchSpatialsResponse":
+        """Returns metadata about spatial assets that match a given query.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/spatial/v1/spatials/search'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_spatial_api_SearchSpatialsResponse, self._return_none_for_unknown_union_types)
+
+    def create(self, auth_header: str, request: "scout_spatial_api_CreateSpatialRequest") -> "scout_spatial_api_Spatial":
+        """Creates and persists a spatial asset entity with the given metadata.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/spatial/v1/spatials'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_spatial_api_Spatial, self._return_none_for_unknown_union_types)
+
+    def update_metadata(self, auth_header: str, request: "scout_spatial_api_UpdateSpatialMetadataRequest", spatial_rid: str) -> "scout_spatial_api_Spatial":
+        """Updates the metadata for a spatial asset associated with the given rid.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'spatialRid': quote(str(_conjure_encoder.default(spatial_rid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/spatial/v1/spatials/{spatialRid}'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'PUT',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_spatial_api_Spatial, self._return_none_for_unknown_union_types)
+
+    def get_ingest_status(self, auth_header: str, spatial_rid: str) -> "scout_spatial_api_SpatialIngestStatus":
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'spatialRid': quote(str(_conjure_encoder.default(spatial_rid)), safe=''),
+        }
+
+        _json: Any = None
+
+        _path = '/spatial/v1/spatials/{spatialRid}/ingest-status'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'GET',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_spatial_api_SpatialIngestStatus, self._return_none_for_unknown_union_types)
+
+    def batch_get_ingest_status(self, auth_header: str, spatial_rids: List[str] = None) -> Dict[str, "scout_spatial_api_SpatialIngestStatus"]:
+        spatial_rids = spatial_rids if spatial_rids is not None else []
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(spatial_rids)
+
+        _path = '/spatial/v1/spatials/batch-get-ingest-status'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), Dict[api_rids_SpatialRid, scout_spatial_api_SpatialIngestStatus], self._return_none_for_unknown_union_types)
+
+    def archive(self, auth_header: str, spatial_rid: str) -> None:
+        """Archives a spatial asset, excluding it from search. Can be unarchived.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'spatialRid': quote(str(_conjure_encoder.default(spatial_rid)), safe=''),
+        }
+
+        _json: Any = None
+
+        _path = '/spatial/v1/spatials/{spatialRid}/archive'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'PUT',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
+
+    def unarchive(self, auth_header: str, spatial_rid: str) -> None:
+        """Unarchives a previously archived spatial asset.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'spatialRid': quote(str(_conjure_encoder.default(spatial_rid)), safe=''),
+        }
+
+        _json: Any = None
+
+        _path = '/spatial/v1/spatials/{spatialRid}/unarchive'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'PUT',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
+
+    def import_file(self, auth_header: str, request: "scout_spatial_api_ImportFileRequest") -> "scout_spatial_api_ImportFileResponse":
+        """Imports a spatial data file (e.g. LAS, LAZ, PLY, PCAP).
+Creates a new spatial asset, processes the file, and uploads the extracted data to Dagger.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/spatial/v1/spatials/import-file'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_spatial_api_ImportFileResponse, self._return_none_for_unknown_union_types)
+
+
+scout_spatial_SpatialService.__name__ = "SpatialService"
+scout_spatial_SpatialService.__qualname__ = "SpatialService"
+scout_spatial_SpatialService.__module__ = "nominal_api.scout_spatial"
+
+
+class scout_spatial_api_CreateSpatialRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'title': ConjureFieldDefinition('title', str),
+            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
+            'labels': ConjureFieldDefinition('labels', List[api_Label]),
+            'properties': ConjureFieldDefinition('properties', Dict[api_PropertyName, api_PropertyValue]),
+            'type_metadata': ConjureFieldDefinition('typeMetadata', scout_spatial_api_SpatialTypeMetadata),
+            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid]),
+            'marking_rids': ConjureFieldDefinition('markingRids', List[scout_rids_api_MarkingRid])
+        }
+
+    __slots__: List[str] = ['_title', '_description', '_labels', '_properties', '_type_metadata', '_workspace', '_marking_rids']
+
+    def __init__(self, labels: List[str], marking_rids: List[str], properties: Dict[str, str], title: str, type_metadata: "scout_spatial_api_SpatialTypeMetadata", description: Optional[str] = None, workspace: Optional[str] = None) -> None:
+        self._title = title
+        self._description = description
+        self._labels = labels
+        self._properties = properties
+        self._type_metadata = type_metadata
+        self._workspace = workspace
+        self._marking_rids = marking_rids
+
+    @builtins.property
+    def title(self) -> str:
+        return self._title
+
+    @builtins.property
+    def description(self) -> Optional[str]:
+        return self._description
+
+    @builtins.property
+    def labels(self) -> List[str]:
+        return self._labels
+
+    @builtins.property
+    def properties(self) -> Dict[str, str]:
+        return self._properties
+
+    @builtins.property
+    def type_metadata(self) -> "scout_spatial_api_SpatialTypeMetadata":
+        return self._type_metadata
+
+    @builtins.property
+    def workspace(self) -> Optional[str]:
+        """The workspace in which to create the spatial asset. If not provided, the asset will be created in
+the default workspace for the user's organization, if the default workspace is configured.
+        """
+        return self._workspace
+
+    @builtins.property
+    def marking_rids(self) -> List[str]:
+        """The markings to apply to the created spatial asset.
+If not provided, the asset will be visible to all users in the same workspace.
+        """
+        return self._marking_rids
+
+
+scout_spatial_api_CreateSpatialRequest.__name__ = "CreateSpatialRequest"
+scout_spatial_api_CreateSpatialRequest.__qualname__ = "CreateSpatialRequest"
+scout_spatial_api_CreateSpatialRequest.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_GetSpatialsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'spatial_rids': ConjureFieldDefinition('spatialRids', List[api_rids_SpatialRid])
+        }
+
+    __slots__: List[str] = ['_spatial_rids']
+
+    def __init__(self, spatial_rids: List[str]) -> None:
+        self._spatial_rids = spatial_rids
+
+    @builtins.property
+    def spatial_rids(self) -> List[str]:
+        return self._spatial_rids
+
+
+scout_spatial_api_GetSpatialsRequest.__name__ = "GetSpatialsRequest"
+scout_spatial_api_GetSpatialsRequest.__qualname__ = "GetSpatialsRequest"
+scout_spatial_api_GetSpatialsRequest.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_GetSpatialsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'responses': ConjureFieldDefinition('responses', List[scout_spatial_api_Spatial])
+        }
+
+    __slots__: List[str] = ['_responses']
+
+    def __init__(self, responses: List["scout_spatial_api_Spatial"]) -> None:
+        self._responses = responses
+
+    @builtins.property
+    def responses(self) -> List["scout_spatial_api_Spatial"]:
+        return self._responses
+
+
+scout_spatial_api_GetSpatialsResponse.__name__ = "GetSpatialsResponse"
+scout_spatial_api_GetSpatialsResponse.__qualname__ = "GetSpatialsResponse"
+scout_spatial_api_GetSpatialsResponse.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_ImportFileRequest(ConjureBeanType):
+    """Request to import a spatial data file (e.g. LAS, LAZ, PLY, PCD, E57, PCAP).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'source': ConjureFieldDefinition('source', api_Handle),
+            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
+            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
+            'labels': ConjureFieldDefinition('labels', List[api_Label]),
+            'properties': ConjureFieldDefinition('properties', Dict[api_PropertyName, api_PropertyValue]),
+            'type_metadata': ConjureFieldDefinition('typeMetadata', scout_spatial_api_SpatialTypeMetadata),
+            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid]),
+            'marking_rids': ConjureFieldDefinition('markingRids', List[scout_rids_api_MarkingRid])
+        }
+
+    __slots__: List[str] = ['_source', '_title', '_description', '_labels', '_properties', '_type_metadata', '_workspace', '_marking_rids']
+
+    def __init__(self, labels: List[str], marking_rids: List[str], properties: Dict[str, str], source: "api_Handle", type_metadata: "scout_spatial_api_SpatialTypeMetadata", description: Optional[str] = None, title: Optional[str] = None, workspace: Optional[str] = None) -> None:
+        self._source = source
+        self._title = title
+        self._description = description
+        self._labels = labels
+        self._properties = properties
+        self._type_metadata = type_metadata
+        self._workspace = workspace
+        self._marking_rids = marking_rids
+
+    @builtins.property
+    def source(self) -> "api_Handle":
+        """The location of the file to import.
+        """
+        return self._source
+
+    @builtins.property
+    def title(self) -> Optional[str]:
+        return self._title
+
+    @builtins.property
+    def description(self) -> Optional[str]:
+        return self._description
+
+    @builtins.property
+    def labels(self) -> List[str]:
+        return self._labels
+
+    @builtins.property
+    def properties(self) -> Dict[str, str]:
+        return self._properties
+
+    @builtins.property
+    def type_metadata(self) -> "scout_spatial_api_SpatialTypeMetadata":
+        return self._type_metadata
+
+    @builtins.property
+    def workspace(self) -> Optional[str]:
+        """The workspace in which to create the spatial asset. If not provided, the asset will be created in
+the default workspace for the user's organization.
+        """
+        return self._workspace
+
+    @builtins.property
+    def marking_rids(self) -> List[str]:
+        """The markings to apply to the created spatial asset.
+        """
+        return self._marking_rids
+
+
+scout_spatial_api_ImportFileRequest.__name__ = "ImportFileRequest"
+scout_spatial_api_ImportFileRequest.__qualname__ = "ImportFileRequest"
+scout_spatial_api_ImportFileRequest.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_ImportFileResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'spatial_rid': ConjureFieldDefinition('spatialRid', api_rids_SpatialRid)
+        }
+
+    __slots__: List[str] = ['_spatial_rid']
+
+    def __init__(self, spatial_rid: str) -> None:
+        self._spatial_rid = spatial_rid
+
+    @builtins.property
+    def spatial_rid(self) -> str:
+        return self._spatial_rid
+
+
+scout_spatial_api_ImportFileResponse.__name__ = "ImportFileResponse"
+scout_spatial_api_ImportFileResponse.__qualname__ = "ImportFileResponse"
+scout_spatial_api_ImportFileResponse.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_PointCloudMetadata(ConjureBeanType):
+    """Metadata about the sensor that captured a point cloud.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'sensor_model': ConjureFieldDefinition('sensorModel', OptionalTypeWrapper[str]),
+            'coordinate_system': ConjureFieldDefinition('coordinateSystem', OptionalTypeWrapper[str]),
+            'resolution_mm': ConjureFieldDefinition('resolutionMm', OptionalTypeWrapper[float]),
+            'scan_pattern': ConjureFieldDefinition('scanPattern', OptionalTypeWrapper[scout_spatial_api_ScanPattern])
+        }
+
+    __slots__: List[str] = ['_sensor_model', '_coordinate_system', '_resolution_mm', '_scan_pattern']
+
+    def __init__(self, coordinate_system: Optional[str] = None, resolution_mm: Optional[float] = None, scan_pattern: Optional["scout_spatial_api_ScanPattern"] = None, sensor_model: Optional[str] = None) -> None:
+        self._sensor_model = sensor_model
+        self._coordinate_system = coordinate_system
+        self._resolution_mm = resolution_mm
+        self._scan_pattern = scan_pattern
+
+    @builtins.property
+    def sensor_model(self) -> Optional[str]:
+        """The sensor model name, e.g. "Velodyne VLP-16", "Ouster OS1-128".
+        """
+        return self._sensor_model
+
+    @builtins.property
+    def coordinate_system(self) -> Optional[str]:
+        """Coordinate reference system identifier, e.g. "EPSG:4326", "ENU".
+        """
+        return self._coordinate_system
+
+    @builtins.property
+    def resolution_mm(self) -> Optional[float]:
+        """Spatial resolution of the point cloud in millimeters.
+        """
+        return self._resolution_mm
+
+    @builtins.property
+    def scan_pattern(self) -> Optional["scout_spatial_api_ScanPattern"]:
+        """The scan pattern of the lidar sensor.
+        """
+        return self._scan_pattern
+
+
+scout_spatial_api_PointCloudMetadata.__name__ = "PointCloudMetadata"
+scout_spatial_api_PointCloudMetadata.__qualname__ = "PointCloudMetadata"
+scout_spatial_api_PointCloudMetadata.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_ScanPattern(ConjureEnumType):
+
+    ROTATING = 'ROTATING'
+    '''ROTATING'''
+    SOLID_STATE = 'SOLID_STATE'
+    '''SOLID_STATE'''
+    FLASH = 'FLASH'
+    '''FLASH'''
+    MECHANICAL = 'MECHANICAL'
+    '''MECHANICAL'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_spatial_api_ScanPattern.__name__ = "ScanPattern"
+scout_spatial_api_ScanPattern.__qualname__ = "ScanPattern"
+scout_spatial_api_ScanPattern.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_SearchSpatialsQuery(ConjureUnionType):
+    _search_text: Optional[str] = None
+    _label: Optional[str] = None
+    _property: Optional["api_Property"] = None
+    _and_: Optional[List["scout_spatial_api_SearchSpatialsQuery"]] = None
+    _or_: Optional[List["scout_spatial_api_SearchSpatialsQuery"]] = None
+    _ingest_status: Optional["api_IngestStatus"] = None
+    _workspace: Optional[str] = None
+    _spatial_type: Optional["scout_spatial_api_SpatialType"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'search_text': ConjureFieldDefinition('searchText', str),
+            'label': ConjureFieldDefinition('label', api_Label),
+            'property': ConjureFieldDefinition('property', api_Property),
+            'and_': ConjureFieldDefinition('and', List[scout_spatial_api_SearchSpatialsQuery]),
+            'or_': ConjureFieldDefinition('or', List[scout_spatial_api_SearchSpatialsQuery]),
+            'ingest_status': ConjureFieldDefinition('ingestStatus', api_IngestStatus),
+            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
+            'spatial_type': ConjureFieldDefinition('spatialType', scout_spatial_api_SpatialType)
+        }
+
+    def __init__(
+            self,
+            search_text: Optional[str] = None,
+            label: Optional[str] = None,
+            property: Optional["api_Property"] = None,
+            and_: Optional[List["scout_spatial_api_SearchSpatialsQuery"]] = None,
+            or_: Optional[List["scout_spatial_api_SearchSpatialsQuery"]] = None,
+            ingest_status: Optional["api_IngestStatus"] = None,
+            workspace: Optional[str] = None,
+            spatial_type: Optional["scout_spatial_api_SpatialType"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (search_text is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (ingest_status is not None) + (workspace is not None) + (spatial_type is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if search_text is not None:
+                self._search_text = search_text
+                self._type = 'searchText'
+            if label is not None:
+                self._label = label
+                self._type = 'label'
+            if property is not None:
+                self._property = property
+                self._type = 'property'
+            if and_ is not None:
+                self._and_ = and_
+                self._type = 'and'
+            if or_ is not None:
+                self._or_ = or_
+                self._type = 'or'
+            if ingest_status is not None:
+                self._ingest_status = ingest_status
+                self._type = 'ingestStatus'
+            if workspace is not None:
+                self._workspace = workspace
+                self._type = 'workspace'
+            if spatial_type is not None:
+                self._spatial_type = spatial_type
+                self._type = 'spatialType'
+
+        elif type_of_union == 'searchText':
+            if search_text is None:
+                raise ValueError('a union value must not be None')
+            self._search_text = search_text
+            self._type = 'searchText'
+        elif type_of_union == 'label':
+            if label is None:
+                raise ValueError('a union value must not be None')
+            self._label = label
+            self._type = 'label'
+        elif type_of_union == 'property':
+            if property is None:
+                raise ValueError('a union value must not be None')
+            self._property = property
+            self._type = 'property'
+        elif type_of_union == 'and':
+            if and_ is None:
+                raise ValueError('a union value must not be None')
+            self._and_ = and_
+            self._type = 'and'
+        elif type_of_union == 'or':
+            if or_ is None:
+                raise ValueError('a union value must not be None')
+            self._or_ = or_
+            self._type = 'or'
+        elif type_of_union == 'ingestStatus':
+            if ingest_status is None:
+                raise ValueError('a union value must not be None')
+            self._ingest_status = ingest_status
+            self._type = 'ingestStatus'
+        elif type_of_union == 'workspace':
+            if workspace is None:
+                raise ValueError('a union value must not be None')
+            self._workspace = workspace
+            self._type = 'workspace'
+        elif type_of_union == 'spatialType':
+            if spatial_type is None:
+                raise ValueError('a union value must not be None')
+            self._spatial_type = spatial_type
+            self._type = 'spatialType'
+
+    @builtins.property
+    def search_text(self) -> Optional[str]:
+        return self._search_text
+
+    @builtins.property
+    def label(self) -> Optional[str]:
+        return self._label
+
+    @builtins.property
+    def property(self) -> Optional["api_Property"]:
+        return self._property
+
+    @builtins.property
+    def and_(self) -> Optional[List["scout_spatial_api_SearchSpatialsQuery"]]:
+        return self._and_
+
+    @builtins.property
+    def or_(self) -> Optional[List["scout_spatial_api_SearchSpatialsQuery"]]:
+        return self._or_
+
+    @builtins.property
+    def ingest_status(self) -> Optional["api_IngestStatus"]:
+        return self._ingest_status
+
+    @builtins.property
+    def workspace(self) -> Optional[str]:
+        return self._workspace
+
+    @builtins.property
+    def spatial_type(self) -> Optional["scout_spatial_api_SpatialType"]:
+        return self._spatial_type
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_spatial_api_SearchSpatialsQueryVisitor):
+            raise ValueError('{} is not an instance of scout_spatial_api_SearchSpatialsQueryVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'searchText' and self.search_text is not None:
+            return visitor._search_text(self.search_text)
+        if self._type == 'label' and self.label is not None:
+            return visitor._label(self.label)
+        if self._type == 'property' and self.property is not None:
+            return visitor._property(self.property)
+        if self._type == 'and' and self.and_ is not None:
+            return visitor._and(self.and_)
+        if self._type == 'or' and self.or_ is not None:
+            return visitor._or(self.or_)
+        if self._type == 'ingestStatus' and self.ingest_status is not None:
+            return visitor._ingest_status(self.ingest_status)
+        if self._type == 'workspace' and self.workspace is not None:
+            return visitor._workspace(self.workspace)
+        if self._type == 'spatialType' and self.spatial_type is not None:
+            return visitor._spatial_type(self.spatial_type)
+
+
+scout_spatial_api_SearchSpatialsQuery.__name__ = "SearchSpatialsQuery"
+scout_spatial_api_SearchSpatialsQuery.__qualname__ = "SearchSpatialsQuery"
+scout_spatial_api_SearchSpatialsQuery.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_SearchSpatialsQueryVisitor:
+
+    @abstractmethod
+    def _search_text(self, search_text: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _label(self, label: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _property(self, property: "api_Property") -> Any:
+        pass
+
+    @abstractmethod
+    def _and(self, and_: List["scout_spatial_api_SearchSpatialsQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _or(self, or_: List["scout_spatial_api_SearchSpatialsQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _ingest_status(self, ingest_status: "api_IngestStatus") -> Any:
+        pass
+
+    @abstractmethod
+    def _workspace(self, workspace: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _spatial_type(self, spatial_type: "scout_spatial_api_SpatialType") -> Any:
+        pass
+
+
+scout_spatial_api_SearchSpatialsQueryVisitor.__name__ = "SearchSpatialsQueryVisitor"
+scout_spatial_api_SearchSpatialsQueryVisitor.__qualname__ = "SearchSpatialsQueryVisitor"
+scout_spatial_api_SearchSpatialsQueryVisitor.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_SearchSpatialsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'query': ConjureFieldDefinition('query', scout_spatial_api_SearchSpatialsQuery),
+            'page_size': ConjureFieldDefinition('pageSize', OptionalTypeWrapper[int]),
+            'token': ConjureFieldDefinition('token', OptionalTypeWrapper[api_Token]),
+            'sort_options': ConjureFieldDefinition('sortOptions', scout_spatial_api_SortOptions),
+            'archived_statuses': ConjureFieldDefinition('archivedStatuses', OptionalTypeWrapper[List[api_ArchivedStatus]])
+        }
+
+    __slots__: List[str] = ['_query', '_page_size', '_token', '_sort_options', '_archived_statuses']
+
+    def __init__(self, query: "scout_spatial_api_SearchSpatialsQuery", sort_options: "scout_spatial_api_SortOptions", archived_statuses: Optional[List["api_ArchivedStatus"]] = None, page_size: Optional[int] = None, token: Optional[str] = None) -> None:
+        self._query = query
+        self._page_size = page_size
+        self._token = token
+        self._sort_options = sort_options
+        self._archived_statuses = archived_statuses
+
+    @builtins.property
+    def query(self) -> "scout_spatial_api_SearchSpatialsQuery":
+        return self._query
+
+    @builtins.property
+    def page_size(self) -> Optional[int]:
+        """Defaults to 100. Will throw if larger than 1000.
+        """
+        return self._page_size
+
+    @builtins.property
+    def token(self) -> Optional[str]:
+        return self._token
+
+    @builtins.property
+    def sort_options(self) -> "scout_spatial_api_SortOptions":
+        return self._sort_options
+
+    @builtins.property
+    def archived_statuses(self) -> Optional[List["api_ArchivedStatus"]]:
+        """Default search status is NOT_ARCHIVED if none are provided.
+        """
+        return self._archived_statuses
+
+
+scout_spatial_api_SearchSpatialsRequest.__name__ = "SearchSpatialsRequest"
+scout_spatial_api_SearchSpatialsRequest.__qualname__ = "SearchSpatialsRequest"
+scout_spatial_api_SearchSpatialsRequest.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_SearchSpatialsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'results': ConjureFieldDefinition('results', List[scout_spatial_api_Spatial]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_results', '_next_page_token']
+
+    def __init__(self, results: List["scout_spatial_api_Spatial"], next_page_token: Optional[str] = None) -> None:
+        self._results = results
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def results(self) -> List["scout_spatial_api_Spatial"]:
+        return self._results
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+scout_spatial_api_SearchSpatialsResponse.__name__ = "SearchSpatialsResponse"
+scout_spatial_api_SearchSpatialsResponse.__qualname__ = "SearchSpatialsResponse"
+scout_spatial_api_SearchSpatialsResponse.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_SortField(ConjureEnumType):
+
+    CREATED_AT = 'CREATED_AT'
+    '''CREATED_AT'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_spatial_api_SortField.__name__ = "SortField"
+scout_spatial_api_SortField.__qualname__ = "SortField"
+scout_spatial_api_SortField.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_SortOptions(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'is_descending': ConjureFieldDefinition('isDescending', bool),
+            'field': ConjureFieldDefinition('field', scout_spatial_api_SortField)
+        }
+
+    __slots__: List[str] = ['_is_descending', '_field']
+
+    def __init__(self, field: "scout_spatial_api_SortField", is_descending: bool) -> None:
+        self._is_descending = is_descending
+        self._field = field
+
+    @builtins.property
+    def is_descending(self) -> bool:
+        return self._is_descending
+
+    @builtins.property
+    def field(self) -> "scout_spatial_api_SortField":
+        return self._field
+
+
+scout_spatial_api_SortOptions.__name__ = "SortOptions"
+scout_spatial_api_SortOptions.__qualname__ = "SortOptions"
+scout_spatial_api_SortOptions.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_Spatial(ConjureBeanType):
+    """A spatial asset representing 3D or geospatial data (e.g. point clouds).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'rid': ConjureFieldDefinition('rid', api_rids_SpatialRid),
+            'title': ConjureFieldDefinition('title', str),
+            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
+            'labels': ConjureFieldDefinition('labels', List[api_Label]),
+            'properties': ConjureFieldDefinition('properties', Dict[api_PropertyName, api_PropertyValue]),
+            'created_by': ConjureFieldDefinition('createdBy', str),
+            'created_at': ConjureFieldDefinition('createdAt', str),
+            'updated_at': ConjureFieldDefinition('updatedAt', str),
+            'is_archived': ConjureFieldDefinition('isArchived', bool),
+            'dagger_uuid': ConjureFieldDefinition('daggerUuid', OptionalTypeWrapper[str]),
+            'start_timestamp': ConjureFieldDefinition('startTimestamp', OptionalTypeWrapper[api_Timestamp]),
+            'end_timestamp': ConjureFieldDefinition('endTimestamp', OptionalTypeWrapper[api_Timestamp]),
+            'type_metadata': ConjureFieldDefinition('typeMetadata', scout_spatial_api_SpatialTypeMetadata),
+            'source_handle': ConjureFieldDefinition('sourceHandle', OptionalTypeWrapper[api_Handle])
+        }
+
+    __slots__: List[str] = ['_rid', '_title', '_description', '_labels', '_properties', '_created_by', '_created_at', '_updated_at', '_is_archived', '_dagger_uuid', '_start_timestamp', '_end_timestamp', '_type_metadata', '_source_handle']
+
+    def __init__(self, created_at: str, created_by: str, is_archived: bool, labels: List[str], properties: Dict[str, str], rid: str, title: str, type_metadata: "scout_spatial_api_SpatialTypeMetadata", updated_at: str, dagger_uuid: Optional[str] = None, description: Optional[str] = None, end_timestamp: Optional["api_Timestamp"] = None, source_handle: Optional["api_Handle"] = None, start_timestamp: Optional["api_Timestamp"] = None) -> None:
+        self._rid = rid
+        self._title = title
+        self._description = description
+        self._labels = labels
+        self._properties = properties
+        self._created_by = created_by
+        self._created_at = created_at
+        self._updated_at = updated_at
+        self._is_archived = is_archived
+        self._dagger_uuid = dagger_uuid
+        self._start_timestamp = start_timestamp
+        self._end_timestamp = end_timestamp
+        self._type_metadata = type_metadata
+        self._source_handle = source_handle
+
+    @builtins.property
+    def rid(self) -> str:
+        """Unique resource identifier for this spatial asset.
+        """
+        return self._rid
+
+    @builtins.property
+    def title(self) -> str:
+        """Human-readable name.
+        """
+        return self._title
+
+    @builtins.property
+    def description(self) -> Optional[str]:
+        """Optional longer description.
+        """
+        return self._description
+
+    @builtins.property
+    def labels(self) -> List[str]:
+        """Labels for categorization and filtering.
+        """
+        return self._labels
+
+    @builtins.property
+    def properties(self) -> Dict[str, str]:
+        """Arbitrary key-value metadata.
+        """
+        return self._properties
+
+    @builtins.property
+    def created_by(self) -> str:
+        """RID of the user who created this asset.
+        """
+        return self._created_by
+
+    @builtins.property
+    def created_at(self) -> str:
+        """When this asset was created.
+        """
+        return self._created_at
+
+    @builtins.property
+    def updated_at(self) -> str:
+        """When this asset was last modified.
+        """
+        return self._updated_at
+
+    @builtins.property
+    def is_archived(self) -> bool:
+        """Whether this asset has been archived.
+        """
+        return self._is_archived
+
+    @builtins.property
+    def dagger_uuid(self) -> Optional[str]:
+        """The UUID returned by Dagger when the spatial data was ingested.
+        """
+        return self._dagger_uuid
+
+    @builtins.property
+    def start_timestamp(self) -> Optional["api_Timestamp"]:
+        """Start of the time range covered by this spatial asset.
+        """
+        return self._start_timestamp
+
+    @builtins.property
+    def end_timestamp(self) -> Optional["api_Timestamp"]:
+        """End of the time range covered by this spatial asset.
+        """
+        return self._end_timestamp
+
+    @builtins.property
+    def type_metadata(self) -> "scout_spatial_api_SpatialTypeMetadata":
+        """Type-specific metadata (e.g. sensor metadata for point clouds). The variant of this
+union also serves as the type discriminator — there is no separate spatialType field.
+        """
+        return self._type_metadata
+
+    @builtins.property
+    def source_handle(self) -> Optional["api_Handle"]:
+        """Optional reference to the original source data (e.g., S3 path) for provenance tracking.
+        """
+        return self._source_handle
+
+
+scout_spatial_api_Spatial.__name__ = "Spatial"
+scout_spatial_api_Spatial.__qualname__ = "Spatial"
+scout_spatial_api_Spatial.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_SpatialIngestStatus(ConjureUnionType):
+    _success: Optional["api_SuccessResult"] = None
+    _error: Optional["api_ErrorResult"] = None
+    _in_progress: Optional["api_InProgressResult"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'success': ConjureFieldDefinition('success', api_SuccessResult),
+            'error': ConjureFieldDefinition('error', api_ErrorResult),
+            'in_progress': ConjureFieldDefinition('inProgress', api_InProgressResult)
+        }
+
+    def __init__(
+            self,
+            success: Optional["api_SuccessResult"] = None,
+            error: Optional["api_ErrorResult"] = None,
+            in_progress: Optional["api_InProgressResult"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (success is not None) + (error is not None) + (in_progress is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if success is not None:
+                self._success = success
+                self._type = 'success'
+            if error is not None:
+                self._error = error
+                self._type = 'error'
+            if in_progress is not None:
+                self._in_progress = in_progress
+                self._type = 'inProgress'
+
+        elif type_of_union == 'success':
+            if success is None:
+                raise ValueError('a union value must not be None')
+            self._success = success
+            self._type = 'success'
+        elif type_of_union == 'error':
+            if error is None:
+                raise ValueError('a union value must not be None')
+            self._error = error
+            self._type = 'error'
+        elif type_of_union == 'inProgress':
+            if in_progress is None:
+                raise ValueError('a union value must not be None')
+            self._in_progress = in_progress
+            self._type = 'inProgress'
+
+    @builtins.property
+    def success(self) -> Optional["api_SuccessResult"]:
+        return self._success
+
+    @builtins.property
+    def error(self) -> Optional["api_ErrorResult"]:
+        return self._error
+
+    @builtins.property
+    def in_progress(self) -> Optional["api_InProgressResult"]:
+        return self._in_progress
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_spatial_api_SpatialIngestStatusVisitor):
+            raise ValueError('{} is not an instance of scout_spatial_api_SpatialIngestStatusVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'success' and self.success is not None:
+            return visitor._success(self.success)
+        if self._type == 'error' and self.error is not None:
+            return visitor._error(self.error)
+        if self._type == 'inProgress' and self.in_progress is not None:
+            return visitor._in_progress(self.in_progress)
+
+
+scout_spatial_api_SpatialIngestStatus.__name__ = "SpatialIngestStatus"
+scout_spatial_api_SpatialIngestStatus.__qualname__ = "SpatialIngestStatus"
+scout_spatial_api_SpatialIngestStatus.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_SpatialIngestStatusVisitor:
+
+    @abstractmethod
+    def _success(self, success: "api_SuccessResult") -> Any:
+        pass
+
+    @abstractmethod
+    def _error(self, error: "api_ErrorResult") -> Any:
+        pass
+
+    @abstractmethod
+    def _in_progress(self, in_progress: "api_InProgressResult") -> Any:
+        pass
+
+
+scout_spatial_api_SpatialIngestStatusVisitor.__name__ = "SpatialIngestStatusVisitor"
+scout_spatial_api_SpatialIngestStatusVisitor.__qualname__ = "SpatialIngestStatusVisitor"
+scout_spatial_api_SpatialIngestStatusVisitor.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_SpatialType(ConjureEnumType):
+    """The type of spatial data stored in a spatial asset.
+    """
+
+    POINT_CLOUD = 'POINT_CLOUD'
+    '''POINT_CLOUD'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_spatial_api_SpatialType.__name__ = "SpatialType"
+scout_spatial_api_SpatialType.__qualname__ = "SpatialType"
+scout_spatial_api_SpatialType.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_SpatialTypeMetadata(ConjureUnionType):
+    """Type-specific metadata for spatial assets. Each variant holds metadata relevant to a particular spatial asset type.
+    """
+    _point_cloud: Optional["scout_spatial_api_PointCloudMetadata"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'point_cloud': ConjureFieldDefinition('pointCloud', scout_spatial_api_PointCloudMetadata)
+        }
+
+    def __init__(
+            self,
+            point_cloud: Optional["scout_spatial_api_PointCloudMetadata"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (point_cloud is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if point_cloud is not None:
+                self._point_cloud = point_cloud
+                self._type = 'pointCloud'
+
+        elif type_of_union == 'pointCloud':
+            if point_cloud is None:
+                raise ValueError('a union value must not be None')
+            self._point_cloud = point_cloud
+            self._type = 'pointCloud'
+
+    @builtins.property
+    def point_cloud(self) -> Optional["scout_spatial_api_PointCloudMetadata"]:
+        return self._point_cloud
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_spatial_api_SpatialTypeMetadataVisitor):
+            raise ValueError('{} is not an instance of scout_spatial_api_SpatialTypeMetadataVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'pointCloud' and self.point_cloud is not None:
+            return visitor._point_cloud(self.point_cloud)
+
+
+scout_spatial_api_SpatialTypeMetadata.__name__ = "SpatialTypeMetadata"
+scout_spatial_api_SpatialTypeMetadata.__qualname__ = "SpatialTypeMetadata"
+scout_spatial_api_SpatialTypeMetadata.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_SpatialTypeMetadataVisitor:
+
+    @abstractmethod
+    def _point_cloud(self, point_cloud: "scout_spatial_api_PointCloudMetadata") -> Any:
+        pass
+
+
+scout_spatial_api_SpatialTypeMetadataVisitor.__name__ = "SpatialTypeMetadataVisitor"
+scout_spatial_api_SpatialTypeMetadataVisitor.__qualname__ = "SpatialTypeMetadataVisitor"
+scout_spatial_api_SpatialTypeMetadataVisitor.__module__ = "nominal_api.scout_spatial_api"
+
+
+class scout_spatial_api_UpdateSpatialMetadataRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
+            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
+            'labels': ConjureFieldDefinition('labels', OptionalTypeWrapper[List[api_Label]]),
+            'properties': ConjureFieldDefinition('properties', OptionalTypeWrapper[Dict[api_PropertyName, api_PropertyValue]]),
+            'type_metadata': ConjureFieldDefinition('typeMetadata', OptionalTypeWrapper[scout_spatial_api_SpatialTypeMetadata])
+        }
+
+    __slots__: List[str] = ['_title', '_description', '_labels', '_properties', '_type_metadata']
+
+    def __init__(self, description: Optional[str] = None, labels: Optional[List[str]] = None, properties: Optional[Dict[str, str]] = None, title: Optional[str] = None, type_metadata: Optional["scout_spatial_api_SpatialTypeMetadata"] = None) -> None:
+        self._title = title
+        self._description = description
+        self._labels = labels
+        self._properties = properties
+        self._type_metadata = type_metadata
+
+    @builtins.property
+    def title(self) -> Optional[str]:
+        return self._title
+
+    @builtins.property
+    def description(self) -> Optional[str]:
+        return self._description
+
+    @builtins.property
+    def labels(self) -> Optional[List[str]]:
+        return self._labels
+
+    @builtins.property
+    def properties(self) -> Optional[Dict[str, str]]:
+        return self._properties
+
+    @builtins.property
+    def type_metadata(self) -> Optional["scout_spatial_api_SpatialTypeMetadata"]:
+        return self._type_metadata
+
+
+scout_spatial_api_UpdateSpatialMetadataRequest.__name__ = "UpdateSpatialMetadataRequest"
+scout_spatial_api_UpdateSpatialMetadataRequest.__qualname__ = "UpdateSpatialMetadataRequest"
+scout_spatial_api_UpdateSpatialMetadataRequest.__module__ = "nominal_api.scout_spatial_api"
 
 
 class scout_template_api_CommitTemplateRequest(ConjureBeanType):
@@ -111276,6 +113040,354 @@ scout_video_api_VideoTimestampManifestVisitor.__qualname__ = "VideoTimestampMani
 scout_video_api_VideoTimestampManifestVisitor.__module__ = "nominal_api.scout_video_api"
 
 
+class scout_webhook_template_WebhookTemplateService(Service):
+
+    def validate_template(self, auth_header: str, request: "scout_webhook_template_api_ValidateTemplateRequest") -> "scout_webhook_template_api_ValidationResult":
+        """Validates a Handlebars webhook template and returns the evaluated payload.
+Checks for template syntax errors and validates that the result is valid JSON.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/webhook-templates/validate'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_webhook_template_api_ValidationResult, self._return_none_for_unknown_union_types)
+
+    def test_webhook(self, auth_header: str, request: "scout_webhook_template_api_TestWebhookRequest") -> "scout_webhook_template_api_TestWebhookResponse":
+        """Sends a test webhook using the specified integration and template.
+This allows users to verify their webhook configuration before using it in procedures.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/webhook-templates/test'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_webhook_template_api_TestWebhookResponse, self._return_none_for_unknown_union_types)
+
+
+scout_webhook_template_WebhookTemplateService.__name__ = "WebhookTemplateService"
+scout_webhook_template_WebhookTemplateService.__qualname__ = "WebhookTemplateService"
+scout_webhook_template_WebhookTemplateService.__module__ = "nominal_api.scout_webhook_template"
+
+
+class scout_webhook_template_api_TestWebhookRequest(ConjureBeanType):
+    """Request to send a test webhook
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'integration_rid': ConjureFieldDefinition('integrationRid', scout_integrations_api_IntegrationRid),
+            'template': ConjureFieldDefinition('template', str),
+            'sample_context': ConjureFieldDefinition('sampleContext', Dict[str, object]),
+            'event_type': ConjureFieldDefinition('eventType', OptionalTypeWrapper[str])
+        }
+
+    __slots__: List[str] = ['_integration_rid', '_template', '_sample_context', '_event_type']
+
+    def __init__(self, integration_rid: str, sample_context: Dict[str, Any], template: str, event_type: Optional[str] = None) -> None:
+        self._integration_rid = integration_rid
+        self._template = template
+        self._sample_context = sample_context
+        self._event_type = event_type
+
+    @builtins.property
+    def integration_rid(self) -> str:
+        """RID of the SimpleWebhookIntegration to use
+        """
+        return self._integration_rid
+
+    @builtins.property
+    def template(self) -> str:
+        """Handlebars template for webhook payload
+        """
+        return self._template
+
+    @builtins.property
+    def sample_context(self) -> Dict[str, Any]:
+        """Sample variable values for template evaluation
+        """
+        return self._sample_context
+
+    @builtins.property
+    def event_type(self) -> Optional[str]:
+        """Event type header value (default: test.webhook)
+        """
+        return self._event_type
+
+
+scout_webhook_template_api_TestWebhookRequest.__name__ = "TestWebhookRequest"
+scout_webhook_template_api_TestWebhookRequest.__qualname__ = "TestWebhookRequest"
+scout_webhook_template_api_TestWebhookRequest.__module__ = "nominal_api.scout_webhook_template_api"
+
+
+class scout_webhook_template_api_TestWebhookResponse(ConjureBeanType):
+    """Result of test webhook delivery
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'success': ConjureFieldDefinition('success', bool),
+            'status_code': ConjureFieldDefinition('statusCode', int),
+            'response_body': ConjureFieldDefinition('responseBody', OptionalTypeWrapper[str]),
+            'error_message': ConjureFieldDefinition('errorMessage', OptionalTypeWrapper[str]),
+            'evaluated_payload': ConjureFieldDefinition('evaluatedPayload', OptionalTypeWrapper[str]),
+            'latency_millis': ConjureFieldDefinition('latencyMillis', int)
+        }
+
+    __slots__: List[str] = ['_success', '_status_code', '_response_body', '_error_message', '_evaluated_payload', '_latency_millis']
+
+    def __init__(self, latency_millis: int, status_code: int, success: bool, error_message: Optional[str] = None, evaluated_payload: Optional[str] = None, response_body: Optional[str] = None) -> None:
+        self._success = success
+        self._status_code = status_code
+        self._response_body = response_body
+        self._error_message = error_message
+        self._evaluated_payload = evaluated_payload
+        self._latency_millis = latency_millis
+
+    @builtins.property
+    def success(self) -> bool:
+        """Whether the webhook was delivered successfully
+        """
+        return self._success
+
+    @builtins.property
+    def status_code(self) -> int:
+        """HTTP status code from the webhook endpoint, or 0 if delivery failed before any HTTP request was sent (for example due to template errors, invalid JSON, or URL validation failures).
+        """
+        return self._status_code
+
+    @builtins.property
+    def response_body(self) -> Optional[str]:
+        """Response body from webhook endpoint
+        """
+        return self._response_body
+
+    @builtins.property
+    def error_message(self) -> Optional[str]:
+        """Error message if delivery failed
+        """
+        return self._error_message
+
+    @builtins.property
+    def evaluated_payload(self) -> Optional[str]:
+        """The actual JSON payload that was sent
+        """
+        return self._evaluated_payload
+
+    @builtins.property
+    def latency_millis(self) -> int:
+        """Time taken to deliver webhook in milliseconds
+        """
+        return self._latency_millis
+
+
+scout_webhook_template_api_TestWebhookResponse.__name__ = "TestWebhookResponse"
+scout_webhook_template_api_TestWebhookResponse.__qualname__ = "TestWebhookResponse"
+scout_webhook_template_api_TestWebhookResponse.__module__ = "nominal_api.scout_webhook_template_api"
+
+
+class scout_webhook_template_api_ValidateTemplateRequest(ConjureBeanType):
+    """Request to validate a Handlebars webhook template
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'template': ConjureFieldDefinition('template', str),
+            'sample_context': ConjureFieldDefinition('sampleContext', Dict[str, object])
+        }
+
+    __slots__: List[str] = ['_template', '_sample_context']
+
+    def __init__(self, sample_context: Dict[str, Any], template: str) -> None:
+        self._template = template
+        self._sample_context = sample_context
+
+    @builtins.property
+    def template(self) -> str:
+        """Handlebars template string to validate
+        """
+        return self._template
+
+    @builtins.property
+    def sample_context(self) -> Dict[str, Any]:
+        """Sample variable values for template evaluation
+        """
+        return self._sample_context
+
+
+scout_webhook_template_api_ValidateTemplateRequest.__name__ = "ValidateTemplateRequest"
+scout_webhook_template_api_ValidateTemplateRequest.__qualname__ = "ValidateTemplateRequest"
+scout_webhook_template_api_ValidateTemplateRequest.__module__ = "nominal_api.scout_webhook_template_api"
+
+
+class scout_webhook_template_api_ValidationError(ConjureBeanType):
+    """A validation error with optional location information
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'message': ConjureFieldDefinition('message', str),
+            'line': ConjureFieldDefinition('line', OptionalTypeWrapper[int]),
+            'column': ConjureFieldDefinition('column', OptionalTypeWrapper[int])
+        }
+
+    __slots__: List[str] = ['_message', '_line', '_column']
+
+    def __init__(self, message: str, column: Optional[int] = None, line: Optional[int] = None) -> None:
+        self._message = message
+        self._line = line
+        self._column = column
+
+    @builtins.property
+    def message(self) -> str:
+        """Error message
+        """
+        return self._message
+
+    @builtins.property
+    def line(self) -> Optional[int]:
+        """Line number where error occurred
+        """
+        return self._line
+
+    @builtins.property
+    def column(self) -> Optional[int]:
+        """Column number where error occurred
+        """
+        return self._column
+
+
+scout_webhook_template_api_ValidationError.__name__ = "ValidationError"
+scout_webhook_template_api_ValidationError.__qualname__ = "ValidationError"
+scout_webhook_template_api_ValidationError.__module__ = "nominal_api.scout_webhook_template_api"
+
+
+class scout_webhook_template_api_ValidationResult(ConjureBeanType):
+    """Result of template validation
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'valid': ConjureFieldDefinition('valid', bool),
+            'evaluated_payload': ConjureFieldDefinition('evaluatedPayload', OptionalTypeWrapper[str]),
+            'errors': ConjureFieldDefinition('errors', List[scout_webhook_template_api_ValidationError]),
+            'warnings': ConjureFieldDefinition('warnings', List[scout_webhook_template_api_ValidationWarning])
+        }
+
+    __slots__: List[str] = ['_valid', '_evaluated_payload', '_errors', '_warnings']
+
+    def __init__(self, errors: List["scout_webhook_template_api_ValidationError"], valid: bool, warnings: List["scout_webhook_template_api_ValidationWarning"], evaluated_payload: Optional[str] = None) -> None:
+        self._valid = valid
+        self._evaluated_payload = evaluated_payload
+        self._errors = errors
+        self._warnings = warnings
+
+    @builtins.property
+    def valid(self) -> bool:
+        """Whether the template is syntactically valid and produces valid JSON
+        """
+        return self._valid
+
+    @builtins.property
+    def evaluated_payload(self) -> Optional[str]:
+        """Evaluated JSON payload if template is valid
+        """
+        return self._evaluated_payload
+
+    @builtins.property
+    def errors(self) -> List["scout_webhook_template_api_ValidationError"]:
+        """List of validation errors
+        """
+        return self._errors
+
+    @builtins.property
+    def warnings(self) -> List["scout_webhook_template_api_ValidationWarning"]:
+        """List of validation warnings
+        """
+        return self._warnings
+
+
+scout_webhook_template_api_ValidationResult.__name__ = "ValidationResult"
+scout_webhook_template_api_ValidationResult.__qualname__ = "ValidationResult"
+scout_webhook_template_api_ValidationResult.__module__ = "nominal_api.scout_webhook_template_api"
+
+
+class scout_webhook_template_api_ValidationWarning(ConjureBeanType):
+    """A validation warning
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'message': ConjureFieldDefinition('message', str)
+        }
+
+    __slots__: List[str] = ['_message']
+
+    def __init__(self, message: str) -> None:
+        self._message = message
+
+    @builtins.property
+    def message(self) -> str:
+        """Warning message
+        """
+        return self._message
+
+
+scout_webhook_template_api_ValidationWarning.__name__ = "ValidationWarning"
+scout_webhook_template_api_ValidationWarning.__qualname__ = "ValidationWarning"
+scout_webhook_template_api_ValidationWarning.__module__ = "nominal_api.scout_webhook_template_api"
+
+
 class scout_workbookcommon_api_AssetDataScopeInputValue(ConjureBeanType):
     """An asset data scope input value.
     """
@@ -114494,6 +116606,8 @@ class storage_series_api_NominalDataType(ConjureEnumType):
     '''STRUCT'''
     VIDEO = 'VIDEO'
     '''VIDEO'''
+    SPATIAL = 'SPATIAL'
+    '''SPATIAL'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -119449,6 +121563,7 @@ class timeseries_metadata_api_LocatorTemplate(ConjureUnionType):
     _big_query: Optional["timeseries_metadata_api_BigQueryLocatorTemplate"] = None
     _api: Optional["timeseries_metadata_api_ApiLocatorTemplate"] = None
     _video: Optional["timeseries_metadata_api_VideoLocatorTemplate"] = None
+    _spatial: Optional["timeseries_metadata_api_SpatialLocatorTemplate"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -119461,7 +121576,8 @@ class timeseries_metadata_api_LocatorTemplate(ConjureUnionType):
             'visual_crossing': ConjureFieldDefinition('visualCrossing', timeseries_metadata_api_VisualCrossingLocatorTemplate),
             'big_query': ConjureFieldDefinition('bigQuery', timeseries_metadata_api_BigQueryLocatorTemplate),
             'api': ConjureFieldDefinition('api', timeseries_metadata_api_ApiLocatorTemplate),
-            'video': ConjureFieldDefinition('video', timeseries_metadata_api_VideoLocatorTemplate)
+            'video': ConjureFieldDefinition('video', timeseries_metadata_api_VideoLocatorTemplate),
+            'spatial': ConjureFieldDefinition('spatial', timeseries_metadata_api_SpatialLocatorTemplate)
         }
 
     def __init__(
@@ -119475,10 +121591,11 @@ class timeseries_metadata_api_LocatorTemplate(ConjureUnionType):
             big_query: Optional["timeseries_metadata_api_BigQueryLocatorTemplate"] = None,
             api: Optional["timeseries_metadata_api_ApiLocatorTemplate"] = None,
             video: Optional["timeseries_metadata_api_VideoLocatorTemplate"] = None,
+            spatial: Optional["timeseries_metadata_api_SpatialLocatorTemplate"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (timescale_db is not None) + (influx is not None) + (influx1 is not None) + (nominal is not None) + (timestream is not None) + (visual_crossing is not None) + (big_query is not None) + (api is not None) + (video is not None) != 1:
+            if (timescale_db is not None) + (influx is not None) + (influx1 is not None) + (nominal is not None) + (timestream is not None) + (visual_crossing is not None) + (big_query is not None) + (api is not None) + (video is not None) + (spatial is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if timescale_db is not None:
@@ -119508,6 +121625,9 @@ class timeseries_metadata_api_LocatorTemplate(ConjureUnionType):
             if video is not None:
                 self._video = video
                 self._type = 'video'
+            if spatial is not None:
+                self._spatial = spatial
+                self._type = 'spatial'
 
         elif type_of_union == 'timescaleDb':
             if timescale_db is None:
@@ -119554,6 +121674,11 @@ class timeseries_metadata_api_LocatorTemplate(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._video = video
             self._type = 'video'
+        elif type_of_union == 'spatial':
+            if spatial is None:
+                raise ValueError('a union value must not be None')
+            self._spatial = spatial
+            self._type = 'spatial'
 
     @builtins.property
     def timescale_db(self) -> Optional["timeseries_metadata_api_TimescaleDbLocatorTemplate"]:
@@ -119591,6 +121716,10 @@ class timeseries_metadata_api_LocatorTemplate(ConjureUnionType):
     def video(self) -> Optional["timeseries_metadata_api_VideoLocatorTemplate"]:
         return self._video
 
+    @builtins.property
+    def spatial(self) -> Optional["timeseries_metadata_api_SpatialLocatorTemplate"]:
+        return self._spatial
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, timeseries_metadata_api_LocatorTemplateVisitor):
             raise ValueError('{} is not an instance of timeseries_metadata_api_LocatorTemplateVisitor'.format(visitor.__class__.__name__))
@@ -119612,6 +121741,8 @@ class timeseries_metadata_api_LocatorTemplate(ConjureUnionType):
             return visitor._api(self.api)
         if self._type == 'video' and self.video is not None:
             return visitor._video(self.video)
+        if self._type == 'spatial' and self.spatial is not None:
+            return visitor._spatial(self.spatial)
 
 
 timeseries_metadata_api_LocatorTemplate.__name__ = "LocatorTemplate"
@@ -119655,6 +121786,10 @@ class timeseries_metadata_api_LocatorTemplateVisitor:
 
     @abstractmethod
     def _video(self, video: "timeseries_metadata_api_VideoLocatorTemplate") -> Any:
+        pass
+
+    @abstractmethod
+    def _spatial(self, spatial: "timeseries_metadata_api_SpatialLocatorTemplate") -> Any:
         pass
 
 
@@ -119757,6 +121892,29 @@ class timeseries_metadata_api_SeriesMetadata(ConjureBeanType):
 timeseries_metadata_api_SeriesMetadata.__name__ = "SeriesMetadata"
 timeseries_metadata_api_SeriesMetadata.__qualname__ = "SeriesMetadata"
 timeseries_metadata_api_SeriesMetadata.__module__ = "nominal_api.timeseries_metadata_api"
+
+
+class timeseries_metadata_api_SpatialLocatorTemplate(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'channel': ConjureFieldDefinition('channel', api_Channel)
+        }
+
+    __slots__: List[str] = ['_channel']
+
+    def __init__(self, channel: str) -> None:
+        self._channel = channel
+
+    @builtins.property
+    def channel(self) -> str:
+        return self._channel
+
+
+timeseries_metadata_api_SpatialLocatorTemplate.__name__ = "SpatialLocatorTemplate"
+timeseries_metadata_api_SpatialLocatorTemplate.__qualname__ = "SpatialLocatorTemplate"
+timeseries_metadata_api_SpatialLocatorTemplate.__module__ = "nominal_api.timeseries_metadata_api"
 
 
 class timeseries_metadata_api_TimeBounds(ConjureBeanType):
@@ -121080,6 +123238,8 @@ timeseries_logicalseries_api_ProjectName = str
 api_Channel = str
 
 api_rids_AutomaticCheckEvaluationRid = str
+
+api_rids_SpatialRid = str
 
 scout_versioning_api_CommitId = str
 

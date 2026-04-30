@@ -60,8 +60,8 @@ create_project_collaborator = CreateProjectCollaborator(
     permission_level: ProjectPermissionLevel = field(  # type: ignore
         default=ProjectPermissionLevel.READONLY,  # type: ignore
         metadata={
-            "docstring": "Permission level the added user should have for the project"  # type: ignore
-            f"(one of: {','.join([str(m.value) for m in ProjectPermissionLevel])}",  # type: ignore
+            "docstring": "Permission level the added user should have for the project "  # type: ignore
+            f"(one of: {','.join([str(m.value) for m in ProjectPermissionLevel])}).",  # type: ignore
         },
     )
 

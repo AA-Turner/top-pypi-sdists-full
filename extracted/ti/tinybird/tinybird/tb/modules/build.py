@@ -75,6 +75,7 @@ def build(ctx: click.Context, watch: bool, with_connections: bool) -> None:
     tb_client: TinyB = ctx.ensure_object(dict)["client"]
     config: Dict[str, Any] = ctx.ensure_object(dict)["config"]
     is_branch = bool(ctx.ensure_object(dict)["branch"])
+    use_deployment_api = obj["env"] == "cloud" and is_branch
 
     # TODO: Explain that you can use custom branches too once they are open for everyone
     if obj["env"] == "cloud" and not is_branch:
@@ -100,6 +101,7 @@ def build(ctx: click.Context, watch: bool, with_connections: bool) -> None:
         config=config,
         is_branch=is_branch,
         with_connections=with_connections,
+        use_deployment_api=use_deployment_api,
     )
     if watch:
         run_watch(
@@ -113,6 +115,7 @@ def build(ctx: click.Context, watch: bool, with_connections: bool) -> None:
                 config=config,
                 is_branch=is_branch,
                 with_connections=with_connections,
+                use_deployment_api=use_deployment_api,
             ),
         )
 
@@ -128,6 +131,7 @@ def dev(ctx: click.Context, with_connections: Optional[bool]) -> None:
     obj: Dict[str, Any] = ctx.ensure_object(dict)
     branch: Optional[str] = ctx.ensure_object(dict)["branch"]
     is_branch = bool(branch)
+    use_deployment_api = obj["env"] == "cloud" and is_branch
 
     # Default with_connections to True for branches, False otherwise
     if with_connections is None:
@@ -149,6 +153,7 @@ def dev(ctx: click.Context, with_connections: Optional[bool]) -> None:
         config=config,
         is_branch=is_branch,
         with_connections=with_connections,
+        use_deployment_api=use_deployment_api,
     )
     run_watch(
         project=project,
@@ -160,6 +165,7 @@ def dev(ctx: click.Context, with_connections: Optional[bool]) -> None:
             config=config,
             is_branch=is_branch,
             with_connections=with_connections,
+            use_deployment_api=use_deployment_api,
         ),
     )
 

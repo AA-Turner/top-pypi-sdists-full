@@ -3,7 +3,7 @@ pub use chalk_ast::*;
 pub use chalk_ignore as ignore;
 pub use chalk_project as project;
 pub use chalk_proto as proto;
-pub use chalk_utils::{duration, namespace};
+pub use chalk_utils::{duration, isodate, namespace};
 
 // ---------------------------------------------------------------------------
 // PyO3 Python bindings (gated behind "python" feature)
@@ -15,9 +15,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[cfg(feature = "python")]
-use pyo3::exceptions::{PyIOError, PyValueError};
+use pyo3::exceptions::{PyIOError, PyOverflowError, PyTypeError, PyValueError};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
+use pyo3::types::{
+    PyAny, PyDate, PyDateAccess, PyDateTime, PyDelta, PyDeltaAccess, PyModule, PyTime, PyTzInfo,
+};
 
 #[cfg(feature = "python")]
 type PyRangeTuple = (u32, u32, u32, u32);
@@ -530,6 +534,141 @@ fn seconds_to_duration_string(py: Python, total_seconds: f64) -> String {
 }
 
 #[cfg(feature = "python")]
+fn iso_timezone_to_python<'py>(
+    py: Python<'py>,
+    timezone: Option<isodate::IsoTimezone>,
+) -> PyResult<Option<Bound<'py, PyTzInfo>>> {
+    match timezone {
+        None => Ok(None),
+        Some(isodate::IsoTimezone::Utc) => Ok(Some(PyTzInfo::utc(py)?.to_owned())),
+        Some(isodate::IsoTimezone::Fixed { name, seconds }) => {
+            let offset = PyDelta::new(py, 0, seconds, 0, true)?;
+            let datetime = PyModule::import(py, "datetime")?;
+            Ok(Some(
+                datetime
+                    .getattr("timezone")?
+                    .call1((offset, name))?
+                    .cast_into::<PyTzInfo>()?,
+            ))
+        }
+    }
+}
+
+#[cfg(feature = "python")]
+fn datetime_timezone_to_python<'py>(
+    py: Python<'py>,
+    timezone: Option<isodate::IsoTimezone>,
+) -> PyResult<Option<Bound<'py, PyTzInfo>>> {
+    match timezone {
+        None => Ok(None),
+        Some(isodate::IsoTimezone::Utc) | Some(isodate::IsoTimezone::Fixed { seconds: 0, .. }) => {
+            Ok(Some(PyTzInfo::utc(py)?.to_owned()))
+        }
+        Some(isodate::IsoTimezone::Fixed { seconds, .. }) => {
+            let offset = PyDelta::new(py, 0, seconds, 0, true)?;
+            Ok(Some(PyTzInfo::fixed_offset(py, offset)?))
+        }
+    }
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn parse_iso_date<'py>(py: Python<'py>, s: &str) -> PyResult<Bound<'py, PyDate>> {
+    let parsed = py
+        .detach(|| isodate::parse_date(s))
+        .map_err(PyValueError::new_err)?;
+    PyDate::new(py, parsed.year, parsed.month, parsed.day)
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn parse_iso_time<'py>(py: Python<'py>, s: &str) -> PyResult<Bound<'py, PyTime>> {
+    let parsed = py
+        .detach(|| isodate::parse_time(s))
+        .map_err(PyValueError::new_err)?;
+    let timezone = iso_timezone_to_python(py, parsed.timezone)?;
+    PyTime::new(
+        py,
+        parsed.hour,
+        parsed.minute,
+        parsed.second,
+        parsed.microsecond,
+        timezone.as_ref(),
+    )
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn parse_datetime<'py>(py: Python<'py>, s: &str) -> PyResult<Bound<'py, PyDateTime>> {
+    let today = py
+        .import("datetime")?
+        .getattr("date")?
+        .call_method0("today")?
+        .cast_into::<PyDate>()?;
+    let default_date = isodate::IsoDate {
+        year: today.get_year(),
+        month: today.get_month(),
+        day: today.get_day(),
+    };
+    let parsed = py
+        .detach(|| isodate::parse_datetime_with_default_date(s, Some(default_date)))
+        .map_err(PyValueError::new_err)?;
+    let timezone = datetime_timezone_to_python(py, parsed.time.timezone)?;
+    PyDateTime::new(
+        py,
+        parsed.date.year,
+        parsed.date.month,
+        parsed.date.day,
+        parsed.time.hour,
+        parsed.time.minute,
+        parsed.time.second,
+        parsed.time.microsecond,
+        timezone.as_ref(),
+    )
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn parse_iso_duration<'py>(py: Python<'py>, s: &str) -> PyResult<Bound<'py, PyDelta>> {
+    let parsed = py
+        .detach(|| isodate::parse_duration(s))
+        .map_err(PyValueError::new_err)?;
+    let isodate::IsoDuration::Timedelta { total_microseconds } = parsed else {
+        return Err(PyTypeError::new_err(format!(
+            "ISO 8601 duration '{s}' contains year/month components that cannot be represented as a fixed timedelta"
+        )));
+    };
+    let (days, seconds, microseconds) =
+        isodate::split_timedelta(total_microseconds).map_err(PyOverflowError::new_err)?;
+    PyDelta::new(py, days, seconds, microseconds, false)
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn duration_isoformat(py: Python, tduration: &Bound<'_, PyAny>) -> PyResult<String> {
+    let delta = tduration
+        .cast::<PyDelta>()
+        .map_err(|_| PyTypeError::new_err("duration_isoformat expects a datetime.timedelta"))?;
+    let days = delta.get_days();
+    let seconds = delta.get_seconds();
+    let microseconds = delta.get_microseconds();
+    Ok(py.detach(|| isodate::duration_isoformat(days, seconds, microseconds)))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn timezone_from_name<'py>(py: Python<'py>, name: &str) -> PyResult<Option<Bound<'py, PyTzInfo>>> {
+    if name.is_empty() {
+        return Ok(None);
+    }
+    let zone_info = PyModule::import(py, "zoneinfo")?.getattr("ZoneInfo")?;
+    match zone_info.call1((name,)) {
+        Ok(tz) => Ok(Some(tz.cast_into::<PyTzInfo>()?)),
+        Err(_) => Ok(None),
+    }
+}
+
+#[cfg(feature = "python")]
 #[pyfunction]
 fn to_snake_case(py: Python, name: &str) -> String {
     py.detach(|| chalk_utils::to_snake_case(name))
@@ -555,6 +694,12 @@ fn chalk_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_duration_ms, m)?)?;
     m.add_function(wrap_pyfunction!(parse_duration_s, m)?)?;
     m.add_function(wrap_pyfunction!(seconds_to_duration_string, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_iso_date, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_iso_time, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_datetime, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_iso_duration, m)?)?;
+    m.add_function(wrap_pyfunction!(duration_isoformat, m)?)?;
+    m.add_function(wrap_pyfunction!(timezone_from_name, m)?)?;
     m.add_function(wrap_pyfunction!(to_snake_case, m)?)?;
     m.add_function(wrap_pyfunction!(build_namespaced_name, m)?)?;
     Ok(())

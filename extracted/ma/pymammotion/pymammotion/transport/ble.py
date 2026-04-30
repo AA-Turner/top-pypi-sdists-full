@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING, Any
 from bleak.exc import BleakError
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
+from pymammotion.bluetooth.ble_message import BleMessage
 from pymammotion.bluetooth.const import UUID_NOTIFICATION_CHARACTERISTIC
+from pymammotion.mammotion.commands.mammotion_command import MammotionCommand
 from pymammotion.transport.base import (
     BLEUnavailableError,
     NoBLEAddressKnownError,
@@ -25,8 +27,6 @@ if TYPE_CHECKING:
 
     from bleak import BLEDevice
     from bleak.backends.characteristic import BleakGATTCharacteristic
-
-    from pymammotion.bluetooth.ble_message import BleMessage
 
 _logger = logging.getLogger(__name__)
 
@@ -67,6 +67,9 @@ class BLETransport(Transport):
         self._availability: TransportAvailability = TransportAvailability.DISCONNECTED
         self._disconnect_on_idle: bool = True
         self._idle_disconnect_timer: asyncio.TimerHandle | None = None
+        # Captured at connect() so disconnect callbacks (which may run on a non-asyncio
+        # thread inside bleak's backend) can schedule async work safely.
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._operation_lock: asyncio.Lock = asyncio.Lock()
 
     # ------------------------------------------------------------------
@@ -118,6 +121,10 @@ class BLETransport(Transport):
             _logger.debug("BLETransport.connect() called while already connected — ignoring")
             return
 
+        # Capture the loop NOW so _handle_disconnect can dispatch back into it
+        # even if bleak invokes the callback from a different thread.
+        self._loop = asyncio.get_running_loop()
+
         await self._notify_availability(TransportAvailability.CONNECTING)
         _logger.debug("BLETransport connecting to %s", self._config.device_id)
 
@@ -133,8 +140,6 @@ class BLETransport(Transport):
         except BleakError as exc:
             await self._notify_availability(TransportAvailability.DISCONNECTED)
             raise BLEUnavailableError(f"BLE connection failed for {self._config.device_id!r}: {exc}") from exc
-
-        from pymammotion.bluetooth.ble_message import BleMessage
 
         self._message = BleMessage(self._client)
 
@@ -153,7 +158,6 @@ class BLETransport(Transport):
         """Gracefully disconnect the BLE client."""
         self._cancel_idle_disconnect_timer()
         if self._client is not None and self._client.is_connected:
-            await self._ble_sync()
             await self._client.disconnect()
         self._client = None
         self._message = None
@@ -162,7 +166,9 @@ class BLETransport(Transport):
     async def send(self, payload: bytes, iot_id: str = "") -> None:  # noqa: ARG002
         """Frame and write payload via the BleMessage codec.
 
-        Raises TransportError if not connected.
+        Raises TransportError on any write failure, after marking the
+        transport as DISCONNECTED so the registry routes future traffic to
+        the fallback transport.
         """
         if self._client is None or self._message is None:
             msg = "BLETransport has no client; cannot send payload"
@@ -173,11 +179,13 @@ class BLETransport(Transport):
         try:
             async with self._operation_lock:
                 await self._message.post_custom_data_bytes(payload)
-        except BleakError as exc:
+        except (TimeoutError, BleakError, OSError) as exc:
             await self._notify_availability(TransportAvailability.DISCONNECTED)
             raise TransportError(f"BLE send failed for {self._config.device_id!r}: {exc}") from exc
-        # post_custom_data_bytes swallows exceptions but calls disconnect() on failure
+        # Defensive guard: even with no exception, the bleak client may have
+        # been torn down mid-write by a concurrent disconnect callback.
         if not self._client.is_connected:
+            await self._notify_availability(TransportAvailability.DISCONNECTED)
             raise TransportError(f"BLE send failed for {self._config.device_id!r}: client disconnected during write")
         self._reset_idle_disconnect_timer()
 
@@ -191,18 +199,29 @@ class BLETransport(Transport):
         await self._fire_availability_listeners(state)
 
     def _handle_disconnect(self, _client: Any) -> None:
-        """Handle unexpected disconnect reported by bleak."""
+        """Handle unexpected disconnect reported by bleak.
+
+        bleak may invoke this callback from a non-asyncio thread depending on the
+        backend, so we cannot use asyncio.get_running_loop() here. Use the loop
+        captured at connect() time and dispatch via call_soon_threadsafe().
+        """
         _logger.warning("BLETransport: device %s disconnected", self._config.device_id)
         self._message = None
         self._availability = TransportAvailability.DISCONNECTED
-        if self._availability_listeners:
-            import asyncio as _asyncio
-
-            try:
-                loop = _asyncio.get_running_loop()
-                _task = loop.create_task(self._fire_availability_listeners(TransportAvailability.DISCONNECTED))
-            except RuntimeError:
-                pass
+        if not self._availability_listeners:
+            return
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            _logger.debug(
+                "BLETransport[%s]: no captured loop, dropping disconnect notification",
+                self._config.device_id,
+            )
+            return
+        loop.call_soon_threadsafe(
+            lambda: asyncio.create_task(  # - fire-and-forget dispatch
+                self._fire_availability_listeners(TransportAvailability.DISCONNECTED)
+            )
+        )
 
     async def _notification_handler(self, _characteristic: BleakGATTCharacteristic, data: bytearray) -> None:
         """Parse incoming BLE notifications through the BluFi codec and forward complete frames."""
@@ -283,7 +302,6 @@ class BLETransport(Transport):
         """
         if self._client is None or not self._client.is_connected or self._message is None:
             return
-        from pymammotion.mammotion.commands.mammotion_command import MammotionCommand
 
         command_bytes = MammotionCommand(self._config.device_id, 0).send_todev_ble_sync(2)
         await self._message.post_custom_data_bytes(command_bytes)

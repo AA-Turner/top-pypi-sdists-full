@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-object-actions"
-version = "5.0.0"
+version = "5.0.1"
 description = "A Django app for adding object tools for models in the admin"
 authors = [{ name = "crccheck", email = "c@crccheck.com" }]
 license = { text = "Apache-2.0" }
@@ -23,6 +23,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 
 [project.urls]
@@ -31,6 +32,7 @@ classifiers = [
 [project.optional-dependencies]
 dev = [
   "coverage==7.*",
+  "Django>=4.2",
   "django-extensions==3.*",
   "factory-boy==3.*",
   "dj-database-url==2.*",
@@ -39,12 +41,12 @@ dev = [
 build = ["build", "twine"]
 
 [tool.setuptools]
-packages = [
-  "django_object_actions",
-  "django_object_actions.templates.django_object_actions",
-]
+packages = ["django_object_actions"]
 [tool.setuptools.package-data]
-"django_object_actions.templates.django_object_actions" = ["*.html"]
+"django_object_actions" = [
+  "templates/django_object_actions/*.html",
+  "static/django_object_actions/css/*.css",
+]
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]

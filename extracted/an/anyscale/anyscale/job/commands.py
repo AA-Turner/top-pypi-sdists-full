@@ -167,7 +167,7 @@ _ARCHIVE_ARG_DOCSTRINGS = {
     "name": "Name of the job.",
     "id": "Unique ID of the job",
     "cloud": "The Anyscale Cloud to run this workload on. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
-    "project": "Named project to use for the job . If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+    "project": "Named project to use for the job. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
     "include_archived": "Include archived jobs when searching by name. Ignored when using id.",
 }
 
@@ -276,7 +276,7 @@ def wait(
     _private_sdk: Optional[PrivateJobSDK] = None,
     **_kwargs: Dict[str, Any],
 ):
-    """"Wait for a job to enter a specific state."""
+    """Wait for a job to enter a specific state."""
     id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
     _private_sdk.wait(  # type: ignore
         name=name,
@@ -327,7 +327,7 @@ def get_logs(
     _private_sdk: Optional[PrivateJobSDK] = None,
     **_kwargs: Dict[str, Any],
 ) -> str:
-    """Query the jobs for a job run."""
+    """Get the logs for a job."""
     id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
     return _private_sdk.get_logs(  # type: ignore
         job_id=id,
@@ -344,7 +344,7 @@ def get_logs(
 _ADD_TAGS_EXAMPLE = """
 import anyscale
 
-anyscale.job.add_tags(id="job_123", tags={"team": "mlops", "env": "prod"})
+anyscale.job.add_tags(job_id="job_123", tags={"team": "mlops", "env": "prod"})
 """
 
 _ADD_TAGS_ARG_DOCSTRINGS = {
@@ -359,7 +359,7 @@ _ADD_TAGS_ARG_DOCSTRINGS = {
 _REMOVE_TAGS_EXAMPLE = """
 import anyscale
 
-anyscale.job.remove_tags(id="job_123", keys=["team", "env"])
+anyscale.job.remove_tags(job_id="job_123", keys=["team", "env"])
 """
 
 _REMOVE_TAGS_ARG_DOCSTRINGS = {

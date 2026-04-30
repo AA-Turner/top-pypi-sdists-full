@@ -1,6 +1,4 @@
-from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
-
-from typing_extensions import get_type_hints
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, get_type_hints
 
 from chalk.utils.pydanticutil.pydantic_compat import is_pydantic_basemodel
 

@@ -1,10 +1,10 @@
 # Setup script for mypy-boto3.
 
-# Copyright 2025 Vlad Emelianov
+# Copyright 2026 Vlad Emelianov
 
 [project]
 name = "mypy-boto3"
-version = "1.42.3"
+version = "1.43.0"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
 description = "Legacy type annotations for boto3, use types-boto3 instead."

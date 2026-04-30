@@ -1,15 +1,9 @@
-# -*- coding: utf-8 -*-
 # vi:ts=4:et
 
-import time as _time, sys
+import time as _time
+import json
 import flask
 import werkzeug
-try:
-    import json
-except ImportError:
-    import simplejson as json
-
-py3 = sys.version_info[0] == 3
 
 app = flask.Flask(__name__)
 app.debug = True
@@ -20,7 +14,10 @@ def ok():
 
 @app.route('/short_wait')
 def short_wait():
-    _time.sleep(0.1)
+    delay = flask.request.args.get('delay', default=0.1, type=float)
+    if delay < 0:
+        delay = 0.1
+    _time.sleep(delay)
     return 'success'
 
 @app.route('/status/403')
@@ -75,13 +72,9 @@ def header():
 # Thanks to bdarnell for the idea: https://github.com/pycurl/pycurl/issues/124
 @app.route('/header_utf8')
 def header_utf8():
-    header_value = flask.request.headers.get(flask.request.args['h'], '' if py3 else b'')
-    if py3:
-        # header_value is a string, headers are decoded in latin1
-        header_value = header_value.encode('latin1').decode('utf8')
-    else:
-        # header_value is a binary string, decode in utf-8 directly
-        header_value = header_value.decode('utf8')
+    header_value = flask.request.headers.get(flask.request.args['h'], '')
+    # header_value is a string, headers are decoded in latin1
+    header_value = header_value.encode('latin1').decode('utf8')
     return header_value
 
 @app.route('/param_utf8_hack', methods=['POST'])
@@ -96,11 +89,27 @@ def pause_writer(interval):
 
 @app.route('/pause')
 def pause():
-    return pause_writer(0.5)
+    return flask.Response(
+        pause_writer(0.5),
+        mimetype='text/plain'
+    )
 
 @app.route('/long_pause')
 def long_pause():
-    return pause_writer(1)
+    return flask.Response(
+        pause_writer(1),
+        mimetype='text/plain'
+    )
+
+@app.route('/chunks')
+def chunks():
+    num_chunks = int(flask.request.args.get('num_chunks', 5))
+    delay = float(flask.request.args.get('delay', 0.1))
+    def gen():
+        for i in range(num_chunks):
+            yield f'chunk{i}\n'
+            _time.sleep(delay)
+    return flask.Response(gen(), mimetype='text/plain')
 
 @app.route('/utf8_body')
 def utf8_body():

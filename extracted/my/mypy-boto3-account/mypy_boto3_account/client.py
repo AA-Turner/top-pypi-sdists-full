@@ -3,7 +3,7 @@ Type annotations for account service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_account/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -157,7 +157,7 @@ class AccountClient(BaseClient):
     ) -> GetAccountInformationResponseTypeDef:
         """
         Retrieves information about the specified account including its account name,
-        account ID, and account creation date and time.
+        account ID, account creation date and time, and account state.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/account/client/get_account_information.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_account/client/#get_account_information)

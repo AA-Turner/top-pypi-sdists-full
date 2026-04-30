@@ -32,6 +32,7 @@ from typing import (
     Literal,
     Mapping,
     MutableMapping,
+    NoReturn,
     Optional,
     Sequence,
     Tuple,
@@ -47,10 +48,10 @@ import pyarrow as pa
 import pyarrow.feather
 import requests
 import requests.structures
-from dateutil import parser
+from chalk_rs import parse_datetime as _parse_datetime
 from requests import HTTPError
 from requests.adapters import DEFAULT_POOLBLOCK, DEFAULT_POOLSIZE, DEFAULT_RETRIES, HTTPAdapter
-from typing_extensions import NoReturn, override
+from typing_extensions import override
 from urllib3 import Retry
 
 import chalk._repr.utils as repr_utils
@@ -219,6 +220,7 @@ if TYPE_CHECKING:
     from pydantic import BaseModel, ValidationError
 
     from chalk.client._internal_models.check import Result
+    from chalk.client.client_grpc import ChalkGRPCClient
 
     QueryInput = Union[Mapping[FeatureReference, Any], pd.DataFrame, pl.DataFrame, DataFrame]
     QueryInputTime = Union[Sequence[datetime], datetime, None]
@@ -1148,6 +1150,7 @@ class ChalkAPIClientImpl(ChalkClient):
         self._env_id_to_env_name_map: Mapping[str, str] | None = None
         self._env_name_to_env_id_map: Mapping[str, str] | None = None
         self._access_token: str | None = None
+        self._grpc_clients: dict[EnvironmentId | None, ChalkGRPCClient] = {}
 
         self._default_headers = {
             "Accept": "application/json",
@@ -1194,6 +1197,25 @@ class ChalkAPIClientImpl(ChalkClient):
                 )
 
     @property
+    def _grpc_client(self) -> ChalkGRPCClient:
+        return self._get_grpc_client()
+
+    def _get_grpc_client(self, environment: EnvironmentId | None = None) -> ChalkGRPCClient:
+        resolved_environment = environment or self._primary_environment
+        grpc_client = self._grpc_clients.get(resolved_environment)
+        if grpc_client is None:
+            from chalk.client.client_grpc import ChalkGRPCClient
+
+            grpc_client = ChalkGRPCClient(
+                client_id=self._client_id,
+                client_secret=self._client_secret,
+                environment=resolved_environment,
+                api_server=self._api_server,
+            )
+            self._grpc_clients[resolved_environment] = grpc_client
+        return grpc_client
+
+    @property
     def api(self):  # pyright: ignore[reportMissingSuperCall]
         """Access Chalk management APIs (e.g. data sources).
 
@@ -1203,15 +1225,8 @@ class ChalkAPIClientImpl(ChalkClient):
         """
         if not hasattr(self, "_api_namespace"):
             from chalk.client.api import APINamespace
-            from chalk.client.client_grpc import ChalkGRPCClient
 
-            grpc_client = ChalkGRPCClient(
-                client_id=self._client_id,
-                client_secret=self._client_secret,
-                environment=self._primary_environment,
-                api_server=self._api_server,
-            )
-            self._api_namespace = APINamespace(grpc_client._stub_refresher)  # pyright: ignore[reportPrivateUsage]
+            self._api_namespace = APINamespace(self._grpc_client._stub_refresher)  # pyright: ignore[reportPrivateUsage]
         return self._api_namespace
 
     def _exchange_credentials(self):
@@ -2015,20 +2030,11 @@ https://docs.chalk.ai/cli/apply
             if client is None:
                 raise RuntimeError("No ChalkClient has been instantiated. Create one first with ChalkClient().")
 
-            from chalk.client.client_grpc import ChalkGRPCClient
-
-            grpc_client = ChalkGRPCClient(
-                client_id=client._client_id,
-                client_secret=client._client_secret,
-                environment=client._primary_environment,
-                api_server=client._api_server,
-            )
-
             sql = cell.strip() if cell else ""
             if not sql:
                 raise ValueError("No SQL provided in cell body.")
 
-            response = grpc_client.run_sql(sql)
+            response = client._grpc_client.run_sql(sql)
 
             if response.errors:
                 error_msgs = [e.message for e in response.errors]
@@ -2065,19 +2071,11 @@ https://docs.chalk.ai/cli/apply
         from rich.table import Table
 
         from chalk._reporting.rich.color import SHADOWY_LAVENDER, UNDERLYING_CYAN
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        grpc_client = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
 
         console = Console()
 
         with console.status(f"Loading features from `{branch or self._branch}`", spinner="dots"):
-            result = grpc_client._get_python_codegen(branch=branch)  # type: ignore
+            result = self._grpc_client._get_python_codegen(branch=branch)  # type: ignore
 
         if result.errors:
             raise ChalkBaseException(detail="Failed to generate features")
@@ -2808,18 +2806,9 @@ https://docs.chalk.ai/cli/apply
         ...     name="my_scheduled_query",
         ... )
         """
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-
         encoded_unload_resolvers = encode_unload_resolvers(unload_resolvers)
 
-        resp = client_grpc.run_scheduled_query(
+        return self._grpc_client.run_scheduled_query(
             name=name,
             planner_options=planner_options,
             incremental_resolvers=incremental_resolvers,
@@ -2827,8 +2816,6 @@ https://docs.chalk.ai/cli/apply
             env_overrides=env_overrides,
             unload_resolvers=encoded_unload_resolvers,
         )
-
-        return resp
 
     def get_scheduled_query_run_history(
         self, name: str, limit: int = 10, include_run_details: bool = False
@@ -2858,16 +2845,7 @@ https://docs.chalk.ai/cli/apply
         ...     limit=20,
         ... )
         """
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        return client_grpc.get_scheduled_query_run_history(
+        return self._grpc_client.get_scheduled_query_run_history(
             name=name, limit=limit, include_run_details=include_run_details
         )
 
@@ -2875,16 +2853,7 @@ https://docs.chalk.ai/cli/apply
         self, scheduled_run: ScheduledQueryRun
     ) -> Union[WorkflowExecutionInfo, OfflineQueryInfo, None]:
         """Fetch the offline query or workflow execution metadata underlying a scheduled query run."""
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        return client_grpc.get_scheduled_query_run_details(scheduled_run)
+        return self._grpc_client.get_scheduled_query_run_details(scheduled_run)
 
     def list_jobs(
         self,
@@ -2899,16 +2868,7 @@ https://docs.chalk.ai/cli/apply
         offset: int = 0,
     ) -> List[JobQueueItem]:
         """List jobs in the data plane job queue."""
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        return client_grpc.list_jobs(
+        return self._grpc_client.list_jobs(
             state=state,
             kind=kind,
             operation_id=operation_id,
@@ -2933,16 +2893,7 @@ https://docs.chalk.ai/cli/apply
         Optional[OfflineQueryReport]
             The OfflineQueryReport object if it exists.
         """
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        return client_grpc.get_offline_query_report(offline_query_id)
+        return self._grpc_client.get_offline_query_report(offline_query_id)
 
     def redeploy(
         self,
@@ -2954,16 +2905,7 @@ https://docs.chalk.ai/cli/apply
         display_description: Optional[str] = None,
     ) -> RedeployResponse:
         """Full rebuild and deploy using this deployment's source."""
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        return client_grpc.redeploy(
+        return self._grpc_client.redeploy(
             deployment_id=deployment_id,
             build_profile=build_profile,
             deployment_tags=deployment_tags,
@@ -2974,16 +2916,7 @@ https://docs.chalk.ai/cli/apply
 
     def rollback_deployment(self, deployment_id: str) -> RedeployResponse:
         """Instantly redeploy using this deployment's pre-built image."""
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        return client_grpc.rollback_deployment(deployment_id=deployment_id)
+        return self._grpc_client.rollback_deployment(deployment_id=deployment_id)
 
     def rebuild_deployment(
         self,
@@ -2994,16 +2927,7 @@ https://docs.chalk.ai/cli/apply
         force_rebuild_dockerfile: bool = False,
     ) -> RedeployResponse:
         """Build a new image from this deployment's source without deploying."""
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        return client_grpc.rebuild_deployment(
+        return self._grpc_client.rebuild_deployment(
             deployment_id=deployment_id,
             new_image_tag=new_image_tag,
             build_profile=build_profile,
@@ -3013,16 +2937,7 @@ https://docs.chalk.ai/cli/apply
 
     def patch_deployment(self, deployment_id: Optional[str] = None) -> RedeployResponse:
         """Patch deployment config and restart pods without a new build."""
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        return client_grpc.patch_deployment(deployment_id=deployment_id)
+        return self._grpc_client.patch_deployment(deployment_id=deployment_id)
 
     def get_named_query_metadata(
         self,
@@ -3055,15 +2970,6 @@ https://docs.chalk.ai/cli/apply
         ...     query_version="1.1.0",
         ... )
         """
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-
         if not branch:
             branch = self.get_branch()
 
@@ -3085,12 +2991,12 @@ https://docs.chalk.ai/cli/apply
 
             desired_named_query_list = [
                 x
-                for x in client_grpc.get_graph(latest_deployment_id).named_queries
+                for x in self._grpc_client.get_graph(latest_deployment_id).named_queries
                 if x.name == name and (not query_version or x.query_version == query_version)
             ]
             return [NamedQueryMetadata.from_proto(nq) for nq in desired_named_query_list]
 
-        return client_grpc.get_named_query_metadata(
+        return self._grpc_client.get_named_query_metadata(
             name=name,
             query_version=query_version,
         )
@@ -3100,15 +3006,7 @@ https://docs.chalk.ai/cli/apply
         feature: Any,
         include_historical: bool = False,
     ) -> "str | list[str]":
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-        return client_grpc.get_offline_store_table_name(
+        return self._grpc_client.get_offline_store_table_name(
             feature=feature,
             include_historical=include_historical,
         )
@@ -3117,15 +3015,7 @@ https://docs.chalk.ai/cli/apply
         self,
         offline_query_id: str,
     ) -> None:
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-        client_grpc.cancel_offline_query(offline_query_id=offline_query_id)
+        self._grpc_client.cancel_offline_query(offline_query_id=offline_query_id)
 
     def prompt_evaluation(
         self,
@@ -4507,18 +4397,9 @@ https://docs.chalk.ai/cli/apply
             try:
                 from rich.console import Console
 
-                from chalk.client.client_grpc import ChalkGRPCClient
-
-                client_grpc = ChalkGRPCClient(
-                    client_id=self._client_id,
-                    client_secret=self._client_secret,
-                    environment=self._primary_environment,
-                    api_server=self._api_server,
-                )
-
                 console = Console()
                 with console.status(f"Creating branch `{branch_name}`", spinner="dots"):
-                    resp = client_grpc._create_branch(  # type: ignore
+                    resp = self._grpc_client._create_branch(  # type: ignore
                         branch_name=branch_name,
                         source_branch_name=source_branch_name,
                         source_deployment_id=source_deployment_id,
@@ -5000,7 +4881,7 @@ https://docs.chalk.ai/cli/apply
             for timestamp in message_timestamps:
                 try:
                     if isinstance(timestamp, str):
-                        timestamp = parser.parse(timestamp)
+                        timestamp = _parse_datetime(timestamp)
                     if not isinstance(timestamp, datetime):  # pyright: ignore[reportUnnecessaryIsInstance]
                         raise ValueError(f"value '{timestamp}' must be a datetime")
                     if timestamp.tzinfo is None:
@@ -5827,18 +5708,7 @@ https://docs.chalk.ai/cli/apply
         version: Optional[int] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> Union[GetRegisteredModelResponse, GetRegisteredModelVersionResponse]:
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=environment or self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        resp = client_grpc.get_model(name=name, version=version)
-
-        return resp
+        return self._get_grpc_client(environment=environment).get_model(name=name, version=version)
 
     def register_model_namespace(
         self,
@@ -5847,22 +5717,11 @@ https://docs.chalk.ai/cli/apply
         metadata: Optional[Mapping[str, Any]] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> RegisterModelResponse:
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=environment or self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        resp = client_grpc.register_model_namespace(
+        return self._get_grpc_client(environment=environment).register_model_namespace(
             name=name,
             description=description,
             metadata=metadata,
         )
-
-        return resp
 
     def register_model_version(
         self,
@@ -5884,16 +5743,7 @@ https://docs.chalk.ai/cli/apply
         model_image: Optional[str] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> RegisterModelVersionResponse:
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=environment or self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        resp = client_grpc.register_model_version(
+        return self._get_grpc_client(environment=environment).register_model_version(
             name=name,
             aliases=aliases,
             model_type=model_type,
@@ -5911,8 +5761,6 @@ https://docs.chalk.ai/cli/apply
             dependencies=dependencies,
             model_image=model_image,
         )
-
-        return resp
 
     def deploy_model_version_to_scaling_group(
         self,
@@ -5946,19 +5794,10 @@ https://docs.chalk.ai/cli/apply
         environment
             Environment to deploy to.
         """
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=environment or self._primary_environment,
-            api_server=self._api_server,
-        )
-
         _scaling = scaling or AutoScalingSpec()
         _resources = resources or ScalingGroupResourceRequest()
 
-        return client_grpc.deploy_model_version_to_scaling_group(
+        return self._get_grpc_client(environment=environment).deploy_model_version_to_scaling_group(
             name=name,
             model_name=model_name,
             model_version=model_version,
@@ -5985,15 +5824,7 @@ https://docs.chalk.ai/cli/apply
         ListScalingGroupsResponse
             Response containing a list of scaling groups.
         """
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=environment or self._primary_environment,
-            api_server=self._api_server,
-        )
-        return client_grpc.list_scaling_groups()
+        return self._get_grpc_client(environment=environment).list_scaling_groups()
 
     def get_scaling_group(
         self,
@@ -6017,15 +5848,7 @@ https://docs.chalk.ai/cli/apply
         ScalingGroup
             The scaling group details.
         """
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=environment or self._primary_environment,
-            api_server=self._api_server,
-        )
-        return client_grpc.get_scaling_group(name=name, id=id)
+        return self._get_grpc_client(environment=environment).get_scaling_group(name=name, id=id)
 
     def delete_scaling_group(
         self,
@@ -6049,15 +5872,7 @@ https://docs.chalk.ai/cli/apply
         DeleteScalingGroupResponse
             Response containing the deleted scaling group details.
         """
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=environment or self._primary_environment,
-            api_server=self._api_server,
-        )
-        return client_grpc.delete_scaling_group(name=name, id=id)
+        return self._get_grpc_client(environment=environment).delete_scaling_group(name=name, id=id)
 
     def download_model_artifact(
         self,
@@ -6066,22 +5881,11 @@ https://docs.chalk.ai/cli/apply
         download_dir: Optional[str] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> DownloadModelArtifactResult:
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=environment or self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        resp = client_grpc.download_model_artifact(
+        return self._get_grpc_client(environment=environment).download_model_artifact(
             name=name,
             version=version,
             download_dir=download_dir,
         )
-
-        return resp
 
     def promote_model_artifact(
         self,
@@ -6093,16 +5897,7 @@ https://docs.chalk.ai/cli/apply
         aliases: Optional[List[str]] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> RegisterModelVersionResponse:
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=environment or self._primary_environment,
-            api_server=self._api_server,
-        )
-
-        resp = client_grpc.promote_model_artifact(
+        return self._get_grpc_client(environment=environment).promote_model_artifact(
             name=name,
             model_artifact_id=model_artifact_id,
             run_id=run_id,
@@ -6110,8 +5905,6 @@ https://docs.chalk.ai/cli/apply
             criterion=criterion,
             aliases=aliases,
         )
-
-        return resp
 
     def train_model(
         self,
@@ -6126,8 +5919,6 @@ https://docs.chalk.ai/cli/apply
         train_script: Optional[str] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> CreateModelTrainingJobResponse:
-        from chalk.client.client_grpc import ChalkGRPCClient
-
         if branch is ...:
             branch = self._branch
 
@@ -6151,12 +5942,7 @@ https://docs.chalk.ai/cli/apply
 
         script = resolve_train_script(train_fn, train_script, takes_argument=config is not None)
 
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=environment or self._primary_environment,
-            api_server=self._api_server,
-        )
+        client_grpc = self._get_grpc_client(environment=environment)
 
         task_response = client_grpc.create_model_training_job(
             script=script,
@@ -6182,15 +5968,7 @@ https://docs.chalk.ai/cli/apply
         query_tags: list[str] | None = None,
         store_offline: bool | None = None,
     ):
-        from chalk.client.client_grpc import ChalkGRPCClient
-
-        client_grpc = ChalkGRPCClient(
-            client_id=self._client_id,
-            client_secret=self._client_secret,
-            environment=self._primary_environment,
-            api_server=self._api_server,
-        )
-        return client_grpc.trigger_aggregate_backfill(
+        return self._grpc_client.trigger_aggregate_backfill(
             features=features,
             lower_bound=lower_bound,
             upper_bound=upper_bound,

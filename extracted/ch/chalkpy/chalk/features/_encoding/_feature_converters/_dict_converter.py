@@ -31,12 +31,12 @@ from chalk.utils.json import TJSON
 
 from ._base import (
     _DEFAULT_FEATURE_ENCODING_OPTIONS,
-    _identity,
-    _scalar_coerce_fn,
-    _ScalarConverterBase,
     FeatureConverter,
     MissingValueError,
+    _identity,
     _raise_unsupported_missing_value_strategy,
+    _scalar_coerce_fn,
+    _ScalarConverterBase,
 )
 from ._dataclass_converter import DataclassFeatureConverter
 
@@ -134,8 +134,9 @@ class DictFeatureConverter(FeatureConverter["dict[str, Any]", "dict[str, Any]"])
 
         # Build value-level element closures (mirrors ListFeatureConverter.__init__).
         if value_converter is None:
+            from typing import get_args as _get_args
+
             from ._factory import make_feature_converter as _make_fc
-            from typing_extensions import get_args as _get_args
             _vargs = _get_args(rich_type)
             _value_rich_type: Any = _vargs[1] if len(_vargs) == 2 else ...
             value_converter = _make_fc(
@@ -169,8 +170,9 @@ class DictFeatureConverter(FeatureConverter["dict[str, Any]", "dict[str, Any]"])
         # Build key-level coercion closure so that _to_primitive normalises both keys
         # and values.  This mirrors what GenericFeatureConverter does via
         # structure_primitive_to_rich — e.g. int keys → str for map<large_string, V>.
+        from typing import get_args as _get_args
+
         from ._factory import make_feature_converter as _make_fc
-        from typing_extensions import get_args as _get_args
         _kargs = _get_args(rich_type)
         _key_rich_type: Any = _kargs[0] if len(_kargs) >= 1 else ...
         _key_elem_conv = _make_fc(

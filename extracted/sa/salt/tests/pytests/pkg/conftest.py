@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 
+import packaging.version
 import pytest
 import yaml
 from pytestskipmarkers.utils import platform
@@ -19,6 +20,20 @@ log = logging.getLogger(__name__)
 
 # Variable defining a FIPS test run or not
 FIPS_TESTRUN = os.environ.get("FIPS_TESTRUN", "0") == "1"
+
+
+def pytest_configure(config):
+    if (
+        sys.platform == "darwin"
+        and os.getuid() != 0
+        and config.getoption("--pkg-system-service", default=False)
+    ):
+        # launchctl system-domain operations require root on macOS 13+.
+        # The whole pkg test suite must be run via ``sudo -E nox`` (as CI does).
+        raise pytest.UsageError(
+            "Package tests with --pkg-system-service require root on macOS. "
+            "Run the test suite via: sudo -E nox ..."
+        )
 
 
 @pytest.fixture(scope="session")
@@ -485,9 +500,17 @@ def salt_minion(salt_factories, salt_master, install_salt):
         if minion_pki.exists():
             salt.utils.files.rm_rf(minion_pki)
 
-        # Work around missing WMIC until 3008.10 has been released.
+        # Work around missing WMIC until 3008.10 has been released. Not sure
+        # why this doesn't work anymore on the master branch when it was enough
+        # on 3006.x and 3007.x. We had to add similar logic in
+        # tests/support/pkg.py to fix the upgrade/downgrade tests on master.
         grainsdir = pathlib.Path("c:/salt/etc/grains")
         grainsdir.mkdir(exist_ok=True)
+        shutil.copy(r"salt\grains\disks.py", grainsdir)
+
+        grainsdir = pathlib.Path(
+            r"C:\Program Files\Salt Project\Salt\Lib\site-packages\salt\grains"
+        )
         shutil.copy(r"salt\grains\disks.py", grainsdir)
 
     factory.after_terminate(
@@ -519,8 +542,19 @@ def pkg_tests_account():
 
 
 @pytest.fixture(scope="module")
-def extras_pypath():
-    extras_dir = "extras-{}.{}".format(*sys.version_info)
+def extras_pypath(install_salt):
+    # Use the packaged Salt's Python version, not the test runner's
+    python_path = install_salt.binary_paths["python"]
+    if len(python_path) == 1:
+        python_bin = str(python_path[0])
+    else:
+        python_bin = os.path.join(*python_path)
+    try:
+        ret = subprocess.run([python_bin, "--version"], check=True, capture_output=True)
+        v = packaging.version.Version(ret.stdout.decode().split()[1])
+        extras_dir = f"extras-{v.major}.{v.minor}"
+    except Exception:  # pylint: disable=broad-except
+        extras_dir = "extras-{}.{}".format(*sys.version_info)
     if platform.is_windows():
         return pathlib.Path(
             os.getenv("ProgramFiles"), "Salt Project", "Salt", extras_dir
