@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 import contextlib
 import inspect
 import json
@@ -194,7 +193,6 @@ def run_server(
     __redis_uri__: str | None = "fake",
     __database_uri__: str | None = ":memory:",
     __migrations_path__: str | None = "__inmem",
-    __entrypoint__: Literal["server", "python-executor"] = "server",
     **kwargs: typing.Any,
 ):
     """Run the LangGraph API server."""
@@ -371,53 +369,40 @@ For production use, please use LangSmith Deployment.
             if k in inspect.signature(uvicorn.run).parameters
         }
         server_level = server_level.upper()
-        if __entrypoint__ == "server":
-            uvicorn.run(
-                "langgraph_api.server:app",
-                host=host,
-                port=port,
-                reload=reload,
-                env_file=env_file,
-                access_log=False,
-                reload_includes=list(reload_includes) if reload_includes else None,
-                reload_excludes=list(reload_excludes) if reload_excludes else None,
-                log_config={
-                    "version": 1,
-                    "incremental": False,
-                    "disable_existing_loggers": False,
-                    "formatters": {
-                        "simple": {
-                            "class": "langgraph_api.logging.Formatter",
-                        }
-                    },
-                    "handlers": {
-                        "console": {
-                            "class": "logging.StreamHandler",
-                            "formatter": "simple",
-                            "stream": "ext://sys.stdout",
-                        }
-                    },
-                    "loggers": {
-                        "uvicorn": {"level": server_level},
-                        "uvicorn.error": {"level": server_level},
-                        "langgraph_api.server": {"level": server_level},
-                    },
-                    "root": {"handlers": ["console"]},
+        uvicorn.run(
+            "langgraph_api.server:app",
+            host=host,
+            port=port,
+            reload=reload,
+            env_file=env_file,
+            access_log=False,
+            reload_includes=list(reload_includes) if reload_includes else None,
+            reload_excludes=list(reload_excludes) if reload_excludes else None,
+            log_config={
+                "version": 1,
+                "incremental": False,
+                "disable_existing_loggers": False,
+                "formatters": {
+                    "simple": {
+                        "class": "langgraph_api.logging.Formatter",
+                    }
                 },
-                **supported_kwargs,
-            )
-        elif __entrypoint__ == "python-executor":
-            from langgraph_api.executor_entrypoint import (  # noqa: PLC0415
-                main as executor_entrypoint_main,
-            )
-
-            asyncio.run(
-                executor_entrypoint_main(
-                    grpc_port=8188,
-                )
-            )
-        else:
-            raise ValueError(f"Unknown entrypoint: {__entrypoint__}")
+                "handlers": {
+                    "console": {
+                        "class": "logging.StreamHandler",
+                        "formatter": "simple",
+                        "stream": "ext://sys.stdout",
+                    }
+                },
+                "loggers": {
+                    "uvicorn": {"level": server_level},
+                    "uvicorn.error": {"level": server_level},
+                    "langgraph_api.server": {"level": server_level},
+                },
+                "root": {"handlers": ["console"]},
+            },
+            **supported_kwargs,
+        )
 
 
 def main():
@@ -464,13 +449,6 @@ def main():
         default="inmem",
         help="Runtime edition to use",
     )
-    parser.add_argument(
-        "--entrypoint",
-        type=str,
-        default="server",
-        choices=["server", "python-executor"],
-        help="Entry point to use",
-    )
     args = parser.parse_args()
 
     with open(args.config, encoding="utf-8") as f:
@@ -487,8 +465,6 @@ def main():
         kwargs["__redis_uri__"] = os.getenv("REDIS_URI")
         kwargs["__database_uri__"] = os.getenv("DATABASE_URI")
         kwargs["__migrations_path__"] = os.getenv("MIGRATIONS_PATH")
-    if args.entrypoint == "python-executor":
-        kwargs["__entrypoint__"] = "python-executor"
     run_server(
         args.host,
         args.port,

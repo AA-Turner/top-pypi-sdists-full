@@ -4,11 +4,6 @@ import django.utils.timezone
 from django.db import migrations, models
 
 
-def set_created(apps, schema_editor):
-    Notification = apps.get_model("notifications", "Notification")
-    Notification.objects.filter(sent__isnull=False).update(created=models.F("sent"))
-
-
 class Migration(migrations.Migration):
     dependencies = [
         ("notifications", "0005_alter_notification_endpoint"),
@@ -21,5 +16,4 @@ class Migration(migrations.Migration):
             field=models.DateTimeField(auto_now_add=True, default=django.utils.timezone.now),
             preserve_default=False,
         ),
-        migrations.RunPython(set_created),
     ]

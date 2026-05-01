@@ -731,6 +731,8 @@ class CreateAccountAssignmentResponseTypeDef(TypedDict):
 
 class CreateApplicationResponseTypeDef(TypedDict):
     ApplicationArn: str
+    InstanceArn: str
+    IdentityStoreArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateInstanceResponseTypeDef(TypedDict):
@@ -1177,6 +1179,7 @@ class ApplicationTypeDef(TypedDict):
     Name: NotRequired[str]
     ApplicationAccount: NotRequired[str]
     InstanceArn: NotRequired[str]
+    IdentityStoreArn: NotRequired[str]
     Status: NotRequired[ApplicationStatusType]
     PortalOptions: NotRequired[PortalOptionsTypeDef]
     Description: NotRequired[str]
@@ -1199,6 +1202,7 @@ class DescribeApplicationResponseTypeDef(TypedDict):
     Name: str
     ApplicationAccount: str
     InstanceArn: str
+    IdentityStoreArn: str
     Status: ApplicationStatusType
     PortalOptions: PortalOptionsTypeDef
     Description: str

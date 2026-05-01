@@ -6,7 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -54,7 +55,7 @@ class GatewayCAResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayCACreateResponse]:
         """
         Adds a new SSH Certificate Authority (CA).
@@ -73,7 +74,7 @@ class GatewayCAResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/access/gateway_ca",
+            path_template("/accounts/{account_id}/access/gateway_ca", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -93,7 +94,7 @@ class GatewayCAResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[GatewayCAListResponse]:
         """
         Lists SSH Certificate Authorities (CA).
@@ -112,7 +113,7 @@ class GatewayCAResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/access/gateway_ca",
+            path_template("/accounts/{account_id}/access/gateway_ca", account_id=account_id),
             page=SyncSinglePage[GatewayCAListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -130,7 +131,7 @@ class GatewayCAResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayCADeleteResponse]:
         """
         Deletes an SSH Certificate Authority.
@@ -153,7 +154,11 @@ class GatewayCAResource(SyncAPIResource):
         if not certificate_id:
             raise ValueError(f"Expected a non-empty value for `certificate_id` but received {certificate_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/access/gateway_ca/{certificate_id}",
+            path_template(
+                "/accounts/{account_id}/access/gateway_ca/{certificate_id}",
+                account_id=account_id,
+                certificate_id=certificate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -194,7 +199,7 @@ class AsyncGatewayCAResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayCACreateResponse]:
         """
         Adds a new SSH Certificate Authority (CA).
@@ -213,7 +218,7 @@ class AsyncGatewayCAResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/access/gateway_ca",
+            path_template("/accounts/{account_id}/access/gateway_ca", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -233,7 +238,7 @@ class AsyncGatewayCAResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[GatewayCAListResponse, AsyncSinglePage[GatewayCAListResponse]]:
         """
         Lists SSH Certificate Authorities (CA).
@@ -252,7 +257,7 @@ class AsyncGatewayCAResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/access/gateway_ca",
+            path_template("/accounts/{account_id}/access/gateway_ca", account_id=account_id),
             page=AsyncSinglePage[GatewayCAListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -270,7 +275,7 @@ class AsyncGatewayCAResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayCADeleteResponse]:
         """
         Deletes an SSH Certificate Authority.
@@ -293,7 +298,11 @@ class AsyncGatewayCAResource(AsyncAPIResource):
         if not certificate_id:
             raise ValueError(f"Expected a non-empty value for `certificate_id` but received {certificate_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/access/gateway_ca/{certificate_id}",
+            path_template(
+                "/accounts/{account_id}/access/gateway_ca/{certificate_id}",
+                account_id=account_id,
+                certificate_id=certificate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

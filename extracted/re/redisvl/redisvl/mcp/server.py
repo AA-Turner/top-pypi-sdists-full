@@ -106,8 +106,10 @@ class RedisVLMCPServer(FastMCP):
 
     async def get_vectorizer(self) -> Any:
         """Return the initialized vectorizer or fail if startup has not run."""
-        if self._vectorizer is None:
+        if self.config is None:
             raise RuntimeError("MCP server has not been started")
+        if self._vectorizer is None:
+            raise RuntimeError("MCP server vectorizer is not configured")
         return self._vectorizer
 
     async def run_guarded(self, operation_name: str, awaitable: Awaitable[Any]) -> Any:
@@ -147,6 +149,8 @@ class RedisVLMCPServer(FastMCP):
         """Instantiate the configured vectorizer class from validated config."""
         if self.config is None:
             raise RuntimeError("MCP server config not loaded")
+        if self.config.vectorizer is None:
+            raise RuntimeError("MCP server vectorizer is not configured")
 
         vectorizer_class = resolve_vectorizer_class(self.config.vectorizer.class_name)
         return vectorizer_class(**self.config.vectorizer.to_init_kwargs())
@@ -188,12 +192,12 @@ class RedisVLMCPServer(FastMCP):
         )
         return self._supports_native_hybrid_search
 
-    def _register_tools(self) -> None:
+    def _register_tools(self, schema: IndexSchema) -> None:
         """Register MCP tools once the server is ready."""
         if self._tools_registered or not hasattr(self, "tool"):
             return
 
-        register_search_tool(self)
+        register_search_tool(self, schema)
         if not self.mcp_settings.read_only:
             register_upsert_tool(self)
         self._tools_registered = True
@@ -298,8 +302,9 @@ class RedisVLMCPServer(FastMCP):
                 schema=effective_schema,
                 supports_native_hybrid_search=await self.supports_native_hybrid_search(),
             )
-            await self._initialize_vectorizer(effective_schema, timeout)
-            self._register_tools()
+            if self.config.requires_startup_vectorizer:
+                await self._initialize_vectorizer(effective_schema, timeout)
+            self._register_tools(effective_schema)
             return client
         except Exception:
             if self._index is None:

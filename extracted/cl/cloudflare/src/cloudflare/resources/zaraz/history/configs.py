@@ -6,8 +6,8 @@ from typing import Type, Iterable, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -54,7 +54,7 @@ class ConfigsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ConfigGetResponse:
         """
         Gets a history of published Zaraz configurations by ID(s) for a zone.
@@ -62,7 +62,7 @@ class ConfigsResource(SyncAPIResource):
         Args:
           zone_id: Identifier.
 
-          ids: Comma separated list of Zaraz configuration IDs
+          ids: Comma separated list of Zaraz configuration IDs.
 
           extra_headers: Send extra headers
 
@@ -75,7 +75,7 @@ class ConfigsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/settings/zaraz/history/configs",
+            path_template("/zones/{zone_id}/settings/zaraz/history/configs", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -118,7 +118,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ConfigGetResponse:
         """
         Gets a history of published Zaraz configurations by ID(s) for a zone.
@@ -126,7 +126,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         Args:
           zone_id: Identifier.
 
-          ids: Comma separated list of Zaraz configuration IDs
+          ids: Comma separated list of Zaraz configuration IDs.
 
           extra_headers: Send extra headers
 
@@ -139,7 +139,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/settings/zaraz/history/configs",
+            path_template("/zones/{zone_id}/settings/zaraz/history/configs", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

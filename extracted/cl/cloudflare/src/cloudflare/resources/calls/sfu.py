@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -53,13 +53,13 @@ class SFUResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUCreateResponse]:
         """Creates a new Cloudflare calls app.
 
@@ -82,7 +82,7 @@ class SFUResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/calls/apps",
+            path_template("/accounts/{account_id}/calls/apps", account_id=account_id),
             body=maybe_transform({"name": name}, sfu_create_params.SFUCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -99,13 +99,13 @@ class SFUResource(SyncAPIResource):
         app_id: str,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUUpdateResponse]:
         """
         Edit details for a single app.
@@ -130,7 +130,7 @@ class SFUResource(SyncAPIResource):
         if not app_id:
             raise ValueError(f"Expected a non-empty value for `app_id` but received {app_id!r}")
         return self._put(
-            f"/accounts/{account_id}/calls/apps/{app_id}",
+            path_template("/accounts/{account_id}/calls/apps/{app_id}", account_id=account_id, app_id=app_id),
             body=maybe_transform({"name": name}, sfu_update_params.SFUUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -151,7 +151,7 @@ class SFUResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[SFUListResponse]:
         """
         Lists all apps in the Cloudflare account
@@ -170,7 +170,7 @@ class SFUResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/calls/apps",
+            path_template("/accounts/{account_id}/calls/apps", account_id=account_id),
             page=SyncSinglePage[SFUListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -188,7 +188,7 @@ class SFUResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUDeleteResponse]:
         """
         Deletes an app from Cloudflare Calls
@@ -211,7 +211,7 @@ class SFUResource(SyncAPIResource):
         if not app_id:
             raise ValueError(f"Expected a non-empty value for `app_id` but received {app_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/calls/apps/{app_id}",
+            path_template("/accounts/{account_id}/calls/apps/{app_id}", account_id=account_id, app_id=app_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -232,7 +232,7 @@ class SFUResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUGetResponse]:
         """
         Fetches details for a single Calls app.
@@ -255,7 +255,7 @@ class SFUResource(SyncAPIResource):
         if not app_id:
             raise ValueError(f"Expected a non-empty value for `app_id` but received {app_id!r}")
         return self._get(
-            f"/accounts/{account_id}/calls/apps/{app_id}",
+            path_template("/accounts/{account_id}/calls/apps/{app_id}", account_id=account_id, app_id=app_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -291,13 +291,13 @@ class AsyncSFUResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUCreateResponse]:
         """Creates a new Cloudflare calls app.
 
@@ -320,7 +320,7 @@ class AsyncSFUResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/calls/apps",
+            path_template("/accounts/{account_id}/calls/apps", account_id=account_id),
             body=await async_maybe_transform({"name": name}, sfu_create_params.SFUCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -337,13 +337,13 @@ class AsyncSFUResource(AsyncAPIResource):
         app_id: str,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUUpdateResponse]:
         """
         Edit details for a single app.
@@ -368,7 +368,7 @@ class AsyncSFUResource(AsyncAPIResource):
         if not app_id:
             raise ValueError(f"Expected a non-empty value for `app_id` but received {app_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/calls/apps/{app_id}",
+            path_template("/accounts/{account_id}/calls/apps/{app_id}", account_id=account_id, app_id=app_id),
             body=await async_maybe_transform({"name": name}, sfu_update_params.SFUUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -389,7 +389,7 @@ class AsyncSFUResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SFUListResponse, AsyncSinglePage[SFUListResponse]]:
         """
         Lists all apps in the Cloudflare account
@@ -408,7 +408,7 @@ class AsyncSFUResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/calls/apps",
+            path_template("/accounts/{account_id}/calls/apps", account_id=account_id),
             page=AsyncSinglePage[SFUListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -426,7 +426,7 @@ class AsyncSFUResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUDeleteResponse]:
         """
         Deletes an app from Cloudflare Calls
@@ -449,7 +449,7 @@ class AsyncSFUResource(AsyncAPIResource):
         if not app_id:
             raise ValueError(f"Expected a non-empty value for `app_id` but received {app_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/calls/apps/{app_id}",
+            path_template("/accounts/{account_id}/calls/apps/{app_id}", account_id=account_id, app_id=app_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -470,7 +470,7 @@ class AsyncSFUResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUGetResponse]:
         """
         Fetches details for a single Calls app.
@@ -493,7 +493,7 @@ class AsyncSFUResource(AsyncAPIResource):
         if not app_id:
             raise ValueError(f"Expected a non-empty value for `app_id` but received {app_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/calls/apps/{app_id}",
+            path_template("/accounts/{account_id}/calls/apps/{app_id}", account_id=account_id, app_id=app_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

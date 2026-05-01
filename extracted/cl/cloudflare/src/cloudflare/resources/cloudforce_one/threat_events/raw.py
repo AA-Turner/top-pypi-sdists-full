@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -48,15 +48,15 @@ class RawResource(SyncAPIResource):
         *,
         account_id: str,
         event_id: str,
-        data: object | NotGiven = NOT_GIVEN,
-        source: str | NotGiven = NOT_GIVEN,
-        tlp: str | NotGiven = NOT_GIVEN,
+        data: object | Omit = omit,
+        source: str | Omit = omit,
+        tlp: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RawEditResponse:
         """
         Updates a raw event
@@ -83,7 +83,12 @@ class RawResource(SyncAPIResource):
         if not raw_id:
             raise ValueError(f"Expected a non-empty value for `raw_id` but received {raw_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/cloudforce-one/events/{event_id}/raw/{raw_id}",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/{event_id}/raw/{raw_id}",
+                account_id=account_id,
+                event_id=event_id,
+                raw_id=raw_id,
+            ),
             body=maybe_transform(
                 {
                     "data": data,
@@ -109,7 +114,7 @@ class RawResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RawGetResponse:
         """
         Reads data for a raw event
@@ -136,7 +141,12 @@ class RawResource(SyncAPIResource):
         if not raw_id:
             raise ValueError(f"Expected a non-empty value for `raw_id` but received {raw_id!r}")
         return self._get(
-            f"/accounts/{account_id}/cloudforce-one/events/{event_id}/raw/{raw_id}",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/{event_id}/raw/{raw_id}",
+                account_id=account_id,
+                event_id=event_id,
+                raw_id=raw_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -170,15 +180,15 @@ class AsyncRawResource(AsyncAPIResource):
         *,
         account_id: str,
         event_id: str,
-        data: object | NotGiven = NOT_GIVEN,
-        source: str | NotGiven = NOT_GIVEN,
-        tlp: str | NotGiven = NOT_GIVEN,
+        data: object | Omit = omit,
+        source: str | Omit = omit,
+        tlp: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RawEditResponse:
         """
         Updates a raw event
@@ -205,7 +215,12 @@ class AsyncRawResource(AsyncAPIResource):
         if not raw_id:
             raise ValueError(f"Expected a non-empty value for `raw_id` but received {raw_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/cloudforce-one/events/{event_id}/raw/{raw_id}",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/{event_id}/raw/{raw_id}",
+                account_id=account_id,
+                event_id=event_id,
+                raw_id=raw_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "data": data,
@@ -231,7 +246,7 @@ class AsyncRawResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RawGetResponse:
         """
         Reads data for a raw event
@@ -258,7 +273,12 @@ class AsyncRawResource(AsyncAPIResource):
         if not raw_id:
             raise ValueError(f"Expected a non-empty value for `raw_id` but received {raw_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/cloudforce-one/events/{event_id}/raw/{raw_id}",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/{event_id}/raw/{raw_id}",
+                account_id=account_id,
+                event_id=event_id,
+                raw_id=raw_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

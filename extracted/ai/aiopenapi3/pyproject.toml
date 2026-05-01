@@ -1,17 +1,20 @@
 [project]
 name = "aiopenapi3"
-description = "client and validator for OpenAPI3 3.0, OpenAPI 3.1, Swagger 2.0"
+description = "client and validator for OpenAPI3 3.0, OpenAPI 3.1, OpenAPI 3.2, Swagger 2.0"
 authors = [
     {name = "Markus Kötter", email = "commonism@users.noreply.github.com"},
 ]
 dependencies = [
     "PyYaml",
-    "pydantic == 2.11.9",
+    "pydantic >= 2.13.0b2",
     "email-validator",
     "yarl",
     "httpx",
     "more-itertools",
+    'typing_extensions; python_version<"3.12"',
     "jmespath",
+    "ijson",
+    "jsonseq",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -38,6 +41,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dynamic = ['version']
 
@@ -71,6 +75,21 @@ namespaces = false
 [tool.setuptools.dynamic]
 version = {attr = "aiopenapi3.version.__version__"}
 
+[tool.ruff]
+line-length = 120
+indent-width = 4
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+ignore = ["E741","F841","E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = false
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
 [tool.black]
 line-length = 120
 
@@ -87,6 +106,9 @@ filterwarnings = [
     "ignore:'flask.Markup' is deprecated and will be removed in Flask 2.4. Import 'markupsafe.Markup' instead.:DeprecationWarning",
     "ignore:unclosed resource <TCPTransport:ResourceWarning",
     "ignore:co_lnotab is deprecated, use co_lines instead:DeprecationWarning",
+#    "ignore:'asyncio.AbstractEventLoopPolicy' is deprecated and slated for removal in Python 3.16:DeprecationWarning",
+#    "ignore:'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16:DeprecationWarning"
+#    "ignore::pydantic.warnings.UnsupportedFieldAttributeWarning",
 ]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "session"

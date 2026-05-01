@@ -90,11 +90,13 @@ class PackageConfig(google.protobuf.message.Message):
     SHARED_LINE_ITEM_POOLS_FIELD_NUMBER: builtins.int
     BASE_PRICE_CENTS_FIELD_NUMBER: builtins.int
     BILLING_INTERVAL_FIELD_NUMBER: builtins.int
+    TITLE_FIELD_NUMBER: builtins.int
     uid: builtins.str
     base_price_cents: builtins.int
     """Base price for the package."""
     billing_interval: sentry_protos.billing.v1.common.v1.billing_interval_pb2.BillingInterval.ValueType
     """Billing interval for this package."""
+    title: builtins.str
     @property
     def line_item_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemConfig]: ...
     @property
@@ -107,7 +109,8 @@ class PackageConfig(google.protobuf.message.Message):
         shared_line_item_pools: collections.abc.Iterable[global___SharedLineItemPool] | None = ...,
         base_price_cents: builtins.int = ...,
         billing_interval: sentry_protos.billing.v1.common.v1.billing_interval_pb2.BillingInterval.ValueType = ...,
+        title: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "uid", b"uid"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "title", b"title", "uid", b"uid"]) -> None: ...
 
 global___PackageConfig = PackageConfig

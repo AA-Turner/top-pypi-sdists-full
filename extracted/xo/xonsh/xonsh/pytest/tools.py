@@ -19,11 +19,20 @@ VER_FULL = sys.version_info[:3]
 ON_DARWIN = platform.system() == "Darwin"
 ON_WINDOWS = platform.system() == "Windows"
 ON_LINUX = platform.system() == "Linux"
+ON_FREEBSD = sys.platform.startswith("freebsd")
+ON_BSD = ON_FREEBSD or sys.platform.startswith(("netbsd", "openbsd", "dragonfly"))
 ON_MSYS = sys.platform == "msys"
 ON_CONDA = True in [
     conda in pytest.__file__.lower() for conda in ["conda", "anaconda", "miniconda"]
 ]
 ON_TRAVIS = "TRAVIS" in os.environ and "CI" in os.environ
+ON_ANDROID = (
+    sys.platform == "android"
+    or platform.system() == "Android"
+    or "ANDROID_ROOT" in os.environ
+    or os.path.isfile("/system/build.prop")
+)
+ON_TERMUX = "TERMUX_VERSION" in os.environ
 TEST_DIR = os.path.dirname(__file__)
 
 # pytest skip decorators
@@ -43,6 +52,21 @@ skip_if_on_darwin = pytest.mark.skipif(ON_DARWIN, reason="not Mac friendly")
 
 skip_if_not_on_darwin = pytest.mark.skipif(not ON_DARWIN, reason="Mac only")
 
+skip_if_on_bsd = pytest.mark.skipif(ON_BSD, reason="not BSD friendly")
+
+skip_if_on_android = pytest.mark.skipif(
+    ON_ANDROID,
+    reason="Android sandbox restricts certain syscalls (tcsetpgrp, "
+    "listdir of '/' etc.) which some tests rely on. Covers Termux, "
+    "UserLAnd, proot-distro and similar shells.",
+)
+
+skip_if_on_termux = pytest.mark.skipif(
+    ON_TERMUX,
+    reason="Termux-specific layout differs from FHS; prefer "
+    "skip_if_on_android unless the test really depends on Termux only",
+)
+
 skip_if_on_travis = pytest.mark.skipif(ON_TRAVIS, reason="not Travis CI friendly")
 
 skip_if_pre_3_8 = pytest.mark.skipif(VER_FULL < (3, 8), reason="Python >= 3.8 feature")
@@ -60,6 +84,12 @@ def skip_if_not_has(exe: str):
     has_exe = shutil.which(exe)
 
     return pytest.mark.skipif(not has_exe, reason=f"{exe} is not available.")
+
+
+# Common ``skip_if_not_has(...)`` aliases for utilities the test suite
+# reaches for repeatedly.  Naming mirrors ``skip_if_no_make`` /
+# ``skip_if_no_sleep`` already declared in ``tests/xintegration/conftest.py``.
+skip_if_no_man = skip_if_not_has("man")
 
 
 def sp(cmd):

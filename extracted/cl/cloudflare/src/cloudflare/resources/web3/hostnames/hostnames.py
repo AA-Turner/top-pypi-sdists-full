@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -65,14 +65,14 @@ class HostnamesResource(SyncAPIResource):
         zone_id: str,
         name: str,
         target: Literal["ethereum", "ipfs", "ipfs_universal_path"],
-        description: str | NotGiven = NOT_GIVEN,
-        dnslink: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        dnslink: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hostname:
         """
         Create Web3 Hostname
@@ -99,7 +99,7 @@ class HostnamesResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
-            f"/zones/{zone_id}/web3/hostnames",
+            path_template("/zones/{zone_id}/web3/hostnames", zone_id=zone_id),
             body=maybe_transform(
                 {
                     "name": name,
@@ -128,7 +128,7 @@ class HostnamesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Hostname]:
         """
         List Web3 Hostnames
@@ -147,7 +147,7 @@ class HostnamesResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/web3/hostnames",
+            path_template("/zones/{zone_id}/web3/hostnames", zone_id=zone_id),
             page=SyncSinglePage[Hostname],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -165,7 +165,7 @@ class HostnamesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[HostnameDeleteResponse]:
         """
         Delete Web3 Hostname
@@ -188,7 +188,7 @@ class HostnamesResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._delete(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}",
+            path_template("/zones/{zone_id}/web3/hostnames/{identifier}", zone_id=zone_id, identifier=identifier),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -204,14 +204,14 @@ class HostnamesResource(SyncAPIResource):
         identifier: str,
         *,
         zone_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        dnslink: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        dnslink: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hostname:
         """
         Edit Web3 Hostname
@@ -238,7 +238,7 @@ class HostnamesResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._patch(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}",
+            path_template("/zones/{zone_id}/web3/hostnames/{identifier}", zone_id=zone_id, identifier=identifier),
             body=maybe_transform(
                 {
                     "description": description,
@@ -266,7 +266,7 @@ class HostnamesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hostname:
         """
         Web3 Hostname Details
@@ -289,7 +289,7 @@ class HostnamesResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._get(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}",
+            path_template("/zones/{zone_id}/web3/hostnames/{identifier}", zone_id=zone_id, identifier=identifier),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -331,14 +331,14 @@ class AsyncHostnamesResource(AsyncAPIResource):
         zone_id: str,
         name: str,
         target: Literal["ethereum", "ipfs", "ipfs_universal_path"],
-        description: str | NotGiven = NOT_GIVEN,
-        dnslink: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        dnslink: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hostname:
         """
         Create Web3 Hostname
@@ -365,7 +365,7 @@ class AsyncHostnamesResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
-            f"/zones/{zone_id}/web3/hostnames",
+            path_template("/zones/{zone_id}/web3/hostnames", zone_id=zone_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -394,7 +394,7 @@ class AsyncHostnamesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Hostname, AsyncSinglePage[Hostname]]:
         """
         List Web3 Hostnames
@@ -413,7 +413,7 @@ class AsyncHostnamesResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/web3/hostnames",
+            path_template("/zones/{zone_id}/web3/hostnames", zone_id=zone_id),
             page=AsyncSinglePage[Hostname],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -431,7 +431,7 @@ class AsyncHostnamesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[HostnameDeleteResponse]:
         """
         Delete Web3 Hostname
@@ -454,7 +454,7 @@ class AsyncHostnamesResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._delete(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}",
+            path_template("/zones/{zone_id}/web3/hostnames/{identifier}", zone_id=zone_id, identifier=identifier),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -470,14 +470,14 @@ class AsyncHostnamesResource(AsyncAPIResource):
         identifier: str,
         *,
         zone_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        dnslink: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        dnslink: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hostname:
         """
         Edit Web3 Hostname
@@ -504,7 +504,7 @@ class AsyncHostnamesResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._patch(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}",
+            path_template("/zones/{zone_id}/web3/hostnames/{identifier}", zone_id=zone_id, identifier=identifier),
             body=await async_maybe_transform(
                 {
                     "description": description,
@@ -532,7 +532,7 @@ class AsyncHostnamesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hostname:
         """
         Web3 Hostname Details
@@ -555,7 +555,7 @@ class AsyncHostnamesResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._get(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}",
+            path_template("/zones/{zone_id}/web3/hostnames/{identifier}", zone_id=zone_id, identifier=identifier),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

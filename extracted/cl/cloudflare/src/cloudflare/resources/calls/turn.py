@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -53,14 +53,14 @@ class TURNResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> TURNCreateResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Optional[TURNCreateResponse]:
         """
         Creates a new Cloudflare Calls TURN key.
 
@@ -80,12 +80,16 @@ class TURNResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/calls/turn_keys",
+            path_template("/accounts/{account_id}/calls/turn_keys", account_id=account_id),
             body=maybe_transform({"name": name}, turn_create_params.TURNCreateParams),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[Optional[TURNCreateResponse]]._unwrapper,
             ),
-            cast_to=TURNCreateResponse,
+            cast_to=cast(Type[Optional[TURNCreateResponse]], ResultWrapper[TURNCreateResponse]),
         )
 
     def update(
@@ -93,13 +97,13 @@ class TURNResource(SyncAPIResource):
         key_id: str,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNUpdateResponse]:
         """
         Edit details for a single TURN key.
@@ -124,7 +128,7 @@ class TURNResource(SyncAPIResource):
         if not key_id:
             raise ValueError(f"Expected a non-empty value for `key_id` but received {key_id!r}")
         return self._put(
-            f"/accounts/{account_id}/calls/turn_keys/{key_id}",
+            path_template("/accounts/{account_id}/calls/turn_keys/{key_id}", account_id=account_id, key_id=key_id),
             body=maybe_transform({"name": name}, turn_update_params.TURNUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -145,7 +149,7 @@ class TURNResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[TURNListResponse]:
         """
         Lists all TURN keys in the Cloudflare account
@@ -164,7 +168,7 @@ class TURNResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/calls/turn_keys",
+            path_template("/accounts/{account_id}/calls/turn_keys", account_id=account_id),
             page=SyncSinglePage[TURNListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -182,7 +186,7 @@ class TURNResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNDeleteResponse]:
         """
         Deletes a TURN key from Cloudflare Calls
@@ -205,7 +209,7 @@ class TURNResource(SyncAPIResource):
         if not key_id:
             raise ValueError(f"Expected a non-empty value for `key_id` but received {key_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/calls/turn_keys/{key_id}",
+            path_template("/accounts/{account_id}/calls/turn_keys/{key_id}", account_id=account_id, key_id=key_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -226,7 +230,7 @@ class TURNResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNGetResponse]:
         """
         Fetches details for a single TURN key.
@@ -249,7 +253,7 @@ class TURNResource(SyncAPIResource):
         if not key_id:
             raise ValueError(f"Expected a non-empty value for `key_id` but received {key_id!r}")
         return self._get(
-            f"/accounts/{account_id}/calls/turn_keys/{key_id}",
+            path_template("/accounts/{account_id}/calls/turn_keys/{key_id}", account_id=account_id, key_id=key_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -285,14 +289,14 @@ class AsyncTURNResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> TURNCreateResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Optional[TURNCreateResponse]:
         """
         Creates a new Cloudflare Calls TURN key.
 
@@ -312,12 +316,16 @@ class AsyncTURNResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/calls/turn_keys",
+            path_template("/accounts/{account_id}/calls/turn_keys", account_id=account_id),
             body=await async_maybe_transform({"name": name}, turn_create_params.TURNCreateParams),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[Optional[TURNCreateResponse]]._unwrapper,
             ),
-            cast_to=TURNCreateResponse,
+            cast_to=cast(Type[Optional[TURNCreateResponse]], ResultWrapper[TURNCreateResponse]),
         )
 
     async def update(
@@ -325,13 +333,13 @@ class AsyncTURNResource(AsyncAPIResource):
         key_id: str,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNUpdateResponse]:
         """
         Edit details for a single TURN key.
@@ -356,7 +364,7 @@ class AsyncTURNResource(AsyncAPIResource):
         if not key_id:
             raise ValueError(f"Expected a non-empty value for `key_id` but received {key_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/calls/turn_keys/{key_id}",
+            path_template("/accounts/{account_id}/calls/turn_keys/{key_id}", account_id=account_id, key_id=key_id),
             body=await async_maybe_transform({"name": name}, turn_update_params.TURNUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -377,7 +385,7 @@ class AsyncTURNResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[TURNListResponse, AsyncSinglePage[TURNListResponse]]:
         """
         Lists all TURN keys in the Cloudflare account
@@ -396,7 +404,7 @@ class AsyncTURNResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/calls/turn_keys",
+            path_template("/accounts/{account_id}/calls/turn_keys", account_id=account_id),
             page=AsyncSinglePage[TURNListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -414,7 +422,7 @@ class AsyncTURNResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNDeleteResponse]:
         """
         Deletes a TURN key from Cloudflare Calls
@@ -437,7 +445,7 @@ class AsyncTURNResource(AsyncAPIResource):
         if not key_id:
             raise ValueError(f"Expected a non-empty value for `key_id` but received {key_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/calls/turn_keys/{key_id}",
+            path_template("/accounts/{account_id}/calls/turn_keys/{key_id}", account_id=account_id, key_id=key_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -458,7 +466,7 @@ class AsyncTURNResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNGetResponse]:
         """
         Fetches details for a single TURN key.
@@ -481,7 +489,7 @@ class AsyncTURNResource(AsyncAPIResource):
         if not key_id:
             raise ValueError(f"Expected a non-empty value for `key_id` but received {key_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/calls/turn_keys/{key_id}",
+            path_template("/accounts/{account_id}/calls/turn_keys/{key_id}", account_id=account_id, key_id=key_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

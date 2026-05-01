@@ -46,32 +46,6 @@ class App:
 
 
 @dataclass
-class Connection:
-    """Databricks connection. Supported connection: external mcp server."""
-
-    name: str
-
-    def as_dict(self) -> dict:
-        """Serializes the Connection into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        if self.name is not None:
-            body["name"] = self.name
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the Connection into a shallow dictionary of its immediate attributes."""
-        body = {}
-        if self.name is not None:
-            body["name"] = self.name
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> Connection:
-        """Deserializes the Connection from a dictionary."""
-        return cls(name=d.get("name", None))
-
-
-@dataclass
 class GenieSpace:
     id: str
     """The ID of the genie space."""
@@ -201,14 +175,14 @@ class SupervisorAgent:
     display_name: str
     """The display name of the Supervisor Agent, unique at workspace level."""
 
-    description: str
-    """Description of what this agent can do (user-facing)."""
-
     create_time: Optional[Timestamp] = None
     """Creation timestamp."""
 
     creator: Optional[str] = None
     """The creator of the Supervisor Agent."""
+
+    description: Optional[str] = None
+    """Description of what this agent can do (user-facing)."""
 
     endpoint_name: Optional[str] = None
     """The name of the supervisor agent's serving endpoint."""
@@ -298,15 +272,13 @@ class SupervisorAgent:
 @dataclass
 class Tool:
     tool_type: str
-    """Tool type. Must be one of: "genie_space", "knowledge_assistant", "uc_function", "connection",
-    "app", "volume", "lakeview_dashboard", "serving_endpoint"."""
+    """Tool type. Must be one of: "genie_space", "knowledge_assistant", "uc_function", "uc_connection",
+    "app", "volume", "lakeview_dashboard", "serving_endpoint", "uc_table", "vector_search_index"."""
 
     description: str
     """Description of what this tool does (user-facing)."""
 
     app: Optional[App] = None
-
-    connection: Optional[Connection] = None
 
     genie_space: Optional[GenieSpace] = None
 
@@ -321,6 +293,8 @@ class Tool:
     tool_id: Optional[str] = None
     """User specified id of the Tool."""
 
+    uc_connection: Optional[UcConnection] = None
+
     uc_function: Optional[UcFunction] = None
 
     volume: Optional[Volume] = None
@@ -330,8 +304,6 @@ class Tool:
         body = {}
         if self.app:
             body["app"] = self.app.as_dict()
-        if self.connection:
-            body["connection"] = self.connection.as_dict()
         if self.description is not None:
             body["description"] = self.description
         if self.genie_space:
@@ -346,6 +318,8 @@ class Tool:
             body["tool_id"] = self.tool_id
         if self.tool_type is not None:
             body["tool_type"] = self.tool_type
+        if self.uc_connection:
+            body["uc_connection"] = self.uc_connection.as_dict()
         if self.uc_function:
             body["uc_function"] = self.uc_function.as_dict()
         if self.volume:
@@ -357,8 +331,6 @@ class Tool:
         body = {}
         if self.app:
             body["app"] = self.app
-        if self.connection:
-            body["connection"] = self.connection
         if self.description is not None:
             body["description"] = self.description
         if self.genie_space:
@@ -373,6 +345,8 @@ class Tool:
             body["tool_id"] = self.tool_id
         if self.tool_type is not None:
             body["tool_type"] = self.tool_type
+        if self.uc_connection:
+            body["uc_connection"] = self.uc_connection
         if self.uc_function:
             body["uc_function"] = self.uc_function
         if self.volume:
@@ -384,7 +358,6 @@ class Tool:
         """Deserializes the Tool from a dictionary."""
         return cls(
             app=_from_dict(d, "app", App),
-            connection=_from_dict(d, "connection", Connection),
             description=d.get("description", None),
             genie_space=_from_dict(d, "genie_space", GenieSpace),
             id=d.get("id", None),
@@ -392,9 +365,36 @@ class Tool:
             name=d.get("name", None),
             tool_id=d.get("tool_id", None),
             tool_type=d.get("tool_type", None),
+            uc_connection=_from_dict(d, "uc_connection", UcConnection),
             uc_function=_from_dict(d, "uc_function", UcFunction),
             volume=_from_dict(d, "volume", Volume),
         )
+
+
+@dataclass
+class UcConnection:
+    """Databricks UC connection. Supported connection: external mcp server."""
+
+    name: str
+
+    def as_dict(self) -> dict:
+        """Serializes the UcConnection into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.name is not None:
+            body["name"] = self.name
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the UcConnection into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.name is not None:
+            body["name"] = self.name
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> UcConnection:
+        """Deserializes the UcConnection from a dictionary."""
+        return cls(name=d.get("name", None))
 
 
 @dataclass
@@ -477,7 +477,8 @@ class SupervisorAgentsAPI:
 
     def create_tool(self, parent: str, tool: Tool, tool_id: str) -> Tool:
         """Creates a Tool under a Supervisor Agent. Specify one of "genie_space", "knowledge_assistant",
-        "uc_function", "connection", "app", "volume", "lakeview_dashboard" in the request body.
+        "uc_function", "uc_connection", "app", "volume", "lakeview_dashboard", "uc_table",
+        "vector_search_index" in the request body.
 
         :param parent: str
           Parent resource where this tool will be created. Format: supervisor-agents/{supervisor_agent_id}

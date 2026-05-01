@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import List, Type, Optional, cast
+from typing import Type, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -84,21 +84,21 @@ class DNSFirewallResource(SyncAPIResource):
         *,
         account_id: str,
         name: str,
-        upstream_ips: List[UpstreamIPs],
-        attack_mitigation: Optional[AttackMitigationParam] | NotGiven = NOT_GIVEN,
-        deprecate_any_requests: bool | NotGiven = NOT_GIVEN,
-        ecs_fallback: bool | NotGiven = NOT_GIVEN,
-        maximum_cache_ttl: float | NotGiven = NOT_GIVEN,
-        minimum_cache_ttl: float | NotGiven = NOT_GIVEN,
-        negative_cache_ttl: Optional[float] | NotGiven = NOT_GIVEN,
-        ratelimit: Optional[float] | NotGiven = NOT_GIVEN,
-        retries: float | NotGiven = NOT_GIVEN,
+        upstream_ips: SequenceNotStr[UpstreamIPs],
+        attack_mitigation: Optional[AttackMitigationParam] | Omit = omit,
+        deprecate_any_requests: bool | Omit = omit,
+        ecs_fallback: bool | Omit = omit,
+        maximum_cache_ttl: float | Omit = omit,
+        minimum_cache_ttl: float | Omit = omit,
+        negative_cache_ttl: Optional[float] | Omit = omit,
+        ratelimit: Optional[float] | Omit = omit,
+        retries: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSFirewallCreateResponse]:
         """
         Create a DNS Firewall cluster
@@ -114,16 +114,34 @@ class DNSFirewallResource(SyncAPIResource):
 
           ecs_fallback: Whether to forward client IP (resolver) subnet if no EDNS Client Subnet is sent
 
-          maximum_cache_ttl: Maximum DNS cache TTL This setting sets an upper bound on DNS TTLs for purposes
-              of caching between DNS Firewall and the upstream servers. Higher TTLs will be
-              decreased to the maximum defined here for caching purposes.
+          maximum_cache_ttl: By default, Cloudflare attempts to cache responses for as long as indicated by
+              the TTL received from upstream nameservers. This setting sets an upper bound on
+              this duration. For caching purposes, higher TTLs will be decreased to the
+              maximum value defined by this setting.
 
-          minimum_cache_ttl: Minimum DNS cache TTL This setting sets a lower bound on DNS TTLs for purposes
-              of caching between DNS Firewall and the upstream servers. Lower TTLs will be
-              increased to the minimum defined here for caching purposes.
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
 
-          negative_cache_ttl: Negative DNS cache TTL This setting controls how long DNS Firewall should cache
-              negative responses (e.g., NXDOMAIN) from the upstream servers.
+          minimum_cache_ttl: By default, Cloudflare attempts to cache responses for as long as indicated by
+              the TTL received from upstream nameservers. This setting sets a lower bound on
+              this duration. For caching purposes, lower TTLs will be increased to the minimum
+              value defined by this setting.
+
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
+
+              Note that, even with this setting, there is no guarantee that a response will be
+              cached for at least the specified duration. Cached responses may be removed
+              earlier for capacity or other operational reasons.
+
+          negative_cache_ttl: This setting controls how long DNS Firewall should cache negative responses
+              (e.g., NXDOMAIN) from the upstream servers.
+
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
 
           ratelimit: Ratelimit in queries per second per datacenter (applies to DNS queries sent to
               the upstream nameservers configured on the cluster)
@@ -142,7 +160,7 @@ class DNSFirewallResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/dns_firewall",
+            path_template("/accounts/{account_id}/dns_firewall", account_id=account_id),
             body=maybe_transform(
                 {
                     "name": name,
@@ -172,14 +190,14 @@ class DNSFirewallResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[DNSFirewallListResponse]:
         """
         List DNS Firewall clusters for an account
@@ -202,7 +220,7 @@ class DNSFirewallResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dns_firewall",
+            path_template("/accounts/{account_id}/dns_firewall", account_id=account_id),
             page=SyncV4PagePaginationArray[DNSFirewallListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -230,7 +248,7 @@ class DNSFirewallResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSFirewallDeleteResponse]:
         """
         Delete a DNS Firewall cluster
@@ -253,7 +271,11 @@ class DNSFirewallResource(SyncAPIResource):
         if not dns_firewall_id:
             raise ValueError(f"Expected a non-empty value for `dns_firewall_id` but received {dns_firewall_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+            path_template(
+                "/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+                account_id=account_id,
+                dns_firewall_id=dns_firewall_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -269,22 +291,22 @@ class DNSFirewallResource(SyncAPIResource):
         dns_firewall_id: str,
         *,
         account_id: str,
-        attack_mitigation: Optional[AttackMitigationParam] | NotGiven = NOT_GIVEN,
-        deprecate_any_requests: bool | NotGiven = NOT_GIVEN,
-        ecs_fallback: bool | NotGiven = NOT_GIVEN,
-        maximum_cache_ttl: float | NotGiven = NOT_GIVEN,
-        minimum_cache_ttl: float | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        negative_cache_ttl: Optional[float] | NotGiven = NOT_GIVEN,
-        ratelimit: Optional[float] | NotGiven = NOT_GIVEN,
-        retries: float | NotGiven = NOT_GIVEN,
-        upstream_ips: List[UpstreamIPs] | NotGiven = NOT_GIVEN,
+        attack_mitigation: Optional[AttackMitigationParam] | Omit = omit,
+        deprecate_any_requests: bool | Omit = omit,
+        ecs_fallback: bool | Omit = omit,
+        maximum_cache_ttl: float | Omit = omit,
+        minimum_cache_ttl: float | Omit = omit,
+        name: str | Omit = omit,
+        negative_cache_ttl: Optional[float] | Omit = omit,
+        ratelimit: Optional[float] | Omit = omit,
+        retries: float | Omit = omit,
+        upstream_ips: SequenceNotStr[UpstreamIPs] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSFirewallEditResponse]:
         """
         Modify the configuration of a DNS Firewall cluster
@@ -300,18 +322,36 @@ class DNSFirewallResource(SyncAPIResource):
 
           ecs_fallback: Whether to forward client IP (resolver) subnet if no EDNS Client Subnet is sent
 
-          maximum_cache_ttl: Maximum DNS cache TTL This setting sets an upper bound on DNS TTLs for purposes
-              of caching between DNS Firewall and the upstream servers. Higher TTLs will be
-              decreased to the maximum defined here for caching purposes.
+          maximum_cache_ttl: By default, Cloudflare attempts to cache responses for as long as indicated by
+              the TTL received from upstream nameservers. This setting sets an upper bound on
+              this duration. For caching purposes, higher TTLs will be decreased to the
+              maximum value defined by this setting.
 
-          minimum_cache_ttl: Minimum DNS cache TTL This setting sets a lower bound on DNS TTLs for purposes
-              of caching between DNS Firewall and the upstream servers. Lower TTLs will be
-              increased to the minimum defined here for caching purposes.
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
+
+          minimum_cache_ttl: By default, Cloudflare attempts to cache responses for as long as indicated by
+              the TTL received from upstream nameservers. This setting sets a lower bound on
+              this duration. For caching purposes, lower TTLs will be increased to the minimum
+              value defined by this setting.
+
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
+
+              Note that, even with this setting, there is no guarantee that a response will be
+              cached for at least the specified duration. Cached responses may be removed
+              earlier for capacity or other operational reasons.
 
           name: DNS Firewall cluster name
 
-          negative_cache_ttl: Negative DNS cache TTL This setting controls how long DNS Firewall should cache
-              negative responses (e.g., NXDOMAIN) from the upstream servers.
+          negative_cache_ttl: This setting controls how long DNS Firewall should cache negative responses
+              (e.g., NXDOMAIN) from the upstream servers.
+
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
 
           ratelimit: Ratelimit in queries per second per datacenter (applies to DNS queries sent to
               the upstream nameservers configured on the cluster)
@@ -332,7 +372,11 @@ class DNSFirewallResource(SyncAPIResource):
         if not dns_firewall_id:
             raise ValueError(f"Expected a non-empty value for `dns_firewall_id` but received {dns_firewall_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+            path_template(
+                "/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+                account_id=account_id,
+                dns_firewall_id=dns_firewall_id,
+            ),
             body=maybe_transform(
                 {
                     "attack_mitigation": attack_mitigation,
@@ -368,7 +412,7 @@ class DNSFirewallResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSFirewallGetResponse]:
         """
         Show a single DNS Firewall cluster for an account
@@ -391,7 +435,11 @@ class DNSFirewallResource(SyncAPIResource):
         if not dns_firewall_id:
             raise ValueError(f"Expected a non-empty value for `dns_firewall_id` but received {dns_firewall_id!r}")
         return self._get(
-            f"/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+            path_template(
+                "/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+                account_id=account_id,
+                dns_firewall_id=dns_firewall_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -436,21 +484,21 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
         *,
         account_id: str,
         name: str,
-        upstream_ips: List[UpstreamIPs],
-        attack_mitigation: Optional[AttackMitigationParam] | NotGiven = NOT_GIVEN,
-        deprecate_any_requests: bool | NotGiven = NOT_GIVEN,
-        ecs_fallback: bool | NotGiven = NOT_GIVEN,
-        maximum_cache_ttl: float | NotGiven = NOT_GIVEN,
-        minimum_cache_ttl: float | NotGiven = NOT_GIVEN,
-        negative_cache_ttl: Optional[float] | NotGiven = NOT_GIVEN,
-        ratelimit: Optional[float] | NotGiven = NOT_GIVEN,
-        retries: float | NotGiven = NOT_GIVEN,
+        upstream_ips: SequenceNotStr[UpstreamIPs],
+        attack_mitigation: Optional[AttackMitigationParam] | Omit = omit,
+        deprecate_any_requests: bool | Omit = omit,
+        ecs_fallback: bool | Omit = omit,
+        maximum_cache_ttl: float | Omit = omit,
+        minimum_cache_ttl: float | Omit = omit,
+        negative_cache_ttl: Optional[float] | Omit = omit,
+        ratelimit: Optional[float] | Omit = omit,
+        retries: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSFirewallCreateResponse]:
         """
         Create a DNS Firewall cluster
@@ -466,16 +514,34 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
 
           ecs_fallback: Whether to forward client IP (resolver) subnet if no EDNS Client Subnet is sent
 
-          maximum_cache_ttl: Maximum DNS cache TTL This setting sets an upper bound on DNS TTLs for purposes
-              of caching between DNS Firewall and the upstream servers. Higher TTLs will be
-              decreased to the maximum defined here for caching purposes.
+          maximum_cache_ttl: By default, Cloudflare attempts to cache responses for as long as indicated by
+              the TTL received from upstream nameservers. This setting sets an upper bound on
+              this duration. For caching purposes, higher TTLs will be decreased to the
+              maximum value defined by this setting.
 
-          minimum_cache_ttl: Minimum DNS cache TTL This setting sets a lower bound on DNS TTLs for purposes
-              of caching between DNS Firewall and the upstream servers. Lower TTLs will be
-              increased to the minimum defined here for caching purposes.
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
 
-          negative_cache_ttl: Negative DNS cache TTL This setting controls how long DNS Firewall should cache
-              negative responses (e.g., NXDOMAIN) from the upstream servers.
+          minimum_cache_ttl: By default, Cloudflare attempts to cache responses for as long as indicated by
+              the TTL received from upstream nameservers. This setting sets a lower bound on
+              this duration. For caching purposes, lower TTLs will be increased to the minimum
+              value defined by this setting.
+
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
+
+              Note that, even with this setting, there is no guarantee that a response will be
+              cached for at least the specified duration. Cached responses may be removed
+              earlier for capacity or other operational reasons.
+
+          negative_cache_ttl: This setting controls how long DNS Firewall should cache negative responses
+              (e.g., NXDOMAIN) from the upstream servers.
+
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
 
           ratelimit: Ratelimit in queries per second per datacenter (applies to DNS queries sent to
               the upstream nameservers configured on the cluster)
@@ -494,7 +560,7 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/dns_firewall",
+            path_template("/accounts/{account_id}/dns_firewall", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -524,14 +590,14 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DNSFirewallListResponse, AsyncV4PagePaginationArray[DNSFirewallListResponse]]:
         """
         List DNS Firewall clusters for an account
@@ -554,7 +620,7 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dns_firewall",
+            path_template("/accounts/{account_id}/dns_firewall", account_id=account_id),
             page=AsyncV4PagePaginationArray[DNSFirewallListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -582,7 +648,7 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSFirewallDeleteResponse]:
         """
         Delete a DNS Firewall cluster
@@ -605,7 +671,11 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
         if not dns_firewall_id:
             raise ValueError(f"Expected a non-empty value for `dns_firewall_id` but received {dns_firewall_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+            path_template(
+                "/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+                account_id=account_id,
+                dns_firewall_id=dns_firewall_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -621,22 +691,22 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
         dns_firewall_id: str,
         *,
         account_id: str,
-        attack_mitigation: Optional[AttackMitigationParam] | NotGiven = NOT_GIVEN,
-        deprecate_any_requests: bool | NotGiven = NOT_GIVEN,
-        ecs_fallback: bool | NotGiven = NOT_GIVEN,
-        maximum_cache_ttl: float | NotGiven = NOT_GIVEN,
-        minimum_cache_ttl: float | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        negative_cache_ttl: Optional[float] | NotGiven = NOT_GIVEN,
-        ratelimit: Optional[float] | NotGiven = NOT_GIVEN,
-        retries: float | NotGiven = NOT_GIVEN,
-        upstream_ips: List[UpstreamIPs] | NotGiven = NOT_GIVEN,
+        attack_mitigation: Optional[AttackMitigationParam] | Omit = omit,
+        deprecate_any_requests: bool | Omit = omit,
+        ecs_fallback: bool | Omit = omit,
+        maximum_cache_ttl: float | Omit = omit,
+        minimum_cache_ttl: float | Omit = omit,
+        name: str | Omit = omit,
+        negative_cache_ttl: Optional[float] | Omit = omit,
+        ratelimit: Optional[float] | Omit = omit,
+        retries: float | Omit = omit,
+        upstream_ips: SequenceNotStr[UpstreamIPs] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSFirewallEditResponse]:
         """
         Modify the configuration of a DNS Firewall cluster
@@ -652,18 +722,36 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
 
           ecs_fallback: Whether to forward client IP (resolver) subnet if no EDNS Client Subnet is sent
 
-          maximum_cache_ttl: Maximum DNS cache TTL This setting sets an upper bound on DNS TTLs for purposes
-              of caching between DNS Firewall and the upstream servers. Higher TTLs will be
-              decreased to the maximum defined here for caching purposes.
+          maximum_cache_ttl: By default, Cloudflare attempts to cache responses for as long as indicated by
+              the TTL received from upstream nameservers. This setting sets an upper bound on
+              this duration. For caching purposes, higher TTLs will be decreased to the
+              maximum value defined by this setting.
 
-          minimum_cache_ttl: Minimum DNS cache TTL This setting sets a lower bound on DNS TTLs for purposes
-              of caching between DNS Firewall and the upstream servers. Lower TTLs will be
-              increased to the minimum defined here for caching purposes.
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
+
+          minimum_cache_ttl: By default, Cloudflare attempts to cache responses for as long as indicated by
+              the TTL received from upstream nameservers. This setting sets a lower bound on
+              this duration. For caching purposes, lower TTLs will be increased to the minimum
+              value defined by this setting.
+
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
+
+              Note that, even with this setting, there is no guarantee that a response will be
+              cached for at least the specified duration. Cached responses may be removed
+              earlier for capacity or other operational reasons.
 
           name: DNS Firewall cluster name
 
-          negative_cache_ttl: Negative DNS cache TTL This setting controls how long DNS Firewall should cache
-              negative responses (e.g., NXDOMAIN) from the upstream servers.
+          negative_cache_ttl: This setting controls how long DNS Firewall should cache negative responses
+              (e.g., NXDOMAIN) from the upstream servers.
+
+              This setting does not affect the TTL value in the DNS response Cloudflare
+              returns to clients. Cloudflare will always forward the TTL value received from
+              upstream nameservers.
 
           ratelimit: Ratelimit in queries per second per datacenter (applies to DNS queries sent to
               the upstream nameservers configured on the cluster)
@@ -684,7 +772,11 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
         if not dns_firewall_id:
             raise ValueError(f"Expected a non-empty value for `dns_firewall_id` but received {dns_firewall_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+            path_template(
+                "/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+                account_id=account_id,
+                dns_firewall_id=dns_firewall_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "attack_mitigation": attack_mitigation,
@@ -720,7 +812,7 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSFirewallGetResponse]:
         """
         Show a single DNS Firewall cluster for an account
@@ -743,7 +835,11 @@ class AsyncDNSFirewallResource(AsyncAPIResource):
         if not dns_firewall_id:
             raise ValueError(f"Expected a non-empty value for `dns_firewall_id` but received {dns_firewall_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+            path_template(
+                "/accounts/{account_id}/dns_firewall/{dns_firewall_id}",
+                account_id=account_id,
+                dns_firewall_id=dns_firewall_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

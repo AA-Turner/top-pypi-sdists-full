@@ -44,16 +44,28 @@ class RPMInfo(object):
 
     _new_coder = struct.Struct(b"8s8s8s8s8s8s8s8s8s8s8s8s8s")
 
-    def __init__(self, name, file_start, file_size, initial_offset, isdir):
+    def __init__(
+        self, name, file_start, file_size, initial_offset, isdir, issymlink, mode
+    ):
         self.name = name
         self.file_start = file_start
         self.size = file_size
         self.initial_offset = initial_offset
         self._isdir = isdir
+        self._issymlink = issymlink
+        self._mode = mode
 
     @property
     def isdir(self):
         return self._isdir
+
+    @property
+    def issymlink(self):
+        return self._issymlink
+
+    @property
+    def mode(self):
+        return self._mode
 
     def __repr__(self):
         return "<RPMMember %r>" % self.name
@@ -82,7 +94,16 @@ class RPMInfo(object):
         # https://www.mankier.com/5/cpio under Old Binary Format mode bits
         mode = int(d[1], 16)
         isdir = mode & int("0040000", 8)
-        return cls(name, file_start, file_size, initial_offset, isdir)
+        issymlink = (mode & 0o120000) == 0o120000
+        return cls(
+            name,
+            file_start,
+            file_size,
+            initial_offset,
+            isdir,
+            issymlink,
+            mode & 0o777,
+        )
 
 
 class RPMFile(object):
@@ -172,7 +193,7 @@ class RPMFile(object):
         """
         if not isinstance(member, RPMInfo):
             member = self.getmember(member)
-        return _SubFile(self.data_file, member.file_start, member.size)
+        return _SubFile(self.data_file, member.file_start, member.size, member.mode)
 
     _data_file = None
 
@@ -183,11 +204,13 @@ class RPMFile(object):
         if self._data_file is None:
             fileobj = _SubFile(self._fileobj, self.data_offset)
 
-            if self.headers["archive_compression"] == b"xz":
+            archive_compression = self.headers.get("archive_compression", b"")
+
+            if archive_compression == b"xz":
                 if not getattr(sys.modules[__name__], "lzma", False):
                     raise NoLZMAModuleError("lzma module not present")
                 self._data_file = lzma.LZMAFile(fileobj)
-            elif self.headers["archive_compression"] == b"zstd":
+            elif archive_compression == b"zstd":
                 if not getattr(sys.modules[__name__], "zstandard", False):
                     raise NoZSTANDARDModuleError("zstandard module not present")
                 if not (sys.version_info.major >= 3 and sys.version_info.minor >= 5):
@@ -195,7 +218,7 @@ class RPMFile(object):
                 with zstandard.ZstdDecompressor().stream_reader(fileobj) as zstd_data:
                     self._data_file = io.BytesIO(zstd_data.read())
 
-            elif self.headers["archive_compression"] == b"bzip2":
+            elif archive_compression == b"bzip2":
                 self._data_file = bz2.BZ2File(fileobj)
             else:
                 self._data_file = gzip.GzipFile(fileobj=fileobj)

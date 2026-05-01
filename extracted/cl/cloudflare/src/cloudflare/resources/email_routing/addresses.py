@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -56,7 +56,7 @@ class AddressesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Address]:
         """Create a destination address to forward your emails to.
 
@@ -79,7 +79,7 @@ class AddressesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/email/routing/addresses",
+            path_template("/accounts/{account_id}/email/routing/addresses", account_id=account_id),
             body=maybe_transform({"email": email}, address_create_params.AddressCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -95,16 +95,16 @@ class AddressesResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        verified: Literal[True, False] | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        verified: Literal[True, False] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[Address]:
         """
         Lists existing destination addresses.
@@ -131,7 +131,7 @@ class AddressesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email/routing/addresses",
+            path_template("/accounts/{account_id}/email/routing/addresses", account_id=account_id),
             page=SyncV4PagePaginationArray[Address],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -161,7 +161,7 @@ class AddressesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Address]:
         """
         Deletes a specific destination address.
@@ -186,7 +186,11 @@ class AddressesResource(SyncAPIResource):
                 f"Expected a non-empty value for `destination_address_identifier` but received {destination_address_identifier!r}"
             )
         return self._delete(
-            f"/accounts/{account_id}/email/routing/addresses/{destination_address_identifier}",
+            path_template(
+                "/accounts/{account_id}/email/routing/addresses/{destination_address_identifier}",
+                account_id=account_id,
+                destination_address_identifier=destination_address_identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -207,7 +211,7 @@ class AddressesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Address]:
         """
         Gets information for a specific destination email already created.
@@ -232,7 +236,11 @@ class AddressesResource(SyncAPIResource):
                 f"Expected a non-empty value for `destination_address_identifier` but received {destination_address_identifier!r}"
             )
         return self._get(
-            f"/accounts/{account_id}/email/routing/addresses/{destination_address_identifier}",
+            path_template(
+                "/accounts/{account_id}/email/routing/addresses/{destination_address_identifier}",
+                account_id=account_id,
+                destination_address_identifier=destination_address_identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -274,7 +282,7 @@ class AsyncAddressesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Address]:
         """Create a destination address to forward your emails to.
 
@@ -297,7 +305,7 @@ class AsyncAddressesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/email/routing/addresses",
+            path_template("/accounts/{account_id}/email/routing/addresses", account_id=account_id),
             body=await async_maybe_transform({"email": email}, address_create_params.AddressCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -313,16 +321,16 @@ class AsyncAddressesResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        verified: Literal[True, False] | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        verified: Literal[True, False] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Address, AsyncV4PagePaginationArray[Address]]:
         """
         Lists existing destination addresses.
@@ -349,7 +357,7 @@ class AsyncAddressesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email/routing/addresses",
+            path_template("/accounts/{account_id}/email/routing/addresses", account_id=account_id),
             page=AsyncV4PagePaginationArray[Address],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -379,7 +387,7 @@ class AsyncAddressesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Address]:
         """
         Deletes a specific destination address.
@@ -404,7 +412,11 @@ class AsyncAddressesResource(AsyncAPIResource):
                 f"Expected a non-empty value for `destination_address_identifier` but received {destination_address_identifier!r}"
             )
         return await self._delete(
-            f"/accounts/{account_id}/email/routing/addresses/{destination_address_identifier}",
+            path_template(
+                "/accounts/{account_id}/email/routing/addresses/{destination_address_identifier}",
+                account_id=account_id,
+                destination_address_identifier=destination_address_identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -425,7 +437,7 @@ class AsyncAddressesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Address]:
         """
         Gets information for a specific destination email already created.
@@ -450,7 +462,11 @@ class AsyncAddressesResource(AsyncAPIResource):
                 f"Expected a non-empty value for `destination_address_identifier` but received {destination_address_identifier!r}"
             )
         return await self._get(
-            f"/accounts/{account_id}/email/routing/addresses/{destination_address_identifier}",
+            path_template(
+                "/accounts/{account_id}/email/routing/addresses/{destination_address_identifier}",
+                account_id=account_id,
+                destination_address_identifier=destination_address_identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

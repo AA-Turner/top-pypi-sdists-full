@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import List, Union, Iterable
+import typing_extensions
+from typing import Union, Iterable, Optional
 from datetime import datetime
 from typing_extensions import Literal
 
@@ -24,14 +25,6 @@ from .tags import (
     TagsResourceWithStreamingResponse,
     AsyncTagsResourceWithStreamingResponse,
 )
-from .crons import (
-    CronsResource,
-    AsyncCronsResource,
-    CronsResourceWithRawResponse,
-    AsyncCronsResourceWithRawResponse,
-    CronsResourceWithStreamingResponse,
-    AsyncCronsResourceWithStreamingResponse,
-)
 from .relate import (
     RelateResource,
     AsyncRelateResource,
@@ -40,16 +33,16 @@ from .relate import (
     RelateResourceWithStreamingResponse,
     AsyncRelateResourceWithStreamingResponse,
 )
-from .insights import (
-    InsightsResource,
-    AsyncInsightsResource,
-    InsightsResourceWithRawResponse,
-    AsyncInsightsResourceWithRawResponse,
-    InsightsResourceWithStreamingResponse,
-    AsyncInsightsResourceWithStreamingResponse,
+from .datasets import (
+    DatasetsResource,
+    AsyncDatasetsResource,
+    DatasetsResourceWithRawResponse,
+    AsyncDatasetsResourceWithRawResponse,
+    DatasetsResourceWithStreamingResponse,
+    AsyncDatasetsResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from .attackers import (
     AttackersResource,
     AsyncAttackersResource,
@@ -99,14 +92,6 @@ from .indicator_types import (
     IndicatorTypesResourceWithStreamingResponse,
     AsyncIndicatorTypesResourceWithStreamingResponse,
 )
-from .datasets.datasets import (
-    DatasetsResource,
-    AsyncDatasetsResource,
-    DatasetsResourceWithRawResponse,
-    AsyncDatasetsResourceWithRawResponse,
-    DatasetsResourceWithStreamingResponse,
-    AsyncDatasetsResourceWithStreamingResponse,
-)
 from .target_industries import (
     TargetIndustriesResource,
     AsyncTargetIndustriesResource,
@@ -125,7 +110,6 @@ from ....types.cloudforce_one.threat_event_get_response import ThreatEventGetRes
 from ....types.cloudforce_one.threat_event_edit_response import ThreatEventEditResponse
 from ....types.cloudforce_one.threat_event_list_response import ThreatEventListResponse
 from ....types.cloudforce_one.threat_event_create_response import ThreatEventCreateResponse
-from ....types.cloudforce_one.threat_event_delete_response import ThreatEventDeleteResponse
 from ....types.cloudforce_one.threat_event_bulk_create_response import ThreatEventBulkCreateResponse
 
 __all__ = ["ThreatEventsResource", "AsyncThreatEventsResource"]
@@ -143,10 +127,6 @@ class ThreatEventsResource(SyncAPIResource):
     @cached_property
     def countries(self) -> CountriesResource:
         return CountriesResource(self._client)
-
-    @cached_property
-    def crons(self) -> CronsResource:
-        return CronsResource(self._client)
 
     @cached_property
     def datasets(self) -> DatasetsResource:
@@ -177,10 +157,6 @@ class ThreatEventsResource(SyncAPIResource):
         return TargetIndustriesResource(self._client)
 
     @cached_property
-    def insights(self) -> InsightsResource:
-        return InsightsResource(self._client)
-
-    @cached_property
     def with_raw_response(self) -> ThreatEventsResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -203,35 +179,40 @@ class ThreatEventsResource(SyncAPIResource):
         self,
         *,
         path_account_id: str,
-        attacker: str,
-        attacker_country: str,
         category: str,
         date: Union[str, datetime],
         event: str,
-        indicator_type: str,
         raw: threat_event_create_params.Raw,
         tlp: str,
-        body_account_id: float | NotGiven = NOT_GIVEN,
-        dataset_id: str | NotGiven = NOT_GIVEN,
-        indicator: str | NotGiven = NOT_GIVEN,
-        tags: List[str] | NotGiven = NOT_GIVEN,
-        target_country: str | NotGiven = NOT_GIVEN,
-        target_industry: str | NotGiven = NOT_GIVEN,
+        body_account_id: float | Omit = omit,
+        attacker: Optional[str] | Omit = omit,
+        attacker_country: str | Omit = omit,
+        dataset_id: str | Omit = omit,
+        indicator: str | Omit = omit,
+        indicators: Iterable[threat_event_create_params.Indicator] | Omit = omit,
+        indicator_type: str | Omit = omit,
+        insight: str | Omit = omit,
+        tags: SequenceNotStr[str] | Omit = omit,
+        target_country: str | Omit = omit,
+        target_industry: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ThreatEventCreateResponse:
         """
-        Events must be created in a client-specific dataset, which means the `datasetId`
-        parameter must be defined. To create a dataset, see the
+        To create a dataset, see the
         [`Create Dataset`](https://developers.cloudflare.com/api/resources/cloudforce_one/subresources/threat_events/subresources/datasets/methods/create/)
-        endpoint.
+        endpoint. When `datasetId` parameter is unspecified, it will be created in a
+        default dataset named `Cloudforce One Threat Events`.
 
         Args:
           path_account_id: Account ID.
+
+          indicators: Array of indicators for this event. Supports multiple indicators per event for
+              complex scenarios.
 
           extra_headers: Send extra headers
 
@@ -244,20 +225,22 @@ class ThreatEventsResource(SyncAPIResource):
         if not path_account_id:
             raise ValueError(f"Expected a non-empty value for `path_account_id` but received {path_account_id!r}")
         return self._post(
-            f"/accounts/{path_account_id}/cloudforce-one/events/create",
+            path_template("/accounts/{path_account_id}/cloudforce-one/events/create", path_account_id=path_account_id),
             body=maybe_transform(
                 {
-                    "attacker": attacker,
-                    "attacker_country": attacker_country,
                     "category": category,
                     "date": date,
                     "event": event,
-                    "indicator_type": indicator_type,
                     "raw": raw,
                     "tlp": tlp,
                     "body_account_id": body_account_id,
+                    "attacker": attacker,
+                    "attacker_country": attacker_country,
                     "dataset_id": dataset_id,
                     "indicator": indicator,
+                    "indicators": indicators,
+                    "indicator_type": indicator_type,
+                    "insight": insight,
                     "tags": tags,
                     "target_country": target_country,
                     "target_industry": target_industry,
@@ -274,28 +257,45 @@ class ThreatEventsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        dataset_id: List[str] | NotGiven = NOT_GIVEN,
-        force_refresh: bool | NotGiven = NOT_GIVEN,
-        order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        order_by: str | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        page_size: float | NotGiven = NOT_GIVEN,
-        search: Iterable[threat_event_list_params.Search] | NotGiven = NOT_GIVEN,
+        cursor: str | Omit = omit,
+        dataset_id: SequenceNotStr[str] | Omit = omit,
+        force_refresh: bool | Omit = omit,
+        format: Literal["json", "stix2"] | Omit = omit,
+        order: Literal["asc", "desc"] | Omit = omit,
+        order_by: str | Omit = omit,
+        page: float | Omit = omit,
+        page_size: float | Omit = omit,
+        search: Iterable[threat_event_list_params.Search] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ThreatEventListResponse:
         """
-        The `datasetId` must be defined (to list existing datasets (and their IDs), use
-        the
+        Use `datasetId=all` or `datasetId=*` to query all event datasets for the account
+        (limited to 10). When `datasetId` is unspecified, events are listed from the
+        default Cloudforce One Threat Events dataset. To list existing datasets, use the
         [`List Datasets`](https://developers.cloudflare.com/api/resources/cloudforce_one/subresources/threat_events/subresources/datasets/methods/list/)
-        endpoint). Also, must provide query parameters.
+        endpoint.
 
         Args:
           account_id: Account ID.
+
+          cursor: Cursor for pagination. When provided, filters are embedded in the cursor so you
+              only need to pass cursor and pageSize. Returned in the previous response's
+              result_info.cursor field. Use cursor-based pagination for deep pagination
+              (beyond 100,000 records) or for optimal performance.
+
+          dataset_id: Dataset IDs to query events from (array of UUIDs), or special value 'all' or
+              '\\**' to query all event datasets for the account. If not provided, uses the
+              default dataset.
+
+          page: Page number (1-indexed) for offset-based pagination. Limited to offset of
+              100,000 records. For deep pagination, use cursor-based pagination instead.
+
+          page_size: Number of results per page. Maximum 25,000.
 
           extra_headers: Send extra headers
 
@@ -308,7 +308,7 @@ class ThreatEventsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/cloudforce-one/events",
+            path_template("/accounts/{account_id}/cloudforce-one/events", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -316,8 +316,10 @@ class ThreatEventsResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "cursor": cursor,
                         "dataset_id": dataset_id,
                         "force_refresh": force_refresh,
+                        "format": format,
                         "order": order,
                         "order_by": order_by,
                         "page": page,
@@ -330,62 +332,19 @@ class ThreatEventsResource(SyncAPIResource):
             cast_to=ThreatEventListResponse,
         )
 
-    def delete(
-        self,
-        event_id: str,
-        *,
-        account_id: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> ThreatEventDeleteResponse:
-        """The `datasetId` parameter must be defined.
-
-        To list existing datasets (and their
-        IDs) in your account, use the
-        [`List Datasets`](https://developers.cloudflare.com/api/resources/cloudforce_one/subresources/threat_events/subresources/datasets/methods/list/)
-        endpoint.
-
-        Args:
-          account_id: Account ID.
-
-          event_id: Event UUID.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not account_id:
-            raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        if not event_id:
-            raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
-        return self._delete(
-            f"/accounts/{account_id}/cloudforce-one/events/{event_id}",
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
-            cast_to=ThreatEventDeleteResponse,
-        )
-
     def bulk_create(
         self,
         *,
         account_id: str,
         data: Iterable[threat_event_bulk_create_params.Data],
         dataset_id: str,
+        include_created_events: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ThreatEventBulkCreateResponse:
         """The `datasetId` parameter must be defined.
 
@@ -396,6 +355,9 @@ class ThreatEventsResource(SyncAPIResource):
 
         Args:
           account_id: Account ID.
+
+          include_created_events: When true, response includes array of created event UUIDs and shard IDs. Useful
+              for tracking which events were created and where.
 
           extra_headers: Send extra headers
 
@@ -408,11 +370,12 @@ class ThreatEventsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/cloudforce-one/events/create/bulk",
+            path_template("/accounts/{account_id}/cloudforce-one/events/create/bulk", account_id=account_id),
             body=maybe_transform(
                 {
                     "data": data,
                     "dataset_id": dataset_id,
+                    "include_created_events": include_created_events,
                 },
                 threat_event_bulk_create_params.ThreatEventBulkCreateParams,
             ),
@@ -427,22 +390,26 @@ class ThreatEventsResource(SyncAPIResource):
         event_id: str,
         *,
         account_id: str,
-        attacker: str | NotGiven = NOT_GIVEN,
-        attacker_country: str | NotGiven = NOT_GIVEN,
-        category: str | NotGiven = NOT_GIVEN,
-        date: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        event: str | NotGiven = NOT_GIVEN,
-        indicator: str | NotGiven = NOT_GIVEN,
-        indicator_type: str | NotGiven = NOT_GIVEN,
-        target_country: str | NotGiven = NOT_GIVEN,
-        target_industry: str | NotGiven = NOT_GIVEN,
-        tlp: str | NotGiven = NOT_GIVEN,
+        dataset_id: str,
+        attacker: Optional[str] | Omit = omit,
+        attacker_country: str | Omit = omit,
+        category: str | Omit = omit,
+        created_at: Union[str, datetime] | Omit = omit,
+        date: Union[str, datetime] | Omit = omit,
+        event: str | Omit = omit,
+        indicator: str | Omit = omit,
+        indicator_type: str | Omit = omit,
+        insight: str | Omit = omit,
+        raw: threat_event_edit_params.Raw | Omit = omit,
+        target_country: str | Omit = omit,
+        target_industry: str | Omit = omit,
+        tlp: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ThreatEventEditResponse:
         """
         Updates an event
@@ -451,6 +418,8 @@ class ThreatEventsResource(SyncAPIResource):
           account_id: Account ID.
 
           event_id: Event UUID.
+
+          dataset_id: Dataset ID containing the event to update.
 
           extra_headers: Send extra headers
 
@@ -465,16 +434,22 @@ class ThreatEventsResource(SyncAPIResource):
         if not event_id:
             raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/cloudforce-one/events/{event_id}",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/{event_id}", account_id=account_id, event_id=event_id
+            ),
             body=maybe_transform(
                 {
+                    "dataset_id": dataset_id,
                     "attacker": attacker,
                     "attacker_country": attacker_country,
                     "category": category,
+                    "created_at": created_at,
                     "date": date,
                     "event": event,
                     "indicator": indicator,
                     "indicator_type": indicator_type,
+                    "insight": insight,
+                    "raw": raw,
                     "target_country": target_country,
                     "target_industry": target_industry,
                     "tlp": tlp,
@@ -487,6 +462,7 @@ class ThreatEventsResource(SyncAPIResource):
             cast_to=ThreatEventEditResponse,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def get(
         self,
         event_id: str,
@@ -497,10 +473,12 @@ class ThreatEventsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ThreatEventGetResponse:
-        """
-        Reads an event
+        """This Method is deprecated.
+
+        Please use
+        /events/dataset/:dataset_id/events/:event_id instead.
 
         Args:
           account_id: Account ID.
@@ -520,7 +498,9 @@ class ThreatEventsResource(SyncAPIResource):
         if not event_id:
             raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
         return self._get(
-            f"/accounts/{account_id}/cloudforce-one/events/{event_id}",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/{event_id}", account_id=account_id, event_id=event_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -540,10 +520,6 @@ class AsyncThreatEventsResource(AsyncAPIResource):
     @cached_property
     def countries(self) -> AsyncCountriesResource:
         return AsyncCountriesResource(self._client)
-
-    @cached_property
-    def crons(self) -> AsyncCronsResource:
-        return AsyncCronsResource(self._client)
 
     @cached_property
     def datasets(self) -> AsyncDatasetsResource:
@@ -574,10 +550,6 @@ class AsyncThreatEventsResource(AsyncAPIResource):
         return AsyncTargetIndustriesResource(self._client)
 
     @cached_property
-    def insights(self) -> AsyncInsightsResource:
-        return AsyncInsightsResource(self._client)
-
-    @cached_property
     def with_raw_response(self) -> AsyncThreatEventsResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -600,35 +572,40 @@ class AsyncThreatEventsResource(AsyncAPIResource):
         self,
         *,
         path_account_id: str,
-        attacker: str,
-        attacker_country: str,
         category: str,
         date: Union[str, datetime],
         event: str,
-        indicator_type: str,
         raw: threat_event_create_params.Raw,
         tlp: str,
-        body_account_id: float | NotGiven = NOT_GIVEN,
-        dataset_id: str | NotGiven = NOT_GIVEN,
-        indicator: str | NotGiven = NOT_GIVEN,
-        tags: List[str] | NotGiven = NOT_GIVEN,
-        target_country: str | NotGiven = NOT_GIVEN,
-        target_industry: str | NotGiven = NOT_GIVEN,
+        body_account_id: float | Omit = omit,
+        attacker: Optional[str] | Omit = omit,
+        attacker_country: str | Omit = omit,
+        dataset_id: str | Omit = omit,
+        indicator: str | Omit = omit,
+        indicators: Iterable[threat_event_create_params.Indicator] | Omit = omit,
+        indicator_type: str | Omit = omit,
+        insight: str | Omit = omit,
+        tags: SequenceNotStr[str] | Omit = omit,
+        target_country: str | Omit = omit,
+        target_industry: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ThreatEventCreateResponse:
         """
-        Events must be created in a client-specific dataset, which means the `datasetId`
-        parameter must be defined. To create a dataset, see the
+        To create a dataset, see the
         [`Create Dataset`](https://developers.cloudflare.com/api/resources/cloudforce_one/subresources/threat_events/subresources/datasets/methods/create/)
-        endpoint.
+        endpoint. When `datasetId` parameter is unspecified, it will be created in a
+        default dataset named `Cloudforce One Threat Events`.
 
         Args:
           path_account_id: Account ID.
+
+          indicators: Array of indicators for this event. Supports multiple indicators per event for
+              complex scenarios.
 
           extra_headers: Send extra headers
 
@@ -641,20 +618,22 @@ class AsyncThreatEventsResource(AsyncAPIResource):
         if not path_account_id:
             raise ValueError(f"Expected a non-empty value for `path_account_id` but received {path_account_id!r}")
         return await self._post(
-            f"/accounts/{path_account_id}/cloudforce-one/events/create",
+            path_template("/accounts/{path_account_id}/cloudforce-one/events/create", path_account_id=path_account_id),
             body=await async_maybe_transform(
                 {
-                    "attacker": attacker,
-                    "attacker_country": attacker_country,
                     "category": category,
                     "date": date,
                     "event": event,
-                    "indicator_type": indicator_type,
                     "raw": raw,
                     "tlp": tlp,
                     "body_account_id": body_account_id,
+                    "attacker": attacker,
+                    "attacker_country": attacker_country,
                     "dataset_id": dataset_id,
                     "indicator": indicator,
+                    "indicators": indicators,
+                    "indicator_type": indicator_type,
+                    "insight": insight,
                     "tags": tags,
                     "target_country": target_country,
                     "target_industry": target_industry,
@@ -671,28 +650,45 @@ class AsyncThreatEventsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        dataset_id: List[str] | NotGiven = NOT_GIVEN,
-        force_refresh: bool | NotGiven = NOT_GIVEN,
-        order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        order_by: str | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        page_size: float | NotGiven = NOT_GIVEN,
-        search: Iterable[threat_event_list_params.Search] | NotGiven = NOT_GIVEN,
+        cursor: str | Omit = omit,
+        dataset_id: SequenceNotStr[str] | Omit = omit,
+        force_refresh: bool | Omit = omit,
+        format: Literal["json", "stix2"] | Omit = omit,
+        order: Literal["asc", "desc"] | Omit = omit,
+        order_by: str | Omit = omit,
+        page: float | Omit = omit,
+        page_size: float | Omit = omit,
+        search: Iterable[threat_event_list_params.Search] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ThreatEventListResponse:
         """
-        The `datasetId` must be defined (to list existing datasets (and their IDs), use
-        the
+        Use `datasetId=all` or `datasetId=*` to query all event datasets for the account
+        (limited to 10). When `datasetId` is unspecified, events are listed from the
+        default Cloudforce One Threat Events dataset. To list existing datasets, use the
         [`List Datasets`](https://developers.cloudflare.com/api/resources/cloudforce_one/subresources/threat_events/subresources/datasets/methods/list/)
-        endpoint). Also, must provide query parameters.
+        endpoint.
 
         Args:
           account_id: Account ID.
+
+          cursor: Cursor for pagination. When provided, filters are embedded in the cursor so you
+              only need to pass cursor and pageSize. Returned in the previous response's
+              result_info.cursor field. Use cursor-based pagination for deep pagination
+              (beyond 100,000 records) or for optimal performance.
+
+          dataset_id: Dataset IDs to query events from (array of UUIDs), or special value 'all' or
+              '\\**' to query all event datasets for the account. If not provided, uses the
+              default dataset.
+
+          page: Page number (1-indexed) for offset-based pagination. Limited to offset of
+              100,000 records. For deep pagination, use cursor-based pagination instead.
+
+          page_size: Number of results per page. Maximum 25,000.
 
           extra_headers: Send extra headers
 
@@ -705,7 +701,7 @@ class AsyncThreatEventsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/cloudforce-one/events",
+            path_template("/accounts/{account_id}/cloudforce-one/events", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -713,8 +709,10 @@ class AsyncThreatEventsResource(AsyncAPIResource):
                 timeout=timeout,
                 query=await async_maybe_transform(
                     {
+                        "cursor": cursor,
                         "dataset_id": dataset_id,
                         "force_refresh": force_refresh,
+                        "format": format,
                         "order": order,
                         "order_by": order_by,
                         "page": page,
@@ -727,62 +725,19 @@ class AsyncThreatEventsResource(AsyncAPIResource):
             cast_to=ThreatEventListResponse,
         )
 
-    async def delete(
-        self,
-        event_id: str,
-        *,
-        account_id: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> ThreatEventDeleteResponse:
-        """The `datasetId` parameter must be defined.
-
-        To list existing datasets (and their
-        IDs) in your account, use the
-        [`List Datasets`](https://developers.cloudflare.com/api/resources/cloudforce_one/subresources/threat_events/subresources/datasets/methods/list/)
-        endpoint.
-
-        Args:
-          account_id: Account ID.
-
-          event_id: Event UUID.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not account_id:
-            raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        if not event_id:
-            raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
-        return await self._delete(
-            f"/accounts/{account_id}/cloudforce-one/events/{event_id}",
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
-            cast_to=ThreatEventDeleteResponse,
-        )
-
     async def bulk_create(
         self,
         *,
         account_id: str,
         data: Iterable[threat_event_bulk_create_params.Data],
         dataset_id: str,
+        include_created_events: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ThreatEventBulkCreateResponse:
         """The `datasetId` parameter must be defined.
 
@@ -793,6 +748,9 @@ class AsyncThreatEventsResource(AsyncAPIResource):
 
         Args:
           account_id: Account ID.
+
+          include_created_events: When true, response includes array of created event UUIDs and shard IDs. Useful
+              for tracking which events were created and where.
 
           extra_headers: Send extra headers
 
@@ -805,11 +763,12 @@ class AsyncThreatEventsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/cloudforce-one/events/create/bulk",
+            path_template("/accounts/{account_id}/cloudforce-one/events/create/bulk", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "data": data,
                     "dataset_id": dataset_id,
+                    "include_created_events": include_created_events,
                 },
                 threat_event_bulk_create_params.ThreatEventBulkCreateParams,
             ),
@@ -824,22 +783,26 @@ class AsyncThreatEventsResource(AsyncAPIResource):
         event_id: str,
         *,
         account_id: str,
-        attacker: str | NotGiven = NOT_GIVEN,
-        attacker_country: str | NotGiven = NOT_GIVEN,
-        category: str | NotGiven = NOT_GIVEN,
-        date: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        event: str | NotGiven = NOT_GIVEN,
-        indicator: str | NotGiven = NOT_GIVEN,
-        indicator_type: str | NotGiven = NOT_GIVEN,
-        target_country: str | NotGiven = NOT_GIVEN,
-        target_industry: str | NotGiven = NOT_GIVEN,
-        tlp: str | NotGiven = NOT_GIVEN,
+        dataset_id: str,
+        attacker: Optional[str] | Omit = omit,
+        attacker_country: str | Omit = omit,
+        category: str | Omit = omit,
+        created_at: Union[str, datetime] | Omit = omit,
+        date: Union[str, datetime] | Omit = omit,
+        event: str | Omit = omit,
+        indicator: str | Omit = omit,
+        indicator_type: str | Omit = omit,
+        insight: str | Omit = omit,
+        raw: threat_event_edit_params.Raw | Omit = omit,
+        target_country: str | Omit = omit,
+        target_industry: str | Omit = omit,
+        tlp: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ThreatEventEditResponse:
         """
         Updates an event
@@ -848,6 +811,8 @@ class AsyncThreatEventsResource(AsyncAPIResource):
           account_id: Account ID.
 
           event_id: Event UUID.
+
+          dataset_id: Dataset ID containing the event to update.
 
           extra_headers: Send extra headers
 
@@ -862,16 +827,22 @@ class AsyncThreatEventsResource(AsyncAPIResource):
         if not event_id:
             raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/cloudforce-one/events/{event_id}",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/{event_id}", account_id=account_id, event_id=event_id
+            ),
             body=await async_maybe_transform(
                 {
+                    "dataset_id": dataset_id,
                     "attacker": attacker,
                     "attacker_country": attacker_country,
                     "category": category,
+                    "created_at": created_at,
                     "date": date,
                     "event": event,
                     "indicator": indicator,
                     "indicator_type": indicator_type,
+                    "insight": insight,
+                    "raw": raw,
                     "target_country": target_country,
                     "target_industry": target_industry,
                     "tlp": tlp,
@@ -884,6 +855,7 @@ class AsyncThreatEventsResource(AsyncAPIResource):
             cast_to=ThreatEventEditResponse,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def get(
         self,
         event_id: str,
@@ -894,10 +866,12 @@ class AsyncThreatEventsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ThreatEventGetResponse:
-        """
-        Reads an event
+        """This Method is deprecated.
+
+        Please use
+        /events/dataset/:dataset_id/events/:event_id instead.
 
         Args:
           account_id: Account ID.
@@ -917,7 +891,9 @@ class AsyncThreatEventsResource(AsyncAPIResource):
         if not event_id:
             raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/cloudforce-one/events/{event_id}",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/{event_id}", account_id=account_id, event_id=event_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -935,17 +911,16 @@ class ThreatEventsResourceWithRawResponse:
         self.list = to_raw_response_wrapper(
             threat_events.list,
         )
-        self.delete = to_raw_response_wrapper(
-            threat_events.delete,
-        )
         self.bulk_create = to_raw_response_wrapper(
             threat_events.bulk_create,
         )
         self.edit = to_raw_response_wrapper(
             threat_events.edit,
         )
-        self.get = to_raw_response_wrapper(
-            threat_events.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                threat_events.get,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -959,10 +934,6 @@ class ThreatEventsResourceWithRawResponse:
     @cached_property
     def countries(self) -> CountriesResourceWithRawResponse:
         return CountriesResourceWithRawResponse(self._threat_events.countries)
-
-    @cached_property
-    def crons(self) -> CronsResourceWithRawResponse:
-        return CronsResourceWithRawResponse(self._threat_events.crons)
 
     @cached_property
     def datasets(self) -> DatasetsResourceWithRawResponse:
@@ -992,10 +963,6 @@ class ThreatEventsResourceWithRawResponse:
     def target_industries(self) -> TargetIndustriesResourceWithRawResponse:
         return TargetIndustriesResourceWithRawResponse(self._threat_events.target_industries)
 
-    @cached_property
-    def insights(self) -> InsightsResourceWithRawResponse:
-        return InsightsResourceWithRawResponse(self._threat_events.insights)
-
 
 class AsyncThreatEventsResourceWithRawResponse:
     def __init__(self, threat_events: AsyncThreatEventsResource) -> None:
@@ -1007,17 +974,16 @@ class AsyncThreatEventsResourceWithRawResponse:
         self.list = async_to_raw_response_wrapper(
             threat_events.list,
         )
-        self.delete = async_to_raw_response_wrapper(
-            threat_events.delete,
-        )
         self.bulk_create = async_to_raw_response_wrapper(
             threat_events.bulk_create,
         )
         self.edit = async_to_raw_response_wrapper(
             threat_events.edit,
         )
-        self.get = async_to_raw_response_wrapper(
-            threat_events.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                threat_events.get,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -1031,10 +997,6 @@ class AsyncThreatEventsResourceWithRawResponse:
     @cached_property
     def countries(self) -> AsyncCountriesResourceWithRawResponse:
         return AsyncCountriesResourceWithRawResponse(self._threat_events.countries)
-
-    @cached_property
-    def crons(self) -> AsyncCronsResourceWithRawResponse:
-        return AsyncCronsResourceWithRawResponse(self._threat_events.crons)
 
     @cached_property
     def datasets(self) -> AsyncDatasetsResourceWithRawResponse:
@@ -1064,10 +1026,6 @@ class AsyncThreatEventsResourceWithRawResponse:
     def target_industries(self) -> AsyncTargetIndustriesResourceWithRawResponse:
         return AsyncTargetIndustriesResourceWithRawResponse(self._threat_events.target_industries)
 
-    @cached_property
-    def insights(self) -> AsyncInsightsResourceWithRawResponse:
-        return AsyncInsightsResourceWithRawResponse(self._threat_events.insights)
-
 
 class ThreatEventsResourceWithStreamingResponse:
     def __init__(self, threat_events: ThreatEventsResource) -> None:
@@ -1079,17 +1037,16 @@ class ThreatEventsResourceWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             threat_events.list,
         )
-        self.delete = to_streamed_response_wrapper(
-            threat_events.delete,
-        )
         self.bulk_create = to_streamed_response_wrapper(
             threat_events.bulk_create,
         )
         self.edit = to_streamed_response_wrapper(
             threat_events.edit,
         )
-        self.get = to_streamed_response_wrapper(
-            threat_events.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                threat_events.get,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -1103,10 +1060,6 @@ class ThreatEventsResourceWithStreamingResponse:
     @cached_property
     def countries(self) -> CountriesResourceWithStreamingResponse:
         return CountriesResourceWithStreamingResponse(self._threat_events.countries)
-
-    @cached_property
-    def crons(self) -> CronsResourceWithStreamingResponse:
-        return CronsResourceWithStreamingResponse(self._threat_events.crons)
 
     @cached_property
     def datasets(self) -> DatasetsResourceWithStreamingResponse:
@@ -1136,10 +1089,6 @@ class ThreatEventsResourceWithStreamingResponse:
     def target_industries(self) -> TargetIndustriesResourceWithStreamingResponse:
         return TargetIndustriesResourceWithStreamingResponse(self._threat_events.target_industries)
 
-    @cached_property
-    def insights(self) -> InsightsResourceWithStreamingResponse:
-        return InsightsResourceWithStreamingResponse(self._threat_events.insights)
-
 
 class AsyncThreatEventsResourceWithStreamingResponse:
     def __init__(self, threat_events: AsyncThreatEventsResource) -> None:
@@ -1151,17 +1100,16 @@ class AsyncThreatEventsResourceWithStreamingResponse:
         self.list = async_to_streamed_response_wrapper(
             threat_events.list,
         )
-        self.delete = async_to_streamed_response_wrapper(
-            threat_events.delete,
-        )
         self.bulk_create = async_to_streamed_response_wrapper(
             threat_events.bulk_create,
         )
         self.edit = async_to_streamed_response_wrapper(
             threat_events.edit,
         )
-        self.get = async_to_streamed_response_wrapper(
-            threat_events.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                threat_events.get,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -1175,10 +1123,6 @@ class AsyncThreatEventsResourceWithStreamingResponse:
     @cached_property
     def countries(self) -> AsyncCountriesResourceWithStreamingResponse:
         return AsyncCountriesResourceWithStreamingResponse(self._threat_events.countries)
-
-    @cached_property
-    def crons(self) -> AsyncCronsResourceWithStreamingResponse:
-        return AsyncCronsResourceWithStreamingResponse(self._threat_events.crons)
 
     @cached_property
     def datasets(self) -> AsyncDatasetsResourceWithStreamingResponse:
@@ -1207,7 +1151,3 @@ class AsyncThreatEventsResourceWithStreamingResponse:
     @cached_property
     def target_industries(self) -> AsyncTargetIndustriesResourceWithStreamingResponse:
         return AsyncTargetIndustriesResourceWithStreamingResponse(self._threat_events.target_industries)
-
-    @cached_property
-    def insights(self) -> AsyncInsightsResourceWithStreamingResponse:
-        return AsyncInsightsResourceWithStreamingResponse(self._threat_events.insights)

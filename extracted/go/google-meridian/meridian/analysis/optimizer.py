@@ -28,6 +28,7 @@ from meridian import backend
 from meridian import constants as c
 from meridian.analysis import analyzer as analyzer_module
 from meridian.analysis import summary_text
+from meridian.common import errors as common_errors
 from meridian.data import time_coordinates as tc
 from meridian.model import context
 from meridian.model import model
@@ -35,7 +36,6 @@ from meridian.templates import formatter
 import numpy as np
 import pandas as pd
 import xarray as xr
-
 
 __all__ = [
     'BudgetOptimizer',
@@ -594,13 +594,25 @@ class OptimizationResults:
     with open(os.path.join(filepath, filename), 'w') as f:
       f.write(self._gen_optimization_summary(currency))
 
-  def plot_incremental_outcome_delta(self) -> alt.Chart:
-    """Plots a waterfall chart showing the change in incremental outcome."""
+  # TODO: Add Scuba tests for horizontal plots.
+  def plot_incremental_outcome_delta(
+      self, *, is_vertical: bool = True
+  ) -> alt.Chart:
+    """Plots a waterfall chart showing the change in incremental outcome.
+
+    Args:
+      is_vertical: If `True`, the plot has a vertical orientation. If `False`,
+        it has a horizontal orientation. Defaults to `True`.
+
+    Returns:
+      An Altair chart object representing the waterfall chart of incremental
+      outcome changes.
+    """
     outcome = self._kpi_or_revenue
     if outcome == c.REVENUE:
-      y_axis_label = summary_text.INC_REVENUE_LABEL
+      quantitative_axis_label = summary_text.INC_REVENUE_LABEL
     else:
-      y_axis_label = summary_text.INC_KPI_LABEL
+      quantitative_axis_label = summary_text.INC_KPI_LABEL
     df = self._transform_outcome_delta_data()
     base = (
         alt.Chart(df)
@@ -622,24 +634,10 @@ class OptimizationResults:
                 f" {formatter.compact_number_expr('sum_outcome')} :"
                 f' {formatter.compact_number_expr(c.INCREMENTAL_OUTCOME)}'
             ),
-            text_y=(
+            text_pos=(
                 'datum.sum_outcome < datum.prev_sum ? datum.prev_sum :'
                 ' datum.sum_outcome'
             ),
-        )
-        .encode(
-            x=alt.X(
-                f'{c.CHANNEL}:N',
-                axis=alt.Axis(
-                    ticks=False,
-                    labelPadding=c.PADDING_10,
-                    domainColor=c.GREY_300,
-                    labelAngle=-45,
-                ),
-                title=None,
-                sort=None,
-                scale=alt.Scale(paddingOuter=c.SCALED_PADDING),
-            )
         )
     )
 
@@ -667,32 +665,71 @@ class OptimizationResults:
         self.nonoptimized_data.total_incremental_outcome + sum_decr - y_padding,
         self.optimized_data.total_incremental_outcome + y_padding,
     ]
-    bar = base.mark_bar(
-        size=c.BAR_SIZE, clip=True, cornerRadius=c.CORNER_RADIUS
-    ).encode(
-        y=alt.Y(
-            'prev_sum:Q',
-            axis=alt.Axis(
-                title=y_axis_label,
-                ticks=False,
-                domain=False,
-                tickCount=5,
-                labelPadding=c.PADDING_10,
-                labelExpr=formatter.compact_number_expr(),
-                **formatter.Y_AXIS_TITLE_CONFIG,
-            ),
-            scale=alt.Scale(domain=domain_scale),
-        ),
-        y2='sum_outcome:Q',
-        color=color_coding,
-        tooltip=[f'{c.CHANNEL}:N', f'{c.INCREMENTAL_OUTCOME}:Q'],
+
+    if is_vertical:
+      chart_width = (c.BAR_SIZE + c.PADDING_20) * len(
+          df
+      ) + c.BAR_SIZE * 2 * c.SCALED_PADDING
+      chart_height = 400
+      channel_axis_name, quantitative_axis_name = 'x', 'y'
+      channel_encoding, quantitative_encoding = alt.X, alt.Y
+      text_mark_props = {'baseline': 'top', 'dy': -20}
+      channel_axis_props = {'labelAngle': -45}
+      quantitative_axis_title_props = formatter.Y_AXIS_TITLE_CONFIG
+    else:
+      chart_width = 600
+      chart_height = (c.BAR_SIZE + c.PADDING_20) * len(
+          df
+      ) + c.BAR_SIZE * 2 * c.SCALED_PADDING
+      channel_axis_name, quantitative_axis_name = 'y', 'x'
+      channel_encoding, quantitative_encoding = alt.Y, alt.X
+      text_mark_props = {'baseline': 'middle', 'dx': 5, 'align': 'left'}
+      channel_axis_props = {}
+      quantitative_axis_title_props = formatter.X_AXIS_TITLE_CONFIG
+
+    channel_axis = alt.Axis(
+        ticks=False,
+        labelPadding=c.PADDING_10,
+        domainColor=c.GREY_300,
+        **channel_axis_props,
+    )
+    quantitative_axis = alt.Axis(
+        title=quantitative_axis_label,
+        ticks=False,
+        domain=False,
+        tickCount=5,
+        labelPadding=c.PADDING_10,
+        labelExpr=formatter.compact_number_expr(),
+        **quantitative_axis_title_props,
     )
 
+    base = base.encode(**{
+        channel_axis_name: channel_encoding(
+            f'{c.CHANNEL}:N',
+            axis=channel_axis,
+            sort=None,
+            title=None,
+            scale=alt.Scale(paddingOuter=c.SCALED_PADDING),
+        )
+    })
+
+    bar = base.mark_bar(
+        size=c.BAR_SIZE, clip=True, cornerRadius=c.CORNER_RADIUS
+    ).encode(**{
+        quantitative_axis_name: quantitative_encoding(
+            'prev_sum:Q',
+            axis=quantitative_axis,
+            scale=alt.Scale(domain=domain_scale),
+        ),
+        f'{quantitative_axis_name}2': 'sum_outcome:Q',
+        'color': color_coding,
+        'tooltip': [f'{c.CHANNEL}:N', f'{c.INCREMENTAL_OUTCOME}:Q'],
+    })
+
     text = base.mark_text(
-        baseline='top', dy=-20, fontSize=c.AXIS_FONT_SIZE, color=c.GREY_800
+        fontSize=c.AXIS_FONT_SIZE, color=c.GREY_800, **text_mark_props
     ).encode(
-        text=alt.Text('calc_amount:N'),
-        y='text_y:Q',
+        text=alt.Text('calc_amount:N'), **{quantitative_axis_name: 'text_pos:Q'}
     )
 
     return (
@@ -701,9 +738,8 @@ class OptimizationResults:
             title=formatter.custom_title_params(
                 summary_text.OUTCOME_DELTA_CHART_TITLE.format(outcome=outcome)
             ),
-            width=(c.BAR_SIZE + c.PADDING_20) * len(df)
-            + c.BAR_SIZE * 2 * c.SCALED_PADDING,
-            height=400,
+            width=chart_width,
+            height=chart_height,
         )
         .configure_axis(**formatter.TEXT_CONFIG)
         .configure_view(strokeOpacity=0)
@@ -742,40 +778,77 @@ class OptimizationResults:
         )
     )
 
-  def plot_spend_delta(self, currency: str = c.DEFAULT_CURRENCY) -> alt.Chart:
-    """Plots a bar chart showing the optimized change in spend per channel."""
+  # TODO: Add Scuba tests for horizontal plots.
+  def plot_spend_delta(
+      self,
+      currency: str = c.DEFAULT_CURRENCY,
+      *,
+      is_vertical: bool = True,
+  ) -> alt.Chart:
+    """Plots a bar chart showing the optimized change in spend per channel.
+
+    Args:
+      currency: The currency symbol to use for the quantitative axis.
+      is_vertical: If `True`, the plot has a vertical orientation. If `False`,
+        it has a horizontal orientation. Defaults to `True`.
+
+    Returns:
+      An Altair bar chart showing the optimized change in spend per channel.
+    """
     df = self._get_delta_data(c.SPEND)
-    base = (
-        alt.Chart(df)
-        .transform_calculate(
-            text_value=f'{formatter.compact_number_expr(c.SPEND, 2)}',
-            text_y='datum.spend < 0 ? 0 : datum.spend',
-        )
-        .encode(
-            x=alt.X(
-                f'{c.CHANNEL}:N',
-                sort=None,
-                axis=alt.Axis(
-                    title=None, labelAngle=-45, **formatter.AXIS_CONFIG
-                ),
-                scale=alt.Scale(padding=c.BAR_SIZE),
-            ),
-            y=alt.Y(
-                f'{c.SPEND}:Q',
-                axis=alt.Axis(
-                    title=currency,
-                    domain=False,
-                    labelExpr=formatter.compact_number_expr(),
-                    **formatter.AXIS_CONFIG,
-                    **formatter.Y_AXIS_TITLE_CONFIG,
-                ),
-            ),
-        )
+    quantitative_axis_label = currency
+
+    if is_vertical:
+      chart_width = formatter.bar_chart_width(len(df) + 2)
+      chart_height = 400
+      channel_axis_name, quantitative_axis_name = 'x', 'y'
+      channel_encoding, quantitative_encoding = alt.X, alt.Y
+      text_mark_props = {'baseline': 'top', 'dy': -20}
+      channel_axis_props = {'labelAngle': -45}
+      quantitative_axis_title_props = formatter.Y_AXIS_TITLE_CONFIG
+    else:
+      chart_width = 600
+      chart_height = formatter.bar_chart_width(len(df) + 2)
+      channel_axis_name, quantitative_axis_name = 'y', 'x'
+      channel_encoding, quantitative_encoding = alt.Y, alt.X
+      text_mark_props = {'baseline': 'middle', 'dx': 5, 'align': 'left'}
+      channel_axis_props = {}
+      quantitative_axis_title_props = formatter.X_AXIS_TITLE_CONFIG
+
+    base = alt.Chart(df).transform_calculate(
+        text_value=f'{formatter.compact_number_expr(c.SPEND, 2)}',
+        text_pos='datum.spend < 0 ? 0 : datum.spend',
     )
+
+    channel_axis = alt.Axis(
+        title=None, **formatter.AXIS_CONFIG, **channel_axis_props
+    )
+    quantitative_axis = alt.Axis(
+        title=quantitative_axis_label,
+        domain=False,
+        labelExpr=formatter.compact_number_expr(),
+        **formatter.AXIS_CONFIG,
+        **quantitative_axis_title_props,
+    )
+
+    base = base.encode(**{
+        channel_axis_name: channel_encoding(
+            f'{c.CHANNEL}:N',
+            sort=None,
+            axis=channel_axis,
+            scale=alt.Scale(padding=c.BAR_SIZE),
+        )
+    })
 
     bar_plot = base.mark_bar(
         tooltip=True, size=c.BAR_SIZE, cornerRadiusEnd=c.CORNER_RADIUS
     ).encode(
+        **{
+            quantitative_axis_name: quantitative_encoding(
+                f'{c.SPEND}:Q',
+                axis=quantitative_axis,
+            )
+        },
         color=alt.condition(
             alt.datum.spend > 0,
             alt.value(c.CYAN_400),
@@ -784,10 +857,10 @@ class OptimizationResults:
     )
 
     text = base.mark_text(
-        baseline='top', dy=-20, fontSize=c.AXIS_FONT_SIZE, color=c.GREY_800
+        fontSize=c.AXIS_FONT_SIZE, color=c.GREY_800, **text_mark_props
     ).encode(
         text=alt.Text('text_value:N'),
-        y='text_y:Q',
+        **{quantitative_axis_name: 'text_pos:Q'},
     )
 
     return (
@@ -797,8 +870,8 @@ class OptimizationResults:
             title=formatter.custom_title_params(
                 summary_text.SPEND_DELTA_CHART_TITLE
             ),
-            width=formatter.bar_chart_width(len(df) + 2),
-            height=400,
+            width=chart_width,
+            height=chart_height,
         )
         .configure_axis(**formatter.TEXT_CONFIG)
     )
@@ -1340,7 +1413,7 @@ class BudgetOptimizer:
     """Validates that the model is fit."""
     dist_type = c.POSTERIOR if use_posterior else c.PRIOR
     if dist_type not in self._analyzer.inference_data.groups():
-      raise model.NotFittedModelError(
+      raise common_errors.NotFittedModelError(
           'Running budget optimization scenarios requires fitting the model.'
       )
 
@@ -1349,7 +1422,7 @@ class BudgetOptimizer:
       new_data: analyzer_module.DataTensors | None = None,
       use_posterior: bool = True,
       selected_geos: Sequence[str] | None = None,
-      # TODO: b/409550413 - Remove this argument.
+      # TODO: Remove this argument.
       selected_times: tuple[str | None, str | None] | None = None,
       start_date: tc.Date = None,
       end_date: tc.Date = None,
@@ -1873,17 +1946,32 @@ class BudgetOptimizer:
           ' new grid will be created.'
       )
       return False
-
+    normalized_start_date = (
+        tc.normalize_date(start_date) if start_date is not None else None
+    )
+    normalized_start_date_grid = (
+        tc.normalize_date(optimization_grid.start_date)
+        if optimization_grid.start_date is not None
+        else None
+    )
+    normalized_end_date = (
+        tc.normalize_date(end_date) if end_date is not None else None
+    )
+    normalized_end_date_grid = (
+        tc.normalize_date(optimization_grid.end_date)
+        if optimization_grid.end_date is not None
+        else None
+    )
     if (
-        start_date != optimization_grid.start_date
-        or end_date != optimization_grid.end_date
+        normalized_start_date != normalized_start_date_grid
+        or normalized_end_date != normalized_end_date_grid
     ):
       warnings.warn(
           'Given optimization grid was created with `start_date` ='
-          f' {optimization_grid.start_date} and `end_date` ='
-          f' {optimization_grid.end_date}, but optimization was called with'
-          f' `start_date` = {start_date} and `end_date` = {end_date}. A new'
-          ' grid will be created.'
+          f' {normalized_start_date_grid} and `end_date` ='
+          f' {normalized_end_date_grid}, but optimization was called with'
+          f' `start_date` = {normalized_start_date} and `end_date` ='
+          f' {normalized_end_date}. A new grid will be created.'
       )
       return False
 
@@ -1975,7 +2063,7 @@ class BudgetOptimizer:
       new_data: xr.Dataset | None = None,
       use_posterior: bool = True,
       selected_geos: Sequence[str] | None = None,
-      # TODO: b/409550413 - Remove this argument.
+      # TODO: Remove this argument.
       selected_times: tuple[str | None, str | None] | None = None,
       start_date: tc.Date = None,
       end_date: tc.Date = None,
@@ -2140,7 +2228,7 @@ class BudgetOptimizer:
               use_kpi=use_kpi,
               max_frequency=max_frequency,
           ).optimal_frequency,
-          dtype=backend.float32,
+          dtype=backend.float_dtype,
       )
     else:
       optimal_frequency = None
@@ -2330,8 +2418,8 @@ class BudgetOptimizer:
         end_date=end_date,
         new_data=new_data,
     )
-    spend_tensor = backend.to_tensor(spend, dtype=backend.float32)
-    hist_spend = backend.to_tensor(hist_spend, dtype=backend.float32)
+    spend_tensor = backend.to_tensor(spend, dtype=backend.float_dtype)
+    hist_spend = backend.to_tensor(hist_spend, dtype=backend.float_dtype)
     new_media, new_reach, new_frequency = self._get_incremental_outcome_tensors(
         hist_spend,
         spend_tensor,
@@ -2422,10 +2510,12 @@ class BudgetOptimizer:
         include_median=True,
     )
     total_inc_outcome = backend.reduce_sum(incremental_outcome, -1)
-    total_cpik = backend.nanmean(
-        backend.divide(budget, total_inc_outcome),
-        axis=(0, 1),
-    )
+    total_cpik = np.asarray(
+        backend.nanmean(
+            backend.divide(budget, total_inc_outcome),
+            axis=(0, 1),
+        )
+    ).item()
 
     total_spend = np.sum(spend) if np.sum(spend) > 0 else 1
     pct_of_spend = spend / total_spend
@@ -2668,7 +2758,7 @@ class BudgetOptimizer:
       spend_grid[: len(spend_grid_m), i] = spend_grid_m
     incremental_outcome_grid = np.full([n_grid_rows, n_grid_columns], np.nan)
     multipliers_grid_base = backend.cast(
-        backend.divide_no_nan(spend_grid, spend), dtype=backend.float32
+        backend.divide_no_nan(spend_grid, spend), dtype=backend.float_dtype
     )
     multipliers_grid = np.where(
         np.isnan(spend_grid), np.nan, multipliers_grid_base

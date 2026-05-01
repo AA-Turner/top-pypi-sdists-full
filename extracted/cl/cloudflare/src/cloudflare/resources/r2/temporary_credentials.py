@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import List, Type, cast
+from typing import Type, cast
 from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ...types.r2 import temporary_credential_create_params
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -53,14 +53,14 @@ class TemporaryCredentialsResource(SyncAPIResource):
         parent_access_key_id: str,
         permission: Literal["admin-read-write", "admin-read-only", "object-read-write", "object-read-only"],
         ttl_seconds: float,
-        objects: List[str] | NotGiven = NOT_GIVEN,
-        prefixes: List[str] | NotGiven = NOT_GIVEN,
+        objects: SequenceNotStr[str] | Omit = omit,
+        prefixes: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TemporaryCredentialCreateResponse:
         """
         Creates temporary access credentials on a bucket that can be optionally scoped
@@ -92,7 +92,7 @@ class TemporaryCredentialsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/r2/temp-access-credentials",
+            path_template("/accounts/{account_id}/r2/temp-access-credentials", account_id=account_id),
             body=maybe_transform(
                 {
                     "bucket": bucket,
@@ -143,14 +143,14 @@ class AsyncTemporaryCredentialsResource(AsyncAPIResource):
         parent_access_key_id: str,
         permission: Literal["admin-read-write", "admin-read-only", "object-read-write", "object-read-only"],
         ttl_seconds: float,
-        objects: List[str] | NotGiven = NOT_GIVEN,
-        prefixes: List[str] | NotGiven = NOT_GIVEN,
+        objects: SequenceNotStr[str] | Omit = omit,
+        prefixes: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TemporaryCredentialCreateResponse:
         """
         Creates temporary access credentials on a bucket that can be optionally scoped
@@ -182,7 +182,7 @@ class AsyncTemporaryCredentialsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/r2/temp-access-credentials",
+            path_template("/accounts/{account_id}/r2/temp-access-credentials", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "bucket": bucket,

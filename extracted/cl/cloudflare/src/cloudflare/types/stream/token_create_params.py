@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import List, Iterable
+from typing import Iterable
 from typing_extensions import Literal, Required, Annotated, TypedDict
 
+from ..._types import SequenceNotStr
 from ..._utils import PropertyInfo
 
-__all__ = ["TokenCreateParams", "AccessRule"]
+__all__ = ["TokenCreateParams", "AccessRule", "Flags"]
 
 
 class TokenCreateParams(TypedDict, total=False):
@@ -41,6 +42,9 @@ class TokenCreateParams(TypedDict, total=False):
     field is not set, the default is one hour after issuing.
     """
 
+    flags: Flags
+    """Optional flags for the signed token."""
+
     nbf: int
     """
     The optional unix epoch timestamp that specifies the time before a the token is
@@ -55,6 +59,11 @@ class TokenCreateParams(TypedDict, total=False):
 
 
 class AccessRule(TypedDict, total=False):
+    """Defines rules for fine-grained control over content than signed URL tokens alone.
+
+    Access rules primarily make tokens conditionally valid based on user information. Access Rules are specified on token payloads as the `accessRules` property containing an array of Rule objects.
+    """
+
     action: Literal["allow", "block"]
     """The action to take when a request matches a rule.
 
@@ -62,13 +71,13 @@ class AccessRule(TypedDict, total=False):
     rule.
     """
 
-    country: List[str]
+    country: SequenceNotStr[str]
     """
     An array of 2-letter country codes in ISO 3166-1 Alpha-2 format used to match
     requests.
     """
 
-    ip: List[str]
+    ip: SequenceNotStr[str]
     """An array of IPv4 or IPV6 addresses or CIDRs used to match requests."""
 
     type: Literal["any", "ip.src", "ip.geoip.country"]
@@ -77,3 +86,10 @@ class AccessRule(TypedDict, total=False):
     An `any` type matches all requests and can be used as a wildcard to apply
     default actions after other rules.
     """
+
+
+class Flags(TypedDict, total=False):
+    """Optional flags for the signed token."""
+
+    original: bool
+    """Whether to return the original video without transformations."""

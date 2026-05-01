@@ -7,7 +7,7 @@ import cutlass
 import cutlass.cute as cute
 
 from cutlass import Int32, Int16, Boolean, const_expr
-from cutlass.base_dsl import Arch
+from cutlass.base_dsl.arch import Arch
 from cutlass.cute.nvgpu import cpasync, tcgen05, warp, warpgroup
 from cutlass.cute.nvgpu.tcgen05.mma import CtaGroup  # noqa
 from cutlass.cutlass_dsl import dsl_user_op
@@ -856,6 +856,18 @@ def tma_producer_copy_fn(copy: Callable, pipeline: cutlass.pipeline.PipelineAsyn
             tma_bar_ptr=pipeline.producer_get_barrier(producer_state),
             **new_kwargs,
         )
+
+    return copy_fn
+
+
+def chain_tma_producer_copy_fns(copy_fns: Sequence[Optional[Callable]]):
+    if not any(fn is not None for fn in copy_fns):
+        return None
+
+    def copy_fn(src_idx, producer_state: cutlass.pipeline.PipelineState, **new_kwargs):
+        for fn in copy_fns:
+            if const_expr(fn is not None):
+                fn(src_idx=src_idx, producer_state=producer_state, **new_kwargs)
 
     return copy_fn
 

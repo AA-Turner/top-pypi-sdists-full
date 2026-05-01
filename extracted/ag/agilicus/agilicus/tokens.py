@@ -421,6 +421,7 @@ def update_session(ctx, session_id, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
     update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
     kwargs["user_id"] = get_user_id_from_input_or_ctx(ctx, **kwargs)
+    kwargs = strip_none(kwargs)
     session = apiclient.tokens_api.get_session(
         session_id, user_id=kwargs["user_id"], org_id=kwargs["org_id"]
     )

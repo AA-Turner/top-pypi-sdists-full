@@ -14,13 +14,20 @@ __all__ = ["InstanceListParams"]
 class InstanceListParams(TypedDict, total=False):
     account_id: Required[str]
 
+    cursor: str
+    """Opaque token for cursor-based pagination. Mutually exclusive with `page`."""
+
     date_end: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
     """Accepts ISO 8601 with no timezone offsets and in UTC."""
 
     date_start: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
     """Accepts ISO 8601 with no timezone offsets and in UTC."""
 
+    direction: Literal["asc", "desc"]
+    """Defines the direction for cursor-based pagination."""
+
     page: float
+    """Deprecated: use `cursor` for pagination instead."""
 
     per_page: float
 

@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -56,7 +56,7 @@ class RegionalTieredCacheResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RegionalTieredCacheEditResponse]:
         """
         Instructs Cloudflare to check a regional hub data center on the way to your
@@ -64,7 +64,7 @@ class RegionalTieredCacheResource(SyncAPIResource):
         topologies.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           value: Value of the Regional Tiered Cache zone setting.
 
@@ -79,7 +79,7 @@ class RegionalTieredCacheResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._patch(
-            f"/zones/{zone_id}/cache/regional_tiered_cache",
+            path_template("/zones/{zone_id}/cache/regional_tiered_cache", zone_id=zone_id),
             body=maybe_transform({"value": value}, regional_tiered_cache_edit_params.RegionalTieredCacheEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -102,7 +102,7 @@ class RegionalTieredCacheResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RegionalTieredCacheGetResponse]:
         """
         Instructs Cloudflare to check a regional hub data center on the way to your
@@ -110,7 +110,7 @@ class RegionalTieredCacheResource(SyncAPIResource):
         topologies.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -123,7 +123,7 @@ class RegionalTieredCacheResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/cache/regional_tiered_cache",
+            path_template("/zones/{zone_id}/cache/regional_tiered_cache", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -165,7 +165,7 @@ class AsyncRegionalTieredCacheResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RegionalTieredCacheEditResponse]:
         """
         Instructs Cloudflare to check a regional hub data center on the way to your
@@ -173,7 +173,7 @@ class AsyncRegionalTieredCacheResource(AsyncAPIResource):
         topologies.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           value: Value of the Regional Tiered Cache zone setting.
 
@@ -188,7 +188,7 @@ class AsyncRegionalTieredCacheResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._patch(
-            f"/zones/{zone_id}/cache/regional_tiered_cache",
+            path_template("/zones/{zone_id}/cache/regional_tiered_cache", zone_id=zone_id),
             body=await async_maybe_transform(
                 {"value": value}, regional_tiered_cache_edit_params.RegionalTieredCacheEditParams
             ),
@@ -213,7 +213,7 @@ class AsyncRegionalTieredCacheResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RegionalTieredCacheGetResponse]:
         """
         Instructs Cloudflare to check a regional hub data center on the way to your
@@ -221,7 +221,7 @@ class AsyncRegionalTieredCacheResource(AsyncAPIResource):
         topologies.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -234,7 +234,7 @@ class AsyncRegionalTieredCacheResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/cache/regional_tiered_cache",
+            path_template("/zones/{zone_id}/cache/regional_tiered_cache", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

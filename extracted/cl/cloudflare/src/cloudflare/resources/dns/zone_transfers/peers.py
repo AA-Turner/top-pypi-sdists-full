@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -56,7 +56,7 @@ class PeersResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Peer]:
         """
         Create Peer.
@@ -75,7 +75,7 @@ class PeersResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/secondary_dns/peers",
+            path_template("/accounts/{account_id}/secondary_dns/peers", account_id=account_id),
             body=maybe_transform({"name": name}, peer_create_params.PeerCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -93,16 +93,16 @@ class PeersResource(SyncAPIResource):
         *,
         account_id: str,
         name: str,
-        ip: str | NotGiven = NOT_GIVEN,
-        ixfr_enable: bool | NotGiven = NOT_GIVEN,
-        port: float | NotGiven = NOT_GIVEN,
-        tsig_id: str | NotGiven = NOT_GIVEN,
+        ip: str | Omit = omit,
+        ixfr_enable: bool | Omit = omit,
+        port: float | Omit = omit,
+        tsig_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Peer]:
         """
         Modify Peer.
@@ -137,7 +137,9 @@ class PeersResource(SyncAPIResource):
         if not peer_id:
             raise ValueError(f"Expected a non-empty value for `peer_id` but received {peer_id!r}")
         return self._put(
-            f"/accounts/{account_id}/secondary_dns/peers/{peer_id}",
+            path_template(
+                "/accounts/{account_id}/secondary_dns/peers/{peer_id}", account_id=account_id, peer_id=peer_id
+            ),
             body=maybe_transform(
                 {
                     "name": name,
@@ -167,7 +169,7 @@ class PeersResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Peer]:
         """
         List Peers.
@@ -184,7 +186,7 @@ class PeersResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/secondary_dns/peers",
+            path_template("/accounts/{account_id}/secondary_dns/peers", account_id=account_id),
             page=SyncSinglePage[Peer],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -202,7 +204,7 @@ class PeersResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PeerDeleteResponse]:
         """
         Delete Peer.
@@ -221,7 +223,9 @@ class PeersResource(SyncAPIResource):
         if not peer_id:
             raise ValueError(f"Expected a non-empty value for `peer_id` but received {peer_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/secondary_dns/peers/{peer_id}",
+            path_template(
+                "/accounts/{account_id}/secondary_dns/peers/{peer_id}", account_id=account_id, peer_id=peer_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -242,7 +246,7 @@ class PeersResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Peer]:
         """
         Get Peer.
@@ -261,7 +265,9 @@ class PeersResource(SyncAPIResource):
         if not peer_id:
             raise ValueError(f"Expected a non-empty value for `peer_id` but received {peer_id!r}")
         return self._get(
-            f"/accounts/{account_id}/secondary_dns/peers/{peer_id}",
+            path_template(
+                "/accounts/{account_id}/secondary_dns/peers/{peer_id}", account_id=account_id, peer_id=peer_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -303,7 +309,7 @@ class AsyncPeersResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Peer]:
         """
         Create Peer.
@@ -322,7 +328,7 @@ class AsyncPeersResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/secondary_dns/peers",
+            path_template("/accounts/{account_id}/secondary_dns/peers", account_id=account_id),
             body=await async_maybe_transform({"name": name}, peer_create_params.PeerCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -340,16 +346,16 @@ class AsyncPeersResource(AsyncAPIResource):
         *,
         account_id: str,
         name: str,
-        ip: str | NotGiven = NOT_GIVEN,
-        ixfr_enable: bool | NotGiven = NOT_GIVEN,
-        port: float | NotGiven = NOT_GIVEN,
-        tsig_id: str | NotGiven = NOT_GIVEN,
+        ip: str | Omit = omit,
+        ixfr_enable: bool | Omit = omit,
+        port: float | Omit = omit,
+        tsig_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Peer]:
         """
         Modify Peer.
@@ -384,7 +390,9 @@ class AsyncPeersResource(AsyncAPIResource):
         if not peer_id:
             raise ValueError(f"Expected a non-empty value for `peer_id` but received {peer_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/secondary_dns/peers/{peer_id}",
+            path_template(
+                "/accounts/{account_id}/secondary_dns/peers/{peer_id}", account_id=account_id, peer_id=peer_id
+            ),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -414,7 +422,7 @@ class AsyncPeersResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Peer, AsyncSinglePage[Peer]]:
         """
         List Peers.
@@ -431,7 +439,7 @@ class AsyncPeersResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/secondary_dns/peers",
+            path_template("/accounts/{account_id}/secondary_dns/peers", account_id=account_id),
             page=AsyncSinglePage[Peer],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -449,7 +457,7 @@ class AsyncPeersResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PeerDeleteResponse]:
         """
         Delete Peer.
@@ -468,7 +476,9 @@ class AsyncPeersResource(AsyncAPIResource):
         if not peer_id:
             raise ValueError(f"Expected a non-empty value for `peer_id` but received {peer_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/secondary_dns/peers/{peer_id}",
+            path_template(
+                "/accounts/{account_id}/secondary_dns/peers/{peer_id}", account_id=account_id, peer_id=peer_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -489,7 +499,7 @@ class AsyncPeersResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Peer]:
         """
         Get Peer.
@@ -508,7 +518,9 @@ class AsyncPeersResource(AsyncAPIResource):
         if not peer_id:
             raise ValueError(f"Expected a non-empty value for `peer_id` but received {peer_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/secondary_dns/peers/{peer_id}",
+            path_template(
+                "/accounts/{account_id}/secondary_dns/peers/{peer_id}", account_id=account_id, peer_id=peer_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

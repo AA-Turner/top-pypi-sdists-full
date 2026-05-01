@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy_exasol
-Version: 6.1.1
+Version: 7.0.0
 Summary: EXASOL dialect for SQLAlchemy
 License-Expression: BSD-2-Clause
 License-File: LICENSE

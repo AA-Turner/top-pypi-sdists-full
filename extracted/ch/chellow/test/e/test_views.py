@@ -2554,6 +2554,11 @@ def test_get_era_bundles_bill_in_correct_era(sess, client):
     assert len(bundles[1]["imp_bills"]["bill_dicts"]) == 1
 
 
+def test_issues_get(client):
+    response = client.get("/e/issues")
+    match(response, 200)
+
+
 def test_lafs_get(sess, client):
     vf = to_utc(ct_datetime(2000, 1, 1))
 
@@ -2654,6 +2659,19 @@ def test_mop_batch_add_post(sess, client):
     }
     response = client.post(f"/e/mop_contracts/{mop_contract.id}/batches/add", data=data)
     match(response, 303, r"/mop_batches/1")
+
+
+def test_mop_batch_get(sess, client):
+    vf = to_utc(ct_datetime(1996, 1, 1))
+    participant = Participant.insert(sess, "hhak", "AK Industries")
+    market_role_M = MarketRole.insert(sess, "M", "MOP")
+    mop_party = participant.insert_party(sess, market_role_M, "Fusion", vf, None, None)
+    contract = mop_party.insert_contract(sess, "Fusion MOP", "", {}, vf, None, {})
+    batch = contract.insert_batch(sess, "b1", "batch 1", vf)
+    sess.commit()
+
+    response = client.get(f"/e/mop_batches/{batch.id}")
+    match(response, 200)
 
 
 def test_mop_batch_edit_post_import(sess, client):
@@ -3386,6 +3404,19 @@ def test_mtc_llfc_ssc_pc_get(sess, client):
         "dno_id": dno.id,
     }
     response = client.get("/e/mtc_llfc_ssc_pcs", query_string=query_string)
+
+    match(response, 200)
+
+
+def test_party_get(sess, client):
+    vf = to_utc(ct_datetime(1996, 4, 1))
+    participant = Participant.insert(sess, "CALB", "AK Industries")
+    market_role_R = MarketRole.insert(sess, "R", "Distributor")
+    dno_party = participant.insert_party(sess, market_role_R, "WPD", vf, None, "22")
+    dno_party.insert_contract(sess, "22", "", {}, vf, None, {})
+
+    sess.commit()
+    response = client.get(f"/e/parties/{dno_party.id}")
 
     match(response, 200)
 

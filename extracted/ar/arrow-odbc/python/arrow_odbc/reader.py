@@ -1,19 +1,13 @@
-# pyright: reportAttributeAccessIssue=false
-# pyright: reportMissingTypeStubs=false
-# pyright: reportIndexIssue=false
-
-from collections.abc import Callable, Sequence
-from enum import Enum
+from collections.abc import Callable
 
 import pyarrow
-from cffi.api import FFI  # type: ignore
-from pyarrow import Array, RecordBatch, Schema  # type: ignore
-from pyarrow.cffi import ffi as arrow_ffi  # type: ignore
+from cffi import FFI
+from pyarrow import Array, RecordBatch, Schema, StructArray
+from pyarrow.cffi import ffi as arrow_ffi
 
-from .arrow_odbc import ffi, lib  # type: ignore
-from .buffer import to_bytes_and_len
-from .connection_raii import ConnectionRaii
+from .arrow_odbc import ffi, lib
 from .error import raise_on_error
+from .text_encoding import TextEncoding
 
 # Default maximum buffer size for transition buffer. Defaults to 512 MiB.
 DEFAULT_FETCH_BUFFER_LIMIT_IN_BYTES = 2**29
@@ -25,32 +19,7 @@ DEFAULT_FETCH_BUFFER_LIMIT_IN_BYTES = 2**29
 DEFAULT_FETCH_BUFFER_LIMIT_IN_ROWS = 65535
 
 
-class TextEncoding(Enum):
-    """
-    Text encoding used for the payload of text columns, to transfer data from the data source to the
-    application.
-
-    ``Auto`` evaluates to Utf16 on windows and Self::Utf8 on other systems. We do this, because most
-    systems e.g. MacOs and Linux use UTF-8 as their default encoding, while windows may still use a
-    Latin1 or some other extended ASCII as their narrow encoding. On the other hand many Posix
-    drivers are lacking in their support for wide function calls and UTF-16. So using ``Utf16`` on
-    windows and ``Utf8`` everythere else is a good starting point.
-
-    ``Utf8`` use narrow characters (one byte) to encode text in payloads. ODBC lets the client
-    choose the encoding which should be based on the system local. This is often not what is
-    actually happening though. If we use narrow encoding, we assume the text to be UTF-8 and error
-    if we find that not to be the case.
-
-    ``Utf16`` use wide characters (two bytes) to encode text in payloads. ODBC defines the encoding
-    to be always UTF-16.
-    """
-
-    AUTO = 0
-    UTF8 = 1
-    UTF16 = 2
-
-
-def _schema_from_handle(handle) -> Schema:
+def _schema_from_handle(handle: "FFI.CData") -> Schema:
     """
     Take a handle to an ArrowOdbcReader and return the associated pyarrow schema
     """
@@ -63,7 +32,7 @@ def _schema_from_handle(handle) -> Schema:
         return Schema._import_from_c(ptr_schema)
 
 
-class _BatchReaderRaii:
+class BatchReaderRaii:
     """
     Takes ownership of the reader in its various states and makes sure its resources are freed if
     the object is deleted.
@@ -74,7 +43,7 @@ class _BatchReaderRaii:
         lib.arrow_odbc_reader_make(reader_out)
         # We take ownership of the corresponding reader written in Rust and keep it alive until
         # `self` is deleted.
-        self.handle = reader_out[0]
+        self.handle: "FFI.CData" = reader_out[0]
 
     def __del__(self):
         # Free the resources associated with this handle.
@@ -98,63 +67,8 @@ class _BatchReaderRaii:
             array_ptr = int(ffi.cast("uintptr_t", array))
             schema_ptr = int(ffi.cast("uintptr_t", schema))
             struct_array = Array._import_from_c(array_ptr, schema_ptr)
+            assert isinstance(struct_array, StructArray)
             return RecordBatch.from_struct_array(struct_array)
-
-    def query(
-        self,
-        connection: ConnectionRaii,
-        query: str,
-        parameters: Sequence[str | None] | None,
-        text_encoding: TextEncoding,
-        query_timeout_sec: int | None,
-    ):
-        query_bytes = query.encode("utf-8")
-
-        if parameters is None:
-            parameters_array = FFI.NULL
-            parameters_len = 0
-            encoded_parameters = []
-        else:
-            # Check precondition in order to save users some debugging, in case they directly pass a
-            # non-string argument and do not use a type linter.
-            if not all([p is None or hasattr(p, "encode") for p in parameters]):
-                raise TypeError(
-                    "read_arrow_batches_from_odbc only supports string arguments for SQL query "
-                    "parameters"
-                )
-
-            parameters_array = ffi.new("ArrowOdbcParameter *[]", len(parameters))
-            parameters_len = len(parameters)
-            # Must be kept alive. Within Rust code we only allocate an additional indicator the
-            # string payload is just referenced.
-            encoded_parameters = [to_bytes_and_len(p) for p in parameters]
-
-        text_encoding = text_encoding.value
-
-        for p_index in range(0, parameters_len):
-            (p_bytes, p_len) = encoded_parameters[p_index]
-            parameters_array[p_index] = lib.arrow_odbc_parameter_string_make(
-                p_bytes, p_len, text_encoding
-            )
-
-        if query_timeout_sec is None:
-            query_timeout_sec_pointer = ffi.NULL
-        else:
-            query_timeout_sec_pointer = ffi.new("uintptr_t *")
-            query_timeout_sec_pointer[0] = query_timeout_sec
-
-        error = lib.arrow_odbc_reader_query(
-            self.handle,
-            connection.arrow_odbc_connection(),
-            query_bytes,
-            len(query_bytes),
-            parameters_array,
-            parameters_len,
-            query_timeout_sec_pointer,
-        )
-
-        # See if we managed to execute the query successfully and return an error if not
-        raise_on_error(error)
 
     def bind_buffers(
         self,
@@ -210,7 +124,7 @@ class BatchReader:
     Iterates over Arrow batches from an ODBC data source
     """
 
-    def __init__(self, reader: _BatchReaderRaii):
+    def __init__(self, reader: BatchReaderRaii):
         """
         Low level constructor, users should rather invoke `read_arrow_batches_from_odbc` in order to
         create instances of `BatchReader`.
@@ -224,55 +138,6 @@ class BatchReader:
         # This is the schema of the batches returned by reader. We take care to keep it in sync in
         # case the state of reader changes.
         self.schema = self.reader.schema()
-
-    @classmethod
-    def _from_connection(
-        cls,
-        connection: ConnectionRaii,
-        query: str,
-        batch_size: int = DEFAULT_FETCH_BUFFER_LIMIT_IN_ROWS,
-        parameters: Sequence[str | None] | None = None,
-        max_bytes_per_batch: int | None = DEFAULT_FETCH_BUFFER_LIMIT_IN_BYTES,
-        max_text_size: int | None = None,
-        max_binary_size: int | None = None,
-        falliable_allocations: bool = False,
-        schema: Schema | None = None,
-        map_schema: Callable[[Schema], Schema] | None = None,
-        fetch_concurrently=True,
-        query_timeout_sec: int | None = None,
-        payload_text_encoding: TextEncoding = TextEncoding.AUTO,
-    ) -> "BatchReader":
-        reader = _BatchReaderRaii()
-
-        reader.query(
-            connection=connection,
-            query=query,
-            parameters=parameters,
-            text_encoding=payload_text_encoding,
-            query_timeout_sec=query_timeout_sec,
-        )
-
-        if max_text_size is None:
-            max_text_size = 0
-        if max_binary_size is None:
-            max_binary_size = 0
-        if max_bytes_per_batch is None:
-            max_bytes_per_batch = 0
-
-        # Let us transition to reader state
-        reader.bind_buffers(
-            batch_size=batch_size,
-            max_bytes_per_batch=max_bytes_per_batch,
-            max_text_size=max_text_size,
-            max_binary_size=max_binary_size,
-            falliable_allocations=falliable_allocations,
-            payload_text_encoding=payload_text_encoding,
-            schema=schema,
-            map_schema=map_schema,
-            fetch_concurrently=fetch_concurrently,
-        )
-
-        return BatchReader(reader)
 
     def __iter__(self):
         # Implement iterable protocol so reader can be used in for loops.
@@ -379,10 +244,10 @@ class BatchReader:
             immediatly without waiting for the application logic to return control.
         :param payload_text_encoding: Controls the encoding used for transferring text data from the
             ODBC data source to the application. The resulting Arrow arrays will still be UTF-8
-            encoded. You may want to use this if you get garbage characters or invalid UTF-8 errors
-            on non-windows systems to set the encoding to ``TextEncoding.Utf16``. On windows systems
-            you may want to set this to ``TextEncoding::Utf8`` to gain performance benefits, after
-            you have verified that your system locale is set to UTF-8.
+            encoded. If you see garbage characters or invalid UTF-8 errors in non-windows systems,
+            you may want to set the encoding to ``TextEncoding.Utf16``. On windows systems you may
+            want to set this to ``TextEncoding::Utf8`` to gain performance benefits, after you have
+            verified that your system locale is set to UTF-8.
         :return: ``True`` in case there is another result set. ``False`` in case that the last
             result set has been processed.
         """
@@ -422,7 +287,7 @@ class BatchReader:
         convert the ``arrow-odbc`` BatchReader into a ``pyarrow`` ``RecordBatchReader``.
         """
         # New empty tmp reader
-        reader = _BatchReaderRaii()
+        reader = BatchReaderRaii()
         tmp = BatchReader(reader)
         # Swap self and tmp
         tmp.reader, self.reader = self.reader, tmp.reader

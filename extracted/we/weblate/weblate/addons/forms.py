@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import regex
 from crispy_forms.helper import FormHelper
@@ -20,7 +20,11 @@ from lxml.cssselect import CSSSelector
 from weblate.addons.base import BaseAddon
 from weblate.formats.models import FILE_FORMATS
 from weblate.trans.actions import ActionEvents
-from weblate.trans.discovery import ComponentDiscovery
+from weblate.trans.discovery import (
+    ComponentDiscovery,
+    get_component_detected_discovery_presets,
+    get_detected_discovery_preset_values_key,
+)
 from weblate.trans.forms import AutoForm, BulkEditForm
 from weblate.trans.models import Translation
 from weblate.utils.forms import (
@@ -29,7 +33,7 @@ from weblate.utils.forms import (
     SortedSelectMultiple,
     WeblateServiceURLField,
 )
-from weblate.utils.regex import compile_regex
+from weblate.utils.regex import compile_regex, regex_match, regex_sub
 from weblate.utils.render import validate_render, validate_render_translation
 from weblate.utils.validators import (
     DomainOrIPValidator,
@@ -47,13 +51,30 @@ if TYPE_CHECKING:
         AutoTranslateAddonStoredConfiguration,
     )
     from weblate.addons.cdn import CDNJSAddon  # noqa: F401
+    from weblate.addons.consistency import LanguageConsistencyAddon  # noqa: F401
+    from weblate.addons.generate import (
+        GenerateFileAddon,  # noqa: F401
+        GenerateFileAddonConfiguration,
+    )
     from weblate.addons.gettext import MesonAddon
+    from weblate.addons.git import (
+        GitSquashAddon,  # noqa: F401
+        GitSquashAddonStoredConfiguration,
+    )
     from weblate.addons.models import Addon
+    from weblate.addons.properties import (
+        PropertiesSortAddon,  # noqa: F401
+        PropertiesSortAddonStoredConfiguration,
+    )
     from weblate.auth.models import User
+    from weblate.trans.discovery import (
+        DetectedDiscoveryPreset,
+        DetectedDiscoveryPresetValues,
+    )
     from weblate.trans.models import Component, Project
 
 
-class BaseAddonForm[StoredConfigurationT, AddonT: BaseAddon[Any, Any]](forms.Form):
+class BaseAddonForm[StoredConfigurationT, AddonT: BaseAddon](forms.Form):
     def __init__(
         self,
         user: User | None,
@@ -70,7 +91,7 @@ class BaseAddonForm[StoredConfigurationT, AddonT: BaseAddon[Any, Any]](forms.For
         return cast("StoredConfigurationT", self.cleaned_data)
 
     def save(self):
-        self._addon.configure(cast("Any", self.serialize_form()))
+        self._addon.configure(self.serialize_form())
         return self._addon.instance
 
 
@@ -338,11 +359,16 @@ class XgettextExtractPotForm(BaseXgettextExtractPotForm):
                 component = self._addon.instance.component
                 if component is not None:
                     manifest = Path(component.full_path) / potfiles_path
-                    if manifest.exists() and manifest.is_dir():
-                        self.add_error(
-                            "potfiles_path",
-                            gettext("POTFILES path has to point to a file."),
-                        )
+                    try:
+                        component.check_file_is_valid(str(manifest))
+                    except forms.ValidationError as error:
+                        self.add_error("potfiles_path", error)
+                    else:
+                        if manifest.exists() and manifest.is_dir():
+                            self.add_error(
+                                "potfiles_path",
+                                gettext("POTFILES path has to point to a file."),
+                            )
             cleaned_data["source_patterns"] = []
             cleaned_data["potfiles_path"] = potfiles_path
         return self.clean_xgettext_options(cleaned_data)
@@ -469,15 +495,26 @@ class SphinxExtractPotForm(BaseExtractPotForm):
         source_parts = parts[:locales_index]
         if source_parts:
             component_root = Path(component.full_path)
-            if not component_root.joinpath(*source_parts).is_dir():
+            source_dir = component_root.joinpath(*source_parts)
+            try:
+                component.check_file_is_valid(str(source_dir))
+            except forms.ValidationError:
                 self.add_error(
                     None,
                     gettext("Could not determine Sphinx source directory."),
                 )
+            else:
+                if not source_dir.is_dir():
+                    self.add_error(
+                        None,
+                        gettext("Could not determine Sphinx source directory."),
+                    )
         return cleaned_data
 
 
-class GenerateForm(BaseAddonForm):
+class GenerateForm(
+    BaseAddonForm["GenerateFileAddonConfiguration", "GenerateFileAddon"]
+):
     filename = forms.CharField(
         label=gettext_lazy("Name of generated file"), required=True
     )
@@ -510,8 +547,16 @@ class GenerateForm(BaseAddonForm):
         self.test_render(self.cleaned_data["template"])
         return self.cleaned_data["template"]
 
+    def serialize_form(self) -> GenerateFileAddonConfiguration:
+        return {
+            "filename": self.cleaned_data["filename"],
+            "template": self.cleaned_data["template"],
+        }
 
-class GitSquashForm(BaseAddonForm):
+
+class GitSquashForm(
+    BaseAddonForm["GitSquashAddonStoredConfiguration", "GitSquashAddon"]
+):
     squash = forms.ChoiceField(
         label=gettext_lazy("Commit squashing"),
         widget=forms.RadioSelect,
@@ -554,6 +599,13 @@ class GitSquashForm(BaseAddonForm):
             ContextDiv(template="addons/squash_help.html", context={"user": self.user}),
         )
 
+    def serialize_form(self) -> GitSquashAddonStoredConfiguration:
+        return {
+            "squash": self.cleaned_data["squash"],
+            "append_trailers": self.cleaned_data["append_trailers"],
+            "commit_message": self.cleaned_data["commit_message"],
+        }
+
 
 class RemoveForm(BaseAddonForm):
     age = forms.IntegerField(
@@ -572,10 +624,137 @@ class RemoveSuggestionForm(RemoveForm):
     )
 
 
+class LanguageConsistencyPreviewForm(
+    BaseAddonForm[dict[str, object], "LanguageConsistencyAddon"]
+):
+    confirm = forms.BooleanField(
+        label=gettext_lazy("I confirm the above actions look correct"),
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper(self)
+        self.helper.layout = Layout(
+            ContextDiv(
+                template="addons/language_consistency_preview.html",
+                context={
+                    "preview": self._addon.get_installation_preview(),
+                    "warning": self._addon.get_preview_warning(),
+                    "user": self.user,
+                },
+            ),
+            Field("confirm"),
+        )
+
+    def clean(self) -> dict[str, Any]:
+        cleaned_data = super().clean() or {}
+        if not cleaned_data.get("confirm"):
+            raise forms.ValidationError(
+                gettext("Please review and confirm the missing language changes.")
+            )
+        return cleaned_data
+
+    def serialize_form(self):
+        return {}
+
+
 class DiscoveryForm(BaseAddonForm):
+    COMPONENT_TEMPLATE_SENTINELS: ClassVar[tuple[str, ...]] = (
+        "alpha",
+        "bravo12",
+        "charlie_xyz",
+        "Q",
+    )
+    DETECTED_PRESET_ID_PREFIX: ClassVar[str] = "detected-"
+    PRESET_VALUE_FIELDS: ClassVar[tuple[str, ...]] = (
+        "match",
+        "file_format",
+        "name_template",
+        "base_file_template",
+        "new_base_template",
+        "intermediate_template",
+        "language_regex",
+    )
+    PRESET_FILENAME_LANGUAGE = "filename-language"
+    PRESET_FOLDER_PER_LANGUAGE = "folder-per-language"
+    PRESET_GETTEXT_LOCALES = "gettext-locales"
+    PRESET_COMPLEX_FILENAMES = "complex-filenames"
+    PRESET_REPEATED_LANGUAGE = "repeated-language"
+    PRESET_SPLIT_ANDROID = "split-android-strings"
+    PRESET_MULTIPLE_PATHS = "multiple-paths"
+    PRESETS: ClassVar[dict[str, DetectedDiscoveryPresetValues]] = {
+        PRESET_FOLDER_PER_LANGUAGE: {
+            "match": r"(?P<language>[^/.]*)/(?P<component>[^/]*)\.po",
+            "file_format": "po",
+            "name_template": "{{ component }}",
+            "base_file_template": "",
+            "new_base_template": "",
+            "intermediate_template": "",
+            "language_regex": "^[^.]+$",
+        },
+        PRESET_GETTEXT_LOCALES: {
+            "match": r"locale/(?P<language>[^/.]*)/LC_MESSAGES/(?P<component>[^/]*)\.po",
+            "file_format": "po",
+            "name_template": "{{ component }}",
+            "base_file_template": "",
+            "new_base_template": "",
+            "intermediate_template": "",
+            "language_regex": "^[^.]+$",
+        },
+        PRESET_COMPLEX_FILENAMES: {
+            "match": r"src/locale/(?P<component>[^/]*)\.(?P<language>[^/.]*)\.po",
+            "file_format": "po",
+            "name_template": "{{ component }}",
+            "base_file_template": "",
+            "new_base_template": "",
+            "intermediate_template": "",
+            "language_regex": "^[^.]+$",
+        },
+        PRESET_FILENAME_LANGUAGE: {
+            "match": r"(?:(?P<path>.*/))?(?P<component>.+?)_(?P<language>[A-Za-z]{2,3}(?:[_-][A-Za-z0-9]+)*)\.(?P<extension>[^/.]+)",
+            "file_format": "",
+            "name_template": "{{ component }}",
+            "base_file_template": "",
+            "new_base_template": "",
+            "intermediate_template": "",
+            "language_regex": "^[^.]+$",
+        },
+        PRESET_REPEATED_LANGUAGE: {
+            "match": r"locale/(?P<language>[^/.]*)/(?P<component>[^/]*)/(?P=language)\.po",
+            "file_format": "po",
+            "name_template": "{{ component }}",
+            "base_file_template": "",
+            "new_base_template": "",
+            "intermediate_template": "",
+            "language_regex": "^[^.]+$",
+        },
+        PRESET_SPLIT_ANDROID: {
+            "match": r"res/values-(?P<language>[^/.]*)/strings-(?P<component>[^/]*)\.xml",
+            "file_format": "aresource",
+            "name_template": "{{ component }}",
+            "base_file_template": "",
+            "new_base_template": "",
+            "intermediate_template": "",
+            "language_regex": "^[^.]+$",
+        },
+        PRESET_MULTIPLE_PATHS: {
+            "match": r"(?P<originalHierarchy>.+/)(?P<component>[^/]*)/src/main/resources/ApplicationResources_(?P<language>[^/.]*)\.properties",
+            "file_format": "properties",
+            "name_template": "{{ originalHierarchy }}: {{ component }}",
+            "base_file_template": "",
+            "new_base_template": "",
+            "intermediate_template": "",
+            "language_regex": "^[^.]+$",
+        },
+    }
+
     match = forms.CharField(
         label=gettext_lazy("Regular expression to match translation files against"),
         required=True,
+        help_text=gettext_lazy(
+            "The regular expression must define named groups for component and language."
+        ),
     )
     file_format = forms.ChoiceField(
         label=gettext_lazy("File format"),
@@ -587,12 +766,17 @@ class DiscoveryForm(BaseAddonForm):
         label=gettext_lazy("Customize the component name"),
         initial="{{ component }}",
         required=True,
+        help_text=gettext_lazy(
+            "Use Django template syntax. This template must include {{ component }}."
+        ),
     )
     base_file_template = forms.CharField(
         label=gettext_lazy("Define the monolingual base filename"),
         initial="",
         required=False,
-        help_text=gettext_lazy("Leave empty for bilingual translation files."),
+        help_text=gettext_lazy(
+            "Leave empty for bilingual translation files. When set, this template must include {{ component }}."
+        ),
     )
     new_base_template = forms.CharField(
         label=gettext_lazy("Define the base file for new translations"),
@@ -600,7 +784,7 @@ class DiscoveryForm(BaseAddonForm):
         required=False,
         help_text=gettext_lazy(
             "Filename of file used for creating new translations. "
-            "For gettext choose .pot file."
+            "For gettext choose .pot file. This template must include {{ component }}."
         ),
     )
     intermediate_template = forms.CharField(
@@ -610,7 +794,7 @@ class DiscoveryForm(BaseAddonForm):
         help_text=gettext_lazy(
             "Filename of intermediate translation file. In most cases "
             "this is a translation file provided by developers and is "
-            "used when creating actual source strings."
+            "used when creating actual source strings. This template must include {{ component }}."
         ),
     )
 
@@ -654,6 +838,17 @@ class DiscoveryForm(BaseAddonForm):
             Field("copy_addons"),
             Field("remove"),
         )
+        if self.guided_preset_sections:
+            self.helper.layout.insert(
+                0,
+                ContextDiv(
+                    template="addons/discovery_presets.html",
+                    context={
+                        "guided_presets": self.guided_presets,
+                        "guided_preset_sections": self.guided_preset_sections,
+                    },
+                ),
+            )
         if self.is_bound:
             # Perform form validation
             self.full_clean()
@@ -678,6 +873,224 @@ class DiscoveryForm(BaseAddonForm):
                         },
                     ),
                 )
+
+    def serialize_form(self):
+        result = dict(self.cleaned_data)
+        result.pop("confirm", None)
+        result.pop("preview", None)
+        return result
+
+    @classmethod
+    def render_builtin_ui_preset(
+        cls,
+        preset_id: str,
+        label: str,
+        description: str,
+    ) -> dict[str, object]:
+        values = cls.PRESETS[preset_id]
+        file_format_label = cls.render_preset_file_format_label(values)
+        base_file_label = cls.render_preset_base_file_label(values)
+        details = cls.render_preset_label_details(values)
+        return {
+            "id": preset_id,
+            "kind": "generic",
+            "title": label,
+            "details": details,
+            "file_format_label": file_format_label,
+            "base_file_label": base_file_label,
+            "examples": (),
+            "label": gettext("Generic preset: %(name)s [%(details)s]")
+            % {
+                "name": label,
+                "details": details,
+            },
+            "description": description,
+            "values": values,
+        }
+
+    @staticmethod
+    def render_preset_file_format_label(values: DetectedDiscoveryPresetValues) -> str:
+        file_format = values.get("file_format", "")
+        if not file_format:
+            return gettext("format not preset")
+        if file_format in FILE_FORMATS:
+            return str(FILE_FORMATS[file_format].name)
+        return file_format
+
+    @staticmethod
+    def render_preset_base_file_label(values: DetectedDiscoveryPresetValues) -> str:
+        if base_file_template := values.get("base_file_template", ""):
+            return gettext("monolingual base: %(base)s") % {
+                "base": DiscoveryForm.render_preset_template_label(base_file_template)
+            }
+        return gettext("no monolingual base")
+
+    @staticmethod
+    def render_preset_template_label(value: str) -> str:
+        return regex_sub(r"{{\s*component\s*}}", "*", value)
+
+    @classmethod
+    def render_preset_label_details(cls, values: DetectedDiscoveryPresetValues) -> str:
+        return gettext("%(format)s; %(base)s") % {
+            "format": cls.render_preset_file_format_label(values),
+            "base": cls.render_preset_base_file_label(values),
+        }
+
+    @classmethod
+    def get_builtin_ui_presets(cls) -> list[dict[str, object]]:
+        return [
+            cls.render_builtin_ui_preset(
+                cls.PRESET_FOLDER_PER_LANGUAGE,
+                gettext("One folder per language"),
+                gettext("Matches files like cs/application.po."),
+            ),
+            cls.render_builtin_ui_preset(
+                cls.PRESET_GETTEXT_LOCALES,
+                gettext("Gettext locales layout"),
+                gettext("Matches files like locale/cs/LC_MESSAGES/application.po."),
+            ),
+            cls.render_builtin_ui_preset(
+                cls.PRESET_COMPLEX_FILENAMES,
+                gettext("Complex filenames"),
+                gettext("Matches files like src/locale/application.cs.po."),
+            ),
+            cls.render_builtin_ui_preset(
+                cls.PRESET_FILENAME_LANGUAGE,
+                gettext("Filename-based language variants"),
+                gettext("Matches files like news_en.md."),
+            ),
+            cls.render_builtin_ui_preset(
+                cls.PRESET_REPEATED_LANGUAGE,
+                gettext("Repeated language code"),
+                gettext("Matches files like locale/cs/application/cs.po."),
+            ),
+            cls.render_builtin_ui_preset(
+                cls.PRESET_SPLIT_ANDROID,
+                gettext("Split Android strings"),
+                gettext("Matches files like res/values-cs/strings-about.xml."),
+            ),
+            cls.render_builtin_ui_preset(
+                cls.PRESET_MULTIPLE_PATHS,
+                gettext("Matching multiple paths"),
+                gettext(
+                    "Matches nested Java properties layouts and also fills the component name template."
+                ),
+            ),
+        ]
+
+    @classmethod
+    def get_preset_values_key(
+        cls, values: DetectedDiscoveryPresetValues
+    ) -> tuple[str, ...]:
+        return get_detected_discovery_preset_values_key(values)
+
+    def render_detected_ui_preset(
+        self, preset: DetectedDiscoveryPreset, index: int
+    ) -> dict[str, object]:
+        examples = self.render_detected_ui_examples(preset)
+        sample = examples[0]
+        values = preset["values"]
+        file_format_label = self.render_preset_file_format_label(values)
+        base_file_label = self.render_preset_base_file_label(values)
+        details = self.render_preset_label_details(values)
+        return {
+            "id": f"{self.DETECTED_PRESET_ID_PREFIX}{index}",
+            "kind": "detected",
+            "title": sample,
+            "details": details,
+            "file_format_label": file_format_label,
+            "base_file_label": base_file_label,
+            "examples": (),
+            "label": gettext("Detected: %(pattern)s [%(details)s]")
+            % {
+                "pattern": sample,
+                "details": details,
+            },
+            "description": "",
+            "values": values,
+        }
+
+    @staticmethod
+    def render_detected_ui_example(example: str, match: str) -> str:
+        detected = regex_match(f"^{match}$", example)
+        if detected is None or "component" not in detected.re.groupindex:
+            return example
+
+        start, end = detected.span("component")
+        if start < 0 or end < 0:
+            return example
+        return f"{example[:start]}*{example[end:]}"
+
+    @classmethod
+    def render_detected_ui_examples(
+        cls, preset: DetectedDiscoveryPreset
+    ) -> tuple[str, ...]:
+        match = preset["values"]["match"]
+        rendered: list[str] = []
+        seen: set[str] = set()
+        for example in preset["examples"]:
+            rendered_example = cls.render_detected_ui_example(example, match)
+            if rendered_example in seen:
+                continue
+            seen.add(rendered_example)
+            rendered.append(rendered_example)
+        return tuple(rendered) or preset["examples"]
+
+    @cached_property
+    def detected_ui_presets(self) -> list[dict[str, object]]:
+        component = self._addon.instance.component
+        if component is None or self._addon.instance.pk is not None:
+            return []
+
+        builtins = {
+            self.get_preset_values_key(values) for values in self.PRESETS.values()
+        }
+        detected: list[dict[str, object]] = []
+        seen: set[tuple[str, ...]] = set()
+        for preset in get_component_detected_discovery_presets(component):
+            key = self.get_preset_values_key(preset["values"])
+            if key in builtins or key in seen:
+                continue
+            seen.add(key)
+            detected.append(self.render_detected_ui_preset(preset, len(detected) + 1))
+        return detected
+
+    @cached_property
+    def generic_ui_presets(self) -> list[dict[str, object]]:
+        return self.get_builtin_ui_presets()
+
+    @cached_property
+    def guided_presets(self) -> list[dict[str, object]]:
+        return [*self.detected_ui_presets, *self.generic_ui_presets]
+
+    @cached_property
+    def guided_preset_sections(self) -> list[dict[str, object]]:
+        sections: list[dict[str, object]] = []
+        has_detected = bool(self.detected_ui_presets)
+        if has_detected:
+            sections.append(
+                {
+                    "id": "detected",
+                    "title": gettext("Detected from repository"),
+                    "kind": "detected",
+                    "expanded": True,
+                    "presets": self.detected_ui_presets,
+                }
+            )
+        if self.generic_ui_presets:
+            sections.append(
+                {
+                    "id": "generic",
+                    "title": gettext("Generic presets"),
+                    "kind": "generic",
+                    "expanded": not has_detected,
+                    "presets": self.generic_ui_presets,
+                }
+            )
+        return sections
+
+    def get_ui_presets(self) -> list[dict[str, object]]:
+        return self.guided_presets
 
     @cached_property
     def discovery(self):
@@ -744,12 +1157,35 @@ class DiscoveryForm(BaseAddonForm):
         return validate_render(value, **matches)
 
     def template_clean(self, name):
-        result = self.test_render(self.cleaned_data[name])
-        if result and result == self.cleaned_data[name]:
-            raise forms.ValidationError(
-                gettext("Please include component markup in the template.")
-            )
-        return self.cleaned_data[name]
+        value = self.cleaned_data[name]
+        if not value:
+            return value
+
+        self.test_render(value)
+        if not self.template_depends_on_component(value):
+            raise forms.ValidationError(self.get_component_template_error())
+        return value
+
+    def template_depends_on_component(self, value: str) -> bool:
+        if self.cleaned_match_re is None:
+            matches = {"component": "", "language": "test"}
+        else:
+            matches = dict.fromkeys(self.cleaned_match_re.groupindex, "test")
+        rendered = set()
+        for component in self.COMPONENT_TEMPLATE_SENTINELS:
+            matches["component"] = component
+            rendered.add(validate_render(value, **matches))
+            if len(rendered) > 1:
+                return True
+        return False
+
+    def get_component_template_error(self) -> str:
+        if (
+            self.cleaned_match_re is not None
+            and "component" in self.cleaned_match_re.groupindex
+        ):
+            return gettext("This template must include {{ component }}.")
+        return gettext("This template must include component markup.")
 
     def clean_name_template(self):
         return self.template_clean("name_template")
@@ -819,7 +1255,7 @@ class BulkEditAddonForm(BaseAddonForm, BulkEditForm):
         return result
 
 
-class CDNJSForm(BaseAddonForm):
+class CDNJSForm(BaseAddonForm[dict[str, object], "CDNJSAddon"]):
     threshold = forms.IntegerField(
         label=gettext_lazy("Translation threshold"),
         initial=0,
@@ -991,12 +1427,20 @@ class PseudolocaleAddonForm(BaseAddonForm):
         return result
 
 
-class PropertiesSortAddonForm(BaseAddonForm):
+class PropertiesSortAddonForm(
+    BaseAddonForm[
+        "PropertiesSortAddonStoredConfiguration",
+        "PropertiesSortAddon",
+    ]
+):
     case_sensitive = forms.BooleanField(
         label=gettext_lazy("Enable case-sensitive key sorting"),
         required=False,
         initial=False,
     )
+
+    def serialize_form(self) -> PropertiesSortAddonStoredConfiguration:
+        return {"case_sensitive": self.cleaned_data["case_sensitive"]}
 
 
 class ChangeBaseAddonForm(BaseAddonForm):

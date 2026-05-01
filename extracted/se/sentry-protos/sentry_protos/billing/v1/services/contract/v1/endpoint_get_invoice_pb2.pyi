@@ -16,13 +16,16 @@ class GetInvoiceRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     INVOICE_ID_FIELD_NUMBER: builtins.int
+    INVOICE_GUID_FIELD_NUMBER: builtins.int
     invoice_id: builtins.int
+    invoice_guid: builtins.str
     def __init__(
         self,
         *,
         invoice_id: builtins.int = ...,
+        invoice_guid: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["invoice_id", b"invoice_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["invoice_guid", b"invoice_guid", "invoice_id", b"invoice_id"]) -> None: ...
 
 global___GetInvoiceRequest = GetInvoiceRequest
 

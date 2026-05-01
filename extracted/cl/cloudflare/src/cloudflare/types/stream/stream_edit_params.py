@@ -2,21 +2,22 @@
 
 from __future__ import annotations
 
-from typing import List, Union
+from typing import Union, Optional
 from datetime import datetime
 from typing_extensions import Required, Annotated, TypedDict
 
+from ..._types import SequenceNotStr
 from ..._utils import PropertyInfo
 from .allowed_origins import AllowedOrigins
 
-__all__ = ["StreamEditParams"]
+__all__ = ["StreamEditParams", "PublicDetails"]
 
 
 class StreamEditParams(TypedDict, total=False):
     account_id: Required[str]
     """The account identifier tag."""
 
-    allowed_origins: Annotated[List[AllowedOrigins], PropertyInfo(alias="allowedOrigins")]
+    allowed_origins: Annotated[SequenceNotStr[AllowedOrigins], PropertyInfo(alias="allowedOrigins")]
     """Lists the origins allowed to display the video.
 
     Enter allowed origin domains in an array and use `*` for wildcard subdomains.
@@ -38,6 +39,12 @@ class StreamEditParams(TypedDict, total=False):
     """
     A user modifiable key-value store used to reference other systems of record for
     managing videos.
+    """
+
+    public_details: Annotated[PublicDetails, PropertyInfo(alias="publicDetails")]
+    """
+    Public details for the video including title, share link, channel link, and
+    logo.
     """
 
     require_signed_urls: Annotated[bool, PropertyInfo(alias="requireSignedURLs")]
@@ -63,8 +70,28 @@ class StreamEditParams(TypedDict, total=False):
     is not set, the default thumbnail image is taken from 0s of the video.
     """
 
+    uid: str
+    """The unique identifier for the video.
+
+    Can be used to verify the video being updated.
+    """
+
     upload_expiry: Annotated[Union[str, datetime], PropertyInfo(alias="uploadExpiry", format="iso8601")]
     """
     The date and time when the video upload URL is no longer valid for direct user
     uploads.
     """
+
+
+class PublicDetails(TypedDict, total=False):
+    """
+    Public details for the video including title, share link, channel link, and logo.
+    """
+
+    channel_link: Optional[str]
+
+    logo: Optional[str]
+
+    share_link: Optional[str]
+
+    title: Optional[str]

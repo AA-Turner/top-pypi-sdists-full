@@ -7,7 +7,8 @@ from typing import Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -55,7 +56,7 @@ class OverrideCodesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[object]:
         """Fetches a one-time use admin override code for a device.
 
@@ -84,7 +85,9 @@ class OverrideCodesResource(SyncAPIResource):
         if not device_id:
             raise ValueError(f"Expected a non-empty value for `device_id` but received {device_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices/{device_id}/override_codes",
+            path_template(
+                "/accounts/{account_id}/devices/{device_id}/override_codes", account_id=account_id, device_id=device_id
+            ),
             page=SyncSinglePage[object],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -102,7 +105,7 @@ class OverrideCodesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OverrideCodeGetResponse:
         """Fetches one-time use admin override codes for a registration.
 
@@ -123,7 +126,11 @@ class OverrideCodesResource(SyncAPIResource):
         if not registration_id:
             raise ValueError(f"Expected a non-empty value for `registration_id` but received {registration_id!r}")
         return self._get(
-            f"/accounts/{account_id}/devices/registrations/{registration_id}/override_codes",
+            path_template(
+                "/accounts/{account_id}/devices/registrations/{registration_id}/override_codes",
+                account_id=account_id,
+                registration_id=registration_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -166,7 +173,7 @@ class AsyncOverrideCodesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[object, AsyncSinglePage[object]]:
         """Fetches a one-time use admin override code for a device.
 
@@ -195,7 +202,9 @@ class AsyncOverrideCodesResource(AsyncAPIResource):
         if not device_id:
             raise ValueError(f"Expected a non-empty value for `device_id` but received {device_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices/{device_id}/override_codes",
+            path_template(
+                "/accounts/{account_id}/devices/{device_id}/override_codes", account_id=account_id, device_id=device_id
+            ),
             page=AsyncSinglePage[object],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -213,7 +222,7 @@ class AsyncOverrideCodesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OverrideCodeGetResponse:
         """Fetches one-time use admin override codes for a registration.
 
@@ -234,7 +243,11 @@ class AsyncOverrideCodesResource(AsyncAPIResource):
         if not registration_id:
             raise ValueError(f"Expected a non-empty value for `registration_id` but received {registration_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/devices/registrations/{registration_id}/override_codes",
+            path_template(
+                "/accounts/{account_id}/devices/registrations/{registration_id}/override_codes",
+                account_id=account_id,
+                registration_id=registration_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -252,7 +265,7 @@ class OverrideCodesResourceWithRawResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                override_codes.list  # pyright: ignore[reportDeprecated],
+                override_codes.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = to_raw_response_wrapper(
@@ -266,7 +279,7 @@ class AsyncOverrideCodesResourceWithRawResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                override_codes.list  # pyright: ignore[reportDeprecated],
+                override_codes.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = async_to_raw_response_wrapper(
@@ -280,7 +293,7 @@ class OverrideCodesResourceWithStreamingResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                override_codes.list  # pyright: ignore[reportDeprecated],
+                override_codes.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = to_streamed_response_wrapper(
@@ -294,7 +307,7 @@ class AsyncOverrideCodesResourceWithStreamingResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                override_codes.list  # pyright: ignore[reportDeprecated],
+                override_codes.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = async_to_streamed_response_wrapper(

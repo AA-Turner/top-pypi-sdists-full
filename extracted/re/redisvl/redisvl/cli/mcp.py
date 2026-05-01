@@ -7,11 +7,11 @@ import sys
 
 
 class _MCPArgumentParser(argparse.ArgumentParser):
-    """ArgumentParser variant that reports usage errors with exit code 1."""
+    """ArgumentParser variant that reports usage errors with exit code 2."""
 
     def error(self, message):
         self.print_usage(sys.stderr)
-        self.exit(1, "%s: error: %s\n" % (self.prog, message))
+        self.exit(2, "%s: error: %s\n" % (self.prog, message))
 
 
 class MCP:
@@ -21,9 +21,9 @@ class MCP:
     epilog = (
         "Use this command when wiring RedisVL into an MCP client.\n\n"
         "Examples:\n"
-        "  uvx --from redisvl[mcp] rvl mcp --config /path/to/mcp_config.yaml\n"
-        "  uvx --from redisvl[mcp] rvl mcp --config /path/to/mcp_config.yaml --transport streamable-http --port 8000\n"
-        "  uvx --from redisvl[mcp] rvl mcp --config /path/to/mcp_config.yaml --transport sse --host 0.0.0.0 --port 9000"
+        "  rvl mcp --config /path/to/mcp_config.yaml\n"
+        "  rvl mcp --config /path/to/mcp_config.yaml --transport streamable-http --port 8000\n"
+        "  rvl mcp --config /path/to/mcp_config.yaml --transport sse --host 0.0.0.0 --port 9000"
     )
     usage = "\n".join(
         [

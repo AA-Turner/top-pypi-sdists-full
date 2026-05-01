@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyubx2
-Version: 1.2.60
+Version: 1.3.0
 Summary: UBX protocol parser and generator
 Author-email: Steve Smith <semuadmin@semuconsulting.com>
 Maintainer-email: Steve Smith <semuadmin@semuconsulting.com>
@@ -30,8 +30,8 @@ Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pynmeagps>=1.1.2
-Requires-Dist: pyrtcm>=1.1.10
+Requires-Dist: pynmeagps>=1.1.4
+Requires-Dist: pyrtcm>=1.1.12
 Dynamic: license-file
 
 pyubx2
@@ -443,7 +443,6 @@ serialOut.write(msg3of3.serialize())
  - `haversine` - finds great circle distance in km between two sets of (lat, lon) coordinates
  - `latlon2dmm` - converts decimal lat/lon to degrees, decimal minutes format e.g. "53°20.76′N", "2°32.778′W"
  - `latlon2dms` - converts decimal lat/lon to degrees, minutes, decimal seconds format e.g. "53°20′45.6″N", "2°32′46.68″W"
- - `leapsecond` - find GPS UTC leapsecond offset for a given effective date
  - `leapsecond` - find GPS UTC leapsecond offset for a given effective date
  - `llh2ecef` - converts geodetic (lat, lon, ellipsoidal height) coordinates to ECEF (X, Y, Z) coordinates
  - `llh2iso6709` - converts lat/lon and altitude (hMSL) to ISO6709 format e.g. "+27.5916+086.5640+8850CRSWGS_84/"

@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Union, Optional
+from typing import List, Union, Optional
 from datetime import datetime
 from typing_extensions import Literal, TypeAlias
 
@@ -9,17 +9,34 @@ from .profiles.pattern import Pattern
 
 __all__ = [
     "EntryGetResponse",
-    "CustomEntry",
-    "PredefinedEntry",
-    "PredefinedEntryConfidence",
-    "IntegrationEntry",
-    "ExactDataEntry",
-    "DocumentTemplateEntry",
-    "WordListEntry",
+    "UnionMember0",
+    "UnionMember0Profile",
+    "UnionMember1",
+    "UnionMember1Confidence",
+    "UnionMember1Profile",
+    "UnionMember1Variant",
+    "UnionMember1VariantUnionMember0",
+    "UnionMember1VariantUnionMember1",
+    "UnionMember2",
+    "UnionMember2Profile",
+    "UnionMember3",
+    "UnionMember3Profile",
+    "UnionMember4",
+    "UnionMember4Profile",
+    "UnionMember5",
+    "UnionMember5Profile",
 ]
 
 
-class CustomEntry(BaseModel):
+class UnionMember0Profile(BaseModel):
+    """Computed entry field for a profile that an entry is shared into."""
+
+    id: str
+
+    name: str
+
+
+class UnionMember0(BaseModel):
     id: str
 
     created_at: datetime
@@ -34,10 +51,16 @@ class CustomEntry(BaseModel):
 
     updated_at: datetime
 
+    description: Optional[str] = None
+
     profile_id: Optional[str] = None
 
+    profiles: Optional[List[UnionMember0Profile]] = None
 
-class PredefinedEntryConfidence(BaseModel):
+    upload_status: Optional[Literal["empty", "uploading", "pending", "processing", "failed", "complete"]] = None
+
+
+class UnionMember1Confidence(BaseModel):
     ai_context_available: bool
     """Indicates whether this entry has AI remote service validation."""
 
@@ -48,10 +71,44 @@ class PredefinedEntryConfidence(BaseModel):
     """
 
 
-class PredefinedEntry(BaseModel):
+class UnionMember1Profile(BaseModel):
+    """Computed entry field for a profile that an entry is shared into."""
+
     id: str
 
-    confidence: PredefinedEntryConfidence
+    name: str
+
+
+class UnionMember1VariantUnionMember0(BaseModel):
+    """A Predefined AI prompt classification topic entry."""
+
+    topic_type: Literal["Intent", "Content"]
+
+    type: Literal["PromptTopic"]
+
+    description: Optional[str] = None
+    """
+    A customer-facing explanation of what this predefined AI prompt topic
+    represents.
+    """
+
+
+class UnionMember1VariantUnionMember1(BaseModel):
+    """A general predefined entry."""
+
+    type: Literal["General"]
+
+    description: Optional[str] = None
+    """A customer-facing explanation of what this predefined entry represents."""
+
+
+UnionMember1Variant: TypeAlias = Union[UnionMember1VariantUnionMember0, UnionMember1VariantUnionMember1]
+
+
+class UnionMember1(BaseModel):
+    id: str
+
+    confidence: UnionMember1Confidence
 
     enabled: bool
 
@@ -61,8 +118,23 @@ class PredefinedEntry(BaseModel):
 
     profile_id: Optional[str] = None
 
+    profiles: Optional[List[UnionMember1Profile]] = None
 
-class IntegrationEntry(BaseModel):
+    upload_status: Optional[Literal["empty", "uploading", "pending", "processing", "failed", "complete"]] = None
+
+    variant: Optional[UnionMember1Variant] = None
+    """A Predefined AI prompt classification topic entry."""
+
+
+class UnionMember2Profile(BaseModel):
+    """Computed entry field for a profile that an entry is shared into."""
+
+    id: str
+
+    name: str
+
+
+class UnionMember2(BaseModel):
     id: str
 
     created_at: datetime
@@ -77,8 +149,20 @@ class IntegrationEntry(BaseModel):
 
     profile_id: Optional[str] = None
 
+    profiles: Optional[List[UnionMember2Profile]] = None
 
-class ExactDataEntry(BaseModel):
+    upload_status: Optional[Literal["empty", "uploading", "pending", "processing", "failed", "complete"]] = None
+
+
+class UnionMember3Profile(BaseModel):
+    """Computed entry field for a profile that an entry is shared into."""
+
+    id: str
+
+    name: str
+
+
+class UnionMember3(BaseModel):
     id: str
 
     case_sensitive: bool
@@ -99,8 +183,20 @@ class ExactDataEntry(BaseModel):
 
     updated_at: datetime
 
+    profiles: Optional[List[UnionMember3Profile]] = None
 
-class DocumentTemplateEntry(BaseModel):
+    upload_status: Optional[Literal["empty", "uploading", "pending", "processing", "failed", "complete"]] = None
+
+
+class UnionMember4Profile(BaseModel):
+    """Computed entry field for a profile that an entry is shared into."""
+
+    id: str
+
+    name: str
+
+
+class UnionMember4(BaseModel):
     id: str
 
     created_at: datetime
@@ -109,12 +205,24 @@ class DocumentTemplateEntry(BaseModel):
 
     name: str
 
-    type: Literal["document_template"]
+    type: Literal["document_fingerprint"]
 
     updated_at: datetime
 
+    profiles: Optional[List[UnionMember4Profile]] = None
 
-class WordListEntry(BaseModel):
+    upload_status: Optional[Literal["empty", "uploading", "pending", "processing", "failed", "complete"]] = None
+
+
+class UnionMember5Profile(BaseModel):
+    """Computed entry field for a profile that an entry is shared into."""
+
+    id: str
+
+    name: str
+
+
+class UnionMember5(BaseModel):
     id: str
 
     created_at: datetime
@@ -131,7 +239,9 @@ class WordListEntry(BaseModel):
 
     profile_id: Optional[str] = None
 
+    profiles: Optional[List[UnionMember5Profile]] = None
 
-EntryGetResponse: TypeAlias = Union[
-    CustomEntry, PredefinedEntry, IntegrationEntry, ExactDataEntry, DocumentTemplateEntry, WordListEntry
-]
+    upload_status: Optional[Literal["empty", "uploading", "pending", "processing", "failed", "complete"]] = None
+
+
+EntryGetResponse: TypeAlias = Union[UnionMember0, UnionMember1, UnionMember2, UnionMember3, UnionMember4, UnionMember5]

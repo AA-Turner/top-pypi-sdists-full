@@ -36,7 +36,7 @@ from pydantic_core import to_jsonable_python
 
 from autogen.beta import Agent, MemoryStream, ToolResult, events
 from autogen.beta.config import ModelConfig
-from autogen.beta.events.input_events import BinaryInput, DataInput, FileIdInput, TextInput, UrlInput
+from autogen.beta.events import BinaryInput, DataInput, FileIdInput, TextInput, UrlInput
 from autogen.beta.hitl import HumanHook
 from autogen.beta.middleware.base import MiddlewareFactory
 from autogen.beta.observer import Observer
@@ -147,6 +147,9 @@ async def run_stream(
         nonlocal streaming_msg_id
 
         if isinstance(event, events.ModelMessageChunk):
+            if not event.content:
+                return
+
             if streaming_msg_id is None:
                 streaming_msg_id = str(uuid4())
                 await write_events_stream.send(
@@ -174,7 +177,7 @@ async def run_stream(
                 )
                 streaming_msg_id = None
 
-            else:
+            elif event.content:
                 await write_events_stream.send(
                     TextMessageChunkEvent(
                         message_id=str(uuid4()),

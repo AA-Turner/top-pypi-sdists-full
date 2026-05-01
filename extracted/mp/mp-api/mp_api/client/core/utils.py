@@ -2,21 +2,34 @@ from __future__ import annotations
 
 import os
 import warnings
+from functools import cached_property
 from importlib import import_module
-from typing import TYPE_CHECKING, Literal
+from itertools import chain
+from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import orjson
+import pyarrow.dataset as ds
+from deltalake import DeltaTable
 from emmet.core import __version__ as _EMMET_CORE_VER
 from emmet.core.mpid_ext import validate_identifier
 from monty.json import MontyDecoder
 from packaging.version import parse as parse_version
 
-from mp_api.client.core.exceptions import MPRestError, MPRestWarning
+from mp_api.client.core.exceptions import (
+    MPDatasetIndexingWarning,
+    MPDatasetIterationWarning,
+    MPDatasetSlicingWarning,
+    MPRestError,
+    MPRestWarning,
+)
 from mp_api.client.core.settings import MAPI_CLIENT_SETTINGS
 
 if TYPE_CHECKING:
-    from typing import Any
+    from typing import Any, Literal
+
+    from pydantic._internal._model_construction import ModelMetaclass
 
 
 def _compare_emmet_ver(
@@ -163,11 +176,11 @@ class LazyImport:
         import_str : str
             A dot-separated, import-like string.
         """
-        if len(split_import_str := import_str.rsplit(".", 1)) > 1:
-            self._module_name, self._class_name = split_import_str
+        if len(split_import_str := import_str.rsplit(".", 1)) == 1:
+            self._module_name: str = split_import_str[0]
+            self._class_name: str | None = None
         else:
-            self._module_name = split_import_str[0]
-            self._class_name = None
+            self._module_name, self._class_name = split_import_str
 
         self._imported: Any | None = None
         self._obj: Any | None = None
@@ -216,9 +229,9 @@ class LazyImport:
         if isinstance(self._imported, type):
             self._obj = self._imported(*args, **kwargs)
             return self._obj
-        else:
+        elif callable(self._imported):
             self._obj = self._imported
-            return self._obj(*args, **kwargs)
+            return self._obj(*args, **kwargs)  # type: ignore[misc]
 
     def __getattr__(self, v: str) -> Any:
         """Get an attribute on a super lazy object."""
@@ -229,3 +242,115 @@ class LazyImport:
             self._load()
         if hasattr(self._imported, v):
             return getattr(self._imported, v)
+
+
+class MPDataset:
+    """Convenience wrapper for pyarrow datasets stored on disk."""
+
+    def __init__(
+        self,
+        path: str | Path,
+        document_model: ModelMetaclass,
+        use_document_model: bool,
+    ):
+        """Initialize a MPDataset.
+
+        Parameters
+        -----------
+        path: str | Path
+            A path-like string.
+        document_model: ModelMetaclass
+            Pydantic document model for use during de-serialization of arrow data
+        use_document_model: bool
+            Use 'document_model' during de-serialization of arrow data.
+        """
+        self._start: int = 0
+        self._path = Path(path)
+        self._document_model: ModelMetaclass = document_model
+        self._dataset = ds.dataset(path)
+        self._row_groups: list[Any] = list(
+            chain.from_iterable(
+                [
+                    fragment.split_by_row_group()
+                    for fragment in self._dataset.get_fragments()
+                ]
+            )
+        )
+        self._use_document_model = use_document_model
+
+    @property
+    def pyarrow_dataset(self) -> ds.Dataset:
+        return self._dataset
+
+    @property
+    def pydantic_model(self) -> ModelMetaclass:
+        return self._document_model
+
+    @property
+    def use_document_model(self) -> bool:
+        return self._use_document_model
+
+    @use_document_model.setter
+    def use_document_model(self, value: bool):
+        self._use_document_model = value
+
+    @cached_property
+    def delta_table(self) -> DeltaTable:
+        return DeltaTable(self._path)
+
+    @cached_property
+    def num_chunks(self) -> int:
+        return len(self._row_groups)
+
+    def __getitem__(self, idx):
+        if isinstance(idx, slice):
+            warnings.warn(
+                """
+                Pythonic slicing of arrow-based MPDatasets is sub-optimal, consider using
+                idiomatic arrow patterns. See MP's docs on MPDatasets for relevant examples:
+                docs.materialsproject.org/materials-project-data-lakehouse/arrow-datasets
+                """,
+                MPDatasetSlicingWarning,
+                stacklevel=2,
+            )
+            start, stop, step = idx.indices(len(self))
+            _take = list(range(start, stop, step))
+            ds_slice = self._dataset.take(_take).to_pylist(maps_as_pydicts="strict")
+            return (
+                [self._document_model(**_row) for _row in ds_slice]
+                if self._use_document_model
+                else ds_slice
+            )
+
+        warnings.warn(
+            """
+            Pythonic indexing into arrow-based MPDatasets is sub-optimal, consider using
+            idiomatic arrow patterns. See MP's docs on MPDatasets for relevant examples:
+            docs.materialsproject.org/materials-project-data-lakehouse/arrow-datasets
+            """,
+            MPDatasetIndexingWarning,
+            stacklevel=2,
+        )
+        _row = self._dataset.take([idx]).to_pylist(maps_as_pydicts="strict")[0]
+        return self._document_model(**_row) if self._use_document_model else _row
+
+    def __len__(self) -> int:
+        return self._dataset.count_rows()
+
+    def __iter__(self):
+        with warnings.catch_warnings(
+            action="ignore", category=MPDatasetIndexingWarning
+        ):
+            warnings.warn(
+                """
+                Iterating through arrow-based MPDatasets is sub-optimal, consider using
+                idiomatic arrow patterns. See MP's docs on MPDatasets for relevant examples:
+                docs.materialsproject.org/materials-project-data-lakehouse/arrow-datasets
+                """,
+                MPDatasetIterationWarning,
+                stacklevel=2,
+            )
+            current = self._start
+            while current < len(self):
+                yield self[current]
+                current += 1

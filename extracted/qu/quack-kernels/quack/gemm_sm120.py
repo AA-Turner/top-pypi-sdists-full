@@ -124,6 +124,9 @@ class GemmSm120(GemmSm90):
         self.shared_storage = None
         self.buffer_align_bytes = 1024
 
+    def epi_smem_warp_shape_mnk(self):
+        return self.atom_layout_mnk
+
     def _setup_tiled_mma(self):
         """Set up warp-level MMA (MmaF16BF16Op) and tile K dimension."""
         op = warp.MmaF16BF16Op(self.a_dtype, self.acc_dtype, self.mma_inst_mnk)
@@ -204,10 +207,11 @@ class GemmSm120(GemmSm90):
             ab_pipeline_mbar_ptr=storage.ab_pipeline_array_ptr.data_ptr(),
         )
         epi_pipeline = None
-        if const_expr(has_C):
+        has_epi_load = const_expr(self.epi_c_stage > 0)
+        if const_expr(has_epi_load):
             epi_pipeline = self.make_epi_pipeline(
-                c_smem_layout=cute.slice_(epi_c_smem_layout, (None, None, 0)),
                 epi_pipeline_mbar_ptr=storage.epi_pipeline_array_ptr.data_ptr(),
+                tx_count=self.epi_load_bytes_per_stage,
             )
         sched_pipeline = None
         sched_data = None
@@ -479,6 +483,15 @@ class GemmSm120(GemmSm90):
                         tile_coord_mnkl,
                     )
                     copy_C = copy_utils.tma_producer_copy_fn(copy_C_fn, epi_pipeline)
+                if const_expr(has_epi_load):
+                    tile_load_copy_fns = self.epi_tile_load_g2s_copy_fns(
+                        epilogue_params,
+                        epi_smem_tensors,
+                        tile_coord_mnkl,
+                        varlen_manager,
+                        epi_pipeline,
+                    )
+                    copy_C = copy_utils.chain_tma_producer_copy_fns((copy_C, *tile_load_copy_fns))
 
                 d_dtype_for_layout = self.d_dtype if self.d_dtype is not None else cutlass.BFloat16
                 tiled_copy_r2s, tRS_rD, tRS_sD = self.epilog_smem_store_and_partition(
@@ -598,7 +611,12 @@ class GemmSm120(GemmSm90):
             for k in cutlass.range_constexpr(num_k_blocks):
                 k_next = 0 if k + 1 == num_k_blocks else k + 1
                 if const_expr(k == num_k_blocks - 1):
-                    # Don't need to sync_warp: the previous instruction was mma.sync from cute.gemm
+                    # TMA writes this smem stage through the async proxy, while ldmatrix
+                    # reads it through the generic proxy. Fence before release so the
+                    # producer's next async-proxy write cannot race those reads; sync the
+                    # warp because only one lane signals the empty mbarrier.
+                    cute.arch.fence_view_async_shared()
+                    cute.arch.sync_warp()
                     ab_pipeline.consumer_release(ab_read_state)
                     ab_read_state.advance()
                     peek_ab_full_status = ab_pipeline.consumer_try_wait(ab_read_state)
@@ -614,6 +632,12 @@ class GemmSm120(GemmSm90):
             for k in cutlass.range_constexpr(num_k_blocks):
                 k_next = 0 if k + 1 == num_k_blocks else k + 1
                 if const_expr(k == num_k_blocks - 1):
+                    # TMA writes this smem stage through the async proxy, while ldmatrix
+                    # reads it through the generic proxy. Fence before release so the
+                    # producer's next async-proxy write cannot race those reads; sync the
+                    # warp because only one lane signals the empty mbarrier.
+                    cute.arch.fence_view_async_shared()
+                    cute.arch.sync_warp()
                     ab_pipeline.consumer_release(ab_read_state)
                     ab_read_state.advance()
                 if const_expr(k_next > 0):

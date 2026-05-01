@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import List, Type, cast
+from typing import Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, SequenceNotStr, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -50,13 +50,13 @@ class AddressSpacesResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        prefixes: List[str],
+        prefixes: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AddressSpaceUpdateResponse:
         """
         Update the Magic WAN Address Space (Closed Beta).
@@ -73,7 +73,7 @@ class AddressSpacesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._put(
-            f"/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space",
+            path_template("/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space", account_id=account_id),
             body=maybe_transform({"prefixes": prefixes}, address_space_update_params.AddressSpaceUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -94,7 +94,7 @@ class AddressSpacesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AddressSpaceListResponse:
         """
         Read the Magic WAN Address Space (Closed Beta).
@@ -111,7 +111,7 @@ class AddressSpacesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space",
+            path_template("/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -126,13 +126,13 @@ class AddressSpacesResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        prefixes: List[str],
+        prefixes: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AddressSpaceEditResponse:
         """
         Update the Magic WAN Address Space (Closed Beta).
@@ -149,7 +149,7 @@ class AddressSpacesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space",
+            path_template("/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space", account_id=account_id),
             body=maybe_transform({"prefixes": prefixes}, address_space_edit_params.AddressSpaceEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -186,13 +186,13 @@ class AsyncAddressSpacesResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        prefixes: List[str],
+        prefixes: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AddressSpaceUpdateResponse:
         """
         Update the Magic WAN Address Space (Closed Beta).
@@ -209,7 +209,7 @@ class AsyncAddressSpacesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space",
+            path_template("/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space", account_id=account_id),
             body=await async_maybe_transform(
                 {"prefixes": prefixes}, address_space_update_params.AddressSpaceUpdateParams
             ),
@@ -232,7 +232,7 @@ class AsyncAddressSpacesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AddressSpaceListResponse:
         """
         Read the Magic WAN Address Space (Closed Beta).
@@ -249,7 +249,7 @@ class AsyncAddressSpacesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space",
+            path_template("/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -264,13 +264,13 @@ class AsyncAddressSpacesResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        prefixes: List[str],
+        prefixes: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AddressSpaceEditResponse:
         """
         Update the Magic WAN Address Space (Closed Beta).
@@ -287,7 +287,7 @@ class AsyncAddressSpacesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space",
+            path_template("/accounts/{account_id}/magic/cloud/onramps/magic_wan_address_space", account_id=account_id),
             body=await async_maybe_transform({"prefixes": prefixes}, address_space_edit_params.AddressSpaceEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,

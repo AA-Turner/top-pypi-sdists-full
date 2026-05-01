@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -66,19 +66,19 @@ class ConfigurationsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        settings: GatewayConfigurationSettingsParam | NotGiven = NOT_GIVEN,
+        settings: GatewayConfigurationSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ConfigurationUpdateResponse]:
         """
-        Updates the current Zero Trust account configuration.
+        Update the current Zero Trust account configuration.
 
         Args:
-          settings: Account settings
+          settings: Specify account settings.
 
           extra_headers: Send extra headers
 
@@ -91,7 +91,7 @@ class ConfigurationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._put(
-            f"/accounts/{account_id}/gateway/configuration",
+            path_template("/accounts/{account_id}/gateway/configuration", account_id=account_id),
             body=maybe_transform({"settings": settings}, configuration_update_params.ConfigurationUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -107,24 +107,23 @@ class ConfigurationsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        settings: GatewayConfigurationSettingsParam | NotGiven = NOT_GIVEN,
+        settings: GatewayConfigurationSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ConfigurationEditResponse]:
-        """Patches the current Zero Trust account configuration.
-
-        This endpoint can update a
-        single subcollection of settings such as `antivirus`, `tls_decrypt`,
-        `activity_log`, `block_page`, `browser_isolation`, `fips`, `body_scanning`, or
-        `certificate`, without updating the entire configuration object. Returns an
-        error if any collection of settings is not properly configured.
+        """
+        Update (PATCH) a single subcollection of settings such as `antivirus`,
+        `tls_decrypt`, `activity_log`, `block_page`, `browser_isolation`, `fips`,
+        `body_scanning`, or `certificate` without updating the entire configuration
+        object. This endpoint returns an error if any settings collection lacks proper
+        configuration.
 
         Args:
-          settings: Account settings
+          settings: Specify account settings.
 
           extra_headers: Send extra headers
 
@@ -137,7 +136,7 @@ class ConfigurationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/gateway/configuration",
+            path_template("/accounts/{account_id}/gateway/configuration", account_id=account_id),
             body=maybe_transform({"settings": settings}, configuration_edit_params.ConfigurationEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -158,10 +157,10 @@ class ConfigurationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ConfigurationGetResponse]:
         """
-        Fetches the current Zero Trust account configuration.
+        Retrieve the current Zero Trust account configuration.
 
         Args:
           extra_headers: Send extra headers
@@ -175,7 +174,7 @@ class ConfigurationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/gateway/configuration",
+            path_template("/accounts/{account_id}/gateway/configuration", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -215,19 +214,19 @@ class AsyncConfigurationsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        settings: GatewayConfigurationSettingsParam | NotGiven = NOT_GIVEN,
+        settings: GatewayConfigurationSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ConfigurationUpdateResponse]:
         """
-        Updates the current Zero Trust account configuration.
+        Update the current Zero Trust account configuration.
 
         Args:
-          settings: Account settings
+          settings: Specify account settings.
 
           extra_headers: Send extra headers
 
@@ -240,7 +239,7 @@ class AsyncConfigurationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/gateway/configuration",
+            path_template("/accounts/{account_id}/gateway/configuration", account_id=account_id),
             body=await async_maybe_transform(
                 {"settings": settings}, configuration_update_params.ConfigurationUpdateParams
             ),
@@ -258,24 +257,23 @@ class AsyncConfigurationsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        settings: GatewayConfigurationSettingsParam | NotGiven = NOT_GIVEN,
+        settings: GatewayConfigurationSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ConfigurationEditResponse]:
-        """Patches the current Zero Trust account configuration.
-
-        This endpoint can update a
-        single subcollection of settings such as `antivirus`, `tls_decrypt`,
-        `activity_log`, `block_page`, `browser_isolation`, `fips`, `body_scanning`, or
-        `certificate`, without updating the entire configuration object. Returns an
-        error if any collection of settings is not properly configured.
+        """
+        Update (PATCH) a single subcollection of settings such as `antivirus`,
+        `tls_decrypt`, `activity_log`, `block_page`, `browser_isolation`, `fips`,
+        `body_scanning`, or `certificate` without updating the entire configuration
+        object. This endpoint returns an error if any settings collection lacks proper
+        configuration.
 
         Args:
-          settings: Account settings
+          settings: Specify account settings.
 
           extra_headers: Send extra headers
 
@@ -288,7 +286,7 @@ class AsyncConfigurationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/gateway/configuration",
+            path_template("/accounts/{account_id}/gateway/configuration", account_id=account_id),
             body=await async_maybe_transform({"settings": settings}, configuration_edit_params.ConfigurationEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -309,10 +307,10 @@ class AsyncConfigurationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ConfigurationGetResponse]:
         """
-        Fetches the current Zero Trust account configuration.
+        Retrieve the current Zero Trust account configuration.
 
         Args:
           extra_headers: Send extra headers
@@ -326,7 +324,7 @@ class AsyncConfigurationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/gateway/configuration",
+            path_template("/accounts/{account_id}/gateway/configuration", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

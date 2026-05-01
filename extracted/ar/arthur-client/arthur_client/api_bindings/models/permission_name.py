@@ -75,6 +75,7 @@ class PermissionName(str, Enum):
     WORKSPACE_LIST_DATASETS = 'workspace_list_datasets'
     WORKSPACE_LIST_MODELS = 'workspace_list_models'
     WORKSPACE_LIST_ALERTS = 'workspace_list_alerts'
+    WORKSPACE_LIST_ALERT_RULES = 'workspace_list_alert_rules'
     WORKSPACE_LIST_CUSTOM_AGGREGATIONS = 'workspace_list_custom_aggregations'
     WORKSPACE_LIST_AGENTS = 'workspace_list_agents'
     WORKSPACE_LIST_UNREGISTERED_AGENTS = 'workspace_list_unregistered_agents'

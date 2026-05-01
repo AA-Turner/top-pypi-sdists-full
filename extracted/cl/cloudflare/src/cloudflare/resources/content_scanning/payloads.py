@@ -6,8 +6,8 @@ from typing import Iterable
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -56,7 +56,7 @@ class PayloadsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[PayloadCreateResponse]:
         """
         Add custom scan expressions for Content Scanning.
@@ -75,7 +75,7 @@ class PayloadsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/content-upload-scan/payloads",
+            path_template("/zones/{zone_id}/content-upload-scan/payloads", zone_id=zone_id),
             page=SyncSinglePage[PayloadCreateResponse],
             body=maybe_transform(body, Iterable[payload_create_params.Body]),
             options=make_request_options(
@@ -94,7 +94,7 @@ class PayloadsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[PayloadListResponse]:
         """
         Get a list of existing custom scan expressions for Content Scanning.
@@ -113,7 +113,7 @@ class PayloadsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/content-upload-scan/payloads",
+            path_template("/zones/{zone_id}/content-upload-scan/payloads", zone_id=zone_id),
             page=SyncSinglePage[PayloadListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -131,7 +131,7 @@ class PayloadsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[PayloadDeleteResponse]:
         """
         Delete a Content Scan Custom Expression.
@@ -154,7 +154,11 @@ class PayloadsResource(SyncAPIResource):
         if not expression_id:
             raise ValueError(f"Expected a non-empty value for `expression_id` but received {expression_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/content-upload-scan/payloads/{expression_id}",
+            path_template(
+                "/zones/{zone_id}/content-upload-scan/payloads/{expression_id}",
+                zone_id=zone_id,
+                expression_id=expression_id,
+            ),
             page=SyncSinglePage[PayloadDeleteResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -194,7 +198,7 @@ class AsyncPayloadsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[PayloadCreateResponse, AsyncSinglePage[PayloadCreateResponse]]:
         """
         Add custom scan expressions for Content Scanning.
@@ -213,7 +217,7 @@ class AsyncPayloadsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/content-upload-scan/payloads",
+            path_template("/zones/{zone_id}/content-upload-scan/payloads", zone_id=zone_id),
             page=AsyncSinglePage[PayloadCreateResponse],
             body=maybe_transform(body, Iterable[payload_create_params.Body]),
             options=make_request_options(
@@ -232,7 +236,7 @@ class AsyncPayloadsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[PayloadListResponse, AsyncSinglePage[PayloadListResponse]]:
         """
         Get a list of existing custom scan expressions for Content Scanning.
@@ -251,7 +255,7 @@ class AsyncPayloadsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/content-upload-scan/payloads",
+            path_template("/zones/{zone_id}/content-upload-scan/payloads", zone_id=zone_id),
             page=AsyncSinglePage[PayloadListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -269,7 +273,7 @@ class AsyncPayloadsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[PayloadDeleteResponse, AsyncSinglePage[PayloadDeleteResponse]]:
         """
         Delete a Content Scan Custom Expression.
@@ -292,7 +296,11 @@ class AsyncPayloadsResource(AsyncAPIResource):
         if not expression_id:
             raise ValueError(f"Expected a non-empty value for `expression_id` but received {expression_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/content-upload-scan/payloads/{expression_id}",
+            path_template(
+                "/zones/{zone_id}/content-upload-scan/payloads/{expression_id}",
+                zone_id=zone_id,
+                expression_id=expression_id,
+            ),
             page=AsyncSinglePage[PayloadDeleteResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

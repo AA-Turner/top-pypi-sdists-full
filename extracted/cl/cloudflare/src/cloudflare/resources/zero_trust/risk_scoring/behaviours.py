@@ -6,8 +6,8 @@ from typing import Dict, Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -55,10 +55,11 @@ class BehavioursResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[BehaviourUpdateResponse]:
         """
-        Update configuration for risk behaviors
+        Updates risk score behavior configurations, defining weights and thresholds for
+        risk calculation.
 
         Args:
           extra_headers: Send extra headers
@@ -72,7 +73,7 @@ class BehavioursResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._put(
-            f"/accounts/{account_id}/zt_risk_scoring/behaviors",
+            path_template("/accounts/{account_id}/zt_risk_scoring/behaviors", account_id=account_id),
             body=maybe_transform({"behaviors": behaviors}, behaviour_update_params.BehaviourUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -93,10 +94,11 @@ class BehavioursResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[BehaviourGetResponse]:
         """
-        Get all behaviors and associated configuration
+        Retrieves configured risk score behaviors that define how user actions affect
+        their overall risk score.
 
         Args:
           extra_headers: Send extra headers
@@ -110,7 +112,7 @@ class BehavioursResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/zt_risk_scoring/behaviors",
+            path_template("/accounts/{account_id}/zt_risk_scoring/behaviors", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -152,10 +154,11 @@ class AsyncBehavioursResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[BehaviourUpdateResponse]:
         """
-        Update configuration for risk behaviors
+        Updates risk score behavior configurations, defining weights and thresholds for
+        risk calculation.
 
         Args:
           extra_headers: Send extra headers
@@ -169,7 +172,7 @@ class AsyncBehavioursResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/zt_risk_scoring/behaviors",
+            path_template("/accounts/{account_id}/zt_risk_scoring/behaviors", account_id=account_id),
             body=await async_maybe_transform({"behaviors": behaviors}, behaviour_update_params.BehaviourUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -190,10 +193,11 @@ class AsyncBehavioursResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[BehaviourGetResponse]:
         """
-        Get all behaviors and associated configuration
+        Retrieves configured risk score behaviors that define how user actions affect
+        their overall risk score.
 
         Args:
           extra_headers: Send extra headers
@@ -207,7 +211,7 @@ class AsyncBehavioursResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/zt_risk_scoring/behaviors",
+            path_template("/accounts/{account_id}/zt_risk_scoring/behaviors", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -78,7 +78,7 @@ pub struct CrashtrackerConfigurationPy {
 #[pymethods]
 impl CrashtrackerConfigurationPy {
     #[new]
-    #[pyo3(signature = (additional_files, create_alt_stack, use_alt_stack, timeout_ms, resolve_frames, endpoint=None, unix_socket_path=None))]
+    #[pyo3(signature = (additional_files, create_alt_stack, use_alt_stack, timeout_ms, resolve_frames, endpoint=None, unix_socket_path=None, test_token=None))]
     pub fn new(
         additional_files: Vec<String>,
         create_alt_stack: bool,
@@ -87,6 +87,7 @@ impl CrashtrackerConfigurationPy {
         resolve_frames: StacktraceCollectionPy,
         endpoint: Option<&str>,
         unix_socket_path: Option<String>,
+        test_token: Option<String>,
     ) -> anyhow::Result<Self> {
         let resolve_frames: StacktraceCollection = resolve_frames.into();
         let mut builder = CrashtrackerConfiguration::builder()
@@ -98,6 +99,9 @@ impl CrashtrackerConfigurationPy {
             .demangle_names(true);
         if let Some(url) = endpoint {
             builder = builder.endpoint_url(url);
+        }
+        if let Some(token) = test_token {
+            builder = builder.endpoint_test_token(&token);
         }
         if let Some(path) = unix_socket_path {
             builder = builder.unix_socket_path(path);

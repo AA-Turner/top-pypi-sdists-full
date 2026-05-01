@@ -22,6 +22,7 @@ from datetime import datetime
 
 from .literals import (
     As2805KeyVariantType,
+    AssociationStateType,
     DeriveKeyUsageType,
     KeyAlgorithmType,
     KeyCheckValueAlgorithmType,
@@ -35,6 +36,7 @@ from .literals import (
     KeyStateType,
     KeyUsageType,
     MultiRegionKeyTypeType,
+    SessionStatusType,
     SigningAlgorithmTypeType,
     SymmetricKeyAlgorithmType,
     WrappedKeyMaterialFormatType,
@@ -51,6 +53,8 @@ __all__ = (
     "AddKeyReplicationRegionsInputTypeDef",
     "AddKeyReplicationRegionsOutputTypeDef",
     "AliasTypeDef",
+    "AssociateMpaTeamInputTypeDef",
+    "AssociateMpaTeamOutputTypeDef",
     "CertificateSubjectTypeTypeDef",
     "CreateAliasInputTypeDef",
     "CreateAliasOutputTypeDef",
@@ -59,9 +63,12 @@ __all__ = (
     "DeleteAliasInputTypeDef",
     "DeleteKeyInputTypeDef",
     "DeleteKeyOutputTypeDef",
+    "DeleteResourcePolicyInputTypeDef",
     "DiffieHellmanDerivationDataTypeDef",
     "DisableDefaultKeyReplicationRegionsInputTypeDef",
     "DisableDefaultKeyReplicationRegionsOutputTypeDef",
+    "DisassociateMpaTeamInputTypeDef",
+    "DisassociateMpaTeamOutputTypeDef",
     "EnableDefaultKeyReplicationRegionsInputTypeDef",
     "EnableDefaultKeyReplicationRegionsOutputTypeDef",
     "ExportAs2805KeyCryptogramTypeDef",
@@ -81,12 +88,16 @@ __all__ = (
     "GetDefaultKeyReplicationRegionsOutputTypeDef",
     "GetKeyInputTypeDef",
     "GetKeyOutputTypeDef",
+    "GetMpaTeamAssociationInputTypeDef",
+    "GetMpaTeamAssociationOutputTypeDef",
     "GetParametersForExportInputTypeDef",
     "GetParametersForExportOutputTypeDef",
     "GetParametersForImportInputTypeDef",
     "GetParametersForImportOutputTypeDef",
     "GetPublicKeyCertificateInputTypeDef",
     "GetPublicKeyCertificateOutputTypeDef",
+    "GetResourcePolicyInputTypeDef",
+    "GetResourcePolicyOutputTypeDef",
     "ImportAs2805KeyCryptogramTypeDef",
     "ImportDiffieHellmanTr31KeyBlockTypeDef",
     "ImportKeyCryptogramTypeDef",
@@ -109,7 +120,11 @@ __all__ = (
     "ListTagsForResourceInputPaginateTypeDef",
     "ListTagsForResourceInputTypeDef",
     "ListTagsForResourceOutputTypeDef",
+    "MpaStatusTypeDef",
+    "MpaTeamAssociationTypeDef",
     "PaginatorConfigTypeDef",
+    "PutResourcePolicyInputTypeDef",
+    "PutResourcePolicyOutputTypeDef",
     "RemoveKeyReplicationRegionsInputTypeDef",
     "RemoveKeyReplicationRegionsOutputTypeDef",
     "ReplicationStatusTypeTypeDef",
@@ -149,6 +164,12 @@ class AliasTypeDef(TypedDict):
     KeyArn: NotRequired[str]
 
 
+class AssociateMpaTeamInputTypeDef(TypedDict):
+    Action: Literal["IMPORT_ROOT_PUBLIC_KEY_CERTIFICATE"]
+    MpaTeamArn: str
+    RequesterComment: NotRequired[str]
+
+
 class CertificateSubjectTypeTypeDef(TypedDict):
     CommonName: str
     OrganizationUnit: NotRequired[str]
@@ -178,12 +199,21 @@ class DeleteKeyInputTypeDef(TypedDict):
     DeleteKeyInDays: NotRequired[int]
 
 
+class DeleteResourcePolicyInputTypeDef(TypedDict):
+    ResourceArn: str
+
+
 class DiffieHellmanDerivationDataTypeDef(TypedDict):
     SharedInformation: NotRequired[str]
 
 
 class DisableDefaultKeyReplicationRegionsInputTypeDef(TypedDict):
     ReplicationRegions: Sequence[str]
+
+
+class DisassociateMpaTeamInputTypeDef(TypedDict):
+    Action: Literal["IMPORT_ROOT_PUBLIC_KEY_CERTIFICATE"]
+    RequesterComment: NotRequired[str]
 
 
 class EnableDefaultKeyReplicationRegionsInputTypeDef(TypedDict):
@@ -221,6 +251,10 @@ class GetKeyInputTypeDef(TypedDict):
     KeyIdentifier: str
 
 
+class GetMpaTeamAssociationInputTypeDef(TypedDict):
+    Action: Literal["IMPORT_ROOT_PUBLIC_KEY_CERTIFICATE"]
+
+
 class GetParametersForExportInputTypeDef(TypedDict):
     KeyMaterialType: KeyMaterialTypeType
     SigningKeyAlgorithm: KeyAlgorithmType
@@ -235,6 +269,10 @@ class GetParametersForImportInputTypeDef(TypedDict):
 
 class GetPublicKeyCertificateInputTypeDef(TypedDict):
     KeyIdentifier: str
+
+
+class GetResourcePolicyInputTypeDef(TypedDict):
+    ResourceArn: str
 
 
 class KeyModesOfUseTypeDef(TypedDict):
@@ -265,6 +303,13 @@ class ImportTr34KeyBlockTypeDef(TypedDict):
     RandomNonce: NotRequired[str]
 
 
+class MpaStatusTypeDef(TypedDict):
+    MpaSessionArn: str
+    Status: SessionStatusType
+    InitiationDate: datetime
+    StatusMessage: NotRequired[str]
+
+
 class ReplicationStatusTypeTypeDef(TypedDict):
     Status: KeyReplicationStateType
     StatusMessage: NotRequired[str]
@@ -292,6 +337,11 @@ class ListTagsForResourceInputTypeDef(TypedDict):
     ResourceArn: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class PutResourcePolicyInputTypeDef(TypedDict):
+    ResourceArn: str
+    Policy: str
 
 
 class RemoveKeyReplicationRegionsInputTypeDef(TypedDict):
@@ -362,6 +412,18 @@ class GetParametersForImportOutputTypeDef(TypedDict):
 class GetPublicKeyCertificateOutputTypeDef(TypedDict):
     KeyCertificate: str
     KeyCertificateChain: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetResourcePolicyOutputTypeDef(TypedDict):
+    ResourceArn: str
+    Policy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutResourcePolicyOutputTypeDef(TypedDict):
+    ResourceArn: str
+    Policy: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -447,6 +509,13 @@ class KeyBlockHeadersTypeDef(TypedDict):
     OptionalBlocks: NotRequired[Mapping[str, str]]
 
 
+class MpaTeamAssociationTypeDef(TypedDict):
+    Action: Literal["IMPORT_ROOT_PUBLIC_KEY_CERTIFICATE"]
+    MpaTeamArn: str
+    AssociationState: AssociationStateType
+    MpaStatus: NotRequired[MpaStatusTypeDef]
+
+
 class ListAliasesInputPaginateTypeDef(TypedDict):
     KeyArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -510,6 +579,7 @@ class KeyTypeDef(TypedDict):
     PrimaryRegion: NotRequired[str]
     ReplicationStatus: NotRequired[dict[str, ReplicationStatusTypeTypeDef]]
     UsingDefaultReplicationRegions: NotRequired[bool]
+    MpaStatus: NotRequired[MpaStatusTypeDef]
 
 
 class RootCertificatePublicKeyTypeDef(TypedDict):
@@ -548,6 +618,21 @@ class ExportTr34KeyBlockTypeDef(TypedDict):
     SigningKeyCertificate: NotRequired[str]
     RandomNonce: NotRequired[str]
     KeyBlockHeaders: NotRequired[KeyBlockHeadersTypeDef]
+
+
+class AssociateMpaTeamOutputTypeDef(TypedDict):
+    MpaTeamAssociation: MpaTeamAssociationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DisassociateMpaTeamOutputTypeDef(TypedDict):
+    MpaTeamAssociation: MpaTeamAssociationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetMpaTeamAssociationOutputTypeDef(TypedDict):
+    MpaTeamAssociation: MpaTeamAssociationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListKeysOutputTypeDef(TypedDict):
@@ -625,6 +710,7 @@ class ImportKeyInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ReplicationRegions: NotRequired[Sequence[str]]
+    RequesterComment: NotRequired[str]
 
 
 class ExportKeyInputTypeDef(TypedDict):

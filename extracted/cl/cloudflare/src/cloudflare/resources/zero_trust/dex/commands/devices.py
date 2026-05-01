@@ -6,8 +6,8 @@ from typing import Optional
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -50,13 +50,13 @@ class DevicesResource(SyncAPIResource):
         account_id: str,
         page: float,
         per_page: float,
-        search: str | NotGiven = NOT_GIVEN,
+        search: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePagination[Optional[DeviceListResponse]]:
         """
         List devices with WARP client support for remote captures which have been
@@ -80,7 +80,7 @@ class DevicesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dex/commands/devices",
+            path_template("/accounts/{account_id}/dex/commands/devices", account_id=account_id),
             page=SyncV4PagePagination[Optional[DeviceListResponse]],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -126,13 +126,13 @@ class AsyncDevicesResource(AsyncAPIResource):
         account_id: str,
         page: float,
         per_page: float,
-        search: str | NotGiven = NOT_GIVEN,
+        search: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Optional[DeviceListResponse], AsyncV4PagePagination[Optional[DeviceListResponse]]]:
         """
         List devices with WARP client support for remote captures which have been
@@ -156,7 +156,7 @@ class AsyncDevicesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dex/commands/devices",
+            path_template("/accounts/{account_id}/dex/commands/devices", account_id=account_id),
             page=AsyncV4PagePagination[Optional[DeviceListResponse]],
             options=make_request_options(
                 extra_headers=extra_headers,

@@ -5,8 +5,9 @@ Doc: https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun/u
 
 from __future__ import annotations
 
-from os import path
 from typing import Any
+
+from mailgun.handlers.utils import build_path_from_keys, sanitize_path_segment
 
 
 def handle_users(
@@ -14,24 +15,28 @@ def handle_users(
     _domain: str | None,
     _method: str | None,
     **kwargs: Any,
-) -> Any:
-    """Handle Users.
+) -> str:
+    """Handle Users URL construction.
 
-    :param url: Incoming URL dictionary
-    :type url: dict
-    :param _domain: Incoming domain (it's not being used for this handler)
-    :type _domain: str
-    :param _method: Incoming request method (it's not being used for this handler)
-    :type _method: str
-    :param kwargs: kwargs
-    :return: final url for Users endpoint
+    Args:
+        url: Incoming URL configuration dictionary.
+        _domain: Incoming domain (unused in this handler).
+        _method: Incoming request method (unused in this handler).
+        **kwargs: Additional keyword arguments (e.g., 'user_id').
+
+    Returns:
+        The final URL for the Users endpoint.
     """
-    final_keys = path.join("/", *url["keys"]) if url["keys"] else ""
-    if "user_id" in kwargs and kwargs["user_id"] != "me":
-        url = url["base"][:-1] + "/" + "users" + "/" + kwargs["user_id"]
-    elif "user_id" in kwargs and kwargs["user_id"] == "me":
-        url = url["base"][:-1] + final_keys
-    else:
-        url = url["base"][:-1] + "/" + "users"
+    final_keys = build_path_from_keys(url.get("keys", []))
+    base_url = str(url["base"]).rstrip("/")
 
-    return url
+    user_id = kwargs.get("user_id")
+
+    if user_id and user_id != "me":
+        safe_user = sanitize_path_segment(user_id)
+        return f"{base_url}/users/{safe_user}"
+
+    if user_id == "me":
+        return f"{base_url}{final_keys}"
+
+    return f"{base_url}/users"

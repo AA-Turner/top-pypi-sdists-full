@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from typing import Type, Iterable, Optional, cast
+from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -17,9 +18,9 @@ from ...._response import (
     async_to_streamed_response_wrapper,
 )
 from ...._wrappers import ResultWrapper
-from ....pagination import SyncSinglePage, AsyncSinglePage
+from ....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ...._base_client import AsyncPaginator, make_request_options
-from ....types.zero_trust.devices import dex_test_create_params, dex_test_update_params
+from ....types.zero_trust.devices import dex_test_list_params, dex_test_create_params, dex_test_update_params
 from ....types.zero_trust.devices.dex_test_get_response import DEXTestGetResponse
 from ....types.zero_trust.devices.dex_test_list_response import DEXTestListResponse
 from ....types.zero_trust.devices.dex_test_create_response import DEXTestCreateResponse
@@ -57,15 +58,15 @@ class DEXTestsResource(SyncAPIResource):
         enabled: bool,
         interval: str,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        target_policies: Iterable[dex_test_create_params.TargetPolicy] | NotGiven = NOT_GIVEN,
-        targeted: bool | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        target_policies: Iterable[dex_test_create_params.TargetPolicy] | Omit = omit,
+        targeted: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DEXTestCreateResponse]:
         """
         Create a DEX test.
@@ -95,7 +96,7 @@ class DEXTestsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/dex/devices/dex_tests",
+            path_template("/accounts/{account_id}/dex/devices/dex_tests", account_id=account_id),
             body=maybe_transform(
                 {
                     "data": data,
@@ -127,15 +128,15 @@ class DEXTestsResource(SyncAPIResource):
         enabled: bool,
         interval: str,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        target_policies: Iterable[dex_test_update_params.TargetPolicy] | NotGiven = NOT_GIVEN,
-        targeted: bool | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        target_policies: Iterable[dex_test_update_params.TargetPolicy] | Omit = omit,
+        targeted: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DEXTestUpdateResponse]:
         """
         Update a DEX test.
@@ -169,7 +170,11 @@ class DEXTestsResource(SyncAPIResource):
         if not dex_test_id:
             raise ValueError(f"Expected a non-empty value for `dex_test_id` but received {dex_test_id!r}")
         return self._put(
-            f"/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+            path_template(
+                "/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+                account_id=account_id,
+                dex_test_id=dex_test_id,
+            ),
             body=maybe_transform(
                 {
                     "data": data,
@@ -196,17 +201,29 @@ class DEXTestsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
+        kind: Literal["http", "traceroute"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        test_name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncSinglePage[DEXTestListResponse]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncV4PagePaginationArray[DEXTestListResponse]:
         """
-        Fetch all DEX tests.
+        Fetch all DEX tests
 
         Args:
+          kind: Filter by test type
+
+          page: Page number of paginated results
+
+          per_page: Number of items per page
+
+          test_name: Filter by test name
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -218,10 +235,22 @@ class DEXTestsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dex/devices/dex_tests",
-            page=SyncSinglePage[DEXTestListResponse],
+            path_template("/accounts/{account_id}/dex/devices/dex_tests", account_id=account_id),
+            page=SyncV4PagePaginationArray[DEXTestListResponse],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "kind": kind,
+                        "page": page,
+                        "per_page": per_page,
+                        "test_name": test_name,
+                    },
+                    dex_test_list_params.DEXTestListParams,
+                ),
             ),
             model=DEXTestListResponse,
         )
@@ -236,7 +265,7 @@ class DEXTestsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DEXTestDeleteResponse]:
         """Delete a Device DEX test.
 
@@ -259,7 +288,11 @@ class DEXTestsResource(SyncAPIResource):
         if not dex_test_id:
             raise ValueError(f"Expected a non-empty value for `dex_test_id` but received {dex_test_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+            path_template(
+                "/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+                account_id=account_id,
+                dex_test_id=dex_test_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -280,7 +313,7 @@ class DEXTestsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DEXTestGetResponse]:
         """
         Fetch a single DEX test.
@@ -301,7 +334,11 @@ class DEXTestsResource(SyncAPIResource):
         if not dex_test_id:
             raise ValueError(f"Expected a non-empty value for `dex_test_id` but received {dex_test_id!r}")
         return self._get(
-            f"/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+            path_template(
+                "/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+                account_id=account_id,
+                dex_test_id=dex_test_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -341,15 +378,15 @@ class AsyncDEXTestsResource(AsyncAPIResource):
         enabled: bool,
         interval: str,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        target_policies: Iterable[dex_test_create_params.TargetPolicy] | NotGiven = NOT_GIVEN,
-        targeted: bool | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        target_policies: Iterable[dex_test_create_params.TargetPolicy] | Omit = omit,
+        targeted: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DEXTestCreateResponse]:
         """
         Create a DEX test.
@@ -379,7 +416,7 @@ class AsyncDEXTestsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/dex/devices/dex_tests",
+            path_template("/accounts/{account_id}/dex/devices/dex_tests", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "data": data,
@@ -411,15 +448,15 @@ class AsyncDEXTestsResource(AsyncAPIResource):
         enabled: bool,
         interval: str,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        target_policies: Iterable[dex_test_update_params.TargetPolicy] | NotGiven = NOT_GIVEN,
-        targeted: bool | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        target_policies: Iterable[dex_test_update_params.TargetPolicy] | Omit = omit,
+        targeted: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DEXTestUpdateResponse]:
         """
         Update a DEX test.
@@ -453,7 +490,11 @@ class AsyncDEXTestsResource(AsyncAPIResource):
         if not dex_test_id:
             raise ValueError(f"Expected a non-empty value for `dex_test_id` but received {dex_test_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+            path_template(
+                "/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+                account_id=account_id,
+                dex_test_id=dex_test_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "data": data,
@@ -480,17 +521,29 @@ class AsyncDEXTestsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
+        kind: Literal["http", "traceroute"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        test_name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[DEXTestListResponse, AsyncSinglePage[DEXTestListResponse]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[DEXTestListResponse, AsyncV4PagePaginationArray[DEXTestListResponse]]:
         """
-        Fetch all DEX tests.
+        Fetch all DEX tests
 
         Args:
+          kind: Filter by test type
+
+          page: Page number of paginated results
+
+          per_page: Number of items per page
+
+          test_name: Filter by test name
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -502,10 +555,22 @@ class AsyncDEXTestsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dex/devices/dex_tests",
-            page=AsyncSinglePage[DEXTestListResponse],
+            path_template("/accounts/{account_id}/dex/devices/dex_tests", account_id=account_id),
+            page=AsyncV4PagePaginationArray[DEXTestListResponse],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "kind": kind,
+                        "page": page,
+                        "per_page": per_page,
+                        "test_name": test_name,
+                    },
+                    dex_test_list_params.DEXTestListParams,
+                ),
             ),
             model=DEXTestListResponse,
         )
@@ -520,7 +585,7 @@ class AsyncDEXTestsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DEXTestDeleteResponse]:
         """Delete a Device DEX test.
 
@@ -543,7 +608,11 @@ class AsyncDEXTestsResource(AsyncAPIResource):
         if not dex_test_id:
             raise ValueError(f"Expected a non-empty value for `dex_test_id` but received {dex_test_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+            path_template(
+                "/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+                account_id=account_id,
+                dex_test_id=dex_test_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -564,7 +633,7 @@ class AsyncDEXTestsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DEXTestGetResponse]:
         """
         Fetch a single DEX test.
@@ -585,7 +654,11 @@ class AsyncDEXTestsResource(AsyncAPIResource):
         if not dex_test_id:
             raise ValueError(f"Expected a non-empty value for `dex_test_id` but received {dex_test_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+            path_template(
+                "/accounts/{account_id}/dex/devices/dex_tests/{dex_test_id}",
+                account_id=account_id,
+                dex_test_id=dex_test_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

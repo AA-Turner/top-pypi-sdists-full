@@ -8,43 +8,34 @@ from tqdm import tqdm
 from wbcore.contrib.notifications.utils import get_checksum
 
 
-def migrate_checksum(apps, schema_editor):
-    Notification = apps.get_model('notifications', 'Notification')
-    qs = Notification.objects.all()
-    objs = []
-    for notification in tqdm(qs, total=qs.count()):
-        notification.checksum = get_checksum(notification.title, notification.body, notification.endpoint)
-        objs.append(notification)
-    Notification.objects.bulk_update(objs, ["checksum"], batch_size=1000)
-
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('notifications', '0009_alter_notificationtypesetting_options_and_more'),
+        ("notifications", "0009_alter_notificationtypesetting_options_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='notification',
-            name='checksum',
+            model_name="notification",
+            name="checksum",
             field=models.CharField(null=True, blank=True, max_length=64),
             preserve_default=False,
         ),
-        migrations.RunPython(migrate_checksum),
         migrations.AlterField(
-            model_name='notification',
-            name='body',
-            field=models.TextField(default=''),
+            model_name="notification",
+            name="body",
+            field=models.TextField(default=""),
         ),
         migrations.AlterField(
-            model_name='notification',
-            name='checksum',
+            model_name="notification",
+            name="checksum",
             field=models.CharField(default=None, max_length=64),
             preserve_default=False,
         ),
         migrations.AddIndex(
-            model_name='notification',
-            index=models.Index(fields=['user', 'notification_type', 'checksum'], name='notificatio_user_id_b90c58_idx'),
+            model_name="notification",
+            index=models.Index(
+                fields=["user", "notification_type", "checksum"], name="notificatio_user_id_b90c58_idx"
+            ),
         ),
     ]

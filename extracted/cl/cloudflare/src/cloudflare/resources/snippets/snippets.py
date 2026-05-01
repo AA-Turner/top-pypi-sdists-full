@@ -22,8 +22,8 @@ from .content import (
     ContentResourceWithStreamingResponse,
     AsyncContentResourceWithStreamingResponse,
 )
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -33,11 +33,12 @@ from ..._response import (
     async_to_streamed_response_wrapper,
 )
 from ..._wrappers import ResultWrapper
-from ...pagination import SyncSinglePage, AsyncSinglePage
+from ...pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ..._base_client import AsyncPaginator, make_request_options
-from ...types.snippets import snippet_update_params
-from ...types.snippets.snippet import Snippet
-from ...types.snippets.snippet_delete_response import SnippetDeleteResponse
+from ...types.snippets import snippet_list_params, snippet_update_params
+from ...types.snippets.snippet_get_response import SnippetGetResponse
+from ...types.snippets.snippet_list_response import SnippetListResponse
+from ...types.snippets.snippet_update_response import SnippetUpdateResponse
 
 __all__ = ["SnippetsResource", "AsyncSnippetsResource"]
 
@@ -75,24 +76,23 @@ class SnippetsResource(SyncAPIResource):
         snippet_name: str,
         *,
         zone_id: str,
-        files: str | NotGiven = NOT_GIVEN,
-        metadata: snippet_update_params.Metadata | NotGiven = NOT_GIVEN,
+        metadata: snippet_update_params.Metadata,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Optional[Snippet]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SnippetUpdateResponse:
         """
-        Put Snippet
+        Creates or updates a snippet belonging to the zone.
 
         Args:
-          zone_id: Identifier
+          zone_id: Use this field to specify the unique ID of the zone.
 
-          snippet_name: Snippet identifying name
+          snippet_name: Identify the snippet.
 
-          files: Content files of uploaded snippet
+          metadata: Provide metadata about the snippet.
 
           extra_headers: Send extra headers
 
@@ -111,40 +111,41 @@ class SnippetsResource(SyncAPIResource):
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._put(
-            f"/zones/{zone_id}/snippets/{snippet_name}",
-            body=maybe_transform(
-                {
-                    "files": files,
-                    "metadata": metadata,
-                },
-                snippet_update_params.SnippetUpdateParams,
-            ),
+            path_template("/zones/{zone_id}/snippets/{snippet_name}", zone_id=zone_id, snippet_name=snippet_name),
+            body=maybe_transform({"metadata": metadata}, snippet_update_params.SnippetUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[Snippet]]._unwrapper,
+                multipart_syntax="json",
+                post_parser=ResultWrapper[SnippetUpdateResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[Snippet]], ResultWrapper[Snippet]),
+            cast_to=cast(Type[SnippetUpdateResponse], ResultWrapper[SnippetUpdateResponse]),
         )
 
     def list(
         self,
         *,
         zone_id: str,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncSinglePage[Snippet]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncV4PagePaginationArray[SnippetListResponse]:
         """
-        All Snippets
+        Fetches all snippets belonging to the zone.
 
         Args:
-          zone_id: Identifier
+          zone_id: Use this field to specify the unique ID of the zone.
+
+          page: Specifies the current page number.
+
+          per_page: Specifies how many results to return per page.
 
           extra_headers: Send extra headers
 
@@ -157,12 +158,22 @@ class SnippetsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/snippets",
-            page=SyncSinglePage[Snippet],
+            path_template("/zones/{zone_id}/snippets", zone_id=zone_id),
+            page=SyncV4PagePaginationArray[SnippetListResponse],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "page": page,
+                        "per_page": per_page,
+                    },
+                    snippet_list_params.SnippetListParams,
+                ),
             ),
-            model=Snippet,
+            model=SnippetListResponse,
         )
 
     def delete(
@@ -175,15 +186,15 @@ class SnippetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SnippetDeleteResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> object:
         """
-        Delete Snippet
+        Deletes a snippet belonging to the zone.
 
         Args:
-          zone_id: Identifier
+          zone_id: Use this field to specify the unique ID of the zone.
 
-          snippet_name: Snippet identifying name
+          snippet_name: Identify the snippet.
 
           extra_headers: Send extra headers
 
@@ -198,11 +209,15 @@ class SnippetsResource(SyncAPIResource):
         if not snippet_name:
             raise ValueError(f"Expected a non-empty value for `snippet_name` but received {snippet_name!r}")
         return self._delete(
-            f"/zones/{zone_id}/snippets/{snippet_name}",
+            path_template("/zones/{zone_id}/snippets/{snippet_name}", zone_id=zone_id, snippet_name=snippet_name),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[Optional[object]]._unwrapper,
             ),
-            cast_to=SnippetDeleteResponse,
+            cast_to=cast(Type[object], ResultWrapper[object]),
         )
 
     def get(
@@ -215,15 +230,15 @@ class SnippetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Optional[Snippet]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SnippetGetResponse:
         """
-        Snippet
+        Fetches a snippet belonging to the zone.
 
         Args:
-          zone_id: Identifier
+          zone_id: Use this field to specify the unique ID of the zone.
 
-          snippet_name: Snippet identifying name
+          snippet_name: Identify the snippet.
 
           extra_headers: Send extra headers
 
@@ -238,15 +253,15 @@ class SnippetsResource(SyncAPIResource):
         if not snippet_name:
             raise ValueError(f"Expected a non-empty value for `snippet_name` but received {snippet_name!r}")
         return self._get(
-            f"/zones/{zone_id}/snippets/{snippet_name}",
+            path_template("/zones/{zone_id}/snippets/{snippet_name}", zone_id=zone_id, snippet_name=snippet_name),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[Snippet]]._unwrapper,
+                post_parser=ResultWrapper[SnippetGetResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[Snippet]], ResultWrapper[Snippet]),
+            cast_to=cast(Type[SnippetGetResponse], ResultWrapper[SnippetGetResponse]),
         )
 
 
@@ -283,24 +298,23 @@ class AsyncSnippetsResource(AsyncAPIResource):
         snippet_name: str,
         *,
         zone_id: str,
-        files: str | NotGiven = NOT_GIVEN,
-        metadata: snippet_update_params.Metadata | NotGiven = NOT_GIVEN,
+        metadata: snippet_update_params.Metadata,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Optional[Snippet]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SnippetUpdateResponse:
         """
-        Put Snippet
+        Creates or updates a snippet belonging to the zone.
 
         Args:
-          zone_id: Identifier
+          zone_id: Use this field to specify the unique ID of the zone.
 
-          snippet_name: Snippet identifying name
+          snippet_name: Identify the snippet.
 
-          files: Content files of uploaded snippet
+          metadata: Provide metadata about the snippet.
 
           extra_headers: Send extra headers
 
@@ -319,40 +333,41 @@ class AsyncSnippetsResource(AsyncAPIResource):
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._put(
-            f"/zones/{zone_id}/snippets/{snippet_name}",
-            body=await async_maybe_transform(
-                {
-                    "files": files,
-                    "metadata": metadata,
-                },
-                snippet_update_params.SnippetUpdateParams,
-            ),
+            path_template("/zones/{zone_id}/snippets/{snippet_name}", zone_id=zone_id, snippet_name=snippet_name),
+            body=await async_maybe_transform({"metadata": metadata}, snippet_update_params.SnippetUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[Snippet]]._unwrapper,
+                multipart_syntax="json",
+                post_parser=ResultWrapper[SnippetUpdateResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[Snippet]], ResultWrapper[Snippet]),
+            cast_to=cast(Type[SnippetUpdateResponse], ResultWrapper[SnippetUpdateResponse]),
         )
 
     def list(
         self,
         *,
         zone_id: str,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[Snippet, AsyncSinglePage[Snippet]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[SnippetListResponse, AsyncV4PagePaginationArray[SnippetListResponse]]:
         """
-        All Snippets
+        Fetches all snippets belonging to the zone.
 
         Args:
-          zone_id: Identifier
+          zone_id: Use this field to specify the unique ID of the zone.
+
+          page: Specifies the current page number.
+
+          per_page: Specifies how many results to return per page.
 
           extra_headers: Send extra headers
 
@@ -365,12 +380,22 @@ class AsyncSnippetsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/snippets",
-            page=AsyncSinglePage[Snippet],
+            path_template("/zones/{zone_id}/snippets", zone_id=zone_id),
+            page=AsyncV4PagePaginationArray[SnippetListResponse],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "page": page,
+                        "per_page": per_page,
+                    },
+                    snippet_list_params.SnippetListParams,
+                ),
             ),
-            model=Snippet,
+            model=SnippetListResponse,
         )
 
     async def delete(
@@ -383,15 +408,15 @@ class AsyncSnippetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SnippetDeleteResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> object:
         """
-        Delete Snippet
+        Deletes a snippet belonging to the zone.
 
         Args:
-          zone_id: Identifier
+          zone_id: Use this field to specify the unique ID of the zone.
 
-          snippet_name: Snippet identifying name
+          snippet_name: Identify the snippet.
 
           extra_headers: Send extra headers
 
@@ -406,11 +431,15 @@ class AsyncSnippetsResource(AsyncAPIResource):
         if not snippet_name:
             raise ValueError(f"Expected a non-empty value for `snippet_name` but received {snippet_name!r}")
         return await self._delete(
-            f"/zones/{zone_id}/snippets/{snippet_name}",
+            path_template("/zones/{zone_id}/snippets/{snippet_name}", zone_id=zone_id, snippet_name=snippet_name),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[Optional[object]]._unwrapper,
             ),
-            cast_to=SnippetDeleteResponse,
+            cast_to=cast(Type[object], ResultWrapper[object]),
         )
 
     async def get(
@@ -423,15 +452,15 @@ class AsyncSnippetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Optional[Snippet]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SnippetGetResponse:
         """
-        Snippet
+        Fetches a snippet belonging to the zone.
 
         Args:
-          zone_id: Identifier
+          zone_id: Use this field to specify the unique ID of the zone.
 
-          snippet_name: Snippet identifying name
+          snippet_name: Identify the snippet.
 
           extra_headers: Send extra headers
 
@@ -446,15 +475,15 @@ class AsyncSnippetsResource(AsyncAPIResource):
         if not snippet_name:
             raise ValueError(f"Expected a non-empty value for `snippet_name` but received {snippet_name!r}")
         return await self._get(
-            f"/zones/{zone_id}/snippets/{snippet_name}",
+            path_template("/zones/{zone_id}/snippets/{snippet_name}", zone_id=zone_id, snippet_name=snippet_name),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[Snippet]]._unwrapper,
+                post_parser=ResultWrapper[SnippetGetResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[Snippet]], ResultWrapper[Snippet]),
+            cast_to=cast(Type[SnippetGetResponse], ResultWrapper[SnippetGetResponse]),
         )
 
 

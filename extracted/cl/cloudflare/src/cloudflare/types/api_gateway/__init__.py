@@ -5,10 +5,11 @@ from __future__ import annotations
 from .message import Message as Message
 from .settings import Settings as Settings
 from .configuration import Configuration as Configuration
-from .public_schema import PublicSchema as PublicSchema
-from .schema_upload import SchemaUpload as SchemaUpload
+from .label_list_params import LabelListParams as LabelListParams
+from .old_public_schema import OldPublicSchema as OldPublicSchema
 from .schema_list_params import SchemaListParams as SchemaListParams
 from .discovery_operation import DiscoveryOperation as DiscoveryOperation
+from .label_list_response import LabelListResponse as LabelListResponse
 from .operation_get_params import OperationGetParams as OperationGetParams
 from .schema_list_response import SchemaListResponse as SchemaListResponse
 from .operation_list_params import OperationListParams as OperationListParams
@@ -24,8 +25,8 @@ from .operation_create_response import OperationCreateResponse as OperationCreat
 from .operation_delete_response import OperationDeleteResponse as OperationDeleteResponse
 from .user_schema_create_params import UserSchemaCreateParams as UserSchemaCreateParams
 from .configuration_update_params import ConfigurationUpdateParams as ConfigurationUpdateParams
+from .user_schema_create_response import UserSchemaCreateResponse as UserSchemaCreateResponse
 from .user_schema_delete_response import UserSchemaDeleteResponse as UserSchemaDeleteResponse
 from .operation_bulk_create_params import OperationBulkCreateParams as OperationBulkCreateParams
-from .configuration_update_response import ConfigurationUpdateResponse as ConfigurationUpdateResponse
 from .operation_bulk_create_response import OperationBulkCreateResponse as OperationBulkCreateResponse
 from .operation_bulk_delete_response import OperationBulkDeleteResponse as OperationBulkDeleteResponse

@@ -6,8 +6,8 @@ from typing import Iterable
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -54,7 +54,7 @@ class PrioritizeResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[CustomCertificate]:
         """
         If a zone has multiple SSL certificates, you can set the order in which they
@@ -77,7 +77,7 @@ class PrioritizeResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/custom_certificates/prioritize",
+            path_template("/zones/{zone_id}/custom_certificates/prioritize", zone_id=zone_id),
             page=SyncSinglePage[CustomCertificate],
             body=maybe_transform({"certificates": certificates}, prioritize_update_params.PrioritizeUpdateParams),
             options=make_request_options(
@@ -118,7 +118,7 @@ class AsyncPrioritizeResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[CustomCertificate, AsyncSinglePage[CustomCertificate]]:
         """
         If a zone has multiple SSL certificates, you can set the order in which they
@@ -141,7 +141,7 @@ class AsyncPrioritizeResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/custom_certificates/prioritize",
+            path_template("/zones/{zone_id}/custom_certificates/prioritize", zone_id=zone_id),
             page=AsyncSinglePage[CustomCertificate],
             body=maybe_transform({"certificates": certificates}, prioritize_update_params.PrioritizeUpdateParams),
             options=make_request_options(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tzfpy
-Version: 1.3.0
+Version: 1.3.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: 3.10
@@ -14,7 +14,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Operating System :: OS Independent
 Requires-Dist: pytz>=2026.1.post1 ; extra == 'pytz'
-Requires-Dist: tzdata>=2026.1 ; extra == 'tzdata'
+Requires-Dist: tzdata>=2026.2 ; extra == 'tzdata'
 Provides-Extra: pytz
 Provides-Extra: tzdata
 License-File: LICENSE
@@ -36,6 +36,7 @@ Project-URL: Source Code, https://github.com/ringsaturn/tzfpy
 # tzfpy
 
 - [![PyPI](https://img.shields.io/pypi/v/tzfpy)](https://pypi.org/project/tzfpy/)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fringsaturn%2Ftzfpy.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fringsaturn%2Ftzfpy?ref=badge_shield)
 - [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/tzfpy)](https://pypi.org/project/tzfpy/)
 - ![PyPI - Downloads](https://img.shields.io/pypi/dd/tzfpy)
 - [![Anaconda-Server Badge](https://anaconda.org/conda-forge/tzfpy/badges/version.svg)](https://anaconda.org/conda-forge/tzfpy)
@@ -228,8 +229,11 @@ I have written an article about the history of tzf, its Rust port, and its Rust
 port's Python binding; you can view it
 [here](https://blog.ringsaturn.me/en/posts/2023-01-31-history-of-tzf/).
 
+Also, see [Project tzf][project-tzf] for more information.
+
 [tzf]: https://github.com/ringsaturn/tzf
 [tzf-rs]: https://github.com/ringsaturn/tzf-rs
+[project-tzf]: https://project-tzf.ringsaturn.me/docs/getting-started/
 
 ## Compare with other packages
 
@@ -296,3 +300,5 @@ under the
 
 [![](https://ringsaturn.github.io/pypi-downloads-chart/tzfpy/download-trends.svg)](https://ringsaturn.github.io/pypi-downloads-chart/tzfpy/index.html) -->
 
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fringsaturn%2Ftzfpy.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fringsaturn%2Ftzfpy?ref=badge_large)

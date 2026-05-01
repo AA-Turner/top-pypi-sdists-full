@@ -1,5 +1,5 @@
 import io
-from typing import Union, cast, TYPE_CHECKING, Optional, cast, Any
+from typing import Union, TYPE_CHECKING, Optional, cast, Any
 from collections.abc import Sequence
 import json
 import urllib.parse
@@ -25,10 +25,14 @@ import pydantic
 # import pydantic.json
 
 import aiopenapi3.v30.media
-from ..base import SchemaBase, ParameterBase
 from ..request import RequestBase, AsyncRequestBase
 from ..errors import HTTPStatusError, ContentTypeError, ResponseDecodingError, ResponseSchemaError, HeadersMissingError
-from .formdata import parameters_from_multipart, parameters_from_urlencoded, encode_multipart_parameters
+from .formdata import (
+    parameters_from_multipart,
+    parameters_from_urlencoded,
+    encode_multipart_parameters,
+    MultipartParameter,
+)
 
 from .root import Root as v30Root
 from ..v31.root import Root as v31Root
@@ -39,7 +43,6 @@ if TYPE_CHECKING:
         RequestParameters,
         RequestData,
         ParameterType,
-        RequestFilesParameter,
         RequestFileParameter,
         ResponseHeadersType,
         ResponseDataType,
@@ -271,9 +274,9 @@ class Request(RequestBase):
         provided = provided or dict()
         possible = {_.name: _ for _ in self.operation.parameters + self.root.paths[self.path].parameters}
 
-        from .. import v30, v31
+        from .. import v30, v31, v32
 
-        assert isinstance(self.operation, (v30.Operation, v31.Operation))
+        assert isinstance(self.operation, (v30.Operation, v31.Operation, v32.Operation))
 
         if self.operation.requestBody:
             rbq: dict[str, str] = dict()  # requestBody Parameters
@@ -311,14 +314,14 @@ class Request(RequestBase):
             )
 
         path_parameters = {}
-        rbqh = dict()
+        mph = dict()
         for name, value in parameters.items():
             spec = possible[name]
             values = spec._encode(name, value)
             assert isinstance(values, dict)
 
             if isinstance(spec, (v30.parameter.Header, v31.parameter.Header)):
-                rbqh.update(values)
+                mph.update(values)
             elif spec.in_ == "header":
                 self.req.headers.update(values)
             elif spec.in_ == "path":
@@ -326,18 +329,18 @@ class Request(RequestBase):
                 # as such we need to collect all the path parameters before
                 # applying them to the format string.
                 path_parameters.update(values)
-            elif spec.in_ == "query":
+            elif spec.in_ in ["query", "querystring"]:
                 self.req.params.update(values)
             elif spec.in_ == "cookie":
                 self.req.cookies.update(values)
 
         self.req.url = self.req.url.format(**path_parameters)
-        return rbqh
+        return mph
 
-    def _prepare_body(self, data_: Optional["RequestData"], rbq: dict[str, str]) -> None:
-        from .. import v30, v31
+    def _prepare_body(self, data_: Optional["RequestData"], mph: dict[str, str]) -> None:
+        from .. import v30, v31, v32
 
-        assert isinstance(self.operation, (v30.Operation, v31.Operation))
+        assert isinstance(self.operation, (v30.Operation, v31.Operation, v32.Operation))
 
         if not self.operation.requestBody:
             ctx = self.api.plugins.message.sending(
@@ -386,7 +389,7 @@ class Request(RequestBase):
             media: aiopenapi3.v30.media.MediaType = self.operation.requestBody.content[ct]
             if media.schema_ and isinstance(data_, media.schema_.get_type()):
                 """data is a model"""
-                params = parameters_from_multipart(data_, media, rbq)
+                params: list[MultipartParameter] = parameters_from_multipart(data_, media, mph)
                 msg = encode_multipart_parameters(params)
                 self.req.content = msg.as_string()
                 self.req.headers["Content-Type"] = f'{msg.get_content_type()}; boundary="{msg.get_boundary()}"'
@@ -411,7 +414,7 @@ class Request(RequestBase):
                         assert media.encoding is not None
                         if (e := media.encoding.get(name)) is not None:
                             assert e.headers
-                            headers.update({name: rbq[name] for name in e.headers.keys() if name in rbq})
+                            headers.update({name: mph[name] for name in e.headers.keys() if name in mph})
                         _value = (alias, fh, content_type, headers)
                         rfiles.append((name, _value))
                     elif isinstance(value, str):
@@ -479,14 +482,13 @@ class Request(RequestBase):
             self.req.content = ctx.sending
             self.req.headers = ctx.headers
             self.req.cookies = ctx.cookies
-
         else:
             raise NotImplementedError(self.operation.requestBody.content)
 
     def _prepare(self, data: Optional["RequestData"], parameters: Optional["RequestParameters"]) -> None:
         self._prepare_security()
-        rbq = self._prepare_parameters(parameters)
-        self._prepare_body(data, rbq)
+        mph = self._prepare_parameters(parameters)
+        self._prepare_body(data, mph)
 
     def _process__status_code(self, result: httpx.Response, status_code: str) -> "v3xResponseType":
         expected_response = (
@@ -569,6 +571,17 @@ class Request(RequestBase):
 
         return headers, expected_media.schema_
 
+    def _process_sequence(self, result: httpx.Response) -> tuple["ResponseHeadersType", Optional["SchemaType"], str]:
+        status_code = str(result.status_code)
+        content_type = result.headers.get("Content-Type", None)
+
+        expected_response = self._process__status_code(result, status_code)
+        content_type, expected_media = self._process__content_type(result, expected_response, content_type)
+
+        headers = self._process__headers(result, result.headers, expected_response)
+
+        return headers, expected_media.itemSchema, content_type
+
     def _process_request(self, result: httpx.Response) -> tuple["ResponseHeadersType", "ResponseDataType"]:
         rheaders = dict()
         # spec enforces these are strings
@@ -597,7 +610,7 @@ class Request(RequestBase):
 
         content_type, expected_media = self._process__content_type(result, expected_response, content_type)
 
-        if content_type.lower() == "application/json":
+        if (ct := content_type.lower()) == "application/json":
             data = ctx.received
             expected_type = getattr(expected_media.schema_, "_target", expected_media.schema_)
 

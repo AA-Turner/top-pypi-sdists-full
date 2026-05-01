@@ -6,8 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -54,13 +54,13 @@ class RoutesResource(SyncAPIResource):
         *,
         zone_id: str,
         pattern: str,
-        script: str | NotGiven = NOT_GIVEN,
+        script: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteCreateResponse:
         """
         Creates a route that maps a URL pattern to a Worker.
@@ -84,7 +84,7 @@ class RoutesResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
-            f"/zones/{zone_id}/workers/routes",
+            path_template("/zones/{zone_id}/workers/routes", zone_id=zone_id),
             body=maybe_transform(
                 {
                     "pattern": pattern,
@@ -108,13 +108,13 @@ class RoutesResource(SyncAPIResource):
         *,
         zone_id: str,
         pattern: str,
-        script: str | NotGiven = NOT_GIVEN,
+        script: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteUpdateResponse:
         """
         Updates the URL pattern or Worker associated with a route.
@@ -142,7 +142,7 @@ class RoutesResource(SyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return self._put(
-            f"/zones/{zone_id}/workers/routes/{route_id}",
+            path_template("/zones/{zone_id}/workers/routes/{route_id}", zone_id=zone_id, route_id=route_id),
             body=maybe_transform(
                 {
                     "pattern": pattern,
@@ -169,7 +169,7 @@ class RoutesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[RouteListResponse]:
         """
         Returns routes for a zone.
@@ -188,7 +188,7 @@ class RoutesResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/workers/routes",
+            path_template("/zones/{zone_id}/workers/routes", zone_id=zone_id),
             page=SyncSinglePage[RouteListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -206,7 +206,7 @@ class RoutesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteDeleteResponse:
         """
         Deletes a route.
@@ -229,7 +229,7 @@ class RoutesResource(SyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return self._delete(
-            f"/zones/{zone_id}/workers/routes/{route_id}",
+            path_template("/zones/{zone_id}/workers/routes/{route_id}", zone_id=zone_id, route_id=route_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -250,7 +250,7 @@ class RoutesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteGetResponse:
         """
         Returns information about a route, including URL pattern and Worker.
@@ -273,7 +273,7 @@ class RoutesResource(SyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return self._get(
-            f"/zones/{zone_id}/workers/routes/{route_id}",
+            path_template("/zones/{zone_id}/workers/routes/{route_id}", zone_id=zone_id, route_id=route_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -310,13 +310,13 @@ class AsyncRoutesResource(AsyncAPIResource):
         *,
         zone_id: str,
         pattern: str,
-        script: str | NotGiven = NOT_GIVEN,
+        script: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteCreateResponse:
         """
         Creates a route that maps a URL pattern to a Worker.
@@ -340,7 +340,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
-            f"/zones/{zone_id}/workers/routes",
+            path_template("/zones/{zone_id}/workers/routes", zone_id=zone_id),
             body=await async_maybe_transform(
                 {
                     "pattern": pattern,
@@ -364,13 +364,13 @@ class AsyncRoutesResource(AsyncAPIResource):
         *,
         zone_id: str,
         pattern: str,
-        script: str | NotGiven = NOT_GIVEN,
+        script: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteUpdateResponse:
         """
         Updates the URL pattern or Worker associated with a route.
@@ -398,7 +398,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return await self._put(
-            f"/zones/{zone_id}/workers/routes/{route_id}",
+            path_template("/zones/{zone_id}/workers/routes/{route_id}", zone_id=zone_id, route_id=route_id),
             body=await async_maybe_transform(
                 {
                     "pattern": pattern,
@@ -425,7 +425,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[RouteListResponse, AsyncSinglePage[RouteListResponse]]:
         """
         Returns routes for a zone.
@@ -444,7 +444,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/workers/routes",
+            path_template("/zones/{zone_id}/workers/routes", zone_id=zone_id),
             page=AsyncSinglePage[RouteListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -462,7 +462,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteDeleteResponse:
         """
         Deletes a route.
@@ -485,7 +485,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return await self._delete(
-            f"/zones/{zone_id}/workers/routes/{route_id}",
+            path_template("/zones/{zone_id}/workers/routes/{route_id}", zone_id=zone_id, route_id=route_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -506,7 +506,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteGetResponse:
         """
         Returns information about a route, including URL pattern and Worker.
@@ -529,7 +529,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/workers/routes/{route_id}",
+            path_template("/zones/{zone_id}/workers/routes/{route_id}", zone_id=zone_id, route_id=route_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import List, Type, Optional, cast
+from typing import Type, Optional, cast
 from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -21,6 +21,7 @@ from ...._wrappers import ResultWrapper
 from ....pagination import SyncCursorPagination, AsyncCursorPagination
 from ...._base_client import AsyncPaginator, make_request_options
 from ....types.zero_trust.devices import (
+    registration_get_params,
     registration_list_params,
     registration_revoke_params,
     registration_unrevoke_params,
@@ -56,24 +57,24 @@ class RegistrationsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        id: List[str] | NotGiven = NOT_GIVEN,
-        cursor: str | NotGiven = NOT_GIVEN,
-        device: registration_list_params.Device | NotGiven = NOT_GIVEN,
-        include: str | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        search: str | NotGiven = NOT_GIVEN,
-        seen_after: str | NotGiven = NOT_GIVEN,
-        seen_before: str | NotGiven = NOT_GIVEN,
-        sort_by: Literal["id", "user.name", "user.email", "last_seen_at", "created_at"] | NotGiven = NOT_GIVEN,
-        sort_order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        status: Literal["active", "all", "revoked"] | NotGiven = NOT_GIVEN,
-        user: registration_list_params.User | NotGiven = NOT_GIVEN,
+        id: SequenceNotStr[str] | Omit = omit,
+        cursor: str | Omit = omit,
+        device: registration_list_params.Device | Omit = omit,
+        include: str | Omit = omit,
+        per_page: int | Omit = omit,
+        search: str | Omit = omit,
+        seen_after: str | Omit = omit,
+        seen_before: str | Omit = omit,
+        sort_by: Literal["id", "user.name", "user.email", "last_seen_at", "created_at"] | Omit = omit,
+        sort_order: Literal["asc", "desc"] | Omit = omit,
+        status: Literal["active", "all", "revoked"] | Omit = omit,
+        user: registration_list_params.User | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPagination[RegistrationListResponse]:
         """
         Lists WARP registrations.
@@ -85,14 +86,17 @@ class RegistrationsResource(SyncAPIResource):
               records. A cursor value can be obtained from the result_info.cursor field in the
               response.
 
+          include: Comma-separated list of additional information that should be included in the
+              registration response. Supported values are: "policy".
+
           per_page: The maximum number of devices to return in a single response.
 
           search: Filter by registration details.
 
-          seen_after: Filters by the last_seen timestamp - returns only registrations last seen after
+          seen_after: Filter by the last_seen timestamp - returns only registrations last seen after
               this timestamp.
 
-          seen_before: Filters by the last_seen timestamp - returns only registrations last seen before
+          seen_before: Filter by the last_seen timestamp - returns only registrations last seen before
               this timestamp.
 
           sort_by: The registration field to order results by.
@@ -112,7 +116,7 @@ class RegistrationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices/registrations",
+            path_template("/accounts/{account_id}/devices/registrations", account_id=account_id),
             page=SyncCursorPagination[RegistrationListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -150,7 +154,7 @@ class RegistrationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Deletes a WARP registration.
@@ -169,7 +173,11 @@ class RegistrationsResource(SyncAPIResource):
         if not registration_id:
             raise ValueError(f"Expected a non-empty value for `registration_id` but received {registration_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/devices/registrations/{registration_id}",
+            path_template(
+                "/accounts/{account_id}/devices/registrations/{registration_id}",
+                account_id=account_id,
+                registration_id=registration_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -184,13 +192,13 @@ class RegistrationsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        id: List[str],
+        id: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Deletes a list of WARP registrations.
@@ -209,7 +217,7 @@ class RegistrationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/devices/registrations",
+            path_template("/accounts/{account_id}/devices/registrations", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -226,17 +234,21 @@ class RegistrationsResource(SyncAPIResource):
         registration_id: str,
         *,
         account_id: str,
+        include: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RegistrationGetResponse:
         """
         Fetches a single WARP registration.
 
         Args:
+          include: Comma-separated list of additional information that should be included in the
+              registration response. Supported values are: "policy".
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -250,12 +262,17 @@ class RegistrationsResource(SyncAPIResource):
         if not registration_id:
             raise ValueError(f"Expected a non-empty value for `registration_id` but received {registration_id!r}")
         return self._get(
-            f"/accounts/{account_id}/devices/registrations/{registration_id}",
+            path_template(
+                "/accounts/{account_id}/devices/registrations/{registration_id}",
+                account_id=account_id,
+                registration_id=registration_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=maybe_transform({"include": include}, registration_get_params.RegistrationGetParams),
                 post_parser=ResultWrapper[RegistrationGetResponse]._unwrapper,
             ),
             cast_to=cast(Type[RegistrationGetResponse], ResultWrapper[RegistrationGetResponse]),
@@ -265,13 +282,13 @@ class RegistrationsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        id: List[str],
+        id: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Revokes a list of WARP registrations.
@@ -290,7 +307,7 @@ class RegistrationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/devices/registrations/revoke",
+            path_template("/accounts/{account_id}/devices/registrations/revoke", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -306,13 +323,13 @@ class RegistrationsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        id: List[str],
+        id: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Unrevokes a list of WARP registrations.
@@ -331,7 +348,7 @@ class RegistrationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/devices/registrations/unrevoke",
+            path_template("/accounts/{account_id}/devices/registrations/unrevoke", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -368,24 +385,24 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        id: List[str] | NotGiven = NOT_GIVEN,
-        cursor: str | NotGiven = NOT_GIVEN,
-        device: registration_list_params.Device | NotGiven = NOT_GIVEN,
-        include: str | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        search: str | NotGiven = NOT_GIVEN,
-        seen_after: str | NotGiven = NOT_GIVEN,
-        seen_before: str | NotGiven = NOT_GIVEN,
-        sort_by: Literal["id", "user.name", "user.email", "last_seen_at", "created_at"] | NotGiven = NOT_GIVEN,
-        sort_order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        status: Literal["active", "all", "revoked"] | NotGiven = NOT_GIVEN,
-        user: registration_list_params.User | NotGiven = NOT_GIVEN,
+        id: SequenceNotStr[str] | Omit = omit,
+        cursor: str | Omit = omit,
+        device: registration_list_params.Device | Omit = omit,
+        include: str | Omit = omit,
+        per_page: int | Omit = omit,
+        search: str | Omit = omit,
+        seen_after: str | Omit = omit,
+        seen_before: str | Omit = omit,
+        sort_by: Literal["id", "user.name", "user.email", "last_seen_at", "created_at"] | Omit = omit,
+        sort_order: Literal["asc", "desc"] | Omit = omit,
+        status: Literal["active", "all", "revoked"] | Omit = omit,
+        user: registration_list_params.User | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[RegistrationListResponse, AsyncCursorPagination[RegistrationListResponse]]:
         """
         Lists WARP registrations.
@@ -397,14 +414,17 @@ class AsyncRegistrationsResource(AsyncAPIResource):
               records. A cursor value can be obtained from the result_info.cursor field in the
               response.
 
+          include: Comma-separated list of additional information that should be included in the
+              registration response. Supported values are: "policy".
+
           per_page: The maximum number of devices to return in a single response.
 
           search: Filter by registration details.
 
-          seen_after: Filters by the last_seen timestamp - returns only registrations last seen after
+          seen_after: Filter by the last_seen timestamp - returns only registrations last seen after
               this timestamp.
 
-          seen_before: Filters by the last_seen timestamp - returns only registrations last seen before
+          seen_before: Filter by the last_seen timestamp - returns only registrations last seen before
               this timestamp.
 
           sort_by: The registration field to order results by.
@@ -424,7 +444,7 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices/registrations",
+            path_template("/accounts/{account_id}/devices/registrations", account_id=account_id),
             page=AsyncCursorPagination[RegistrationListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -462,7 +482,7 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Deletes a WARP registration.
@@ -481,7 +501,11 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         if not registration_id:
             raise ValueError(f"Expected a non-empty value for `registration_id` but received {registration_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/devices/registrations/{registration_id}",
+            path_template(
+                "/accounts/{account_id}/devices/registrations/{registration_id}",
+                account_id=account_id,
+                registration_id=registration_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -496,13 +520,13 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        id: List[str],
+        id: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Deletes a list of WARP registrations.
@@ -521,7 +545,7 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/devices/registrations",
+            path_template("/accounts/{account_id}/devices/registrations", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -540,17 +564,21 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         registration_id: str,
         *,
         account_id: str,
+        include: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RegistrationGetResponse:
         """
         Fetches a single WARP registration.
 
         Args:
+          include: Comma-separated list of additional information that should be included in the
+              registration response. Supported values are: "policy".
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -564,12 +592,17 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         if not registration_id:
             raise ValueError(f"Expected a non-empty value for `registration_id` but received {registration_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/devices/registrations/{registration_id}",
+            path_template(
+                "/accounts/{account_id}/devices/registrations/{registration_id}",
+                account_id=account_id,
+                registration_id=registration_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=await async_maybe_transform({"include": include}, registration_get_params.RegistrationGetParams),
                 post_parser=ResultWrapper[RegistrationGetResponse]._unwrapper,
             ),
             cast_to=cast(Type[RegistrationGetResponse], ResultWrapper[RegistrationGetResponse]),
@@ -579,13 +612,13 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        id: List[str],
+        id: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Revokes a list of WARP registrations.
@@ -604,7 +637,7 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/devices/registrations/revoke",
+            path_template("/accounts/{account_id}/devices/registrations/revoke", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -620,13 +653,13 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        id: List[str],
+        id: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Unrevokes a list of WARP registrations.
@@ -645,7 +678,7 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/devices/registrations/unrevoke",
+            path_template("/accounts/{account_id}/devices/registrations/unrevoke", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

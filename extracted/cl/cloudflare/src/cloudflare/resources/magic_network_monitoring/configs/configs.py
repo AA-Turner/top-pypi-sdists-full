@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Type, Iterable, cast
+from typing import Type, Iterable, cast
 
 import httpx
 
@@ -14,8 +14,8 @@ from .full import (
     FullResourceWithStreamingResponse,
     AsyncFullResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -62,14 +62,14 @@ class ConfigsResource(SyncAPIResource):
         account_id: str,
         default_sampling: float,
         name: str,
-        router_ips: List[str] | NotGiven = NOT_GIVEN,
-        warp_devices: Iterable[config_create_params.WARPDevice] | NotGiven = NOT_GIVEN,
+        router_ips: SequenceNotStr[str] | Omit = omit,
+        warp_devices: Iterable[config_create_params.WARPDevice] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Configuration:
         """
         Create a new network monitoring configuration.
@@ -91,7 +91,7 @@ class ConfigsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/mnm/config",
+            path_template("/accounts/{account_id}/mnm/config", account_id=account_id),
             body=maybe_transform(
                 {
                     "default_sampling": default_sampling,
@@ -117,14 +117,14 @@ class ConfigsResource(SyncAPIResource):
         account_id: str,
         default_sampling: float,
         name: str,
-        router_ips: List[str] | NotGiven = NOT_GIVEN,
-        warp_devices: Iterable[config_update_params.WARPDevice] | NotGiven = NOT_GIVEN,
+        router_ips: SequenceNotStr[str] | Omit = omit,
+        warp_devices: Iterable[config_update_params.WARPDevice] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Configuration:
         """
         Update an existing network monitoring configuration, requires the entire
@@ -147,7 +147,7 @@ class ConfigsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._put(
-            f"/accounts/{account_id}/mnm/config",
+            path_template("/accounts/{account_id}/mnm/config", account_id=account_id),
             body=maybe_transform(
                 {
                     "default_sampling": default_sampling,
@@ -176,7 +176,7 @@ class ConfigsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Configuration:
         """
         Delete an existing network monitoring configuration.
@@ -193,7 +193,7 @@ class ConfigsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/mnm/config",
+            path_template("/accounts/{account_id}/mnm/config", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -208,16 +208,16 @@ class ConfigsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        default_sampling: float | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        router_ips: List[str] | NotGiven = NOT_GIVEN,
-        warp_devices: Iterable[config_edit_params.WARPDevice] | NotGiven = NOT_GIVEN,
+        default_sampling: float | Omit = omit,
+        name: str | Omit = omit,
+        router_ips: SequenceNotStr[str] | Omit = omit,
+        warp_devices: Iterable[config_edit_params.WARPDevice] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Configuration:
         """
         Update fields in an existing network monitoring configuration.
@@ -239,7 +239,7 @@ class ConfigsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/mnm/config",
+            path_template("/accounts/{account_id}/mnm/config", account_id=account_id),
             body=maybe_transform(
                 {
                     "default_sampling": default_sampling,
@@ -268,7 +268,7 @@ class ConfigsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Configuration:
         """
         Lists default sampling, router IPs and warp devices for account.
@@ -285,7 +285,7 @@ class ConfigsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/mnm/config",
+            path_template("/accounts/{account_id}/mnm/config", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -327,14 +327,14 @@ class AsyncConfigsResource(AsyncAPIResource):
         account_id: str,
         default_sampling: float,
         name: str,
-        router_ips: List[str] | NotGiven = NOT_GIVEN,
-        warp_devices: Iterable[config_create_params.WARPDevice] | NotGiven = NOT_GIVEN,
+        router_ips: SequenceNotStr[str] | Omit = omit,
+        warp_devices: Iterable[config_create_params.WARPDevice] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Configuration:
         """
         Create a new network monitoring configuration.
@@ -356,7 +356,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/mnm/config",
+            path_template("/accounts/{account_id}/mnm/config", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "default_sampling": default_sampling,
@@ -382,14 +382,14 @@ class AsyncConfigsResource(AsyncAPIResource):
         account_id: str,
         default_sampling: float,
         name: str,
-        router_ips: List[str] | NotGiven = NOT_GIVEN,
-        warp_devices: Iterable[config_update_params.WARPDevice] | NotGiven = NOT_GIVEN,
+        router_ips: SequenceNotStr[str] | Omit = omit,
+        warp_devices: Iterable[config_update_params.WARPDevice] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Configuration:
         """
         Update an existing network monitoring configuration, requires the entire
@@ -412,7 +412,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/mnm/config",
+            path_template("/accounts/{account_id}/mnm/config", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "default_sampling": default_sampling,
@@ -441,7 +441,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Configuration:
         """
         Delete an existing network monitoring configuration.
@@ -458,7 +458,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/mnm/config",
+            path_template("/accounts/{account_id}/mnm/config", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -473,16 +473,16 @@ class AsyncConfigsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        default_sampling: float | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        router_ips: List[str] | NotGiven = NOT_GIVEN,
-        warp_devices: Iterable[config_edit_params.WARPDevice] | NotGiven = NOT_GIVEN,
+        default_sampling: float | Omit = omit,
+        name: str | Omit = omit,
+        router_ips: SequenceNotStr[str] | Omit = omit,
+        warp_devices: Iterable[config_edit_params.WARPDevice] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Configuration:
         """
         Update fields in an existing network monitoring configuration.
@@ -504,7 +504,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/mnm/config",
+            path_template("/accounts/{account_id}/mnm/config", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "default_sampling": default_sampling,
@@ -533,7 +533,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Configuration:
         """
         Lists default sampling, router IPs and warp devices for account.
@@ -550,7 +550,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/mnm/config",
+            path_template("/accounts/{account_id}/mnm/config", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

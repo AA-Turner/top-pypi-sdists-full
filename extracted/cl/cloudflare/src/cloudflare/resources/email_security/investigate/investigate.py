@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Type, Union, cast
+from typing import Type, Union, Optional, cast
 from datetime import datetime
 from typing_extensions import Literal
 
@@ -48,8 +48,8 @@ from .release import (
     ReleaseResourceWithStreamingResponse,
     AsyncReleaseResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from .detections import (
     DetectionsResource,
@@ -77,7 +77,7 @@ from ...._response import (
 from ...._wrappers import ResultWrapper
 from ....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ...._base_client import AsyncPaginator, make_request_options
-from ....types.email_security import investigate_list_params
+from ....types.email_security import investigate_get_params, investigate_list_params
 from ....types.email_security.investigate_get_response import InvestigateGetResponse
 from ....types.email_security.investigate_list_response import InvestigateListResponse
 
@@ -136,74 +136,53 @@ class InvestigateResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        action_log: bool | NotGiven = NOT_GIVEN,
-        alert_id: str | NotGiven = NOT_GIVEN,
-        detections_only: bool | NotGiven = NOT_GIVEN,
-        domain: str | NotGiven = NOT_GIVEN,
-        end: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        final_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | NotGiven = NOT_GIVEN,
-        message_action: Literal["PREVIEW", "QUARANTINE_RELEASED", "MOVED"] | NotGiven = NOT_GIVEN,
-        message_id: str | NotGiven = NOT_GIVEN,
-        metric: str | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        query: str | NotGiven = NOT_GIVEN,
-        recipient: str | NotGiven = NOT_GIVEN,
-        sender: str | NotGiven = NOT_GIVEN,
-        start: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        action_log: bool | Omit = omit,
+        alert_id: str | Omit = omit,
+        cursor: str | Omit = omit,
+        detections_only: bool | Omit = omit,
+        domain: str | Omit = omit,
+        end: Union[str, datetime] | Omit = omit,
+        final_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | Omit = omit,
+        message_action: Literal["PREVIEW", "QUARANTINE_RELEASED", "MOVED"] | Omit = omit,
+        message_id: str | Omit = omit,
+        metric: str | Omit = omit,
+        page: Optional[int] | Omit = omit,
+        per_page: int | Omit = omit,
+        query: str | Omit = omit,
+        recipient: str | Omit = omit,
+        sender: str | Omit = omit,
+        start: Union[str, datetime] | Omit = omit,
+        subject: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[InvestigateListResponse]:
         """
         Returns information for each email that matches the search parameter(s).
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
-          action_log: Determines if the message action log is included in the response.
+          action_log: Whether to include the message action log in the response.
 
-          detections_only: Determines if the search results will include detections or not.
+          detections_only: Whether to include only detections in search results.
 
-          domain: The sender domains the search filters by.
+          domain: Sender domains to filter by.
 
           end: The end of the search date range. Defaults to `now`.
 
-          final_disposition: The dispositions the search filters by.
+          final_disposition: Dispositions to filter by.
 
-          message_action: The message actions the search filters by.
+          message_action: Message actions to filter by.
 
-          page: The page number of paginated results.
+          page: Deprecated: Use cursor pagination instead. End of life: November 1, 2026.
 
-          per_page: The number of results per page.
+          per_page: The number of results per page. Maximum value is 1000.
 
-          query: The space-delimited term used in the query. The search is case-insensitive.
-
-              The content of the following email metadata fields are searched:
-
-              - alert_id
-              - CC
-              - From (envelope_from)
-              - From Name
-              - final_disposition
-              - md5 hash (of any attachment)
-              - sha1 hash (of any attachment)
-              - sha256 hash (of any attachment)
-              - name (of any attachment)
-              - Reason
-              - Received DateTime (yyyy-mm-ddThh:mm:ss)
-              - Sent DateTime (yyyy-mm-ddThh:mm:ss)
-              - ReplyTo
-              - To (envelope_to)
-              - To Name
-              - Message-ID
-              - smtp_helo_server_ip
-              - smtp_previous_hop_ip
-              - x_originating_ip
-              - Subject
+          query: Space-delimited search term. Case-insensitive.
 
           start: The beginning of the search date range. Defaults to `now - 30 days`.
 
@@ -218,7 +197,7 @@ class InvestigateResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email-security/investigate",
+            path_template("/accounts/{account_id}/email-security/investigate", account_id=account_id),
             page=SyncV4PagePaginationArray[InvestigateListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -229,6 +208,7 @@ class InvestigateResource(SyncAPIResource):
                     {
                         "action_log": action_log,
                         "alert_id": alert_id,
+                        "cursor": cursor,
                         "detections_only": detections_only,
                         "domain": domain,
                         "end": end,
@@ -242,6 +222,7 @@ class InvestigateResource(SyncAPIResource):
                         "recipient": recipient,
                         "sender": sender,
                         "start": start,
+                        "subject": subject,
                     },
                     investigate_list_params.InvestigateListParams,
                 ),
@@ -251,23 +232,29 @@ class InvestigateResource(SyncAPIResource):
 
     def get(
         self,
-        postfix_id: str,
+        investigate_id: str,
         *,
         account_id: str,
+        submission: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InvestigateGetResponse:
         """
-        Get message details
+        Retrieves comprehensive details for a specific email message including headers,
+        recipients, sender information, and current quarantine status. Use the
+        investigate_id from search results to fetch detailed information.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
-          postfix_id: The identifier of the message.
+          investigate_id: Unique identifier for a message retrieved from investigation
+
+          submission: When true, search the submissions datastore only. When false or omitted, search
+              the regular datastore only.
 
           extra_headers: Send extra headers
 
@@ -279,15 +266,20 @@ class InvestigateResource(SyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        if not postfix_id:
-            raise ValueError(f"Expected a non-empty value for `postfix_id` but received {postfix_id!r}")
+        if not investigate_id:
+            raise ValueError(f"Expected a non-empty value for `investigate_id` but received {investigate_id!r}")
         return self._get(
-            f"/accounts/{account_id}/email-security/investigate/{postfix_id}",
+            path_template(
+                "/accounts/{account_id}/email-security/investigate/{investigate_id}",
+                account_id=account_id,
+                investigate_id=investigate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=maybe_transform({"submission": submission}, investigate_get_params.InvestigateGetParams),
                 post_parser=ResultWrapper[InvestigateGetResponse]._unwrapper,
             ),
             cast_to=cast(Type[InvestigateGetResponse], ResultWrapper[InvestigateGetResponse]),
@@ -346,74 +338,53 @@ class AsyncInvestigateResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        action_log: bool | NotGiven = NOT_GIVEN,
-        alert_id: str | NotGiven = NOT_GIVEN,
-        detections_only: bool | NotGiven = NOT_GIVEN,
-        domain: str | NotGiven = NOT_GIVEN,
-        end: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        final_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | NotGiven = NOT_GIVEN,
-        message_action: Literal["PREVIEW", "QUARANTINE_RELEASED", "MOVED"] | NotGiven = NOT_GIVEN,
-        message_id: str | NotGiven = NOT_GIVEN,
-        metric: str | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        query: str | NotGiven = NOT_GIVEN,
-        recipient: str | NotGiven = NOT_GIVEN,
-        sender: str | NotGiven = NOT_GIVEN,
-        start: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        action_log: bool | Omit = omit,
+        alert_id: str | Omit = omit,
+        cursor: str | Omit = omit,
+        detections_only: bool | Omit = omit,
+        domain: str | Omit = omit,
+        end: Union[str, datetime] | Omit = omit,
+        final_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | Omit = omit,
+        message_action: Literal["PREVIEW", "QUARANTINE_RELEASED", "MOVED"] | Omit = omit,
+        message_id: str | Omit = omit,
+        metric: str | Omit = omit,
+        page: Optional[int] | Omit = omit,
+        per_page: int | Omit = omit,
+        query: str | Omit = omit,
+        recipient: str | Omit = omit,
+        sender: str | Omit = omit,
+        start: Union[str, datetime] | Omit = omit,
+        subject: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[InvestigateListResponse, AsyncV4PagePaginationArray[InvestigateListResponse]]:
         """
         Returns information for each email that matches the search parameter(s).
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
-          action_log: Determines if the message action log is included in the response.
+          action_log: Whether to include the message action log in the response.
 
-          detections_only: Determines if the search results will include detections or not.
+          detections_only: Whether to include only detections in search results.
 
-          domain: The sender domains the search filters by.
+          domain: Sender domains to filter by.
 
           end: The end of the search date range. Defaults to `now`.
 
-          final_disposition: The dispositions the search filters by.
+          final_disposition: Dispositions to filter by.
 
-          message_action: The message actions the search filters by.
+          message_action: Message actions to filter by.
 
-          page: The page number of paginated results.
+          page: Deprecated: Use cursor pagination instead. End of life: November 1, 2026.
 
-          per_page: The number of results per page.
+          per_page: The number of results per page. Maximum value is 1000.
 
-          query: The space-delimited term used in the query. The search is case-insensitive.
-
-              The content of the following email metadata fields are searched:
-
-              - alert_id
-              - CC
-              - From (envelope_from)
-              - From Name
-              - final_disposition
-              - md5 hash (of any attachment)
-              - sha1 hash (of any attachment)
-              - sha256 hash (of any attachment)
-              - name (of any attachment)
-              - Reason
-              - Received DateTime (yyyy-mm-ddThh:mm:ss)
-              - Sent DateTime (yyyy-mm-ddThh:mm:ss)
-              - ReplyTo
-              - To (envelope_to)
-              - To Name
-              - Message-ID
-              - smtp_helo_server_ip
-              - smtp_previous_hop_ip
-              - x_originating_ip
-              - Subject
+          query: Space-delimited search term. Case-insensitive.
 
           start: The beginning of the search date range. Defaults to `now - 30 days`.
 
@@ -428,7 +399,7 @@ class AsyncInvestigateResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email-security/investigate",
+            path_template("/accounts/{account_id}/email-security/investigate", account_id=account_id),
             page=AsyncV4PagePaginationArray[InvestigateListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -439,6 +410,7 @@ class AsyncInvestigateResource(AsyncAPIResource):
                     {
                         "action_log": action_log,
                         "alert_id": alert_id,
+                        "cursor": cursor,
                         "detections_only": detections_only,
                         "domain": domain,
                         "end": end,
@@ -452,6 +424,7 @@ class AsyncInvestigateResource(AsyncAPIResource):
                         "recipient": recipient,
                         "sender": sender,
                         "start": start,
+                        "subject": subject,
                     },
                     investigate_list_params.InvestigateListParams,
                 ),
@@ -461,23 +434,29 @@ class AsyncInvestigateResource(AsyncAPIResource):
 
     async def get(
         self,
-        postfix_id: str,
+        investigate_id: str,
         *,
         account_id: str,
+        submission: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InvestigateGetResponse:
         """
-        Get message details
+        Retrieves comprehensive details for a specific email message including headers,
+        recipients, sender information, and current quarantine status. Use the
+        investigate_id from search results to fetch detailed information.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
-          postfix_id: The identifier of the message.
+          investigate_id: Unique identifier for a message retrieved from investigation
+
+          submission: When true, search the submissions datastore only. When false or omitted, search
+              the regular datastore only.
 
           extra_headers: Send extra headers
 
@@ -489,15 +468,22 @@ class AsyncInvestigateResource(AsyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        if not postfix_id:
-            raise ValueError(f"Expected a non-empty value for `postfix_id` but received {postfix_id!r}")
+        if not investigate_id:
+            raise ValueError(f"Expected a non-empty value for `investigate_id` but received {investigate_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/email-security/investigate/{postfix_id}",
+            path_template(
+                "/accounts/{account_id}/email-security/investigate/{investigate_id}",
+                account_id=account_id,
+                investigate_id=investigate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=await async_maybe_transform(
+                    {"submission": submission}, investigate_get_params.InvestigateGetParams
+                ),
                 post_parser=ResultWrapper[InvestigateGetResponse]._unwrapper,
             ),
             cast_to=cast(Type[InvestigateGetResponse], ResultWrapper[InvestigateGetResponse]),

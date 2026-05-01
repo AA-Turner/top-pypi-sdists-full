@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import List, Type, cast
+from typing import Type, cast
 from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, strip_not_given, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._utils import path_template, maybe_transform, strip_not_given, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -85,31 +85,38 @@ class OnRampsResource(SyncAPIResource):
         *,
         account_id: str,
         cloud_type: Literal["AWS", "AZURE", "GOOGLE"],
+        dynamic_routing: bool,
         install_routes_in_cloud: bool,
         install_routes_in_magic_wan: bool,
         name: str,
         type: Literal["OnrampTypeSingle", "OnrampTypeHub"],
-        adopted_hub_id: str | NotGiven = NOT_GIVEN,
-        attached_hubs: List[str] | NotGiven = NOT_GIVEN,
-        attached_vpcs: List[str] | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        hub_provider_id: str | NotGiven = NOT_GIVEN,
-        manage_hub_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        manage_vpc_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        region: str | NotGiven = NOT_GIVEN,
-        vpc: str | NotGiven = NOT_GIVEN,
-        forwarded: str | NotGiven = NOT_GIVEN,
+        adopted_hub_id: str | Omit = omit,
+        attached_hubs: SequenceNotStr[str] | Omit = omit,
+        attached_vpcs: SequenceNotStr[str] | Omit = omit,
+        cloud_asn: int | Omit = omit,
+        description: str | Omit = omit,
+        hub_provider_id: str | Omit = omit,
+        manage_hub_to_hub_attachments: bool | Omit = omit,
+        manage_vpc_to_hub_attachments: bool | Omit = omit,
+        region: str | Omit = omit,
+        vpc: str | Omit = omit,
+        forwarded: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampCreateResponse:
         """
         Create a new On-ramp (Closed Beta).
 
         Args:
+          dynamic_routing: Enables BGP routing. When enabling this feature, set both
+              install_routes_in_cloud and install_routes_in_magic_wan to false.
+
+          cloud_asn: Sets the cloud-side ASN. If unset or zero, the cloud's default ASN takes effect.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -122,10 +129,11 @@ class OnRampsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {**strip_not_given({"forwarded": forwarded}), **(extra_headers or {})}
         return self._post(
-            f"/accounts/{account_id}/magic/cloud/onramps",
+            path_template("/accounts/{account_id}/magic/cloud/onramps", account_id=account_id),
             body=maybe_transform(
                 {
                     "cloud_type": cloud_type,
+                    "dynamic_routing": dynamic_routing,
                     "install_routes_in_cloud": install_routes_in_cloud,
                     "install_routes_in_magic_wan": install_routes_in_magic_wan,
                     "name": name,
@@ -133,6 +141,7 @@ class OnRampsResource(SyncAPIResource):
                     "adopted_hub_id": adopted_hub_id,
                     "attached_hubs": attached_hubs,
                     "attached_vpcs": attached_vpcs,
+                    "cloud_asn": cloud_asn,
                     "description": description,
                     "hub_provider_id": hub_provider_id,
                     "manage_hub_to_hub_attachments": manage_hub_to_hub_attachments,
@@ -157,21 +166,21 @@ class OnRampsResource(SyncAPIResource):
         onramp_id: str,
         *,
         account_id: str,
-        attached_hubs: List[str] | NotGiven = NOT_GIVEN,
-        attached_vpcs: List[str] | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        install_routes_in_cloud: bool | NotGiven = NOT_GIVEN,
-        install_routes_in_magic_wan: bool | NotGiven = NOT_GIVEN,
-        manage_hub_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        manage_vpc_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        vpc: str | NotGiven = NOT_GIVEN,
+        attached_hubs: SequenceNotStr[str] | Omit = omit,
+        attached_vpcs: SequenceNotStr[str] | Omit = omit,
+        description: str | Omit = omit,
+        install_routes_in_cloud: bool | Omit = omit,
+        install_routes_in_magic_wan: bool | Omit = omit,
+        manage_hub_to_hub_attachments: bool | Omit = omit,
+        manage_vpc_to_hub_attachments: bool | Omit = omit,
+        name: str | Omit = omit,
+        vpc: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampUpdateResponse:
         """
         Update an On-ramp (Closed Beta).
@@ -190,7 +199,9 @@ class OnRampsResource(SyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return self._put(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}", account_id=account_id, onramp_id=onramp_id
+            ),
             body=maybe_transform(
                 {
                     "attached_hubs": attached_hubs,
@@ -219,16 +230,16 @@ class OnRampsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        desc: bool | NotGiven = NOT_GIVEN,
-        order_by: str | NotGiven = NOT_GIVEN,
-        status: bool | NotGiven = NOT_GIVEN,
-        vpcs: bool | NotGiven = NOT_GIVEN,
+        desc: bool | Omit = omit,
+        order_by: str | Omit = omit,
+        status: bool | Omit = omit,
+        vpcs: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[OnRampListResponse]:
         """
         List On-ramps (Closed Beta).
@@ -247,7 +258,7 @@ class OnRampsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/cloud/onramps",
+            path_template("/accounts/{account_id}/magic/cloud/onramps", account_id=account_id),
             page=SyncSinglePage[OnRampListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -272,14 +283,14 @@ class OnRampsResource(SyncAPIResource):
         onramp_id: str,
         *,
         account_id: str,
-        destroy: bool | NotGiven = NOT_GIVEN,
-        force: bool | NotGiven = NOT_GIVEN,
+        destroy: bool | Omit = omit,
+        force: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampDeleteResponse:
         """
         Delete an On-ramp (Closed Beta).
@@ -298,7 +309,9 @@ class OnRampsResource(SyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}", account_id=account_id, onramp_id=onramp_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -326,7 +339,7 @@ class OnRampsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampApplyResponse:
         """
         Apply an On-ramp (Closed Beta).
@@ -345,7 +358,11 @@ class OnRampsResource(SyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return self._post(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/apply",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/apply",
+                account_id=account_id,
+                onramp_id=onramp_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -357,21 +374,21 @@ class OnRampsResource(SyncAPIResource):
         onramp_id: str,
         *,
         account_id: str,
-        attached_hubs: List[str] | NotGiven = NOT_GIVEN,
-        attached_vpcs: List[str] | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        install_routes_in_cloud: bool | NotGiven = NOT_GIVEN,
-        install_routes_in_magic_wan: bool | NotGiven = NOT_GIVEN,
-        manage_hub_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        manage_vpc_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        vpc: str | NotGiven = NOT_GIVEN,
+        attached_hubs: SequenceNotStr[str] | Omit = omit,
+        attached_vpcs: SequenceNotStr[str] | Omit = omit,
+        description: str | Omit = omit,
+        install_routes_in_cloud: bool | Omit = omit,
+        install_routes_in_magic_wan: bool | Omit = omit,
+        manage_hub_to_hub_attachments: bool | Omit = omit,
+        manage_vpc_to_hub_attachments: bool | Omit = omit,
+        name: str | Omit = omit,
+        vpc: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampEditResponse:
         """
         Update an On-ramp (Closed Beta).
@@ -390,7 +407,9 @@ class OnRampsResource(SyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}", account_id=account_id, onramp_id=onramp_id
+            ),
             body=maybe_transform(
                 {
                     "attached_hubs": attached_hubs,
@@ -425,7 +444,7 @@ class OnRampsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BinaryAPIResponse:
         """
         Export an On-ramp to terraform ready file(s) (Closed Beta).
@@ -445,7 +464,11 @@ class OnRampsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         extra_headers = {"Accept": "application/zip", **(extra_headers or {})}
         return self._post(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/export",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/export",
+                account_id=account_id,
+                onramp_id=onramp_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -457,16 +480,16 @@ class OnRampsResource(SyncAPIResource):
         onramp_id: str,
         *,
         account_id: str,
-        planned_resources: bool | NotGiven = NOT_GIVEN,
-        post_apply_resources: bool | NotGiven = NOT_GIVEN,
-        status: bool | NotGiven = NOT_GIVEN,
-        vpcs: bool | NotGiven = NOT_GIVEN,
+        planned_resources: bool | Omit = omit,
+        post_apply_resources: bool | Omit = omit,
+        status: bool | Omit = omit,
+        vpcs: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampGetResponse:
         """
         Read an On-ramp (Closed Beta).
@@ -485,7 +508,9 @@ class OnRampsResource(SyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}", account_id=account_id, onramp_id=onramp_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -515,7 +540,7 @@ class OnRampsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampPlanResponse:
         """
         Plan an On-ramp (Closed Beta).
@@ -534,7 +559,11 @@ class OnRampsResource(SyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return self._post(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/plan",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/plan",
+                account_id=account_id,
+                onramp_id=onramp_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -571,31 +600,38 @@ class AsyncOnRampsResource(AsyncAPIResource):
         *,
         account_id: str,
         cloud_type: Literal["AWS", "AZURE", "GOOGLE"],
+        dynamic_routing: bool,
         install_routes_in_cloud: bool,
         install_routes_in_magic_wan: bool,
         name: str,
         type: Literal["OnrampTypeSingle", "OnrampTypeHub"],
-        adopted_hub_id: str | NotGiven = NOT_GIVEN,
-        attached_hubs: List[str] | NotGiven = NOT_GIVEN,
-        attached_vpcs: List[str] | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        hub_provider_id: str | NotGiven = NOT_GIVEN,
-        manage_hub_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        manage_vpc_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        region: str | NotGiven = NOT_GIVEN,
-        vpc: str | NotGiven = NOT_GIVEN,
-        forwarded: str | NotGiven = NOT_GIVEN,
+        adopted_hub_id: str | Omit = omit,
+        attached_hubs: SequenceNotStr[str] | Omit = omit,
+        attached_vpcs: SequenceNotStr[str] | Omit = omit,
+        cloud_asn: int | Omit = omit,
+        description: str | Omit = omit,
+        hub_provider_id: str | Omit = omit,
+        manage_hub_to_hub_attachments: bool | Omit = omit,
+        manage_vpc_to_hub_attachments: bool | Omit = omit,
+        region: str | Omit = omit,
+        vpc: str | Omit = omit,
+        forwarded: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampCreateResponse:
         """
         Create a new On-ramp (Closed Beta).
 
         Args:
+          dynamic_routing: Enables BGP routing. When enabling this feature, set both
+              install_routes_in_cloud and install_routes_in_magic_wan to false.
+
+          cloud_asn: Sets the cloud-side ASN. If unset or zero, the cloud's default ASN takes effect.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -608,10 +644,11 @@ class AsyncOnRampsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {**strip_not_given({"forwarded": forwarded}), **(extra_headers or {})}
         return await self._post(
-            f"/accounts/{account_id}/magic/cloud/onramps",
+            path_template("/accounts/{account_id}/magic/cloud/onramps", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "cloud_type": cloud_type,
+                    "dynamic_routing": dynamic_routing,
                     "install_routes_in_cloud": install_routes_in_cloud,
                     "install_routes_in_magic_wan": install_routes_in_magic_wan,
                     "name": name,
@@ -619,6 +656,7 @@ class AsyncOnRampsResource(AsyncAPIResource):
                     "adopted_hub_id": adopted_hub_id,
                     "attached_hubs": attached_hubs,
                     "attached_vpcs": attached_vpcs,
+                    "cloud_asn": cloud_asn,
                     "description": description,
                     "hub_provider_id": hub_provider_id,
                     "manage_hub_to_hub_attachments": manage_hub_to_hub_attachments,
@@ -643,21 +681,21 @@ class AsyncOnRampsResource(AsyncAPIResource):
         onramp_id: str,
         *,
         account_id: str,
-        attached_hubs: List[str] | NotGiven = NOT_GIVEN,
-        attached_vpcs: List[str] | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        install_routes_in_cloud: bool | NotGiven = NOT_GIVEN,
-        install_routes_in_magic_wan: bool | NotGiven = NOT_GIVEN,
-        manage_hub_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        manage_vpc_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        vpc: str | NotGiven = NOT_GIVEN,
+        attached_hubs: SequenceNotStr[str] | Omit = omit,
+        attached_vpcs: SequenceNotStr[str] | Omit = omit,
+        description: str | Omit = omit,
+        install_routes_in_cloud: bool | Omit = omit,
+        install_routes_in_magic_wan: bool | Omit = omit,
+        manage_hub_to_hub_attachments: bool | Omit = omit,
+        manage_vpc_to_hub_attachments: bool | Omit = omit,
+        name: str | Omit = omit,
+        vpc: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampUpdateResponse:
         """
         Update an On-ramp (Closed Beta).
@@ -676,7 +714,9 @@ class AsyncOnRampsResource(AsyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}", account_id=account_id, onramp_id=onramp_id
+            ),
             body=await async_maybe_transform(
                 {
                     "attached_hubs": attached_hubs,
@@ -705,16 +745,16 @@ class AsyncOnRampsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        desc: bool | NotGiven = NOT_GIVEN,
-        order_by: str | NotGiven = NOT_GIVEN,
-        status: bool | NotGiven = NOT_GIVEN,
-        vpcs: bool | NotGiven = NOT_GIVEN,
+        desc: bool | Omit = omit,
+        order_by: str | Omit = omit,
+        status: bool | Omit = omit,
+        vpcs: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[OnRampListResponse, AsyncSinglePage[OnRampListResponse]]:
         """
         List On-ramps (Closed Beta).
@@ -733,7 +773,7 @@ class AsyncOnRampsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/cloud/onramps",
+            path_template("/accounts/{account_id}/magic/cloud/onramps", account_id=account_id),
             page=AsyncSinglePage[OnRampListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -758,14 +798,14 @@ class AsyncOnRampsResource(AsyncAPIResource):
         onramp_id: str,
         *,
         account_id: str,
-        destroy: bool | NotGiven = NOT_GIVEN,
-        force: bool | NotGiven = NOT_GIVEN,
+        destroy: bool | Omit = omit,
+        force: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampDeleteResponse:
         """
         Delete an On-ramp (Closed Beta).
@@ -784,7 +824,9 @@ class AsyncOnRampsResource(AsyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}", account_id=account_id, onramp_id=onramp_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -812,7 +854,7 @@ class AsyncOnRampsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampApplyResponse:
         """
         Apply an On-ramp (Closed Beta).
@@ -831,7 +873,11 @@ class AsyncOnRampsResource(AsyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/apply",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/apply",
+                account_id=account_id,
+                onramp_id=onramp_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -843,21 +889,21 @@ class AsyncOnRampsResource(AsyncAPIResource):
         onramp_id: str,
         *,
         account_id: str,
-        attached_hubs: List[str] | NotGiven = NOT_GIVEN,
-        attached_vpcs: List[str] | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        install_routes_in_cloud: bool | NotGiven = NOT_GIVEN,
-        install_routes_in_magic_wan: bool | NotGiven = NOT_GIVEN,
-        manage_hub_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        manage_vpc_to_hub_attachments: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        vpc: str | NotGiven = NOT_GIVEN,
+        attached_hubs: SequenceNotStr[str] | Omit = omit,
+        attached_vpcs: SequenceNotStr[str] | Omit = omit,
+        description: str | Omit = omit,
+        install_routes_in_cloud: bool | Omit = omit,
+        install_routes_in_magic_wan: bool | Omit = omit,
+        manage_hub_to_hub_attachments: bool | Omit = omit,
+        manage_vpc_to_hub_attachments: bool | Omit = omit,
+        name: str | Omit = omit,
+        vpc: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampEditResponse:
         """
         Update an On-ramp (Closed Beta).
@@ -876,7 +922,9 @@ class AsyncOnRampsResource(AsyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}", account_id=account_id, onramp_id=onramp_id
+            ),
             body=await async_maybe_transform(
                 {
                     "attached_hubs": attached_hubs,
@@ -911,7 +959,7 @@ class AsyncOnRampsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncBinaryAPIResponse:
         """
         Export an On-ramp to terraform ready file(s) (Closed Beta).
@@ -931,7 +979,11 @@ class AsyncOnRampsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         extra_headers = {"Accept": "application/zip", **(extra_headers or {})}
         return await self._post(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/export",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/export",
+                account_id=account_id,
+                onramp_id=onramp_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -943,16 +995,16 @@ class AsyncOnRampsResource(AsyncAPIResource):
         onramp_id: str,
         *,
         account_id: str,
-        planned_resources: bool | NotGiven = NOT_GIVEN,
-        post_apply_resources: bool | NotGiven = NOT_GIVEN,
-        status: bool | NotGiven = NOT_GIVEN,
-        vpcs: bool | NotGiven = NOT_GIVEN,
+        planned_resources: bool | Omit = omit,
+        post_apply_resources: bool | Omit = omit,
+        status: bool | Omit = omit,
+        vpcs: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampGetResponse:
         """
         Read an On-ramp (Closed Beta).
@@ -971,7 +1023,9 @@ class AsyncOnRampsResource(AsyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}", account_id=account_id, onramp_id=onramp_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -1001,7 +1055,7 @@ class AsyncOnRampsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OnRampPlanResponse:
         """
         Plan an On-ramp (Closed Beta).
@@ -1020,7 +1074,11 @@ class AsyncOnRampsResource(AsyncAPIResource):
         if not onramp_id:
             raise ValueError(f"Expected a non-empty value for `onramp_id` but received {onramp_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/plan",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/onramps/{onramp_id}/plan",
+                account_id=account_id,
+                onramp_id=onramp_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

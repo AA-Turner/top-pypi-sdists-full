@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable
+from typing import Dict, Union, Iterable
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
+
+from ..._types import SequenceNotStr
 
 __all__ = [
     "AIRunParams",
@@ -18,6 +20,7 @@ __all__ = [
     "PromptResponseFormat",
     "Messages",
     "MessagesMessage",
+    "MessagesMessageContentUnionMember1",
     "MessagesFunction",
     "MessagesResponseFormat",
     "MessagesTool",
@@ -34,6 +37,9 @@ __all__ = [
     "Variant12",
     "Variant13",
     "Variant13Message",
+    "Variant13MessageContentUnionMember1",
+    "Variant13MessageContentUnionMember1ImageURL",
+    "MultimodalEmbeddings",
 ]
 
 
@@ -112,7 +118,7 @@ class TextToSpeech(TypedDict, total=False):
 class TextEmbeddings(TypedDict, total=False):
     account_id: Required[str]
 
-    text: Required[Union[str, List[str]]]
+    text: Required[Union[str, SequenceNotStr[str]]]
     """The text to embed"""
 
 
@@ -281,8 +287,16 @@ class Messages(TypedDict, total=False):
     """
 
 
+class MessagesMessageContentUnionMember1(TypedDict, total=False):
+    text: str
+    """Text content"""
+
+    type: str
+    """Type of the content (text)"""
+
+
 class MessagesMessage(TypedDict, total=False):
-    content: Required[str]
+    content: Required[Union[str, Iterable[MessagesMessageContentUnionMember1]]]
     """The content of the message as a string."""
 
     role: Required[str]
@@ -310,13 +324,15 @@ class MessagesToolUnionMember0ParametersProperties(TypedDict, total=False):
 
 
 class MessagesToolUnionMember0Parameters(TypedDict, total=False):
+    """Schema defining the parameters accepted by the tool."""
+
     properties: Required[Dict[str, MessagesToolUnionMember0ParametersProperties]]
     """Definitions of each parameter."""
 
     type: Required[str]
     """The type of the parameters object (usually 'object')."""
 
-    required: List[str]
+    required: SequenceNotStr[str]
     """List of required parameter names."""
 
 
@@ -340,17 +356,21 @@ class MessagesToolFunctionFunctionParametersProperties(TypedDict, total=False):
 
 
 class MessagesToolFunctionFunctionParameters(TypedDict, total=False):
+    """Schema defining the parameters accepted by the function."""
+
     properties: Required[Dict[str, MessagesToolFunctionFunctionParametersProperties]]
     """Definitions of each parameter."""
 
     type: Required[str]
     """The type of the parameters object (usually 'object')."""
 
-    required: List[str]
+    required: SequenceNotStr[str]
     """List of required parameter names."""
 
 
 class MessagesToolFunctionFunction(TypedDict, total=False):
+    """Details of the function tool."""
+
     description: Required[str]
     """A brief description of what the function does."""
 
@@ -554,12 +574,39 @@ class Variant13(TypedDict, total=False):
     """
 
 
+class Variant13MessageContentUnionMember1ImageURL(TypedDict, total=False):
+    """Image URL object (when type is 'image_url')."""
+
+    url: Required[str]
+    """Image URI with data (e.g. data:image/jpeg;base64,/9j/...)."""
+
+
+class Variant13MessageContentUnionMember1(TypedDict, total=False):
+    type: Required[str]
+    """Type of the content part (e.g. 'text', 'image_url')."""
+
+    image_url: Variant13MessageContentUnionMember1ImageURL
+    """Image URL object (when type is 'image_url')."""
+
+    text: str
+    """Text content (when type is 'text')."""
+
+
 class Variant13Message(TypedDict, total=False):
-    content: Required[str]
+    content: Required[Union[str, Iterable[Variant13MessageContentUnionMember1]]]
     """The content of the message as a string."""
 
     role: Required[str]
     """The role of the message sender (e.g., 'user', 'assistant', 'system', 'tool')."""
+
+
+class MultimodalEmbeddings(TypedDict, total=False):
+    account_id: Required[str]
+
+    image: str
+    """Image in base64 encoded format."""
+
+    text: SequenceNotStr[str]
 
 
 AIRunParams: TypeAlias = Union[
@@ -577,4 +624,5 @@ AIRunParams: TypeAlias = Union[
     ImageToText,
     Variant12,
     Variant13,
+    MultimodalEmbeddings,
 ]

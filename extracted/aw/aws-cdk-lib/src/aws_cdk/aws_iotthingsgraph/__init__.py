@@ -181,6 +181,11 @@ class CfnFlowTemplate(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="flowTemplateRef")
     def flow_template_ref(self) -> "_FlowTemplateReference_1be0c054":
         '''A reference to a FlowTemplate resource.'''

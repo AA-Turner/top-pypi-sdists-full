@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import List, Type, Optional, cast
+from typing import Type, Optional, cast
 from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -57,24 +57,25 @@ class WidgetsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        domains: List[WidgetDomain],
+        domains: SequenceNotStr[WidgetDomain],
         mode: Literal["non-interactive", "invisible", "managed"],
         name: str,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        order: Literal["id", "sitekey", "name", "created_on", "modified_on"] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        bot_fight_mode: bool | NotGiven = NOT_GIVEN,
-        clearance_level: Literal["no_clearance", "jschallenge", "managed", "interactive"] | NotGiven = NOT_GIVEN,
-        ephemeral_id: bool | NotGiven = NOT_GIVEN,
-        offlabel: bool | NotGiven = NOT_GIVEN,
-        region: Literal["world", "china"] | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        filter: str | Omit = omit,
+        order: Literal["id", "sitekey", "name", "created_on", "modified_on"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        bot_fight_mode: bool | Omit = omit,
+        clearance_level: Literal["no_clearance", "jschallenge", "managed", "interactive"] | Omit = omit,
+        ephemeral_id: bool | Omit = omit,
+        offlabel: bool | Omit = omit,
+        region: Literal["world", "china"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Widget]:
         """
         Lists challenge widgets.
@@ -89,6 +90,18 @@ class WidgetsResource(SyncAPIResource):
               used.
 
           direction: Direction to order widgets.
+
+          filter:
+              Filter widgets by field using case-insensitive substring matching. Format:
+              `field:value`
+
+              Supported fields:
+
+              - `name` - Filter by widget name (e.g., `filter=name:login-form`)
+              - `sitekey` - Filter by sitekey (e.g., `filter=sitekey:0x4AAA`)
+
+              Returns 400 Bad Request if the field is unsupported or format is invalid. An
+              empty filter value returns all results.
 
           order: Field to order widgets by.
 
@@ -119,7 +132,7 @@ class WidgetsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/challenges/widgets",
+            path_template("/accounts/{account_id}/challenges/widgets", account_id=account_id),
             body=maybe_transform(
                 {
                     "domains": domains,
@@ -141,6 +154,7 @@ class WidgetsResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "direction": direction,
+                        "filter": filter,
                         "order": order,
                         "page": page,
                         "per_page": per_page,
@@ -157,20 +171,20 @@ class WidgetsResource(SyncAPIResource):
         sitekey: str,
         *,
         account_id: str,
-        domains: List[WidgetDomain],
+        domains: SequenceNotStr[WidgetDomain],
         mode: Literal["non-interactive", "invisible", "managed"],
         name: str,
-        bot_fight_mode: bool | NotGiven = NOT_GIVEN,
-        clearance_level: Literal["no_clearance", "jschallenge", "managed", "interactive"] | NotGiven = NOT_GIVEN,
-        ephemeral_id: bool | NotGiven = NOT_GIVEN,
-        offlabel: bool | NotGiven = NOT_GIVEN,
-        region: Literal["world", "china"] | NotGiven = NOT_GIVEN,
+        bot_fight_mode: bool | Omit = omit,
+        clearance_level: Literal["no_clearance", "jschallenge", "managed", "interactive"] | Omit = omit,
+        ephemeral_id: bool | Omit = omit,
+        offlabel: bool | Omit = omit,
+        region: Literal["world", "china"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Widget]:
         """
         Update the configuration of a widget.
@@ -211,7 +225,9 @@ class WidgetsResource(SyncAPIResource):
         if not sitekey:
             raise ValueError(f"Expected a non-empty value for `sitekey` but received {sitekey!r}")
         return self._put(
-            f"/accounts/{account_id}/challenges/widgets/{sitekey}",
+            path_template(
+                "/accounts/{account_id}/challenges/widgets/{sitekey}", account_id=account_id, sitekey=sitekey
+            ),
             body=maybe_transform(
                 {
                     "domains": domains,
@@ -239,16 +255,17 @@ class WidgetsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        order: Literal["id", "sitekey", "name", "created_on", "modified_on"] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        filter: str | Omit = omit,
+        order: Literal["id", "sitekey", "name", "created_on", "modified_on"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[WidgetListResponse]:
         """
         Lists all turnstile widgets of an account.
@@ -257,6 +274,18 @@ class WidgetsResource(SyncAPIResource):
           account_id: Identifier
 
           direction: Direction to order widgets.
+
+          filter:
+              Filter widgets by field using case-insensitive substring matching. Format:
+              `field:value`
+
+              Supported fields:
+
+              - `name` - Filter by widget name (e.g., `filter=name:login-form`)
+              - `sitekey` - Filter by sitekey (e.g., `filter=sitekey:0x4AAA`)
+
+              Returns 400 Bad Request if the field is unsupported or format is invalid. An
+              empty filter value returns all results.
 
           order: Field to order widgets by.
 
@@ -275,7 +304,7 @@ class WidgetsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/challenges/widgets",
+            path_template("/accounts/{account_id}/challenges/widgets", account_id=account_id),
             page=SyncV4PagePaginationArray[WidgetListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -285,6 +314,7 @@ class WidgetsResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "direction": direction,
+                        "filter": filter,
                         "order": order,
                         "page": page,
                         "per_page": per_page,
@@ -305,7 +335,7 @@ class WidgetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Widget]:
         """
         Destroy a Turnstile Widget.
@@ -328,7 +358,9 @@ class WidgetsResource(SyncAPIResource):
         if not sitekey:
             raise ValueError(f"Expected a non-empty value for `sitekey` but received {sitekey!r}")
         return self._delete(
-            f"/accounts/{account_id}/challenges/widgets/{sitekey}",
+            path_template(
+                "/accounts/{account_id}/challenges/widgets/{sitekey}", account_id=account_id, sitekey=sitekey
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -349,7 +381,7 @@ class WidgetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Widget]:
         """
         Show a single challenge widget configuration.
@@ -372,7 +404,9 @@ class WidgetsResource(SyncAPIResource):
         if not sitekey:
             raise ValueError(f"Expected a non-empty value for `sitekey` but received {sitekey!r}")
         return self._get(
-            f"/accounts/{account_id}/challenges/widgets/{sitekey}",
+            path_template(
+                "/accounts/{account_id}/challenges/widgets/{sitekey}", account_id=account_id, sitekey=sitekey
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -388,13 +422,13 @@ class WidgetsResource(SyncAPIResource):
         sitekey: str,
         *,
         account_id: str,
-        invalidate_immediately: bool | NotGiven = NOT_GIVEN,
+        invalidate_immediately: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Widget]:
         """Generate a new secret key for this widget.
 
@@ -425,7 +459,11 @@ class WidgetsResource(SyncAPIResource):
         if not sitekey:
             raise ValueError(f"Expected a non-empty value for `sitekey` but received {sitekey!r}")
         return self._post(
-            f"/accounts/{account_id}/challenges/widgets/{sitekey}/rotate_secret",
+            path_template(
+                "/accounts/{account_id}/challenges/widgets/{sitekey}/rotate_secret",
+                account_id=account_id,
+                sitekey=sitekey,
+            ),
             body=maybe_transform(
                 {"invalidate_immediately": invalidate_immediately}, widget_rotate_secret_params.WidgetRotateSecretParams
             ),
@@ -464,24 +502,25 @@ class AsyncWidgetsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        domains: List[WidgetDomain],
+        domains: SequenceNotStr[WidgetDomain],
         mode: Literal["non-interactive", "invisible", "managed"],
         name: str,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        order: Literal["id", "sitekey", "name", "created_on", "modified_on"] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        bot_fight_mode: bool | NotGiven = NOT_GIVEN,
-        clearance_level: Literal["no_clearance", "jschallenge", "managed", "interactive"] | NotGiven = NOT_GIVEN,
-        ephemeral_id: bool | NotGiven = NOT_GIVEN,
-        offlabel: bool | NotGiven = NOT_GIVEN,
-        region: Literal["world", "china"] | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        filter: str | Omit = omit,
+        order: Literal["id", "sitekey", "name", "created_on", "modified_on"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        bot_fight_mode: bool | Omit = omit,
+        clearance_level: Literal["no_clearance", "jschallenge", "managed", "interactive"] | Omit = omit,
+        ephemeral_id: bool | Omit = omit,
+        offlabel: bool | Omit = omit,
+        region: Literal["world", "china"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Widget]:
         """
         Lists challenge widgets.
@@ -496,6 +535,18 @@ class AsyncWidgetsResource(AsyncAPIResource):
               used.
 
           direction: Direction to order widgets.
+
+          filter:
+              Filter widgets by field using case-insensitive substring matching. Format:
+              `field:value`
+
+              Supported fields:
+
+              - `name` - Filter by widget name (e.g., `filter=name:login-form`)
+              - `sitekey` - Filter by sitekey (e.g., `filter=sitekey:0x4AAA`)
+
+              Returns 400 Bad Request if the field is unsupported or format is invalid. An
+              empty filter value returns all results.
 
           order: Field to order widgets by.
 
@@ -526,7 +577,7 @@ class AsyncWidgetsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/challenges/widgets",
+            path_template("/accounts/{account_id}/challenges/widgets", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "domains": domains,
@@ -548,6 +599,7 @@ class AsyncWidgetsResource(AsyncAPIResource):
                 query=await async_maybe_transform(
                     {
                         "direction": direction,
+                        "filter": filter,
                         "order": order,
                         "page": page,
                         "per_page": per_page,
@@ -564,20 +616,20 @@ class AsyncWidgetsResource(AsyncAPIResource):
         sitekey: str,
         *,
         account_id: str,
-        domains: List[WidgetDomain],
+        domains: SequenceNotStr[WidgetDomain],
         mode: Literal["non-interactive", "invisible", "managed"],
         name: str,
-        bot_fight_mode: bool | NotGiven = NOT_GIVEN,
-        clearance_level: Literal["no_clearance", "jschallenge", "managed", "interactive"] | NotGiven = NOT_GIVEN,
-        ephemeral_id: bool | NotGiven = NOT_GIVEN,
-        offlabel: bool | NotGiven = NOT_GIVEN,
-        region: Literal["world", "china"] | NotGiven = NOT_GIVEN,
+        bot_fight_mode: bool | Omit = omit,
+        clearance_level: Literal["no_clearance", "jschallenge", "managed", "interactive"] | Omit = omit,
+        ephemeral_id: bool | Omit = omit,
+        offlabel: bool | Omit = omit,
+        region: Literal["world", "china"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Widget]:
         """
         Update the configuration of a widget.
@@ -618,7 +670,9 @@ class AsyncWidgetsResource(AsyncAPIResource):
         if not sitekey:
             raise ValueError(f"Expected a non-empty value for `sitekey` but received {sitekey!r}")
         return await self._put(
-            f"/accounts/{account_id}/challenges/widgets/{sitekey}",
+            path_template(
+                "/accounts/{account_id}/challenges/widgets/{sitekey}", account_id=account_id, sitekey=sitekey
+            ),
             body=await async_maybe_transform(
                 {
                     "domains": domains,
@@ -646,16 +700,17 @@ class AsyncWidgetsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        order: Literal["id", "sitekey", "name", "created_on", "modified_on"] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        filter: str | Omit = omit,
+        order: Literal["id", "sitekey", "name", "created_on", "modified_on"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[WidgetListResponse, AsyncV4PagePaginationArray[WidgetListResponse]]:
         """
         Lists all turnstile widgets of an account.
@@ -664,6 +719,18 @@ class AsyncWidgetsResource(AsyncAPIResource):
           account_id: Identifier
 
           direction: Direction to order widgets.
+
+          filter:
+              Filter widgets by field using case-insensitive substring matching. Format:
+              `field:value`
+
+              Supported fields:
+
+              - `name` - Filter by widget name (e.g., `filter=name:login-form`)
+              - `sitekey` - Filter by sitekey (e.g., `filter=sitekey:0x4AAA`)
+
+              Returns 400 Bad Request if the field is unsupported or format is invalid. An
+              empty filter value returns all results.
 
           order: Field to order widgets by.
 
@@ -682,7 +749,7 @@ class AsyncWidgetsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/challenges/widgets",
+            path_template("/accounts/{account_id}/challenges/widgets", account_id=account_id),
             page=AsyncV4PagePaginationArray[WidgetListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -692,6 +759,7 @@ class AsyncWidgetsResource(AsyncAPIResource):
                 query=maybe_transform(
                     {
                         "direction": direction,
+                        "filter": filter,
                         "order": order,
                         "page": page,
                         "per_page": per_page,
@@ -712,7 +780,7 @@ class AsyncWidgetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Widget]:
         """
         Destroy a Turnstile Widget.
@@ -735,7 +803,9 @@ class AsyncWidgetsResource(AsyncAPIResource):
         if not sitekey:
             raise ValueError(f"Expected a non-empty value for `sitekey` but received {sitekey!r}")
         return await self._delete(
-            f"/accounts/{account_id}/challenges/widgets/{sitekey}",
+            path_template(
+                "/accounts/{account_id}/challenges/widgets/{sitekey}", account_id=account_id, sitekey=sitekey
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -756,7 +826,7 @@ class AsyncWidgetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Widget]:
         """
         Show a single challenge widget configuration.
@@ -779,7 +849,9 @@ class AsyncWidgetsResource(AsyncAPIResource):
         if not sitekey:
             raise ValueError(f"Expected a non-empty value for `sitekey` but received {sitekey!r}")
         return await self._get(
-            f"/accounts/{account_id}/challenges/widgets/{sitekey}",
+            path_template(
+                "/accounts/{account_id}/challenges/widgets/{sitekey}", account_id=account_id, sitekey=sitekey
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -795,13 +867,13 @@ class AsyncWidgetsResource(AsyncAPIResource):
         sitekey: str,
         *,
         account_id: str,
-        invalidate_immediately: bool | NotGiven = NOT_GIVEN,
+        invalidate_immediately: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Widget]:
         """Generate a new secret key for this widget.
 
@@ -832,7 +904,11 @@ class AsyncWidgetsResource(AsyncAPIResource):
         if not sitekey:
             raise ValueError(f"Expected a non-empty value for `sitekey` but received {sitekey!r}")
         return await self._post(
-            f"/accounts/{account_id}/challenges/widgets/{sitekey}/rotate_secret",
+            path_template(
+                "/accounts/{account_id}/challenges/widgets/{sitekey}/rotate_secret",
+                account_id=account_id,
+                sitekey=sitekey,
+            ),
             body=await async_maybe_transform(
                 {"invalidate_immediately": invalidate_immediately}, widget_rotate_secret_params.WidgetRotateSecretParams
             ),

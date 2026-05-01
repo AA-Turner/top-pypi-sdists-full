@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oslo.privsep
-Version: 3.10.1
+Version: 3.11.0
 Summary: OpenStack library for privilege separation
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 Project-URL: Homepage, https://docs.openstack.org/oslo.privsep
@@ -27,10 +27,11 @@ Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: oslo.config>=5.2.0
 Requires-Dist: oslo.utils>=3.33.0
 Requires-Dist: cffi>=1.14.0
-Requires-Dist: eventlet>=0.21.0
-Requires-Dist: greenlet>=0.4.14
 Requires-Dist: msgpack>=0.6.0
 Requires-Dist: debtcollector>=3.0.0
+Provides-Extra: eventlet
+Requires-Dist: eventlet>=0.21.0; extra == "eventlet"
+Requires-Dist: greenlet>=0.4.14; extra == "eventlet"
 Dynamic: license-file
 Dynamic: requires-dist
 

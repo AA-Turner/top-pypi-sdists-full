@@ -10,6 +10,8 @@ __all__ = ["CfInterconnectBulkUpdateResponse", "ModifiedInterconnect", "Modified
 
 
 class ModifiedInterconnectGRE(BaseModel):
+    """The configuration specific to GRE interconnects."""
+
     cloudflare_endpoint: Optional[str] = None
     """
     The IP address assigned to the Cloudflare side of the GRE tunnel created as part
@@ -20,6 +22,13 @@ class ModifiedInterconnectGRE(BaseModel):
 class ModifiedInterconnect(BaseModel):
     id: Optional[str] = None
     """Identifier"""
+
+    automatic_return_routing: Optional[bool] = None
+    """
+    True if automatic stateful return routing should be enabled for a tunnel, false
+    otherwise. Requires the `coupler_integration` account flag to be enabled;
+    requests setting this to `true` without that flag will be rejected.
+    """
 
     colo_name: Optional[str] = None
     """The name of the interconnect. The name cannot share a name with other tunnels."""
@@ -42,6 +51,14 @@ class ModifiedInterconnect(BaseModel):
     10.0.0.0–10.255.255.255, 172.16.0.0–172.31.255.255, 192.168.0.0–192.168.255.255.
     """
 
+    interface_address6: Optional[str] = None
+    """
+    A 127 bit IPV6 prefix from within the virtual_subnet6 prefix space with the
+    address being the first IP of the subnet and not same as the address of
+    virtual_subnet6. Eg if virtual_subnet6 is 2606:54c1:7:0:a9fe:12d2::/127 ,
+    interface_address6 could be 2606:54c1:7:0:a9fe:12d2:1:200/127
+    """
+
     modified_on: Optional[datetime] = None
     """The date and time the tunnel was last modified."""
 
@@ -53,6 +70,12 @@ class ModifiedInterconnect(BaseModel):
 
     name: Optional[str] = None
     """The name of the interconnect. The name cannot share a name with other tunnels."""
+
+    virtual_port_reservation_id: Optional[str] = None
+    """
+    An identifier that correlates this interconnect with the corresponding V2 CNI
+    interconnect resource.
+    """
 
 
 class CfInterconnectBulkUpdateResponse(BaseModel):

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: diffusers
-Version: 0.37.1
+Version: 0.38.0
 Summary: State-of-the-art diffusion in PyTorch and JAX.
 Home-page: https://github.com/huggingface/diffusers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/diffusers/graphs/contributors)
@@ -28,7 +28,7 @@ Requires-Dist: huggingface-hub<2.0,>=0.34.0
 Requires-Dist: numpy
 Requires-Dist: regex!=2019.12.17
 Requires-Dist: requests
-Requires-Dist: safetensors>=0.3.1
+Requires-Dist: safetensors>=0.8.0-rc.0
 Requires-Dist: Pillow
 Provides-Extra: quality
 Requires-Dist: urllib3<=2.0.0; extra == "quality"
@@ -59,7 +59,7 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: requests-mock==1.10.0; extra == "test"
-Requires-Dist: safetensors>=0.3.1; extra == "test"
+Requires-Dist: safetensors>=0.8.0-rc.0; extra == "test"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "test"
 Requires-Dist: scipy; extra == "test"
 Requires-Dist: tiktoken>=0.7.0; extra == "test"
@@ -84,6 +84,8 @@ Requires-Dist: torchao>=0.7.0; extra == "torchao"
 Requires-Dist: accelerate>=0.31.0; extra == "torchao"
 Provides-Extra: nvidia-modelopt
 Requires-Dist: nvidia_modelopt[hf]>=0.33.1; extra == "nvidia-modelopt"
+Provides-Extra: flashpack
+Requires-Dist: flashpack; extra == "flashpack"
 Provides-Extra: flax
 Requires-Dist: jax>=0.4.1; extra == "flax"
 Requires-Dist: jaxlib>=0.4.1; extra == "flax"
@@ -106,7 +108,7 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-timeout; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: requests-mock==1.10.0; extra == "dev"
-Requires-Dist: safetensors>=0.3.1; extra == "dev"
+Requires-Dist: safetensors>=0.8.0-rc.0; extra == "dev"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "dev"
 Requires-Dist: scipy; extra == "dev"
 Requires-Dist: tiktoken>=0.7.0; extra == "dev"
@@ -127,6 +129,19 @@ Requires-Dist: accelerate>=0.31.0; extra == "dev"
 Requires-Dist: jax>=0.4.1; extra == "dev"
 Requires-Dist: jaxlib>=0.4.1; extra == "dev"
 Requires-Dist: flax>=0.4.1; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <!---
 Copyright 2022 - The HuggingFace Team. All rights reserved.

@@ -22,7 +22,16 @@ from .logging import (
     LoggingResourceWithStreamingResponse,
     AsyncLoggingResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from .pacfiles import (
+    PacfilesResource,
+    AsyncPacfilesResource,
+    PacfilesResourceWithRawResponse,
+    AsyncPacfilesResourceWithRawResponse,
+    PacfilesResourceWithStreamingResponse,
+    AsyncPacfilesResourceWithStreamingResponse,
+)
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template
 from .app_types import (
     AppTypesResource,
     AsyncAppTypesResource,
@@ -145,6 +154,10 @@ class GatewayResource(SyncAPIResource):
         return CertificatesResource(self._client)
 
     @cached_property
+    def pacfiles(self) -> PacfilesResource:
+        return PacfilesResource(self._client)
+
+    @cached_property
     def with_raw_response(self) -> GatewayResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -172,10 +185,10 @@ class GatewayResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayCreateResponse]:
         """
-        Creates a Zero Trust account with an existing Cloudflare account.
+        Create a Zero Trust account for an existing Cloudflare account.
 
         Args:
           extra_headers: Send extra headers
@@ -189,7 +202,7 @@ class GatewayResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/gateway",
+            path_template("/accounts/{account_id}/gateway", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -209,10 +222,10 @@ class GatewayResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayListResponse]:
         """
-        Gets information about the current Zero Trust account.
+        Retrieve information about the current Zero Trust account.
 
         Args:
           extra_headers: Send extra headers
@@ -226,7 +239,7 @@ class GatewayResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/gateway",
+            path_template("/accounts/{account_id}/gateway", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -280,6 +293,10 @@ class AsyncGatewayResource(AsyncAPIResource):
         return AsyncCertificatesResource(self._client)
 
     @cached_property
+    def pacfiles(self) -> AsyncPacfilesResource:
+        return AsyncPacfilesResource(self._client)
+
+    @cached_property
     def with_raw_response(self) -> AsyncGatewayResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -307,10 +324,10 @@ class AsyncGatewayResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayCreateResponse]:
         """
-        Creates a Zero Trust account with an existing Cloudflare account.
+        Create a Zero Trust account for an existing Cloudflare account.
 
         Args:
           extra_headers: Send extra headers
@@ -324,7 +341,7 @@ class AsyncGatewayResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/gateway",
+            path_template("/accounts/{account_id}/gateway", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -344,10 +361,10 @@ class AsyncGatewayResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayListResponse]:
         """
-        Gets information about the current Zero Trust account.
+        Retrieve information about the current Zero Trust account.
 
         Args:
           extra_headers: Send extra headers
@@ -361,7 +378,7 @@ class AsyncGatewayResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/gateway",
+            path_template("/accounts/{account_id}/gateway", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -424,6 +441,10 @@ class GatewayResourceWithRawResponse:
     def certificates(self) -> CertificatesResourceWithRawResponse:
         return CertificatesResourceWithRawResponse(self._gateway.certificates)
 
+    @cached_property
+    def pacfiles(self) -> PacfilesResourceWithRawResponse:
+        return PacfilesResourceWithRawResponse(self._gateway.pacfiles)
+
 
 class AsyncGatewayResourceWithRawResponse:
     def __init__(self, gateway: AsyncGatewayResource) -> None:
@@ -475,6 +496,10 @@ class AsyncGatewayResourceWithRawResponse:
     @cached_property
     def certificates(self) -> AsyncCertificatesResourceWithRawResponse:
         return AsyncCertificatesResourceWithRawResponse(self._gateway.certificates)
+
+    @cached_property
+    def pacfiles(self) -> AsyncPacfilesResourceWithRawResponse:
+        return AsyncPacfilesResourceWithRawResponse(self._gateway.pacfiles)
 
 
 class GatewayResourceWithStreamingResponse:
@@ -528,6 +553,10 @@ class GatewayResourceWithStreamingResponse:
     def certificates(self) -> CertificatesResourceWithStreamingResponse:
         return CertificatesResourceWithStreamingResponse(self._gateway.certificates)
 
+    @cached_property
+    def pacfiles(self) -> PacfilesResourceWithStreamingResponse:
+        return PacfilesResourceWithStreamingResponse(self._gateway.pacfiles)
+
 
 class AsyncGatewayResourceWithStreamingResponse:
     def __init__(self, gateway: AsyncGatewayResource) -> None:
@@ -579,3 +608,7 @@ class AsyncGatewayResourceWithStreamingResponse:
     @cached_property
     def certificates(self) -> AsyncCertificatesResourceWithStreamingResponse:
         return AsyncCertificatesResourceWithStreamingResponse(self._gateway.certificates)
+
+    @cached_property
+    def pacfiles(self) -> AsyncPacfilesResourceWithStreamingResponse:
+        return AsyncPacfilesResourceWithStreamingResponse(self._gateway.pacfiles)

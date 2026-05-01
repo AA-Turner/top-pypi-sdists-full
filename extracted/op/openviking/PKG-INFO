@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.3.13
+Version: 0.3.14
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License: AGPL-3.0
@@ -71,6 +71,7 @@ Requires-Dist: cryptography>=42.0.0
 Requires-Dist: argon2-cffi>=23.0.0
 Requires-Dist: lark-oapi>=1.5.3
 Requires-Dist: mcp>=1.27.0
+Requires-Dist: pathspec>=1.1.1
 Provides-Extra: test
 Requires-Dist: pytest>=7.0.0; extra == "test"
 Requires-Dist: pytest-asyncio>=0.21.0; extra == "test"
@@ -673,8 +674,7 @@ Example: ovcli.conf for visiting localhost server
 ```json
 {
   "url": "http://localhost:1933",
-  "timeout": 60.0,
-  "output": "table"
+  "timeout": 60.0
 }
 ```
 

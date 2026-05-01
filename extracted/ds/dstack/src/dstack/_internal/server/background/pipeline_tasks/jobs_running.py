@@ -86,6 +86,7 @@ from dstack._internal.server.services.jobs import (
     get_job_attached_volumes,
     get_job_runtime_data,
     get_job_spec,
+    interpolate_job_spec_secrets,
     is_master_job,
     job_model_to_job_submission,
 )
@@ -105,7 +106,7 @@ from dstack._internal.server.services.secrets import get_project_secrets_mapping
 from dstack._internal.server.services.storage import get_default_storage
 from dstack._internal.server.utils import sentry_utils
 from dstack._internal.utils.common import get_current_datetime, get_or_error, run_async
-from dstack._internal.utils.interpolator import InterpolatorError, VariablesInterpolator
+from dstack._internal.utils.interpolator import InterpolatorError
 from dstack._internal.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -225,13 +226,18 @@ class JobRunningFetcher(Fetcher[JobRunningPipelineItem]):
                                 JobModel.last_processed_at
                                 <= now - self._min_processing_interval * 2,
                             ),
+                            JobModel.skip_min_processing_interval == True,
                         ),
                         or_(
                             and_(
                                 # Do not try to lock jobs if the run is waiting for the lock or terminating,
                                 # but allow retrying jobs whose own lock is stale because
-                                # the run pipeline cannot reclaim stale job locks.
-                                RunModel.lock_owner.is_(None),
+                                # the run pipeline cannot reclaim stale job locks, and allow jobs with
+                                # skip_min_processing_interval set to speed up provisioning.
+                                or_(
+                                    RunModel.lock_owner.is_(None),
+                                    JobModel.skip_min_processing_interval == True,
+                                ),
                                 RunModel.status.not_in([RunStatus.TERMINATING]),
                                 JobModel.lock_expires_at.is_(None),
                             ),
@@ -252,6 +258,7 @@ class JobRunningFetcher(Fetcher[JobRunningPipelineItem]):
                             JobModel.lock_expires_at,
                             JobModel.status,
                             JobModel.replica_num,
+                            JobModel.skip_min_processing_interval,
                         )
                     )
                 )
@@ -264,6 +271,7 @@ class JobRunningFetcher(Fetcher[JobRunningPipelineItem]):
                     job_model.lock_expires_at = lock_expires_at
                     job_model.lock_token = lock_token
                     job_model.lock_owner = JobRunningPipeline.__name__
+                    job_model.skip_min_processing_interval = False
                     items.append(
                         JobRunningPipelineItem(
                             __tablename__=JobModel.__tablename__,
@@ -339,6 +347,7 @@ class _JobUpdateMap(ItemUpdateMap, total=False):
     exit_status: Optional[int]
     registered: bool
     image_pull_progress: Optional[str]
+    skip_min_processing_interval: bool
 
 
 @dataclass
@@ -496,7 +505,7 @@ async def _prepare_startup_context(
     ).repo_creds
 
     try:
-        _interpolate_secrets(secrets, context.job.job_spec)
+        interpolate_job_spec_secrets(context.job.job_spec, secrets)
     except InterpolatorError as e:
         _terminate_job(
             job_model=context.job_model,
@@ -643,6 +652,7 @@ async def _process_provisioning_status(
         )
         if success:
             _set_job_status(context.job_model, result, JobStatus.PULLING)
+            result.job_update_map["skip_min_processing_interval"] = True
             return
     else:
         logger.debug(
@@ -1656,16 +1666,6 @@ async def _get_job_file_archive(archive_id: uuid.UUID, user: UserModel) -> bytes
         logger.error("Failed to get file archive %s from storage", archive_id)
         return b""
     return blob
-
-
-def _interpolate_secrets(secrets: Dict[str, str], job_spec: JobSpec) -> None:
-    interpolate = VariablesInterpolator({"secrets": secrets}).interpolate_or_error
-    job_spec.env = {k: interpolate(v) for k, v in job_spec.env.items()}
-    if job_spec.registry_auth is not None:
-        job_spec.registry_auth = RegistryAuth(
-            username=interpolate(job_spec.registry_auth.username),
-            password=interpolate(job_spec.registry_auth.password),
-        )
 
 
 def _emit_reachability_change_event(

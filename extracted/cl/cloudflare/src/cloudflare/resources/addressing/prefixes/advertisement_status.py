@@ -7,8 +7,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -58,7 +58,7 @@ class AdvertisementStatusResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AdvertisementStatusEditResponse]:
         """
         Advertise or withdraw the BGP route for a prefix.
@@ -87,7 +87,11 @@ class AdvertisementStatusResource(SyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bgp/status",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bgp/status",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             body=maybe_transform(
                 {"advertised": advertised}, advertisement_status_edit_params.AdvertisementStatusEditParams
             ),
@@ -114,7 +118,7 @@ class AdvertisementStatusResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AdvertisementStatusGetResponse]:
         """
         View the current advertisement state for a prefix.
@@ -140,7 +144,11 @@ class AdvertisementStatusResource(SyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return self._get(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bgp/status",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bgp/status",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -184,7 +192,7 @@ class AsyncAdvertisementStatusResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AdvertisementStatusEditResponse]:
         """
         Advertise or withdraw the BGP route for a prefix.
@@ -213,7 +221,11 @@ class AsyncAdvertisementStatusResource(AsyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bgp/status",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bgp/status",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             body=await async_maybe_transform(
                 {"advertised": advertised}, advertisement_status_edit_params.AdvertisementStatusEditParams
             ),
@@ -240,7 +252,7 @@ class AsyncAdvertisementStatusResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AdvertisementStatusGetResponse]:
         """
         View the current advertisement state for a prefix.
@@ -266,7 +278,11 @@ class AsyncAdvertisementStatusResource(AsyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bgp/status",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bgp/status",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -284,12 +300,12 @@ class AdvertisementStatusResourceWithRawResponse:
 
         self.edit = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                advertisement_status.edit  # pyright: ignore[reportDeprecated],
+                advertisement_status.edit,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                advertisement_status.get  # pyright: ignore[reportDeprecated],
+                advertisement_status.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -300,12 +316,12 @@ class AsyncAdvertisementStatusResourceWithRawResponse:
 
         self.edit = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                advertisement_status.edit  # pyright: ignore[reportDeprecated],
+                advertisement_status.edit,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                advertisement_status.get  # pyright: ignore[reportDeprecated],
+                advertisement_status.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -316,12 +332,12 @@ class AdvertisementStatusResourceWithStreamingResponse:
 
         self.edit = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                advertisement_status.edit  # pyright: ignore[reportDeprecated],
+                advertisement_status.edit,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                advertisement_status.get  # pyright: ignore[reportDeprecated],
+                advertisement_status.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -332,11 +348,11 @@ class AsyncAdvertisementStatusResourceWithStreamingResponse:
 
         self.edit = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                advertisement_status.edit  # pyright: ignore[reportDeprecated],
+                advertisement_status.edit,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                advertisement_status.get  # pyright: ignore[reportDeprecated],
+                advertisement_status.get,  # pyright: ignore[reportDeprecated],
             )
         )

@@ -21,6 +21,30 @@ class JWTDecodeError(AuthXException):
     pass
 
 
+class TokenExpiredError(JWTDecodeError):
+    """Exception raised when a JSON Web Token has expired."""
+
+    pass
+
+
+class TokenInvalidSignatureError(JWTDecodeError):
+    """Exception raised when a JSON Web Token has an invalid signature."""
+
+    pass
+
+
+class TokenInvalidAudienceError(JWTDecodeError):
+    """Exception raised when a JSON Web Token has an invalid audience."""
+
+    pass
+
+
+class TokenInvalidIssuerError(JWTDecodeError):
+    """Exception raised when a JSON Web Token has an invalid issuer."""
+
+    pass
+
+
 class NoAuthorizationError(AuthXException):
     """Exception raised when no token can be parsed from request."""
 
@@ -113,6 +137,35 @@ class InsufficientScopeError(TokenError):
         if message is None:
             message = f"Missing required scopes: {required}. Provided: {self.provided}"
         super().__init__(message)
+
+
+class RateLimitExceeded(AuthXException):
+    """Exception raised when a rate limit is exceeded.
+
+    Attributes:
+        retry_after: Seconds until the client may retry.
+    """
+
+    def __init__(self, retry_after: int = 60, message: Optional[str] = None) -> None:
+        """Initialize RateLimitExceeded.
+
+        Args:
+            retry_after: Seconds until the client may retry.
+            message: Optional custom error message.
+        """
+        self.retry_after = retry_after
+        if message is None:
+            message = f"Rate limit exceeded. Retry after {retry_after} seconds."
+        super().__init__(message)
+
+
+class SessionRevoked(AuthXException):
+    """Exception raised when an operation uses a revoked session.
+
+    Indicates the session associated with a token has been explicitly revoked.
+    """
+
+    pass
 
 
 class InvalidToken(Exception):

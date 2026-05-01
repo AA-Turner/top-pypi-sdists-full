@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "As2805KeyVariantType",
+    "AssociationStateType",
     "DeriveKeyUsageType",
     "KeyAlgorithmType",
     "KeyCheckValueAlgorithmType",
@@ -39,11 +40,13 @@ __all__ = (
     "ListAliasesPaginatorName",
     "ListKeysPaginatorName",
     "ListTagsForResourcePaginatorName",
+    "MpaOperationType",
     "MultiRegionKeyTypeType",
     "PaginatorName",
     "PaymentCryptographyControlPlaneServiceName",
     "ResourceServiceName",
     "ServiceName",
+    "SessionStatusType",
     "SigningAlgorithmTypeType",
     "SymmetricKeyAlgorithmType",
     "Tr34KeyBlockFormatType",
@@ -58,6 +61,7 @@ As2805KeyVariantType = Literal[
     "PIN_ENCRYPTION_KEY_VARIANT_28",
     "TERMINAL_MAJOR_KEY_VARIANT_00",
 ]
+AssociationStateType = Literal["ACTIVE", "DELETE_PENDING", "UPDATE_PENDING"]
 DeriveKeyUsageType = Literal[
     "TR31_B0_BASE_DERIVATION_KEY",
     "TR31_C0_CARD_VERIFICATION_KEY",
@@ -140,7 +144,9 @@ KeyUsageType = Literal[
 ListAliasesPaginatorName = Literal["list_aliases"]
 ListKeysPaginatorName = Literal["list_keys"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
+MpaOperationType = Literal["IMPORT_ROOT_PUBLIC_KEY_CERTIFICATE"]
 MultiRegionKeyTypeType = Literal["PRIMARY", "REPLICA"]
+SessionStatusType = Literal["APPROVED", "CANCELLED", "FAILED", "PENDING"]
 SigningAlgorithmTypeType = Literal["SHA224", "SHA256", "SHA384", "SHA512"]
 SymmetricKeyAlgorithmType = Literal[
     "AES_128",

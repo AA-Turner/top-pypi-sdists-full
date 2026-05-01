@@ -24,8 +24,8 @@ from .status import (
     StatusResourceWithStreamingResponse,
     AsyncStatusResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -37,7 +37,7 @@ from ...._response import (
 from ...._wrappers import ResultWrapper
 from ....pagination import SyncSinglePage, AsyncSinglePage, SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ...._base_client import AsyncPaginator, make_request_options
-from ....types.workflows import instance_bulk_params, instance_list_params, instance_create_params
+from ....types.workflows import instance_get_params, instance_bulk_params, instance_list_params, instance_create_params
 from ....types.workflows.instance_get_response import InstanceGetResponse
 from ....types.workflows.instance_bulk_response import InstanceBulkResponse
 from ....types.workflows.instance_list_response import InstanceListResponse
@@ -79,17 +79,18 @@ class InstancesResource(SyncAPIResource):
         workflow_name: str,
         *,
         account_id: str,
-        instance_id: str | NotGiven = NOT_GIVEN,
-        params: object | NotGiven = NOT_GIVEN,
+        instance_id: str | Omit = omit,
+        instance_retention: instance_create_params.InstanceRetention | Omit = omit,
+        params: object | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InstanceCreateResponse:
         """
-        Create a new workflow instance
+        Creates a new instance of a workflow, starting its execution.
 
         Args:
           extra_headers: Send extra headers
@@ -105,10 +106,15 @@ class InstancesResource(SyncAPIResource):
         if not workflow_name:
             raise ValueError(f"Expected a non-empty value for `workflow_name` but received {workflow_name!r}")
         return self._post(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances",
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances",
+                account_id=account_id,
+                workflow_name=workflow_name,
+            ),
             body=maybe_transform(
                 {
                     "instance_id": instance_id,
+                    "instance_retention": instance_retention,
                     "params": params,
                 },
                 instance_create_params.InstanceCreateParams,
@@ -128,28 +134,36 @@ class InstancesResource(SyncAPIResource):
         workflow_name: str,
         *,
         account_id: str,
-        date_end: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        date_start: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
+        cursor: str | Omit = omit,
+        date_end: Union[str, datetime] | Omit = omit,
+        date_start: Union[str, datetime] | Omit = omit,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
         status: Literal[
             "queued", "running", "paused", "errored", "terminated", "complete", "waitingForPause", "waiting"
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[InstanceListResponse]:
         """
-        List of workflow instances
+        Lists all instances of a workflow with their execution status.
 
         Args:
+          cursor: Opaque token for cursor-based pagination. Mutually exclusive with `page`.
+
           date_end: Accepts ISO 8601 with no timezone offsets and in UTC.
 
           date_start: Accepts ISO 8601 with no timezone offsets and in UTC.
+
+          direction: Defines the direction for cursor-based pagination.
+
+          page: Deprecated: use `cursor` for pagination instead.
 
           extra_headers: Send extra headers
 
@@ -164,7 +178,11 @@ class InstancesResource(SyncAPIResource):
         if not workflow_name:
             raise ValueError(f"Expected a non-empty value for `workflow_name` but received {workflow_name!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances",
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances",
+                account_id=account_id,
+                workflow_name=workflow_name,
+            ),
             page=SyncV4PagePaginationArray[InstanceListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -173,8 +191,10 @@ class InstancesResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "cursor": cursor,
                         "date_end": date_end,
                         "date_start": date_start,
+                        "direction": direction,
                         "page": page,
                         "per_page": per_page,
                         "status": status,
@@ -190,16 +210,16 @@ class InstancesResource(SyncAPIResource):
         workflow_name: str,
         *,
         account_id: str,
-        body: Iterable[instance_bulk_params.Body] | NotGiven = NOT_GIVEN,
+        body: Iterable[instance_bulk_params.Body] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[InstanceBulkResponse]:
         """
-        Batch create new Workflow instances
+        Creates multiple workflow instances in a single batch operation.
 
         Args:
           extra_headers: Send extra headers
@@ -215,7 +235,11 @@ class InstancesResource(SyncAPIResource):
         if not workflow_name:
             raise ValueError(f"Expected a non-empty value for `workflow_name` but received {workflow_name!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances/batch",
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances/batch",
+                account_id=account_id,
+                workflow_name=workflow_name,
+            ),
             page=SyncSinglePage[InstanceBulkResponse],
             body=maybe_transform(body, Iterable[instance_bulk_params.Body]),
             options=make_request_options(
@@ -231,17 +255,23 @@ class InstancesResource(SyncAPIResource):
         *,
         account_id: str,
         workflow_name: str,
+        order: Literal["asc", "desc"] | Omit = omit,
+        simple: Literal["true", "false"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InstanceGetResponse:
         """
-        Get logs and status from instance
+        Retrieves logs and execution status for a specific workflow instance.
 
         Args:
+          order: Step ordering: "asc" (default, oldest first) or "desc" (newest first).
+
+          simple: When true, omits step details and returns only metadata with step_count.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -257,12 +287,24 @@ class InstancesResource(SyncAPIResource):
         if not instance_id:
             raise ValueError(f"Expected a non-empty value for `instance_id` but received {instance_id!r}")
         return self._get(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}",
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}",
+                account_id=account_id,
+                workflow_name=workflow_name,
+                instance_id=instance_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "order": order,
+                        "simple": simple,
+                    },
+                    instance_get_params.InstanceGetParams,
+                ),
                 post_parser=ResultWrapper[InstanceGetResponse]._unwrapper,
             ),
             cast_to=cast(Type[InstanceGetResponse], ResultWrapper[InstanceGetResponse]),
@@ -302,17 +344,18 @@ class AsyncInstancesResource(AsyncAPIResource):
         workflow_name: str,
         *,
         account_id: str,
-        instance_id: str | NotGiven = NOT_GIVEN,
-        params: object | NotGiven = NOT_GIVEN,
+        instance_id: str | Omit = omit,
+        instance_retention: instance_create_params.InstanceRetention | Omit = omit,
+        params: object | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InstanceCreateResponse:
         """
-        Create a new workflow instance
+        Creates a new instance of a workflow, starting its execution.
 
         Args:
           extra_headers: Send extra headers
@@ -328,10 +371,15 @@ class AsyncInstancesResource(AsyncAPIResource):
         if not workflow_name:
             raise ValueError(f"Expected a non-empty value for `workflow_name` but received {workflow_name!r}")
         return await self._post(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances",
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances",
+                account_id=account_id,
+                workflow_name=workflow_name,
+            ),
             body=await async_maybe_transform(
                 {
                     "instance_id": instance_id,
+                    "instance_retention": instance_retention,
                     "params": params,
                 },
                 instance_create_params.InstanceCreateParams,
@@ -351,28 +399,36 @@ class AsyncInstancesResource(AsyncAPIResource):
         workflow_name: str,
         *,
         account_id: str,
-        date_end: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        date_start: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
+        cursor: str | Omit = omit,
+        date_end: Union[str, datetime] | Omit = omit,
+        date_start: Union[str, datetime] | Omit = omit,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
         status: Literal[
             "queued", "running", "paused", "errored", "terminated", "complete", "waitingForPause", "waiting"
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[InstanceListResponse, AsyncV4PagePaginationArray[InstanceListResponse]]:
         """
-        List of workflow instances
+        Lists all instances of a workflow with their execution status.
 
         Args:
+          cursor: Opaque token for cursor-based pagination. Mutually exclusive with `page`.
+
           date_end: Accepts ISO 8601 with no timezone offsets and in UTC.
 
           date_start: Accepts ISO 8601 with no timezone offsets and in UTC.
+
+          direction: Defines the direction for cursor-based pagination.
+
+          page: Deprecated: use `cursor` for pagination instead.
 
           extra_headers: Send extra headers
 
@@ -387,7 +443,11 @@ class AsyncInstancesResource(AsyncAPIResource):
         if not workflow_name:
             raise ValueError(f"Expected a non-empty value for `workflow_name` but received {workflow_name!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances",
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances",
+                account_id=account_id,
+                workflow_name=workflow_name,
+            ),
             page=AsyncV4PagePaginationArray[InstanceListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -396,8 +456,10 @@ class AsyncInstancesResource(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "cursor": cursor,
                         "date_end": date_end,
                         "date_start": date_start,
+                        "direction": direction,
                         "page": page,
                         "per_page": per_page,
                         "status": status,
@@ -413,16 +475,16 @@ class AsyncInstancesResource(AsyncAPIResource):
         workflow_name: str,
         *,
         account_id: str,
-        body: Iterable[instance_bulk_params.Body] | NotGiven = NOT_GIVEN,
+        body: Iterable[instance_bulk_params.Body] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[InstanceBulkResponse, AsyncSinglePage[InstanceBulkResponse]]:
         """
-        Batch create new Workflow instances
+        Creates multiple workflow instances in a single batch operation.
 
         Args:
           extra_headers: Send extra headers
@@ -438,7 +500,11 @@ class AsyncInstancesResource(AsyncAPIResource):
         if not workflow_name:
             raise ValueError(f"Expected a non-empty value for `workflow_name` but received {workflow_name!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances/batch",
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances/batch",
+                account_id=account_id,
+                workflow_name=workflow_name,
+            ),
             page=AsyncSinglePage[InstanceBulkResponse],
             body=maybe_transform(body, Iterable[instance_bulk_params.Body]),
             options=make_request_options(
@@ -454,17 +520,23 @@ class AsyncInstancesResource(AsyncAPIResource):
         *,
         account_id: str,
         workflow_name: str,
+        order: Literal["asc", "desc"] | Omit = omit,
+        simple: Literal["true", "false"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InstanceGetResponse:
         """
-        Get logs and status from instance
+        Retrieves logs and execution status for a specific workflow instance.
 
         Args:
+          order: Step ordering: "asc" (default, oldest first) or "desc" (newest first).
+
+          simple: When true, omits step details and returns only metadata with step_count.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -480,12 +552,24 @@ class AsyncInstancesResource(AsyncAPIResource):
         if not instance_id:
             raise ValueError(f"Expected a non-empty value for `instance_id` but received {instance_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}",
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}",
+                account_id=account_id,
+                workflow_name=workflow_name,
+                instance_id=instance_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=await async_maybe_transform(
+                    {
+                        "order": order,
+                        "simple": simple,
+                    },
+                    instance_get_params.InstanceGetParams,
+                ),
                 post_parser=ResultWrapper[InstanceGetResponse]._unwrapper,
             ),
             cast_to=cast(Type[InstanceGetResponse], ResultWrapper[InstanceGetResponse]),

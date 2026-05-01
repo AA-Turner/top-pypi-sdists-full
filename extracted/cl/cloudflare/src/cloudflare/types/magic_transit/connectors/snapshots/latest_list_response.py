@@ -7,6 +7,7 @@ from ....._models import BaseModel
 __all__ = [
     "LatestListResponse",
     "Item",
+    "ItemBond",
     "ItemDHCPLease",
     "ItemDisk",
     "ItemInterface",
@@ -18,7 +19,19 @@ __all__ = [
 ]
 
 
+class ItemBond(BaseModel):
+    """Snapshot Bond"""
+
+    name: str
+    """Name of the network interface"""
+
+    status: str
+    """Current status of the network interface"""
+
+
 class ItemDHCPLease(BaseModel):
+    """Snapshot DHCP lease"""
+
     client_id: str
     """Client ID of the device the IP Address was leased to"""
 
@@ -37,11 +50,10 @@ class ItemDHCPLease(BaseModel):
     mac_address: str
     """MAC Address of the device the IP Address was leased to"""
 
-    connector_id: Optional[str] = None
-    """Connector identifier"""
-
 
 class ItemDisk(BaseModel):
+    """Snapshot Disk"""
+
     in_progress: float
     """I/Os currently in progress"""
 
@@ -84,9 +96,6 @@ class ItemDisk(BaseModel):
     writes_merged: float
     """Writes merged"""
 
-    connector_id: Optional[str] = None
-    """Connector identifier"""
-
     discards: Optional[float] = None
     """Discards completed successfully"""
 
@@ -107,25 +116,23 @@ class ItemDisk(BaseModel):
 
 
 class ItemInterfaceIPAddress(BaseModel):
+    """Snapshot Interface Address"""
+
     interface_name: str
     """Name of the network interface"""
 
     ip_address: str
     """IP address of the network interface"""
 
-    connector_id: Optional[str] = None
-    """Connector identifier"""
-
 
 class ItemInterface(BaseModel):
+    """Snapshot Interface"""
+
     name: str
     """Name of the network interface"""
 
     operstate: str
     """UP/DOWN state of the network interface"""
-
-    connector_id: Optional[str] = None
-    """Connector identifier"""
 
     ip_addresses: Optional[List[ItemInterfaceIPAddress]] = None
 
@@ -134,6 +141,8 @@ class ItemInterface(BaseModel):
 
 
 class ItemMount(BaseModel):
+    """Snapshot Mount"""
+
     file_system: str
     """File system on disk (EXT4, NTFS, etc.)"""
 
@@ -149,8 +158,8 @@ class ItemMount(BaseModel):
     available_bytes: Optional[float] = None
     """Available disk size (bytes)"""
 
-    connector_id: Optional[str] = None
-    """Connector identifier"""
+    available_inodes: Optional[float] = None
+    """Available inodes on filesystem"""
 
     is_read_only: Optional[bool] = None
     """Determines whether the disk is read-only"""
@@ -161,8 +170,13 @@ class ItemMount(BaseModel):
     total_bytes: Optional[float] = None
     """Total disk size (bytes)"""
 
+    total_inodes: Optional[float] = None
+    """Total inodes on filesystem"""
+
 
 class ItemNetdev(BaseModel):
+    """Snapshot Netdev"""
+
     name: str
     """Name of the network device"""
 
@@ -214,16 +228,12 @@ class ItemNetdev(BaseModel):
     sent_packets: float
     """Total packets transmitted"""
 
-    connector_id: Optional[str] = None
-    """Connector identifier"""
-
 
 class ItemThermal(BaseModel):
+    """Snapshot Thermal"""
+
     label: str
     """Sensor identifier for the component"""
-
-    connector_id: Optional[str] = None
-    """Connector identifier"""
 
     critical_celcius: Optional[float] = None
     """Critical failure temperature of the component (degrees Celsius)"""
@@ -236,6 +246,8 @@ class ItemThermal(BaseModel):
 
 
 class ItemTunnel(BaseModel):
+    """Snapshot Tunnels"""
+
     health_state: str
     """Name of tunnel health state (unknown, healthy, degraded, down)"""
 
@@ -251,11 +263,19 @@ class ItemTunnel(BaseModel):
     tunnel_id: str
     """Tunnel identifier"""
 
-    connector_id: Optional[str] = None
-    """Connector identifier"""
+    probed_mtu: Optional[float] = None
+    """MTU as measured between the two ends of the tunnel"""
+
+    recent_healthy_pings: Optional[float] = None
+    """Number of recent healthy pings for this tunnel"""
+
+    recent_unhealthy_pings: Optional[float] = None
+    """Number of recent unhealthy pings for this tunnel"""
 
 
 class Item(BaseModel):
+    """Snapshot"""
+
     count_reclaim_failures: float
     """Count of failures to reclaim space"""
 
@@ -273,6 +293,8 @@ class Item(BaseModel):
 
     v: str
     """Version"""
+
+    bonds: Optional[List[ItemBond]] = None
 
     cpu_count: Optional[float] = None
     """Count of processors/cores"""
@@ -319,9 +341,15 @@ class Item(BaseModel):
     cpu_time_user_ms: Optional[float] = None
     """Time spent in user mode (milliseconds)"""
 
+    delta: Optional[float] = None
+    """Number of network operations applied during state transition"""
+
     dhcp_leases: Optional[List[ItemDHCPLease]] = None
 
     disks: Optional[List[ItemDisk]] = None
+
+    epsilon: Optional[float] = None
+    """Simulated number of network operations applied during state transition"""
 
     ha_state: Optional[str] = None
     """Name of high availability state"""
@@ -558,6 +586,9 @@ class Item(BaseModel):
     mounts: Optional[List[ItemMount]] = None
 
     netdevs: Optional[List[ItemNetdev]] = None
+
+    platform: Optional[str] = None
+    """Platform identifier"""
 
     snmp_icmp_in_addr_mask_reps: Optional[float] = None
     """Number of ICMP Address Mask Reply messages received"""

@@ -6,8 +6,8 @@ from typing import Any, Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -54,13 +54,13 @@ class VariantsResource(SyncAPIResource):
         account_id: str,
         id: str,
         options: variant_create_params.Options,
-        never_require_signed_urls: bool | NotGiven = NOT_GIVEN,
+        never_require_signed_urls: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VariantCreateResponse:
         """
         Specify variants that allow you to resize images for different use cases.
@@ -84,7 +84,7 @@ class VariantsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/images/v1/variants",
+            path_template("/accounts/{account_id}/images/v1/variants", account_id=account_id),
             body=maybe_transform(
                 {
                     "id": id,
@@ -112,7 +112,7 @@ class VariantsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Variant:
         """
         Lists existing variants.
@@ -131,7 +131,7 @@ class VariantsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/images/v1/variants",
+            path_template("/accounts/{account_id}/images/v1/variants", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -152,7 +152,7 @@ class VariantsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VariantDeleteResponse:
         """
         Deleting a variant purges the cache for all images associated with the variant.
@@ -175,7 +175,11 @@ class VariantsResource(SyncAPIResource):
         return cast(
             VariantDeleteResponse,
             self._delete(
-                f"/accounts/{account_id}/images/v1/variants/{variant_id}",
+                path_template(
+                    "/accounts/{account_id}/images/v1/variants/{variant_id}",
+                    account_id=account_id,
+                    variant_id=variant_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -195,13 +199,13 @@ class VariantsResource(SyncAPIResource):
         *,
         account_id: str,
         options: variant_edit_params.Options,
-        never_require_signed_urls: bool | NotGiven = NOT_GIVEN,
+        never_require_signed_urls: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VariantEditResponse:
         """
         Updating a variant purges the cache for all images associated with the variant.
@@ -227,7 +231,9 @@ class VariantsResource(SyncAPIResource):
         if not variant_id:
             raise ValueError(f"Expected a non-empty value for `variant_id` but received {variant_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/images/v1/variants/{variant_id}",
+            path_template(
+                "/accounts/{account_id}/images/v1/variants/{variant_id}", account_id=account_id, variant_id=variant_id
+            ),
             body=maybe_transform(
                 {
                     "options": options,
@@ -255,7 +261,7 @@ class VariantsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VariantGetResponse:
         """
         Fetch details for a single variant.
@@ -276,7 +282,9 @@ class VariantsResource(SyncAPIResource):
         if not variant_id:
             raise ValueError(f"Expected a non-empty value for `variant_id` but received {variant_id!r}")
         return self._get(
-            f"/accounts/{account_id}/images/v1/variants/{variant_id}",
+            path_template(
+                "/accounts/{account_id}/images/v1/variants/{variant_id}", account_id=account_id, variant_id=variant_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -314,13 +322,13 @@ class AsyncVariantsResource(AsyncAPIResource):
         account_id: str,
         id: str,
         options: variant_create_params.Options,
-        never_require_signed_urls: bool | NotGiven = NOT_GIVEN,
+        never_require_signed_urls: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VariantCreateResponse:
         """
         Specify variants that allow you to resize images for different use cases.
@@ -344,7 +352,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/images/v1/variants",
+            path_template("/accounts/{account_id}/images/v1/variants", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "id": id,
@@ -372,7 +380,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Variant:
         """
         Lists existing variants.
@@ -391,7 +399,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/images/v1/variants",
+            path_template("/accounts/{account_id}/images/v1/variants", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -412,7 +420,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VariantDeleteResponse:
         """
         Deleting a variant purges the cache for all images associated with the variant.
@@ -435,7 +443,11 @@ class AsyncVariantsResource(AsyncAPIResource):
         return cast(
             VariantDeleteResponse,
             await self._delete(
-                f"/accounts/{account_id}/images/v1/variants/{variant_id}",
+                path_template(
+                    "/accounts/{account_id}/images/v1/variants/{variant_id}",
+                    account_id=account_id,
+                    variant_id=variant_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -455,13 +467,13 @@ class AsyncVariantsResource(AsyncAPIResource):
         *,
         account_id: str,
         options: variant_edit_params.Options,
-        never_require_signed_urls: bool | NotGiven = NOT_GIVEN,
+        never_require_signed_urls: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VariantEditResponse:
         """
         Updating a variant purges the cache for all images associated with the variant.
@@ -487,7 +499,9 @@ class AsyncVariantsResource(AsyncAPIResource):
         if not variant_id:
             raise ValueError(f"Expected a non-empty value for `variant_id` but received {variant_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/images/v1/variants/{variant_id}",
+            path_template(
+                "/accounts/{account_id}/images/v1/variants/{variant_id}", account_id=account_id, variant_id=variant_id
+            ),
             body=await async_maybe_transform(
                 {
                     "options": options,
@@ -515,7 +529,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VariantGetResponse:
         """
         Fetch details for a single variant.
@@ -536,7 +550,9 @@ class AsyncVariantsResource(AsyncAPIResource):
         if not variant_id:
             raise ValueError(f"Expected a non-empty value for `variant_id` but received {variant_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/images/v1/variants/{variant_id}",
+            path_template(
+                "/accounts/{account_id}/images/v1/variants/{variant_id}", account_id=account_id, variant_id=variant_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

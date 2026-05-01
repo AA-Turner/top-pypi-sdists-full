@@ -24,6 +24,7 @@ __all__ = [
     'scout_asset_api',
     'scout_assets',
     'scout_catalog',
+    'scout_channel_api',
     'scout_channelvariables_api',
     'scout_chart_api',
     'scout_chartdefinition_api',
@@ -84,5 +85,5 @@ __all__ = [
 
 __conjure_generator_version__ = "4.17.0"
 
-__version__ = "0.1220.0"
+__version__ = "0.1222.0"
 

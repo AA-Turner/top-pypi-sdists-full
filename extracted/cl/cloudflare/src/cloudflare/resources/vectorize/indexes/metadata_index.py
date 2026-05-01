@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -59,7 +59,7 @@ class MetadataIndexResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MetadataIndexCreateResponse]:
         """Enable metadata filtering based on metadata property.
 
@@ -85,7 +85,11 @@ class MetadataIndexResource(SyncAPIResource):
         if not index_name:
             raise ValueError(f"Expected a non-empty value for `index_name` but received {index_name!r}")
         return self._post(
-            f"/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/create",
+            path_template(
+                "/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/create",
+                account_id=account_id,
+                index_name=index_name,
+            ),
             body=maybe_transform(
                 {
                     "index_type": index_type,
@@ -113,7 +117,7 @@ class MetadataIndexResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MetadataIndexListResponse]:
         """
         List Metadata Indexes for the specified Vectorize Index.
@@ -134,7 +138,11 @@ class MetadataIndexResource(SyncAPIResource):
         if not index_name:
             raise ValueError(f"Expected a non-empty value for `index_name` but received {index_name!r}")
         return self._get(
-            f"/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/list",
+            path_template(
+                "/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/list",
+                account_id=account_id,
+                index_name=index_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -156,7 +164,7 @@ class MetadataIndexResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MetadataIndexDeleteResponse]:
         """
         Allow Vectorize to delete the specified metadata index.
@@ -179,7 +187,11 @@ class MetadataIndexResource(SyncAPIResource):
         if not index_name:
             raise ValueError(f"Expected a non-empty value for `index_name` but received {index_name!r}")
         return self._post(
-            f"/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/delete",
+            path_template(
+                "/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/delete",
+                account_id=account_id,
+                index_name=index_name,
+            ),
             body=maybe_transform(
                 {"property_name": property_name}, metadata_index_delete_params.MetadataIndexDeleteParams
             ),
@@ -226,7 +238,7 @@ class AsyncMetadataIndexResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MetadataIndexCreateResponse]:
         """Enable metadata filtering based on metadata property.
 
@@ -252,7 +264,11 @@ class AsyncMetadataIndexResource(AsyncAPIResource):
         if not index_name:
             raise ValueError(f"Expected a non-empty value for `index_name` but received {index_name!r}")
         return await self._post(
-            f"/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/create",
+            path_template(
+                "/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/create",
+                account_id=account_id,
+                index_name=index_name,
+            ),
             body=await async_maybe_transform(
                 {
                     "index_type": index_type,
@@ -280,7 +296,7 @@ class AsyncMetadataIndexResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MetadataIndexListResponse]:
         """
         List Metadata Indexes for the specified Vectorize Index.
@@ -301,7 +317,11 @@ class AsyncMetadataIndexResource(AsyncAPIResource):
         if not index_name:
             raise ValueError(f"Expected a non-empty value for `index_name` but received {index_name!r}")
         return await self._get(
-            f"/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/list",
+            path_template(
+                "/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/list",
+                account_id=account_id,
+                index_name=index_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -323,7 +343,7 @@ class AsyncMetadataIndexResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MetadataIndexDeleteResponse]:
         """
         Allow Vectorize to delete the specified metadata index.
@@ -346,7 +366,11 @@ class AsyncMetadataIndexResource(AsyncAPIResource):
         if not index_name:
             raise ValueError(f"Expected a non-empty value for `index_name` but received {index_name!r}")
         return await self._post(
-            f"/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/delete",
+            path_template(
+                "/accounts/{account_id}/vectorize/v2/indexes/{index_name}/metadata_index/delete",
+                account_id=account_id,
+                index_name=index_name,
+            ),
             body=await async_maybe_transform(
                 {"property_name": property_name}, metadata_index_delete_params.MetadataIndexDeleteParams
             ),

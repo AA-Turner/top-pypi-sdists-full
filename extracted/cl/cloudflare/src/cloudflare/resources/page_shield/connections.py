@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -50,24 +50,24 @@ class ConnectionsResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        exclude_cdn_cgi: bool | NotGiven = NOT_GIVEN,
-        exclude_urls: str | NotGiven = NOT_GIVEN,
-        export: Literal["csv"] | NotGiven = NOT_GIVEN,
-        hosts: str | NotGiven = NOT_GIVEN,
-        order_by: Literal["first_seen_at", "last_seen_at"] | NotGiven = NOT_GIVEN,
-        page: str | NotGiven = NOT_GIVEN,
-        page_url: str | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        prioritize_malicious: bool | NotGiven = NOT_GIVEN,
-        status: str | NotGiven = NOT_GIVEN,
-        urls: str | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        exclude_cdn_cgi: bool | Omit = omit,
+        exclude_urls: str | Omit = omit,
+        export: Literal["csv"] | Omit = omit,
+        hosts: str | Omit = omit,
+        order_by: Literal["first_seen_at", "last_seen_at"] | Omit = omit,
+        page: str | Omit = omit,
+        page_url: str | Omit = omit,
+        per_page: float | Omit = omit,
+        prioritize_malicious: bool | Omit = omit,
+        status: str | Omit = omit,
+        urls: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Connection]:
         """
         Lists all connections detected by Page Shield.
@@ -83,7 +83,7 @@ class ConnectionsResource(SyncAPIResource):
           exclude_urls: Excludes connections whose URL contains one of the URL-encoded URLs separated by
               commas.
 
-          export: Export the list of connections as a file.
+          export: Export the list of connections as a file, limited to 50000 entries.
 
           hosts: Includes connections that match one or more URL-encoded hostnames separated by
               commas.
@@ -130,7 +130,7 @@ class ConnectionsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/page_shield/connections",
+            path_template("/zones/{zone_id}/page_shield/connections", zone_id=zone_id),
             page=SyncSinglePage[Connection],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -168,7 +168,7 @@ class ConnectionsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Connection]:
         """
         Fetches a connection detected by Page Shield by connection ID.
@@ -191,7 +191,9 @@ class ConnectionsResource(SyncAPIResource):
         if not connection_id:
             raise ValueError(f"Expected a non-empty value for `connection_id` but received {connection_id!r}")
         return self._get(
-            f"/zones/{zone_id}/page_shield/connections/{connection_id}",
+            path_template(
+                "/zones/{zone_id}/page_shield/connections/{connection_id}", zone_id=zone_id, connection_id=connection_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -227,24 +229,24 @@ class AsyncConnectionsResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        exclude_cdn_cgi: bool | NotGiven = NOT_GIVEN,
-        exclude_urls: str | NotGiven = NOT_GIVEN,
-        export: Literal["csv"] | NotGiven = NOT_GIVEN,
-        hosts: str | NotGiven = NOT_GIVEN,
-        order_by: Literal["first_seen_at", "last_seen_at"] | NotGiven = NOT_GIVEN,
-        page: str | NotGiven = NOT_GIVEN,
-        page_url: str | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        prioritize_malicious: bool | NotGiven = NOT_GIVEN,
-        status: str | NotGiven = NOT_GIVEN,
-        urls: str | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        exclude_cdn_cgi: bool | Omit = omit,
+        exclude_urls: str | Omit = omit,
+        export: Literal["csv"] | Omit = omit,
+        hosts: str | Omit = omit,
+        order_by: Literal["first_seen_at", "last_seen_at"] | Omit = omit,
+        page: str | Omit = omit,
+        page_url: str | Omit = omit,
+        per_page: float | Omit = omit,
+        prioritize_malicious: bool | Omit = omit,
+        status: str | Omit = omit,
+        urls: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Connection, AsyncSinglePage[Connection]]:
         """
         Lists all connections detected by Page Shield.
@@ -260,7 +262,7 @@ class AsyncConnectionsResource(AsyncAPIResource):
           exclude_urls: Excludes connections whose URL contains one of the URL-encoded URLs separated by
               commas.
 
-          export: Export the list of connections as a file.
+          export: Export the list of connections as a file, limited to 50000 entries.
 
           hosts: Includes connections that match one or more URL-encoded hostnames separated by
               commas.
@@ -307,7 +309,7 @@ class AsyncConnectionsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/page_shield/connections",
+            path_template("/zones/{zone_id}/page_shield/connections", zone_id=zone_id),
             page=AsyncSinglePage[Connection],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -345,7 +347,7 @@ class AsyncConnectionsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Connection]:
         """
         Fetches a connection detected by Page Shield by connection ID.
@@ -368,7 +370,9 @@ class AsyncConnectionsResource(AsyncAPIResource):
         if not connection_id:
             raise ValueError(f"Expected a non-empty value for `connection_id` but received {connection_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/page_shield/connections/{connection_id}",
+            path_template(
+                "/zones/{zone_id}/page_shield/connections/{connection_id}", zone_id=zone_id, connection_id=connection_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

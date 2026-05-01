@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -56,6 +56,7 @@ class PoliciesResource(SyncAPIResource):
         *,
         account_id: str,
         alert_type: Literal[
+            "abuse_report_alert",
             "access_custom_certificate_expiration_type",
             "advanced_ddos_attack_l4_alert",
             "advanced_ddos_attack_l7_alert",
@@ -71,6 +72,7 @@ class PoliciesResource(SyncAPIResource):
             "clickhouse_alert_fw_anomaly",
             "clickhouse_alert_fw_ent_anomaly",
             "cloudforce_one_request_notification",
+            "cni_maintenance_notification",
             "custom_analytics",
             "custom_bot_detection_alert",
             "custom_ssl_certificate_event_type",
@@ -127,15 +129,15 @@ class PoliciesResource(SyncAPIResource):
         enabled: bool,
         mechanisms: MechanismParam,
         name: str,
-        alert_interval: str | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        filters: PolicyFilterParam | NotGiven = NOT_GIVEN,
+        alert_interval: str | Omit = omit,
+        description: str | Omit = omit,
+        filters: PolicyFilterParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PolicyCreateResponse]:
         """
         Creates a new Notification policy.
@@ -174,7 +176,7 @@ class PoliciesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/alerting/v3/policies",
+            path_template("/accounts/{account_id}/alerting/v3/policies", account_id=account_id),
             body=maybe_transform(
                 {
                     "alert_type": alert_type,
@@ -202,8 +204,9 @@ class PoliciesResource(SyncAPIResource):
         policy_id: str,
         *,
         account_id: str,
-        alert_interval: str | NotGiven = NOT_GIVEN,
+        alert_interval: str | Omit = omit,
         alert_type: Literal[
+            "abuse_report_alert",
             "access_custom_certificate_expiration_type",
             "advanced_ddos_attack_l4_alert",
             "advanced_ddos_attack_l7_alert",
@@ -219,6 +222,7 @@ class PoliciesResource(SyncAPIResource):
             "clickhouse_alert_fw_anomaly",
             "clickhouse_alert_fw_ent_anomaly",
             "cloudforce_one_request_notification",
+            "cni_maintenance_notification",
             "custom_analytics",
             "custom_bot_detection_alert",
             "custom_ssl_certificate_event_type",
@@ -272,18 +276,18 @@ class PoliciesResource(SyncAPIResource):
             "web_analytics_metrics_update",
             "zone_aop_custom_certificate_expiration_type",
         ]
-        | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        enabled: bool | NotGiven = NOT_GIVEN,
-        filters: PolicyFilterParam | NotGiven = NOT_GIVEN,
-        mechanisms: MechanismParam | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        description: str | Omit = omit,
+        enabled: bool | Omit = omit,
+        filters: PolicyFilterParam | Omit = omit,
+        mechanisms: MechanismParam | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PolicyUpdateResponse]:
         """
         Update a Notification policy.
@@ -326,7 +330,9 @@ class PoliciesResource(SyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return self._put(
-            f"/accounts/{account_id}/alerting/v3/policies/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/alerting/v3/policies/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             body=maybe_transform(
                 {
                     "alert_interval": alert_interval,
@@ -358,7 +364,7 @@ class PoliciesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Policy]:
         """
         Get a list of all Notification policies.
@@ -377,7 +383,7 @@ class PoliciesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/alerting/v3/policies",
+            path_template("/accounts/{account_id}/alerting/v3/policies", account_id=account_id),
             page=SyncSinglePage[Policy],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -395,7 +401,7 @@ class PoliciesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> PolicyDeleteResponse:
         """
         Delete a Notification policy.
@@ -418,7 +424,9 @@ class PoliciesResource(SyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/alerting/v3/policies/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/alerting/v3/policies/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -435,7 +443,7 @@ class PoliciesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Policy]:
         """
         Get details for a single policy.
@@ -458,7 +466,9 @@ class PoliciesResource(SyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return self._get(
-            f"/accounts/{account_id}/alerting/v3/policies/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/alerting/v3/policies/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -495,6 +505,7 @@ class AsyncPoliciesResource(AsyncAPIResource):
         *,
         account_id: str,
         alert_type: Literal[
+            "abuse_report_alert",
             "access_custom_certificate_expiration_type",
             "advanced_ddos_attack_l4_alert",
             "advanced_ddos_attack_l7_alert",
@@ -510,6 +521,7 @@ class AsyncPoliciesResource(AsyncAPIResource):
             "clickhouse_alert_fw_anomaly",
             "clickhouse_alert_fw_ent_anomaly",
             "cloudforce_one_request_notification",
+            "cni_maintenance_notification",
             "custom_analytics",
             "custom_bot_detection_alert",
             "custom_ssl_certificate_event_type",
@@ -566,15 +578,15 @@ class AsyncPoliciesResource(AsyncAPIResource):
         enabled: bool,
         mechanisms: MechanismParam,
         name: str,
-        alert_interval: str | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        filters: PolicyFilterParam | NotGiven = NOT_GIVEN,
+        alert_interval: str | Omit = omit,
+        description: str | Omit = omit,
+        filters: PolicyFilterParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PolicyCreateResponse]:
         """
         Creates a new Notification policy.
@@ -613,7 +625,7 @@ class AsyncPoliciesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/alerting/v3/policies",
+            path_template("/accounts/{account_id}/alerting/v3/policies", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "alert_type": alert_type,
@@ -641,8 +653,9 @@ class AsyncPoliciesResource(AsyncAPIResource):
         policy_id: str,
         *,
         account_id: str,
-        alert_interval: str | NotGiven = NOT_GIVEN,
+        alert_interval: str | Omit = omit,
         alert_type: Literal[
+            "abuse_report_alert",
             "access_custom_certificate_expiration_type",
             "advanced_ddos_attack_l4_alert",
             "advanced_ddos_attack_l7_alert",
@@ -658,6 +671,7 @@ class AsyncPoliciesResource(AsyncAPIResource):
             "clickhouse_alert_fw_anomaly",
             "clickhouse_alert_fw_ent_anomaly",
             "cloudforce_one_request_notification",
+            "cni_maintenance_notification",
             "custom_analytics",
             "custom_bot_detection_alert",
             "custom_ssl_certificate_event_type",
@@ -711,18 +725,18 @@ class AsyncPoliciesResource(AsyncAPIResource):
             "web_analytics_metrics_update",
             "zone_aop_custom_certificate_expiration_type",
         ]
-        | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        enabled: bool | NotGiven = NOT_GIVEN,
-        filters: PolicyFilterParam | NotGiven = NOT_GIVEN,
-        mechanisms: MechanismParam | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        description: str | Omit = omit,
+        enabled: bool | Omit = omit,
+        filters: PolicyFilterParam | Omit = omit,
+        mechanisms: MechanismParam | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PolicyUpdateResponse]:
         """
         Update a Notification policy.
@@ -765,7 +779,9 @@ class AsyncPoliciesResource(AsyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/alerting/v3/policies/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/alerting/v3/policies/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             body=await async_maybe_transform(
                 {
                     "alert_interval": alert_interval,
@@ -797,7 +813,7 @@ class AsyncPoliciesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Policy, AsyncSinglePage[Policy]]:
         """
         Get a list of all Notification policies.
@@ -816,7 +832,7 @@ class AsyncPoliciesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/alerting/v3/policies",
+            path_template("/accounts/{account_id}/alerting/v3/policies", account_id=account_id),
             page=AsyncSinglePage[Policy],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -834,7 +850,7 @@ class AsyncPoliciesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> PolicyDeleteResponse:
         """
         Delete a Notification policy.
@@ -857,7 +873,9 @@ class AsyncPoliciesResource(AsyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/alerting/v3/policies/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/alerting/v3/policies/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -874,7 +892,7 @@ class AsyncPoliciesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Policy]:
         """
         Get details for a single policy.
@@ -897,7 +915,9 @@ class AsyncPoliciesResource(AsyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/alerting/v3/policies/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/alerting/v3/policies/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

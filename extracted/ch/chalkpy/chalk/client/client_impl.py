@@ -21,6 +21,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
+from types import EllipsisType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -676,30 +677,37 @@ def encode_unload_resolvers(
     """Encode unload_resolvers into the wire format (list of spec dicts).
 
     Accepts either:
-    - The literal "all" (or the single-element sequence ["all"]) to unload all eligible resolvers.
+    - The literal ... (or the single-element sequence [...]) to unload all eligible resolvers.
     - A list of resolver FQNs or Resolver objects (no partitioning).
     - A dict mapping resolver -> tuple of partition-by expressions.
     """
     if unload_resolvers is None:
         return None
 
-    # "all" bare string → [{"any": []}] (dict sentinel; server normalises to the auto-detect mode)
-    if unload_resolvers == "all":
-        return [{"any": []}]
+    def to_fqn(resolver: str | Resolver | EllipsisType) -> str:
+        match resolver:
+            case str():
+                return resolver
+            case Resolver():
+                return resolver.fqn
+            case EllipsisType():
+                return "*"
+
+    # Ellipsis → [{"fqn": "*"}] (sentinel value which tells server to auto-detect unload resolvers)
+    if unload_resolvers is ...:  # unload_resolvers="all"
+        return [{"fqn": to_fqn(unload_resolvers)}]
 
     if isinstance(unload_resolvers, Mapping):
-        result: list[dict[str, Any]] = []
+        result = list[dict[str, Any]]()  # unload_resolvers={"fqn1": (partition1,), ...: ()}
         for resolver, partition_exprs in unload_resolvers.items():
-            fqn = resolver.fqn if isinstance(resolver, Resolver) else resolver
+            fqn = to_fqn(resolver)
             partition_by = [encode_partition_expr(expr) for expr in partition_exprs]
             result.append({"fqn": fqn, "partition_by": partition_by})
         return result
     else:
-        items = list(unload_resolvers)
-        # ["all"] single-element sequence → dict sentinel
-        if items == ["all"]:
-            return [{"any": []}]
-        return [{"fqn": r.fqn if isinstance(r, Resolver) else r} for r in items]
+        items = list(unload_resolvers)  # unload_resolvers=["fqn1", ...]
+        # ... in sequence -> sentinel to select everything else
+        return [{"fqn": to_fqn(r)} for r in items]
 
 
 def _validate_context_dict(data: Any) -> ContextJsonDict | None:

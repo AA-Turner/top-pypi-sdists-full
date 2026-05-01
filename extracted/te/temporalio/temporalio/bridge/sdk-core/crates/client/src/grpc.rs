@@ -1582,6 +1582,114 @@ proxier! {
             r.extensions_mut().insert(labels);
         }
     );
+    (
+        count_nexus_operation_executions,
+        CountNexusOperationExecutionsRequest,
+        CountNexusOperationExecutionsResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
+    (
+        create_worker_deployment,
+        CreateWorkerDeploymentRequest,
+        CreateWorkerDeploymentResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
+    (
+        create_worker_deployment_version,
+        CreateWorkerDeploymentVersionRequest,
+        CreateWorkerDeploymentVersionResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
+    (
+        delete_nexus_operation_execution,
+        DeleteNexusOperationExecutionRequest,
+        DeleteNexusOperationExecutionResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
+    (
+        describe_nexus_operation_execution,
+        DescribeNexusOperationExecutionRequest,
+        DescribeNexusOperationExecutionResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
+    (
+        list_nexus_operation_executions,
+        ListNexusOperationExecutionsRequest,
+        ListNexusOperationExecutionsResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
+    (
+        poll_nexus_operation_execution,
+        PollNexusOperationExecutionRequest,
+        PollNexusOperationExecutionResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
+    (
+        request_cancel_nexus_operation_execution,
+        RequestCancelNexusOperationExecutionRequest,
+        RequestCancelNexusOperationExecutionResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
+    (
+        start_nexus_operation_execution,
+        StartNexusOperationExecutionRequest,
+        StartNexusOperationExecutionResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
+    (
+        terminate_nexus_operation_execution,
+        TerminateNexusOperationExecutionRequest,
+        TerminateNexusOperationExecutionResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
+    (
+        update_worker_deployment_version_compute_config,
+        UpdateWorkerDeploymentVersionComputeConfigRequest,
+        UpdateWorkerDeploymentVersionComputeConfigResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
+    (
+        validate_worker_deployment_version_compute_config,
+        ValidateWorkerDeploymentVersionComputeConfigRequest,
+        ValidateWorkerDeploymentVersionComputeConfigResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+        }
+    );
 }
 
 proxier! {
@@ -2094,6 +2202,7 @@ mod tests {
         let opts = ConnectionOptions::new(url::Url::parse("http://localhost:7233").unwrap())
             .skip_get_system_info(true)
             .service_override(service_override)
+            .dns_load_balancing(None)
             .build();
         let mut connection = crate::Connection::connect(opts).await.unwrap();
 

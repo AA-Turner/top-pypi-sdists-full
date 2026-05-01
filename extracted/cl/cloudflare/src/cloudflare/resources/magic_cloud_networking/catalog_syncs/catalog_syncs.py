@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, strip_not_given, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, strip_not_given, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -76,15 +76,15 @@ class CatalogSyncsResource(SyncAPIResource):
         destination_type: Literal["NONE", "ZERO_TRUST_LIST"],
         name: str,
         update_mode: Literal["AUTO", "MANUAL"],
-        description: str | NotGiven = NOT_GIVEN,
-        policy: str | NotGiven = NOT_GIVEN,
-        forwarded: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        policy: str | Omit = omit,
+        forwarded: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CatalogSyncCreateResponse:
         """
         Create a new Catalog Sync (Closed Beta).
@@ -102,7 +102,7 @@ class CatalogSyncsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {**strip_not_given({"forwarded": forwarded}), **(extra_headers or {})}
         return self._post(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs",
+            path_template("/accounts/{account_id}/magic/cloud/catalog-syncs", account_id=account_id),
             body=maybe_transform(
                 {
                     "destination_type": destination_type,
@@ -128,16 +128,16 @@ class CatalogSyncsResource(SyncAPIResource):
         sync_id: str,
         *,
         account_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        policy: str | NotGiven = NOT_GIVEN,
-        update_mode: Literal["AUTO", "MANUAL"] | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        name: str | Omit = omit,
+        policy: str | Omit = omit,
+        update_mode: Literal["AUTO", "MANUAL"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CatalogSyncUpdateResponse:
         """
         Update a Catalog Sync (Closed Beta).
@@ -156,7 +156,9 @@ class CatalogSyncsResource(SyncAPIResource):
         if not sync_id:
             raise ValueError(f"Expected a non-empty value for `sync_id` but received {sync_id!r}")
         return self._put(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}", account_id=account_id, sync_id=sync_id
+            ),
             body=maybe_transform(
                 {
                     "description": description,
@@ -185,7 +187,7 @@ class CatalogSyncsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[CatalogSyncListResponse]:
         """
         List Catalog Syncs (Closed Beta).
@@ -202,7 +204,7 @@ class CatalogSyncsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs",
+            path_template("/accounts/{account_id}/magic/cloud/catalog-syncs", account_id=account_id),
             page=SyncSinglePage[CatalogSyncListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -215,13 +217,13 @@ class CatalogSyncsResource(SyncAPIResource):
         sync_id: str,
         *,
         account_id: str,
-        delete_destination: bool | NotGiven = NOT_GIVEN,
+        delete_destination: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CatalogSyncDeleteResponse:
         """
         Delete a Catalog Sync (Closed Beta).
@@ -240,7 +242,9 @@ class CatalogSyncsResource(SyncAPIResource):
         if not sync_id:
             raise ValueError(f"Expected a non-empty value for `sync_id` but received {sync_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}", account_id=account_id, sync_id=sync_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -259,16 +263,16 @@ class CatalogSyncsResource(SyncAPIResource):
         sync_id: str,
         *,
         account_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        policy: str | NotGiven = NOT_GIVEN,
-        update_mode: Literal["AUTO", "MANUAL"] | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        name: str | Omit = omit,
+        policy: str | Omit = omit,
+        update_mode: Literal["AUTO", "MANUAL"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CatalogSyncEditResponse:
         """
         Update a Catalog Sync (Closed Beta).
@@ -287,7 +291,9 @@ class CatalogSyncsResource(SyncAPIResource):
         if not sync_id:
             raise ValueError(f"Expected a non-empty value for `sync_id` but received {sync_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}", account_id=account_id, sync_id=sync_id
+            ),
             body=maybe_transform(
                 {
                     "description": description,
@@ -317,7 +323,7 @@ class CatalogSyncsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CatalogSyncGetResponse:
         """
         Read a Catalog Sync (Closed Beta).
@@ -336,7 +342,9 @@ class CatalogSyncsResource(SyncAPIResource):
         if not sync_id:
             raise ValueError(f"Expected a non-empty value for `sync_id` but received {sync_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}", account_id=account_id, sync_id=sync_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -357,7 +365,7 @@ class CatalogSyncsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
         Refresh a Catalog Sync's destination by running the sync policy against latest
@@ -377,7 +385,11 @@ class CatalogSyncsResource(SyncAPIResource):
         if not sync_id:
             raise ValueError(f"Expected a non-empty value for `sync_id` but received {sync_id!r}")
         return self._post(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}/refresh",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}/refresh",
+                account_id=account_id,
+                sync_id=sync_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -420,15 +432,15 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         destination_type: Literal["NONE", "ZERO_TRUST_LIST"],
         name: str,
         update_mode: Literal["AUTO", "MANUAL"],
-        description: str | NotGiven = NOT_GIVEN,
-        policy: str | NotGiven = NOT_GIVEN,
-        forwarded: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        policy: str | Omit = omit,
+        forwarded: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CatalogSyncCreateResponse:
         """
         Create a new Catalog Sync (Closed Beta).
@@ -446,7 +458,7 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {**strip_not_given({"forwarded": forwarded}), **(extra_headers or {})}
         return await self._post(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs",
+            path_template("/accounts/{account_id}/magic/cloud/catalog-syncs", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "destination_type": destination_type,
@@ -472,16 +484,16 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         sync_id: str,
         *,
         account_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        policy: str | NotGiven = NOT_GIVEN,
-        update_mode: Literal["AUTO", "MANUAL"] | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        name: str | Omit = omit,
+        policy: str | Omit = omit,
+        update_mode: Literal["AUTO", "MANUAL"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CatalogSyncUpdateResponse:
         """
         Update a Catalog Sync (Closed Beta).
@@ -500,7 +512,9 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         if not sync_id:
             raise ValueError(f"Expected a non-empty value for `sync_id` but received {sync_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}", account_id=account_id, sync_id=sync_id
+            ),
             body=await async_maybe_transform(
                 {
                     "description": description,
@@ -529,7 +543,7 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[CatalogSyncListResponse, AsyncSinglePage[CatalogSyncListResponse]]:
         """
         List Catalog Syncs (Closed Beta).
@@ -546,7 +560,7 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs",
+            path_template("/accounts/{account_id}/magic/cloud/catalog-syncs", account_id=account_id),
             page=AsyncSinglePage[CatalogSyncListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -559,13 +573,13 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         sync_id: str,
         *,
         account_id: str,
-        delete_destination: bool | NotGiven = NOT_GIVEN,
+        delete_destination: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CatalogSyncDeleteResponse:
         """
         Delete a Catalog Sync (Closed Beta).
@@ -584,7 +598,9 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         if not sync_id:
             raise ValueError(f"Expected a non-empty value for `sync_id` but received {sync_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}", account_id=account_id, sync_id=sync_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -603,16 +619,16 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         sync_id: str,
         *,
         account_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        policy: str | NotGiven = NOT_GIVEN,
-        update_mode: Literal["AUTO", "MANUAL"] | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        name: str | Omit = omit,
+        policy: str | Omit = omit,
+        update_mode: Literal["AUTO", "MANUAL"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CatalogSyncEditResponse:
         """
         Update a Catalog Sync (Closed Beta).
@@ -631,7 +647,9 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         if not sync_id:
             raise ValueError(f"Expected a non-empty value for `sync_id` but received {sync_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}", account_id=account_id, sync_id=sync_id
+            ),
             body=await async_maybe_transform(
                 {
                     "description": description,
@@ -661,7 +679,7 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CatalogSyncGetResponse:
         """
         Read a Catalog Sync (Closed Beta).
@@ -680,7 +698,9 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         if not sync_id:
             raise ValueError(f"Expected a non-empty value for `sync_id` but received {sync_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}", account_id=account_id, sync_id=sync_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -701,7 +721,7 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
         Refresh a Catalog Sync's destination by running the sync policy against latest
@@ -721,7 +741,11 @@ class AsyncCatalogSyncsResource(AsyncAPIResource):
         if not sync_id:
             raise ValueError(f"Expected a non-empty value for `sync_id` but received {sync_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}/refresh",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/catalog-syncs/{sync_id}/refresh",
+                account_id=account_id,
+                sync_id=sync_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

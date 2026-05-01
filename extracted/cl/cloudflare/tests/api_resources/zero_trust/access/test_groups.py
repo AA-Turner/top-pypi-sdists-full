@@ -9,7 +9,7 @@ import pytest
 
 from cloudflare import Cloudflare, AsyncCloudflare
 from tests.utils import assert_matches_type
-from cloudflare.pagination import SyncSinglePage, AsyncSinglePage
+from cloudflare.pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from cloudflare.types.zero_trust.access import (
     GroupGetResponse,
     GroupListResponse,
@@ -28,7 +28,7 @@ class TestGroups:
     @parametrize
     def test_method_create(self, client: Cloudflare) -> None:
         group = client.zero_trust.access.groups.create(
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         )
@@ -38,12 +38,12 @@ class TestGroups:
     @parametrize
     def test_method_create_with_all_params(self, client: Cloudflare) -> None:
         group = client.zero_trust.access.groups.create(
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
-            exclude=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            exclude=[{"certificate": {}}],
             is_default=True,
-            require=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            require=[{"certificate": {}}],
         )
         assert_matches_type(Optional[GroupCreateResponse], group, path=["response"])
 
@@ -51,7 +51,7 @@ class TestGroups:
     @parametrize
     def test_raw_response_create(self, client: Cloudflare) -> None:
         response = client.zero_trust.access.groups.with_raw_response.create(
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         )
@@ -65,7 +65,7 @@ class TestGroups:
     @parametrize
     def test_streaming_response_create(self, client: Cloudflare) -> None:
         with client.zero_trust.access.groups.with_streaming_response.create(
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         ) as response:
@@ -82,14 +82,14 @@ class TestGroups:
     def test_path_params_create(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):
             client.zero_trust.access.groups.with_raw_response.create(
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
                 account_id="",
             )
 
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):
             client.zero_trust.access.groups.with_raw_response.create(
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
                 account_id="account_id",
             )
@@ -99,7 +99,7 @@ class TestGroups:
     def test_method_update(self, client: Cloudflare) -> None:
         group = client.zero_trust.access.groups.update(
             group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         )
@@ -110,12 +110,12 @@ class TestGroups:
     def test_method_update_with_all_params(self, client: Cloudflare) -> None:
         group = client.zero_trust.access.groups.update(
             group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
-            exclude=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            exclude=[{"certificate": {}}],
             is_default=True,
-            require=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            require=[{"certificate": {}}],
         )
         assert_matches_type(Optional[GroupUpdateResponse], group, path=["response"])
 
@@ -124,7 +124,7 @@ class TestGroups:
     def test_raw_response_update(self, client: Cloudflare) -> None:
         response = client.zero_trust.access.groups.with_raw_response.update(
             group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         )
@@ -139,7 +139,7 @@ class TestGroups:
     def test_streaming_response_update(self, client: Cloudflare) -> None:
         with client.zero_trust.access.groups.with_streaming_response.update(
             group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         ) as response:
@@ -157,7 +157,7 @@ class TestGroups:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `group_id` but received ''"):
             client.zero_trust.access.groups.with_raw_response.update(
                 group_id="",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
                 account_id="account_id",
             )
@@ -165,7 +165,7 @@ class TestGroups:
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):
             client.zero_trust.access.groups.with_raw_response.update(
                 group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
                 account_id="",
             )
@@ -173,7 +173,7 @@ class TestGroups:
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):
             client.zero_trust.access.groups.with_raw_response.update(
                 group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
                 account_id="account_id",
             )
@@ -184,7 +184,7 @@ class TestGroups:
         group = client.zero_trust.access.groups.list(
             account_id="account_id",
         )
-        assert_matches_type(SyncSinglePage[GroupListResponse], group, path=["response"])
+        assert_matches_type(SyncV4PagePaginationArray[GroupListResponse], group, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -192,9 +192,11 @@ class TestGroups:
         group = client.zero_trust.access.groups.list(
             account_id="account_id",
             name="name",
+            page=0,
+            per_page=0,
             search="search",
         )
-        assert_matches_type(SyncSinglePage[GroupListResponse], group, path=["response"])
+        assert_matches_type(SyncV4PagePaginationArray[GroupListResponse], group, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -206,7 +208,7 @@ class TestGroups:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         group = response.parse()
-        assert_matches_type(SyncSinglePage[GroupListResponse], group, path=["response"])
+        assert_matches_type(SyncV4PagePaginationArray[GroupListResponse], group, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -218,7 +220,7 @@ class TestGroups:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             group = response.parse()
-            assert_matches_type(SyncSinglePage[GroupListResponse], group, path=["response"])
+            assert_matches_type(SyncV4PagePaginationArray[GroupListResponse], group, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -371,13 +373,15 @@ class TestGroups:
 
 
 class TestAsyncGroups:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
         group = await async_client.zero_trust.access.groups.create(
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         )
@@ -387,12 +391,12 @@ class TestAsyncGroups:
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncCloudflare) -> None:
         group = await async_client.zero_trust.access.groups.create(
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
-            exclude=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            exclude=[{"certificate": {}}],
             is_default=True,
-            require=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            require=[{"certificate": {}}],
         )
         assert_matches_type(Optional[GroupCreateResponse], group, path=["response"])
 
@@ -400,7 +404,7 @@ class TestAsyncGroups:
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.zero_trust.access.groups.with_raw_response.create(
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         )
@@ -414,7 +418,7 @@ class TestAsyncGroups:
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncCloudflare) -> None:
         async with async_client.zero_trust.access.groups.with_streaming_response.create(
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         ) as response:
@@ -431,14 +435,14 @@ class TestAsyncGroups:
     async def test_path_params_create(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):
             await async_client.zero_trust.access.groups.with_raw_response.create(
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
                 account_id="",
             )
 
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):
             await async_client.zero_trust.access.groups.with_raw_response.create(
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
                 account_id="account_id",
             )
@@ -448,7 +452,7 @@ class TestAsyncGroups:
     async def test_method_update(self, async_client: AsyncCloudflare) -> None:
         group = await async_client.zero_trust.access.groups.update(
             group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         )
@@ -459,12 +463,12 @@ class TestAsyncGroups:
     async def test_method_update_with_all_params(self, async_client: AsyncCloudflare) -> None:
         group = await async_client.zero_trust.access.groups.update(
             group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
-            exclude=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            exclude=[{"certificate": {}}],
             is_default=True,
-            require=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            require=[{"certificate": {}}],
         )
         assert_matches_type(Optional[GroupUpdateResponse], group, path=["response"])
 
@@ -473,7 +477,7 @@ class TestAsyncGroups:
     async def test_raw_response_update(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.zero_trust.access.groups.with_raw_response.update(
             group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         )
@@ -488,7 +492,7 @@ class TestAsyncGroups:
     async def test_streaming_response_update(self, async_client: AsyncCloudflare) -> None:
         async with async_client.zero_trust.access.groups.with_streaming_response.update(
             group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             account_id="account_id",
         ) as response:
@@ -506,7 +510,7 @@ class TestAsyncGroups:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `group_id` but received ''"):
             await async_client.zero_trust.access.groups.with_raw_response.update(
                 group_id="",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
                 account_id="account_id",
             )
@@ -514,7 +518,7 @@ class TestAsyncGroups:
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):
             await async_client.zero_trust.access.groups.with_raw_response.update(
                 group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
                 account_id="",
             )
@@ -522,7 +526,7 @@ class TestAsyncGroups:
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):
             await async_client.zero_trust.access.groups.with_raw_response.update(
                 group_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
                 account_id="account_id",
             )
@@ -533,7 +537,7 @@ class TestAsyncGroups:
         group = await async_client.zero_trust.access.groups.list(
             account_id="account_id",
         )
-        assert_matches_type(AsyncSinglePage[GroupListResponse], group, path=["response"])
+        assert_matches_type(AsyncV4PagePaginationArray[GroupListResponse], group, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -541,9 +545,11 @@ class TestAsyncGroups:
         group = await async_client.zero_trust.access.groups.list(
             account_id="account_id",
             name="name",
+            page=0,
+            per_page=0,
             search="search",
         )
-        assert_matches_type(AsyncSinglePage[GroupListResponse], group, path=["response"])
+        assert_matches_type(AsyncV4PagePaginationArray[GroupListResponse], group, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -555,7 +561,7 @@ class TestAsyncGroups:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         group = await response.parse()
-        assert_matches_type(AsyncSinglePage[GroupListResponse], group, path=["response"])
+        assert_matches_type(AsyncV4PagePaginationArray[GroupListResponse], group, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -567,7 +573,7 @@ class TestAsyncGroups:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             group = await response.parse()
-            assert_matches_type(AsyncSinglePage[GroupListResponse], group, path=["response"])
+            assert_matches_type(AsyncV4PagePaginationArray[GroupListResponse], group, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

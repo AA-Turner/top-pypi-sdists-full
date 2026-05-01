@@ -18,12 +18,15 @@ use crate::utils::text_reflow::{
 use pulldown_cmark::LinkType;
 use toml;
 
+mod block_builder;
 mod helpers;
 pub mod md013_config;
 use crate::utils::is_template_directive_only;
+use block_builder::{Block, BlockBuilder};
 use helpers::{
     extract_list_marker_and_content, has_hard_break, is_github_alert_marker, is_horizontal_rule, is_html_only_line,
-    is_list_item, is_standalone_link_or_image_line, split_into_segments, trim_preserving_hard_break,
+    is_list_item, is_standalone_link_or_image_line, is_unwrappable_line, split_into_segments,
+    trim_preserving_hard_break,
 };
 pub use md013_config::MD013Config;
 use md013_config::{LengthMode, ReflowMode};
@@ -54,6 +57,9 @@ impl MD013LineLength {
                 paragraphs: true,  // Default to true for backwards compatibility
                 blockquotes: true, // Default to true for backwards compatibility
                 strict,
+                stern: false,
+                heading_line_length: None,
+                code_block_line_length: None,
                 reflow: false,
                 reflow_mode: ReflowMode::default(),
                 length_mode: LengthMode::default(),
@@ -139,13 +145,23 @@ impl MD013LineLength {
             return false;
         }
 
-        // Quick check: if total content is shorter than line limit, definitely skip
-        if ctx.content.len() <= config.line_length.get() {
+        // Use the smallest applicable budget across line/heading/code-block
+        // contexts so a stricter context-specific limit doesn't get masked by
+        // the document-wide budget.
+        let min_limit = config.min_effective_line_length();
+        if min_limit.is_unlimited() {
+            return true;
+        }
+        let min_limit_bytes = min_limit.get();
+
+        // Quick check: if total content is shorter than the smallest line limit,
+        // definitely skip.
+        if ctx.content.len() <= min_limit_bytes {
             return true;
         }
 
-        // Skip if no line exceeds the limit
-        !ctx.lines.iter().any(|line| line.byte_len > config.line_length.get())
+        // Skip if no line exceeds the smallest applicable limit.
+        !ctx.lines.iter().any(|line| line.byte_len > min_limit_bytes)
     }
 
     fn normalize_mode_needs_reflow<'a, I>(&self, lines: I, config: &MD013Config) -> bool
@@ -239,9 +255,13 @@ impl Rule for MD013LineLength {
         // Skip all line length checks, but still allow reflow if enabled
         let skip_length_checks = effective_config.line_length.is_unlimited();
 
-        // Pre-filter lines that could be problematic to avoid processing all lines
+        // Pre-filter lines that could be problematic to avoid processing all lines.
+        // Use the smallest applicable budget across line/heading/code-block contexts
+        // so candidates aren't dropped when a stricter context-specific budget applies.
+        let prefilter_limit = effective_config.min_effective_line_length();
+        let prefilter_skip = prefilter_limit.is_unlimited();
         let mut candidate_lines = Vec::new();
-        if !skip_length_checks {
+        if !skip_length_checks && !prefilter_skip {
             for (line_idx, line_info) in ctx.lines.iter().enumerate() {
                 // Skip front matter - it should never be linted
                 if line_info.in_front_matter {
@@ -249,7 +269,7 @@ impl Rule for MD013LineLength {
                 }
 
                 // Quick length check first
-                if line_info.byte_len > effective_config.line_length.get() {
+                if line_info.byte_len > prefilter_limit.get() {
                     candidate_lines.push(line_idx);
                 }
             }
@@ -297,14 +317,39 @@ impl Rule for MD013LineLength {
             // Calculate actual line length (used in warning messages)
             let effective_length = self.calculate_effective_length(line);
 
-            // Use single line length limit for all content
-            let line_limit = effective_config.line_length.get();
+            // Pick the context-specific limit: heading > code-block > paragraph.
+            // Headings dominate over code-block context if a setext underline ever
+            // overlaps a fenced range (defensive — these are mutually exclusive in
+            // practice, but the explicit ordering documents intent).
+            let is_heading_line = heading_lines_set.contains(&line_number);
+            let in_code_block = ctx.line_info(line_number).is_some_and(|info| info.in_code_block);
+            let line_limit = if is_heading_line {
+                effective_config.effective_heading_line_length().get()
+            } else if in_code_block {
+                effective_config.effective_code_block_line_length().get()
+            } else {
+                effective_config.line_length.get()
+            };
 
-            // In non-strict mode, forgive the trailing non-whitespace run.
+            // A context-specific limit of 0 means "unlimited for this context".
+            if line_limit == 0 {
+                continue;
+            }
+
+            // Stern mode: like default, but the trailing-token forgiveness is
+            // disabled — a line with whitespace that exceeds the limit is a
+            // violation even if the excess is the final token. The "unwrappable"
+            // line exemption (single token, optionally prefixed by # or >) is
+            // still honored. Strict overrides stern entirely.
+            if effective_config.stern && !effective_config.strict && is_unwrappable_line(line) {
+                continue;
+            }
+
+            // Trailing-token forgiveness: only in default mode (not strict, not stern).
             // If the line only exceeds the limit because of a long token at the end
             // (URL, link chain, identifier), it passes. This matches markdownlint's
             // behavior: line.replace(/\S*$/u, "#")
-            let check_length = if effective_config.strict {
+            let check_length = if effective_config.strict || effective_config.stern {
                 effective_length
             } else {
                 match line.rfind(char::is_whitespace) {
@@ -548,18 +593,11 @@ impl Rule for MD013LineLength {
     }
 
     fn default_config_section(&self) -> Option<(String, toml::Value)> {
-        let default_config = MD013Config::default();
-        let json_value = serde_json::to_value(&default_config).ok()?;
-        let toml_value = crate::rule_config_serde::json_to_toml_value(&json_value)?;
-
-        if let toml::Value::Table(table) = toml_value {
-            if !table.is_empty() {
-                Some((MD013Config::RULE_NAME.to_string(), toml::Value::Table(table)))
-            } else {
-                None
-            }
-        } else {
+        let table = crate::rule_config_serde::config_schema_table(&MD013Config::default())?;
+        if table.is_empty() {
             None
+        } else {
+            Some((MD013Config::RULE_NAME.to_string(), toml::Value::Table(table)))
         }
     }
 
@@ -1549,6 +1587,7 @@ impl MD013LineLength {
                     DivMarker(String),    // Quarto/Pandoc div markers (::: opening or closing)
                     AdmonitionHeader(String, usize), // header text (e.g. "!!! note") and original indent
                     AdmonitionContent(String, usize), // body content text and original indent
+                    Table(String, usize), // GFM table row, preserved verbatim with original indent
                     Empty,
                 }
 
@@ -1662,6 +1701,30 @@ impl MD013LineLength {
                             // These must be preserved on their own lines for MkDocs Snippets extension
                             else if is_snippet_block_delimiter(&content) {
                                 list_item_lines.push(LineType::SnippetLine(content));
+                            }
+                            // Check if this is a GFM table row. Tables nested inside list
+                            // items must be preserved verbatim — joining them with prose
+                            // breaks the column structure.
+                            //
+                            // `is_potential_table_row` is intentionally permissive at the
+                            // row level: any line with `|` and 2+ cells qualifies. To avoid
+                            // misclassifying prose continuation lines that contain a literal
+                            // pipe (e.g. "use grep | sort to ..."), require one of:
+                            //   - the row is pipe-bordered (`| ... |`), the canonical form
+                            //     for tables nested in lists; or
+                            //   - the next line is a delimiter row (this is a header); or
+                            //   - the previous classified line was already a Table (this is
+                            //     a continuation row).
+                            else if TableUtils::is_potential_table_row(&content) && {
+                                let pipe_bordered = content.trim().starts_with('|') && content.trim().ends_with('|');
+                                let next_is_delim = ctx
+                                    .lines
+                                    .get(i + 1)
+                                    .is_some_and(|next| TableUtils::is_delimiter_row(next.content(ctx.content)));
+                                let prev_was_table = matches!(list_item_lines.last(), Some(LineType::Table(..)));
+                                pipe_bordered || next_is_delim || prev_was_table
+                            } {
+                                list_item_lines.push(LineType::Table(content, indent));
                             } else {
                                 list_item_lines.push(LineType::Content(content));
                             }
@@ -1717,443 +1780,25 @@ impl MD013LineLength {
                 let expected_indent = " ".repeat(indent_size);
 
                 // Split list_item_lines into blocks (paragraphs, code blocks, nested lists, semantic lines, and HTML blocks)
-                #[derive(Clone)]
-                enum Block {
-                    Paragraph(Vec<String>),
-                    Code {
-                        lines: Vec<(String, usize)>, // (content, indent) pairs
-                        has_preceding_blank: bool,   // Whether there was a blank line before this block
-                    },
-                    SemanticLine(String), // Semantic markers like NOTE:, WARNING: that stay on their own line
-                    SnippetLine(String),  // MkDocs Snippets delimiter that stays on its own line without extra spacing
-                    DivMarker(String),    // Quarto/Pandoc div marker (::: opening or closing) preserved on its own line
-                    Html {
-                        lines: Vec<String>,        // HTML content preserved exactly as-is
-                        has_preceding_blank: bool, // Whether there was a blank line before this block
-                    },
-                    Admonition {
-                        header: String,                      // e.g. "!!! note" or "??? warning \"Title\""
-                        header_indent: usize,                // original indent of the header line
-                        content_lines: Vec<(String, usize)>, // (text, original_indent) pairs for body lines
-                    },
-                }
-
-                // HTML tag detection helpers
-                // Block-level HTML tags that should trigger HTML block detection
-                const BLOCK_LEVEL_TAGS: &[&str] = &[
-                    "div",
-                    "details",
-                    "summary",
-                    "section",
-                    "article",
-                    "header",
-                    "footer",
-                    "nav",
-                    "aside",
-                    "main",
-                    "table",
-                    "thead",
-                    "tbody",
-                    "tfoot",
-                    "tr",
-                    "td",
-                    "th",
-                    "ul",
-                    "ol",
-                    "li",
-                    "dl",
-                    "dt",
-                    "dd",
-                    "pre",
-                    "blockquote",
-                    "figure",
-                    "figcaption",
-                    "form",
-                    "fieldset",
-                    "legend",
-                    "hr",
-                    "p",
-                    "h1",
-                    "h2",
-                    "h3",
-                    "h4",
-                    "h5",
-                    "h6",
-                    "style",
-                    "script",
-                    "noscript",
-                ];
-
-                fn is_block_html_opening_tag(line: &str) -> Option<String> {
-                    let trimmed = line.trim();
-
-                    // Check for HTML comments
-                    if trimmed.starts_with("<!--") {
-                        return Some("!--".to_string());
-                    }
-
-                    // Check for opening tags
-                    if trimmed.starts_with('<') && !trimmed.starts_with("</") && !trimmed.starts_with("<!") {
-                        // Extract tag name from <tagname ...> or <tagname>
-                        let after_bracket = &trimmed[1..];
-                        if let Some(end) = after_bracket.find(|c: char| c.is_whitespace() || c == '>' || c == '/') {
-                            let tag_name = after_bracket[..end].to_lowercase();
-
-                            // Only treat as block if it's a known block-level tag
-                            if BLOCK_LEVEL_TAGS.contains(&tag_name.as_str()) {
-                                return Some(tag_name);
-                            }
-                        }
-                    }
-                    None
-                }
-
-                fn is_html_closing_tag(line: &str, tag_name: &str) -> bool {
-                    let trimmed = line.trim();
-
-                    // Special handling for HTML comments
-                    if tag_name == "!--" {
-                        return trimmed.ends_with("-->");
-                    }
-
-                    // Check for closing tags: </tagname> or </tagname ...>
-                    trimmed.starts_with(&format!("</{tag_name}>"))
-                        || trimmed.starts_with(&format!("</{tag_name}  "))
-                        || (trimmed.starts_with("</") && trimmed[2..].trim_start().starts_with(tag_name))
-                }
-
-                fn is_self_closing_tag(line: &str) -> bool {
-                    let trimmed = line.trim();
-                    trimmed.ends_with("/>")
-                }
-
-                let mut blocks: Vec<Block> = Vec::new();
-                let mut current_paragraph: Vec<String> = Vec::new();
-                let mut current_code_block: Vec<(String, usize)> = Vec::new();
-                let mut current_html_block: Vec<String> = Vec::new();
-                let mut html_tag_stack: Vec<String> = Vec::new();
-                let mut in_code = false;
-                let mut in_html_block = false;
-                let mut had_preceding_blank = false; // Track if we just saw an empty line
-                let mut code_block_has_preceding_blank = false; // Track blank before current code block
-                let mut html_block_has_preceding_blank = false; // Track blank before current HTML block
-
-                // Track admonition context for block building
-                let mut in_admonition_block = false;
-                let mut admonition_header: Option<(String, usize)> = None; // (header_text, indent)
-                let mut admonition_content: Vec<(String, usize)> = Vec::new();
-
-                // Flush any pending admonition block into `blocks`
-                let flush_admonition = |blocks: &mut Vec<Block>,
-                                        in_admonition: &mut bool,
-                                        header: &mut Option<(String, usize)>,
-                                        content: &mut Vec<(String, usize)>| {
-                    if *in_admonition {
-                        if let Some((h, hi)) = header.take() {
-                            blocks.push(Block::Admonition {
-                                header: h,
-                                header_indent: hi,
-                                content_lines: std::mem::take(content),
-                            });
-                        }
-                        *in_admonition = false;
-                    }
-                };
-
+                let mut builder = BlockBuilder::new();
                 for line in &list_item_lines {
                     match line {
-                        LineType::Empty => {
-                            if in_admonition_block {
-                                // Blank lines inside admonitions separate paragraphs within the body
-                                admonition_content.push((String::new(), 0));
-                            } else if in_code {
-                                current_code_block.push((String::new(), 0));
-                            } else if in_html_block {
-                                // Allow blank lines inside HTML blocks
-                                current_html_block.push(String::new());
-                            } else if !current_paragraph.is_empty() {
-                                blocks.push(Block::Paragraph(current_paragraph.clone()));
-                                current_paragraph.clear();
-                            }
-                            // Mark that we saw a blank line
-                            had_preceding_blank = true;
-                        }
-                        LineType::Content(content) => {
-                            flush_admonition(
-                                &mut blocks,
-                                &mut in_admonition_block,
-                                &mut admonition_header,
-                                &mut admonition_content,
-                            );
-                            // Check if we're currently in an HTML block
-                            if in_html_block {
-                                current_html_block.push(content.clone());
-
-                                // Check if this line closes any open HTML tags
-                                if let Some(last_tag) = html_tag_stack.last() {
-                                    if is_html_closing_tag(content, last_tag) {
-                                        html_tag_stack.pop();
-
-                                        // If stack is empty, HTML block is complete
-                                        if html_tag_stack.is_empty() {
-                                            blocks.push(Block::Html {
-                                                lines: current_html_block.clone(),
-                                                has_preceding_blank: html_block_has_preceding_blank,
-                                            });
-                                            current_html_block.clear();
-                                            in_html_block = false;
-                                        }
-                                    } else if let Some(new_tag) = is_block_html_opening_tag(content) {
-                                        // Nested opening tag within HTML block
-                                        if !is_self_closing_tag(content) {
-                                            html_tag_stack.push(new_tag);
-                                        }
-                                    }
-                                }
-                                had_preceding_blank = false;
-                            } else {
-                                // Not in HTML block - check if this line starts one
-                                if let Some(tag_name) = is_block_html_opening_tag(content) {
-                                    // Flush current paragraph before starting HTML block
-                                    if in_code {
-                                        blocks.push(Block::Code {
-                                            lines: current_code_block.clone(),
-                                            has_preceding_blank: code_block_has_preceding_blank,
-                                        });
-                                        current_code_block.clear();
-                                        in_code = false;
-                                    } else if !current_paragraph.is_empty() {
-                                        blocks.push(Block::Paragraph(current_paragraph.clone()));
-                                        current_paragraph.clear();
-                                    }
-
-                                    // Start new HTML block
-                                    in_html_block = true;
-                                    html_block_has_preceding_blank = had_preceding_blank;
-                                    current_html_block.push(content.clone());
-
-                                    // Check if it's self-closing or needs a closing tag
-                                    if is_self_closing_tag(content) {
-                                        // Self-closing tag - complete the HTML block immediately
-                                        blocks.push(Block::Html {
-                                            lines: current_html_block.clone(),
-                                            has_preceding_blank: html_block_has_preceding_blank,
-                                        });
-                                        current_html_block.clear();
-                                        in_html_block = false;
-                                    } else {
-                                        // Regular opening tag - push to stack
-                                        html_tag_stack.push(tag_name);
-                                    }
-                                } else {
-                                    // Regular content line - add to paragraph
-                                    if in_code {
-                                        // Switching from code to content
-                                        blocks.push(Block::Code {
-                                            lines: current_code_block.clone(),
-                                            has_preceding_blank: code_block_has_preceding_blank,
-                                        });
-                                        current_code_block.clear();
-                                        in_code = false;
-                                    }
-                                    current_paragraph.push(content.clone());
-                                }
-                                had_preceding_blank = false; // Reset after content
-                            }
-                        }
-                        LineType::CodeBlock(content, indent) => {
-                            flush_admonition(
-                                &mut blocks,
-                                &mut in_admonition_block,
-                                &mut admonition_header,
-                                &mut admonition_content,
-                            );
-                            if in_html_block {
-                                // Switching from HTML block to code (shouldn't happen normally, but handle it)
-                                blocks.push(Block::Html {
-                                    lines: current_html_block.clone(),
-                                    has_preceding_blank: html_block_has_preceding_blank,
-                                });
-                                current_html_block.clear();
-                                html_tag_stack.clear();
-                                in_html_block = false;
-                            }
-                            if !in_code {
-                                // Switching from content to code
-                                if !current_paragraph.is_empty() {
-                                    blocks.push(Block::Paragraph(current_paragraph.clone()));
-                                    current_paragraph.clear();
-                                }
-                                in_code = true;
-                                // Record whether there was a blank line before this code block
-                                code_block_has_preceding_blank = had_preceding_blank;
-                            }
-                            current_code_block.push((content.clone(), *indent));
-                            had_preceding_blank = false; // Reset after code
-                        }
-                        LineType::SemanticLine(content) => {
-                            // Semantic lines are standalone - flush any current block and add as separate block
-                            flush_admonition(
-                                &mut blocks,
-                                &mut in_admonition_block,
-                                &mut admonition_header,
-                                &mut admonition_content,
-                            );
-                            if in_code {
-                                blocks.push(Block::Code {
-                                    lines: current_code_block.clone(),
-                                    has_preceding_blank: code_block_has_preceding_blank,
-                                });
-                                current_code_block.clear();
-                                in_code = false;
-                            } else if in_html_block {
-                                blocks.push(Block::Html {
-                                    lines: current_html_block.clone(),
-                                    has_preceding_blank: html_block_has_preceding_blank,
-                                });
-                                current_html_block.clear();
-                                html_tag_stack.clear();
-                                in_html_block = false;
-                            } else if !current_paragraph.is_empty() {
-                                blocks.push(Block::Paragraph(current_paragraph.clone()));
-                                current_paragraph.clear();
-                            }
-                            // Add semantic line as its own block
-                            blocks.push(Block::SemanticLine(content.clone()));
-                            had_preceding_blank = false; // Reset after semantic line
-                        }
-                        LineType::SnippetLine(content) => {
-                            // Snippet delimiters (-8<-) are standalone - flush any current block and add as separate block
-                            // Unlike semantic lines, snippet lines don't add extra blank lines around them
-                            flush_admonition(
-                                &mut blocks,
-                                &mut in_admonition_block,
-                                &mut admonition_header,
-                                &mut admonition_content,
-                            );
-                            if in_code {
-                                blocks.push(Block::Code {
-                                    lines: current_code_block.clone(),
-                                    has_preceding_blank: code_block_has_preceding_blank,
-                                });
-                                current_code_block.clear();
-                                in_code = false;
-                            } else if in_html_block {
-                                blocks.push(Block::Html {
-                                    lines: current_html_block.clone(),
-                                    has_preceding_blank: html_block_has_preceding_blank,
-                                });
-                                current_html_block.clear();
-                                html_tag_stack.clear();
-                                in_html_block = false;
-                            } else if !current_paragraph.is_empty() {
-                                blocks.push(Block::Paragraph(current_paragraph.clone()));
-                                current_paragraph.clear();
-                            }
-                            // Add snippet line as its own block
-                            blocks.push(Block::SnippetLine(content.clone()));
-                            had_preceding_blank = false;
-                        }
-                        LineType::DivMarker(content) => {
-                            // Div markers (::: opening or closing) are standalone structural delimiters
-                            // Flush any current block and add as separate block
-                            flush_admonition(
-                                &mut blocks,
-                                &mut in_admonition_block,
-                                &mut admonition_header,
-                                &mut admonition_content,
-                            );
-                            if in_code {
-                                blocks.push(Block::Code {
-                                    lines: current_code_block.clone(),
-                                    has_preceding_blank: code_block_has_preceding_blank,
-                                });
-                                current_code_block.clear();
-                                in_code = false;
-                            } else if in_html_block {
-                                blocks.push(Block::Html {
-                                    lines: current_html_block.clone(),
-                                    has_preceding_blank: html_block_has_preceding_blank,
-                                });
-                                current_html_block.clear();
-                                html_tag_stack.clear();
-                                in_html_block = false;
-                            } else if !current_paragraph.is_empty() {
-                                blocks.push(Block::Paragraph(current_paragraph.clone()));
-                                current_paragraph.clear();
-                            }
-                            blocks.push(Block::DivMarker(content.clone()));
-                            had_preceding_blank = false;
-                        }
+                        LineType::Empty => builder.feed_blank_line(),
+                        LineType::Content(content) => builder.feed_content(content),
+                        LineType::CodeBlock(content, indent) => builder.feed_code_line(content, *indent),
+                        LineType::SemanticLine(content) => builder.feed_semantic_line(content),
+                        LineType::SnippetLine(content) => builder.feed_snippet_line(content),
+                        LineType::DivMarker(content) => builder.feed_div_marker(content),
                         LineType::AdmonitionHeader(header_text, indent) => {
-                            flush_admonition(
-                                &mut blocks,
-                                &mut in_admonition_block,
-                                &mut admonition_header,
-                                &mut admonition_content,
-                            );
-                            // Flush other current blocks
-                            if in_code {
-                                blocks.push(Block::Code {
-                                    lines: current_code_block.clone(),
-                                    has_preceding_blank: code_block_has_preceding_blank,
-                                });
-                                current_code_block.clear();
-                                in_code = false;
-                            } else if in_html_block {
-                                blocks.push(Block::Html {
-                                    lines: current_html_block.clone(),
-                                    has_preceding_blank: html_block_has_preceding_blank,
-                                });
-                                current_html_block.clear();
-                                html_tag_stack.clear();
-                                in_html_block = false;
-                            } else if !current_paragraph.is_empty() {
-                                blocks.push(Block::Paragraph(current_paragraph.clone()));
-                                current_paragraph.clear();
-                            }
-                            // Start new admonition block
-                            in_admonition_block = true;
-                            admonition_header = Some((header_text.clone(), *indent));
-                            admonition_content.clear();
-                            had_preceding_blank = false;
+                            builder.feed_admonition_header(header_text, *indent)
                         }
                         LineType::AdmonitionContent(content, indent) => {
-                            if in_admonition_block {
-                                // Add to current admonition body
-                                admonition_content.push((content.clone(), *indent));
-                            } else {
-                                // Admonition content without a header should not happen,
-                                // but treat it as regular content to avoid data loss
-                                current_paragraph.push(content.clone());
-                            }
-                            had_preceding_blank = false;
+                            builder.feed_admonition_content(content, *indent)
                         }
+                        LineType::Table(content, indent) => builder.feed_table_line(content, *indent),
                     }
                 }
-
-                // Push all remaining pending blocks independently
-                flush_admonition(
-                    &mut blocks,
-                    &mut in_admonition_block,
-                    &mut admonition_header,
-                    &mut admonition_content,
-                );
-                if in_code && !current_code_block.is_empty() {
-                    blocks.push(Block::Code {
-                        lines: current_code_block,
-                        has_preceding_blank: code_block_has_preceding_blank,
-                    });
-                }
-                if in_html_block && !current_html_block.is_empty() {
-                    blocks.push(Block::Html {
-                        lines: current_html_block,
-                        has_preceding_blank: html_block_has_preceding_blank,
-                    });
-                }
-                if !current_paragraph.is_empty() {
-                    blocks.push(Block::Paragraph(current_paragraph));
-                }
+                let blocks = builder.finalize();
 
                 // Helper: check if a line (raw source or stripped content) is exempt
                 // from line-length checks. Link reference definitions are always exempt;
@@ -2218,6 +1863,7 @@ impl MD013LineLength {
                     let has_snippet_lines = blocks.iter().any(|b| matches!(b, Block::SnippetLine(_)));
                     let has_div_markers = blocks.iter().any(|b| matches!(b, Block::DivMarker(_)));
                     let has_admonitions = blocks.iter().any(|b| matches!(b, Block::Admonition { .. }));
+                    let has_tables = blocks.iter().any(|b| matches!(b, Block::Table { .. }));
                     let has_paragraphs = blocks.iter().any(|b| matches!(b, Block::Paragraph(_)));
 
                     // If we have structural blocks but no paragraphs, don't normalize
@@ -2225,7 +1871,8 @@ impl MD013LineLength {
                         || has_semantic_lines
                         || has_snippet_lines
                         || has_div_markers
-                        || has_admonitions)
+                        || has_admonitions
+                        || has_tables)
                         && !has_paragraphs
                     {
                         return false;
@@ -2452,6 +2099,9 @@ impl MD013LineLength {
                                         Block::Code {
                                             has_preceding_blank, ..
                                         } => *has_preceding_blank,
+                                        Block::Table {
+                                            has_preceding_blank, ..
+                                        } => *has_preceding_blank,
                                         Block::SnippetLine(_) | Block::DivMarker(_) => false,
                                         _ => true, // For all other blocks, add blank line
                                     };
@@ -2505,6 +2155,9 @@ impl MD013LineLength {
                                     let next_block = &blocks[block_idx + 1];
                                     let should_add_blank = match next_block {
                                         Block::Code {
+                                            has_preceding_blank, ..
+                                        } => *has_preceding_blank,
+                                        Block::Table {
                                             has_preceding_blank, ..
                                         } => *has_preceding_blank,
                                         Block::SnippetLine(_) | Block::DivMarker(_) => false,
@@ -2570,8 +2223,53 @@ impl MD013LineLength {
                                         Block::Html {
                                             has_preceding_blank, ..
                                         } => *has_preceding_blank,
+                                        Block::Table {
+                                            has_preceding_blank, ..
+                                        } => *has_preceding_blank,
                                         Block::SnippetLine(_) | Block::DivMarker(_) => false,
                                         _ => true, // For all other blocks, add blank line
+                                    };
+                                    if should_add_blank && result.last().is_none_or(|s: &String| !s.is_empty()) {
+                                        result.push(String::new());
+                                    }
+                                }
+                            }
+                            Block::Table {
+                                lines: table_lines,
+                                has_preceding_blank: _,
+                            } => {
+                                // Preserve table rows verbatim with their original indentation.
+                                // Reflowing rows would corrupt column alignment and inject `|`
+                                // characters mid-paragraph (issue #590).
+                                // The leading blank line is emitted by the previous block.
+                                for (idx, (content, orig_indent)) in table_lines.iter().enumerate() {
+                                    if is_first_block && idx == 0 {
+                                        // First line of first block gets the list marker
+                                        result.push(format!(
+                                            "{marker}{}",
+                                            " ".repeat(orig_indent.saturating_sub(marker_len)) + content
+                                        ));
+                                        is_first_block = false;
+                                    } else {
+                                        result.push(format!("{}{}", " ".repeat(*orig_indent), content));
+                                    }
+                                }
+
+                                // Add blank line after table block if there's a next block.
+                                if block_idx < blocks.len() - 1 {
+                                    let next_block = &blocks[block_idx + 1];
+                                    let should_add_blank = match next_block {
+                                        Block::Code {
+                                            has_preceding_blank, ..
+                                        } => *has_preceding_blank,
+                                        Block::Html {
+                                            has_preceding_blank, ..
+                                        } => *has_preceding_blank,
+                                        Block::Table {
+                                            has_preceding_blank, ..
+                                        } => *has_preceding_blank,
+                                        Block::SnippetLine(_) | Block::DivMarker(_) => false,
+                                        _ => true,
                                     };
                                     if should_add_blank && result.last().is_none_or(|s: &String| !s.is_empty()) {
                                         result.push(String::new());
@@ -2755,6 +2453,9 @@ impl MD013LineLength {
                                     let next_block = &blocks[block_idx + 1];
                                     let should_add_blank = match next_block {
                                         Block::Code {
+                                            has_preceding_blank, ..
+                                        } => *has_preceding_blank,
+                                        Block::Table {
                                             has_preceding_blank, ..
                                         } => *has_preceding_blank,
                                         Block::SnippetLine(_) | Block::DivMarker(_) => false,

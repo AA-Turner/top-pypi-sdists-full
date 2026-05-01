@@ -6,8 +6,8 @@ from typing import Iterable
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -49,13 +49,13 @@ class RulesResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        rules: Iterable[rule_update_params.Rule] | NotGiven = NOT_GIVEN,
+        rules: Iterable[rule_update_params.Rule] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[RuleUpdateResponse]:
         """
         Put Rules
@@ -74,7 +74,7 @@ class RulesResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/cloud_connector/rules",
+            path_template("/zones/{zone_id}/cloud_connector/rules", zone_id=zone_id),
             page=SyncSinglePage[RuleUpdateResponse],
             body=maybe_transform(rules, Iterable[rule_update_params.Rule]),
             options=make_request_options(
@@ -93,7 +93,7 @@ class RulesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[RuleListResponse]:
         """
         Rules
@@ -112,7 +112,7 @@ class RulesResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/cloud_connector/rules",
+            path_template("/zones/{zone_id}/cloud_connector/rules", zone_id=zone_id),
             page=SyncSinglePage[RuleListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -145,13 +145,13 @@ class AsyncRulesResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        rules: Iterable[rule_update_params.Rule] | NotGiven = NOT_GIVEN,
+        rules: Iterable[rule_update_params.Rule] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[RuleUpdateResponse, AsyncSinglePage[RuleUpdateResponse]]:
         """
         Put Rules
@@ -170,7 +170,7 @@ class AsyncRulesResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/cloud_connector/rules",
+            path_template("/zones/{zone_id}/cloud_connector/rules", zone_id=zone_id),
             page=AsyncSinglePage[RuleUpdateResponse],
             body=maybe_transform(rules, Iterable[rule_update_params.Rule]),
             options=make_request_options(
@@ -189,7 +189,7 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[RuleListResponse, AsyncSinglePage[RuleListResponse]]:
         """
         Rules
@@ -208,7 +208,7 @@ class AsyncRulesResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/cloud_connector/rules",
+            path_template("/zones/{zone_id}/cloud_connector/rules", zone_id=zone_id),
             page=AsyncSinglePage[RuleListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

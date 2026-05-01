@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Dict, Type, Optional, cast
+from typing import Type, Optional, cast
+from typing_extensions import Literal
 
 import httpx
 
@@ -46,8 +47,18 @@ from .settings import (
     SettingsResourceWithStreamingResponse,
     AsyncSettingsResourceWithStreamingResponse,
 )
-from ......_types import NOT_GIVEN, Body, Query, Headers, NotGiven, FileTypes
-from ......_utils import maybe_transform, async_maybe_transform
+from ......_types import (
+    Body,
+    Omit,
+    Query,
+    Headers,
+    NotGiven,
+    FileTypes,
+    SequenceNotStr,
+    omit,
+    not_given,
+)
+from ......_utils import is_given, path_template, maybe_transform, deepcopy_minimal, async_maybe_transform
 from ......_compat import cached_property
 from .asset_upload import (
     AssetUploadResource,
@@ -124,13 +135,14 @@ class ScriptsResource(SyncAPIResource):
         account_id: str,
         dispatch_namespace: str,
         metadata: script_update_params.Metadata,
-        files: Dict[str, FileTypes] = {},
+        bindings_inherit: Literal["strict"] | Omit = omit,
+        files: SequenceNotStr[FileTypes] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptUpdateResponse:
         """Upload a worker module to a Workers for Platforms namespace.
 
@@ -145,7 +157,19 @@ class ScriptsResource(SyncAPIResource):
 
           script_name: Name of the script, used in URLs and route configuration.
 
-          metadata: JSON encoded metadata about the uploaded parts and Worker configuration.
+          metadata: JSON-encoded metadata about the uploaded parts and Worker configuration.
+
+          bindings_inherit: When set to "strict", the upload will fail if any `inherit` type bindings cannot
+              be resolved against the previous version of the script. Without this,
+              unresolvable inherit bindings are silently dropped.
+
+          files: An array of modules (often JavaScript files) comprising a Worker script. At
+              least one module must be present and referenced in the metadata as `main_module`
+              or `body_part` by filename.<br/>Possible Content-Type(s) are:
+              `application/javascript+module`, `text/javascript+module`,
+              `application/javascript`, `text/javascript`, `text/x-python`,
+              `text/x-python-requirement`, `application/wasm`, `text/plain`,
+              `application/octet-stream`, `application/source-map`.
 
           extra_headers: Send extra headers
 
@@ -161,20 +185,33 @@ class ScriptsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `dispatch_namespace` but received {dispatch_namespace!r}")
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
-        # It should be noted that the actual Content-Type header that will be
-        # sent to the server will contain a `boundary` parameter, e.g.
-        # multipart/form-data; boundary=---abc--
-        extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
+        body = deepcopy_minimal(
+            {
+                "metadata": metadata,
+            }
+        )
+        extracted_files = [("files", file) for file in files] if is_given(files) else []
+        if extracted_files:
+            # It should be noted that the actual Content-Type header that will be
+            # sent to the server will contain a `boundary` parameter, e.g.
+            # multipart/form-data; boundary=---abc--
+            extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._put(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
-            body=maybe_transform({"metadata": metadata}, script_update_params.ScriptUpdateParams),
-            files=files,
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+            ),
+            body=maybe_transform(body, script_update_params.ScriptUpdateParams),
+            files=extracted_files,
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                multipart_syntax='json',
+                multipart_syntax="json",
+                query=maybe_transform({"bindings_inherit": bindings_inherit}, script_update_params.ScriptUpdateParams),
                 post_parser=ResultWrapper[ScriptUpdateResponse]._unwrapper,
             ),
             cast_to=cast(Type[ScriptUpdateResponse], ResultWrapper[ScriptUpdateResponse]),
@@ -186,13 +223,13 @@ class ScriptsResource(SyncAPIResource):
         *,
         account_id: str,
         dispatch_namespace: str,
-        force: bool | NotGiven = NOT_GIVEN,
+        force: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """Delete a worker from a Workers for Platforms namespace.
 
@@ -225,7 +262,12 @@ class ScriptsResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._delete(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -248,7 +290,7 @@ class ScriptsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Script:
         """
         Fetch information about a script uploaded to a Workers for Platforms namespace.
@@ -275,7 +317,12 @@ class ScriptsResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._get(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -338,13 +385,14 @@ class AsyncScriptsResource(AsyncAPIResource):
         account_id: str,
         dispatch_namespace: str,
         metadata: script_update_params.Metadata,
-        files: Dict[str, FileTypes] = {},
+        bindings_inherit: Literal["strict"] | Omit = omit,
+        files: SequenceNotStr[FileTypes] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptUpdateResponse:
         """Upload a worker module to a Workers for Platforms namespace.
 
@@ -359,7 +407,19 @@ class AsyncScriptsResource(AsyncAPIResource):
 
           script_name: Name of the script, used in URLs and route configuration.
 
-          metadata: JSON encoded metadata about the uploaded parts and Worker configuration.
+          metadata: JSON-encoded metadata about the uploaded parts and Worker configuration.
+
+          bindings_inherit: When set to "strict", the upload will fail if any `inherit` type bindings cannot
+              be resolved against the previous version of the script. Without this,
+              unresolvable inherit bindings are silently dropped.
+
+          files: An array of modules (often JavaScript files) comprising a Worker script. At
+              least one module must be present and referenced in the metadata as `main_module`
+              or `body_part` by filename.<br/>Possible Content-Type(s) are:
+              `application/javascript+module`, `text/javascript+module`,
+              `application/javascript`, `text/javascript`, `text/x-python`,
+              `text/x-python-requirement`, `application/wasm`, `text/plain`,
+              `application/octet-stream`, `application/source-map`.
 
           extra_headers: Send extra headers
 
@@ -375,20 +435,35 @@ class AsyncScriptsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `dispatch_namespace` but received {dispatch_namespace!r}")
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
-        # It should be noted that the actual Content-Type header that will be
-        # sent to the server will contain a `boundary` parameter, e.g.
-        # multipart/form-data; boundary=---abc--
-        extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
+        body = deepcopy_minimal(
+            {
+                "metadata": metadata,
+            }
+        )
+        extracted_files = [("files", file) for file in files] if is_given(files) else []
+        if extracted_files:
+            # It should be noted that the actual Content-Type header that will be
+            # sent to the server will contain a `boundary` parameter, e.g.
+            # multipart/form-data; boundary=---abc--
+            extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._put(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
-            body=await async_maybe_transform({"metadata": metadata}, script_update_params.ScriptUpdateParams),
-            files=files,
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+            ),
+            body=await async_maybe_transform(body, script_update_params.ScriptUpdateParams),
+            files=extracted_files,
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                multipart_syntax='json',
+                multipart_syntax="json",
+                query=await async_maybe_transform(
+                    {"bindings_inherit": bindings_inherit}, script_update_params.ScriptUpdateParams
+                ),
                 post_parser=ResultWrapper[ScriptUpdateResponse]._unwrapper,
             ),
             cast_to=cast(Type[ScriptUpdateResponse], ResultWrapper[ScriptUpdateResponse]),
@@ -400,13 +475,13 @@ class AsyncScriptsResource(AsyncAPIResource):
         *,
         account_id: str,
         dispatch_namespace: str,
-        force: bool | NotGiven = NOT_GIVEN,
+        force: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """Delete a worker from a Workers for Platforms namespace.
 
@@ -439,7 +514,12 @@ class AsyncScriptsResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._delete(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -462,7 +542,7 @@ class AsyncScriptsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Script:
         """
         Fetch information about a script uploaded to a Workers for Platforms namespace.
@@ -489,7 +569,12 @@ class AsyncScriptsResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._get(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

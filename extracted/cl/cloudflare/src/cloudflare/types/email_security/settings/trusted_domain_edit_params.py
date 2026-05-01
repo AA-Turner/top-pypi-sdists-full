@@ -10,22 +10,22 @@ __all__ = ["TrustedDomainEditParams"]
 
 class TrustedDomainEditParams(TypedDict, total=False):
     account_id: Required[str]
-    """Account Identifier"""
+    """Identifier."""
 
     comments: Optional[str]
 
-    is_recent: Optional[bool]
+    is_recent: bool
     """
     Select to prevent recently registered domains from triggering a Suspicious or
     Malicious disposition.
     """
 
-    is_regex: Optional[bool]
+    is_regex: bool
 
-    is_similarity: Optional[bool]
+    is_similarity: bool
     """
     Select for partner or other approved domains that have similar spelling to your
     connected domains. Prevents listed domains from triggering a Spoof disposition.
     """
 
-    pattern: Optional[str]
+    pattern: str

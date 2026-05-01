@@ -1,5 +1,7 @@
+import json
 import os
 from argparse import ArgumentParser, Namespace
+from typing import Any, Mapping
 from urllib.parse import quote, urlparse, urlunparse
 
 from redisvl.redis.constants import REDIS_URL_ENV_VAR
@@ -74,20 +76,79 @@ def create_redis_url(args: Namespace) -> str:
 
 
 def add_index_parsing_options(parser: ArgumentParser) -> ArgumentParser:
-    parser.add_argument("-i", "--index", help="Index name", type=str, required=False)
-    parser.add_argument(
-        "-s", "--schema", help="Path to schema file", type=str, required=False
+    index_target_group = parser.add_argument_group("Index selection")
+    index_target_group.add_argument(
+        "-i",
+        "--index",
+        help="Redis index name to connect to",
+        type=str,
+        required=False,
     )
-    parser.add_argument("-u", "--url", help="Redis URL", type=str, required=False)
-    parser.add_argument("--host", help="Redis host", type=str, default=None)
-    parser.add_argument("-p", "--port", help="Redis port", type=int, default=None)
-    parser.add_argument("--user", help="Redis username", type=str, default=None)
-    parser.add_argument("--ssl", help="Use SSL", action="store_true")
-    parser.add_argument(
+    index_target_group.add_argument(
+        "-s",
+        "--schema",
+        help="Path to a schema YAML file",
+        type=str,
+        required=False,
+    )
+
+    redis_group = parser.add_argument_group("Redis connection options")
+    redis_group.add_argument(
+        "-u",
+        "--url",
+        help="Redis URL for data-plane commands",
+        type=str,
+        required=False,
+    )
+    redis_group.add_argument(
+        "--host",
+        help="Redis host for data-plane commands",
+        type=str,
+        default=None,
+    )
+    redis_group.add_argument(
+        "-p",
+        "--port",
+        help="Redis port for data-plane commands",
+        type=int,
+        default=None,
+    )
+    redis_group.add_argument(
+        "--user",
+        help="Redis username for data-plane commands",
+        type=str,
+        default=None,
+    )
+    redis_group.add_argument("--ssl", help="Use SSL for Redis", action="store_true")
+    redis_group.add_argument(
         "-a",
         "--password",
-        help="Redis password",
+        help="Redis password for data-plane commands",
         type=str,
         default=None,
     )
     return parser
+
+
+def _cli_json_default(obj: object) -> object:
+    """Handle common non-JSON-native types (e.g. bytes from Redis) for cli_print_json."""
+    if isinstance(obj, bytes):
+        return obj.decode("utf-8", errors="replace")
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def add_json_output_flag(parser: ArgumentParser) -> ArgumentParser:
+    """Register ``--json`` for machine-readable stdout (one JSON object on success)."""
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json",
+        default=False,
+        help="Format output (when successful) as machine-readable JSON",
+    )
+    return parser
+
+
+def cli_print_json(data: Mapping[str, Any]) -> None:
+    """Write a single JSON object to stdout (deterministic key order for tests and scripts)."""
+    print(json.dumps(data, default=_cli_json_default))

@@ -1,5 +1,7 @@
 from devpi_common.url import URL
+from pathlib import Path
 import json
+import sys
 
 
 def main(hub, args=None):
@@ -11,7 +13,7 @@ def main(hub, args=None):
 
     current = hub.current
 
-    if path_url.scheme in ('http', 'https'):
+    if path_url.scheme in ("http", "https"):
         url = path_url
     elif not path_url.path.startswith("/") and not current.index:
         hub.fatal("cannot use relative path without an active index")
@@ -27,7 +29,7 @@ def main(hub, args=None):
     if hub.args.verbose:
         hub.line("GET REQUEST sent to %s" % url)
         for name in sorted(r.headers):
-            hub.line("%s: %s" %(name.upper(), r.headers[name]))
+            hub.line("%s: %s" % (name.upper(), r.headers[name]))
         hub.line()
     hub.out_json(r._json)
 
@@ -38,8 +40,11 @@ def main_patchjson(hub, args=None):
     args = hub.args
 
     path = args.path
-    with open(args.jsonfile) as f:
-        data = json.load(f)
+    if args.jsonfile == "-":
+        data = json.load(sys.stdin)
+    else:
+        with Path(args.jsonfile).open() as f:
+            data = json.load(f)
 
     current = hub.current
 

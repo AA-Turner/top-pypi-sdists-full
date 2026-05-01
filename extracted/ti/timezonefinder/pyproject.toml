@@ -1,6 +1,6 @@
 [project]
 name = "timezonefinder"
-version = "8.2.2"
+version = "8.2.3"
 description = "python package for finding the timezone of any point on earth (coordinates) offline"
 authors = [{name = "jannikmi", email = "github@michelfe.it"}]
 # Replace with license="MIT" with setuptools>=71
@@ -21,6 +21,7 @@ classifiers = [
 ]
 # following the official NumPy support/deprecation schedule:
 # https://numpy.org/neps/nep-0029-deprecation_policy.html#drop-schedule
+# NOTE: When updating requires-python, also update the py_limited_api wheel config in setup.py
 requires-python = ">=3.11,<4"
 dependencies = [
     "numpy>=2",
@@ -49,6 +50,7 @@ test=[
     "pytz>=2022.7.1",
     # setuptoosl required for integration tests: building sdist and wheel
     "setuptools>=61",
+    "pytest-run-parallel>=0.8.2",
 ]
 dev = [
     "pre-commit",
@@ -63,7 +65,7 @@ data = [
     "pydantic>=2.11.7",
 ]
 numba = [
-  "numba>=0.56,<1",
+  "numba>=0.60,<1",
 ]
 pytz = [
     "pytz>=2022.7.1"
@@ -81,7 +83,7 @@ proto = [
 # Package extras
 [project.optional-dependencies]
 numba = [
-  "numba>=0.56,<1",
+  "numba>=0.60,<1",
 ]
 pytz = [
     "pytz>=2022.7.1"

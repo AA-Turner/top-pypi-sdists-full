@@ -16,6 +16,7 @@ readme = "README.md"
 http.workspace = true
 pyo3 = { workspace = true, features = [] }
 ryo3-core.workspace = true
+ryo3-pydantic = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 
@@ -30,6 +31,8 @@ default = []
 ry = [
   "serde",
   "json",
+  "pydantic",
 ]
 serde = ["dep:serde"]
 json = ["serde", "serde_json"]
+pydantic = ["dep:ryo3-pydantic"]

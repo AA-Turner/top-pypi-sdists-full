@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ggshield
-Version: 1.50.2
+Version: 1.50.3
 Summary: Detect secrets from all sources using GitGuardian's brains
 Project-URL: Homepage, https://github.com/GitGuardian/ggshield
 Author-email: GitGuardian <support@gitguardian.com>

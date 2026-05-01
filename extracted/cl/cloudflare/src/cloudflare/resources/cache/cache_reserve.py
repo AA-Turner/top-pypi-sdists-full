@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -58,7 +58,7 @@ class CacheReserveResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CacheReserveClearResponse]:
         """
         You can use Cache Reserve Clear to clear your Cache Reserve, but you must first
@@ -67,7 +67,7 @@ class CacheReserveResource(SyncAPIResource):
         that you cannot undo or cancel this operation.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -80,7 +80,7 @@ class CacheReserveResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
-            f"/zones/{zone_id}/cache/cache_reserve_clear",
+            path_template("/zones/{zone_id}/cache/cache_reserve_clear", zone_id=zone_id),
             body=maybe_transform(body, cache_reserve_clear_params.CacheReserveClearParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -102,7 +102,7 @@ class CacheReserveResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CacheReserveEditResponse]:
         """
         Increase cache lifetimes by automatically storing all cacheable files into
@@ -113,7 +113,7 @@ class CacheReserveResource(SyncAPIResource):
         for more information.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           value: Value of the Cache Reserve zone setting.
 
@@ -128,7 +128,7 @@ class CacheReserveResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._patch(
-            f"/zones/{zone_id}/cache/cache_reserve",
+            path_template("/zones/{zone_id}/cache/cache_reserve", zone_id=zone_id),
             body=maybe_transform({"value": value}, cache_reserve_edit_params.CacheReserveEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -149,7 +149,7 @@ class CacheReserveResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CacheReserveGetResponse]:
         """
         Increase cache lifetimes by automatically storing all cacheable files into
@@ -160,7 +160,7 @@ class CacheReserveResource(SyncAPIResource):
         for more information.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -173,7 +173,7 @@ class CacheReserveResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/cache/cache_reserve",
+            path_template("/zones/{zone_id}/cache/cache_reserve", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -193,7 +193,7 @@ class CacheReserveResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CacheReserveStatusResponse]:
         """
         You can use Cache Reserve Clear to clear your Cache Reserve, but you must first
@@ -202,7 +202,7 @@ class CacheReserveResource(SyncAPIResource):
         that you cannot undo or cancel this operation.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -215,7 +215,7 @@ class CacheReserveResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/cache/cache_reserve_clear",
+            path_template("/zones/{zone_id}/cache/cache_reserve_clear", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -257,7 +257,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CacheReserveClearResponse]:
         """
         You can use Cache Reserve Clear to clear your Cache Reserve, but you must first
@@ -266,7 +266,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         that you cannot undo or cancel this operation.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -279,7 +279,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
-            f"/zones/{zone_id}/cache/cache_reserve_clear",
+            path_template("/zones/{zone_id}/cache/cache_reserve_clear", zone_id=zone_id),
             body=await async_maybe_transform(body, cache_reserve_clear_params.CacheReserveClearParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -301,7 +301,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CacheReserveEditResponse]:
         """
         Increase cache lifetimes by automatically storing all cacheable files into
@@ -312,7 +312,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         for more information.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           value: Value of the Cache Reserve zone setting.
 
@@ -327,7 +327,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._patch(
-            f"/zones/{zone_id}/cache/cache_reserve",
+            path_template("/zones/{zone_id}/cache/cache_reserve", zone_id=zone_id),
             body=await async_maybe_transform({"value": value}, cache_reserve_edit_params.CacheReserveEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -348,7 +348,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CacheReserveGetResponse]:
         """
         Increase cache lifetimes by automatically storing all cacheable files into
@@ -359,7 +359,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         for more information.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -372,7 +372,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/cache/cache_reserve",
+            path_template("/zones/{zone_id}/cache/cache_reserve", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -392,7 +392,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CacheReserveStatusResponse]:
         """
         You can use Cache Reserve Clear to clear your Cache Reserve, but you must first
@@ -401,7 +401,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         that you cannot undo or cancel this operation.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -414,7 +414,7 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/cache/cache_reserve_clear",
+            path_template("/zones/{zone_id}/cache/cache_reserve_clear", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

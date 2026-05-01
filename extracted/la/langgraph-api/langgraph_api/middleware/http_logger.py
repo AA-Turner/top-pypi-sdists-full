@@ -23,6 +23,48 @@ def _get_level(status: int | None) -> int:
     return logging.ERROR
 
 
+# Both libraries are optional dependencies. Import eagerly at module load
+# so any blocking work in their __init__ (e.g. ddtrace's os.getcwd()) runs
+# before the event loop starts, not lazily on the request hot path.
+try:
+    from ddtrace import tracer as _dd_tracer  # type: ignore[unresolved-import]
+except ImportError:
+    _dd_tracer = None
+
+try:
+    from opentelemetry import trace as _otel_trace  # type: ignore[unresolved-import]
+except ImportError:
+    _otel_trace = None
+
+
+def _capture_trace_ids() -> dict[str, str]:
+    """Snapshot the active trace/span IDs.
+
+    The access log fires from the outermost middleware's ``finally`` block, by
+    which point ddtrace's and OTel's request spans have already closed. Capture
+    IDs while the span is still active (e.g. on ``http.response.start``) so the
+    log line can be correlated to its trace.
+
+    Returns ``{}`` on any tracing-library error — this runs from response
+    callbacks and exception handlers, so it must never raise (a failure here
+    would mask the real application exception or turn a 200 into a 500).
+    """
+    ids: dict[str, str] = {}
+    try:
+        dd_span = _dd_tracer.current_span() if _dd_tracer is not None else None
+        if dd_span is not None:
+            ids["dd.trace_id"] = str(dd_span.trace_id)
+            ids["dd.span_id"] = str(dd_span.span_id)
+        if _otel_trace is not None:
+            ctx = _otel_trace.get_current_span().get_span_context()
+            if ctx.is_valid:
+                ids["otel.trace_id"] = format(ctx.trace_id, "032x")
+                ids["otel.span_id"] = format(ctx.span_id, "016x")
+    except Exception:
+        return {}
+    return ids
+
+
 class AccessLoggerMiddleware:
     def __init__(
         self,
@@ -46,7 +88,12 @@ class AccessLoggerMiddleware:
             return await self.app(scope, receive, send)  # pragma: no cover
 
         loop = asyncio.get_event_loop()
-        info = {"response": {}, "response_bytes": 0, "first_byte_time": None}
+        info = {
+            "response": {},
+            "response_bytes": 0,
+            "first_byte_time": None,
+            "trace_ids": {},
+        }
 
         if self.debug_enabled:
 
@@ -58,6 +105,7 @@ class AccessLoggerMiddleware:
             async def inner_send(message: Message) -> None:
                 if message["type"] == "http.response.start":
                     info["response"] = message
+                    info["trace_ids"] = _capture_trace_ids()
                 elif message["type"] == "http.response.body":
                     if info["first_byte_time"] is None:
                         info["first_byte_time"] = loop.time()
@@ -71,6 +119,7 @@ class AccessLoggerMiddleware:
             async def inner_send(message) -> None:
                 if message["type"] == "http.response.start":
                     info["response"] = message
+                    info["trace_ids"] = _capture_trace_ids()
                 elif message["type"] == "http.response.body":
                     if info["first_byte_time"] is None:
                         info["first_byte_time"] = loop.time()
@@ -82,9 +131,13 @@ class AccessLoggerMiddleware:
             await self.app(scope, inner_receive, inner_send)
         except ClientDisconnect as exc:
             info["response"]["status"] = 499
+            if not info["trace_ids"]:
+                info["trace_ids"] = _capture_trace_ids()
             raise exc
         except Exception as exc:
             info["response"]["status"] = 500
+            if not info["trace_ids"]:
+                info["trace_ids"] = _capture_trace_ids()
             raise exc
         finally:
             info["end_time"] = loop.time()
@@ -121,6 +174,7 @@ class AccessLoggerMiddleware:
                 proto=scope.get("http_version"),
                 req_header=_headers_to_dict(scope.get("headers")),
                 res_header=_headers_to_dict(info["response"].get("headers")),
+                **info["trace_ids"],
             )
 
 

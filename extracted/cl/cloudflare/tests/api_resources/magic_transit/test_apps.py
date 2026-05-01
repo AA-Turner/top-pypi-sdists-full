@@ -47,6 +47,7 @@ class TestApps:
             type="Development",
             hostnames=["auth.cloudflare.com"],
             ip_subnets=["192.0.2.0/24"],
+            source_subnets=["192.0.2.0/24"],
         )
         assert_matches_type(Optional[AppCreateResponse], app, path=["response"])
 
@@ -118,6 +119,7 @@ class TestApps:
             hostnames=["auth.cloudflare.com"],
             ip_subnets=["1.1.1.1/32"],
             name="Cloudflare Dashboard",
+            source_subnets=["1.1.1.1/32"],
             type="Development",
         )
         assert_matches_type(Optional[AppUpdateResponse], app, path=["response"])
@@ -291,6 +293,7 @@ class TestApps:
             hostnames=["auth.cloudflare.com"],
             ip_subnets=["1.1.1.1/32"],
             name="Cloudflare Dashboard",
+            source_subnets=["1.1.1.1/32"],
             type="Development",
         )
         assert_matches_type(Optional[AppEditResponse], app, path=["response"])
@@ -346,7 +349,9 @@ class TestApps:
 
 
 class TestAsyncApps:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @pytest.mark.skip(
         reason="prism errors - https://github.com/cloudflare/cloudflare-python/actions/runs/9360388260/job/25765690361?pr=482#step:5:7212"
@@ -371,6 +376,7 @@ class TestAsyncApps:
             type="Development",
             hostnames=["auth.cloudflare.com"],
             ip_subnets=["192.0.2.0/24"],
+            source_subnets=["192.0.2.0/24"],
         )
         assert_matches_type(Optional[AppCreateResponse], app, path=["response"])
 
@@ -442,6 +448,7 @@ class TestAsyncApps:
             hostnames=["auth.cloudflare.com"],
             ip_subnets=["1.1.1.1/32"],
             name="Cloudflare Dashboard",
+            source_subnets=["1.1.1.1/32"],
             type="Development",
         )
         assert_matches_type(Optional[AppUpdateResponse], app, path=["response"])
@@ -615,6 +622,7 @@ class TestAsyncApps:
             hostnames=["auth.cloudflare.com"],
             ip_subnets=["1.1.1.1/32"],
             name="Cloudflare Dashboard",
+            source_subnets=["1.1.1.1/32"],
             type="Development",
         )
         assert_matches_type(Optional[AppEditResponse], app, path=["response"])

@@ -7,8 +7,8 @@ from typing_extensions import overload
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import required_args, maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, required_args, maybe_transform, async_maybe_transform
 from .scim.scim import (
     SCIMResource,
     AsyncSCIMResource,
@@ -26,7 +26,7 @@ from ...._response import (
     async_to_streamed_response_wrapper,
 )
 from ...._wrappers import ResultWrapper
-from ....pagination import SyncSinglePage, AsyncSinglePage
+from ....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ...._base_client import AsyncPaginator, make_request_options
 from ....types.zero_trust import (
     IdentityProviderType,
@@ -75,15 +75,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_create_params.AzureADConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -123,15 +123,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_create_params.AccessCentrifyConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -171,15 +171,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -219,15 +219,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -267,15 +267,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_create_params.AccessGoogleConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -315,15 +315,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_create_params.AccessGoogleAppsConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -363,15 +363,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -411,15 +411,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_create_params.AccessOIDCConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -459,15 +459,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_create_params.AccessOktaConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -507,15 +507,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_create_params.AccessOneloginConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -555,15 +555,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_create_params.AccessPingoneConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -603,15 +603,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_create_params.AccessSAMLConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -651,15 +651,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -699,15 +699,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_create_params.AccessOnetimepinConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -757,15 +757,15 @@ class IdentityProvidersResource(SyncAPIResource):
         | identity_provider_create_params.AccessOnetimepinConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         if account_id and zone_id:
             raise ValueError("You cannot provide both account_id and zone_id")
@@ -782,7 +782,11 @@ class IdentityProvidersResource(SyncAPIResource):
         return cast(
             Optional[IdentityProvider],
             self._post(
-                f"/{account_or_zone}/{account_or_zone_id}/access/identity_providers",
+                path_template(
+                    "/{account_or_zone}/{account_or_zone_id}/access/identity_providers",
+                    account_or_zone=account_or_zone,
+                    account_or_zone_id=account_or_zone_id,
+                ),
                 body=maybe_transform(
                     {
                         "config": config,
@@ -813,15 +817,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_update_params.AzureADConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -864,15 +868,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_update_params.AccessCentrifyConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -915,15 +919,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -966,15 +970,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -1017,15 +1021,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_update_params.AccessGoogleConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -1068,15 +1072,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_update_params.AccessGoogleAppsConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -1119,15 +1123,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -1170,15 +1174,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_update_params.AccessOIDCConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -1221,15 +1225,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_update_params.AccessOktaConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -1272,15 +1276,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_update_params.AccessOneloginConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -1323,15 +1327,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_update_params.AccessPingoneConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -1374,15 +1378,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_update_params.AccessSAMLConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -1425,15 +1429,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -1476,15 +1480,15 @@ class IdentityProvidersResource(SyncAPIResource):
         config: identity_provider_update_params.AccessOnetimepinConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -1537,15 +1541,15 @@ class IdentityProvidersResource(SyncAPIResource):
         | identity_provider_update_params.AccessOnetimepinConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         if not identity_provider_id:
             raise ValueError(
@@ -1566,7 +1570,12 @@ class IdentityProvidersResource(SyncAPIResource):
         return cast(
             Optional[IdentityProvider],
             self._put(
-                f"/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+                path_template(
+                    "/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+                    identity_provider_id=identity_provider_id,
+                    account_or_zone=account_or_zone,
+                    account_or_zone_id=account_or_zone_id,
+                ),
                 body=maybe_transform(
                     {
                         "config": config,
@@ -1592,16 +1601,18 @@ class IdentityProvidersResource(SyncAPIResource):
     def list(
         self,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_enabled: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        scim_enabled: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncSinglePage[IdentityProviderListResponse]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncV4PagePaginationArray[IdentityProviderListResponse]:
         """
         Lists all configured identity providers.
 
@@ -1609,6 +1620,10 @@ class IdentityProvidersResource(SyncAPIResource):
           account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
 
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
+
+          page: Page number of results.
+
+          per_page: Number of results per page.
 
           scim_enabled: Indicates to Access to only retrieve identity providers that have the System for
               Cross-Domain Identity Management (SCIM) enabled.
@@ -1634,15 +1649,24 @@ class IdentityProvidersResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._get_api_list(
-            f"/{account_or_zone}/{account_or_zone_id}/access/identity_providers",
-            page=SyncSinglePage[IdentityProviderListResponse],
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/identity_providers",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
+            page=SyncV4PagePaginationArray[IdentityProviderListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
                 query=maybe_transform(
-                    {"scim_enabled": scim_enabled}, identity_provider_list_params.IdentityProviderListParams
+                    {
+                        "page": page,
+                        "per_page": per_page,
+                        "scim_enabled": scim_enabled,
+                    },
+                    identity_provider_list_params.IdentityProviderListParams,
                 ),
             ),
             model=cast(
@@ -1654,14 +1678,14 @@ class IdentityProvidersResource(SyncAPIResource):
         self,
         identity_provider_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProviderDeleteResponse]:
         """
         Deletes an identity provider from Access.
@@ -1698,7 +1722,12 @@ class IdentityProvidersResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._delete(
-            f"/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+                identity_provider_id=identity_provider_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -1713,14 +1742,14 @@ class IdentityProvidersResource(SyncAPIResource):
         self,
         identity_provider_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Fetches a configured identity provider.
@@ -1759,7 +1788,12 @@ class IdentityProvidersResource(SyncAPIResource):
         return cast(
             Optional[IdentityProvider],
             self._get(
-                f"/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+                path_template(
+                    "/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+                    identity_provider_id=identity_provider_id,
+                    account_or_zone=account_or_zone,
+                    account_or_zone_id=account_or_zone_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -1805,15 +1839,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_create_params.AzureADConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -1853,15 +1887,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_create_params.AccessCentrifyConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -1901,15 +1935,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -1949,15 +1983,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -1997,15 +2031,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_create_params.AccessGoogleConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -2045,15 +2079,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_create_params.AccessGoogleAppsConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -2093,15 +2127,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -2141,15 +2175,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_create_params.AccessOIDCConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -2189,15 +2223,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_create_params.AccessOktaConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -2237,15 +2271,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_create_params.AccessOneloginConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -2285,15 +2319,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_create_params.AccessPingoneConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -2333,15 +2367,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_create_params.AccessSAMLConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -2381,15 +2415,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -2429,15 +2463,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_create_params.AccessOnetimepinConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Adds a new identity provider to Access.
@@ -2487,15 +2521,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         | identity_provider_create_params.AccessOnetimepinConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         if account_id and zone_id:
             raise ValueError("You cannot provide both account_id and zone_id")
@@ -2512,7 +2546,11 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         return cast(
             Optional[IdentityProvider],
             await self._post(
-                f"/{account_or_zone}/{account_or_zone_id}/access/identity_providers",
+                path_template(
+                    "/{account_or_zone}/{account_or_zone_id}/access/identity_providers",
+                    account_or_zone=account_or_zone,
+                    account_or_zone_id=account_or_zone_id,
+                ),
                 body=await async_maybe_transform(
                     {
                         "config": config,
@@ -2543,15 +2581,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_update_params.AzureADConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -2594,15 +2632,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_update_params.AccessCentrifyConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -2645,15 +2683,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -2696,15 +2734,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -2747,15 +2785,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_update_params.AccessGoogleConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -2798,15 +2836,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_update_params.AccessGoogleAppsConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -2849,15 +2887,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -2900,15 +2938,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_update_params.AccessOIDCConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -2951,15 +2989,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_update_params.AccessOktaConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -3002,15 +3040,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_update_params.AccessOneloginConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -3053,15 +3091,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_update_params.AccessPingoneConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -3104,15 +3142,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_update_params.AccessSAMLConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -3155,15 +3193,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: GenericOAuthConfigParam,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -3206,15 +3244,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         config: identity_provider_update_params.AccessOnetimepinConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Updates a configured identity provider.
@@ -3267,15 +3305,15 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         | identity_provider_update_params.AccessOnetimepinConfig,
         name: str,
         type: IdentityProviderType,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_config: IdentityProviderSCIMConfigParam | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        scim_config: IdentityProviderSCIMConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         if not identity_provider_id:
             raise ValueError(
@@ -3296,7 +3334,12 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         return cast(
             Optional[IdentityProvider],
             await self._put(
-                f"/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+                path_template(
+                    "/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+                    identity_provider_id=identity_provider_id,
+                    account_or_zone=account_or_zone,
+                    account_or_zone_id=account_or_zone_id,
+                ),
                 body=await async_maybe_transform(
                     {
                         "config": config,
@@ -3322,16 +3365,18 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
     def list(
         self,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        scim_enabled: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        scim_enabled: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[IdentityProviderListResponse, AsyncSinglePage[IdentityProviderListResponse]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[IdentityProviderListResponse, AsyncV4PagePaginationArray[IdentityProviderListResponse]]:
         """
         Lists all configured identity providers.
 
@@ -3339,6 +3384,10 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
           account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
 
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
+
+          page: Page number of results.
+
+          per_page: Number of results per page.
 
           scim_enabled: Indicates to Access to only retrieve identity providers that have the System for
               Cross-Domain Identity Management (SCIM) enabled.
@@ -3364,15 +3413,24 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._get_api_list(
-            f"/{account_or_zone}/{account_or_zone_id}/access/identity_providers",
-            page=AsyncSinglePage[IdentityProviderListResponse],
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/identity_providers",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
+            page=AsyncV4PagePaginationArray[IdentityProviderListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
                 query=maybe_transform(
-                    {"scim_enabled": scim_enabled}, identity_provider_list_params.IdentityProviderListParams
+                    {
+                        "page": page,
+                        "per_page": per_page,
+                        "scim_enabled": scim_enabled,
+                    },
+                    identity_provider_list_params.IdentityProviderListParams,
                 ),
             ),
             model=cast(
@@ -3384,14 +3442,14 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         self,
         identity_provider_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProviderDeleteResponse]:
         """
         Deletes an identity provider from Access.
@@ -3428,7 +3486,12 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._delete(
-            f"/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+                identity_provider_id=identity_provider_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -3443,14 +3506,14 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         self,
         identity_provider_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IdentityProvider]:
         """
         Fetches a configured identity provider.
@@ -3489,7 +3552,12 @@ class AsyncIdentityProvidersResource(AsyncAPIResource):
         return cast(
             Optional[IdentityProvider],
             await self._get(
-                f"/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+                path_template(
+                    "/{account_or_zone}/{account_or_zone_id}/access/identity_providers/{identity_provider_id}",
+                    identity_provider_id=identity_provider_id,
+                    account_or_zone=account_or_zone,
+                    account_or_zone_id=account_or_zone_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,

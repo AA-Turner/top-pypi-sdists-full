@@ -6,8 +6,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ......_types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ......_utils import maybe_transform
+from ......_types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ......_utils import path_template, maybe_transform
 from ......_compat import cached_property
 from ......_resource import SyncAPIResource, AsyncAPIResource
 from ......_response import (
@@ -49,15 +49,15 @@ class UsersResource(SyncAPIResource):
         policy_test_id: str,
         *,
         account_id: str,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        status: Literal["success", "fail", "error"] | NotGiven = NOT_GIVEN,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        status: Literal["success", "fail", "error"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[UserListResponse]:
         """
         Fetches a single page of user results from an Access policy test.
@@ -66,6 +66,8 @@ class UsersResource(SyncAPIResource):
           account_id: Identifier.
 
           policy_test_id: The UUID of the policy test.
+
+          page: Page number of results.
 
           status: Filter users by their policy evaluation status.
 
@@ -82,7 +84,11 @@ class UsersResource(SyncAPIResource):
         if not policy_test_id:
             raise ValueError(f"Expected a non-empty value for `policy_test_id` but received {policy_test_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/access/policy-tests/{policy_test_id}/users",
+            path_template(
+                "/accounts/{account_id}/access/policy-tests/{policy_test_id}/users",
+                account_id=account_id,
+                policy_test_id=policy_test_id,
+            ),
             page=SyncV4PagePaginationArray[UserListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -127,15 +133,15 @@ class AsyncUsersResource(AsyncAPIResource):
         policy_test_id: str,
         *,
         account_id: str,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        status: Literal["success", "fail", "error"] | NotGiven = NOT_GIVEN,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        status: Literal["success", "fail", "error"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[UserListResponse, AsyncV4PagePaginationArray[UserListResponse]]:
         """
         Fetches a single page of user results from an Access policy test.
@@ -144,6 +150,8 @@ class AsyncUsersResource(AsyncAPIResource):
           account_id: Identifier.
 
           policy_test_id: The UUID of the policy test.
+
+          page: Page number of results.
 
           status: Filter users by their policy evaluation status.
 
@@ -160,7 +168,11 @@ class AsyncUsersResource(AsyncAPIResource):
         if not policy_test_id:
             raise ValueError(f"Expected a non-empty value for `policy_test_id` but received {policy_test_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/access/policy-tests/{policy_test_id}/users",
+            path_template(
+                "/accounts/{account_id}/access/policy-tests/{policy_test_id}/users",
+                account_id=account_id,
+                policy_test_id=policy_test_id,
+            ),
             page=AsyncV4PagePaginationArray[UserListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,

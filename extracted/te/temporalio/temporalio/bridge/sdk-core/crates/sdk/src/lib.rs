@@ -98,11 +98,12 @@ use workflow_future::WorkflowFunction;
 
 pub use temporalio_client::Namespace;
 pub use workflow_context::{
-    ActivityExecutionError, ActivityOptions, BaseWorkflowContext, CancellableFuture,
-    ChildWorkflowExecutionError, ChildWorkflowOptions, ChildWorkflowSignalError,
-    ExternalWorkflowHandle, LocalActivityOptions, NexusOperationOptions, ParentWorkflowInfo,
-    RootWorkflowInfo, Signal, SignalData, StartChildWorkflowExecutionFailedCause,
-    StartedChildWorkflow, SyncWorkflowContext, TimerOptions, WorkflowContext, WorkflowContextView,
+    ActivityCloseTimeouts, ActivityExecutionError, ActivityOptions, BaseWorkflowContext,
+    CancellableFuture, ChildWorkflowExecutionError, ChildWorkflowOptions, ChildWorkflowSignalError,
+    ContinueAsNewOptions, ExternalWorkflowHandle, LocalActivityOptions, NexusOperationOptions,
+    ParentWorkflowInfo, RootWorkflowInfo, Signal, SignalData,
+    StartChildWorkflowExecutionFailedCause, StartedChildWorkflow, SyncWorkflowContext,
+    TimerOptions, WorkflowContext, WorkflowContextView,
 };
 
 use crate::{
@@ -1374,11 +1375,15 @@ mod tests {
     #[allow(unused, clippy::diverging_sub_expression)]
     fn test_activity_via_workflow_context() {
         let wf_ctx: WorkflowContext<MyWorkflow> = unimplemented!();
-        wf_ctx.start_activity(MyActivities::my_activity, (), ActivityOptions::default());
+        wf_ctx.start_activity(
+            MyActivities::my_activity,
+            (),
+            ActivityOptions::start_to_close_timeout(Duration::from_secs(5)),
+        );
         wf_ctx.start_activity(
             MyActivities::takes_self,
             "Hi".to_owned(),
-            ActivityOptions::default(),
+            ActivityOptions::start_to_close_timeout(Duration::from_secs(5)),
         );
     }
 

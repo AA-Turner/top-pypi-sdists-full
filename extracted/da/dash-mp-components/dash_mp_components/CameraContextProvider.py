@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class CameraContextProvider(Component):
@@ -14,12 +26,18 @@ Keyword arguments:
 
 - id (optional):
     The ID used to identify this component in Dash callbacks."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'CameraContextProvider'
-    @_explicitize_args
-    def __init__(self, children=None, id=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        children: typing.Optional[ComponentType] = None,
+        id: typing.Optional[typing.Union[str, dict]] = None,
+        **kwargs
+    ):
         self._prop_names = ['children', 'id']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['children', 'id']
@@ -30,3 +48,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args if k != 'children'}
 
         super(CameraContextProvider, self).__init__(children=children, **args)
+
+setattr(CameraContextProvider, "__init__", _explicitize_args(CameraContextProvider.__init__))

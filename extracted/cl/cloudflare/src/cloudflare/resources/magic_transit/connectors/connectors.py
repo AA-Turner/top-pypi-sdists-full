@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Type, cast
+from typing import List, Type, cast
+from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -35,10 +36,17 @@ from .snapshots.snapshots import (
     SnapshotsResourceWithStreamingResponse,
     AsyncSnapshotsResourceWithStreamingResponse,
 )
-from ....types.magic_transit import connector_edit_params, connector_update_params
+from ....types.magic_transit import (
+    connector_edit_params,
+    connector_list_params,
+    connector_create_params,
+    connector_update_params,
+)
 from ....types.magic_transit.connector_get_response import ConnectorGetResponse
 from ....types.magic_transit.connector_edit_response import ConnectorEditResponse
 from ....types.magic_transit.connector_list_response import ConnectorListResponse
+from ....types.magic_transit.connector_create_response import ConnectorCreateResponse
+from ....types.magic_transit.connector_delete_response import ConnectorDeleteResponse
 from ....types.magic_transit.connector_update_response import ConnectorUpdateResponse
 
 __all__ = ["ConnectorsResource", "AsyncConnectorsResource"]
@@ -72,28 +80,109 @@ class ConnectorsResource(SyncAPIResource):
         """
         return ConnectorsResourceWithStreamingResponse(self)
 
-    def update(
+    def create(
         self,
-        connector_id: str,
         *,
         account_id: str,
-        activated: bool | NotGiven = NOT_GIVEN,
-        interrupt_window_duration_hours: float | NotGiven = NOT_GIVEN,
-        interrupt_window_hour_of_day: float | NotGiven = NOT_GIVEN,
-        notes: str | NotGiven = NOT_GIVEN,
-        timezone: str | NotGiven = NOT_GIVEN,
+        device: connector_create_params.Device,
+        activated: bool | Omit = omit,
+        interrupt_window_days_of_week: List[
+            Literal["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        ]
+        | Omit = omit,
+        interrupt_window_duration_hours: float | Omit = omit,
+        interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
+        interrupt_window_hour_of_day: float | Omit = omit,
+        notes: str | Omit = omit,
+        timezone: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> ConnectorUpdateResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConnectorCreateResponse:
         """
-        Replace Connector
+        Add a connector to your account
 
         Args:
           account_id: Account identifier
+
+          device: Exactly one of id, serial_number, or provision_license must be provided.
+
+          interrupt_window_days_of_week: Allowed days of the week for upgrades. Default is all days.
+
+          interrupt_window_embargo_dates: List of dates (YYYY-MM-DD) when upgrades are blocked.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not account_id:
+            raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
+        return self._post(
+            path_template("/accounts/{account_id}/magic/connectors", account_id=account_id),
+            body=maybe_transform(
+                {
+                    "device": device,
+                    "activated": activated,
+                    "interrupt_window_days_of_week": interrupt_window_days_of_week,
+                    "interrupt_window_duration_hours": interrupt_window_duration_hours,
+                    "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
+                    "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
+                    "notes": notes,
+                    "timezone": timezone,
+                },
+                connector_create_params.ConnectorCreateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[ConnectorCreateResponse]._unwrapper,
+            ),
+            cast_to=cast(Type[ConnectorCreateResponse], ResultWrapper[ConnectorCreateResponse]),
+        )
+
+    def update(
+        self,
+        connector_id: str,
+        *,
+        account_id: str,
+        activated: bool | Omit = omit,
+        interrupt_window_days_of_week: List[
+            Literal["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        ]
+        | Omit = omit,
+        interrupt_window_duration_hours: float | Omit = omit,
+        interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
+        interrupt_window_hour_of_day: float | Omit = omit,
+        notes: str | Omit = omit,
+        provision_license: bool | Omit = omit,
+        timezone: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConnectorUpdateResponse:
+        """
+        Replace Connector or Re-provision License Key
+
+        Args:
+          account_id: Account identifier
+
+          interrupt_window_days_of_week: Allowed days of the week for upgrades. Default is all days.
+
+          interrupt_window_embargo_dates: List of dates (YYYY-MM-DD) when upgrades are blocked.
+
+          provision_license: When true, regenerate license key for the connector.
 
           extra_headers: Send extra headers
 
@@ -108,13 +197,20 @@ class ConnectorsResource(SyncAPIResource):
         if not connector_id:
             raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
         return self._put(
-            f"/accounts/{account_id}/magic/connectors/{connector_id}",
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}",
+                account_id=account_id,
+                connector_id=connector_id,
+            ),
             body=maybe_transform(
                 {
                     "activated": activated,
+                    "interrupt_window_days_of_week": interrupt_window_days_of_week,
                     "interrupt_window_duration_hours": interrupt_window_duration_hours,
+                    "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
                     "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
                     "notes": notes,
+                    "provision_license": provision_license,
                     "timezone": timezone,
                 },
                 connector_update_params.ConnectorUpdateParams,
@@ -133,18 +229,21 @@ class ConnectorsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
+        device_type: Literal["MANAGED", "LICENSED"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[ConnectorListResponse]:
         """
         List Connectors
 
         Args:
           account_id: Account identifier
+
+          device_type: Filter connectors by device type.
 
           extra_headers: Send extra headers
 
@@ -157,33 +256,32 @@ class ConnectorsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/connectors",
+            path_template("/accounts/{account_id}/magic/connectors", account_id=account_id),
             page=SyncSinglePage[ConnectorListResponse],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform({"device_type": device_type}, connector_list_params.ConnectorListParams),
             ),
             model=ConnectorListResponse,
         )
 
-    def edit(
+    def delete(
         self,
         connector_id: str,
         *,
         account_id: str,
-        activated: bool | NotGiven = NOT_GIVEN,
-        interrupt_window_duration_hours: float | NotGiven = NOT_GIVEN,
-        interrupt_window_hour_of_day: float | NotGiven = NOT_GIVEN,
-        notes: str | NotGiven = NOT_GIVEN,
-        timezone: str | NotGiven = NOT_GIVEN,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> ConnectorEditResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConnectorDeleteResponse:
         """
-        Update Connector
+        Remove a connector from your account
 
         Args:
           account_id: Account identifier
@@ -200,14 +298,84 @@ class ConnectorsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not connector_id:
             raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
+        return self._delete(
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}",
+                account_id=account_id,
+                connector_id=connector_id,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[ConnectorDeleteResponse]._unwrapper,
+            ),
+            cast_to=cast(Type[ConnectorDeleteResponse], ResultWrapper[ConnectorDeleteResponse]),
+        )
+
+    def edit(
+        self,
+        connector_id: str,
+        *,
+        account_id: str,
+        activated: bool | Omit = omit,
+        interrupt_window_days_of_week: List[
+            Literal["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        ]
+        | Omit = omit,
+        interrupt_window_duration_hours: float | Omit = omit,
+        interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
+        interrupt_window_hour_of_day: float | Omit = omit,
+        notes: str | Omit = omit,
+        provision_license: bool | Omit = omit,
+        timezone: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConnectorEditResponse:
+        """
+        Edit Connector to update specific properties or Re-provision License Key
+
+        Args:
+          account_id: Account identifier
+
+          interrupt_window_days_of_week: Allowed days of the week for upgrades. Default is all days.
+
+          interrupt_window_embargo_dates: List of dates (YYYY-MM-DD) when upgrades are blocked.
+
+          provision_license: When true, regenerate license key for the connector.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not account_id:
+            raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
+        if not connector_id:
+            raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/magic/connectors/{connector_id}",
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}",
+                account_id=account_id,
+                connector_id=connector_id,
+            ),
             body=maybe_transform(
                 {
                     "activated": activated,
+                    "interrupt_window_days_of_week": interrupt_window_days_of_week,
                     "interrupt_window_duration_hours": interrupt_window_duration_hours,
+                    "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
                     "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
                     "notes": notes,
+                    "provision_license": provision_license,
                     "timezone": timezone,
                 },
                 connector_edit_params.ConnectorEditParams,
@@ -232,7 +400,7 @@ class ConnectorsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ConnectorGetResponse:
         """
         Fetch Connector
@@ -253,7 +421,11 @@ class ConnectorsResource(SyncAPIResource):
         if not connector_id:
             raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/connectors/{connector_id}",
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}",
+                account_id=account_id,
+                connector_id=connector_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -293,28 +465,109 @@ class AsyncConnectorsResource(AsyncAPIResource):
         """
         return AsyncConnectorsResourceWithStreamingResponse(self)
 
-    async def update(
+    async def create(
         self,
-        connector_id: str,
         *,
         account_id: str,
-        activated: bool | NotGiven = NOT_GIVEN,
-        interrupt_window_duration_hours: float | NotGiven = NOT_GIVEN,
-        interrupt_window_hour_of_day: float | NotGiven = NOT_GIVEN,
-        notes: str | NotGiven = NOT_GIVEN,
-        timezone: str | NotGiven = NOT_GIVEN,
+        device: connector_create_params.Device,
+        activated: bool | Omit = omit,
+        interrupt_window_days_of_week: List[
+            Literal["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        ]
+        | Omit = omit,
+        interrupt_window_duration_hours: float | Omit = omit,
+        interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
+        interrupt_window_hour_of_day: float | Omit = omit,
+        notes: str | Omit = omit,
+        timezone: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> ConnectorUpdateResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConnectorCreateResponse:
         """
-        Replace Connector
+        Add a connector to your account
 
         Args:
           account_id: Account identifier
+
+          device: Exactly one of id, serial_number, or provision_license must be provided.
+
+          interrupt_window_days_of_week: Allowed days of the week for upgrades. Default is all days.
+
+          interrupt_window_embargo_dates: List of dates (YYYY-MM-DD) when upgrades are blocked.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not account_id:
+            raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
+        return await self._post(
+            path_template("/accounts/{account_id}/magic/connectors", account_id=account_id),
+            body=await async_maybe_transform(
+                {
+                    "device": device,
+                    "activated": activated,
+                    "interrupt_window_days_of_week": interrupt_window_days_of_week,
+                    "interrupt_window_duration_hours": interrupt_window_duration_hours,
+                    "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
+                    "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
+                    "notes": notes,
+                    "timezone": timezone,
+                },
+                connector_create_params.ConnectorCreateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[ConnectorCreateResponse]._unwrapper,
+            ),
+            cast_to=cast(Type[ConnectorCreateResponse], ResultWrapper[ConnectorCreateResponse]),
+        )
+
+    async def update(
+        self,
+        connector_id: str,
+        *,
+        account_id: str,
+        activated: bool | Omit = omit,
+        interrupt_window_days_of_week: List[
+            Literal["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        ]
+        | Omit = omit,
+        interrupt_window_duration_hours: float | Omit = omit,
+        interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
+        interrupt_window_hour_of_day: float | Omit = omit,
+        notes: str | Omit = omit,
+        provision_license: bool | Omit = omit,
+        timezone: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConnectorUpdateResponse:
+        """
+        Replace Connector or Re-provision License Key
+
+        Args:
+          account_id: Account identifier
+
+          interrupt_window_days_of_week: Allowed days of the week for upgrades. Default is all days.
+
+          interrupt_window_embargo_dates: List of dates (YYYY-MM-DD) when upgrades are blocked.
+
+          provision_license: When true, regenerate license key for the connector.
 
           extra_headers: Send extra headers
 
@@ -329,13 +582,20 @@ class AsyncConnectorsResource(AsyncAPIResource):
         if not connector_id:
             raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/magic/connectors/{connector_id}",
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}",
+                account_id=account_id,
+                connector_id=connector_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "activated": activated,
+                    "interrupt_window_days_of_week": interrupt_window_days_of_week,
                     "interrupt_window_duration_hours": interrupt_window_duration_hours,
+                    "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
                     "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
                     "notes": notes,
+                    "provision_license": provision_license,
                     "timezone": timezone,
                 },
                 connector_update_params.ConnectorUpdateParams,
@@ -354,18 +614,21 @@ class AsyncConnectorsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
+        device_type: Literal["MANAGED", "LICENSED"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ConnectorListResponse, AsyncSinglePage[ConnectorListResponse]]:
         """
         List Connectors
 
         Args:
           account_id: Account identifier
+
+          device_type: Filter connectors by device type.
 
           extra_headers: Send extra headers
 
@@ -378,33 +641,32 @@ class AsyncConnectorsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/connectors",
+            path_template("/accounts/{account_id}/magic/connectors", account_id=account_id),
             page=AsyncSinglePage[ConnectorListResponse],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform({"device_type": device_type}, connector_list_params.ConnectorListParams),
             ),
             model=ConnectorListResponse,
         )
 
-    async def edit(
+    async def delete(
         self,
         connector_id: str,
         *,
         account_id: str,
-        activated: bool | NotGiven = NOT_GIVEN,
-        interrupt_window_duration_hours: float | NotGiven = NOT_GIVEN,
-        interrupt_window_hour_of_day: float | NotGiven = NOT_GIVEN,
-        notes: str | NotGiven = NOT_GIVEN,
-        timezone: str | NotGiven = NOT_GIVEN,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> ConnectorEditResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConnectorDeleteResponse:
         """
-        Update Connector
+        Remove a connector from your account
 
         Args:
           account_id: Account identifier
@@ -421,14 +683,84 @@ class AsyncConnectorsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not connector_id:
             raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
+        return await self._delete(
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}",
+                account_id=account_id,
+                connector_id=connector_id,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[ConnectorDeleteResponse]._unwrapper,
+            ),
+            cast_to=cast(Type[ConnectorDeleteResponse], ResultWrapper[ConnectorDeleteResponse]),
+        )
+
+    async def edit(
+        self,
+        connector_id: str,
+        *,
+        account_id: str,
+        activated: bool | Omit = omit,
+        interrupt_window_days_of_week: List[
+            Literal["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        ]
+        | Omit = omit,
+        interrupt_window_duration_hours: float | Omit = omit,
+        interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
+        interrupt_window_hour_of_day: float | Omit = omit,
+        notes: str | Omit = omit,
+        provision_license: bool | Omit = omit,
+        timezone: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConnectorEditResponse:
+        """
+        Edit Connector to update specific properties or Re-provision License Key
+
+        Args:
+          account_id: Account identifier
+
+          interrupt_window_days_of_week: Allowed days of the week for upgrades. Default is all days.
+
+          interrupt_window_embargo_dates: List of dates (YYYY-MM-DD) when upgrades are blocked.
+
+          provision_license: When true, regenerate license key for the connector.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not account_id:
+            raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
+        if not connector_id:
+            raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/magic/connectors/{connector_id}",
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}",
+                account_id=account_id,
+                connector_id=connector_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "activated": activated,
+                    "interrupt_window_days_of_week": interrupt_window_days_of_week,
                     "interrupt_window_duration_hours": interrupt_window_duration_hours,
+                    "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
                     "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
                     "notes": notes,
+                    "provision_license": provision_license,
                     "timezone": timezone,
                 },
                 connector_edit_params.ConnectorEditParams,
@@ -453,7 +785,7 @@ class AsyncConnectorsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ConnectorGetResponse:
         """
         Fetch Connector
@@ -474,7 +806,11 @@ class AsyncConnectorsResource(AsyncAPIResource):
         if not connector_id:
             raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/connectors/{connector_id}",
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}",
+                account_id=account_id,
+                connector_id=connector_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -490,11 +826,17 @@ class ConnectorsResourceWithRawResponse:
     def __init__(self, connectors: ConnectorsResource) -> None:
         self._connectors = connectors
 
+        self.create = to_raw_response_wrapper(
+            connectors.create,
+        )
         self.update = to_raw_response_wrapper(
             connectors.update,
         )
         self.list = to_raw_response_wrapper(
             connectors.list,
+        )
+        self.delete = to_raw_response_wrapper(
+            connectors.delete,
         )
         self.edit = to_raw_response_wrapper(
             connectors.edit,
@@ -516,11 +858,17 @@ class AsyncConnectorsResourceWithRawResponse:
     def __init__(self, connectors: AsyncConnectorsResource) -> None:
         self._connectors = connectors
 
+        self.create = async_to_raw_response_wrapper(
+            connectors.create,
+        )
         self.update = async_to_raw_response_wrapper(
             connectors.update,
         )
         self.list = async_to_raw_response_wrapper(
             connectors.list,
+        )
+        self.delete = async_to_raw_response_wrapper(
+            connectors.delete,
         )
         self.edit = async_to_raw_response_wrapper(
             connectors.edit,
@@ -542,11 +890,17 @@ class ConnectorsResourceWithStreamingResponse:
     def __init__(self, connectors: ConnectorsResource) -> None:
         self._connectors = connectors
 
+        self.create = to_streamed_response_wrapper(
+            connectors.create,
+        )
         self.update = to_streamed_response_wrapper(
             connectors.update,
         )
         self.list = to_streamed_response_wrapper(
             connectors.list,
+        )
+        self.delete = to_streamed_response_wrapper(
+            connectors.delete,
         )
         self.edit = to_streamed_response_wrapper(
             connectors.edit,
@@ -568,11 +922,17 @@ class AsyncConnectorsResourceWithStreamingResponse:
     def __init__(self, connectors: AsyncConnectorsResource) -> None:
         self._connectors = connectors
 
+        self.create = async_to_streamed_response_wrapper(
+            connectors.create,
+        )
         self.update = async_to_streamed_response_wrapper(
             connectors.update,
         )
         self.list = async_to_streamed_response_wrapper(
             connectors.list,
+        )
+        self.delete = async_to_streamed_response_wrapper(
+            connectors.delete,
         )
         self.edit = async_to_streamed_response_wrapper(
             connectors.edit,

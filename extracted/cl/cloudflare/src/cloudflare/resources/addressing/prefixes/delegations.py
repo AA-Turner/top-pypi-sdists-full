@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -58,7 +58,7 @@ class DelegationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Delegations]:
         """
         Create a new account delegation for a given IP prefix.
@@ -85,7 +85,11 @@ class DelegationsResource(SyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return self._post(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             body=maybe_transform(
                 {
                     "cidr": cidr,
@@ -113,7 +117,7 @@ class DelegationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Delegations]:
         """
         List all delegations for a given account IP prefix.
@@ -136,7 +140,11 @@ class DelegationsResource(SyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             page=SyncSinglePage[Delegations],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -155,7 +163,7 @@ class DelegationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DelegationDeleteResponse]:
         """
         Delete an account delegation for a given IP prefix.
@@ -182,7 +190,12 @@ class DelegationsResource(SyncAPIResource):
         if not delegation_id:
             raise ValueError(f"Expected a non-empty value for `delegation_id` but received {delegation_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations/{delegation_id}",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations/{delegation_id}",
+                account_id=account_id,
+                prefix_id=prefix_id,
+                delegation_id=delegation_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -226,7 +239,7 @@ class AsyncDelegationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Delegations]:
         """
         Create a new account delegation for a given IP prefix.
@@ -253,7 +266,11 @@ class AsyncDelegationsResource(AsyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "cidr": cidr,
@@ -281,7 +298,7 @@ class AsyncDelegationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Delegations, AsyncSinglePage[Delegations]]:
         """
         List all delegations for a given account IP prefix.
@@ -304,7 +321,11 @@ class AsyncDelegationsResource(AsyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             page=AsyncSinglePage[Delegations],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -323,7 +344,7 @@ class AsyncDelegationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DelegationDeleteResponse]:
         """
         Delete an account delegation for a given IP prefix.
@@ -350,7 +371,12 @@ class AsyncDelegationsResource(AsyncAPIResource):
         if not delegation_id:
             raise ValueError(f"Expected a non-empty value for `delegation_id` but received {delegation_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations/{delegation_id}",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/delegations/{delegation_id}",
+                account_id=account_id,
+                prefix_id=prefix_id,
+                delegation_id=delegation_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

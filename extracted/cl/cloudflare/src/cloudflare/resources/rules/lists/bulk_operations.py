@@ -6,7 +6,8 @@ from typing import Any, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -52,7 +53,7 @@ class BulkOperationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BulkOperationGetResponse:
         """
         Gets the current status of an asynchronous operation on a list.
@@ -62,7 +63,7 @@ class BulkOperationsResource(SyncAPIResource):
         property will contain a message describing the error.
 
         Args:
-          account_id: Defines an identifier.
+          account_id: The Account ID for this resource.
 
           operation_id: The unique operation ID of the asynchronous action.
 
@@ -81,7 +82,11 @@ class BulkOperationsResource(SyncAPIResource):
         return cast(
             BulkOperationGetResponse,
             self._get(
-                f"/accounts/{account_id}/rules/lists/bulk_operations/{operation_id}",
+                path_template(
+                    "/accounts/{account_id}/rules/lists/bulk_operations/{operation_id}",
+                    account_id=account_id,
+                    operation_id=operation_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -126,7 +131,7 @@ class AsyncBulkOperationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BulkOperationGetResponse:
         """
         Gets the current status of an asynchronous operation on a list.
@@ -136,7 +141,7 @@ class AsyncBulkOperationsResource(AsyncAPIResource):
         property will contain a message describing the error.
 
         Args:
-          account_id: Defines an identifier.
+          account_id: The Account ID for this resource.
 
           operation_id: The unique operation ID of the asynchronous action.
 
@@ -155,7 +160,11 @@ class AsyncBulkOperationsResource(AsyncAPIResource):
         return cast(
             BulkOperationGetResponse,
             await self._get(
-                f"/accounts/{account_id}/rules/lists/bulk_operations/{operation_id}",
+                path_template(
+                    "/accounts/{account_id}/rules/lists/bulk_operations/{operation_id}",
+                    account_id=account_id,
+                    operation_id=operation_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,

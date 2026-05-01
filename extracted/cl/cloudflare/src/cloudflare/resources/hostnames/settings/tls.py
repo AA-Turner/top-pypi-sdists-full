@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -61,7 +61,7 @@ class TLSResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Setting]:
         """
         Update the tls setting value for the hostname.
@@ -69,11 +69,26 @@ class TLSResource(SyncAPIResource):
         Args:
           zone_id: Identifier.
 
-          setting_id: The TLS Setting name.
+          setting_id:
+              The TLS Setting name. The value type depends on the setting:
+
+              - `ciphers`: value is an array of cipher suite strings (e.g.,
+                `["ECDHE-RSA-AES128-GCM-SHA256", "AES128-GCM-SHA256"]`)
+              - `min_tls_version`: value is a TLS version string (`"1.0"`, `"1.1"`, `"1.2"`,
+                or `"1.3"`)
+              - `http2`: value is `"on"` or `"off"`
 
           hostname: The hostname for which the tls settings are set.
 
-          value: The tls setting value.
+          value: The TLS setting value. The type depends on the `setting_id` used in the request
+              path:
+
+              - `ciphers`: an array of allowed cipher suite strings in BoringSSL format (e.g.,
+                `["ECDHE-RSA-AES128-GCM-SHA256", "AES128-GCM-SHA256"]`)
+              - `min_tls_version`: a string indicating the minimum TLS version — one of
+                `"1.0"`, `"1.1"`, `"1.2"`, or `"1.3"` (e.g., `"1.2"`)
+              - `http2`: a string indicating whether HTTP/2 is enabled — `"on"` or `"off"`
+                (e.g., `"on"`)
 
           extra_headers: Send extra headers
 
@@ -90,7 +105,12 @@ class TLSResource(SyncAPIResource):
         if not hostname:
             raise ValueError(f"Expected a non-empty value for `hostname` but received {hostname!r}")
         return self._put(
-            f"/zones/{zone_id}/hostnames/settings/{setting_id}/{hostname}",
+            path_template(
+                "/zones/{zone_id}/hostnames/settings/{setting_id}/{hostname}",
+                zone_id=zone_id,
+                setting_id=setting_id,
+                hostname=hostname,
+            ),
             body=maybe_transform({"value": value}, tls_update_params.TLSUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -113,7 +133,7 @@ class TLSResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TLSDeleteResponse]:
         """
         Delete the tls setting value for the hostname.
@@ -121,7 +141,14 @@ class TLSResource(SyncAPIResource):
         Args:
           zone_id: Identifier.
 
-          setting_id: The TLS Setting name.
+          setting_id:
+              The TLS Setting name. The value type depends on the setting:
+
+              - `ciphers`: value is an array of cipher suite strings (e.g.,
+                `["ECDHE-RSA-AES128-GCM-SHA256", "AES128-GCM-SHA256"]`)
+              - `min_tls_version`: value is a TLS version string (`"1.0"`, `"1.1"`, `"1.2"`,
+                or `"1.3"`)
+              - `http2`: value is `"on"` or `"off"`
 
           hostname: The hostname for which the tls settings are set.
 
@@ -140,7 +167,12 @@ class TLSResource(SyncAPIResource):
         if not hostname:
             raise ValueError(f"Expected a non-empty value for `hostname` but received {hostname!r}")
         return self._delete(
-            f"/zones/{zone_id}/hostnames/settings/{setting_id}/{hostname}",
+            path_template(
+                "/zones/{zone_id}/hostnames/settings/{setting_id}/{hostname}",
+                zone_id=zone_id,
+                setting_id=setting_id,
+                hostname=hostname,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -161,7 +193,7 @@ class TLSResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[TLSGetResponse]:
         """
         List the requested TLS setting for the hostnames under this zone.
@@ -169,7 +201,14 @@ class TLSResource(SyncAPIResource):
         Args:
           zone_id: Identifier.
 
-          setting_id: The TLS Setting name.
+          setting_id:
+              The TLS Setting name. The value type depends on the setting:
+
+              - `ciphers`: value is an array of cipher suite strings (e.g.,
+                `["ECDHE-RSA-AES128-GCM-SHA256", "AES128-GCM-SHA256"]`)
+              - `min_tls_version`: value is a TLS version string (`"1.0"`, `"1.1"`, `"1.2"`,
+                or `"1.3"`)
+              - `http2`: value is `"on"` or `"off"`
 
           extra_headers: Send extra headers
 
@@ -184,7 +223,7 @@ class TLSResource(SyncAPIResource):
         if not setting_id:
             raise ValueError(f"Expected a non-empty value for `setting_id` but received {setting_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/hostnames/settings/{setting_id}",
+            path_template("/zones/{zone_id}/hostnames/settings/{setting_id}", zone_id=zone_id, setting_id=setting_id),
             page=SyncSinglePage[TLSGetResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -225,7 +264,7 @@ class AsyncTLSResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Setting]:
         """
         Update the tls setting value for the hostname.
@@ -233,11 +272,26 @@ class AsyncTLSResource(AsyncAPIResource):
         Args:
           zone_id: Identifier.
 
-          setting_id: The TLS Setting name.
+          setting_id:
+              The TLS Setting name. The value type depends on the setting:
+
+              - `ciphers`: value is an array of cipher suite strings (e.g.,
+                `["ECDHE-RSA-AES128-GCM-SHA256", "AES128-GCM-SHA256"]`)
+              - `min_tls_version`: value is a TLS version string (`"1.0"`, `"1.1"`, `"1.2"`,
+                or `"1.3"`)
+              - `http2`: value is `"on"` or `"off"`
 
           hostname: The hostname for which the tls settings are set.
 
-          value: The tls setting value.
+          value: The TLS setting value. The type depends on the `setting_id` used in the request
+              path:
+
+              - `ciphers`: an array of allowed cipher suite strings in BoringSSL format (e.g.,
+                `["ECDHE-RSA-AES128-GCM-SHA256", "AES128-GCM-SHA256"]`)
+              - `min_tls_version`: a string indicating the minimum TLS version — one of
+                `"1.0"`, `"1.1"`, `"1.2"`, or `"1.3"` (e.g., `"1.2"`)
+              - `http2`: a string indicating whether HTTP/2 is enabled — `"on"` or `"off"`
+                (e.g., `"on"`)
 
           extra_headers: Send extra headers
 
@@ -254,7 +308,12 @@ class AsyncTLSResource(AsyncAPIResource):
         if not hostname:
             raise ValueError(f"Expected a non-empty value for `hostname` but received {hostname!r}")
         return await self._put(
-            f"/zones/{zone_id}/hostnames/settings/{setting_id}/{hostname}",
+            path_template(
+                "/zones/{zone_id}/hostnames/settings/{setting_id}/{hostname}",
+                zone_id=zone_id,
+                setting_id=setting_id,
+                hostname=hostname,
+            ),
             body=await async_maybe_transform({"value": value}, tls_update_params.TLSUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -277,7 +336,7 @@ class AsyncTLSResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TLSDeleteResponse]:
         """
         Delete the tls setting value for the hostname.
@@ -285,7 +344,14 @@ class AsyncTLSResource(AsyncAPIResource):
         Args:
           zone_id: Identifier.
 
-          setting_id: The TLS Setting name.
+          setting_id:
+              The TLS Setting name. The value type depends on the setting:
+
+              - `ciphers`: value is an array of cipher suite strings (e.g.,
+                `["ECDHE-RSA-AES128-GCM-SHA256", "AES128-GCM-SHA256"]`)
+              - `min_tls_version`: value is a TLS version string (`"1.0"`, `"1.1"`, `"1.2"`,
+                or `"1.3"`)
+              - `http2`: value is `"on"` or `"off"`
 
           hostname: The hostname for which the tls settings are set.
 
@@ -304,7 +370,12 @@ class AsyncTLSResource(AsyncAPIResource):
         if not hostname:
             raise ValueError(f"Expected a non-empty value for `hostname` but received {hostname!r}")
         return await self._delete(
-            f"/zones/{zone_id}/hostnames/settings/{setting_id}/{hostname}",
+            path_template(
+                "/zones/{zone_id}/hostnames/settings/{setting_id}/{hostname}",
+                zone_id=zone_id,
+                setting_id=setting_id,
+                hostname=hostname,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -325,7 +396,7 @@ class AsyncTLSResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[TLSGetResponse, AsyncSinglePage[TLSGetResponse]]:
         """
         List the requested TLS setting for the hostnames under this zone.
@@ -333,7 +404,14 @@ class AsyncTLSResource(AsyncAPIResource):
         Args:
           zone_id: Identifier.
 
-          setting_id: The TLS Setting name.
+          setting_id:
+              The TLS Setting name. The value type depends on the setting:
+
+              - `ciphers`: value is an array of cipher suite strings (e.g.,
+                `["ECDHE-RSA-AES128-GCM-SHA256", "AES128-GCM-SHA256"]`)
+              - `min_tls_version`: value is a TLS version string (`"1.0"`, `"1.1"`, `"1.2"`,
+                or `"1.3"`)
+              - `http2`: value is `"on"` or `"off"`
 
           extra_headers: Send extra headers
 
@@ -348,7 +426,7 @@ class AsyncTLSResource(AsyncAPIResource):
         if not setting_id:
             raise ValueError(f"Expected a non-empty value for `setting_id` but received {setting_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/hostnames/settings/{setting_id}",
+            path_template("/zones/{zone_id}/hostnames/settings/{setting_id}", zone_id=zone_id, setting_id=setting_id),
             page=AsyncSinglePage[TLSGetResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

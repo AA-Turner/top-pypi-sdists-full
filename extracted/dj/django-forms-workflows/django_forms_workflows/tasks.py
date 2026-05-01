@@ -1158,48 +1158,83 @@ def _collect_notification_recipients(
             _add(email)
 
     # 5. Stage approval groups (NotificationRule only)
-    #    When the task already has a specific individual assigned
-    #    (assigned_to), skip the group notification — the individual was
-    #    resolved via assignee_form_field so the fallback group should not
-    #    also be notified, regardless of use_triggering_stage.
-    _skip_stage_groups = (
-        task is not None and getattr(task, "assigned_to_id", None) is not None
-    )
-    if (
-        getattr(notif, "notify_stage_groups", False)
-        and submission is not None
-        and not _skip_stage_groups
-    ):
+    #
+    # Two scoping rules apply, both to avoid notifying the wrong people:
+    #
+    # (a) Only consider stages that ACTUALLY GENERATED an ApprovalTask on
+    #     this submission. Looking at WorkflowStage config (the prior
+    #     behaviour) leaks recipients from configured-but-never-fired
+    #     stages — e.g. a conditional stage whose trigger never matched,
+    #     or stages skipped via a send-back. The submitter doesn't expect
+    #     "approver-of-the-stage-that-didn't-run" to receive the email.
+    #
+    # (b) Only consider stages whose actual task took the GROUP-FALLBACK
+    #     path (assigned_group_id IS NOT NULL AND assigned_to_id IS NULL).
+    #     If the stage was configured for dynamic assignment AND the
+    #     resolution succeeded, the assignee was already notified via
+    #     stage 4 (notify_stage_assignees); paging the fallback group on
+    #     top of that double-notifies (and confuses the group, who never
+    #     held the task).
+    #
+    # The per-stage filter below is strictly more correct than the prior
+    # `_skip_stage_groups` early-out and supersedes it. For the per-task
+    # approval_request use case: when use_triggering_stage=True, eff_stage
+    # is set to the triggering stage; if that stage's task has
+    # assigned_to set, the assigned_group_id__isnull=False filter excludes
+    # it → no group recipients (same outcome as the early-out). For
+    # workflow-level events the early-out was over-aggressive — once
+    # task auto-detection in send_notification_rules picks a finalizing
+    # task, that task's assigned_to status incorrectly suppressed group
+    # resolution for OTHER stages on the workflow.
+    if getattr(notif, "notify_stage_groups", False) and submission is not None:
         from django.contrib.auth import get_user_model
+
+        from .models import StageApprovalGroup
 
         user_model = get_user_model()
         eff_stage = _effective_stage_id()
+
+        # Step 1 — candidate stages: explicit/triggering stage if set,
+        # else every stage that actually produced a task on this submission.
         if eff_stage:
-            stage_ids = [eff_stage]
+            candidate_stage_ids = [eff_stage]
         else:
-            # All stages in this workflow
-            from .models import WorkflowStage
-
-            stage_ids = list(
-                WorkflowStage.objects.filter(workflow_id=notif.workflow_id).values_list(
-                    "id", flat=True
-                )
-            )
-        from .models import StageApprovalGroup
-
-        group_ids = list(
-            StageApprovalGroup.objects.filter(stage_id__in=stage_ids).values_list(
-                "group_id", flat=True
-            )
-        )
-        if group_ids:
-            for email in (
-                user_model.objects.filter(groups__id__in=group_ids)
-                .exclude(email="")
-                .values_list("email", flat=True)
+            candidate_stage_ids = list(
+                submission.approval_tasks.filter(workflow_stage_id__isnull=False)
+                .values_list("workflow_stage_id", flat=True)
                 .distinct()
-            ):
-                _add(email)
+            )
+
+        # Step 2 — narrow to stages whose task took the group-fallback
+        # path on this submission.
+        effective_stage_ids = list(
+            submission.approval_tasks.filter(
+                workflow_stage_id__in=candidate_stage_ids,
+                assigned_group_id__isnull=False,
+                assigned_to_id__isnull=True,
+            )
+            .values_list("workflow_stage_id", flat=True)
+            .distinct()
+        )
+
+        if effective_stage_ids:
+            # Step 3 — only role="approval" rows on those stages count.
+            # Validation/reassignment-role groups must not spawn tasks
+            # (engine fix in 0.74.6) and must not receive notifications
+            # (parity with that fix).
+            group_ids = list(
+                StageApprovalGroup.objects.filter(
+                    stage_id__in=effective_stage_ids, role="approval"
+                ).values_list("group_id", flat=True)
+            )
+            if group_ids:
+                for email in (
+                    user_model.objects.filter(groups__id__in=group_ids)
+                    .exclude(email="")
+                    .values_list("email", flat=True)
+                    .distinct()
+                ):
+                    _add(email)
 
     # 6. Explicit notify_groups M2M (NotificationRule only)
     if hasattr(notif, "notify_groups"):
@@ -1323,6 +1358,32 @@ def send_notification_rules(
     ).get(id=submission_id)
     form_data = submission.form_data or {}
     form_name = submission.form_definition.name
+
+    # Auto-detect the finalizing/rejecting task for workflow-level events
+    # so custom NotificationRule.body_template strings can address
+    # ``{{ task.comments }}`` / ``{{ task.workflow_stage.name }}`` without
+    # the caller having to know which task drove the decision. Also lets
+    # the admin "Retry failed" action re-fire these events without losing
+    # the task context. Only applies when no explicit ``task_id`` was
+    # passed; an explicit task always wins.
+    if not task_id:
+        if event == "workflow_approved":
+            _finalizing = (
+                submission.approval_tasks.filter(status="approved")
+                .order_by("-completed_at")
+                .first()
+            )
+            if _finalizing:
+                task_id = _finalizing.id
+        elif event == "workflow_denied":
+            _rejecting = (
+                submission.approval_tasks.filter(status="rejected")
+                .order_by("-completed_at")
+                .first()
+            )
+            if _rejecting:
+                task_id = _rejecting.id
+
     submission_url, approval_url = _build_form_field_notification_context(
         submission,
         ApprovalTask.objects.get(id=task_id) if task_id else None,
@@ -1339,6 +1400,34 @@ def send_notification_rules(
         except ApprovalTask.DoesNotExist:
             pass
 
+    # Build a denormalized "public_comments" list for the template context
+    # (file templates and per-rule body_template overrides alike). Each
+    # entry has stage_name / status / actor / comment so a custom body can
+    # do ``{% for c in public_comments %}{{ c.stage_name }}: {{ c.comment }}{% endfor %}``
+    # without knowing the model. Ordered by workflow flow (stage → step →
+    # completion time) so the audit reads top-to-bottom in the email.
+    _comments_qs = (
+        submission.approval_tasks.select_related("workflow_stage", "completed_by")
+        .filter(status__in=["approved", "rejected"])
+        .exclude(comments="")
+        .order_by("stage_number", "step_number", "completed_at")
+    )
+    public_comments: list[dict] = []
+    for _t in _comments_qs:
+        _actor = ""
+        if _t.completed_by:
+            _actor = _t.completed_by.get_full_name() or _t.completed_by.username
+        public_comments.append(
+            {
+                "stage_name": (
+                    _t.workflow_stage.name if _t.workflow_stage_id else _t.step_name
+                ),
+                "status": _t.status,
+                "actor": _actor,
+                "comment": _t.comments,
+            }
+        )
+
     rules_qs = (
         NotificationRule.objects.filter(event=event)
         .select_related("workflow", "stage")
@@ -1351,6 +1440,29 @@ def send_notification_rules(
         rules_qs = rules_qs.filter(workflow_id=task.workflow_stage.workflow_id)
     else:
         rules_qs = rules_qs.filter(workflow__form_definition=submission.form_definition)
+
+    # Stage-scope filter: a rule with an explicit ``stage`` FK is asking to
+    # be scoped to that specific stage. Without this filter, all rules of
+    # the same event on the same workflow fire on every dispatch — so a
+    # ``stage_decision`` rule attached to "Program Director Approval"
+    # would also fire when "Instructor Approval" completes (and vice
+    # versa), producing duplicate emails. ``use_triggering_stage=True``
+    # rules handle scoping at recipient resolution time and must remain
+    # candidates here regardless of which task triggered the event.
+    from django.db.models import Q
+
+    if task and getattr(task, "workflow_stage_id", None):
+        triggering_stage_id = task.workflow_stage_id
+        rules_qs = rules_qs.filter(
+            Q(stage__isnull=True)  # workflow-level rule
+            | Q(stage_id=triggering_stage_id)  # rule scoped to triggering stage
+            | Q(use_triggering_stage=True)  # dynamic-stage rule
+        )
+    else:
+        # No task context — only workflow-level (stage IS NULL) rules and
+        # dynamic-stage rules can fire safely. Stage-scoped rules need a
+        # task to determine relevance.
+        rules_qs = rules_qs.filter(Q(stage__isnull=True) | Q(use_triggering_stage=True))
 
     rules = rules_qs
 
@@ -1479,6 +1591,12 @@ def send_notification_rules(
             "submission_url": submission_url,
             "approval_url": approval_url,
             "hide_approval_history": hide_approval_history,
+            # Denormalized list of {stage_name, status, actor, comment}
+            # entries for every approved/rejected task with a non-empty
+            # public comment. Lets per-rule body_template overrides do
+            # ``{% for c in public_comments %}{{ c.stage_name }}:
+            # {{ c.comment }}{% endfor %}`` without iterating the model.
+            "public_comments": public_comments,
         }
         if task_id:
             try:

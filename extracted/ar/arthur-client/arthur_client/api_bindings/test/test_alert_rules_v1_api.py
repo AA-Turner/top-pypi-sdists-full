@@ -40,6 +40,13 @@ class TestAlertRulesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_alert_rules_in_workspace(self) -> None:
+        """Test case for get_alert_rules_in_workspace
+
+        Get Workspace Alert Rules.
+        """
+        pass
+
     def test_get_model_alert_rules(self) -> None:
         """Test case for get_model_alert_rules
 

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Type, Optional, cast
+from typing import List, Type, Optional, cast
+from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -27,7 +28,7 @@ from .associations import (
     AsyncAssociationsResourceWithStreamingResponse,
 )
 from ..._base_client import AsyncPaginator, make_request_options
-from ...types.mtls_certificates import mtls_certificate_create_params
+from ...types.mtls_certificates import mtls_certificate_list_params, mtls_certificate_create_params
 from ...types.mtls_certificates.mtls_certificate import MTLSCertificate
 from ...types.mtls_certificates.mtls_certificate_create_response import MTLSCertificateCreateResponse
 
@@ -64,17 +65,20 @@ class MTLSCertificatesResource(SyncAPIResource):
         account_id: str,
         ca: bool,
         certificates: str,
-        name: str | NotGiven = NOT_GIVEN,
-        private_key: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        private_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MTLSCertificateCreateResponse]:
         """
-        Upload a certificate that you want to use with mTLS-enabled Cloudflare services.
+        Upload a certificate that you want to use with mTLS-enabled Cloudflare services,
+        such as Bring Your Own CA (BYO-CA) for mTLS. To create certificates issued by
+        the Cloudflare managed CA, use the
+        [Create Client Certificate endpoint](/api/resources/client_certificates/methods/create/).
 
         Args:
           account_id: Identifier.
@@ -99,7 +103,7 @@ class MTLSCertificatesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/mtls_certificates",
+            path_template("/accounts/{account_id}/mtls_certificates", account_id=account_id),
             body=maybe_transform(
                 {
                     "ca": ca,
@@ -123,18 +127,24 @@ class MTLSCertificatesResource(SyncAPIResource):
         self,
         *,
         account_id: str,
+        type: List[Literal["custom", "gateway_managed", "access_managed"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[MTLSCertificate]:
         """
-        Lists all mTLS certificates.
+        Lists all mTLS certificates uploaded to your account, such as Bring Your Own CA
+        (BYO-CA) for mTLS. To list certificates issued by the Cloudflare managed CA, use
+        the
+        [List Client Certificates endpoint](/api/resources/client_certificates/methods/list/).
 
         Args:
           account_id: Identifier.
+
+          type: Filters results by certificate type. Multiple types can be comma-separated.
 
           extra_headers: Send extra headers
 
@@ -147,10 +157,14 @@ class MTLSCertificatesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/mtls_certificates",
+            path_template("/accounts/{account_id}/mtls_certificates", account_id=account_id),
             page=SyncSinglePage[MTLSCertificate],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform({"type": type}, mtls_certificate_list_params.MTLSCertificateListParams),
             ),
             model=MTLSCertificate,
         )
@@ -165,7 +179,7 @@ class MTLSCertificatesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MTLSCertificate]:
         """
         Deletes the mTLS certificate unless the certificate is in use by one or more
@@ -191,7 +205,11 @@ class MTLSCertificatesResource(SyncAPIResource):
                 f"Expected a non-empty value for `mtls_certificate_id` but received {mtls_certificate_id!r}"
             )
         return self._delete(
-            f"/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}",
+            path_template(
+                "/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}",
+                account_id=account_id,
+                mtls_certificate_id=mtls_certificate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -212,10 +230,13 @@ class MTLSCertificatesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MTLSCertificate]:
-        """
-        Fetches a single mTLS certificate.
+        """Fetches a single mTLS certificate uploaded to your account.
+
+        To get a certificate
+        issued by the Cloudflare managed CA, use the
+        [Client Certificate Details endpoint](/api/resources/client_certificates/methods/get/).
 
         Args:
           account_id: Identifier.
@@ -237,7 +258,11 @@ class MTLSCertificatesResource(SyncAPIResource):
                 f"Expected a non-empty value for `mtls_certificate_id` but received {mtls_certificate_id!r}"
             )
         return self._get(
-            f"/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}",
+            path_template(
+                "/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}",
+                account_id=account_id,
+                mtls_certificate_id=mtls_certificate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -279,17 +304,20 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
         account_id: str,
         ca: bool,
         certificates: str,
-        name: str | NotGiven = NOT_GIVEN,
-        private_key: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        private_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MTLSCertificateCreateResponse]:
         """
-        Upload a certificate that you want to use with mTLS-enabled Cloudflare services.
+        Upload a certificate that you want to use with mTLS-enabled Cloudflare services,
+        such as Bring Your Own CA (BYO-CA) for mTLS. To create certificates issued by
+        the Cloudflare managed CA, use the
+        [Create Client Certificate endpoint](/api/resources/client_certificates/methods/create/).
 
         Args:
           account_id: Identifier.
@@ -314,7 +342,7 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/mtls_certificates",
+            path_template("/accounts/{account_id}/mtls_certificates", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "ca": ca,
@@ -338,18 +366,24 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
+        type: List[Literal["custom", "gateway_managed", "access_managed"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[MTLSCertificate, AsyncSinglePage[MTLSCertificate]]:
         """
-        Lists all mTLS certificates.
+        Lists all mTLS certificates uploaded to your account, such as Bring Your Own CA
+        (BYO-CA) for mTLS. To list certificates issued by the Cloudflare managed CA, use
+        the
+        [List Client Certificates endpoint](/api/resources/client_certificates/methods/list/).
 
         Args:
           account_id: Identifier.
+
+          type: Filters results by certificate type. Multiple types can be comma-separated.
 
           extra_headers: Send extra headers
 
@@ -362,10 +396,14 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/mtls_certificates",
+            path_template("/accounts/{account_id}/mtls_certificates", account_id=account_id),
             page=AsyncSinglePage[MTLSCertificate],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform({"type": type}, mtls_certificate_list_params.MTLSCertificateListParams),
             ),
             model=MTLSCertificate,
         )
@@ -380,7 +418,7 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MTLSCertificate]:
         """
         Deletes the mTLS certificate unless the certificate is in use by one or more
@@ -406,7 +444,11 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
                 f"Expected a non-empty value for `mtls_certificate_id` but received {mtls_certificate_id!r}"
             )
         return await self._delete(
-            f"/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}",
+            path_template(
+                "/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}",
+                account_id=account_id,
+                mtls_certificate_id=mtls_certificate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -427,10 +469,13 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MTLSCertificate]:
-        """
-        Fetches a single mTLS certificate.
+        """Fetches a single mTLS certificate uploaded to your account.
+
+        To get a certificate
+        issued by the Cloudflare managed CA, use the
+        [Client Certificate Details endpoint](/api/resources/client_certificates/methods/get/).
 
         Args:
           account_id: Identifier.
@@ -452,7 +497,11 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
                 f"Expected a non-empty value for `mtls_certificate_id` but received {mtls_certificate_id!r}"
             )
         return await self._get(
-            f"/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}",
+            path_template(
+                "/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}",
+                account_id=account_id,
+                mtls_certificate_id=mtls_certificate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -22,18 +22,18 @@ class ChemenvRester(BaseRester):
     def search(
         self,
         material_ids: str | list[str] | None = None,
-        chemenv_iucr: COORDINATION_GEOMETRIES_IUCR
-        | list[COORDINATION_GEOMETRIES_IUCR]
-        | None = None,
-        chemenv_iupac: COORDINATION_GEOMETRIES_IUPAC
-        | list[COORDINATION_GEOMETRIES_IUPAC]
-        | None = None,
-        chemenv_name: COORDINATION_GEOMETRIES_NAMES
-        | list[COORDINATION_GEOMETRIES_NAMES]
-        | None = None,
-        chemenv_symbol: COORDINATION_GEOMETRIES
-        | list[COORDINATION_GEOMETRIES]
-        | None = None,
+        chemenv_iucr: (
+            COORDINATION_GEOMETRIES_IUCR | list[COORDINATION_GEOMETRIES_IUCR] | None
+        ) = None,
+        chemenv_iupac: (
+            COORDINATION_GEOMETRIES_IUPAC | list[COORDINATION_GEOMETRIES_IUPAC] | None
+        ) = None,
+        chemenv_name: (
+            COORDINATION_GEOMETRIES_NAMES | list[COORDINATION_GEOMETRIES_NAMES] | None
+        ) = None,
+        chemenv_symbol: (
+            COORDINATION_GEOMETRIES | list[COORDINATION_GEOMETRIES] | None
+        ) = None,
         species: str | list[str] | None = None,
         elements: str | list[str] | None = None,
         exclude_elements: list[str] | None = None,
@@ -120,7 +120,7 @@ class ChemenvRester(BaseRester):
         for chemenv_var_name, (chemenv_var, literals) in chemenv_literals.items():
             if chemenv_var:
                 t_types = {t if isinstance(t, str) else t.value for t in chemenv_var}
-                valid_types = {*map(str, literals.__args__)}
+                valid_types = {*map(str, literals.__args__)}  # type: ignore[attr-defined]
                 if invalid_types := t_types - valid_types:
                     raise ValueError(
                         f"Invalid type(s) passed for {chemenv_var_name}: {invalid_types}, valid types are: {valid_types}"
@@ -140,7 +140,7 @@ class ChemenvRester(BaseRester):
             if query_params[entry] is not None
         }
 
-        return super()._search(
+        return super()._search(  # type: ignore[return-value]
             num_chunks=num_chunks,
             chunk_size=chunk_size,
             all_fields=all_fields,

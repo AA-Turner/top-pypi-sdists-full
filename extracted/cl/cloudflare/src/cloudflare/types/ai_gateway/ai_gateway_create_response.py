@@ -1,21 +1,75 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Optional
+from typing import Dict, List, Union, Optional
 from datetime import datetime
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 from ..._models import BaseModel
 
-__all__ = ["AIGatewayCreateResponse"]
+__all__ = [
+    "AIGatewayCreateResponse",
+    "DLP",
+    "DLPUnionMember0",
+    "DLPUnionMember1",
+    "DLPUnionMember1Policy",
+    "Otel",
+    "Stripe",
+    "StripeUsageEvent",
+]
+
+
+class DLPUnionMember0(BaseModel):
+    action: Literal["BLOCK", "FLAG"]
+
+    enabled: bool
+
+    profiles: List[str]
+
+
+class DLPUnionMember1Policy(BaseModel):
+    id: str
+
+    action: Literal["FLAG", "BLOCK"]
+
+    check: List[Literal["REQUEST", "RESPONSE"]]
+
+    enabled: bool
+
+    profiles: List[str]
+
+
+class DLPUnionMember1(BaseModel):
+    enabled: bool
+
+    policies: List[DLPUnionMember1Policy]
+
+
+DLP: TypeAlias = Union[DLPUnionMember0, DLPUnionMember1]
+
+
+class Otel(BaseModel):
+    authorization: str
+
+    headers: Dict[str, str]
+
+    url: str
+
+    content_type: Optional[Literal["json", "protobuf"]] = None
+
+
+class StripeUsageEvent(BaseModel):
+    payload: str
+
+
+class Stripe(BaseModel):
+    authorization: str
+
+    usage_events: List[StripeUsageEvent]
 
 
 class AIGatewayCreateResponse(BaseModel):
     id: str
     """gateway id"""
-
-    account_id: str
-
-    account_tag: str
 
     cache_invalidate_on_update: bool
 
@@ -25,17 +79,17 @@ class AIGatewayCreateResponse(BaseModel):
 
     created_at: datetime
 
-    internal_id: str
-
     modified_at: datetime
 
     rate_limiting_interval: Optional[int] = None
 
     rate_limiting_limit: Optional[int] = None
 
-    rate_limiting_technique: Literal["fixed", "sliding"]
-
     authentication: Optional[bool] = None
+
+    dlp: Optional[DLP] = None
+
+    is_default: Optional[bool] = None
 
     log_management: Optional[int] = None
 
@@ -44,3 +98,28 @@ class AIGatewayCreateResponse(BaseModel):
     logpush: Optional[bool] = None
 
     logpush_public_key: Optional[str] = None
+
+    otel: Optional[List[Otel]] = None
+
+    rate_limiting_technique: Optional[Literal["fixed", "sliding"]] = None
+
+    retry_backoff: Optional[Literal["constant", "linear", "exponential"]] = None
+    """Backoff strategy for retry delays"""
+
+    retry_delay: Optional[int] = None
+    """Delay between retry attempts in milliseconds (0-5000)"""
+
+    retry_max_attempts: Optional[int] = None
+    """Maximum number of retry attempts for failed requests (1-5)"""
+
+    store_id: Optional[str] = None
+
+    stripe: Optional[Stripe] = None
+
+    workers_ai_billing_mode: Optional[Literal["postpaid"]] = None
+    """Controls how Workers AI inference calls routed through this gateway are billed.
+
+    Only 'postpaid' is currently supported.
+    """
+
+    zdr: Optional[bool] = None

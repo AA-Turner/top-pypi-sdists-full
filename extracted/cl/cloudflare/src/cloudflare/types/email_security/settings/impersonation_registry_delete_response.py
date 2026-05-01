@@ -6,4 +6,5 @@ __all__ = ["ImpersonationRegistryDeleteResponse"]
 
 
 class ImpersonationRegistryDeleteResponse(BaseModel):
-    id: int
+    id: str
+    """Impersonation registry entry identifier"""

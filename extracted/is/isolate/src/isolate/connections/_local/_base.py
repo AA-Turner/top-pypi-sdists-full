@@ -188,7 +188,9 @@ class PythonExecutionBase(Generic[ConnectionType]):
         filtered_env = {
             k: v
             for k, v in os.environ.items()
-            if not k.startswith("NOMAD_") or k.startswith("NOMAD_ALLOC_PORT_")
+            if not k.startswith("NOMAD_")
+            or k.startswith("NOMAD_ALLOC_PORT_")
+            or k.startswith("NOMAD_JOB_ID")
         }
 
         return {

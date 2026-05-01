@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-iot-actions-alpha
-Version: 2.251.0a0
+Version: 2.252.0a0
 Summary: Receipt rule actions for AWS IoT
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,11 +22,11 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.251.0
-Requires-Dist: aws-cdk.aws-iot-alpha==2.251.0.a0
-Requires-Dist: aws-cdk.aws-iotevents-alpha==2.251.0.a0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.252.0
+Requires-Dist: aws-cdk.aws-iot-alpha==2.252.0.a0
+Requires-Dist: aws-cdk.aws-iotevents-alpha==2.252.0.a0
 Requires-Dist: constructs<11.0.0,>=10.5.0
-Requires-Dist: jsii<2.0.0,>=1.127.0
+Requires-Dist: jsii<2.0.0,>=1.128.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 

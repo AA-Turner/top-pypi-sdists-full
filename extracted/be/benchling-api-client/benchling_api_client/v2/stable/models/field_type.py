@@ -16,6 +16,7 @@ class FieldType(Enums.KnownString):
     PART_LINK = "part_link"
     TRANSLATION_LINK = "translation_link"
     AA_PART_LINK = "aa_part_link"
+    BASE_MOLECULE_LINK = "base_molecule_link"
     BLOB_LINK = "blob_link"
     TEXT = "text"
     LONG_TEXT = "long_text"

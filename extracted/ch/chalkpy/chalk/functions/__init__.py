@@ -4244,13 +4244,15 @@ def _underscore_lambda(
     f: Callable[..., Underscore],
     *,
     parameter_type: Optional[pa.DataType] = None,
-    parameter_types: Optional[list[pa.DataType]] = None,
+    parameter_types: Optional[list[Optional[pa.DataType]]] = None,
 ) -> Underscore:
     """
     This is a utility function for constructing lambda expressions in underscore expressions.
     Accepts functions with any number of positional arguments.
 
-    The caller must specify the parameter type(s) for the callback.
+    The caller may optionally specify the parameter type(s) for the callback.
+    When omitted, the lambda parameters are encoded as untyped and are attempted to be
+    inferred later by the underscore type-checking pipeline.
 
     Parameters
     ----------
@@ -4270,7 +4272,7 @@ def _underscore_lambda(
     elif parameter_types is not None:
         param_types_list = parameter_types
     else:
-        raise ValueError("Must specify either parameter_type or parameter_types")
+        param_types_list = [None] * len(inspect.signature(f).parameters)
 
     f_sig = inspect.signature(f)
     f_parameters = list(f_sig.parameters.keys())
@@ -4304,7 +4306,7 @@ def _underscore_lambda(
 def array_filter(
     arr: Underscore,
     filter: Callable[[Underscore], Underscore],
-    item_type: Union[pa.DataType, type],
+    item_type: Optional[Union[pa.DataType, type]] = None,
 ) -> Underscore:
     """
     Applies a custom filtering function to each element in an array, returning a new
@@ -4318,7 +4320,8 @@ def array_filter(
         A Python function producing an underscore expression to be applied to each item
         in the array.
     item_type
-        The type of each item in the array. This must be set explicitly.
+        Optional type of each item in the array. When omitted, Chalk will attempt to infer
+        the callback input type later from the surrounding function signature.
 
     Examples
     --------
@@ -4336,7 +4339,7 @@ def array_filter(
     ...    )
     """
 
-    if not isinstance(item_type, pa.DataType):
+    if item_type is not None and not isinstance(item_type, pa.DataType):
         item_type = rich_to_pyarrow(
             item_type,
             name="array_filter.item_type",
@@ -4353,7 +4356,7 @@ def array_filter(
 def array_transform(
     arr: Underscore,
     transform: Callable[[Underscore], Underscore],
-    item_type: Union[pa.DataType, type],
+    item_type: Optional[Union[pa.DataType, type]] = None,
 ) -> Underscore:
     """
     Applies a custom transform function to each element in an array, returning a new
@@ -4367,7 +4370,8 @@ def array_transform(
         A Python function producing an underscore expression to be applied to each item
         in the array.
     item_type
-        The type of each item in the array. This must be set explicitly.
+        Optional type of each item in the array. When omitted, Chalk will attempt to infer
+        the callback input type later from the surrounding function signature.
 
     Examples
     --------
@@ -4385,7 +4389,7 @@ def array_transform(
     ...    )
     """
 
-    if not isinstance(item_type, pa.DataType):
+    if item_type is not None and not isinstance(item_type, pa.DataType):
         item_type = rich_to_pyarrow(
             item_type,
             name="array_transform.item_type",
@@ -4402,7 +4406,7 @@ def array_transform(
 def array_reduce(
     arr: Underscore,
     initial_value: Underscore | Any,
-    arr_item_type: Union[pa.DataType, type],
+    arr_item_type: Optional[Union[pa.DataType, type]],
     reduce: Callable[[Underscore, Underscore], Underscore],
     accumulator_type: Optional[Union[pa.DataType, type]] = None,
     output_func: Callable[[Underscore], Underscore] = lambda x: x,
@@ -4420,7 +4424,8 @@ def array_reduce(
     reduce
         A function that takes (accumulator, item) and returns the new accumulator value
     arr_item_type
-        Type of each item in the array
+        Optional type of each item in the array. When omitted, Chalk will attempt to infer
+        the callback input type later from the surrounding function signature.
     accumulator_type
         The Optional type of the accumulator result. Typically inferred from initial_value.
     output_func
@@ -4471,22 +4476,23 @@ def array_reduce(
             except (TypeError, pa.ArrowInvalid):
                 raise ValueError("Could not infer type of initial_value; please provide accumulator_type explicitly.")
 
-    if accumulator_type_arrow is None and initial_value_type_arrow is None:
+    if (
+        accumulator_type_arrow is None
+        and initial_value_type_arrow is None
+        and not isinstance(initial_value, Underscore)
+    ):
         raise ValueError("initial_value type could not be determined; please provide it explicitly.")
 
-    if initial_value_type_arrow is not None:
+    if accumulator_type_arrow is None and initial_value_type_arrow is not None:
         accumulator_type_arrow = initial_value_type_arrow
 
-    if arr_item_type is None:
-        raise ValueError("arr_item_type must be provided to array_reduce")
-
-    if not isinstance(arr_item_type, pa.DataType):
+    if arr_item_type is not None and not isinstance(arr_item_type, pa.DataType):
         arr_item_type_arrow = rich_to_pyarrow(
             arr_item_type,
             name="array_reduce.arr_item_type",
             respect_nullability=False,
         )
-    else:
+    elif arr_item_type is not None:
         arr_item_type_arrow = arr_item_type
 
     reduce_lambda_param_types = [accumulator_type_arrow, arr_item_type_arrow]

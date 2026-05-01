@@ -78,6 +78,10 @@ class TestSession:
                         "output_schema": {"foo": "bar"},
                     }
                 ],
+                "permissions": {
+                    "default": "allow_all",
+                    "overrides": {"foo": "always_allow"},
+                },
             },
             manage_connections={
                 "callback_url": "https://your-app.com/auth/callback",
@@ -197,6 +201,7 @@ class TestSession:
                 "ref": "bar",
                 "inputs": "bar",
             },
+            enable_auto_workbench_offload=True,
         )
         assert_matches_type(SessionExecuteResponse, session, path=["response"])
 
@@ -662,6 +667,10 @@ class TestAsyncSession:
                         "output_schema": {"foo": "bar"},
                     }
                 ],
+                "permissions": {
+                    "default": "allow_all",
+                    "overrides": {"foo": "always_allow"},
+                },
             },
             manage_connections={
                 "callback_url": "https://your-app.com/auth/callback",
@@ -781,6 +790,7 @@ class TestAsyncSession:
                 "ref": "bar",
                 "inputs": "bar",
             },
+            enable_auto_workbench_offload=True,
         )
         assert_matches_type(SessionExecuteResponse, session, path=["response"])
 

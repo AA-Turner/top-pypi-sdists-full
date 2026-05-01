@@ -16,7 +16,7 @@ class LANCreateParams(TypedDict, total=False):
     account_id: Required[str]
     """Identifier"""
 
-    physport: Required[int]
+    bond_id: int
 
     ha_link: bool
     """mark true to use this LAN for HA probing.
@@ -24,9 +24,17 @@ class LANCreateParams(TypedDict, total=False):
     only works for site with HA turned on. only one LAN can be set as the ha_link.
     """
 
+    is_breakout: bool
+    """mark true to use this LAN for source-based breakout traffic"""
+
+    is_prioritized: bool
+    """mark true to use this LAN for source-based prioritized traffic"""
+
     name: str
 
     nat: NatParam
+
+    physport: int
 
     routed_subnets: Iterable[RoutedSubnetParam]
 

@@ -23,12 +23,13 @@ from .json import JSONReference
 from . import v20
 from . import v30
 from . import v31
+from . import v32
 from . import log
 from .request import OperationIndex, HTTP_METHODS
 from .errors import ReferenceResolutionError, HTTPClientError, HTTPServerError
 from .loader import Loader, NullLoader
 from .plugin import Plugin, Plugins
-from .base import RootBase, ReferenceBase, SchemaBase, OperationBase, DiscriminatorBase
+from .base import RootBase, ReferenceBase, SchemaBase, DiscriminatorBase
 from .request import RequestBase
 from .v30.paths import Operation
 from .model import is_basemodel, Model
@@ -41,7 +42,6 @@ if typing.TYPE_CHECKING:
         PathItemType,
         SchemaType,
         OperationType,
-        ReferenceType,
         RequestType,
         HTTPMethodType,
         ServerType,
@@ -136,7 +136,7 @@ class OpenAPI:
     @classmethod
     def _load_response(cls, url, resp, session_factory, loader, plugins, tags):
         if resp.is_redirect:
-            raise ValueError(f'Redirect to {resp.headers.get("Location","")}')
+            raise ValueError(f"Redirect to {resp.headers.get('Location', '')}")
         return cls.loads(url, resp.text, session_factory, loader, plugins, tags)
 
     @classmethod
@@ -216,6 +216,8 @@ class OpenAPI:
                     return v30.Root.model_validate(document)
                 elif v[1] == 1:
                     return v31.Root.model_validate(document)
+                elif v[1] == 2:
+                    return v32.Root.model_validate(document)
                 else:
                     raise ValueError(f"openapi version 3.{v[1]} not supported")
             else:
@@ -308,8 +310,12 @@ class OpenAPI:
         Document Plugins get called via OpenAPI.load… - this is processed already
         """
         self._root = self._parse_obj(document)
+        if isinstance(self._root, v32.Root) and self._root.self_:
+            docref = yarl.URL(str(self._root.self_))
+        else:
+            docref = self._base_url
 
-        self._documents[self._base_url] = self._root
+        self._documents[docref] = self._root
 
         self._init_session_factory(session_factory)
         self._init_references()
@@ -325,20 +331,20 @@ class OpenAPI:
 
     def _init_session_factory(self, session_factory):
         if issubclass(getattr(session_factory, "__annotations__", {}).get("return", None.__class__), httpx.Client) or (
-            type(session_factory) == type and issubclass(session_factory, httpx.Client)
+            type(session_factory) is type and issubclass(session_factory, httpx.Client)
         ):
             if isinstance(self._root, v20.Root):
                 self._createRequest = v20.Request
-            elif isinstance(self._root, (v30.Root, v31.Root)):
+            elif isinstance(self._root, (v30.Root, v31.Root, v32.Root)):
                 self._createRequest = v30.Request
             else:
                 raise ValueError(self._root)
         elif issubclass(
             getattr(session_factory, "__annotations__", {}).get("return", None.__class__), httpx.AsyncClient
-        ) or (type(session_factory) == type and issubclass(session_factory, httpx.AsyncClient)):
+        ) or (type(session_factory) is type and issubclass(session_factory, httpx.AsyncClient)):
             if isinstance(self._root, v20.Root):
                 self._createRequest = v20.AsyncRequest
-            elif isinstance(self._root, (v30.Root, v31.Root)):
+            elif isinstance(self._root, (v30.Root, v31.Root, v32.Root)):
                 self._createRequest = v30.AsyncRequest
             else:
                 raise ValueError(self._root)
@@ -393,7 +399,7 @@ class OpenAPI:
                             if isinstance(response.schema_, (v20.Schema,)):
                                 response.schema_._get_identity("OP", f"{path}.{m}.{r}")
 
-        elif isinstance(self._root, (v30.Root, v31.Root)):
+        elif isinstance(self._root, (v30.Root, v31.Root, v32.Root)):
             allschemas = [
                 x.components.schemas
                 for x in filter(has_components, self._documents.values())
@@ -429,6 +435,8 @@ class OpenAPI:
                     self._root.paths = v30.Paths(paths={}, extensions={})
                 elif isinstance(self._root, v31.Root):
                     self._root.paths = v31.Paths(paths={}, extensions={})
+                elif isinstance(self._root, v32.Root):
+                    self._root.paths = v32.Paths(paths={}, extensions={})
                 else:
                     raise ValueError(self._root)
         else:
@@ -676,7 +684,7 @@ class OpenAPI:
 
             r = yarl.URL.build(scheme=scheme, host=host, port=port, path=path)
             return r
-        elif isinstance(self._root, (v30.Root, v31.Root)):
+        elif isinstance(self._root, (v30.Root, v31.Root, v32.Root)):
             assert self._root.servers
             server: "ServerType" = self._server_select(self._root.servers)
             return self._base_url.join(yarl.URL(server.createUrl(self._server_variables)))
@@ -689,7 +697,7 @@ class OpenAPI:
         :param args: None to remove all credentials / reset the authorizations
         :param kwargs: scheme=value
         """
-        if len(args) == 1 and args[0] == None:
+        if len(args) == 1 and args[0] is None:
             self._security = dict()
 
         schemes = frozenset(kwargs.keys())
@@ -762,11 +770,14 @@ class OpenAPI:
                 if pathitem.ref:
                     pathitem = pathitem.ref._target
 
-                operation = getattr(pathitem, method)
+                if method in HTTP_METHODS:
+                    operation = getattr(pathitem, method)
+                else:  # v32
+                    operation = pathitem.additionalOperations.get(method, None)
                 assert operation is not None
                 if isinstance(self._root, v20.Root):
                     servers = None
-                elif isinstance(self._root, (v30.Root, v31.Root)):
+                elif isinstance(self._root, (v30.Root, v31.Root, v32.Root)):
                     servers = operation.servers or pathitem.servers or self.servers
                 else:
                     raise TypeError(self._root)

@@ -22,6 +22,7 @@ from datetime import datetime
 from typing import Any, Union
 
 from .literals import (
+    ActorTokenContentTypeType,
     AgentManagedRuntimeTypeType,
     AgentRuntimeEndpointStatusType,
     AgentRuntimeStatusType,
@@ -32,6 +33,7 @@ from .literals import (
     BrowserProfileStatusType,
     BrowserStatusType,
     ClaimMatchOperatorTypeType,
+    ClientAuthenticationMethodTypeType,
     CodeInterpreterNetworkModeType,
     CodeInterpreterStatusType,
     ConfigurationBundleStatusType,
@@ -60,8 +62,10 @@ from .literals import (
     MemoryStrategyStatusType,
     MemoryStrategyTypeType,
     MemoryViewType,
+    MetadataValueTypeType,
     NetworkModeType,
     OAuthGrantTypeType,
+    OnBehalfOfTokenExchangeGrantTypeTypeType,
     OnlineEvaluationConfigStatusType,
     OnlineEvaluationExecutionStatusType,
     OverrideTypeType,
@@ -287,6 +291,9 @@ __all__ = (
     "EvaluatorModelConfigTypeDef",
     "EvaluatorReferenceTypeDef",
     "EvaluatorSummaryTypeDef",
+    "ExtractionConfigOutputTypeDef",
+    "ExtractionConfigTypeDef",
+    "ExtractionConfigUnionTypeDef",
     "ExtractionConfigurationTypeDef",
     "FilesystemConfigurationTypeDef",
     "FilterTypeDef",
@@ -412,6 +419,7 @@ __all__ = (
     "IamPrincipalTypeDef",
     "IncludedOauth2ProviderConfigInputTypeDef",
     "IncludedOauth2ProviderConfigOutputTypeDef",
+    "IndexedKeyTypeDef",
     "InferenceConfigurationOutputTypeDef",
     "InferenceConfigurationTypeDef",
     "InterceptorConfigurationTypeDef",
@@ -502,6 +510,9 @@ __all__ = (
     "ListWorkloadIdentitiesResponseTypeDef",
     "LlmAsAJudgeEvaluatorConfigOutputTypeDef",
     "LlmAsAJudgeEvaluatorConfigTypeDef",
+    "LlmExtractionConfigOutputTypeDef",
+    "LlmExtractionConfigTypeDef",
+    "LlmExtractionConfigUnionTypeDef",
     "MCPGatewayConfigurationOutputTypeDef",
     "MCPGatewayConfigurationTypeDef",
     "ManagedResourceDetailsTypeDef",
@@ -522,6 +533,9 @@ __all__ = (
     "McpTargetConfigurationOutputTypeDef",
     "McpTargetConfigurationTypeDef",
     "McpToolSchemaConfigurationTypeDef",
+    "MemoryRecordSchemaOutputTypeDef",
+    "MemoryRecordSchemaTypeDef",
+    "MemoryRecordSchemaUnionTypeDef",
     "MemoryStrategyInputTypeDef",
     "MemoryStrategyTypeDef",
     "MemorySummaryTypeDef",
@@ -531,6 +545,9 @@ __all__ = (
     "MetadataConfigurationOutputTypeDef",
     "MetadataConfigurationTypeDef",
     "MetadataConfigurationUnionTypeDef",
+    "MetadataSchemaEntryOutputTypeDef",
+    "MetadataSchemaEntryTypeDef",
+    "MetadataSchemaEntryUnionTypeDef",
     "MicrosoftOauth2ProviderConfigInputTypeDef",
     "MicrosoftOauth2ProviderConfigOutputTypeDef",
     "ModifyConsolidationConfigurationTypeDef",
@@ -544,6 +561,7 @@ __all__ = (
     "NetworkConfigurationOutputTypeDef",
     "NetworkConfigurationTypeDef",
     "NetworkConfigurationUnionTypeDef",
+    "NumberValidationTypeDef",
     "NumericalScaleDefinitionTypeDef",
     "OAuth2AuthorizationDataTypeDef",
     "OAuthCredentialProviderOutputTypeDef",
@@ -558,6 +576,9 @@ __all__ = (
     "Oauth2DiscoveryUnionTypeDef",
     "Oauth2ProviderConfigInputTypeDef",
     "Oauth2ProviderConfigOutputTypeDef",
+    "OnBehalfOfTokenExchangeConfigTypeOutputTypeDef",
+    "OnBehalfOfTokenExchangeConfigTypeTypeDef",
+    "OnBehalfOfTokenExchangeConfigTypeUnionTypeDef",
     "OnlineEvaluationConfigSummaryTypeDef",
     "OutputConfigTypeDef",
     "PaginatorConfigTypeDef",
@@ -643,6 +664,12 @@ __all__ = (
     "StreamDeliveryResourcesOutputTypeDef",
     "StreamDeliveryResourcesTypeDef",
     "StreamDeliveryResourcesUnionTypeDef",
+    "StringListValidationOutputTypeDef",
+    "StringListValidationTypeDef",
+    "StringListValidationUnionTypeDef",
+    "StringValidationOutputTypeDef",
+    "StringValidationTypeDef",
+    "StringValidationUnionTypeDef",
     "SubmitRegistryRecordForApprovalRequestTypeDef",
     "SubmitRegistryRecordForApprovalResponseTypeDef",
     "SummaryConsolidationOverrideTypeDef",
@@ -667,6 +694,9 @@ __all__ = (
     "TimeBasedTriggerTypeDef",
     "TokenBasedTriggerInputTypeDef",
     "TokenBasedTriggerTypeDef",
+    "TokenExchangeGrantTypeConfigTypeOutputTypeDef",
+    "TokenExchangeGrantTypeConfigTypeTypeDef",
+    "TokenExchangeGrantTypeConfigTypeUnionTypeDef",
     "ToolDefinitionOutputTypeDef",
     "ToolDefinitionTypeDef",
     "ToolSchemaOutputTypeDef",
@@ -739,6 +769,9 @@ __all__ = (
     "UserPreferenceOverrideConfigurationInputTypeDef",
     "UserPreferenceOverrideConsolidationConfigurationInputTypeDef",
     "UserPreferenceOverrideExtractionConfigurationInputTypeDef",
+    "ValidationOutputTypeDef",
+    "ValidationTypeDef",
+    "ValidationUnionTypeDef",
     "VersionCreatedBySourceTypeDef",
     "VersionFilterTypeDef",
     "VersionLineageMetadataTypeDef",
@@ -1088,6 +1121,15 @@ class HarnessSystemContentBlockTypeDef(TypedDict):
     text: NotRequired[str]
 
 
+IndexedKeyTypeDef = TypedDict(
+    "IndexedKeyTypeDef",
+    {
+        "key": str,
+        "type": MetadataValueTypeType,
+    },
+)
+
+
 class EvaluatorReferenceTypeDef(TypedDict):
     evaluatorId: NotRequired[str]
 
@@ -1193,20 +1235,6 @@ class UserPreferenceExtractionOverrideTypeDef(TypedDict):
     modelId: str
 
 
-class EpisodicOverrideReflectionConfigurationInputTypeDef(TypedDict):
-    appendToPrompt: str
-    modelId: str
-    namespaces: NotRequired[Sequence[str]]
-    namespaceTemplates: NotRequired[Sequence[str]]
-
-
-class EpisodicReflectionOverrideTypeDef(TypedDict):
-    appendToPrompt: str
-    modelId: str
-    namespaces: NotRequired[list[str]]
-    namespaceTemplates: NotRequired[list[str]]
-
-
 class DeleteAgentRuntimeEndpointRequestTypeDef(TypedDict):
     agentRuntimeId: str
     endpointName: str
@@ -1305,16 +1333,6 @@ class DeleteResourcePolicyRequestTypeDef(TypedDict):
 
 class DeleteWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
-
-
-class EpisodicReflectionConfigurationInputTypeDef(TypedDict):
-    namespaces: NotRequired[Sequence[str]]
-    namespaceTemplates: NotRequired[Sequence[str]]
-
-
-class EpisodicReflectionConfigurationTypeDef(TypedDict):
-    namespaces: NotRequired[list[str]]
-    namespaceTemplates: NotRequired[list[str]]
 
 
 class EvaluatorSummaryTypeDef(TypedDict):
@@ -1904,27 +1922,6 @@ class ToolsDefinitionTypeDef(TypedDict):
     inlineContent: NotRequired[str]
 
 
-class SemanticMemoryStrategyInputTypeDef(TypedDict):
-    name: str
-    description: NotRequired[str]
-    namespaces: NotRequired[Sequence[str]]
-    namespaceTemplates: NotRequired[Sequence[str]]
-
-
-class SummaryMemoryStrategyInputTypeDef(TypedDict):
-    name: str
-    description: NotRequired[str]
-    namespaces: NotRequired[Sequence[str]]
-    namespaceTemplates: NotRequired[Sequence[str]]
-
-
-class UserPreferenceMemoryStrategyInputTypeDef(TypedDict):
-    name: str
-    description: NotRequired[str]
-    namespaces: NotRequired[Sequence[str]]
-    namespaceTemplates: NotRequired[Sequence[str]]
-
-
 class MessageBasedTriggerInputTypeDef(TypedDict):
     messageCount: NotRequired[int]
 
@@ -1948,6 +1945,11 @@ class MicrosoftOauth2ProviderConfigInputTypeDef(TypedDict):
 class ModifyInvocationConfigurationInputTypeDef(TypedDict):
     topicArn: NotRequired[str]
     payloadDeliveryBucketName: NotRequired[str]
+
+
+class NumberValidationTypeDef(TypedDict):
+    minValue: NotRequired[float]
+    maxValue: NotRequired[float]
 
 
 class NumericalScaleDefinitionTypeDef(TypedDict):
@@ -1988,6 +1990,11 @@ class SalesforceOauth2ProviderConfigInputTypeDef(TypedDict):
 class SlackOauth2ProviderConfigInputTypeDef(TypedDict):
     clientId: str
     clientSecret: str
+
+
+class TokenExchangeGrantTypeConfigTypeOutputTypeDef(TypedDict):
+    actorTokenContent: ActorTokenContentTypeType
+    actorTokenScopes: NotRequired[list[str]]
 
 
 class PolicyGenerationDetailsTypeDef(TypedDict):
@@ -2062,6 +2069,24 @@ SchemaDefinitionTypeDef = TypedDict(
 )
 
 
+class StringListValidationOutputTypeDef(TypedDict):
+    allowedValues: NotRequired[list[str]]
+    maxItems: NotRequired[int]
+
+
+class StringListValidationTypeDef(TypedDict):
+    allowedValues: NotRequired[Sequence[str]]
+    maxItems: NotRequired[int]
+
+
+class StringValidationOutputTypeDef(TypedDict):
+    allowedValues: list[str]
+
+
+class StringValidationTypeDef(TypedDict):
+    allowedValues: Sequence[str]
+
+
 class SubmitRegistryRecordForApprovalRequestTypeDef(TypedDict):
     registryId: str
     recordId: str
@@ -2107,6 +2132,11 @@ class TokenBasedTriggerInputTypeDef(TypedDict):
 
 class TokenBasedTriggerTypeDef(TypedDict):
     tokenCount: NotRequired[int]
+
+
+class TokenExchangeGrantTypeConfigTypeTypeDef(TypedDict):
+    actorTokenContent: ActorTokenContentTypeType
+    actorTokenScopes: NotRequired[Sequence[str]]
 
 
 class UntagResourceRequestTypeDef(TypedDict):
@@ -2806,28 +2836,6 @@ class CustomExtractionConfigurationTypeDef(TypedDict):
     episodicExtractionOverride: NotRequired[EpisodicExtractionOverrideTypeDef]
 
 
-class CustomReflectionConfigurationInputTypeDef(TypedDict):
-    episodicReflectionOverride: NotRequired[EpisodicOverrideReflectionConfigurationInputTypeDef]
-
-
-class EpisodicOverrideConfigurationInputTypeDef(TypedDict):
-    extraction: NotRequired[EpisodicOverrideExtractionConfigurationInputTypeDef]
-    consolidation: NotRequired[EpisodicOverrideConsolidationConfigurationInputTypeDef]
-    reflection: NotRequired[EpisodicOverrideReflectionConfigurationInputTypeDef]
-
-
-class CustomReflectionConfigurationTypeDef(TypedDict):
-    episodicReflectionOverride: NotRequired[EpisodicReflectionOverrideTypeDef]
-
-
-class EpisodicMemoryStrategyInputTypeDef(TypedDict):
-    name: str
-    description: NotRequired[str]
-    namespaces: NotRequired[Sequence[str]]
-    namespaceTemplates: NotRequired[Sequence[str]]
-    reflectionConfiguration: NotRequired[EpisodicReflectionConfigurationInputTypeDef]
-
-
 class ListEvaluatorsResponseTypeDef(TypedDict):
     evaluators: list[EvaluatorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3250,6 +3258,11 @@ Oauth2AuthorizationServerMetadataUnionTypeDef = Union[
 ]
 
 
+class OnBehalfOfTokenExchangeConfigTypeOutputTypeDef(TypedDict):
+    grantType: OnBehalfOfTokenExchangeGrantTypeTypeType
+    tokenExchangeGrantTypeConfig: NotRequired[TokenExchangeGrantTypeConfigTypeOutputTypeDef]
+
+
 class PolicyDefinitionTypeDef(TypedDict):
     cedar: NotRequired[CedarPolicyTypeDef]
     policyGeneration: NotRequired[PolicyGenerationDetailsTypeDef]
@@ -3287,6 +3300,20 @@ class ToolDefinitionTypeDef(TypedDict):
     outputSchema: NotRequired[SchemaDefinitionTypeDef]
 
 
+StringListValidationUnionTypeDef = Union[
+    StringListValidationTypeDef, StringListValidationOutputTypeDef
+]
+
+
+class ValidationOutputTypeDef(TypedDict):
+    stringValidation: NotRequired[StringValidationOutputTypeDef]
+    stringListValidation: NotRequired[StringListValidationOutputTypeDef]
+    numberValidation: NotRequired[NumberValidationTypeDef]
+
+
+StringValidationUnionTypeDef = Union[StringValidationTypeDef, StringValidationOutputTypeDef]
+
+
 class WeightedRouteOutputTypeDef(TypedDict):
     trafficSplit: list[TargetTrafficSplitEntryOutputTypeDef]
 
@@ -3306,6 +3333,11 @@ class TriggerConditionTypeDef(TypedDict):
     messageBasedTrigger: NotRequired[MessageBasedTriggerTypeDef]
     tokenBasedTrigger: NotRequired[TokenBasedTriggerTypeDef]
     timeBasedTrigger: NotRequired[TimeBasedTriggerTypeDef]
+
+
+TokenExchangeGrantTypeConfigTypeUnionTypeDef = Union[
+    TokenExchangeGrantTypeConfigTypeTypeDef, TokenExchangeGrantTypeConfigTypeOutputTypeDef
+]
 
 
 class UpdatePolicyEngineRequestTypeDef(TypedDict):
@@ -3512,16 +3544,6 @@ class ModifyExtractionConfigurationTypeDef(TypedDict):
 
 class ExtractionConfigurationTypeDef(TypedDict):
     customExtractionConfiguration: NotRequired[CustomExtractionConfigurationTypeDef]
-
-
-class ModifyReflectionConfigurationTypeDef(TypedDict):
-    episodicReflectionConfiguration: NotRequired[EpisodicReflectionConfigurationInputTypeDef]
-    customReflectionConfiguration: NotRequired[CustomReflectionConfigurationInputTypeDef]
-
-
-class ReflectionConfigurationTypeDef(TypedDict):
-    customReflectionConfiguration: NotRequired[CustomReflectionConfigurationTypeDef]
-    episodicReflectionConfiguration: NotRequired[EpisodicReflectionConfigurationTypeDef]
 
 
 class HarnessAgentCoreRuntimeEnvironmentTypeDef(TypedDict):
@@ -3782,6 +3804,18 @@ class ToolSchemaTypeDef(TypedDict):
     inlinePayload: NotRequired[Sequence[ToolDefinitionTypeDef]]
 
 
+class LlmExtractionConfigOutputTypeDef(TypedDict):
+    definition: str
+    llmExtractionInstruction: NotRequired[str]
+    validation: NotRequired[ValidationOutputTypeDef]
+
+
+class ValidationTypeDef(TypedDict):
+    stringValidation: NotRequired[StringValidationUnionTypeDef]
+    stringListValidation: NotRequired[StringListValidationUnionTypeDef]
+    numberValidation: NotRequired[NumberValidationTypeDef]
+
+
 class RouteToTargetActionOutputTypeDef(TypedDict):
     staticRoute: NotRequired[StaticRouteTypeDef]
     weightedRoute: NotRequired[WeightedRouteOutputTypeDef]
@@ -3807,6 +3841,11 @@ class SelfManagedConfigurationTypeDef(TypedDict):
     triggerConditions: list[TriggerConditionTypeDef]
     invocationConfiguration: InvocationConfigurationTypeDef
     historicalContextWindowSize: int
+
+
+class OnBehalfOfTokenExchangeConfigTypeTypeDef(TypedDict):
+    grantType: OnBehalfOfTokenExchangeGrantTypeTypeType
+    tokenExchangeGrantTypeConfig: NotRequired[TokenExchangeGrantTypeConfigTypeUnionTypeDef]
 
 
 class UpdatedAgentSkillsDescriptorTypeDef(TypedDict):
@@ -4011,6 +4050,8 @@ class CustomOauth2ProviderConfigOutputTypeDef(TypedDict):
     clientId: NotRequired[str]
     privateEndpoint: NotRequired[PrivateEndpointOutputTypeDef]
     privateEndpointOverrides: NotRequired[list[PrivateEndpointOverrideOutputTypeDef]]
+    onBehalfOfTokenExchangeConfig: NotRequired[OnBehalfOfTokenExchangeConfigTypeOutputTypeDef]
+    clientAuthenticationMethod: NotRequired[ClientAuthenticationMethodTypeType]
 
 
 class FromUrlSynchronizationConfigurationOutputTypeDef(TypedDict):
@@ -4035,34 +4076,15 @@ class McpLambdaTargetConfigurationTypeDef(TypedDict):
     toolSchema: ToolSchemaTypeDef
 
 
+class ExtractionConfigOutputTypeDef(TypedDict):
+    llmExtractionConfig: NotRequired[LlmExtractionConfigOutputTypeDef]
+
+
+ValidationUnionTypeDef = Union[ValidationTypeDef, ValidationOutputTypeDef]
 WeightedRouteUnionTypeDef = Union[WeightedRouteTypeDef, WeightedRouteOutputTypeDef]
-
-
-class ModifyStrategyConfigurationTypeDef(TypedDict):
-    extraction: NotRequired[ModifyExtractionConfigurationTypeDef]
-    consolidation: NotRequired[ModifyConsolidationConfigurationTypeDef]
-    reflection: NotRequired[ModifyReflectionConfigurationTypeDef]
-    selfManagedConfiguration: NotRequired[ModifySelfManagedConfigurationTypeDef]
-
-
-class CustomConfigurationInputTypeDef(TypedDict):
-    semanticOverride: NotRequired[SemanticOverrideConfigurationInputTypeDef]
-    summaryOverride: NotRequired[SummaryOverrideConfigurationInputTypeDef]
-    userPreferenceOverride: NotRequired[UserPreferenceOverrideConfigurationInputTypeDef]
-    episodicOverride: NotRequired[EpisodicOverrideConfigurationInputTypeDef]
-    selfManagedConfiguration: NotRequired[SelfManagedConfigurationInputTypeDef]
-
-
-StrategyConfigurationTypeDef = TypedDict(
-    "StrategyConfigurationTypeDef",
-    {
-        "type": NotRequired[OverrideTypeType],
-        "extraction": NotRequired[ExtractionConfigurationTypeDef],
-        "consolidation": NotRequired[ConsolidationConfigurationTypeDef],
-        "reflection": NotRequired[ReflectionConfigurationTypeDef],
-        "selfManagedConfiguration": NotRequired[SelfManagedConfigurationTypeDef],
-    },
-)
+OnBehalfOfTokenExchangeConfigTypeUnionTypeDef = Union[
+    OnBehalfOfTokenExchangeConfigTypeTypeDef, OnBehalfOfTokenExchangeConfigTypeOutputTypeDef
+]
 
 
 class EvaluatorConfigOutputTypeDef(TypedDict):
@@ -4211,44 +4233,25 @@ McpTargetConfigurationTypeDef = TypedDict(
         "apiGateway": NotRequired[ApiGatewayTargetConfigurationTypeDef],
     },
 )
+MetadataSchemaEntryOutputTypeDef = TypedDict(
+    "MetadataSchemaEntryOutputTypeDef",
+    {
+        "key": str,
+        "type": NotRequired[MetadataValueTypeType],
+        "extractionConfig": NotRequired[ExtractionConfigOutputTypeDef],
+    },
+)
+
+
+class LlmExtractionConfigTypeDef(TypedDict):
+    definition: str
+    llmExtractionInstruction: NotRequired[str]
+    validation: NotRequired[ValidationUnionTypeDef]
 
 
 class RouteToTargetActionTypeDef(TypedDict):
     staticRoute: NotRequired[StaticRouteTypeDef]
     weightedRoute: NotRequired[WeightedRouteUnionTypeDef]
-
-
-class ModifyMemoryStrategyInputTypeDef(TypedDict):
-    memoryStrategyId: str
-    description: NotRequired[str]
-    namespaces: NotRequired[Sequence[str]]
-    namespaceTemplates: NotRequired[Sequence[str]]
-    configuration: NotRequired[ModifyStrategyConfigurationTypeDef]
-
-
-class CustomMemoryStrategyInputTypeDef(TypedDict):
-    name: str
-    description: NotRequired[str]
-    namespaces: NotRequired[Sequence[str]]
-    namespaceTemplates: NotRequired[Sequence[str]]
-    configuration: NotRequired[CustomConfigurationInputTypeDef]
-
-
-MemoryStrategyTypeDef = TypedDict(
-    "MemoryStrategyTypeDef",
-    {
-        "strategyId": str,
-        "name": str,
-        "type": MemoryStrategyTypeType,
-        "namespaces": list[str],
-        "namespaceTemplates": list[str],
-        "description": NotRequired[str],
-        "configuration": NotRequired[StrategyConfigurationTypeDef],
-        "createdAt": NotRequired[datetime],
-        "updatedAt": NotRequired[datetime],
-        "status": NotRequired[MemoryStrategyStatusType],
-    },
-)
 
 
 class GetEvaluatorResponseTypeDef(TypedDict):
@@ -4596,37 +4599,16 @@ class TargetConfigurationTypeDef(TypedDict):
     http: NotRequired[HttpTargetConfigurationTypeDef]
 
 
+class MemoryRecordSchemaOutputTypeDef(TypedDict):
+    metadataSchema: NotRequired[list[MetadataSchemaEntryOutputTypeDef]]
+
+
+LlmExtractionConfigUnionTypeDef = Union[
+    LlmExtractionConfigTypeDef, LlmExtractionConfigOutputTypeDef
+]
 RouteToTargetActionUnionTypeDef = Union[
     RouteToTargetActionTypeDef, RouteToTargetActionOutputTypeDef
 ]
-
-
-class MemoryStrategyInputTypeDef(TypedDict):
-    semanticMemoryStrategy: NotRequired[SemanticMemoryStrategyInputTypeDef]
-    summaryMemoryStrategy: NotRequired[SummaryMemoryStrategyInputTypeDef]
-    userPreferenceMemoryStrategy: NotRequired[UserPreferenceMemoryStrategyInputTypeDef]
-    customMemoryStrategy: NotRequired[CustomMemoryStrategyInputTypeDef]
-    episodicMemoryStrategy: NotRequired[EpisodicMemoryStrategyInputTypeDef]
-
-
-MemoryTypeDef = TypedDict(
-    "MemoryTypeDef",
-    {
-        "arn": str,
-        "id": str,
-        "name": str,
-        "eventExpiryDuration": int,
-        "status": MemoryStatusType,
-        "createdAt": datetime,
-        "updatedAt": datetime,
-        "description": NotRequired[str],
-        "encryptionKeyArn": NotRequired[str],
-        "memoryExecutionRoleArn": NotRequired[str],
-        "failureReason": NotRequired[str],
-        "strategies": NotRequired[list[MemoryStrategyTypeDef]],
-        "streamDeliveryResources": NotRequired[StreamDeliveryResourcesOutputTypeDef],
-    },
-)
 
 
 class CreateEvaluatorRequestTypeDef(TypedDict):
@@ -4671,10 +4653,12 @@ class CustomJWTAuthorizerConfigurationTypeDef(TypedDict):
 
 class CustomOauth2ProviderConfigInputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryUnionTypeDef
-    clientId: str
-    clientSecret: str
+    clientId: NotRequired[str]
+    clientSecret: NotRequired[str]
     privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
     privateEndpointOverrides: NotRequired[Sequence[PrivateEndpointOverrideUnionTypeDef]]
+    onBehalfOfTokenExchangeConfig: NotRequired[OnBehalfOfTokenExchangeConfigTypeUnionTypeDef]
+    clientAuthenticationMethod: NotRequired[ClientAuthenticationMethodTypeType]
 
 
 class HarnessToolConfigurationTypeDef(TypedDict):
@@ -4796,37 +4780,22 @@ TargetConfigurationUnionTypeDef = Union[
 ]
 
 
-class CreateMemoryInputTypeDef(TypedDict):
-    name: str
-    eventExpiryDuration: int
-    clientToken: NotRequired[str]
-    description: NotRequired[str]
-    encryptionKeyArn: NotRequired[str]
-    memoryExecutionRoleArn: NotRequired[str]
-    memoryStrategies: NotRequired[Sequence[MemoryStrategyInputTypeDef]]
-    streamDeliveryResources: NotRequired[StreamDeliveryResourcesUnionTypeDef]
-    tags: NotRequired[Mapping[str, str]]
+class EpisodicReflectionConfigurationTypeDef(TypedDict):
+    namespaces: NotRequired[list[str]]
+    namespaceTemplates: NotRequired[list[str]]
+    memoryRecordSchema: NotRequired[MemoryRecordSchemaOutputTypeDef]
 
 
-class ModifyMemoryStrategiesTypeDef(TypedDict):
-    addMemoryStrategies: NotRequired[Sequence[MemoryStrategyInputTypeDef]]
-    modifyMemoryStrategies: NotRequired[Sequence[ModifyMemoryStrategyInputTypeDef]]
-    deleteMemoryStrategies: NotRequired[Sequence[DeleteMemoryStrategyInputTypeDef]]
+class EpisodicReflectionOverrideTypeDef(TypedDict):
+    appendToPrompt: str
+    modelId: str
+    namespaces: NotRequired[list[str]]
+    namespaceTemplates: NotRequired[list[str]]
+    memoryRecordSchema: NotRequired[MemoryRecordSchemaOutputTypeDef]
 
 
-class CreateMemoryOutputTypeDef(TypedDict):
-    memory: MemoryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetMemoryOutputTypeDef(TypedDict):
-    memory: MemoryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateMemoryOutputTypeDef(TypedDict):
-    memory: MemoryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class ExtractionConfigTypeDef(TypedDict):
+    llmExtractionConfig: NotRequired[LlmExtractionConfigUnionTypeDef]
 
 
 class ActionTypeDef(TypedDict):
@@ -4890,16 +4859,11 @@ class UpdateGatewayTargetRequestTypeDef(TypedDict):
     privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
 
 
-class UpdateMemoryInputTypeDef(TypedDict):
-    memoryId: str
-    clientToken: NotRequired[str]
-    description: NotRequired[str]
-    eventExpiryDuration: NotRequired[int]
-    memoryExecutionRoleArn: NotRequired[str]
-    memoryStrategies: NotRequired[ModifyMemoryStrategiesTypeDef]
-    streamDeliveryResources: NotRequired[StreamDeliveryResourcesUnionTypeDef]
+class CustomReflectionConfigurationTypeDef(TypedDict):
+    episodicReflectionOverride: NotRequired[EpisodicReflectionOverrideTypeDef]
 
 
+ExtractionConfigUnionTypeDef = Union[ExtractionConfigTypeDef, ExtractionConfigOutputTypeDef]
 ActionUnionTypeDef = Union[ActionTypeDef, ActionOutputTypeDef]
 
 
@@ -4934,6 +4898,21 @@ class SynchronizationConfigurationTypeDef(TypedDict):
     fromUrl: NotRequired[FromUrlSynchronizationConfigurationUnionTypeDef]
 
 
+class ReflectionConfigurationTypeDef(TypedDict):
+    customReflectionConfiguration: NotRequired[CustomReflectionConfigurationTypeDef]
+    episodicReflectionConfiguration: NotRequired[EpisodicReflectionConfigurationTypeDef]
+
+
+MetadataSchemaEntryTypeDef = TypedDict(
+    "MetadataSchemaEntryTypeDef",
+    {
+        "key": str,
+        "type": NotRequired[MetadataValueTypeType],
+        "extractionConfig": NotRequired[ExtractionConfigUnionTypeDef],
+    },
+)
+
+
 class CreateGatewayRuleRequestTypeDef(TypedDict):
     gatewayIdentifier: str
     priority: int
@@ -4958,6 +4937,19 @@ AuthorizerConfigurationUnionTypeDef = Union[
 HarnessToolUnionTypeDef = Union[HarnessToolTypeDef, HarnessToolOutputTypeDef]
 SynchronizationConfigurationUnionTypeDef = Union[
     SynchronizationConfigurationTypeDef, SynchronizationConfigurationOutputTypeDef
+]
+StrategyConfigurationTypeDef = TypedDict(
+    "StrategyConfigurationTypeDef",
+    {
+        "type": NotRequired[OverrideTypeType],
+        "extraction": NotRequired[ExtractionConfigurationTypeDef],
+        "consolidation": NotRequired[ConsolidationConfigurationTypeDef],
+        "reflection": NotRequired[ReflectionConfigurationTypeDef],
+        "selfManagedConfiguration": NotRequired[SelfManagedConfigurationTypeDef],
+    },
+)
+MetadataSchemaEntryUnionTypeDef = Union[
+    MetadataSchemaEntryTypeDef, MetadataSchemaEntryOutputTypeDef
 ]
 
 
@@ -5074,6 +5066,28 @@ class UpdatedSynchronizationConfigurationTypeDef(TypedDict):
     optionalValue: NotRequired[SynchronizationConfigurationUnionTypeDef]
 
 
+MemoryStrategyTypeDef = TypedDict(
+    "MemoryStrategyTypeDef",
+    {
+        "strategyId": str,
+        "name": str,
+        "type": MemoryStrategyTypeType,
+        "namespaces": list[str],
+        "namespaceTemplates": list[str],
+        "description": NotRequired[str],
+        "configuration": NotRequired[StrategyConfigurationTypeDef],
+        "createdAt": NotRequired[datetime],
+        "updatedAt": NotRequired[datetime],
+        "status": NotRequired[MemoryStrategyStatusType],
+        "memoryRecordSchema": NotRequired[MemoryRecordSchemaOutputTypeDef],
+    },
+)
+
+
+class MemoryRecordSchemaTypeDef(TypedDict):
+    metadataSchema: NotRequired[Sequence[MetadataSchemaEntryUnionTypeDef]]
+
+
 class UpdateHarnessRequestTypeDef(TypedDict):
     harnessId: str
     clientToken: NotRequired[str]
@@ -5113,3 +5127,173 @@ class UpdateRegistryRecordRequestTypeDef(TypedDict):
     synchronizationType: NotRequired[UpdatedSynchronizationTypeTypeDef]
     synchronizationConfiguration: NotRequired[UpdatedSynchronizationConfigurationTypeDef]
     triggerSynchronization: NotRequired[bool]
+
+
+MemoryTypeDef = TypedDict(
+    "MemoryTypeDef",
+    {
+        "arn": str,
+        "id": str,
+        "name": str,
+        "eventExpiryDuration": int,
+        "status": MemoryStatusType,
+        "createdAt": datetime,
+        "updatedAt": datetime,
+        "description": NotRequired[str],
+        "encryptionKeyArn": NotRequired[str],
+        "memoryExecutionRoleArn": NotRequired[str],
+        "failureReason": NotRequired[str],
+        "strategies": NotRequired[list[MemoryStrategyTypeDef]],
+        "indexedKeys": NotRequired[list[IndexedKeyTypeDef]],
+        "streamDeliveryResources": NotRequired[StreamDeliveryResourcesOutputTypeDef],
+    },
+)
+MemoryRecordSchemaUnionTypeDef = Union[MemoryRecordSchemaTypeDef, MemoryRecordSchemaOutputTypeDef]
+
+
+class CreateMemoryOutputTypeDef(TypedDict):
+    memory: MemoryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetMemoryOutputTypeDef(TypedDict):
+    memory: MemoryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateMemoryOutputTypeDef(TypedDict):
+    memory: MemoryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class EpisodicOverrideReflectionConfigurationInputTypeDef(TypedDict):
+    appendToPrompt: str
+    modelId: str
+    namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
+    memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+
+
+class EpisodicReflectionConfigurationInputTypeDef(TypedDict):
+    namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
+    memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+
+
+class SemanticMemoryStrategyInputTypeDef(TypedDict):
+    name: str
+    description: NotRequired[str]
+    namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
+    memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+
+
+class SummaryMemoryStrategyInputTypeDef(TypedDict):
+    name: str
+    description: NotRequired[str]
+    namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
+    memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+
+
+class UserPreferenceMemoryStrategyInputTypeDef(TypedDict):
+    name: str
+    description: NotRequired[str]
+    namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
+    memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+
+
+class CustomReflectionConfigurationInputTypeDef(TypedDict):
+    episodicReflectionOverride: NotRequired[EpisodicOverrideReflectionConfigurationInputTypeDef]
+
+
+class EpisodicOverrideConfigurationInputTypeDef(TypedDict):
+    extraction: NotRequired[EpisodicOverrideExtractionConfigurationInputTypeDef]
+    consolidation: NotRequired[EpisodicOverrideConsolidationConfigurationInputTypeDef]
+    reflection: NotRequired[EpisodicOverrideReflectionConfigurationInputTypeDef]
+
+
+class EpisodicMemoryStrategyInputTypeDef(TypedDict):
+    name: str
+    description: NotRequired[str]
+    namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
+    reflectionConfiguration: NotRequired[EpisodicReflectionConfigurationInputTypeDef]
+    memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+
+
+class ModifyReflectionConfigurationTypeDef(TypedDict):
+    episodicReflectionConfiguration: NotRequired[EpisodicReflectionConfigurationInputTypeDef]
+    customReflectionConfiguration: NotRequired[CustomReflectionConfigurationInputTypeDef]
+
+
+class CustomConfigurationInputTypeDef(TypedDict):
+    semanticOverride: NotRequired[SemanticOverrideConfigurationInputTypeDef]
+    summaryOverride: NotRequired[SummaryOverrideConfigurationInputTypeDef]
+    userPreferenceOverride: NotRequired[UserPreferenceOverrideConfigurationInputTypeDef]
+    episodicOverride: NotRequired[EpisodicOverrideConfigurationInputTypeDef]
+    selfManagedConfiguration: NotRequired[SelfManagedConfigurationInputTypeDef]
+
+
+class ModifyStrategyConfigurationTypeDef(TypedDict):
+    extraction: NotRequired[ModifyExtractionConfigurationTypeDef]
+    consolidation: NotRequired[ModifyConsolidationConfigurationTypeDef]
+    reflection: NotRequired[ModifyReflectionConfigurationTypeDef]
+    selfManagedConfiguration: NotRequired[ModifySelfManagedConfigurationTypeDef]
+
+
+class CustomMemoryStrategyInputTypeDef(TypedDict):
+    name: str
+    description: NotRequired[str]
+    namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
+    configuration: NotRequired[CustomConfigurationInputTypeDef]
+    memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+
+
+class ModifyMemoryStrategyInputTypeDef(TypedDict):
+    memoryStrategyId: str
+    description: NotRequired[str]
+    namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
+    configuration: NotRequired[ModifyStrategyConfigurationTypeDef]
+    memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+
+
+class MemoryStrategyInputTypeDef(TypedDict):
+    semanticMemoryStrategy: NotRequired[SemanticMemoryStrategyInputTypeDef]
+    summaryMemoryStrategy: NotRequired[SummaryMemoryStrategyInputTypeDef]
+    userPreferenceMemoryStrategy: NotRequired[UserPreferenceMemoryStrategyInputTypeDef]
+    customMemoryStrategy: NotRequired[CustomMemoryStrategyInputTypeDef]
+    episodicMemoryStrategy: NotRequired[EpisodicMemoryStrategyInputTypeDef]
+
+
+class CreateMemoryInputTypeDef(TypedDict):
+    name: str
+    eventExpiryDuration: int
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    encryptionKeyArn: NotRequired[str]
+    memoryExecutionRoleArn: NotRequired[str]
+    memoryStrategies: NotRequired[Sequence[MemoryStrategyInputTypeDef]]
+    indexedKeys: NotRequired[Sequence[IndexedKeyTypeDef]]
+    streamDeliveryResources: NotRequired[StreamDeliveryResourcesUnionTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class ModifyMemoryStrategiesTypeDef(TypedDict):
+    addMemoryStrategies: NotRequired[Sequence[MemoryStrategyInputTypeDef]]
+    modifyMemoryStrategies: NotRequired[Sequence[ModifyMemoryStrategyInputTypeDef]]
+    deleteMemoryStrategies: NotRequired[Sequence[DeleteMemoryStrategyInputTypeDef]]
+
+
+class UpdateMemoryInputTypeDef(TypedDict):
+    memoryId: str
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    eventExpiryDuration: NotRequired[int]
+    memoryExecutionRoleArn: NotRequired[str]
+    memoryStrategies: NotRequired[ModifyMemoryStrategiesTypeDef]
+    addIndexedKeys: NotRequired[Sequence[IndexedKeyTypeDef]]
+    streamDeliveryResources: NotRequired[StreamDeliveryResourcesUnionTypeDef]

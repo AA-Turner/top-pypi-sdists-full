@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -21,10 +21,7 @@ from ..._wrappers import ResultWrapper
 from ...pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ..._base_client import AsyncPaginator, make_request_options
 from ...types.schema_validation import schema_get_params, schema_edit_params, schema_list_params, schema_create_params
-from ...types.schema_validation.schema_get_response import SchemaGetResponse
-from ...types.schema_validation.schema_edit_response import SchemaEditResponse
-from ...types.schema_validation.schema_list_response import SchemaListResponse
-from ...types.schema_validation.schema_create_response import SchemaCreateResponse
+from ...types.schema_validation.public_schema import PublicSchema
 from ...types.schema_validation.schema_delete_response import SchemaDeleteResponse
 
 __all__ = ["SchemasResource", "AsyncSchemasResource"]
@@ -63,10 +60,12 @@ class SchemasResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SchemaCreateResponse:
-        """
-        Upload a schema
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PublicSchema:
+        """Uploads a new OpenAPI schema for API Shield schema validation.
+
+        The schema
+        defines expected request/response formats for API endpoints.
 
         Args:
           zone_id: Identifier.
@@ -90,7 +89,7 @@ class SchemasResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
-            f"/zones/{zone_id}/schema_validation/schemas",
+            path_template("/zones/{zone_id}/schema_validation/schemas", zone_id=zone_id),
             body=maybe_transform(
                 {
                     "kind": kind,
@@ -105,28 +104,28 @@ class SchemasResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[SchemaCreateResponse]._unwrapper,
+                post_parser=ResultWrapper[PublicSchema]._unwrapper,
             ),
-            cast_to=cast(Type[SchemaCreateResponse], ResultWrapper[SchemaCreateResponse]),
+            cast_to=cast(Type[PublicSchema], ResultWrapper[PublicSchema]),
         )
 
     def list(
         self,
         *,
         zone_id: str,
-        omit_source: bool | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        validation_enabled: bool | NotGiven = NOT_GIVEN,
+        omit_source: bool | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        validation_enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncV4PagePaginationArray[SchemaListResponse]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncV4PagePaginationArray[PublicSchema]:
         """
-        List all uploaded schemas
+        Lists all OpenAPI schemas uploaded to API Shield with pagination support.
 
         Args:
           zone_id: Identifier.
@@ -150,8 +149,8 @@ class SchemasResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/schema_validation/schemas",
-            page=SyncV4PagePaginationArray[SchemaListResponse],
+            path_template("/zones/{zone_id}/schema_validation/schemas", zone_id=zone_id),
+            page=SyncV4PagePaginationArray[PublicSchema],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -167,7 +166,7 @@ class SchemasResource(SyncAPIResource):
                     schema_list_params.SchemaListParams,
                 ),
             ),
-            model=SchemaListResponse,
+            model=PublicSchema,
         )
 
     def delete(
@@ -180,10 +179,12 @@ class SchemasResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SchemaDeleteResponse:
-        """
-        Delete a schema
+        """Permanently removes an uploaded OpenAPI schema from API Shield.
+
+        Operations using
+        this schema will lose their validation rules.
 
         Args:
           zone_id: Identifier.
@@ -203,7 +204,9 @@ class SchemasResource(SyncAPIResource):
         if not schema_id:
             raise ValueError(f"Expected a non-empty value for `schema_id` but received {schema_id!r}")
         return self._delete(
-            f"/zones/{zone_id}/schema_validation/schemas/{schema_id}",
+            path_template(
+                "/zones/{zone_id}/schema_validation/schemas/{schema_id}", zone_id=zone_id, schema_id=schema_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -219,16 +222,17 @@ class SchemasResource(SyncAPIResource):
         schema_id: str,
         *,
         zone_id: str,
-        validation_enabled: bool | NotGiven = NOT_GIVEN,
+        validation_enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SchemaEditResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PublicSchema:
         """
-        Edit details of a schema to enable validation
+        Modifies an existing OpenAPI schema in API Shield, updating the validation rules
+        for associated API operations.
 
         Args:
           zone_id: Identifier.
@@ -250,16 +254,18 @@ class SchemasResource(SyncAPIResource):
         if not schema_id:
             raise ValueError(f"Expected a non-empty value for `schema_id` but received {schema_id!r}")
         return self._patch(
-            f"/zones/{zone_id}/schema_validation/schemas/{schema_id}",
+            path_template(
+                "/zones/{zone_id}/schema_validation/schemas/{schema_id}", zone_id=zone_id, schema_id=schema_id
+            ),
             body=maybe_transform({"validation_enabled": validation_enabled}, schema_edit_params.SchemaEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[SchemaEditResponse]._unwrapper,
+                post_parser=ResultWrapper[PublicSchema]._unwrapper,
             ),
-            cast_to=cast(Type[SchemaEditResponse], ResultWrapper[SchemaEditResponse]),
+            cast_to=cast(Type[PublicSchema], ResultWrapper[PublicSchema]),
         )
 
     def get(
@@ -267,16 +273,17 @@ class SchemasResource(SyncAPIResource):
         schema_id: str,
         *,
         zone_id: str,
-        omit_source: bool | NotGiven = NOT_GIVEN,
+        omit_source: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SchemaGetResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PublicSchema:
         """
-        Get details of a schema
+        Gets the contents and metadata of a specific OpenAPI schema uploaded to API
+        Shield.
 
         Args:
           zone_id: Identifier.
@@ -298,16 +305,18 @@ class SchemasResource(SyncAPIResource):
         if not schema_id:
             raise ValueError(f"Expected a non-empty value for `schema_id` but received {schema_id!r}")
         return self._get(
-            f"/zones/{zone_id}/schema_validation/schemas/{schema_id}",
+            path_template(
+                "/zones/{zone_id}/schema_validation/schemas/{schema_id}", zone_id=zone_id, schema_id=schema_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
                 query=maybe_transform({"omit_source": omit_source}, schema_get_params.SchemaGetParams),
-                post_parser=ResultWrapper[SchemaGetResponse]._unwrapper,
+                post_parser=ResultWrapper[PublicSchema]._unwrapper,
             ),
-            cast_to=cast(Type[SchemaGetResponse], ResultWrapper[SchemaGetResponse]),
+            cast_to=cast(Type[PublicSchema], ResultWrapper[PublicSchema]),
         )
 
 
@@ -344,10 +353,12 @@ class AsyncSchemasResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SchemaCreateResponse:
-        """
-        Upload a schema
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PublicSchema:
+        """Uploads a new OpenAPI schema for API Shield schema validation.
+
+        The schema
+        defines expected request/response formats for API endpoints.
 
         Args:
           zone_id: Identifier.
@@ -371,7 +382,7 @@ class AsyncSchemasResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
-            f"/zones/{zone_id}/schema_validation/schemas",
+            path_template("/zones/{zone_id}/schema_validation/schemas", zone_id=zone_id),
             body=await async_maybe_transform(
                 {
                     "kind": kind,
@@ -386,28 +397,28 @@ class AsyncSchemasResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[SchemaCreateResponse]._unwrapper,
+                post_parser=ResultWrapper[PublicSchema]._unwrapper,
             ),
-            cast_to=cast(Type[SchemaCreateResponse], ResultWrapper[SchemaCreateResponse]),
+            cast_to=cast(Type[PublicSchema], ResultWrapper[PublicSchema]),
         )
 
     def list(
         self,
         *,
         zone_id: str,
-        omit_source: bool | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        validation_enabled: bool | NotGiven = NOT_GIVEN,
+        omit_source: bool | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        validation_enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[SchemaListResponse, AsyncV4PagePaginationArray[SchemaListResponse]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[PublicSchema, AsyncV4PagePaginationArray[PublicSchema]]:
         """
-        List all uploaded schemas
+        Lists all OpenAPI schemas uploaded to API Shield with pagination support.
 
         Args:
           zone_id: Identifier.
@@ -431,8 +442,8 @@ class AsyncSchemasResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/schema_validation/schemas",
-            page=AsyncV4PagePaginationArray[SchemaListResponse],
+            path_template("/zones/{zone_id}/schema_validation/schemas", zone_id=zone_id),
+            page=AsyncV4PagePaginationArray[PublicSchema],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -448,7 +459,7 @@ class AsyncSchemasResource(AsyncAPIResource):
                     schema_list_params.SchemaListParams,
                 ),
             ),
-            model=SchemaListResponse,
+            model=PublicSchema,
         )
 
     async def delete(
@@ -461,10 +472,12 @@ class AsyncSchemasResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SchemaDeleteResponse:
-        """
-        Delete a schema
+        """Permanently removes an uploaded OpenAPI schema from API Shield.
+
+        Operations using
+        this schema will lose their validation rules.
 
         Args:
           zone_id: Identifier.
@@ -484,7 +497,9 @@ class AsyncSchemasResource(AsyncAPIResource):
         if not schema_id:
             raise ValueError(f"Expected a non-empty value for `schema_id` but received {schema_id!r}")
         return await self._delete(
-            f"/zones/{zone_id}/schema_validation/schemas/{schema_id}",
+            path_template(
+                "/zones/{zone_id}/schema_validation/schemas/{schema_id}", zone_id=zone_id, schema_id=schema_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -500,16 +515,17 @@ class AsyncSchemasResource(AsyncAPIResource):
         schema_id: str,
         *,
         zone_id: str,
-        validation_enabled: bool | NotGiven = NOT_GIVEN,
+        validation_enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SchemaEditResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PublicSchema:
         """
-        Edit details of a schema to enable validation
+        Modifies an existing OpenAPI schema in API Shield, updating the validation rules
+        for associated API operations.
 
         Args:
           zone_id: Identifier.
@@ -531,7 +547,9 @@ class AsyncSchemasResource(AsyncAPIResource):
         if not schema_id:
             raise ValueError(f"Expected a non-empty value for `schema_id` but received {schema_id!r}")
         return await self._patch(
-            f"/zones/{zone_id}/schema_validation/schemas/{schema_id}",
+            path_template(
+                "/zones/{zone_id}/schema_validation/schemas/{schema_id}", zone_id=zone_id, schema_id=schema_id
+            ),
             body=await async_maybe_transform(
                 {"validation_enabled": validation_enabled}, schema_edit_params.SchemaEditParams
             ),
@@ -540,9 +558,9 @@ class AsyncSchemasResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[SchemaEditResponse]._unwrapper,
+                post_parser=ResultWrapper[PublicSchema]._unwrapper,
             ),
-            cast_to=cast(Type[SchemaEditResponse], ResultWrapper[SchemaEditResponse]),
+            cast_to=cast(Type[PublicSchema], ResultWrapper[PublicSchema]),
         )
 
     async def get(
@@ -550,16 +568,17 @@ class AsyncSchemasResource(AsyncAPIResource):
         schema_id: str,
         *,
         zone_id: str,
-        omit_source: bool | NotGiven = NOT_GIVEN,
+        omit_source: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SchemaGetResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PublicSchema:
         """
-        Get details of a schema
+        Gets the contents and metadata of a specific OpenAPI schema uploaded to API
+        Shield.
 
         Args:
           zone_id: Identifier.
@@ -581,16 +600,18 @@ class AsyncSchemasResource(AsyncAPIResource):
         if not schema_id:
             raise ValueError(f"Expected a non-empty value for `schema_id` but received {schema_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/schema_validation/schemas/{schema_id}",
+            path_template(
+                "/zones/{zone_id}/schema_validation/schemas/{schema_id}", zone_id=zone_id, schema_id=schema_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
                 query=await async_maybe_transform({"omit_source": omit_source}, schema_get_params.SchemaGetParams),
-                post_parser=ResultWrapper[SchemaGetResponse]._unwrapper,
+                post_parser=ResultWrapper[PublicSchema]._unwrapper,
             ),
-            cast_to=cast(Type[SchemaGetResponse], ResultWrapper[SchemaGetResponse]),
+            cast_to=cast(Type[PublicSchema], ResultWrapper[PublicSchema]),
         )
 
 

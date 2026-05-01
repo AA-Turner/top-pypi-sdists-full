@@ -1,8 +1,10 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import List, Union, Optional
+from typing import Dict, List, Union, Optional
 from datetime import datetime
 from typing_extensions import Literal, TypeAlias
+
+from pydantic import Field as FieldInfo
 
 from ..._models import BaseModel
 
@@ -26,6 +28,9 @@ __all__ = [
     "FeaturesAPIShieldOperationFeatureSchemaInfo",
     "FeaturesAPIShieldOperationFeatureSchemaInfoSchemaInfo",
     "FeaturesAPIShieldOperationFeatureSchemaInfoSchemaInfoActiveSchema",
+    "Schemas",
+    "SchemasLearned",
+    "SchemasUploaded",
 ]
 
 
@@ -62,6 +67,8 @@ class FeaturesAPIShieldOperationFeatureThresholds(BaseModel):
 
 
 class FeaturesAPIShieldOperationFeatureParameterSchemasParameterSchemasParameterSchemas(BaseModel):
+    """An operation schema object containing a response."""
+
     parameters: Optional[List[object]] = None
     """An array containing the learned parameter schemas."""
 
@@ -86,6 +93,8 @@ class FeaturesAPIShieldOperationFeatureParameterSchemas(BaseModel):
 
 
 class FeaturesAPIShieldOperationFeatureAPIRoutingAPIRouting(BaseModel):
+    """API Routing settings on endpoint."""
+
     last_updated: Optional[datetime] = None
 
     route: Optional[str] = None
@@ -100,6 +109,8 @@ class FeaturesAPIShieldOperationFeatureAPIRouting(BaseModel):
 class FeaturesAPIShieldOperationFeatureConfidenceIntervalsConfidenceIntervalsSuggestedThresholdConfidenceIntervalsP90(
     BaseModel
 ):
+    """Upper and lower bound for percentile estimate"""
+
     lower: Optional[float] = None
     """Lower bound for percentile estimate"""
 
@@ -110,6 +121,8 @@ class FeaturesAPIShieldOperationFeatureConfidenceIntervalsConfidenceIntervalsSug
 class FeaturesAPIShieldOperationFeatureConfidenceIntervalsConfidenceIntervalsSuggestedThresholdConfidenceIntervalsP95(
     BaseModel
 ):
+    """Upper and lower bound for percentile estimate"""
+
     lower: Optional[float] = None
     """Lower bound for percentile estimate"""
 
@@ -120,6 +133,8 @@ class FeaturesAPIShieldOperationFeatureConfidenceIntervalsConfidenceIntervalsSug
 class FeaturesAPIShieldOperationFeatureConfidenceIntervalsConfidenceIntervalsSuggestedThresholdConfidenceIntervalsP99(
     BaseModel
 ):
+    """Upper and lower bound for percentile estimate"""
+
     lower: Optional[float] = None
     """Lower bound for percentile estimate"""
 
@@ -168,6 +183,8 @@ class FeaturesAPIShieldOperationFeatureConfidenceIntervals(BaseModel):
 
 
 class FeaturesAPIShieldOperationFeatureSchemaInfoSchemaInfoActiveSchema(BaseModel):
+    """Schema active on endpoint."""
+
     id: Optional[str] = None
     """UUID."""
 
@@ -204,6 +221,50 @@ Features: TypeAlias = Union[
 ]
 
 
+class SchemasLearned(BaseModel):
+    """
+    An OpenAPI operation object fragment containing schema information for an operation. May include parameter definitions, request body specifications, and a component schema extension.
+    """
+
+    parameters: Optional[List[Dict[str, object]]] = None
+    """OpenAPI parameter objects describing path, query, header, or cookie parameters."""
+
+    request_body: Optional[Dict[str, object]] = FieldInfo(alias="requestBody", default=None)
+    """OpenAPI request body object describing the expected request payload."""
+
+
+class SchemasUploaded(BaseModel):
+    """
+    An OpenAPI operation object fragment containing schema information for an operation. May include parameter definitions, request body specifications, and a component schema extension.
+    """
+
+    parameters: Optional[List[Dict[str, object]]] = None
+    """OpenAPI parameter objects describing path, query, header, or cookie parameters."""
+
+    request_body: Optional[Dict[str, object]] = FieldInfo(alias="requestBody", default=None)
+    """OpenAPI request body object describing the expected request payload."""
+
+
+class Schemas(BaseModel):
+    """
+    OpenAPI JSON schemas for an operation, including both user-uploaded and Cloudflare-learned schemas.
+    """
+
+    learned: Optional[SchemasLearned] = None
+    """
+    An OpenAPI operation object fragment containing schema information for an
+    operation. May include parameter definitions, request body specifications, and a
+    component schema extension.
+    """
+
+    uploaded: Optional[SchemasUploaded] = None
+    """
+    An OpenAPI operation object fragment containing schema information for an
+    operation. May include parameter definitions, request body specifications, and a
+    component schema extension.
+    """
+
+
 class OperationCreateResponse(BaseModel):
     endpoint: str
     """
@@ -225,3 +286,9 @@ class OperationCreateResponse(BaseModel):
     """UUID."""
 
     features: Optional[Features] = None
+
+    schemas: Optional[Schemas] = None
+    """
+    OpenAPI JSON schemas for an operation, including both user-uploaded and
+    Cloudflare-learned schemas.
+    """

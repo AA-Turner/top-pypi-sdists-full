@@ -159,8 +159,8 @@ class AgentConfig(BaseModel):
         default=None,
         description=(
             "Optional env alias to target for pre-agent login. When None, "
-            "the runner logs into every env in the session. Only honored "
-            "when ``browser_tooling`` is True."
+            "the runner logs into every env in the session. Honored when "
+            "``browser_tooling`` is True."
         ),
     )
     pre_login_flow: str = Field(

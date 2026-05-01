@@ -20,6 +20,7 @@ from chalk.features import (
     is_primary,
     op,
     owner,
+    select,
     tags,
 )
 from chalk.features._document import Document
@@ -112,6 +113,7 @@ __all__ = (
     "realtime",
     "run_prompt",
     "scan_parquet",
+    "select",
     "stream",
     "tags",
     "underscore",

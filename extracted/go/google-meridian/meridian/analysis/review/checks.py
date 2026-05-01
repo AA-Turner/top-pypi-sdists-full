@@ -17,16 +17,17 @@
 import abc
 from collections.abc import MutableMapping, Sequence
 import dataclasses
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 import warnings
 
+import arviz as az
 from meridian import backend
 from meridian import constants
 from meridian.analysis import analyzer as analyzer_module
 from meridian.analysis.review import configs
 from meridian.analysis.review import constants as review_constants
 from meridian.analysis.review import results
-from meridian.model import model
+from meridian.model import context
 import numpy as np
 import pandas as pd
 
@@ -39,13 +40,36 @@ class BaseCheck(abc.ABC, Generic[ConfigType, ResultType]):
 
   def __init__(
       self,
-      meridian: model.Meridian,
+      *,
+      # TODO: Remove this argument.
+      meridian: Any | None = None,
+      model_context: context.ModelContext | None = None,
+      inference_data: az.InferenceData | None = None,
       analyzer: analyzer_module.Analyzer,
       config: ConfigType,
+      selected_geos: Sequence[str] | None = None,
+      selected_times: Sequence[str] | None = None,
   ):
-    self._meridian = meridian
+    if meridian is not None:
+      warnings.warn(
+          "The `meridian` argument is deprecated. "
+          "Please use `model_context` and `inference_data` instead.",
+          category=DeprecationWarning,
+          stacklevel=2,
+      )
+      model_context = meridian.model_context
+      inference_data = meridian.inference_data
+    if model_context is None or inference_data is None:
+      raise ValueError(
+          "BaseCheck requires either (model_context AND inference_data) "
+          "or the deprecated (meridian) object."
+      )
+    self._model_context = model_context
+    self._inference_data = inference_data
     self._analyzer = analyzer
     self._config = config
+    self._selected_geos = selected_geos
+    self._selected_times = selected_times
 
   @abc.abstractmethod
   def run(self) -> ResultType:
@@ -117,7 +141,12 @@ class BaselineCheck(
   """Checks for negative baseline probability."""
 
   def run(self) -> results.BaselineCheckResult:
-    prob = float(self._analyzer.negative_baseline_probability())
+    prob = float(
+        self._analyzer.negative_baseline_probability(
+            selected_geos=self._selected_geos,
+            selected_times=self._selected_times,
+        )
+    )
 
     # Case 1: FAIL
     if prob > self._config.negative_baseline_prob_fail_threshold:
@@ -147,16 +176,30 @@ class BayesianPPPCheck(
   """Checks for Bayesian Posterior Predictive P-value."""
 
   def run(self) -> results.BayesianPPPCheckResult:
-    mmm = self._meridian
     analyzer = self._analyzer
 
-    outcome = mmm.kpi
-    if mmm.revenue_per_kpi is not None:
-      outcome *= mmm.revenue_per_kpi
-    total_outcome_actual = np.sum(outcome)
-
+    revenue_per_kpi = self._model_context.input_data.revenue_per_kpi
+    outcome = (
+        self._model_context.input_data.kpi * revenue_per_kpi
+        if revenue_per_kpi is not None
+        else self._model_context.input_data.kpi
+    )
+    total_actual_outcome_filtered = (
+        self._analyzer.filter_and_aggregate_geos_and_times(
+            outcome,
+            selected_geos=self._selected_geos,
+            selected_times=self._selected_times,
+            aggregate_geos=False,
+            aggregate_times=False,
+            has_media_dim=False,
+        )
+    )
+    total_outcome_actual = np.sum(total_actual_outcome_filtered)
     total_outcome_posterior = analyzer.expected_outcome(
-        aggregate_times=True, aggregate_geos=True
+        aggregate_times=True,
+        aggregate_geos=True,
+        selected_geos=self._selected_geos,
+        selected_times=self._selected_times,
     )
     total_outcome_expected = np.asarray(total_outcome_posterior).flatten()
 
@@ -225,11 +268,14 @@ class GoodnessOfFitCheck(
   """Checks for goodness of fit of the model."""
 
   def run(self) -> results.GoodnessOfFitCheckResult:
-    gof_ds = self._analyzer.predictive_accuracy()
+    gof_ds = self._analyzer.predictive_accuracy(
+        selected_geos=self._selected_geos,
+        selected_times=self._selected_times,
+    )
     gof_df = gof_ds.to_dataframe().reset_index()
 
     geo_granularity = (
-        constants.NATIONAL if self._meridian.n_geos == 1 else constants.GEO
+        constants.NATIONAL if self._model_context.n_geos == 1 else constants.GEO
     )
 
     gof_metrics = gof_df[gof_df[constants.GEO_GRANULARITY] == geo_granularity]
@@ -578,21 +624,14 @@ class ROIConsistencyCheck(
     prior_rois = []
     posterior_rois = []
     channel_names = []
-    if (
-        constants.MEDIA_CHANNEL
-        in self._meridian.inference_data.posterior.coords
-    ):
-      prior_rois.append(self._meridian.model_spec.prior.roi_m)
-      posterior_rois.append(self._meridian.inference_data.posterior.roi_m)
-      channel_names.append(
-          self._meridian.inference_data.posterior.media_channel.values
-      )
-    if constants.RF_CHANNEL in self._meridian.inference_data.posterior.coords:
-      prior_rois.append(self._meridian.model_spec.prior.roi_rf)
-      posterior_rois.append(self._meridian.inference_data.posterior.roi_rf)
-      channel_names.append(
-          self._meridian.inference_data.posterior.rf_channel.values
-      )
+    if constants.MEDIA_CHANNEL in self._inference_data.posterior.coords:
+      prior_rois.append(self._model_context.model_spec.prior.roi_m)
+      posterior_rois.append(self._inference_data.posterior.roi_m)
+      channel_names.append(self._inference_data.posterior.media_channel.values)
+    if constants.RF_CHANNEL in self._inference_data.posterior.coords:
+      prior_rois.append(self._model_context.model_spec.prior.roi_rf)
+      posterior_rois.append(self._inference_data.posterior.roi_rf)
+      channel_names.append(self._inference_data.posterior.rf_channel.values)
 
     channel_data = _get_roi_consistency_channel_data(
         prior_rois=prior_rois,
@@ -619,16 +658,19 @@ def _bootstrap(x: np.ndarray, n_bootstraps: int) -> np.ndarray:
 
 
 def _calculate_new_statistics_from_samples(
-    mmm: model.Meridian, n_bootstraps: int, var_name: str, n_channels: int
+    inference_data: az.InferenceData,
+    n_bootstraps: int,
+    var_name: str,
+    n_channels: int,
 ) -> dict[str, np.ndarray]:
   """Calculate Mean, Median, Q1, and Q3 from posterior samples."""
-  n_chains = len(mmm.inference_data.posterior.coords[constants.CHAIN])
-  n_draws = len(mmm.inference_data.posterior.coords[constants.DRAW])
+  n_chains = len(inference_data.posterior.coords[constants.CHAIN])
+  n_draws = len(inference_data.posterior.coords[constants.DRAW])
   n_posterior_samples = n_chains * n_draws
 
   posterior_samples = np.transpose(
       np.reshape(
-          mmm.inference_data.posterior.variables[var_name].values,
+          inference_data.posterior.variables[var_name].values,
           (n_posterior_samples, n_channels),
       )
   )
@@ -683,21 +725,19 @@ class PriorPosteriorShiftCheck(
     Returns:
       A tuple of (`channel_results`, `no_shift_channels`).
     """
-    if channel_type not in self._meridian.inference_data.posterior.coords:
+    if channel_type not in self._inference_data.posterior.coords:
       return [], []
 
     channel_results = []
     no_shift_channels = []
 
-    n_channels = len(
-        self._meridian.inference_data.posterior[channel_type].values
-    )
+    n_channels = len(self._inference_data.posterior[channel_type].values)
     if channel_type == constants.MEDIA_CHANNEL:
       var_name = constants.ROI_M
-      prior_dist = self._meridian.model_spec.prior.roi_m
+      prior_dist = self._model_context.model_spec.prior.roi_m
     else:
       var_name = constants.ROI_RF
-      prior_dist = self._meridian.model_spec.prior.roi_rf
+      prior_dist = self._model_context.model_spec.prior.roi_rf
     prior_stats = {}
     try:
       prior_stats[review_constants.MEAN] = prior_dist.mean()
@@ -717,7 +757,10 @@ class PriorPosteriorShiftCheck(
       pass
 
     post_stats = _calculate_new_statistics_from_samples(
-        self._meridian, self._config.n_bootstraps, var_name, n_channels
+        self._inference_data,
+        self._config.n_bootstraps,
+        var_name,
+        n_channels,
     )
 
     alpha = self._config.alpha
@@ -728,7 +771,7 @@ class PriorPosteriorShiftCheck(
       current_shift = _get_shifted_mask(post_stat, prior_stat, alpha)
       any_shift = any_shift | current_shift
 
-    channel_names = self._meridian.inference_data.posterior[channel_type].values
+    channel_names = self._inference_data.posterior[channel_type].values
     for i, channel_name in enumerate(channel_names):
       shifted = any_shift[i]
       case = (

@@ -6,11 +6,6 @@ from django.conf import settings
 from django.db import migrations, models
 
 
-def migrate_status(apps, schema_editor):
-    ImportSource = apps.get_model("io", "ImportSource")
-    ImportSource.objects.filter(status="IMPORTED").update(status="PROCESSED")
-
-
 class Migration(migrations.Migration):
     dependencies = [
         ("contenttypes", "0002_remove_content_type_name"),
@@ -19,9 +14,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(sql="SET CONSTRAINTS ALL IMMEDIATE;"),
-        migrations.RunPython(migrate_status),
-        migrations.RunSQL(sql="SET CONSTRAINTS ALL DEFERRED;"),
         migrations.AlterField(
             model_name="importsource",
             name="status",

@@ -5,10 +5,10 @@ Doc: https://documentation.mailgun.com/en/latest/api-inbox-placement.html
 
 from __future__ import annotations
 
-from os import path
 from typing import Any
 
-from .error_handler import ApiError
+from mailgun.handlers.error_handler import ApiError
+from mailgun.handlers.utils import build_path_from_keys, sanitize_path_segment
 
 
 def handle_inbox(
@@ -16,44 +16,42 @@ def handle_inbox(
     _domain: str | None,
     _method: str | None,
     **kwargs: Any,
-) -> Any:
-    """Handle inbox placement.
+) -> str:
+    """Handle inbox placement URL construction.
 
-    :param url: Incoming URL dictionary
-    :type url: dict
-    :param _domain: Incoming domain (it's not being used for this handler)
-    :type _domain: str
-    :param _method: Incoming request method (it's not being used for this handler)
-    :type _method: str
-    :param kwargs: kwargs
-    :return: final url for inbox placement endpoint
-    :raises: ApiError
+    Args:
+        url: Incoming URL configuration dictionary.
+        _domain: Target domain name (unused in this handler).
+        _method: Incoming request method (unused in this handler).
+        **kwargs: Additional parameters (e.g., 'test_id', 'counters', 'checks', 'address').
+
+    Returns:
+        The final URL for the inbox placement endpoint.
+
+    Raises:
+        ApiError: If 'counters' or 'checks' options are provided but evaluate to False.
     """
-    final_keys = path.join("/", *url["keys"]) if url["keys"] else ""
-    if "test_id" in kwargs:
-        if "counters" in kwargs:
-            if kwargs["counters"]:
-                url = url["base"][:-1] + final_keys + "/" + kwargs["test_id"] + "/counters"
-            else:
-                raise ApiError("Counters option should be True or absent")
-        elif "checks" in kwargs:
-            if kwargs["checks"]:
-                if "address" in kwargs:
-                    url = (
-                        url["base"][:-1]
-                        + final_keys
-                        + "/"
-                        + kwargs["test_id"]
-                        + "/checks/"
-                        + kwargs["address"]
-                    )
-                else:
-                    url = url["base"][:-1] + final_keys + "/" + kwargs["test_id"] + "/checks"
-            else:
-                raise ApiError("Checks option should be True or absent")
-        else:
-            url = url["base"][:-1] + final_keys + "/" + kwargs["test_id"]
-    else:
-        url = url["base"][:-1] + final_keys
+    final_keys = build_path_from_keys(url.get("keys", []))
+    base_url = url["base"].rstrip("/")
+    endpoint_url = f"{base_url}{final_keys}"
 
-    return url
+    if "test_id" not in kwargs:
+        return endpoint_url
+
+    test_id = sanitize_path_segment(kwargs["test_id"])
+    endpoint_url = f"{endpoint_url}/{test_id}"
+
+    if "counters" in kwargs:
+        if kwargs["counters"]:
+            return f"{endpoint_url}/counters"
+        raise ApiError("Counters option should be True or absent")
+
+    if "checks" in kwargs:
+        if kwargs["checks"]:
+            if "address" in kwargs:
+                safe_address = sanitize_path_segment(kwargs["address"])
+                return f"{endpoint_url}/checks/{safe_address}"
+            return f"{endpoint_url}/checks"
+        raise ApiError("Checks option should be True or absent")
+
+    return endpoint_url

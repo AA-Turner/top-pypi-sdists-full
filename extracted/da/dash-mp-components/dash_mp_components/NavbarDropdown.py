@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class NavbarDropdown(Component):
@@ -46,12 +58,21 @@ Keyword arguments:
     {             text: \"External Site\",             href:
     \"https://externalsite.com\",             openInNewTab: True
     }         ]."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'NavbarDropdown'
-    @_explicitize_args
-    def __init__(self, children=None, className=Component.UNDEFINED, isArrowless=Component.UNDEFINED, isRight=Component.UNDEFINED, items=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        children: typing.Optional[ComponentType] = None,
+        className: typing.Optional[str] = None,
+        isArrowless: typing.Optional[bool] = None,
+        isRight: typing.Optional[bool] = None,
+        items: typing.Optional[typing.Sequence] = None,
+        **kwargs
+    ):
         self._prop_names = ['children', 'className', 'isArrowless', 'isRight', 'items']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['children', 'className', 'isArrowless', 'isRight', 'items']
@@ -62,3 +83,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args if k != 'children'}
 
         super(NavbarDropdown, self).__init__(children=children, **args)
+
+setattr(NavbarDropdown, "__init__", _explicitize_args(NavbarDropdown.__init__))

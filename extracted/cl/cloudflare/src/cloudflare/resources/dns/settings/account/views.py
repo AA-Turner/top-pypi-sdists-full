@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import List, Type, Optional, cast
+from typing import Type, Optional, cast
 from typing_extensions import Literal
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -55,13 +55,13 @@ class ViewsResource(SyncAPIResource):
         *,
         account_id: str,
         name: str,
-        zones: List[str],
+        zones: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ViewCreateResponse]:
         """
         Create Internal DNS View for an account
@@ -84,7 +84,7 @@ class ViewsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/dns_settings/views",
+            path_template("/accounts/{account_id}/dns_settings/views", account_id=account_id),
             body=maybe_transform(
                 {
                     "name": name,
@@ -106,20 +106,20 @@ class ViewsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        match: Literal["any", "all"] | NotGiven = NOT_GIVEN,
-        name: view_list_params.Name | NotGiven = NOT_GIVEN,
-        order: Literal["name", "created_on", "modified_on"] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        zone_name: str | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        match: Literal["any", "all"] | Omit = omit,
+        name: view_list_params.Name | Omit = omit,
+        order: Literal["name", "created_on", "modified_on"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        zone_id: str | Omit = omit,
+        zone_name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[ViewListResponse]:
         """
         List DNS Internal Views for an Account
@@ -154,7 +154,7 @@ class ViewsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dns_settings/views",
+            path_template("/accounts/{account_id}/dns_settings/views", account_id=account_id),
             page=SyncV4PagePaginationArray[ViewListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -188,7 +188,7 @@ class ViewsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ViewDeleteResponse]:
         """
         Delete an existing Internal DNS View
@@ -211,7 +211,9 @@ class ViewsResource(SyncAPIResource):
         if not view_id:
             raise ValueError(f"Expected a non-empty value for `view_id` but received {view_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/dns_settings/views/{view_id}",
+            path_template(
+                "/accounts/{account_id}/dns_settings/views/{view_id}", account_id=account_id, view_id=view_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -227,14 +229,14 @@ class ViewsResource(SyncAPIResource):
         view_id: str,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        zones: List[str] | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        zones: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ViewEditResponse]:
         """
         Update an existing Internal DNS View
@@ -261,7 +263,9 @@ class ViewsResource(SyncAPIResource):
         if not view_id:
             raise ValueError(f"Expected a non-empty value for `view_id` but received {view_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/dns_settings/views/{view_id}",
+            path_template(
+                "/accounts/{account_id}/dns_settings/views/{view_id}", account_id=account_id, view_id=view_id
+            ),
             body=maybe_transform(
                 {
                     "name": name,
@@ -289,7 +293,7 @@ class ViewsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ViewGetResponse]:
         """
         Get DNS Internal View
@@ -312,7 +316,9 @@ class ViewsResource(SyncAPIResource):
         if not view_id:
             raise ValueError(f"Expected a non-empty value for `view_id` but received {view_id!r}")
         return self._get(
-            f"/accounts/{account_id}/dns_settings/views/{view_id}",
+            path_template(
+                "/accounts/{account_id}/dns_settings/views/{view_id}", account_id=account_id, view_id=view_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -349,13 +355,13 @@ class AsyncViewsResource(AsyncAPIResource):
         *,
         account_id: str,
         name: str,
-        zones: List[str],
+        zones: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ViewCreateResponse]:
         """
         Create Internal DNS View for an account
@@ -378,7 +384,7 @@ class AsyncViewsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/dns_settings/views",
+            path_template("/accounts/{account_id}/dns_settings/views", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -400,20 +406,20 @@ class AsyncViewsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        match: Literal["any", "all"] | NotGiven = NOT_GIVEN,
-        name: view_list_params.Name | NotGiven = NOT_GIVEN,
-        order: Literal["name", "created_on", "modified_on"] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        zone_name: str | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        match: Literal["any", "all"] | Omit = omit,
+        name: view_list_params.Name | Omit = omit,
+        order: Literal["name", "created_on", "modified_on"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        zone_id: str | Omit = omit,
+        zone_name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ViewListResponse, AsyncV4PagePaginationArray[ViewListResponse]]:
         """
         List DNS Internal Views for an Account
@@ -448,7 +454,7 @@ class AsyncViewsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dns_settings/views",
+            path_template("/accounts/{account_id}/dns_settings/views", account_id=account_id),
             page=AsyncV4PagePaginationArray[ViewListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -482,7 +488,7 @@ class AsyncViewsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ViewDeleteResponse]:
         """
         Delete an existing Internal DNS View
@@ -505,7 +511,9 @@ class AsyncViewsResource(AsyncAPIResource):
         if not view_id:
             raise ValueError(f"Expected a non-empty value for `view_id` but received {view_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/dns_settings/views/{view_id}",
+            path_template(
+                "/accounts/{account_id}/dns_settings/views/{view_id}", account_id=account_id, view_id=view_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -521,14 +529,14 @@ class AsyncViewsResource(AsyncAPIResource):
         view_id: str,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        zones: List[str] | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        zones: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ViewEditResponse]:
         """
         Update an existing Internal DNS View
@@ -555,7 +563,9 @@ class AsyncViewsResource(AsyncAPIResource):
         if not view_id:
             raise ValueError(f"Expected a non-empty value for `view_id` but received {view_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/dns_settings/views/{view_id}",
+            path_template(
+                "/accounts/{account_id}/dns_settings/views/{view_id}", account_id=account_id, view_id=view_id
+            ),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -583,7 +593,7 @@ class AsyncViewsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ViewGetResponse]:
         """
         Get DNS Internal View
@@ -606,7 +616,9 @@ class AsyncViewsResource(AsyncAPIResource):
         if not view_id:
             raise ValueError(f"Expected a non-empty value for `view_id` but received {view_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/dns_settings/views/{view_id}",
+            path_template(
+                "/accounts/{account_id}/dns_settings/views/{view_id}", account_id=account_id, view_id=view_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

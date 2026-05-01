@@ -11,7 +11,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models, transaction
-from django.db.models import Count, F, Q, QuerySet, Value
+from django.db.models import F, Q, QuerySet, Value
 from django.db.models.functions import Replace
 from django.urls import reverse
 from django.utils.functional import cached_property
@@ -25,6 +25,7 @@ from weblate.trans.actions import ActionEvents
 from weblate.trans.defines import PROJECT_NAME_LENGTH
 from weblate.trans.mixins import CacheKeyMixin, LockMixin, PathMixin
 from weblate.trans.validators import validate_check_flags
+from weblate.utils.lock import WeblateLock
 from weblate.utils.site import get_site_url
 from weblate.utils.stats import ProjectLanguage, ProjectStats, prefetch_stats
 from weblate.utils.validators import (
@@ -47,6 +48,12 @@ if TYPE_CHECKING:
     from weblate.trans.models.component import Component, ComponentQuerySet
     from weblate.trans.models.label import Label
     from weblate.trans.models.translation import TranslationQuerySet
+
+
+# Project-wide batched checks serialize across all propagating components and can
+# legitimately wait behind another component finalization run for longer than
+# the component-local lock timeout.
+PROJECT_CHECKS_LOCK_TIMEOUT = 30
 
 
 class CommitPolicyChoices(models.IntegerChoices):
@@ -133,27 +140,25 @@ class ProjectQuerySet(QuerySet["Project"]):
 def prefetch_project_flags(projects: Iterable[Project]) -> Iterable[Project]:
     id_lookup = {project.id: project for project in projects}
     if id_lookup:
-        queryset = Project.objects.filter(id__in=id_lookup.keys()).values("id")
+        queryset = Project.objects.filter(id__in=id_lookup)
         # Fallback value for locking and alerts
         for project in projects:
             project.__dict__["locked"] = True
             project.__dict__["has_alerts"] = False
         # Indicate alerts
-        for alert in queryset.filter(component__alert__dismissed=False).annotate(
-            Count("component__alert")
-        ):
-            id_lookup[alert["id"]].__dict__["has_alerts"] = bool(
-                alert["component__alert__count"]
-            )
-        # Filter unlocked projects
-        for locks in (
-            queryset.filter(component__locked=False)
+        for project_id in (
+            queryset.filter(component__alert__dismissed=False)
+            .values_list("id", flat=True)
             .distinct()
-            .annotate(Count("component__id"))
         ):
-            id_lookup[locks["id"]].__dict__["locked"] = (
-                locks["component__id__count"] == 0
-            )
+            id_lookup[project_id].__dict__["has_alerts"] = True
+        # Filter unlocked projects
+        for project_id in (
+            queryset.filter(component__locked=False)
+            .values_list("id", flat=True)
+            .distinct()
+        ):
+            id_lookup[project_id].__dict__["locked"] = False
 
     # Prefetch source language ids
     key_lookup = {project.source_language_cache_key: project for project in projects}
@@ -238,6 +243,7 @@ class Project(models.Model, PathMixin, CacheKeyMixin, LockMixin):
             "How to restrict access to this project is detailed in the documentation."
         ),
     )
+
     enforced_2fa = models.BooleanField(
         verbose_name=gettext_lazy("Enforced two-factor authentication"),
         default=False,
@@ -389,6 +395,16 @@ class Project(models.Model, PathMixin, CacheKeyMixin, LockMixin):
             except ValidationError as error:
                 raise ValidationError({"web": error.messages}) from error
 
+    @cached_property
+    def checks_lock(self):
+        return WeblateLock(
+            scope="project:checks",
+            key=self.pk,
+            slug=self.slug,
+            timeout=PROJECT_CHECKS_LOCK_TIMEOUT,
+            origin=self.full_slug,
+        )
+
     def generate_changes(self, old: Project) -> None:
         tracked = (("slug", ActionEvents.RENAME_PROJECT),)
         for attribute, action in tracked:
@@ -469,6 +485,18 @@ class Project(models.Model, PathMixin, CacheKeyMixin, LockMixin):
     def languages(self) -> Iterable[Language]:
         """Return list of all languages used in project."""
         return Language.objects.filter(pk__in=self._get_language_ids_queryset()).order()
+
+    def has_language(self, language: Language) -> bool:
+        """Return whether project has a translation in given language."""
+        from weblate.trans.models import Translation  # noqa: PLC0415
+
+        if Translation.objects.filter(
+            component__project=self, language_id=language.pk
+        ).exists():
+            return True
+        return Translation.objects.filter(
+            component__links=self, language_id=language.pk
+        ).exists()
 
     def _get_language_ids_queryset(self) -> QuerySet:
         from weblate.trans.models import Translation  # noqa: PLC0415

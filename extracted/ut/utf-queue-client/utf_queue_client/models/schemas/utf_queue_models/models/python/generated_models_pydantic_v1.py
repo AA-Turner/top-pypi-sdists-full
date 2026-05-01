@@ -220,6 +220,9 @@ class SqaTestSession(BaseModel):
     from_build_num: Optional[float] = Field(
         None, description="Build number from which the test originated"
     )
+    testFrameworkVersion: Optional[constr(max_length=250)] = Field(
+        None, description="Test Framework version on which the test ran"
+    )
 
 
 class LogEvent(BaseModel):

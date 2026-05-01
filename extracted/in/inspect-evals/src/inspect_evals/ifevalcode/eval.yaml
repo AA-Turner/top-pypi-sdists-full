@@ -4,7 +4,7 @@ description: |
 arxiv: https://arxiv.org/abs/2507.22462
 group: Coding
 contributors: ["PranshuSrivastava"]
-version: "1-A"
+version: "2-A"
 tasks:
   - name: ifevalcode
     dataset_samples: 810
@@ -12,6 +12,8 @@ dependency: "ifevalcode"
 metadata:
   sandbox: ["scorer"]
 
+  sandbox_environment:
+    - docker
 external_assets:
   - type: huggingface
     source: Multilingual-Multimodal-NLP/IfEvalCode-testset

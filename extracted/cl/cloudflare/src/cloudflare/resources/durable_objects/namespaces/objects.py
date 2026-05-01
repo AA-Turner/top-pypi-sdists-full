@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -14,7 +14,7 @@ from ...._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ....pagination import SyncCursorLimitPagination, AsyncCursorLimitPagination
+from ....pagination import SyncCursorPaginationAfter, AsyncCursorPaginationAfter
 from ...._base_client import AsyncPaginator, make_request_options
 from ....types.durable_objects.namespaces import object_list_params
 from ....types.durable_objects.namespaces.durable_object import DurableObject
@@ -47,15 +47,15 @@ class ObjectsResource(SyncAPIResource):
         id: str,
         *,
         account_id: str,
-        cursor: str | NotGiven = NOT_GIVEN,
-        limit: float | NotGiven = NOT_GIVEN,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncCursorLimitPagination[DurableObject]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncCursorPaginationAfter[DurableObject]:
         """
         Returns the Durable Objects in a given namespace.
 
@@ -84,8 +84,10 @@ class ObjectsResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workers/durable_objects/namespaces/{id}/objects",
-            page=SyncCursorLimitPagination[DurableObject],
+            path_template(
+                "/accounts/{account_id}/workers/durable_objects/namespaces/{id}/objects", account_id=account_id, id=id
+            ),
+            page=SyncCursorPaginationAfter[DurableObject],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -128,15 +130,15 @@ class AsyncObjectsResource(AsyncAPIResource):
         id: str,
         *,
         account_id: str,
-        cursor: str | NotGiven = NOT_GIVEN,
-        limit: float | NotGiven = NOT_GIVEN,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[DurableObject, AsyncCursorLimitPagination[DurableObject]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[DurableObject, AsyncCursorPaginationAfter[DurableObject]]:
         """
         Returns the Durable Objects in a given namespace.
 
@@ -165,8 +167,10 @@ class AsyncObjectsResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workers/durable_objects/namespaces/{id}/objects",
-            page=AsyncCursorLimitPagination[DurableObject],
+            path_template(
+                "/accounts/{account_id}/workers/durable_objects/namespaces/{id}/objects", account_id=account_id, id=id
+            ),
+            page=AsyncCursorPaginationAfter[DurableObject],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

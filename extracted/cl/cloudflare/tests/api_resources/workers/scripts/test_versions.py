@@ -41,8 +41,9 @@ class TestVersions:
             metadata={
                 "main_module": "worker.js",
                 "annotations": {
+                    "workers_alias": "staging",
                     "workers_message": "Fixed worker code.",
-                    "workers_tag": "workers/tag",
+                    "workers_tag": "any-identifier-from-external-system",
                 },
                 "bindings": [
                     {
@@ -56,6 +57,8 @@ class TestVersions:
                 "keep_bindings": ["string"],
                 "usage_model": "standard",
             },
+            bindings_inherit="strict",
+            files=[b"Example data"],
         )
         assert_matches_type(VersionCreateResponse, version, path=["response"])
 
@@ -227,7 +230,9 @@ class TestVersions:
 
 
 class TestAsyncVersions:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -248,8 +253,9 @@ class TestAsyncVersions:
             metadata={
                 "main_module": "worker.js",
                 "annotations": {
+                    "workers_alias": "staging",
                     "workers_message": "Fixed worker code.",
-                    "workers_tag": "workers/tag",
+                    "workers_tag": "any-identifier-from-external-system",
                 },
                 "bindings": [
                     {
@@ -263,6 +269,8 @@ class TestAsyncVersions:
                 "keep_bindings": ["string"],
                 "usage_model": "standard",
             },
+            bindings_inherit="strict",
+            files=[b"Example data"],
         )
         assert_matches_type(VersionCreateResponse, version, path=["response"])
 

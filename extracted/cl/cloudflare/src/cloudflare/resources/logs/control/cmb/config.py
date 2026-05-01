@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -48,14 +48,14 @@ class ConfigResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        allow_out_of_region_access: bool | NotGiven = NOT_GIVEN,
-        regions: str | NotGiven = NOT_GIVEN,
+        allow_out_of_region_access: bool | Omit = omit,
+        regions: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CmbConfig]:
         """
         Updates CMB config.
@@ -78,7 +78,7 @@ class ConfigResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/logs/control/cmb/config",
+            path_template("/accounts/{account_id}/logs/control/cmb/config", account_id=account_id),
             body=maybe_transform(
                 {
                     "allow_out_of_region_access": allow_out_of_region_access,
@@ -105,7 +105,7 @@ class ConfigResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Deletes CMB config.
@@ -124,7 +124,7 @@ class ConfigResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/logs/control/cmb/config",
+            path_template("/accounts/{account_id}/logs/control/cmb/config", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -144,7 +144,7 @@ class ConfigResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CmbConfig]:
         """
         Gets CMB config.
@@ -163,7 +163,7 @@ class ConfigResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/logs/control/cmb/config",
+            path_template("/accounts/{account_id}/logs/control/cmb/config", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -199,14 +199,14 @@ class AsyncConfigResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        allow_out_of_region_access: bool | NotGiven = NOT_GIVEN,
-        regions: str | NotGiven = NOT_GIVEN,
+        allow_out_of_region_access: bool | Omit = omit,
+        regions: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CmbConfig]:
         """
         Updates CMB config.
@@ -229,7 +229,7 @@ class AsyncConfigResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/logs/control/cmb/config",
+            path_template("/accounts/{account_id}/logs/control/cmb/config", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "allow_out_of_region_access": allow_out_of_region_access,
@@ -256,7 +256,7 @@ class AsyncConfigResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Deletes CMB config.
@@ -275,7 +275,7 @@ class AsyncConfigResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/logs/control/cmb/config",
+            path_template("/accounts/{account_id}/logs/control/cmb/config", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -295,7 +295,7 @@ class AsyncConfigResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CmbConfig]:
         """
         Gets CMB config.
@@ -314,7 +314,7 @@ class AsyncConfigResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/logs/control/cmb/config",
+            path_template("/accounts/{account_id}/logs/control/cmb/config", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

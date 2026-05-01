@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Constants specific to MeridianEDA."""
+import textwrap
 from typing import Literal
 import altair as alt
 import immutabledict
@@ -30,6 +31,8 @@ VARIABLE_2 = 'var2'
 CORRELATION = 'correlation'
 ABS_CORRELATION_COL_NAME = 'abs_correlation'
 CORRELATION_MATRIX_NAME = 'correlation_matrix'
+
+# Default values for eda_spec.py
 OVERALL_PAIRWISE_CORR_THRESHOLD = 0.999
 GEO_PAIRWISE_CORR_THRESHOLD = 0.999
 NATIONAL_PAIRWISE_CORR_THRESHOLD = 0.999
@@ -152,12 +155,16 @@ DISPLAY_LIMIT_MESSAGE = (
 )
 DISPLAY_LIMIT = 5
 TIME_SERIES_LIMIT = 2
-POPULATION_CORRELATION_BARCHART_LIMIT = PRIOR_MEAN_BARCHART_LIMIT = 15
+POPULATION_CORRELATION_BARCHART_LIMIT = 15
+PRIOR_MEAN_BARCHART_LIMIT = 15
+PAIRWISE_CORRELATION_VAR_NUMBER_LIMIT = 15
+BOXPLOT_VAR_NUMBER_LIMIT = 15
 # category 1
 SPEND_AND_MEDIA_UNIT_CARD_ID = 'spend-and-media-unit'
 SPEND_AND_MEDIA_UNIT_CARD_TITLE = 'Spend and Media Unit'
 RELATIVE_SPEND_SHARE_CHART_ID = 'relative-spend-share-chart'
 SPEND_PER_MEDIA_UNIT_CHART_ID = 'spend-per-media-unit-chart'
+DATA_ADEQUACY_TABLE_ID = 'data-adequacy-table'
 INCONSISTENT_DATA_TABLE_ID = 'inconsistent-data-table'
 COST_PER_MEDIA_UNIT_OUTLIER_TABLE_ID = 'cost-per-media-unit-outlier-table'
 # category 2
@@ -261,9 +268,7 @@ VARIABILITY_PLOT_INFO = (
 RELATIVE_SPEND_SHARE_INFO = (
     "Please review the channel's share of spend. Channels with a very small"
     ' share of spend might be difficult to estimate. You might want to combine'
-    ' them with other channels. Meanwhile, a channel with a huge spend share'
-    ' would increase the risk of producing a negative baseline if it also has a'
-    ' high ROI.'
+    ' them with other channels.'
 )
 PAIRWISE_CORRELATION_CHECK_INFO = (
     'Please review the computed pairwise correlations. Note that'
@@ -306,18 +311,19 @@ R_SQUARED_GEO_INFO = (
     ' effects. Consider dropping the variable with very high'
     ' R-squared.'
 )
-POPULATION_CORRELATION_SCALED_TREATMENT_CONTROL_INFO = (
-    'Please review the Spearman correlation between population and scaled'
-    ' treatment units or scaled controls.<br/><br/>For controls and non-media'
-    " channels: Meridian doesn't population-scale these variables by default."
-    ' High correlation indicates that users should population-scale these'
-    ' variables using the `control_population_scaling_id` or'
-    ' `non_media_population_scaling_id` argument in `ModelSpec`.<br/><br/>For'
-    ' paid and organic media channels: Meridian automatically population-scales'
-    ' these media channels by default. High correlation indicates that the'
-    ' variable may have been population-scaled before being passed to Meridian.'
-    ' Please check your data input.'
-)
+POPULATION_CORRELATION_SCALED_TREATMENT_CONTROL_INFO = textwrap.dedent("""\
+Please review the Spearman correlation between population and scaled treatment \
+units or scaled controls.
+
+For controls and non-media channels: Meridian doesn't population-scale these \
+variables by default. High correlation indicates that users should \
+population-scale these variables using the `control_population_scaling_id` or \
+`non_media_population_scaling_id` argument in `ModelSpec`.
+
+For paid and organic media channels: Meridian automatically population-scales \
+these media channels by default. High correlation indicates that the variable \
+may have been population-scaled before being passed to Meridian. Please check \
+your data input.""")
 POPULATION_CORRELATION_RAW_MEDIA_INFO = (
     'Please review the Spearman correlation between population and raw paid and'
     ' organic media variables. These raw media variables are expected to have'
@@ -340,6 +346,18 @@ PRIOR_PROBABILITY_REPORT_INFO = (
     ' priors. In particular, a custom `contribution prior` type may be'
     ' appropriate.<br/><br/>'
 )
+DATA_ADEQUACY_INFO = textwrap.dedent("""\
+As a rough guidance, please review the ratio of data points to
+parameters, where
+* the number of data points = n_geos * n_times,
+* the number of parameters = (n_geos-1) + n_knots + n_controls + n_treatments.
+
+A very small ratio indicates insufficient data for estimation.
+In that case, consider dropping or combining channels,
+or reducing the number of knots with `knots` argument in `ModelSpec`.
+For more details, please refer to this documentation page:
+https://developers.google.com/meridian/docs/pre-modeling/amount-data-needed.""")
+
 # The boolean keys indicate whether findings were detected (True) or
 # not (False), and the values are the corresponding message that should be
 # displayed. Example, if there were errors or reviews in the spend and media

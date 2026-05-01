@@ -14,8 +14,8 @@ from .doh import (
     DOHResourceWithStreamingResponse,
     AsyncDOHResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -67,22 +67,27 @@ class OrganizationsResource(SyncAPIResource):
         *,
         auth_domain: str,
         name: str,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        allow_authenticate_via_warp: bool | NotGiven = NOT_GIVEN,
-        auto_redirect_to_identity: bool | NotGiven = NOT_GIVEN,
-        is_ui_read_only: bool | NotGiven = NOT_GIVEN,
-        login_design: LoginDesignParam | NotGiven = NOT_GIVEN,
-        session_duration: str | NotGiven = NOT_GIVEN,
-        ui_read_only_toggle_reason: str | NotGiven = NOT_GIVEN,
-        user_seat_expiration_inactive_time: str | NotGiven = NOT_GIVEN,
-        warp_auth_session_duration: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        allow_authenticate_via_warp: bool | Omit = omit,
+        auto_redirect_to_identity: bool | Omit = omit,
+        deny_unmatched_requests: bool | Omit = omit,
+        deny_unmatched_requests_exempted_zone_names: SequenceNotStr[str] | Omit = omit,
+        is_ui_read_only: bool | Omit = omit,
+        login_design: LoginDesignParam | Omit = omit,
+        mfa_config: organization_create_params.MfaConfig | Omit = omit,
+        mfa_required_for_all_apps: bool | Omit = omit,
+        mfa_ssh_piv_key_requirements: organization_create_params.MfaSSHPivKeyRequirements | Omit = omit,
+        session_duration: str | Omit = omit,
+        ui_read_only_toggle_reason: str | Omit = omit,
+        user_seat_expiration_inactive_time: str | Omit = omit,
+        warp_auth_session_duration: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Organization]:
         """
         Sets up a Zero Trust organization for your account or zone.
@@ -102,8 +107,27 @@ class OrganizationsResource(SyncAPIResource):
           auto_redirect_to_identity: When set to `true`, users skip the identity provider selection step during
               login.
 
+          deny_unmatched_requests: Determines whether to deny all requests to Cloudflare-protected resources that
+              lack an associated Access application. If enabled, you must explicitly configure
+              an Access application and policy to allow traffic to your Cloudflare-protected
+              resources. For domains you want to be public across all subdomains, add the
+              domain to the `deny_unmatched_requests_exempted_zone_names` array.
+
+          deny_unmatched_requests_exempted_zone_names: Contains zone names to exempt from the `deny_unmatched_requests` feature.
+              Requests to a subdomain in an exempted zone will block unauthenticated traffic
+              by default if there is a configured Access application and policy that matches
+              the request.
+
           is_ui_read_only: Lock all settings as Read-Only in the Dashboard, regardless of user permission.
               Updates may only be made via the API or Terraform for this account when enabled.
+
+          mfa_config: Configures multi-factor authentication (MFA) settings for an organization.
+
+          mfa_required_for_all_apps: Determines whether global MFA settings apply to applications by default. The
+              organization must have MFA enabled with at least one authentication method and a
+              session duration configured.
+
+          mfa_ssh_piv_key_requirements: Configures SSH PIV key requirements for MFA using hardware security keys.
 
           session_duration: The amount of time that tokens issued for applications will be valid. Must be in
               the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m,
@@ -141,15 +165,24 @@ class OrganizationsResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._post(
-            f"/{account_or_zone}/{account_or_zone_id}/access/organizations",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/organizations",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=maybe_transform(
                 {
                     "auth_domain": auth_domain,
                     "name": name,
                     "allow_authenticate_via_warp": allow_authenticate_via_warp,
                     "auto_redirect_to_identity": auto_redirect_to_identity,
+                    "deny_unmatched_requests": deny_unmatched_requests,
+                    "deny_unmatched_requests_exempted_zone_names": deny_unmatched_requests_exempted_zone_names,
                     "is_ui_read_only": is_ui_read_only,
                     "login_design": login_design,
+                    "mfa_config": mfa_config,
+                    "mfa_required_for_all_apps": mfa_required_for_all_apps,
+                    "mfa_ssh_piv_key_requirements": mfa_ssh_piv_key_requirements,
                     "session_duration": session_duration,
                     "ui_read_only_toggle_reason": ui_read_only_toggle_reason,
                     "user_seat_expiration_inactive_time": user_seat_expiration_inactive_time,
@@ -170,25 +203,30 @@ class OrganizationsResource(SyncAPIResource):
     def update(
         self,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        allow_authenticate_via_warp: bool | NotGiven = NOT_GIVEN,
-        auth_domain: str | NotGiven = NOT_GIVEN,
-        auto_redirect_to_identity: bool | NotGiven = NOT_GIVEN,
-        custom_pages: organization_update_params.CustomPages | NotGiven = NOT_GIVEN,
-        is_ui_read_only: bool | NotGiven = NOT_GIVEN,
-        login_design: LoginDesignParam | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        session_duration: str | NotGiven = NOT_GIVEN,
-        ui_read_only_toggle_reason: str | NotGiven = NOT_GIVEN,
-        user_seat_expiration_inactive_time: str | NotGiven = NOT_GIVEN,
-        warp_auth_session_duration: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        allow_authenticate_via_warp: bool | Omit = omit,
+        auth_domain: str | Omit = omit,
+        auto_redirect_to_identity: bool | Omit = omit,
+        custom_pages: organization_update_params.CustomPages | Omit = omit,
+        deny_unmatched_requests: bool | Omit = omit,
+        deny_unmatched_requests_exempted_zone_names: SequenceNotStr[str] | Omit = omit,
+        is_ui_read_only: bool | Omit = omit,
+        login_design: LoginDesignParam | Omit = omit,
+        mfa_config: organization_update_params.MfaConfig | Omit = omit,
+        mfa_required_for_all_apps: bool | Omit = omit,
+        mfa_ssh_piv_key_requirements: organization_update_params.MfaSSHPivKeyRequirements | Omit = omit,
+        name: str | Omit = omit,
+        session_duration: str | Omit = omit,
+        ui_read_only_toggle_reason: str | Omit = omit,
+        user_seat_expiration_inactive_time: str | Omit = omit,
+        warp_auth_session_duration: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Organization]:
         """
         Updates the configuration for your Zero Trust organization.
@@ -206,8 +244,27 @@ class OrganizationsResource(SyncAPIResource):
           auto_redirect_to_identity: When set to `true`, users skip the identity provider selection step during
               login.
 
+          deny_unmatched_requests: Determines whether to deny all requests to Cloudflare-protected resources that
+              lack an associated Access application. If enabled, you must explicitly configure
+              an Access application and policy to allow traffic to your Cloudflare-protected
+              resources. For domains you want to be public across all subdomains, add the
+              domain to the `deny_unmatched_requests_exempted_zone_names` array.
+
+          deny_unmatched_requests_exempted_zone_names: Contains zone names to exempt from the `deny_unmatched_requests` feature.
+              Requests to a subdomain in an exempted zone will block unauthenticated traffic
+              by default if there is a configured Access application and policy that matches
+              the request.
+
           is_ui_read_only: Lock all settings as Read-Only in the Dashboard, regardless of user permission.
               Updates may only be made via the API or Terraform for this account when enabled.
+
+          mfa_config: Configures multi-factor authentication (MFA) settings for an organization.
+
+          mfa_required_for_all_apps: Determines whether global MFA settings apply to applications by default. The
+              organization must have MFA enabled with at least one authentication method and a
+              session duration configured.
+
+          mfa_ssh_piv_key_requirements: Configures SSH PIV key requirements for MFA using hardware security keys.
 
           name: The name of your Zero Trust organization.
 
@@ -247,15 +304,24 @@ class OrganizationsResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._put(
-            f"/{account_or_zone}/{account_or_zone_id}/access/organizations",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/organizations",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=maybe_transform(
                 {
                     "allow_authenticate_via_warp": allow_authenticate_via_warp,
                     "auth_domain": auth_domain,
                     "auto_redirect_to_identity": auto_redirect_to_identity,
                     "custom_pages": custom_pages,
+                    "deny_unmatched_requests": deny_unmatched_requests,
+                    "deny_unmatched_requests_exempted_zone_names": deny_unmatched_requests_exempted_zone_names,
                     "is_ui_read_only": is_ui_read_only,
                     "login_design": login_design,
+                    "mfa_config": mfa_config,
+                    "mfa_required_for_all_apps": mfa_required_for_all_apps,
+                    "mfa_ssh_piv_key_requirements": mfa_ssh_piv_key_requirements,
                     "name": name,
                     "session_duration": session_duration,
                     "ui_read_only_toggle_reason": ui_read_only_toggle_reason,
@@ -277,14 +343,14 @@ class OrganizationsResource(SyncAPIResource):
     def list(
         self,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Organization]:
         """
         Returns the configuration for your Zero Trust organization.
@@ -315,7 +381,11 @@ class OrganizationsResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._get(
-            f"/{account_or_zone}/{account_or_zone_id}/access/organizations",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/organizations",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -330,18 +400,18 @@ class OrganizationsResource(SyncAPIResource):
         self,
         *,
         email: str,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        query_devices: bool | NotGiven = NOT_GIVEN,
-        body_devices: bool | NotGiven = NOT_GIVEN,
-        user_uid: str | NotGiven = NOT_GIVEN,
-        warp_session_reauth: bool | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        query_devices: bool | Omit = omit,
+        body_devices: bool | Omit = omit,
+        user_uid: str | Omit = omit,
+        warp_session_reauth: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[OrganizationRevokeUsersResponse]:
         """
         Revokes a user's access across all applications.
@@ -384,7 +454,11 @@ class OrganizationsResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._post(
-            f"/{account_or_zone}/{account_or_zone_id}/access/organizations/revoke_user",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/organizations/revoke_user",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=maybe_transform(
                 {
                     "email": email,
@@ -439,22 +513,27 @@ class AsyncOrganizationsResource(AsyncAPIResource):
         *,
         auth_domain: str,
         name: str,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        allow_authenticate_via_warp: bool | NotGiven = NOT_GIVEN,
-        auto_redirect_to_identity: bool | NotGiven = NOT_GIVEN,
-        is_ui_read_only: bool | NotGiven = NOT_GIVEN,
-        login_design: LoginDesignParam | NotGiven = NOT_GIVEN,
-        session_duration: str | NotGiven = NOT_GIVEN,
-        ui_read_only_toggle_reason: str | NotGiven = NOT_GIVEN,
-        user_seat_expiration_inactive_time: str | NotGiven = NOT_GIVEN,
-        warp_auth_session_duration: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        allow_authenticate_via_warp: bool | Omit = omit,
+        auto_redirect_to_identity: bool | Omit = omit,
+        deny_unmatched_requests: bool | Omit = omit,
+        deny_unmatched_requests_exempted_zone_names: SequenceNotStr[str] | Omit = omit,
+        is_ui_read_only: bool | Omit = omit,
+        login_design: LoginDesignParam | Omit = omit,
+        mfa_config: organization_create_params.MfaConfig | Omit = omit,
+        mfa_required_for_all_apps: bool | Omit = omit,
+        mfa_ssh_piv_key_requirements: organization_create_params.MfaSSHPivKeyRequirements | Omit = omit,
+        session_duration: str | Omit = omit,
+        ui_read_only_toggle_reason: str | Omit = omit,
+        user_seat_expiration_inactive_time: str | Omit = omit,
+        warp_auth_session_duration: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Organization]:
         """
         Sets up a Zero Trust organization for your account or zone.
@@ -474,8 +553,27 @@ class AsyncOrganizationsResource(AsyncAPIResource):
           auto_redirect_to_identity: When set to `true`, users skip the identity provider selection step during
               login.
 
+          deny_unmatched_requests: Determines whether to deny all requests to Cloudflare-protected resources that
+              lack an associated Access application. If enabled, you must explicitly configure
+              an Access application and policy to allow traffic to your Cloudflare-protected
+              resources. For domains you want to be public across all subdomains, add the
+              domain to the `deny_unmatched_requests_exempted_zone_names` array.
+
+          deny_unmatched_requests_exempted_zone_names: Contains zone names to exempt from the `deny_unmatched_requests` feature.
+              Requests to a subdomain in an exempted zone will block unauthenticated traffic
+              by default if there is a configured Access application and policy that matches
+              the request.
+
           is_ui_read_only: Lock all settings as Read-Only in the Dashboard, regardless of user permission.
               Updates may only be made via the API or Terraform for this account when enabled.
+
+          mfa_config: Configures multi-factor authentication (MFA) settings for an organization.
+
+          mfa_required_for_all_apps: Determines whether global MFA settings apply to applications by default. The
+              organization must have MFA enabled with at least one authentication method and a
+              session duration configured.
+
+          mfa_ssh_piv_key_requirements: Configures SSH PIV key requirements for MFA using hardware security keys.
 
           session_duration: The amount of time that tokens issued for applications will be valid. Must be in
               the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m,
@@ -513,15 +611,24 @@ class AsyncOrganizationsResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._post(
-            f"/{account_or_zone}/{account_or_zone_id}/access/organizations",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/organizations",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "auth_domain": auth_domain,
                     "name": name,
                     "allow_authenticate_via_warp": allow_authenticate_via_warp,
                     "auto_redirect_to_identity": auto_redirect_to_identity,
+                    "deny_unmatched_requests": deny_unmatched_requests,
+                    "deny_unmatched_requests_exempted_zone_names": deny_unmatched_requests_exempted_zone_names,
                     "is_ui_read_only": is_ui_read_only,
                     "login_design": login_design,
+                    "mfa_config": mfa_config,
+                    "mfa_required_for_all_apps": mfa_required_for_all_apps,
+                    "mfa_ssh_piv_key_requirements": mfa_ssh_piv_key_requirements,
                     "session_duration": session_duration,
                     "ui_read_only_toggle_reason": ui_read_only_toggle_reason,
                     "user_seat_expiration_inactive_time": user_seat_expiration_inactive_time,
@@ -542,25 +649,30 @@ class AsyncOrganizationsResource(AsyncAPIResource):
     async def update(
         self,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        allow_authenticate_via_warp: bool | NotGiven = NOT_GIVEN,
-        auth_domain: str | NotGiven = NOT_GIVEN,
-        auto_redirect_to_identity: bool | NotGiven = NOT_GIVEN,
-        custom_pages: organization_update_params.CustomPages | NotGiven = NOT_GIVEN,
-        is_ui_read_only: bool | NotGiven = NOT_GIVEN,
-        login_design: LoginDesignParam | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        session_duration: str | NotGiven = NOT_GIVEN,
-        ui_read_only_toggle_reason: str | NotGiven = NOT_GIVEN,
-        user_seat_expiration_inactive_time: str | NotGiven = NOT_GIVEN,
-        warp_auth_session_duration: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        allow_authenticate_via_warp: bool | Omit = omit,
+        auth_domain: str | Omit = omit,
+        auto_redirect_to_identity: bool | Omit = omit,
+        custom_pages: organization_update_params.CustomPages | Omit = omit,
+        deny_unmatched_requests: bool | Omit = omit,
+        deny_unmatched_requests_exempted_zone_names: SequenceNotStr[str] | Omit = omit,
+        is_ui_read_only: bool | Omit = omit,
+        login_design: LoginDesignParam | Omit = omit,
+        mfa_config: organization_update_params.MfaConfig | Omit = omit,
+        mfa_required_for_all_apps: bool | Omit = omit,
+        mfa_ssh_piv_key_requirements: organization_update_params.MfaSSHPivKeyRequirements | Omit = omit,
+        name: str | Omit = omit,
+        session_duration: str | Omit = omit,
+        ui_read_only_toggle_reason: str | Omit = omit,
+        user_seat_expiration_inactive_time: str | Omit = omit,
+        warp_auth_session_duration: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Organization]:
         """
         Updates the configuration for your Zero Trust organization.
@@ -578,8 +690,27 @@ class AsyncOrganizationsResource(AsyncAPIResource):
           auto_redirect_to_identity: When set to `true`, users skip the identity provider selection step during
               login.
 
+          deny_unmatched_requests: Determines whether to deny all requests to Cloudflare-protected resources that
+              lack an associated Access application. If enabled, you must explicitly configure
+              an Access application and policy to allow traffic to your Cloudflare-protected
+              resources. For domains you want to be public across all subdomains, add the
+              domain to the `deny_unmatched_requests_exempted_zone_names` array.
+
+          deny_unmatched_requests_exempted_zone_names: Contains zone names to exempt from the `deny_unmatched_requests` feature.
+              Requests to a subdomain in an exempted zone will block unauthenticated traffic
+              by default if there is a configured Access application and policy that matches
+              the request.
+
           is_ui_read_only: Lock all settings as Read-Only in the Dashboard, regardless of user permission.
               Updates may only be made via the API or Terraform for this account when enabled.
+
+          mfa_config: Configures multi-factor authentication (MFA) settings for an organization.
+
+          mfa_required_for_all_apps: Determines whether global MFA settings apply to applications by default. The
+              organization must have MFA enabled with at least one authentication method and a
+              session duration configured.
+
+          mfa_ssh_piv_key_requirements: Configures SSH PIV key requirements for MFA using hardware security keys.
 
           name: The name of your Zero Trust organization.
 
@@ -619,15 +750,24 @@ class AsyncOrganizationsResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._put(
-            f"/{account_or_zone}/{account_or_zone_id}/access/organizations",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/organizations",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "allow_authenticate_via_warp": allow_authenticate_via_warp,
                     "auth_domain": auth_domain,
                     "auto_redirect_to_identity": auto_redirect_to_identity,
                     "custom_pages": custom_pages,
+                    "deny_unmatched_requests": deny_unmatched_requests,
+                    "deny_unmatched_requests_exempted_zone_names": deny_unmatched_requests_exempted_zone_names,
                     "is_ui_read_only": is_ui_read_only,
                     "login_design": login_design,
+                    "mfa_config": mfa_config,
+                    "mfa_required_for_all_apps": mfa_required_for_all_apps,
+                    "mfa_ssh_piv_key_requirements": mfa_ssh_piv_key_requirements,
                     "name": name,
                     "session_duration": session_duration,
                     "ui_read_only_toggle_reason": ui_read_only_toggle_reason,
@@ -649,14 +789,14 @@ class AsyncOrganizationsResource(AsyncAPIResource):
     async def list(
         self,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Organization]:
         """
         Returns the configuration for your Zero Trust organization.
@@ -687,7 +827,11 @@ class AsyncOrganizationsResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._get(
-            f"/{account_or_zone}/{account_or_zone_id}/access/organizations",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/organizations",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -702,18 +846,18 @@ class AsyncOrganizationsResource(AsyncAPIResource):
         self,
         *,
         email: str,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        query_devices: bool | NotGiven = NOT_GIVEN,
-        body_devices: bool | NotGiven = NOT_GIVEN,
-        user_uid: str | NotGiven = NOT_GIVEN,
-        warp_session_reauth: bool | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        query_devices: bool | Omit = omit,
+        body_devices: bool | Omit = omit,
+        user_uid: str | Omit = omit,
+        warp_session_reauth: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[OrganizationRevokeUsersResponse]:
         """
         Revokes a user's access across all applications.
@@ -756,7 +900,11 @@ class AsyncOrganizationsResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._post(
-            f"/{account_or_zone}/{account_or_zone_id}/access/organizations/revoke_user",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/organizations/revoke_user",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "email": email,

@@ -2156,6 +2156,9 @@ def _convert_non_diffusers_ltx2_lora_to_diffusers(state_dict, non_diffusers_pref
             "scale_shift_table_a2v_ca_audio": "audio_a2v_cross_attn_scale_shift_table",
             "q_norm": "norm_q",
             "k_norm": "norm_k",
+            # LTX-2.3
+            "audio_prompt_adaln_single": "audio_prompt_adaln",
+            "prompt_adaln_single": "prompt_adaln",
         }
     else:
         rename_dict = {"aggregate_embed": "text_proj_in"}
@@ -2328,6 +2331,20 @@ def _convert_non_diffusers_flux2_lora_to_diffusers(state_dict):
             temp_state_dict[new_key] = v
         original_state_dict = temp_state_dict
 
+    # Some Flux2 checkpoints skip the ai-toolkit `single_blocks` / `double_blocks`
+    # layout and already store expanded diffusers block names. Accept those
+    # directly, and normalize the legacy `sformer_blocks` alias used by some exports.
+    possible_expanded_block_prefixes = {
+        "single_transformer_blocks.": "single_transformer_blocks.",
+        "transformer_blocks.": "transformer_blocks.",
+        "sformer_blocks.": "transformer_blocks.",
+    }
+    for key in list(original_state_dict.keys()):
+        for source_prefix, target_prefix in possible_expanded_block_prefixes.items():
+            if key.startswith(source_prefix):
+                converted_state_dict[target_prefix + key[len(source_prefix) :]] = original_state_dict.pop(key)
+                break
+
     num_double_layers = 0
     num_single_layers = 0
     for key in original_state_dict.keys():
@@ -2418,6 +2435,8 @@ def _convert_non_diffusers_flux2_lora_to_diffusers(state_dict):
         "txt_in": "context_embedder",
         "time_in.in_layer": "time_guidance_embed.timestep_embedder.linear_1",
         "time_in.out_layer": "time_guidance_embed.timestep_embedder.linear_2",
+        "guidance_in.in_layer": "time_guidance_embed.guidance_embedder.linear_1",
+        "guidance_in.out_layer": "time_guidance_embed.guidance_embedder.linear_2",
         "final_layer.linear": "proj_out",
         "final_layer.adaLN_modulation.1": "norm_out.linear",
         "single_stream_modulation.lin": "single_stream_modulation.linear",
@@ -2723,8 +2742,12 @@ def _convert_non_diffusers_z_image_lora_to_diffusers(state_dict):
 
     def get_alpha_scales(down_weight, alpha_key):
         rank = down_weight.shape[0]
-        alpha = state_dict.pop(alpha_key).item()
-        scale = alpha / rank  # LoRA is scaled by 'alpha / rank' in forward pass, so we need to scale it back here
+        alpha_tensor = state_dict.pop(alpha_key, None)
+        if alpha_tensor is None:
+            return 1.0, 1.0
+        scale = (
+            alpha_tensor.item() / rank
+        )  # LoRA is scaled by 'alpha / rank' in forward pass, so we need to scale it back here
         scale_down = scale
         scale_up = 1.0
         while scale_down * 2 < scale_up:

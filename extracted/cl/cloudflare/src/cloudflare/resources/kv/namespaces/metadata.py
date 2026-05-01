@@ -6,7 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -17,7 +18,6 @@ from ...._response import (
 )
 from ...._wrappers import ResultWrapper
 from ...._base_client import make_request_options
-from ....types.kv.namespaces.metadata_get_response import MetadataGetResponse
 
 __all__ = ["MetadataResource", "AsyncMetadataResource"]
 
@@ -53,8 +53,8 @@ class MetadataResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Optional[MetadataGetResponse]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> object:
         """Returns the metadata associated with the given key in the given namespace.
 
         Use
@@ -62,7 +62,7 @@ class MetadataResource(SyncAPIResource):
         name.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           namespace_id: Namespace identifier tag.
 
@@ -84,15 +84,20 @@ class MetadataResource(SyncAPIResource):
         if not key_name:
             raise ValueError(f"Expected a non-empty value for `key_name` but received {key_name!r}")
         return self._get(
-            f"/accounts/{account_id}/storage/kv/namespaces/{namespace_id}/metadata/{key_name}",
+            path_template(
+                "/accounts/{account_id}/storage/kv/namespaces/{namespace_id}/metadata/{key_name}",
+                account_id=account_id,
+                namespace_id=namespace_id,
+                key_name=key_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[MetadataGetResponse]]._unwrapper,
+                post_parser=ResultWrapper[Optional[object]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[MetadataGetResponse]], ResultWrapper[MetadataGetResponse]),
+            cast_to=cast(Type[object], ResultWrapper[object]),
         )
 
 
@@ -127,8 +132,8 @@ class AsyncMetadataResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Optional[MetadataGetResponse]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> object:
         """Returns the metadata associated with the given key in the given namespace.
 
         Use
@@ -136,7 +141,7 @@ class AsyncMetadataResource(AsyncAPIResource):
         name.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           namespace_id: Namespace identifier tag.
 
@@ -158,15 +163,20 @@ class AsyncMetadataResource(AsyncAPIResource):
         if not key_name:
             raise ValueError(f"Expected a non-empty value for `key_name` but received {key_name!r}")
         return await self._get(
-            f"/accounts/{account_id}/storage/kv/namespaces/{namespace_id}/metadata/{key_name}",
+            path_template(
+                "/accounts/{account_id}/storage/kv/namespaces/{namespace_id}/metadata/{key_name}",
+                account_id=account_id,
+                namespace_id=namespace_id,
+                key_name=key_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[MetadataGetResponse]]._unwrapper,
+                post_parser=ResultWrapper[Optional[object]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[MetadataGetResponse]], ResultWrapper[MetadataGetResponse]),
+            cast_to=cast(Type[object], ResultWrapper[object]),
         )
 
 

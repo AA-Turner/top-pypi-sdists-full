@@ -43,6 +43,7 @@ from .literals import (
     HarnessToolUseStatusType,
     HarnessToolUseTypeType,
     LanguageRuntimeType,
+    MemoryRecordOperatorTypeType,
     MemoryRecordStatusType,
     MouseButtonType,
     Oauth2FlowTypeType,
@@ -293,7 +294,12 @@ __all__ = (
     "MemoryMetadataFilterExpressionTypeDef",
     "MemoryRecordCreateInputTypeDef",
     "MemoryRecordDeleteInputTypeDef",
+    "MemoryRecordLeftExpressionTypeDef",
+    "MemoryRecordMetadataValueOutputTypeDef",
+    "MemoryRecordMetadataValueTypeDef",
+    "MemoryRecordMetadataValueUnionTypeDef",
     "MemoryRecordOutputTypeDef",
+    "MemoryRecordRightExpressionTypeDef",
     "MemoryRecordSummaryTypeDef",
     "MemoryRecordTypeDef",
     "MemoryRecordUpdateInputTypeDef",
@@ -791,6 +797,8 @@ class GetResourceOauth2TokenRequestTypeDef(TypedDict):
     forceAuthentication: NotRequired[bool]
     customParameters: NotRequired[Mapping[str, str]]
     customState: NotRequired[str]
+    resources: NotRequired[Sequence[str]]
+    audiences: NotRequired[Sequence[str]]
 
 class GetWorkloadAccessTokenForJWTRequestTypeDef(TypedDict):
     workloadName: str
@@ -959,14 +967,6 @@ class ListCodeInterpreterSessionsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     status: NotRequired[CodeInterpreterSessionStatusType]
 
-class ListMemoryRecordsInputTypeDef(TypedDict):
-    memoryId: str
-    namespace: NotRequired[str]
-    namespacePath: NotRequired[str]
-    memoryStrategyId: NotRequired[str]
-    maxResults: NotRequired[int]
-    nextToken: NotRequired[str]
-
 class ListRecommendationsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -1004,6 +1004,15 @@ class ToolsDefinitionTypeDef(TypedDict):
 
 class MemoryContentTypeDef(TypedDict):
     text: NotRequired[str]
+
+class MemoryRecordLeftExpressionTypeDef(TypedDict):
+    metadataKey: NotRequired[str]
+
+class MemoryRecordMetadataValueOutputTypeDef(TypedDict):
+    stringValue: NotRequired[str]
+    stringListValue: NotRequired[list[str]]
+    numberValue: NotRequired[float]
+    dateTimeValue: NotRequired[datetime]
 
 class ProxyBypassOutputTypeDef(TypedDict):
     domainPatterns: NotRequired[list[str]]
@@ -1320,6 +1329,12 @@ CloudWatchLogsFilterTypeDef = TypedDict(
     },
 )
 
+class MemoryRecordMetadataValueTypeDef(TypedDict):
+    stringValue: NotRequired[str]
+    stringListValue: NotRequired[Sequence[str]]
+    numberValue: NotRequired[float]
+    dateTimeValue: NotRequired[TimestampTypeDef]
+
 class SessionFilterConfigTypeDef(TypedDict):
     startTime: NotRequired[TimestampTypeDef]
     endTime: NotRequired[TimestampTypeDef]
@@ -1489,13 +1504,6 @@ ListMemoryExtractionJobsInputPaginateTypeDef = TypedDict(
     },
 )
 
-class ListMemoryRecordsInputPaginateTypeDef(TypedDict):
-    memoryId: str
-    namespace: NotRequired[str]
-    namespacePath: NotRequired[str]
-    memoryStrategyId: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
 class ListRecommendationsRequestPaginateTypeDef(TypedDict):
     statusFilter: NotRequired[RecommendationStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1534,13 +1542,6 @@ class McpDescriptorTypeDef(TypedDict):
     server: ServerDefinitionTypeDef
     tools: ToolsDefinitionTypeDef
 
-class MemoryRecordCreateInputTypeDef(TypedDict):
-    requestIdentifier: str
-    namespaces: Sequence[str]
-    content: MemoryContentTypeDef
-    timestamp: TimestampTypeDef
-    memoryStrategyId: NotRequired[str]
-
 class MemoryRecordSummaryTypeDef(TypedDict):
     memoryRecordId: str
     content: MemoryContentTypeDef
@@ -1548,7 +1549,7 @@ class MemoryRecordSummaryTypeDef(TypedDict):
     namespaces: list[str]
     createdAt: datetime
     score: NotRequired[float]
-    metadata: NotRequired[dict[str, MetadataValueTypeDef]]
+    metadata: NotRequired[dict[str, MemoryRecordMetadataValueOutputTypeDef]]
 
 class MemoryRecordTypeDef(TypedDict):
     memoryRecordId: str
@@ -1556,14 +1557,7 @@ class MemoryRecordTypeDef(TypedDict):
     memoryStrategyId: str
     namespaces: list[str]
     createdAt: datetime
-    metadata: NotRequired[dict[str, MetadataValueTypeDef]]
-
-class MemoryRecordUpdateInputTypeDef(TypedDict):
-    memoryRecordId: str
-    timestamp: TimestampTypeDef
-    content: NotRequired[MemoryContentTypeDef]
-    namespaces: NotRequired[Sequence[str]]
-    memoryStrategyId: NotRequired[str]
+    metadata: NotRequired[dict[str, MemoryRecordMetadataValueOutputTypeDef]]
 
 class RecommendationEvaluationConfigOutputTypeDef(TypedDict):
     evaluators: list[RecommendationEvaluatorReferenceTypeDef]
@@ -1675,6 +1669,10 @@ class CloudWatchLogsRuleOutputTypeDef(TypedDict):
 class CloudWatchLogsRuleTypeDef(TypedDict):
     filters: NotRequired[Sequence[CloudWatchLogsFilterTypeDef]]
 
+MemoryRecordMetadataValueUnionTypeDef = Union[
+    MemoryRecordMetadataValueTypeDef, MemoryRecordMetadataValueOutputTypeDef
+]
+
 class CloudWatchFilterConfigTypeDef(TypedDict):
     sessionIds: NotRequired[Sequence[str]]
     timeRange: NotRequired[SessionFilterConfigTypeDef]
@@ -1735,14 +1733,6 @@ EventMetadataFilterExpressionTypeDef = TypedDict(
         "right": NotRequired[RightExpressionTypeDef],
     },
 )
-MemoryMetadataFilterExpressionTypeDef = TypedDict(
-    "MemoryMetadataFilterExpressionTypeDef",
-    {
-        "left": LeftExpressionTypeDef,
-        "operator": OperatorTypeType,
-        "right": NotRequired[RightExpressionTypeDef],
-    },
-)
 
 class EvaluationJobResultsTypeDef(TypedDict):
     numberOfSessionsCompleted: NotRequired[int]
@@ -1790,11 +1780,6 @@ class DescriptorsTypeDef(TypedDict):
     custom: NotRequired[CustomDescriptorTypeDef]
     agentSkills: NotRequired[AgentSkillsDescriptorTypeDef]
 
-class BatchCreateMemoryRecordsInputTypeDef(TypedDict):
-    memoryId: str
-    records: Sequence[MemoryRecordCreateInputTypeDef]
-    clientToken: NotRequired[str]
-
 class ListMemoryRecordsOutputTypeDef(TypedDict):
     memoryRecordSummaries: list[MemoryRecordSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1808,10 +1793,6 @@ class RetrieveMemoryRecordsOutputTypeDef(TypedDict):
 class GetMemoryRecordOutputTypeDef(TypedDict):
     memoryRecord: MemoryRecordTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-class BatchUpdateMemoryRecordsInputTypeDef(TypedDict):
-    memoryId: str
-    records: Sequence[MemoryRecordUpdateInputTypeDef]
 
 BrowserEnterprisePolicyTypeDef = TypedDict(
     "BrowserEnterprisePolicyTypeDef",
@@ -1899,6 +1880,25 @@ class CloudWatchLogsTraceConfigTypeDef(TypedDict):
     endTime: TimestampTypeDef
     rule: NotRequired[CloudWatchLogsRuleTypeDef]
 
+class MemoryRecordCreateInputTypeDef(TypedDict):
+    requestIdentifier: str
+    namespaces: Sequence[str]
+    content: MemoryContentTypeDef
+    timestamp: TimestampTypeDef
+    memoryStrategyId: NotRequired[str]
+    metadata: NotRequired[Mapping[str, MemoryRecordMetadataValueUnionTypeDef]]
+
+class MemoryRecordRightExpressionTypeDef(TypedDict):
+    metadataValue: NotRequired[MemoryRecordMetadataValueUnionTypeDef]
+
+class MemoryRecordUpdateInputTypeDef(TypedDict):
+    memoryRecordId: str
+    timestamp: TimestampTypeDef
+    content: NotRequired[MemoryContentTypeDef]
+    namespaces: NotRequired[Sequence[str]]
+    memoryStrategyId: NotRequired[str]
+    metadata: NotRequired[Mapping[str, MemoryRecordMetadataValueUnionTypeDef]]
+
 class CloudWatchLogsSourceTypeDef(TypedDict):
     serviceNames: Sequence[str]
     logGroupNames: Sequence[str]
@@ -1943,12 +1943,6 @@ class EvaluateResponseTypeDef(TypedDict):
 class FilterInputTypeDef(TypedDict):
     branch: NotRequired[BranchFilterTypeDef]
     eventMetadata: NotRequired[Sequence[EventMetadataFilterExpressionTypeDef]]
-
-class SearchCriteriaTypeDef(TypedDict):
-    searchQuery: str
-    memoryStrategyId: NotRequired[str]
-    topK: NotRequired[int]
-    metadataFilters: NotRequired[Sequence[MemoryMetadataFilterExpressionTypeDef]]
 
 class BatchEvaluationSummaryTypeDef(TypedDict):
     batchEvaluationId: str
@@ -2077,6 +2071,24 @@ class AgentTracesConfigTypeDef(TypedDict):
     sessionSpans: NotRequired[Sequence[Mapping[str, Any]]]
     cloudwatchLogs: NotRequired[CloudWatchLogsTraceConfigTypeDef]
 
+class BatchCreateMemoryRecordsInputTypeDef(TypedDict):
+    memoryId: str
+    records: Sequence[MemoryRecordCreateInputTypeDef]
+    clientToken: NotRequired[str]
+
+MemoryMetadataFilterExpressionTypeDef = TypedDict(
+    "MemoryMetadataFilterExpressionTypeDef",
+    {
+        "left": MemoryRecordLeftExpressionTypeDef,
+        "operator": MemoryRecordOperatorTypeType,
+        "right": NotRequired[MemoryRecordRightExpressionTypeDef],
+    },
+)
+
+class BatchUpdateMemoryRecordsInputTypeDef(TypedDict):
+    memoryId: str
+    records: Sequence[MemoryRecordUpdateInputTypeDef]
+
 class DataSourceConfigTypeDef(TypedDict):
     cloudWatchLogs: NotRequired[CloudWatchLogsSourceTypeDef]
 
@@ -2154,21 +2166,6 @@ ListEventsInputTypeDef = TypedDict(
     },
 )
 
-class RetrieveMemoryRecordsInputPaginateTypeDef(TypedDict):
-    memoryId: str
-    searchCriteria: SearchCriteriaTypeDef
-    namespace: NotRequired[str]
-    namespacePath: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class RetrieveMemoryRecordsInputTypeDef(TypedDict):
-    memoryId: str
-    searchCriteria: SearchCriteriaTypeDef
-    namespace: NotRequired[str]
-    namespacePath: NotRequired[str]
-    nextToken: NotRequired[str]
-    maxResults: NotRequired[int]
-
 class ListBatchEvaluationsResponseTypeDef(TypedDict):
     batchEvaluations: list[BatchEvaluationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2235,6 +2232,29 @@ class ToolDescriptionRecommendationConfigTypeDef(TypedDict):
     toolDescription: ToolDescriptionSourceTypeDef
     agentTraces: AgentTracesConfigTypeDef
 
+class ListMemoryRecordsInputPaginateTypeDef(TypedDict):
+    memoryId: str
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
+    memoryStrategyId: NotRequired[str]
+    metadataFilters: NotRequired[Sequence[MemoryMetadataFilterExpressionTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListMemoryRecordsInputTypeDef(TypedDict):
+    memoryId: str
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
+    memoryStrategyId: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    metadataFilters: NotRequired[Sequence[MemoryMetadataFilterExpressionTypeDef]]
+
+class SearchCriteriaTypeDef(TypedDict):
+    searchQuery: str
+    memoryStrategyId: NotRequired[str]
+    topK: NotRequired[int]
+    metadataFilters: NotRequired[Sequence[MemoryMetadataFilterExpressionTypeDef]]
+
 DataSourceConfigUnionTypeDef = Union[DataSourceConfigTypeDef, DataSourceConfigOutputTypeDef]
 
 class EvaluationMetadataTypeDef(TypedDict):
@@ -2277,6 +2297,21 @@ class RecommendationConfigOutputTypeDef(TypedDict):
 class RecommendationConfigTypeDef(TypedDict):
     systemPromptRecommendationConfig: NotRequired[SystemPromptRecommendationConfigTypeDef]
     toolDescriptionRecommendationConfig: NotRequired[ToolDescriptionRecommendationConfigTypeDef]
+
+class RetrieveMemoryRecordsInputPaginateTypeDef(TypedDict):
+    memoryId: str
+    searchCriteria: SearchCriteriaTypeDef
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class RetrieveMemoryRecordsInputTypeDef(TypedDict):
+    memoryId: str
+    searchCriteria: SearchCriteriaTypeDef
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class StartBatchEvaluationRequestTypeDef(TypedDict):
     batchEvaluationName: str

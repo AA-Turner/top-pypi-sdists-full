@@ -233,7 +233,7 @@ def sub_org_completion(ctx, args, incomplete):
 
 
 def get_user_id_from_email(ctx, email, org_id=None, type=users.USER_TYPES):
-    _users = users.query(ctx, email=email, org_id=org_id, type=type).users
+    _users = users.query(ctx, email=email, org_id=org_id, type=type)
     if len(_users) == 1:
         return _users[0]
     return {}
@@ -6803,6 +6803,7 @@ def list_sessions(ctx, show_columns, reset_columns, **kwargs):
           - metadata.created
           - spec.user_id
           - spec.revoked
+          - spec.expired
         """,
         show=show_columns,
         clear=reset_columns,
@@ -6848,6 +6849,7 @@ def delete_session(ctx, session_id, **kwargs):
 @click.option("--number-of-failed-multi-factor-challenges", type=int, default=None)
 @click.option("--number-of-logins", type=int, default=None)
 @click.option("--revoked/--not-revoked", default=None)
+@click.option("--expired", is_flag=True, default=None)
 @click.pass_context
 def update_session(ctx, session_id, **kwargs):
     result = tokens.update_session(ctx, session_id, **kwargs)

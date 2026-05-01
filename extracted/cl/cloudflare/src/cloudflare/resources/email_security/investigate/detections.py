@@ -6,7 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -44,7 +45,7 @@ class DetectionsResource(SyncAPIResource):
 
     def get(
         self,
-        postfix_id: str,
+        investigate_id: str,
         *,
         account_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -52,16 +53,16 @@ class DetectionsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DetectionGetResponse:
         """
         Returns detection details such as threat categories and sender information for
         non-benign messages.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
-          postfix_id: The identifier of the message.
+          investigate_id: Unique identifier for a message retrieved from investigation
 
           extra_headers: Send extra headers
 
@@ -73,10 +74,14 @@ class DetectionsResource(SyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        if not postfix_id:
-            raise ValueError(f"Expected a non-empty value for `postfix_id` but received {postfix_id!r}")
+        if not investigate_id:
+            raise ValueError(f"Expected a non-empty value for `investigate_id` but received {investigate_id!r}")
         return self._get(
-            f"/accounts/{account_id}/email-security/investigate/{postfix_id}/detections",
+            path_template(
+                "/accounts/{account_id}/email-security/investigate/{investigate_id}/detections",
+                account_id=account_id,
+                investigate_id=investigate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -110,7 +115,7 @@ class AsyncDetectionsResource(AsyncAPIResource):
 
     async def get(
         self,
-        postfix_id: str,
+        investigate_id: str,
         *,
         account_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -118,16 +123,16 @@ class AsyncDetectionsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DetectionGetResponse:
         """
         Returns detection details such as threat categories and sender information for
         non-benign messages.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
-          postfix_id: The identifier of the message.
+          investigate_id: Unique identifier for a message retrieved from investigation
 
           extra_headers: Send extra headers
 
@@ -139,10 +144,14 @@ class AsyncDetectionsResource(AsyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        if not postfix_id:
-            raise ValueError(f"Expected a non-empty value for `postfix_id` but received {postfix_id!r}")
+        if not investigate_id:
+            raise ValueError(f"Expected a non-empty value for `investigate_id` but received {investigate_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/email-security/investigate/{postfix_id}/detections",
+            path_template(
+                "/accounts/{account_id}/email-security/investigate/{investigate_id}/detections",
+                account_id=account_id,
+                investigate_id=investigate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

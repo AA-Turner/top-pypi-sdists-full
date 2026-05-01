@@ -49,6 +49,7 @@ PATCH_MODULES = {
     "httpx": True,
     "kafka": True,
     "langgraph": True,
+    "llama_index": True,
     "litellm": True,
     "mysql": True,
     "mysqldb": True,
@@ -95,6 +96,7 @@ PATCH_MODULES = {
     "yaaredis": True,
     "asyncpg": True,
     "aws_lambda": True,  # patch only in AWS Lambda environments
+    "azure_cosmos": True,
     "azure_eventhubs": True,
     "azure_functions": True,
     "azure_durable_functions": True,
@@ -153,6 +155,7 @@ _MODULES_FOR_CONTRIB = {
     "futures": ("concurrent.futures.thread",),
     "vertica": ("vertica_python",),
     "aws_lambda": ("datadog_lambda",),
+    "azure_cosmos": ("azure.cosmos",),
     "azure_eventhubs": ("azure.eventhub",),
     "azure_durable_functions": ("azure.durable_functions",),
     "azure_functions": ("azure.functions",),
@@ -163,6 +166,7 @@ _MODULES_FOR_CONTRIB = {
     "google_cloud_pubsub": ("google.cloud.pubsub_v1",),
     "google_genai": ("google.genai",),
     "langchain": ("langchain_core",),
+    "llama_index": ("llama_index.core",),
     "langgraph": (
         "langgraph",
         "langgraph.graph",
@@ -281,6 +285,7 @@ def _on_import_factory(
                 "failed to enable ddtrace support for %s: %s",
                 module,
                 str(e),
+                extra={"send_to_telemetry": False},
             )
             telemetry.telemetry_writer.add_integration(
                 module, False, PATCH_MODULES.get(module) is True, str(e), version=e.installed_version
@@ -293,6 +298,7 @@ def _on_import_factory(
                 module,
                 str(e),
                 exc_info=True,
+                extra={"send_to_telemetry": False},
             )
             telemetry.telemetry_writer.add_integration(module, False, PATCH_MODULES.get(module) is True, str(e))
             telemetry.telemetry_writer.add_count_metric(

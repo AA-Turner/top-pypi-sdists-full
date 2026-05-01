@@ -6,8 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -54,15 +54,15 @@ class VirtualNetworksResource(SyncAPIResource):
         *,
         account_id: str,
         name: str,
-        comment: str | NotGiven = NOT_GIVEN,
-        is_default: bool | NotGiven = NOT_GIVEN,
-        is_default_network: bool | NotGiven = NOT_GIVEN,
+        comment: str | Omit = omit,
+        is_default: bool | Omit = omit,
+        is_default_network: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VirtualNetwork:
         """
         Adds a new virtual network to an account.
@@ -89,7 +89,7 @@ class VirtualNetworksResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/teamnet/virtual_networks",
+            path_template("/accounts/{account_id}/teamnet/virtual_networks", account_id=account_id),
             body=maybe_transform(
                 {
                     "name": name,
@@ -113,16 +113,17 @@ class VirtualNetworksResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        id: str | NotGiven = NOT_GIVEN,
-        is_default: bool | NotGiven = NOT_GIVEN,
-        is_deleted: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        id: str | Omit = omit,
+        is_default: bool | Omit = omit,
+        is_default_network: bool | Omit = omit,
+        is_deleted: bool | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[VirtualNetwork]:
         """
         Lists and filters virtual networks in an account.
@@ -133,6 +134,9 @@ class VirtualNetworksResource(SyncAPIResource):
           id: UUID of the virtual network.
 
           is_default: If `true`, only include the default virtual network. If `false`, exclude the
+              default virtual network. If empty, all virtual networks will be included.
+
+          is_default_network: If `true`, only include the default virtual network. If `false`, exclude the
               default virtual network. If empty, all virtual networks will be included.
 
           is_deleted: If `true`, only include deleted virtual networks. If `false`, exclude deleted
@@ -151,7 +155,7 @@ class VirtualNetworksResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/teamnet/virtual_networks",
+            path_template("/accounts/{account_id}/teamnet/virtual_networks", account_id=account_id),
             page=SyncSinglePage[VirtualNetwork],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -162,6 +166,7 @@ class VirtualNetworksResource(SyncAPIResource):
                     {
                         "id": id,
                         "is_default": is_default,
+                        "is_default_network": is_default_network,
                         "is_deleted": is_deleted,
                         "name": name,
                     },
@@ -181,7 +186,7 @@ class VirtualNetworksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VirtualNetwork:
         """
         Deletes an existing virtual network.
@@ -204,7 +209,11 @@ class VirtualNetworksResource(SyncAPIResource):
         if not virtual_network_id:
             raise ValueError(f"Expected a non-empty value for `virtual_network_id` but received {virtual_network_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+            path_template(
+                "/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+                account_id=account_id,
+                virtual_network_id=virtual_network_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -220,15 +229,15 @@ class VirtualNetworksResource(SyncAPIResource):
         virtual_network_id: str,
         *,
         account_id: str,
-        comment: str | NotGiven = NOT_GIVEN,
-        is_default_network: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        comment: str | Omit = omit,
+        is_default_network: bool | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VirtualNetwork:
         """
         Updates an existing virtual network.
@@ -257,7 +266,11 @@ class VirtualNetworksResource(SyncAPIResource):
         if not virtual_network_id:
             raise ValueError(f"Expected a non-empty value for `virtual_network_id` but received {virtual_network_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+            path_template(
+                "/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+                account_id=account_id,
+                virtual_network_id=virtual_network_id,
+            ),
             body=maybe_transform(
                 {
                     "comment": comment,
@@ -286,7 +299,7 @@ class VirtualNetworksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VirtualNetwork:
         """
         Get a virtual network.
@@ -309,7 +322,11 @@ class VirtualNetworksResource(SyncAPIResource):
         if not virtual_network_id:
             raise ValueError(f"Expected a non-empty value for `virtual_network_id` but received {virtual_network_id!r}")
         return self._get(
-            f"/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+            path_template(
+                "/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+                account_id=account_id,
+                virtual_network_id=virtual_network_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -346,15 +363,15 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
         *,
         account_id: str,
         name: str,
-        comment: str | NotGiven = NOT_GIVEN,
-        is_default: bool | NotGiven = NOT_GIVEN,
-        is_default_network: bool | NotGiven = NOT_GIVEN,
+        comment: str | Omit = omit,
+        is_default: bool | Omit = omit,
+        is_default_network: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VirtualNetwork:
         """
         Adds a new virtual network to an account.
@@ -381,7 +398,7 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/teamnet/virtual_networks",
+            path_template("/accounts/{account_id}/teamnet/virtual_networks", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -405,16 +422,17 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        id: str | NotGiven = NOT_GIVEN,
-        is_default: bool | NotGiven = NOT_GIVEN,
-        is_deleted: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        id: str | Omit = omit,
+        is_default: bool | Omit = omit,
+        is_default_network: bool | Omit = omit,
+        is_deleted: bool | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[VirtualNetwork, AsyncSinglePage[VirtualNetwork]]:
         """
         Lists and filters virtual networks in an account.
@@ -425,6 +443,9 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
           id: UUID of the virtual network.
 
           is_default: If `true`, only include the default virtual network. If `false`, exclude the
+              default virtual network. If empty, all virtual networks will be included.
+
+          is_default_network: If `true`, only include the default virtual network. If `false`, exclude the
               default virtual network. If empty, all virtual networks will be included.
 
           is_deleted: If `true`, only include deleted virtual networks. If `false`, exclude deleted
@@ -443,7 +464,7 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/teamnet/virtual_networks",
+            path_template("/accounts/{account_id}/teamnet/virtual_networks", account_id=account_id),
             page=AsyncSinglePage[VirtualNetwork],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -454,6 +475,7 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
                     {
                         "id": id,
                         "is_default": is_default,
+                        "is_default_network": is_default_network,
                         "is_deleted": is_deleted,
                         "name": name,
                     },
@@ -473,7 +495,7 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VirtualNetwork:
         """
         Deletes an existing virtual network.
@@ -496,7 +518,11 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
         if not virtual_network_id:
             raise ValueError(f"Expected a non-empty value for `virtual_network_id` but received {virtual_network_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+            path_template(
+                "/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+                account_id=account_id,
+                virtual_network_id=virtual_network_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -512,15 +538,15 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
         virtual_network_id: str,
         *,
         account_id: str,
-        comment: str | NotGiven = NOT_GIVEN,
-        is_default_network: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        comment: str | Omit = omit,
+        is_default_network: bool | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VirtualNetwork:
         """
         Updates an existing virtual network.
@@ -549,7 +575,11 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
         if not virtual_network_id:
             raise ValueError(f"Expected a non-empty value for `virtual_network_id` but received {virtual_network_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+            path_template(
+                "/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+                account_id=account_id,
+                virtual_network_id=virtual_network_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "comment": comment,
@@ -578,7 +608,7 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VirtualNetwork:
         """
         Get a virtual network.
@@ -601,7 +631,11 @@ class AsyncVirtualNetworksResource(AsyncAPIResource):
         if not virtual_network_id:
             raise ValueError(f"Expected a non-empty value for `virtual_network_id` but received {virtual_network_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+            path_template(
+                "/accounts/{account_id}/teamnet/virtual_networks/{virtual_network_id}",
+                account_id=account_id,
+                virtual_network_id=virtual_network_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

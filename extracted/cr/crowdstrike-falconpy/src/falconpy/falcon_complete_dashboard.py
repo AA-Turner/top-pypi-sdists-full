@@ -476,86 +476,43 @@ class CompleteDashboard(ServiceClass):
     def aggregate_fc_incidents(self: object, body: list = None, **kwargs) -> Union[Dict[str, Union[int, dict]], Result]:
         """Retrieve aggregate incident values based on the matched filter.
 
-        Keyword arguments:
-        body -- full body payload, not required when using other keywords.
-                List of dictionaries.
-                [
-                    {
-                        "date_ranges": [
-                        {
-                            "from": "string",
-                            "to": "string"
-                        }
-                        ],
-                        "exclude": "string",
-                        "field": "string",
-                        "filter": "string",
-                        "from": 0,
-                        "include": "string",
-                        "interval": "string",
-                        "max_doc_count": 0,
-                        "min_doc_count": 0,
-                        "missing": "string",
-                        "name": "string",
-                        "q": "string",
-                        "ranges": [
-                        {
-                            "From": 0,
-                            "To": 0
-                        }
-                        ],
-                        "size": 0,
-                        "sort": "string",
-                        "sub_aggregates": [
-                            null
-                        ],
-                        "time_zone": "string",
-                        "type": "string"
-                    }
-                ]
-        date_ranges -- If peforming a date range query specify the from and to date ranges.
-                       These can be in common date formats like 2019-07-18 or now.
-                       List of dictionaries.
-        exclude -- Fields to exclude. String.
-        field -- Term you want to aggregate on. If doing a date_range query,
-                 this is the date field you want to apply the date ranges to. String.
-        filter -- Optional filter criteria in the form of an FQL query.
-                  For more information about FQL queries, see our FQL documentation in Falcon.
-                  String.
-        from -- Integer.
-        include -- Fields to include. String.
-        interval -- String.
-        max_doc_count -- Maximum number of documents. Integer.
-        min_doc_count -- Minimum number of documents. Integer.
-        missing -- String.
-        name -- Scan name. String.
-        q -- FQL syntax. String.
-        ranges -- List of dictionaries.
-        size -- Integer.
-        sort -- FQL syntax. String.
-        sub_aggregates -- List of strings.
-        time_zone -- String.
-        type -- String.
-
-        This method only supports keywords for providing arguments.
-
-        This method does not support body payload validation.
-
-        Returns: dict object containing API response.
+        DECOMMISSIONED: This operation has been decommissioned by CrowdStrike.
+        Calls to this method will return a 410 status code.
 
         HTTP Method: POST
 
         Swagger URL
         https://assets.falcon.crowdstrike.com/support/api/swagger.html#/Falcon%20Complete%20Dashboard/AggregateFCIncidents
         """
-        if not body:
-            body = [aggregate_payload(submitted_keywords=kwargs)]
-
         return process_service_request(
             calling_object=self,
             endpoints=Endpoints,
             operation_id="AggregateFCIncidents",
+            keywords=kwargs,
             body=body
+            )
+
+    @force_default(defaults=["parameters"], default_types=["dict"])
+    def query_incident_ids_by_filter(self: object,
+                                     parameters: dict = None,
+                                     **kwargs
+                                     ) -> Union[Dict[str, Union[int, dict]], Result]:
+        """Retrieve incidents that match the provided filter criteria with scrolling enabled.
+
+        DECOMMISSIONED: This operation has been decommissioned by CrowdStrike.
+        Calls to this method will return a 410 status code.
+
+        HTTP Method: GET
+
+        Swagger URL
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/Falcon%20Complete%20Dashboard/QueryIncidentIdsByFilter
+        """
+        return process_service_request(
+            calling_object=self,
+            endpoints=Endpoints,
+            operation_id="QueryIncidentIdsByFilter",
+            keywords=kwargs,
+            params=parameters
             )
 
     @force_default(defaults=["body"], default_types=["list"])
@@ -1191,40 +1148,6 @@ class CompleteDashboard(ServiceClass):
             calling_object=self,
             endpoints=Endpoints,
             operation_id="QueryEscalationsFilter",
-            keywords=kwargs,
-            params=parameters
-            )
-
-    @force_default(defaults=["parameters"], default_types=["dict"])
-    def query_incident_ids_by_filter(self: object,
-                                     parameters: dict = None,
-                                     **kwargs
-                                     ) -> Union[Dict[str, Union[int, dict]], Result]:
-        """Retrieve incidents that match the provided filter criteria with scrolling enabled.
-
-        Keyword arguments:
-        filter -- Optional filter and sort criteria in the form of an FQL query. String.
-        limit -- The maximum number of records to return in this response. [Integer, 1-500]
-                 Use with the offset parameter to manage pagination of results.
-        offset -- The offset to start retrieving records from. String.
-                  Use with the limit parameter to manage pagination of results.
-        parameters - full parameters payload, not required if using other keywords.
-        sort -- The property to sort on, followed by a dot `.`, followed by the sort direction.
-
-        This method only supports keywords for providing arguments.
-
-        Returns: dict object containing API response.
-
-        HTTP Method: GET
-
-        Swagger URL
-        https://assets.falcon.crowdstrike.com/support/api/swagger.html#
-                 /Falcon%20Complete%20Dashboard/QueryIncidentIdsByFilter
-        """
-        return process_service_request(
-            calling_object=self,
-            endpoints=Endpoints,
-            operation_id="QueryIncidentIdsByFilter",
             keywords=kwargs,
             params=parameters
             )

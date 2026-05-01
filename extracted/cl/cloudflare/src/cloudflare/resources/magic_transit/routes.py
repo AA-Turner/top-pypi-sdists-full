@@ -6,8 +6,8 @@ from typing import Type, Iterable, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -58,15 +58,15 @@ class RoutesResource(SyncAPIResource):
         nexthop: str,
         prefix: str,
         priority: int,
-        description: str | NotGiven = NOT_GIVEN,
-        scope: ScopeParam | NotGiven = NOT_GIVEN,
-        weight: int | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        scope: ScopeParam | Omit = omit,
+        weight: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteCreateResponse:
         """Creates a new Magic static route.
 
@@ -99,7 +99,7 @@ class RoutesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/magic/routes",
+            path_template("/accounts/{account_id}/magic/routes", account_id=account_id),
             body=maybe_transform(
                 {
                     "nexthop": nexthop,
@@ -129,15 +129,15 @@ class RoutesResource(SyncAPIResource):
         nexthop: str,
         prefix: str,
         priority: int,
-        description: str | NotGiven = NOT_GIVEN,
-        scope: ScopeParam | NotGiven = NOT_GIVEN,
-        weight: int | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        scope: ScopeParam | Omit = omit,
+        weight: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteUpdateResponse:
         """Update a specific Magic static route.
 
@@ -174,7 +174,7 @@ class RoutesResource(SyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return self._put(
-            f"/accounts/{account_id}/magic/routes/{route_id}",
+            path_template("/accounts/{account_id}/magic/routes/{route_id}", account_id=account_id, route_id=route_id),
             body=maybe_transform(
                 {
                     "nexthop": nexthop,
@@ -205,7 +205,7 @@ class RoutesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteListResponse:
         """
         List all Magic static routes.
@@ -224,7 +224,7 @@ class RoutesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/routes",
+            path_template("/accounts/{account_id}/magic/routes", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -245,7 +245,7 @@ class RoutesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteDeleteResponse:
         """
         Disable and remove a specific Magic static route.
@@ -268,7 +268,7 @@ class RoutesResource(SyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/magic/routes/{route_id}",
+            path_template("/accounts/{account_id}/magic/routes/{route_id}", account_id=account_id, route_id=route_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -289,7 +289,7 @@ class RoutesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteBulkUpdateResponse:
         """Update multiple Magic static routes.
 
@@ -311,7 +311,7 @@ class RoutesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._put(
-            f"/accounts/{account_id}/magic/routes",
+            path_template("/accounts/{account_id}/magic/routes", account_id=account_id),
             body=maybe_transform({"routes": routes}, route_bulk_update_params.RouteBulkUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -332,7 +332,7 @@ class RoutesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteEmptyResponse:
         """
         Delete multiple Magic static routes.
@@ -351,7 +351,7 @@ class RoutesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/magic/routes",
+            path_template("/accounts/{account_id}/magic/routes", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -372,7 +372,7 @@ class RoutesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteGetResponse:
         """
         Get a specific Magic static route.
@@ -395,7 +395,7 @@ class RoutesResource(SyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/routes/{route_id}",
+            path_template("/accounts/{account_id}/magic/routes/{route_id}", account_id=account_id, route_id=route_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -434,15 +434,15 @@ class AsyncRoutesResource(AsyncAPIResource):
         nexthop: str,
         prefix: str,
         priority: int,
-        description: str | NotGiven = NOT_GIVEN,
-        scope: ScopeParam | NotGiven = NOT_GIVEN,
-        weight: int | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        scope: ScopeParam | Omit = omit,
+        weight: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteCreateResponse:
         """Creates a new Magic static route.
 
@@ -475,7 +475,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/magic/routes",
+            path_template("/accounts/{account_id}/magic/routes", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "nexthop": nexthop,
@@ -505,15 +505,15 @@ class AsyncRoutesResource(AsyncAPIResource):
         nexthop: str,
         prefix: str,
         priority: int,
-        description: str | NotGiven = NOT_GIVEN,
-        scope: ScopeParam | NotGiven = NOT_GIVEN,
-        weight: int | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        scope: ScopeParam | Omit = omit,
+        weight: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteUpdateResponse:
         """Update a specific Magic static route.
 
@@ -550,7 +550,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/magic/routes/{route_id}",
+            path_template("/accounts/{account_id}/magic/routes/{route_id}", account_id=account_id, route_id=route_id),
             body=await async_maybe_transform(
                 {
                     "nexthop": nexthop,
@@ -581,7 +581,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteListResponse:
         """
         List all Magic static routes.
@@ -600,7 +600,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/routes",
+            path_template("/accounts/{account_id}/magic/routes", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -621,7 +621,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteDeleteResponse:
         """
         Disable and remove a specific Magic static route.
@@ -644,7 +644,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/magic/routes/{route_id}",
+            path_template("/accounts/{account_id}/magic/routes/{route_id}", account_id=account_id, route_id=route_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -665,7 +665,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteBulkUpdateResponse:
         """Update multiple Magic static routes.
 
@@ -687,7 +687,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/magic/routes",
+            path_template("/accounts/{account_id}/magic/routes", account_id=account_id),
             body=await async_maybe_transform({"routes": routes}, route_bulk_update_params.RouteBulkUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -708,7 +708,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteEmptyResponse:
         """
         Delete multiple Magic static routes.
@@ -727,7 +727,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/magic/routes",
+            path_template("/accounts/{account_id}/magic/routes", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -748,7 +748,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteGetResponse:
         """
         Get a specific Magic static route.
@@ -771,7 +771,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         if not route_id:
             raise ValueError(f"Expected a non-empty value for `route_id` but received {route_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/routes/{route_id}",
+            path_template("/accounts/{account_id}/magic/routes/{route_id}", account_id=account_id, route_id=route_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -9,6 +9,10 @@ __all__ = ["SubscriptionConfiguration", "StaleZoneConfiguration"]
 
 
 class StaleZoneConfiguration(BaseModel):
+    """
+    A read-only field that shows which unauthorized settings are currently active on the zone. These settings typically result from upgrades or downgrades.
+    """
+
     fight_mode: Optional[bool] = None
     """Indicates that the zone's Bot Fight Mode is turned on."""
 
@@ -35,14 +39,34 @@ class StaleZoneConfiguration(BaseModel):
 
 
 class SubscriptionConfiguration(BaseModel):
-    ai_bots_protection: Optional[Literal["block", "disabled"]] = None
-    """Enable rule to block AI Scrapers and Crawlers."""
+    ai_bots_protection: Optional[Literal["block", "disabled", "only_on_ad_pages"]] = None
+    """Enable rule to block AI Scrapers and Crawlers.
+
+    Please note the value `only_on_ad_pages` is currently not available for
+    Enterprise customers.
+    """
 
     auto_update_model: Optional[bool] = None
     """
     Automatically update to the newest bot detection models created by Cloudflare as
     they are released.
     [Learn more.](https://developers.cloudflare.com/bots/reference/machine-learning-models#model-versions-and-release-notes)
+    """
+
+    bm_cookie_enabled: Optional[bool] = None
+    """
+    Indicates that the bot management cookie can be placed on end user devices
+    accessing the site. Defaults to true
+    """
+
+    cf_robots_variant: Optional[Literal["off", "policy_only"]] = None
+    """Specifies the Robots Access Control License variant to use."""
+
+    content_bots_protection: Optional[Literal["block", "disabled"]] = None
+    """Enable rule to block content bots.
+
+    When enabled, blocks automated traffic with low bot scores, excluding safe
+    verified bot categories. Exceptions should be managed via skip rules.
     """
 
     crawler_protection: Optional[Literal["enabled", "disabled"]] = None
@@ -52,6 +76,13 @@ class SubscriptionConfiguration(BaseModel):
     """Use lightweight, invisible JavaScript detections to improve Bot Management.
 
     [Learn more about JavaScript Detections](https://developers.cloudflare.com/bots/reference/javascript-detections/).
+    """
+
+    is_robots_txt_managed: Optional[bool] = None
+    """Enable cloudflare managed robots.txt.
+
+    If an existing robots.txt is detected, then managed robots.txt will be prepended
+    to the existing robots.txt.
     """
 
     stale_zone_configuration: Optional[StaleZoneConfiguration] = None

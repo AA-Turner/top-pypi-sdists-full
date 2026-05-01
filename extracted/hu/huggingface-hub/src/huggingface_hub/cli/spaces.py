@@ -44,16 +44,16 @@ from typing_extensions import assert_never
 
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
-from huggingface_hub._space_api import SpaceStage
+from huggingface_hub._space_api import SpaceHardware, SpaceStage
 from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
+from huggingface_hub.repocard import SpaceCard
 from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
-    FormatWithAutoOpt,
     LimitOpt,
     RevisionOpt,
     SearchOpt,
@@ -65,7 +65,8 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
-from ._output import OutputFormatWithAuto, out
+from ._file_listing import list_repo_files_cmd
+from ._output import out
 
 
 HOT_RELOADING_MIN_GRADIO = "6.1.0"
@@ -94,9 +95,16 @@ spaces_cli.add_typer(volumes_cli, name="volumes")
     examples=[
         "hf spaces ls --limit 10",
         'hf spaces ls --search "chatbot" --author huggingface',
+        "hf spaces ls victor/deepsite",
+        "hf spaces ls victor/deepsite -R",
+        "hf spaces ls victor/deepsite --tree -h",
     ],
 )
 def spaces_ls(
+    repo_id: Annotated[
+        str | None,
+        typer.Argument(help="Space ID (e.g. `username/repo-name`) to list files from. If omitted, lists spaces."),
+    ] = None,
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
@@ -106,10 +114,57 @@ def spaces_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    human_readable: Annotated[
+        bool,
+        typer.Option("--human-readable", "-h", help="Show sizes in human readable format (only for listing files)."),
+    ] = False,
+    as_tree: Annotated[
+        bool,
+        typer.Option("--tree", help="List files in tree format (only for listing files)."),
+    ] = False,
+    recursive: Annotated[
+        bool,
+        typer.Option("--recursive", "-R", help="List files recursively (only for listing files)."),
+    ] = False,
+    revision: RevisionOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """List spaces on the Hub."""
+    """List spaces on the Hub, or files in a space repo.
+
+    When called with no argument, lists spaces on the Hub.
+    When called with a space ID, lists files in that space repo.
+    """
+    if repo_id is not None:
+        if search is not None:
+            raise typer.BadParameter("Cannot use --search when listing files.")
+        if author is not None:
+            raise typer.BadParameter("Cannot use --author when listing files.")
+        if filter is not None:
+            raise typer.BadParameter("Cannot use --filter when listing files.")
+        if sort is not None:
+            raise typer.BadParameter("Cannot use --sort when listing files.")
+        if limit != 10:
+            raise typer.BadParameter("Cannot use --limit when listing files.")
+        if expand is not None:
+            raise typer.BadParameter("Cannot use --expand when listing files.")
+        return list_repo_files_cmd(
+            repo_id=repo_id,
+            repo_type="space",
+            human_readable=human_readable,
+            as_tree=as_tree,
+            recursive=recursive,
+            revision=revision,
+            token=token,
+        )
+
+    if as_tree:
+        raise typer.BadParameter("Cannot use --tree when listing spaces.")
+    if recursive:
+        raise typer.BadParameter("Cannot use --recursive when listing spaces.")
+    if human_readable:
+        raise typer.BadParameter("Cannot use --human-readable when listing spaces.")
+    if revision is not None:
+        raise typer.BadParameter("Cannot use --revision when listing spaces.")
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
@@ -137,7 +192,6 @@ def spaces_info(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a space on the Hub."""
@@ -149,6 +203,34 @@ def spaces_info(
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
     out.dict(info)
+
+
+@spaces_cli.command(
+    "card",
+    examples=[
+        "hf spaces card mteb/leaderboard",
+        "hf spaces card mteb/leaderboard --metadata",
+        "hf spaces card mteb/leaderboard --metadata --format json",
+        "hf spaces card mteb/leaderboard --text",
+    ],
+)
+def spaces_card(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    metadata: Annotated[bool, typer.Option("--metadata", help="Output only the metadata from the card.")] = False,
+    text: Annotated[bool, typer.Option("--text", help="Output only the text body (no metadata).")] = False,
+    token: TokenOpt = None,
+) -> None:
+    """Get the Space card (README) for a Space on the Hub."""
+    if metadata and text:
+        raise CLIError("--metadata and --text are mutually exclusive.")
+    card = SpaceCard.load(space_id, token=token)
+    if metadata:
+        out.dict(card.data.to_dict())
+    elif text:
+        out.text(card.text)
+    else:
+        out.text(card.content)
+        out.hint(f"Use `hf spaces card {space_id} --metadata` to extract only the card metadata.")
 
 
 @spaces_cli.command(
@@ -166,7 +248,6 @@ def spaces_search(
     include_non_running: Annotated[bool, typer.Option(help="Include non-running spaces in results.")] = False,
     description: Annotated[bool, typer.Option(help="Show AI-generated descriptions.")] = False,
     limit: LimitOpt = 10,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Search spaces on the Hub using semantic search."""
@@ -264,6 +345,133 @@ def dev_mode(
     print(f"  * Cursor: cursor://vscode-remote/ssh-remote+{ssh_host}{folder}")
     print("")
     print("PS: Dev mode stops after 48h of inactivity, don't forget to save your changes regularly.")
+
+
+@spaces_cli.command(
+    "pause",
+    examples=[
+        "hf spaces pause username/my-space",
+    ],
+)
+def spaces_pause(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    token: TokenOpt = None,
+) -> None:
+    """Pause a Space."""
+    api = get_hf_api(token=token)
+    runtime = api.pause_space(space_id)
+    out.result("Space paused", space_id=space_id, stage=runtime.stage)
+    out.hint(f"Use `hf spaces restart {space_id}` to restart it.")
+    out.hint(
+        f"Mount a Volume or bucket to persist data across restarts: `hf spaces volumes set {space_id} -v hf://...`"
+    )
+
+
+@spaces_cli.command(
+    "restart",
+    examples=[
+        "hf spaces restart username/my-space",
+        "hf spaces restart username/my-space --factory-reboot",
+    ],
+)
+def spaces_restart(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    factory_reboot: Annotated[
+        bool,
+        typer.Option(
+            "--factory-reboot",
+            help="Rebuild the Space from scratch without using the build cache.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """Restart a Space."""
+    api = get_hf_api(token=token)
+    runtime = api.restart_space(space_id, factory_reboot=factory_reboot)
+    out.result(
+        "Space restart triggered",
+        space_id=space_id,
+        stage=runtime.stage,
+        factory_reboot=factory_reboot,
+    )
+    out.hint(f"Use `hf spaces info {space_id}` to monitor the runtime stage.")
+    out.hint(
+        f"Mount a Volume or bucket to persist data across restarts: `hf spaces volumes set {space_id} -v hf://...`"
+    )
+
+
+@spaces_cli.command(
+    "hardware",
+    examples=[
+        "hf spaces hardware",
+    ],
+)
+def spaces_hardware(token: TokenOpt = None) -> None:
+    """List available hardware options for Spaces."""
+    api = get_hf_api(token=token)
+    hardware_list = api.list_spaces_hardware()
+    items = []
+    for hw in hardware_list:
+        accelerator = (
+            f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})" if hw.accelerator else None
+        )
+        cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd else "free"
+        cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd else "free"
+        items.append(
+            {
+                "name": hw.name,
+                "pretty name": hw.pretty_name,
+                "cpu": hw.cpu,
+                "ram": hw.ram,
+                "accelerator": accelerator,
+                "cost/min": cost_min,
+                "cost/hour": cost_hour,
+            }
+        )
+    out.table(items)
+    out.hint("Use `hf spaces settings <space_id> --hardware <name>` to request hardware for a Space.")
+
+
+@spaces_cli.command(
+    "settings",
+    examples=[
+        "hf spaces settings username/my-space --sleep-time 300",
+        "hf spaces settings username/my-space --hardware t4-medium",
+    ],
+)
+def spaces_settings(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    sleep_time: Annotated[
+        int | None,
+        typer.Option(
+            "--sleep-time",
+            help="Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.",
+        ),
+    ] = None,
+    hardware: Annotated[
+        SpaceHardware | None,
+        typer.Option(
+            "--hardware",
+            help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Run 'hf spaces hardware' to list available options.",
+        ),
+    ] = None,
+    token: TokenOpt = None,
+) -> None:
+    """Update the settings of a Space."""
+    api = get_hf_api(token=token)
+    if hardware is not None:
+        runtime = api.request_space_hardware(space_id, hardware=hardware, sleep_time=sleep_time)
+    elif sleep_time is not None:
+        runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
+    else:
+        raise CLIError("Specify at least one setting to update.")
+    out.result(
+        "Space settings updated",
+        space_id=space_id,
+        hardware=runtime.requested_hardware,
+        sleep_time=runtime.sleep_time,
+    )
+    out.hint(f"Use `hf spaces info {space_id}` to verify the runtime configuration.")
 
 
 @spaces_cli.command(
@@ -595,7 +803,6 @@ def _editor_open(local_path: str) -> int | Literal["no-tty", "no-editor"]:
 )
 def volumes_ls(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List volumes mounted in a Space."""
@@ -621,7 +828,6 @@ def volumes_ls(
 def volumes_set(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     volume: VolumesOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Set (replace) volumes for a Space."""
@@ -651,7 +857,6 @@ def volumes_delete(
             help="Answer Yes to prompt automatically.",
         ),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Remove all volumes from a Space."""

@@ -95,7 +95,7 @@ class TestMessages:
             queue_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(MessageBulkPushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessageBulkPushResponse], message, path=["response"])
 
     @parametrize
     def test_method_bulk_push_with_all_params(self, client: Cloudflare) -> None:
@@ -111,7 +111,7 @@ class TestMessages:
                 }
             ],
         )
-        assert_matches_type(MessageBulkPushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessageBulkPushResponse], message, path=["response"])
 
     @parametrize
     def test_raw_response_bulk_push(self, client: Cloudflare) -> None:
@@ -123,7 +123,7 @@ class TestMessages:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         message = response.parse()
-        assert_matches_type(MessageBulkPushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessageBulkPushResponse], message, path=["response"])
 
     @parametrize
     def test_streaming_response_bulk_push(self, client: Cloudflare) -> None:
@@ -135,7 +135,7 @@ class TestMessages:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             message = response.parse()
-            assert_matches_type(MessageBulkPushResponse, message, path=["response"])
+            assert_matches_type(Optional[MessageBulkPushResponse], message, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -217,7 +217,7 @@ class TestMessages:
             queue_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     def test_method_push_with_all_params_overload_1(self, client: Cloudflare) -> None:
@@ -228,7 +228,7 @@ class TestMessages:
             content_type="text",
             delay_seconds=0,
         )
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     def test_raw_response_push_overload_1(self, client: Cloudflare) -> None:
@@ -240,7 +240,7 @@ class TestMessages:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         message = response.parse()
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     def test_streaming_response_push_overload_1(self, client: Cloudflare) -> None:
@@ -252,7 +252,7 @@ class TestMessages:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             message = response.parse()
-            assert_matches_type(MessagePushResponse, message, path=["response"])
+            assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -276,7 +276,7 @@ class TestMessages:
             queue_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     def test_method_push_with_all_params_overload_2(self, client: Cloudflare) -> None:
@@ -287,7 +287,7 @@ class TestMessages:
             content_type="json",
             delay_seconds=0,
         )
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     def test_raw_response_push_overload_2(self, client: Cloudflare) -> None:
@@ -299,7 +299,7 @@ class TestMessages:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         message = response.parse()
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     def test_streaming_response_push_overload_2(self, client: Cloudflare) -> None:
@@ -311,7 +311,7 @@ class TestMessages:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             message = response.parse()
-            assert_matches_type(MessagePushResponse, message, path=["response"])
+            assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -331,7 +331,9 @@ class TestMessages:
 
 
 class TestAsyncMessages:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_ack(self, async_client: AsyncCloudflare) -> None:
@@ -406,7 +408,7 @@ class TestAsyncMessages:
             queue_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(MessageBulkPushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessageBulkPushResponse], message, path=["response"])
 
     @parametrize
     async def test_method_bulk_push_with_all_params(self, async_client: AsyncCloudflare) -> None:
@@ -422,7 +424,7 @@ class TestAsyncMessages:
                 }
             ],
         )
-        assert_matches_type(MessageBulkPushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessageBulkPushResponse], message, path=["response"])
 
     @parametrize
     async def test_raw_response_bulk_push(self, async_client: AsyncCloudflare) -> None:
@@ -434,7 +436,7 @@ class TestAsyncMessages:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         message = await response.parse()
-        assert_matches_type(MessageBulkPushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessageBulkPushResponse], message, path=["response"])
 
     @parametrize
     async def test_streaming_response_bulk_push(self, async_client: AsyncCloudflare) -> None:
@@ -446,7 +448,7 @@ class TestAsyncMessages:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             message = await response.parse()
-            assert_matches_type(MessageBulkPushResponse, message, path=["response"])
+            assert_matches_type(Optional[MessageBulkPushResponse], message, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -528,7 +530,7 @@ class TestAsyncMessages:
             queue_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     async def test_method_push_with_all_params_overload_1(self, async_client: AsyncCloudflare) -> None:
@@ -539,7 +541,7 @@ class TestAsyncMessages:
             content_type="text",
             delay_seconds=0,
         )
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     async def test_raw_response_push_overload_1(self, async_client: AsyncCloudflare) -> None:
@@ -551,7 +553,7 @@ class TestAsyncMessages:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         message = await response.parse()
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     async def test_streaming_response_push_overload_1(self, async_client: AsyncCloudflare) -> None:
@@ -563,7 +565,7 @@ class TestAsyncMessages:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             message = await response.parse()
-            assert_matches_type(MessagePushResponse, message, path=["response"])
+            assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -587,7 +589,7 @@ class TestAsyncMessages:
             queue_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     async def test_method_push_with_all_params_overload_2(self, async_client: AsyncCloudflare) -> None:
@@ -598,7 +600,7 @@ class TestAsyncMessages:
             content_type="json",
             delay_seconds=0,
         )
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     async def test_raw_response_push_overload_2(self, async_client: AsyncCloudflare) -> None:
@@ -610,7 +612,7 @@ class TestAsyncMessages:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         message = await response.parse()
-        assert_matches_type(MessagePushResponse, message, path=["response"])
+        assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
     @parametrize
     async def test_streaming_response_push_overload_2(self, async_client: AsyncCloudflare) -> None:
@@ -622,7 +624,7 @@ class TestAsyncMessages:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             message = await response.parse()
-            assert_matches_type(MessagePushResponse, message, path=["response"])
+            assert_matches_type(Optional[MessagePushResponse], message, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

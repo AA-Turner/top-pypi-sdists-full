@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -51,19 +51,23 @@ class StatusResource(SyncAPIResource):
         *,
         account_id: str,
         workflow_name: str,
-        status: Literal["resume", "pause", "terminate"],
+        status: Literal["resume", "pause", "terminate", "restart"],
+        from_: status_edit_params.From | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> StatusEditResponse:
         """
-        Change status of instance
+        Changes the execution status of a workflow instance (e.g., pause, resume,
+        terminate).
 
         Args:
           status: Apply action to instance.
+
+          from_: Step to restart from. Only applicable when status is "restart".
 
           extra_headers: Send extra headers
 
@@ -80,8 +84,19 @@ class StatusResource(SyncAPIResource):
         if not instance_id:
             raise ValueError(f"Expected a non-empty value for `instance_id` but received {instance_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}/status",
-            body=maybe_transform({"status": status}, status_edit_params.StatusEditParams),
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}/status",
+                account_id=account_id,
+                workflow_name=workflow_name,
+                instance_id=instance_id,
+            ),
+            body=maybe_transform(
+                {
+                    "status": status,
+                    "from_": from_,
+                },
+                status_edit_params.StatusEditParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -119,19 +134,23 @@ class AsyncStatusResource(AsyncAPIResource):
         *,
         account_id: str,
         workflow_name: str,
-        status: Literal["resume", "pause", "terminate"],
+        status: Literal["resume", "pause", "terminate", "restart"],
+        from_: status_edit_params.From | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> StatusEditResponse:
         """
-        Change status of instance
+        Changes the execution status of a workflow instance (e.g., pause, resume,
+        terminate).
 
         Args:
           status: Apply action to instance.
+
+          from_: Step to restart from. Only applicable when status is "restart".
 
           extra_headers: Send extra headers
 
@@ -148,8 +167,19 @@ class AsyncStatusResource(AsyncAPIResource):
         if not instance_id:
             raise ValueError(f"Expected a non-empty value for `instance_id` but received {instance_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}/status",
-            body=await async_maybe_transform({"status": status}, status_edit_params.StatusEditParams),
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}/status",
+                account_id=account_id,
+                workflow_name=workflow_name,
+                instance_id=instance_id,
+            ),
+            body=await async_maybe_transform(
+                {
+                    "status": status,
+                    "from_": from_,
+                },
+                status_edit_params.StatusEditParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

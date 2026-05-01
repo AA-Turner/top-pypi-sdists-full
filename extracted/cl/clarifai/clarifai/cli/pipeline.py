@@ -105,17 +105,48 @@ def upload(path, no_lockfile):
 
     PATH: Path to the pipeline configuration file or directory containing config.yaml. If not specified, the current directory is used by default.
     """
+    from clarifai.runners.pipelines import load_pipeline_from_file
     from clarifai.runners.pipelines.pipeline_builder import upload_pipeline
+
+    if os.path.isfile(path) and path.endswith('.py'):
+        pipeline_obj = load_pipeline_from_file(path)
+        output_dir = os.path.join(
+            os.path.dirname(os.path.abspath(path)), f'generated-{pipeline_obj.id}'
+        )
+        pipeline_obj.generate(output_dir)
+        upload_pipeline(output_dir, no_lockfile=no_lockfile)
+        return
 
     upload_pipeline(path, no_lockfile=no_lockfile)
 
 
+@pipeline.command('generate')
+@click.argument('path', type=click.Path(exists=True), required=True)
+@click.option(
+    '--output-dir',
+    type=click.Path(),
+    required=True,
+    help='Directory to write the generated pipeline config and step folders.',
+)
+def generate(path, output_dir):
+    """Generate YAML/config-based pipeline assets from a Python pipeline definition."""
+    from clarifai.runners.pipelines import load_pipeline_from_file
+
+    if not os.path.isfile(path) or not path.endswith('.py'):
+        raise click.UsageError('clarifai pipeline generate expects a Python file path.')
+
+    pipeline_obj = load_pipeline_from_file(path)
+    config_path = pipeline_obj.generate(output_dir)
+    logger.info(f"Generated pipeline assets at {config_path}")
+
+
 @pipeline.command()
+@click.argument('path', type=click.Path(exists=True), required=False, default=None)
 @click.option(
     '--config',
     type=click.Path(exists=True),
     required=False,
-    help='Path to the pipeline run config file.',
+    help='Path to the pipeline run config file (deprecated, use PATH positional argument).',
 )
 @click.option('--pipeline_id', required=False, help='Pipeline ID to run.')
 @click.option('--pipeline_version_id', required=False, help='Pipeline Version ID to run.')
@@ -187,9 +218,17 @@ def upload(path, no_lockfile):
     type=click.Path(exists=True),
     help='Path to JSON/YAML file containing parameter overrides.',
 )
+@click.option(
+    '--dev',
+    is_flag=True,
+    default=False,
+    help='Upload local code to an ephemeral dev pipeline before running. '
+    'Only changed steps are re-uploaded.',
+)
 @click.pass_context
 def run(
     ctx,
+    path,
     config,
     pipeline_id,
     pipeline_version_id,
@@ -208,8 +247,16 @@ def run(
     monitor,
     override_params,
     overrides_file,
+    dev,
 ):
-    """Run a pipeline and monitor its progress."""
+    """Run a pipeline and monitor its progress.
+
+    PATH: Optional path to a pipeline directory or config file. Default '.' (current directory).
+
+    \tWhen provided, config precedence is config-lock.yaml > config.yaml.
+    The --config option is accepted for backwards compatibility but PATH
+    is preferred.
+    """
     import json
 
     from clarifai.client.pipeline import Pipeline
@@ -217,11 +264,20 @@ def run(
 
     validate_context(ctx)
 
-    # Try to load from config-lock.yaml first if no config is specified
-    lockfile_path = os.path.join(os.getcwd(), "config-lock.yaml")
-    if not config and os.path.exists(lockfile_path):
-        click.echo("Found config-lock.yaml, using it as default config source")
-        config = lockfile_path
+    # Resolve the config file from the positional PATH (preferred) or --config
+    if not config:
+        run_path = path or os.getcwd()
+        if os.path.isdir(run_path):
+            lockfile = os.path.join(run_path, 'config-lock.yaml')
+            configfile = os.path.join(run_path, 'config.yaml')
+            if os.path.exists(lockfile):
+                config = lockfile
+                logger.info(f"Using lockfile as config source: {config}")
+            elif os.path.exists(configfile):
+                config = configfile
+                logger.info(f"Using config file: {config}")
+        elif os.path.isfile(run_path):
+            config = run_path
 
     if config:
         config_data = from_yaml(config)
@@ -274,6 +330,18 @@ def run(
         if not compute_cluster_id:
             compute_cluster_id = ctx.obj.current.get('compute_cluster_id', '')
 
+    # Dev mode: upload local code to an ephemeral dev pipeline before running
+    if dev:
+        from clarifai.runners.pipelines.pipeline_builder import upload_dev_pipeline
+
+        dev_pipeline_id, dev_version_id, dev_user_id, dev_app_id = upload_dev_pipeline(path)
+        pipeline_id = dev_pipeline_id
+        pipeline_version_id = dev_version_id
+        user_id = dev_user_id
+        app_id = dev_app_id
+        pipeline_url = None  # dev mode always uses explicit IDs
+
+    # compute_cluster_id and nodepool_id are mandatory regardless of whether pipeline_url is provided
     # Auto-resolve compute cluster and nodepool from --instance if not explicitly provided
     if not compute_cluster_id or not nodepool_id:
         if instance:
@@ -375,17 +443,19 @@ def run(
                 argo_args_override=resources_pb2.ArgoArgsOverride(parameters=parameters)
             )
 
-    if monitor:
-        # Monitor existing pipeline run instead of starting new one
-        result = pipeline.monitor_only(timeout=timeout, monitor_interval=monitor_interval)
-    else:
-        # Start new pipeline run and monitor it
-        result = pipeline.run(
-            timeout=timeout,
-            monitor_interval=monitor_interval,
-            input_args_override=input_args_override,
-        )
-    click.echo(json.dumps(result, indent=2, default=str))
+    from clarifai.utils.logging import pipeline_logging
+
+    with pipeline_logging():
+        if monitor:
+            # Monitor existing pipeline run instead of starting new one
+            result = pipeline.monitor_only(timeout=timeout, monitor_interval=monitor_interval)
+        else:
+            # Start new pipeline run and monitor it
+            result = pipeline.run(
+                timeout=timeout,
+                monitor_interval=monitor_interval,
+                input_args_override=input_args_override,
+            )
 
 
 @pipeline.command()
@@ -399,13 +469,21 @@ def run(
 @optgroup.option(
     '--template',
     required=False,
-    help='Initialize from a template (e.g., image-classification, text-prep)',
+    help=(
+        'Initialize from a template. Run `clarifai pipelinetemplate ls` to list '
+        'available templates (e.g., classifier-pipeline-resnet-quick-start, '
+        'detector-pipeline-yolof-quick-start).'
+    ),
 )
 @optgroup.option(
     '--set',
     'set_values',
     multiple=True,
-    help='Override template parameters inline. Format: --set key=value. Can be used multiple times.',
+    help=(
+        'Override template parameters inline at init time. Format: --set key=value, repeatable. '
+        'Use --set id=<my_pipeline_id> to rename the pipeline, or --set <param>=<value> '
+        '(e.g. --set num_epochs=20) to change a model parameter default in the generated config.'
+    ),
 )
 @click.option(
     '--user_id',
@@ -426,6 +504,12 @@ def init(ctx, pipeline_path, template, set_values, user_id, app_id):
     When using --template, initializes from a predefined template with specific
     parameters and structure. Without --template, uses the interactive flow
     to create a custom pipeline structure.
+
+    \b
+    Tip: pass --user_id / --app_id to override the user/app inherited from your
+    `clarifai login` context, --set id=<my_pipeline_id> to rename the pipeline,
+    and --set <param>=<value> (e.g. --set num_epochs=20) to override a model
+    parameter default at initialization time.
 
     \b
     Creates the following structure in the specified directory:
@@ -520,14 +604,25 @@ def _show_completion_message(pipeline_path):
     click.echo()
     click.echo(f"Pipeline initialization complete in {pipeline_path}")
     click.echo()
-    click.echo("Next steps:")
-    click.echo("1. Review and customize the generated pipeline steps")
-    click.echo("2. Add any additional dependencies to requirements.txt files")
     click.echo(
-        f"3. Run 'clarifai pipeline upload {pipeline_path}/config.yaml' to upload your pipeline"
+        "Next steps (run all subsequent `clarifai pipeline ...` commands from INSIDE the generated folder):"
     )
+    click.echo("1. Change into the generated pipeline folder and review the generated steps")
+    click.echo("   (add any extra dependencies to each step's requirements.txt as needed):")
+    click.echo(f"          cd {pipeline_path}")
+    click.echo("2. Upload your pipeline:")
+    click.echo("          clarifai pipeline upload")
+    click.echo("3. Run the pipeline. Pick ONE of:")
+    click.echo("     a) Auto-create / reuse compute from an instance type (simplest):")
+    click.echo("          clarifai pipeline run --instance=g6e.xlarge")
+    click.echo("     b) Use your existing nodepool + compute cluster (both required):")
     click.echo(
-        f"4. Use 'clarifai pipeline run --config {pipeline_path}/config.yaml [--set key=value]' to execute your pipeline"
+        "          clarifai pipeline run --nodepool_id=<your_nodepool_id> "
+        "--compute_cluster_id=<your_compute_cluster_id>"
+    )
+    click.echo("   To override pipeline parameters at run time, repeat --set key=value, e.g.:")
+    click.echo(
+        "          clarifai pipeline run --instance=g6e.xlarge --set num_epochs=20 --set batch_size=32"
     )
 
 

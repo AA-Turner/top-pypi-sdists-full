@@ -5,10 +5,12 @@ from typing import List, Optional
 from ..._models import BaseModel
 from .scripts.consumer_script import ConsumerScript
 
-__all__ = ["ScriptSetting", "Observability", "ObservabilityLogs"]
+__all__ = ["ScriptSetting", "Observability", "ObservabilityLogs", "ObservabilityTraces"]
 
 
 class ObservabilityLogs(BaseModel):
+    """Log settings for the Worker."""
+
     enabled: bool
     """Whether logs are enabled for the Worker."""
 
@@ -19,11 +21,35 @@ class ObservabilityLogs(BaseModel):
     are enabled for the Worker.
     """
 
+    destinations: Optional[List[str]] = None
+    """A list of destinations where logs will be exported to."""
+
     head_sampling_rate: Optional[float] = None
     """The sampling rate for logs. From 0 to 1 (1 = 100%, 0.1 = 10%). Default is 1."""
 
+    persist: Optional[bool] = None
+    """Whether log persistence is enabled for the Worker."""
+
+
+class ObservabilityTraces(BaseModel):
+    """Trace settings for the Worker."""
+
+    destinations: Optional[List[str]] = None
+    """A list of destinations where traces will be exported to."""
+
+    enabled: Optional[bool] = None
+    """Whether traces are enabled for the Worker."""
+
+    head_sampling_rate: Optional[float] = None
+    """The sampling rate for traces. From 0 to 1 (1 = 100%, 0.1 = 10%). Default is 1."""
+
+    persist: Optional[bool] = None
+    """Whether trace persistence is enabled for the Worker."""
+
 
 class Observability(BaseModel):
+    """Observability settings for the Worker."""
+
     enabled: bool
     """Whether observability is enabled for the Worker."""
 
@@ -36,6 +62,9 @@ class Observability(BaseModel):
     logs: Optional[ObservabilityLogs] = None
     """Log settings for the Worker."""
 
+    traces: Optional[ObservabilityTraces] = None
+    """Trace settings for the Worker."""
+
 
 class ScriptSetting(BaseModel):
     logpush: Optional[bool] = None
@@ -43,6 +72,9 @@ class ScriptSetting(BaseModel):
 
     observability: Optional[Observability] = None
     """Observability settings for the Worker."""
+
+    tags: Optional[List[str]] = None
+    """Tags associated with the Worker."""
 
     tail_consumers: Optional[List[ConsumerScript]] = None
     """List of Workers that will consume logs from the attached Worker."""

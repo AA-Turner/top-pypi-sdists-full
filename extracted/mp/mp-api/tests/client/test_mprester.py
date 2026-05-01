@@ -2,6 +2,7 @@ import itertools
 import os
 import random
 import importlib
+import requests
 from tempfile import NamedTemporaryFile
 
 import numpy as np
@@ -33,10 +34,11 @@ from pymatgen.entries.computed_entries import ComputedEntry, GibbsComputedStruct
 from pymatgen.io.cif import CifParser
 from pymatgen.io.vasp import Chgcar
 
+from mp_api._test_utils import requires_api_key
+
 from mp_api.client import MPRester
 from mp_api.client.core import MPRestError, MPRestWarning
-
-from .conftest import requires_api_key
+from mp_api.client.core.settings import _DEFAULT_ENDPOINT
 
 try:
     import mpcontribs.client as contribs_client
@@ -54,7 +56,7 @@ def mpr():
 @requires_api_key
 class TestMPRester:
     fake_mp_api_key = "12345678901234567890123456789012"  # 32 chars
-    default_endpoint = "https://api.materialsproject.org/"
+    default_endpoint = _DEFAULT_ENDPOINT
 
     def test_get_structure_by_material_id(self, mpr):
         s0 = mpr.get_structure_by_material_id("mp-149")
@@ -101,7 +103,9 @@ class TestMPRester:
         structs = mpr.get_structures("Mn-O", final=False)
         assert len(structs) > 0
 
-    def test_find_structure(self, mpr):
+    def test_find_structure(
+        self,
+    ):
         cif_str = """# mp-111
 data_Ne
 _symmetry_space_group_name_H-M   'P 1'
@@ -130,19 +134,39 @@ loop_
  _atom_site_occupancy
   Ne  Ne0  1  0.00000000  0.00000000  -0.00000000  1
 """
+        struct_from_cif = CifParser.from_str(cif_str).parse_structures(primitive=True)[
+            0
+        ]
         temp_file = NamedTemporaryFile(suffix=".cif")
         with open(temp_file.name, "wt") as f:
             f.write(cif_str)
             f.seek(0)
 
-        for struct_or_path in (
-            temp_file.name,
-            CifParser.from_str(cif_str).parse_structures(primitive=True)[0],
-        ):
-            data = mpr.find_structure(struct_or_path)
+        for struct_or_path, use_document_model in [
+            (temp_file.name, True),
+            (struct_from_cif, False),
+        ]:
+            with MPRester(use_document_model=use_document_model) as mpr:
+                data = mpr.find_structure(struct_or_path)
             assert isinstance(data, str) and data == "mp-111"
 
         f.close()
+
+        with pytest.raises(MPRestError, match="Provide filename or Structure object."):
+            mpr.find_structure(struct_from_cif.as_dict())
+
+        with pytest.raises(MPRestError, match="`allow_multiple_results` must be a"):
+            mpr.find_structure(struct_from_cif, allow_multiple_results=1.0)
+
+        assert (
+            len(
+                mpr.find_structure(
+                    struct_from_cif.copy().replace_species({"Ne": "K"}),
+                    allow_multiple_results=2,
+                )
+            )
+            <= 2
+        )
 
     def test_get_bandstructure_by_material_id(self, mpr):
         bs = mpr.get_bandstructure_by_material_id("mp-149")
@@ -164,7 +188,7 @@ loop_
         syms = ["Li", "Fe", "O"]
         chemsys = "Li-Fe-O"
         with pytest.warns(
-            UserWarning, match="The `inc_structure` argument is deprecated"
+            DeprecationWarning, match="The `inc_structure` argument is deprecated"
         ):
             entries = mpr.get_entries(chemsys, inc_structure=False)
 
@@ -237,7 +261,10 @@ loop_
     def test_get_entries_in_chemsys(self, mpr):
         syms = ["Li", "Fe", "O"]
         syms2 = "Li-Fe-O"
-        entries = mpr.get_entries_in_chemsys(syms)
+        with pytest.warns(
+            MPRestWarning, match="The default thermo type when retrieving entries"
+        ):
+            entries = mpr.get_entries_in_chemsys(syms)
         entries2 = mpr.get_entries_in_chemsys(syms2)
         elements = {Element(sym) for sym in syms}
         for e in entries:
@@ -251,6 +278,11 @@ loop_
         gibbs_entries = mpr.get_entries_in_chemsys(syms2, use_gibbs=500)
         for e in gibbs_entries:
             assert isinstance(e, GibbsComputedStructureEntry)
+
+        with pytest.raises(
+            MPRestError, match="Please specify fewer elements to query by"
+        ):
+            mpr.get_entries_in_chemsys([Element.from_Z(1 + i).name for i in range(10)])
 
     @pytest.mark.skipif(
         contribs_client is None,
@@ -270,7 +302,7 @@ loop_
 
         # test solid_compat kwarg
         with pytest.raises(ValueError, match="Solid compatibility can only be"):
-            mpr.get_pourbaix_entries("Ti-O", solid_compat=None)
+            mpr.get_pourbaix_entries("Ti-O", solid_compat="None")
 
         # test removal of extra elements from reference solids
         # Li-Zn-S has Na in reference solids
@@ -297,7 +329,9 @@ loop_
         reason="`pip install mpcontribs-client` to use pourbaix functionality.",
     )
     def test_get_ion_entries(self, mpr):
-        entries = mpr.get_entries_in_chemsys("Ti-O-H")
+        entries = mpr.get_entries_in_chemsys(
+            "Ti-O-H", additional_criteria={"thermo_types": ["GGA_GGA+U"]}
+        )
         pd = PhaseDiagram(entries)
         ion_entry_data = mpr.get_ion_reference_data_for_chemsys("Ti-O-H")
         ion_entries = mpr.get_ion_entries(pd, ion_entry_data)
@@ -309,7 +343,9 @@ loop_
         assert len(bi_v_entry_data) == len(bi_data + v_data)
 
         # test an incomplete phase diagram
-        entries = mpr.get_entries_in_chemsys("Ti-O")
+        entries = mpr.get_entries_in_chemsys(
+            "Ti-O", additional_criteria={"thermo_types": ["GGA_GGA+U"]}
+        )
         pd = PhaseDiagram(entries)
         with pytest.raises(ValueError, match="The phase diagram chemical system"):
             mpr.get_ion_entries(pd)
@@ -323,7 +359,8 @@ loop_
             itertools.chain.from_iterable(i.elements for i in ion_ref_comps)
         )
         ion_ref_entries = mpr.get_entries_in_chemsys(
-            [*map(str, ion_ref_elts), "O", "H"]
+            [*map(str, ion_ref_elts), "O", "H"],
+            additional_criteria={"thermo_types": ["GGA_GGA+U"]},
         )
         mpc = MaterialsProjectAqueousCompatibility()
         ion_ref_entries = mpc.process_entries(ion_ref_entries)
@@ -499,9 +536,9 @@ loop_
                 for norm, refs in ref_e_coh.items():
                     _e_coh = _mpr.get_cohesive_energy(list(refs), normalization=norm)
                     if norm == "atom":
-                        e_coh[
-                            "serial" if use_document_model else "noserial"
-                        ] = _e_coh.copy()
+                        e_coh["serial" if use_document_model else "noserial"] = (
+                            _e_coh.copy()
+                        )
 
                     # Ensure energies match reference data
                     assert all(v == pytest.approx(refs[k]) for k, v in _e_coh.items())
@@ -510,6 +547,10 @@ loop_
         assert all(
             v == pytest.approx(e_coh["noserial"][k]) for k, v in e_coh["serial"].items()
         )
+
+        with pytest.raises(MPRestError, match="Input material IDs"):
+            with MPRester() as mpr:
+                mpr.get_cohesive_energy("mp-1")
 
     @pytest.mark.parametrize(
         "chemsys, thermo_type",
@@ -557,7 +598,9 @@ loop_
                 ]
 
             if no_compound_entries:
-                with pytest.warns(UserWarning, match="No phase diagram data available"):
+                with pytest.warns(
+                    MPRestWarning, match="No phase diagram data available"
+                ):
                     mpr.get_stability(modified_entries, thermo_type=thermo_type)
                 return
 
@@ -615,6 +658,95 @@ loop_
         with pytest.raises(ValueError, match="No available insertion electrode data"):
             _ = mpr.get_oxygen_evolution("mp-2207", "Al")
 
-    def test_monty_decode_warning(self):
+    def test_nomad_integration(self, mpr):
+        # No particular reason for this MPID other than that it exists in NOMAD.
+        target_mpid = "mp-10018"
+        with (
+            pytest.warns(
+                MPRestWarning, match="Full downloads of raw data are being transitioned"
+            ),
+            pytest.warns(
+                MPRestWarning, match="the following ids are not found on NOMAD"
+            ),
+        ):
+            calc_type_map, nomad_urls = mpr.get_download_info(
+                target_mpid, file_patterns=["some_pattern"]
+            )
+            assert all(
+                isinstance(entry["task_id"], MPID)
+                and isinstance(entry["calc_type"], CalcType)
+                for entry in calc_type_map[target_mpid]
+            )
+            assert all(
+                url.startswith("https://nomad-lab.eu/prod/rae/api/raw/query")
+                and "file_pattern=some_pattern" in url
+                for url in nomad_urls
+            )
+
+            calc_type_map, nomad_urls = mpr.get_download_info(
+                [MPID(target_mpid)], calc_types=["GGA Deformation"]
+            )
+            assert all(
+                isinstance(entry["task_id"], MPID)
+                and entry["calc_type"].value == "GGA Deformation"
+                for entry in calc_type_map[target_mpid]
+            )
+            assert all(
+                url.startswith(
+                    "https://nomad-lab.eu/prod/rae/api/raw/query?external_id="
+                )
+                for url in nomad_urls
+            )
+
+    def test_db_warning(self, monkeypatch: pytest.MonkeyPatch):
+        from pathlib import Path
+        import yaml
+        from mp_api.client.core.settings import MAPI_CLIENT_SETTINGS
+
+        with NamedTemporaryFile(suffix=".yaml") as tmp_log:
+            monkeypatch.setattr(MAPI_CLIENT_SETTINGS, "LOG_FILE", Path(tmp_log.name))
+
+            with MPRester(notify_db_version=True) as mpr:
+                db_version = mpr.get_database_version()
+
+            parsed_db_ver = yaml.safe_load(Path(tmp_log.name).read_text()).get(
+                "MAPI_DB_VERSION"
+            )
+            assert parsed_db_ver == db_version
+            assert isinstance(parsed_db_ver, str)
+
+    def test_warnings_exceptions(self):
+        # Generic warnings/exceptions tests, nothji
         with pytest.warns(MPRestWarning, match="Ignoring `monty_decode`"):
             MPRester(monty_decode=False)
+
+        with MPRester() as mpr:
+            with pytest.raises(
+                NotImplementedError,
+                match="The MPRester\(\).query method has been replaced",
+            ):
+                mpr.query(some_field=1.0)
+
+            with pytest.warns(
+                MPRestWarning, match="No material found containing task mp-0"
+            ):
+                assert mpr.get_material_id_from_task_id("mp-0") is None
+
+            for attr in mpr._deprecated_attributes:
+                with pytest.warns(
+                    DeprecationWarning, match="Accessing.*data through MPRester\..*"
+                ):
+                    getattr(mpr, attr, None)
+
+    def test_min_emmet_warning(self, monkeypatch: pytest.MonkeyPatch):
+        from mp_api.client.core.settings import MAPI_CLIENT_SETTINGS
+
+        with MPRester() as mpr:
+            emmet_ver = mpr.get_emmet_version(mpr.endpoint)
+            monkeypatch.setattr(
+                MAPI_CLIENT_SETTINGS, "MIN_EMMET_VERSION", f"{emmet_ver.major + 1}.0.0"
+            )
+            with pytest.warns(
+                MPRestWarning, match="The installed version of the mp-api"
+            ):
+                MPRester()

@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -56,10 +56,12 @@ class FallbackOriginResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[FallbackOriginUpdateResponse]:
-        """
-        Update Fallback Origin for Custom Hostnames
+        """Updates the fallback origin configuration for custom hostnames on a zone.
+
+        Sets
+        the default origin server for custom hostname traffic.
 
         Args:
           zone_id: Identifier.
@@ -77,7 +79,7 @@ class FallbackOriginResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._put(
-            f"/zones/{zone_id}/custom_hostnames/fallback_origin",
+            path_template("/zones/{zone_id}/custom_hostnames/fallback_origin", zone_id=zone_id),
             body=maybe_transform({"origin": origin}, fallback_origin_update_params.FallbackOriginUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -98,10 +100,12 @@ class FallbackOriginResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[FallbackOriginDeleteResponse]:
-        """
-        Delete Fallback Origin for Custom Hostnames
+        """Removes the fallback origin configuration for custom hostnames on a zone.
+
+        Custom
+        hostnames without specific origins will no longer have a fallback.
 
         Args:
           zone_id: Identifier.
@@ -117,7 +121,7 @@ class FallbackOriginResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._delete(
-            f"/zones/{zone_id}/custom_hostnames/fallback_origin",
+            path_template("/zones/{zone_id}/custom_hostnames/fallback_origin", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -137,10 +141,12 @@ class FallbackOriginResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[FallbackOriginGetResponse]:
         """
-        Get Fallback Origin for Custom Hostnames
+        Retrieves the current fallback origin configuration for custom hostnames on a
+        zone. The fallback origin handles traffic when specific custom hostname origins
+        are unavailable.
 
         Args:
           zone_id: Identifier.
@@ -156,7 +162,7 @@ class FallbackOriginResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/custom_hostnames/fallback_origin",
+            path_template("/zones/{zone_id}/custom_hostnames/fallback_origin", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -198,10 +204,12 @@ class AsyncFallbackOriginResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[FallbackOriginUpdateResponse]:
-        """
-        Update Fallback Origin for Custom Hostnames
+        """Updates the fallback origin configuration for custom hostnames on a zone.
+
+        Sets
+        the default origin server for custom hostname traffic.
 
         Args:
           zone_id: Identifier.
@@ -219,7 +227,7 @@ class AsyncFallbackOriginResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._put(
-            f"/zones/{zone_id}/custom_hostnames/fallback_origin",
+            path_template("/zones/{zone_id}/custom_hostnames/fallback_origin", zone_id=zone_id),
             body=await async_maybe_transform(
                 {"origin": origin}, fallback_origin_update_params.FallbackOriginUpdateParams
             ),
@@ -242,10 +250,12 @@ class AsyncFallbackOriginResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[FallbackOriginDeleteResponse]:
-        """
-        Delete Fallback Origin for Custom Hostnames
+        """Removes the fallback origin configuration for custom hostnames on a zone.
+
+        Custom
+        hostnames without specific origins will no longer have a fallback.
 
         Args:
           zone_id: Identifier.
@@ -261,7 +271,7 @@ class AsyncFallbackOriginResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._delete(
-            f"/zones/{zone_id}/custom_hostnames/fallback_origin",
+            path_template("/zones/{zone_id}/custom_hostnames/fallback_origin", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -281,10 +291,12 @@ class AsyncFallbackOriginResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[FallbackOriginGetResponse]:
         """
-        Get Fallback Origin for Custom Hostnames
+        Retrieves the current fallback origin configuration for custom hostnames on a
+        zone. The fallback origin handles traffic when specific custom hostname origins
+        are unavailable.
 
         Args:
           zone_id: Identifier.
@@ -300,7 +312,7 @@ class AsyncFallbackOriginResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/custom_hostnames/fallback_origin",
+            path_template("/zones/{zone_id}/custom_hostnames/fallback_origin", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

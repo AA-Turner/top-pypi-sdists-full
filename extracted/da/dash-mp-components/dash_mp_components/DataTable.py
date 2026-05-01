@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class DataTable(Component):
@@ -91,12 +103,36 @@ Keyword arguments:
 - sortField (string; optional):
     Optionally include a field to sort by on initial load Must be a
     valid field and included in your list of columns."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'DataTable'
-    @_explicitize_args
-    def __init__(self, id=Component.UNDEFINED, className=Component.UNDEFINED, data=Component.UNDEFINED, columns=Component.UNDEFINED, sortField=Component.UNDEFINED, sortAscending=Component.UNDEFINED, secondarySortField=Component.UNDEFINED, secondarySortAscending=Component.UNDEFINED, conditionalRowStyles=Component.UNDEFINED, selectableRows=Component.UNDEFINED, selectedRows=Component.UNDEFINED, singleSelectableRows=Component.UNDEFINED, hasHeader=Component.UNDEFINED, headerClassName=Component.UNDEFINED, resultLabel=Component.UNDEFINED, resultLabelPlural=Component.UNDEFINED, pagination=Component.UNDEFINED, paginationIsExpanded=Component.UNDEFINED, footer=Component.UNDEFINED, disableRichColumnHeaders=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        id: typing.Optional[typing.Union[str, dict]] = None,
+        className: typing.Optional[str] = None,
+        data: typing.Optional[typing.Sequence] = None,
+        columns: typing.Optional[typing.Sequence] = None,
+        sortField: typing.Optional[str] = None,
+        sortAscending: typing.Optional[bool] = None,
+        secondarySortField: typing.Optional[str] = None,
+        secondarySortAscending: typing.Optional[bool] = None,
+        conditionalRowStyles: typing.Optional[typing.Sequence] = None,
+        selectableRows: typing.Optional[bool] = None,
+        selectedRows: typing.Optional[typing.Any] = None,
+        singleSelectableRows: typing.Optional[bool] = None,
+        hasHeader: typing.Optional[bool] = None,
+        headerClassName: typing.Optional[str] = None,
+        resultLabel: typing.Optional[str] = None,
+        resultLabelPlural: typing.Optional[str] = None,
+        pagination: typing.Optional[bool] = None,
+        paginationIsExpanded: typing.Optional[bool] = None,
+        footer: typing.Optional[str] = None,
+        disableRichColumnHeaders: typing.Optional[bool] = None,
+        **kwargs
+    ):
         self._prop_names = ['id', 'className', 'columns', 'conditionalRowStyles', 'data', 'disableRichColumnHeaders', 'footer', 'hasHeader', 'headerClassName', 'pagination', 'paginationIsExpanded', 'resultLabel', 'resultLabelPlural', 'secondarySortAscending', 'secondarySortField', 'selectableRows', 'selectedRows', 'singleSelectableRows', 'sortAscending', 'sortField']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['id', 'className', 'columns', 'conditionalRowStyles', 'data', 'disableRichColumnHeaders', 'footer', 'hasHeader', 'headerClassName', 'pagination', 'paginationIsExpanded', 'resultLabel', 'resultLabelPlural', 'secondarySortAscending', 'secondarySortField', 'selectableRows', 'selectedRows', 'singleSelectableRows', 'sortAscending', 'sortField']
@@ -107,3 +143,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args}
 
         super(DataTable, self).__init__(**args)
+
+setattr(DataTable, "__init__", _explicitize_args(DataTable.__init__))

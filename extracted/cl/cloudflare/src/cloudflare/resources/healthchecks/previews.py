@@ -6,8 +6,8 @@ from typing import List, Type, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -54,23 +54,23 @@ class PreviewsResource(SyncAPIResource):
         zone_id: str,
         address: str,
         name: str,
-        check_regions: Optional[List[CheckRegion]] | NotGiven = NOT_GIVEN,
-        consecutive_fails: int | NotGiven = NOT_GIVEN,
-        consecutive_successes: int | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        http_config: Optional[HTTPConfigurationParam] | NotGiven = NOT_GIVEN,
-        interval: int | NotGiven = NOT_GIVEN,
-        retries: int | NotGiven = NOT_GIVEN,
-        suspended: bool | NotGiven = NOT_GIVEN,
-        tcp_config: Optional[TCPConfigurationParam] | NotGiven = NOT_GIVEN,
-        healthcheck_timeout: int | NotGiven = NOT_GIVEN,
-        type: str | NotGiven = NOT_GIVEN,
+        check_regions: Optional[List[CheckRegion]] | Omit = omit,
+        consecutive_fails: int | Omit = omit,
+        consecutive_successes: int | Omit = omit,
+        description: str | Omit = omit,
+        http_config: Optional[HTTPConfigurationParam] | Omit = omit,
+        interval: int | Omit = omit,
+        retries: int | Omit = omit,
+        suspended: bool | Omit = omit,
+        tcp_config: Optional[TCPConfigurationParam] | Omit = omit,
+        healthcheck_timeout: int | Omit = omit,
+        type: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Healthcheck:
         """
         Create a new preview health check.
@@ -123,7 +123,7 @@ class PreviewsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
-            f"/zones/{zone_id}/healthchecks/preview",
+            path_template("/zones/{zone_id}/healthchecks/preview", zone_id=zone_id),
             body=maybe_transform(
                 {
                     "address": address,
@@ -162,7 +162,7 @@ class PreviewsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> PreviewDeleteResponse:
         """
         Delete a health check.
@@ -185,7 +185,9 @@ class PreviewsResource(SyncAPIResource):
         if not healthcheck_id:
             raise ValueError(f"Expected a non-empty value for `healthcheck_id` but received {healthcheck_id!r}")
         return self._delete(
-            f"/zones/{zone_id}/healthchecks/preview/{healthcheck_id}",
+            path_template(
+                "/zones/{zone_id}/healthchecks/preview/{healthcheck_id}", zone_id=zone_id, healthcheck_id=healthcheck_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -206,7 +208,7 @@ class PreviewsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Healthcheck:
         """
         Fetch a single configured health check preview.
@@ -229,7 +231,9 @@ class PreviewsResource(SyncAPIResource):
         if not healthcheck_id:
             raise ValueError(f"Expected a non-empty value for `healthcheck_id` but received {healthcheck_id!r}")
         return self._get(
-            f"/zones/{zone_id}/healthchecks/preview/{healthcheck_id}",
+            path_template(
+                "/zones/{zone_id}/healthchecks/preview/{healthcheck_id}", zone_id=zone_id, healthcheck_id=healthcheck_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -267,23 +271,23 @@ class AsyncPreviewsResource(AsyncAPIResource):
         zone_id: str,
         address: str,
         name: str,
-        check_regions: Optional[List[CheckRegion]] | NotGiven = NOT_GIVEN,
-        consecutive_fails: int | NotGiven = NOT_GIVEN,
-        consecutive_successes: int | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        http_config: Optional[HTTPConfigurationParam] | NotGiven = NOT_GIVEN,
-        interval: int | NotGiven = NOT_GIVEN,
-        retries: int | NotGiven = NOT_GIVEN,
-        suspended: bool | NotGiven = NOT_GIVEN,
-        tcp_config: Optional[TCPConfigurationParam] | NotGiven = NOT_GIVEN,
-        healthcheck_timeout: int | NotGiven = NOT_GIVEN,
-        type: str | NotGiven = NOT_GIVEN,
+        check_regions: Optional[List[CheckRegion]] | Omit = omit,
+        consecutive_fails: int | Omit = omit,
+        consecutive_successes: int | Omit = omit,
+        description: str | Omit = omit,
+        http_config: Optional[HTTPConfigurationParam] | Omit = omit,
+        interval: int | Omit = omit,
+        retries: int | Omit = omit,
+        suspended: bool | Omit = omit,
+        tcp_config: Optional[TCPConfigurationParam] | Omit = omit,
+        healthcheck_timeout: int | Omit = omit,
+        type: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Healthcheck:
         """
         Create a new preview health check.
@@ -336,7 +340,7 @@ class AsyncPreviewsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
-            f"/zones/{zone_id}/healthchecks/preview",
+            path_template("/zones/{zone_id}/healthchecks/preview", zone_id=zone_id),
             body=await async_maybe_transform(
                 {
                     "address": address,
@@ -375,7 +379,7 @@ class AsyncPreviewsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> PreviewDeleteResponse:
         """
         Delete a health check.
@@ -398,7 +402,9 @@ class AsyncPreviewsResource(AsyncAPIResource):
         if not healthcheck_id:
             raise ValueError(f"Expected a non-empty value for `healthcheck_id` but received {healthcheck_id!r}")
         return await self._delete(
-            f"/zones/{zone_id}/healthchecks/preview/{healthcheck_id}",
+            path_template(
+                "/zones/{zone_id}/healthchecks/preview/{healthcheck_id}", zone_id=zone_id, healthcheck_id=healthcheck_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -419,7 +425,7 @@ class AsyncPreviewsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Healthcheck:
         """
         Fetch a single configured health check preview.
@@ -442,7 +448,9 @@ class AsyncPreviewsResource(AsyncAPIResource):
         if not healthcheck_id:
             raise ValueError(f"Expected a non-empty value for `healthcheck_id` but received {healthcheck_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/healthchecks/preview/{healthcheck_id}",
+            path_template(
+                "/zones/{zone_id}/healthchecks/preview/{healthcheck_id}", zone_id=zone_id, healthcheck_id=healthcheck_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

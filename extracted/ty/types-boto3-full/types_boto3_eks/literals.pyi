@@ -323,6 +323,7 @@ UpdateParamTypeType = Literal[
     "UpdateStrategy",
     "UpdatedTier",
     "UpgradePolicy",
+    "VendedLogs",
     "Version",
     "WarmPoolEnabled",
     "WarmPoolMaxGroupPreparedCapacity",

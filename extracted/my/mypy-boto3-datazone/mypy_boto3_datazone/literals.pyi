@@ -93,6 +93,7 @@ __all__ = (
     "ListLineageEventsPaginatorName",
     "ListLineageNodeHistoryPaginatorName",
     "ListMetadataGenerationRunsPaginatorName",
+    "ListNotebookRunsPaginatorName",
     "ListNotificationsPaginatorName",
     "ListPolicyGrantsPaginatorName",
     "ListProjectMembershipsPaginatorName",
@@ -109,12 +110,15 @@ __all__ = (
     "MetadataGenerationRunStatusType",
     "MetadataGenerationRunTypeType",
     "MetadataGenerationTargetTypeType",
+    "NetworkAccessTypeType",
+    "NotebookRunStatusType",
     "NotificationResourceTypeType",
     "NotificationRoleType",
     "NotificationTypeType",
     "OAuth2GrantTypeType",
     "OpenLineageRunStateType",
     "OverallDeploymentStatusType",
+    "PackageManagerType",
     "PaginatorName",
     "ProjectDesignationType",
     "ProjectStatusType",
@@ -155,6 +159,7 @@ __all__ = (
     "TaskStatusType",
     "TimeSeriesEntityTypeType",
     "TimezoneType",
+    "TriggerSourceTypeType",
     "TypesSearchScopeType",
     "UserAssignmentType",
     "UserDesignationType",
@@ -335,6 +340,7 @@ ListJobRunsPaginatorName = Literal["list_job_runs"]
 ListLineageEventsPaginatorName = Literal["list_lineage_events"]
 ListLineageNodeHistoryPaginatorName = Literal["list_lineage_node_history"]
 ListMetadataGenerationRunsPaginatorName = Literal["list_metadata_generation_runs"]
+ListNotebookRunsPaginatorName = Literal["list_notebook_runs"]
 ListNotificationsPaginatorName = Literal["list_notifications"]
 ListPolicyGrantsPaginatorName = Literal["list_policy_grants"]
 ListProjectMembershipsPaginatorName = Literal["list_project_memberships"]
@@ -370,6 +376,10 @@ MetadataGenerationRunTypeType = Literal[
     "BUSINESS_DESCRIPTIONS", "BUSINESS_GLOSSARY_ASSOCIATIONS", "BUSINESS_NAMES"
 ]
 MetadataGenerationTargetTypeType = Literal["ASSET"]
+NetworkAccessTypeType = Literal["PUBLIC_INTERNET_ONLY", "VPC_ONLY"]
+NotebookRunStatusType = Literal[
+    "FAILED", "QUEUED", "RUNNING", "STARTING", "STOPPED", "STOPPING", "SUCCEEDED"
+]
 NotificationResourceTypeType = Literal["PROJECT"]
 NotificationRoleType = Literal[
     "DOMAIN_OWNER", "PROJECT_CONTRIBUTOR", "PROJECT_OWNER", "PROJECT_SUBSCRIBER", "PROJECT_VIEWER"
@@ -380,6 +390,7 @@ OpenLineageRunStateType = Literal["ABORT", "COMPLETE", "FAIL", "OTHER", "RUNNING
 OverallDeploymentStatusType = Literal[
     "FAILED_DEPLOYMENT", "FAILED_VALIDATION", "IN_PROGRESS", "PENDING_DEPLOYMENT", "SUCCESSFUL"
 ]
+PackageManagerType = Literal["UV"]
 ProjectDesignationType = Literal["CONTRIBUTOR", "OWNER", "PROJECT_CATALOG_STEWARD"]
 ProjectStatusType = Literal[
     "ACTIVE", "DELETE_FAILED", "DELETING", "MOVING", "UPDATE_FAILED", "UPDATING"
@@ -514,6 +525,7 @@ TimezoneType = Literal[
     "US_PACIFIC",
     "UTC",
 ]
+TriggerSourceTypeType = Literal["MANUAL", "SCHEDULED", "WORKFLOW"]
 TypesSearchScopeType = Literal["ASSET_TYPE", "FORM_TYPE", "LINEAGE_NODE_TYPE"]
 UserAssignmentType = Literal["AUTOMATIC", "MANUAL"]
 UserDesignationType = Literal[
@@ -978,6 +990,7 @@ PaginatorName = Literal[
     "list_lineage_events",
     "list_lineage_node_history",
     "list_metadata_generation_runs",
+    "list_notebook_runs",
     "list_notifications",
     "list_policy_grants",
     "list_project_memberships",

@@ -9,14 +9,14 @@ __all__ = ["SnippetUpdateParams", "Metadata"]
 
 class SnippetUpdateParams(TypedDict, total=False):
     zone_id: Required[str]
-    """Identifier"""
+    """Use this field to specify the unique ID of the zone."""
 
-    files: str
-    """Content files of uploaded snippet"""
-
-    metadata: Metadata
+    metadata: Required[Metadata]
+    """Provide metadata about the snippet."""
 
 
 class Metadata(TypedDict, total=False):
-    main_module: str
-    """Main module name of uploaded snippet"""
+    """Provide metadata about the snippet."""
+
+    main_module: Required[str]
+    """Specify the name of the file that contains the main module of the snippet."""

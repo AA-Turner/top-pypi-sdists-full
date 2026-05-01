@@ -36,7 +36,7 @@ from icalendar.error import InvalidCalendar
 from .component import Component
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
     from datetime import date
 
     from icalendar.cal.available import Available
@@ -230,7 +230,7 @@ class Availability(Component):
 
         This is a shortcut to get all VAVAILABLE sub-components.
         Modifications do not change the calendar.
-        Use :py:meth:`Component.add_component`.
+        Use :meth:`~icalendar.cal.component.Component.add_component`.
         """
         return self.walk("AVAILABLE")
 
@@ -258,6 +258,7 @@ class Availability(Component):
         sequence: int | None = None,
         stamp: date | None = None,
         start: datetime | None = None,
+        subcomponents: Iterable[Component] | None = None,
         summary: str | None = None,
         uid: str | uuid.UUID | None = None,
         url: str | None = None,
@@ -287,6 +288,7 @@ class Availability(Component):
             stamp: The :attr:`stamp` of the availability.
                 If None, this is set to the current time.
             start: The :attr:`start` of the availability.
+            subcomponents: The :attr:`subcomponents` of the availability.
             summary: The :attr:`summary` of the availability.
             uid: The :attr:`uid` of the availability.
                 If ``None``, this is set to a new :func:`uuid.uuid4`.
@@ -310,6 +312,7 @@ class Availability(Component):
             related_to=related_to,
             refids=refids,
             concepts=concepts,
+            subcomponents=subcomponents,
         )
         availability.summary = summary
         availability.description = description

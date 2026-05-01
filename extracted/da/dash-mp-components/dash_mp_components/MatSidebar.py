@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class MatSidebar(Component):
@@ -20,12 +32,20 @@ Keyword arguments:
 
 - layout (a value equal to: 'vertical', 'horizontal'; optional):
     The layout of the sidebar."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'MatSidebar'
-    @_explicitize_args
-    def __init__(self, id=Component.UNDEFINED, currentApp=Component.UNDEFINED, appId=Component.UNDEFINED, layout=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        id: typing.Optional[typing.Union[str, dict]] = None,
+        currentApp: typing.Optional[str] = None,
+        appId: typing.Optional[str] = None,
+        layout: typing.Optional[Literal["vertical", "horizontal"]] = None,
+        **kwargs
+    ):
         self._prop_names = ['id', 'appId', 'currentApp', 'layout']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['id', 'appId', 'currentApp', 'layout']
@@ -36,3 +56,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args}
 
         super(MatSidebar, self).__init__(**args)
+
+setattr(MatSidebar, "__init__", _explicitize_args(MatSidebar.__init__))

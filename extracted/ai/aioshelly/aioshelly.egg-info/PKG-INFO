@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioshelly
-Version: 13.24.2
+Version: 13.25.0
 Summary: Asynchronous library to control Shelly devices.
 Author-email: Paulus Schoutsen <paulus@home-assistant.io>
 License-Expression: Apache-2.0

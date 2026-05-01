@@ -1,28 +1,26 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-core-tracing-opentelemetry
-Version: 1.0.0b12
-Summary: Microsoft Azure Azure Core OpenTelemetry plugin Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/core/azure-core-tracing-opentelemetry
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Version: 1.0.0b13
+Summary: Microsoft Azure Core OpenTelemetry plugin Library for Python
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: Repository, https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/core/azure-core-tracing-opentelemetry
 Keywords: azure,azure sdk
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: opentelemetry-api>=1.12.0
 Requires-Dist: azure-core>=1.24.0
+Dynamic: license-file
 
 
 
@@ -155,8 +153,22 @@ When you submit a pull request, a CLA-bot will automatically determine whether y
 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-
 # Release History
+
+## 1.0.0b13 (2026-04-30)
+
+### Breaking Changes
+
+- Remapped certain attributes to converge with OpenTelemetry semantic conventions version `1.23.1` ([#34089](https://github.com/Azure/azure-sdk-for-python/pull/34089)):
+    - `http.method` -> `http.request.method`
+    - `http.status_code` -> `http.response.status_code`
+    - `net.peer.name` -> `server.address`
+    - `net.peer.port` -> `server.port`
+    - `http.url` -> `url.full`
+
+### Other Changes
+
+- Python 3.8 and 3.9 are no longer supported. Please use Python version 3.10 or later.
 
 ## 1.0.0b12 (2025-03-20)
 

@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -52,6 +52,7 @@ class ScheduleResource(SyncAPIResource):
         url: str,
         *,
         zone_id: str,
+        frequency: Literal["DAILY", "WEEKLY"] | Omit = omit,
         region: Literal[
             "asia-east1",
             "asia-northeast1",
@@ -75,13 +76,13 @@ class ScheduleResource(SyncAPIResource):
             "us-south1",
             "us-west1",
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ScheduleCreateResponse]:
         """
         Creates a scheduled test for a page.
@@ -90,6 +91,9 @@ class ScheduleResource(SyncAPIResource):
           zone_id: Identifier.
 
           url: A URL.
+
+          frequency: The frequency of the scheduled test. Defaults to WEEKLY for free plans, DAILY
+              for paid plans.
 
           region: A test region.
 
@@ -106,13 +110,19 @@ class ScheduleResource(SyncAPIResource):
         if not url:
             raise ValueError(f"Expected a non-empty value for `url` but received {url!r}")
         return self._post(
-            f"/zones/{zone_id}/speed_api/schedule/{url}",
+            path_template("/zones/{zone_id}/speed_api/schedule/{url}", zone_id=zone_id, url=url),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform({"region": region}, schedule_create_params.ScheduleCreateParams),
+                query=maybe_transform(
+                    {
+                        "frequency": frequency,
+                        "region": region,
+                    },
+                    schedule_create_params.ScheduleCreateParams,
+                ),
                 post_parser=ResultWrapper[Optional[ScheduleCreateResponse]]._unwrapper,
             ),
             cast_to=cast(Type[Optional[ScheduleCreateResponse]], ResultWrapper[ScheduleCreateResponse]),
@@ -146,13 +156,13 @@ class ScheduleResource(SyncAPIResource):
             "us-south1",
             "us-west1",
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ScheduleDeleteResponse]:
         """
         Deletes a scheduled test for a page.
@@ -177,7 +187,7 @@ class ScheduleResource(SyncAPIResource):
         if not url:
             raise ValueError(f"Expected a non-empty value for `url` but received {url!r}")
         return self._delete(
-            f"/zones/{zone_id}/speed_api/schedule/{url}",
+            path_template("/zones/{zone_id}/speed_api/schedule/{url}", zone_id=zone_id, url=url),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -217,13 +227,13 @@ class ScheduleResource(SyncAPIResource):
             "us-south1",
             "us-west1",
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Schedule]:
         """
         Retrieves the test schedule for a page in a specific region.
@@ -248,7 +258,7 @@ class ScheduleResource(SyncAPIResource):
         if not url:
             raise ValueError(f"Expected a non-empty value for `url` but received {url!r}")
         return self._get(
-            f"/zones/{zone_id}/speed_api/schedule/{url}",
+            path_template("/zones/{zone_id}/speed_api/schedule/{url}", zone_id=zone_id, url=url),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -286,6 +296,7 @@ class AsyncScheduleResource(AsyncAPIResource):
         url: str,
         *,
         zone_id: str,
+        frequency: Literal["DAILY", "WEEKLY"] | Omit = omit,
         region: Literal[
             "asia-east1",
             "asia-northeast1",
@@ -309,13 +320,13 @@ class AsyncScheduleResource(AsyncAPIResource):
             "us-south1",
             "us-west1",
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ScheduleCreateResponse]:
         """
         Creates a scheduled test for a page.
@@ -324,6 +335,9 @@ class AsyncScheduleResource(AsyncAPIResource):
           zone_id: Identifier.
 
           url: A URL.
+
+          frequency: The frequency of the scheduled test. Defaults to WEEKLY for free plans, DAILY
+              for paid plans.
 
           region: A test region.
 
@@ -340,13 +354,19 @@ class AsyncScheduleResource(AsyncAPIResource):
         if not url:
             raise ValueError(f"Expected a non-empty value for `url` but received {url!r}")
         return await self._post(
-            f"/zones/{zone_id}/speed_api/schedule/{url}",
+            path_template("/zones/{zone_id}/speed_api/schedule/{url}", zone_id=zone_id, url=url),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform({"region": region}, schedule_create_params.ScheduleCreateParams),
+                query=await async_maybe_transform(
+                    {
+                        "frequency": frequency,
+                        "region": region,
+                    },
+                    schedule_create_params.ScheduleCreateParams,
+                ),
                 post_parser=ResultWrapper[Optional[ScheduleCreateResponse]]._unwrapper,
             ),
             cast_to=cast(Type[Optional[ScheduleCreateResponse]], ResultWrapper[ScheduleCreateResponse]),
@@ -380,13 +400,13 @@ class AsyncScheduleResource(AsyncAPIResource):
             "us-south1",
             "us-west1",
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ScheduleDeleteResponse]:
         """
         Deletes a scheduled test for a page.
@@ -411,7 +431,7 @@ class AsyncScheduleResource(AsyncAPIResource):
         if not url:
             raise ValueError(f"Expected a non-empty value for `url` but received {url!r}")
         return await self._delete(
-            f"/zones/{zone_id}/speed_api/schedule/{url}",
+            path_template("/zones/{zone_id}/speed_api/schedule/{url}", zone_id=zone_id, url=url),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -451,13 +471,13 @@ class AsyncScheduleResource(AsyncAPIResource):
             "us-south1",
             "us-west1",
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Schedule]:
         """
         Retrieves the test schedule for a page in a specific region.
@@ -482,7 +502,7 @@ class AsyncScheduleResource(AsyncAPIResource):
         if not url:
             raise ValueError(f"Expected a non-empty value for `url` but received {url!r}")
         return await self._get(
-            f"/zones/{zone_id}/speed_api/schedule/{url}",
+            path_template("/zones/{zone_id}/speed_api/schedule/{url}", zone_id=zone_id, url=url),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

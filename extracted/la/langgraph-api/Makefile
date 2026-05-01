@@ -16,7 +16,6 @@ start-go-server: # NOTE: core server will start with sqlite if no DATABASE_URI i
 	DATABASE_URI= \
 	REDIS_URI= \
 	./bin/core-server \
-		-service core-api \
 		-apply-db-schema &
 	@sleep 2
 

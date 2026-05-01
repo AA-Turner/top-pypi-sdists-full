@@ -199,7 +199,6 @@ async def health_and_metrics_server():
 
 
 async def entrypoint(
-    grpc_port: int | None = None,
     entrypoint_name: str = "python-queue",
     cancel_event: asyncio.Event | None = None,
 ):
@@ -215,7 +214,6 @@ async def entrypoint(
         functools.partial(
             lifespan.lifespan,
             with_cron_scheduler=False,
-            grpc_port=grpc_port,
             taskset=tasks,
             cancel_event=cancel_event,
         ),
@@ -249,7 +247,7 @@ async def entrypoint(
             await asyncio.sleep(3600)
 
 
-async def main(grpc_port: int | None = None, entrypoint_name: str = "python-queue"):
+async def main(entrypoint_name: str = "python-queue"):
     """Run the queue entrypoint and shut down gracefully on SIGTERM/SIGINT."""
 
     loop = asyncio.get_running_loop()
@@ -270,7 +268,6 @@ async def main(grpc_port: int | None = None, entrypoint_name: str = "python-queu
     # Start the queue entrypoint
     entry_task = asyncio.create_task(
         entrypoint(
-            grpc_port=grpc_port,
             entrypoint_name=entrypoint_name,
             cancel_event=cancel_event,
         )

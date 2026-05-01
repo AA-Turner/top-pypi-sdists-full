@@ -7,7 +7,14 @@ from typing_extensions import Literal
 from ..._models import BaseModel
 from ..intel.attack_surface_report.issue_type import IssueType
 
-__all__ = ["InsightListResponse", "Issue"]
+__all__ = ["InsightListResponse", "Issue", "IssuePayload"]
+
+
+class IssuePayload(BaseModel):
+    detection_method: Optional[str] = None
+    """Describes the method used to detect insight."""
+
+    zone_tag: Optional[str] = None
 
 
 class Issue(BaseModel):
@@ -15,11 +22,17 @@ class Issue(BaseModel):
 
     dismissed: Optional[bool] = None
 
+    has_extended_context: Optional[bool] = None
+    """
+    Indicates whether the insight has a large payload that requires fetching via the
+    context endpoint.
+    """
+
     issue_class: Optional[str] = None
 
     issue_type: Optional[IssueType] = None
 
-    payload: Optional[object] = None
+    payload: Optional[IssuePayload] = None
 
     resolve_link: Optional[str] = None
 
@@ -29,19 +42,28 @@ class Issue(BaseModel):
 
     since: Optional[datetime] = None
 
+    status: Optional[Literal["active", "resolved"]] = None
+    """The current status of the insight."""
+
     subject: Optional[str] = None
 
     timestamp: Optional[datetime] = None
 
+    user_classification: Optional[Literal["false_positive", "accept_risk", "other"]] = None
+    """User-defined classification for the insight.
+
+    Can be 'false_positive', 'accept_risk', 'other', or null.
+    """
+
 
 class InsightListResponse(BaseModel):
     count: Optional[int] = None
-    """Total number of results"""
+    """Indicates the total number of results."""
 
     issues: Optional[List[Issue]] = None
 
     page: Optional[int] = None
-    """Current page within paginated list of results"""
+    """Specifies the current page within paginated list of results."""
 
     per_page: Optional[int] = None
-    """Number of results per page of results"""
+    """Sets the number of results per page of results."""

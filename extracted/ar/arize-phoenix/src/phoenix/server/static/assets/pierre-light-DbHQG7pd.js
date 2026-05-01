@@ -1,1 +1,0 @@
-import{a as e,i as t,n,o as r,r as i,t as a}from"./vendor-CV9vOjb4.js";export{a as colors,i as default,n as name,t as semanticTokenColors,e as tokenColors,r as type};

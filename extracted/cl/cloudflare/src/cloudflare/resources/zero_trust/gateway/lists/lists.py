@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Type, Iterable, Optional, cast
+from typing import Type, Iterable, Optional, cast
 from typing_extensions import Literal
 
 import httpx
@@ -15,8 +15,8 @@ from .items import (
     ItemsResourceWithStreamingResponse,
     AsyncItemsResourceWithStreamingResponse,
 )
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -30,7 +30,6 @@ from .....pagination import SyncSinglePage, AsyncSinglePage
 from ....._base_client import AsyncPaginator, make_request_options
 from .....types.zero_trust.gateway import list_edit_params, list_list_params, list_create_params, list_update_params
 from .....types.zero_trust.gateway.gateway_list import GatewayList
-from .....types.zero_trust.gateway.gateway_item_param import GatewayItemParam
 from .....types.zero_trust.gateway.list_create_response import ListCreateResponse
 
 __all__ = ["ListsResource", "AsyncListsResource"]
@@ -65,27 +64,27 @@ class ListsResource(SyncAPIResource):
         *,
         account_id: str,
         name: str,
-        type: Literal["SERIAL", "URL", "DOMAIN", "EMAIL", "IP"],
-        description: str | NotGiven = NOT_GIVEN,
-        items: Iterable[GatewayItemParam] | NotGiven = NOT_GIVEN,
+        type: Literal["SERIAL", "URL", "DOMAIN", "EMAIL", "IP", "CATEGORY", "LOCATION", "DEVICE", "AAGUID"],
+        description: str | Omit = omit,
+        items: Iterable[list_create_params.Item] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ListCreateResponse]:
         """
         Creates a new Zero Trust list.
 
         Args:
-          name: The name of the list.
+          name: Specify the list name.
 
-          type: The type of list.
+          type: Specify the list type.
 
-          description: The description of the list.
+          description: Provide the list description.
 
-          items: The items in the list.
+          items: Add items to the list.
 
           extra_headers: Send extra headers
 
@@ -98,7 +97,7 @@ class ListsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/gateway/lists",
+            path_template("/accounts/{account_id}/gateway/lists", account_id=account_id),
             body=maybe_transform(
                 {
                     "name": name,
@@ -124,28 +123,28 @@ class ListsResource(SyncAPIResource):
         *,
         account_id: str,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        items: Iterable[GatewayItemParam] | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        items: Iterable[list_update_params.Item] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayList]:
         """Updates a configured Zero Trust list.
 
         Skips updating list items if not included
-        in the payload.
+        in the payload. A non empty list items will overwrite the existing list.
 
         Args:
-          list_id: API Resource UUID tag.
+          list_id: Identify the API resource with a UUID.
 
-          name: The name of the list.
+          name: Specify the list name.
 
-          description: The description of the list.
+          description: Provide the list description.
 
-          items: The items in the list.
+          items: Add items to the list.
 
           extra_headers: Send extra headers
 
@@ -160,7 +159,7 @@ class ListsResource(SyncAPIResource):
         if not list_id:
             raise ValueError(f"Expected a non-empty value for `list_id` but received {list_id!r}")
         return self._put(
-            f"/accounts/{account_id}/gateway/lists/{list_id}",
+            path_template("/accounts/{account_id}/gateway/lists/{list_id}", account_id=account_id, list_id=list_id),
             body=maybe_transform(
                 {
                     "name": name,
@@ -183,19 +182,20 @@ class ListsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        type: Literal["SERIAL", "URL", "DOMAIN", "EMAIL", "IP"] | NotGiven = NOT_GIVEN,
+        type: Literal["SERIAL", "URL", "DOMAIN", "EMAIL", "IP", "CATEGORY", "LOCATION", "DEVICE", "AAGUID"]
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[GatewayList]:
         """
-        Fetches all Zero Trust lists for an account.
+        Fetch all Zero Trust lists for an account.
 
         Args:
-          type: The type of list.
+          type: Specify the list type.
 
           extra_headers: Send extra headers
 
@@ -208,7 +208,7 @@ class ListsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/gateway/lists",
+            path_template("/accounts/{account_id}/gateway/lists", account_id=account_id),
             page=SyncSinglePage[GatewayList],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -230,13 +230,13 @@ class ListsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Deletes a Zero Trust list.
 
         Args:
-          list_id: API Resource UUID tag.
+          list_id: Identify the API resource with a UUID.
 
           extra_headers: Send extra headers
 
@@ -251,7 +251,7 @@ class ListsResource(SyncAPIResource):
         if not list_id:
             raise ValueError(f"Expected a non-empty value for `list_id` but received {list_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/gateway/lists/{list_id}",
+            path_template("/accounts/{account_id}/gateway/lists/{list_id}", account_id=account_id, list_id=list_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -267,24 +267,24 @@ class ListsResource(SyncAPIResource):
         list_id: str,
         *,
         account_id: str,
-        append: Iterable[list_edit_params.Append] | NotGiven = NOT_GIVEN,
-        remove: List[str] | NotGiven = NOT_GIVEN,
+        append: Iterable[list_edit_params.Append] | Omit = omit,
+        remove: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayList]:
         """
         Appends or removes an item from a configured Zero Trust list.
 
         Args:
-          list_id: API Resource UUID tag.
+          list_id: Identify the API resource with a UUID.
 
-          append: items to add to the list.
+          append: Add items to the list.
 
-          remove: A list of the item values you want to remove.
+          remove: Lists of item values you want to remove.
 
           extra_headers: Send extra headers
 
@@ -299,7 +299,7 @@ class ListsResource(SyncAPIResource):
         if not list_id:
             raise ValueError(f"Expected a non-empty value for `list_id` but received {list_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/gateway/lists/{list_id}",
+            path_template("/accounts/{account_id}/gateway/lists/{list_id}", account_id=account_id, list_id=list_id),
             body=maybe_transform(
                 {
                     "append": append,
@@ -327,13 +327,13 @@ class ListsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayList]:
         """
-        Fetches a single Zero Trust list.
+        Fetch a single Zero Trust list.
 
         Args:
-          list_id: API Resource UUID tag.
+          list_id: Identify the API resource with a UUID.
 
           extra_headers: Send extra headers
 
@@ -348,7 +348,7 @@ class ListsResource(SyncAPIResource):
         if not list_id:
             raise ValueError(f"Expected a non-empty value for `list_id` but received {list_id!r}")
         return self._get(
-            f"/accounts/{account_id}/gateway/lists/{list_id}",
+            path_template("/accounts/{account_id}/gateway/lists/{list_id}", account_id=account_id, list_id=list_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -389,27 +389,27 @@ class AsyncListsResource(AsyncAPIResource):
         *,
         account_id: str,
         name: str,
-        type: Literal["SERIAL", "URL", "DOMAIN", "EMAIL", "IP"],
-        description: str | NotGiven = NOT_GIVEN,
-        items: Iterable[GatewayItemParam] | NotGiven = NOT_GIVEN,
+        type: Literal["SERIAL", "URL", "DOMAIN", "EMAIL", "IP", "CATEGORY", "LOCATION", "DEVICE", "AAGUID"],
+        description: str | Omit = omit,
+        items: Iterable[list_create_params.Item] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ListCreateResponse]:
         """
         Creates a new Zero Trust list.
 
         Args:
-          name: The name of the list.
+          name: Specify the list name.
 
-          type: The type of list.
+          type: Specify the list type.
 
-          description: The description of the list.
+          description: Provide the list description.
 
-          items: The items in the list.
+          items: Add items to the list.
 
           extra_headers: Send extra headers
 
@@ -422,7 +422,7 @@ class AsyncListsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/gateway/lists",
+            path_template("/accounts/{account_id}/gateway/lists", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -448,28 +448,28 @@ class AsyncListsResource(AsyncAPIResource):
         *,
         account_id: str,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        items: Iterable[GatewayItemParam] | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        items: Iterable[list_update_params.Item] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayList]:
         """Updates a configured Zero Trust list.
 
         Skips updating list items if not included
-        in the payload.
+        in the payload. A non empty list items will overwrite the existing list.
 
         Args:
-          list_id: API Resource UUID tag.
+          list_id: Identify the API resource with a UUID.
 
-          name: The name of the list.
+          name: Specify the list name.
 
-          description: The description of the list.
+          description: Provide the list description.
 
-          items: The items in the list.
+          items: Add items to the list.
 
           extra_headers: Send extra headers
 
@@ -484,7 +484,7 @@ class AsyncListsResource(AsyncAPIResource):
         if not list_id:
             raise ValueError(f"Expected a non-empty value for `list_id` but received {list_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/gateway/lists/{list_id}",
+            path_template("/accounts/{account_id}/gateway/lists/{list_id}", account_id=account_id, list_id=list_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -507,19 +507,20 @@ class AsyncListsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        type: Literal["SERIAL", "URL", "DOMAIN", "EMAIL", "IP"] | NotGiven = NOT_GIVEN,
+        type: Literal["SERIAL", "URL", "DOMAIN", "EMAIL", "IP", "CATEGORY", "LOCATION", "DEVICE", "AAGUID"]
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[GatewayList, AsyncSinglePage[GatewayList]]:
         """
-        Fetches all Zero Trust lists for an account.
+        Fetch all Zero Trust lists for an account.
 
         Args:
-          type: The type of list.
+          type: Specify the list type.
 
           extra_headers: Send extra headers
 
@@ -532,7 +533,7 @@ class AsyncListsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/gateway/lists",
+            path_template("/accounts/{account_id}/gateway/lists", account_id=account_id),
             page=AsyncSinglePage[GatewayList],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -554,13 +555,13 @@ class AsyncListsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Deletes a Zero Trust list.
 
         Args:
-          list_id: API Resource UUID tag.
+          list_id: Identify the API resource with a UUID.
 
           extra_headers: Send extra headers
 
@@ -575,7 +576,7 @@ class AsyncListsResource(AsyncAPIResource):
         if not list_id:
             raise ValueError(f"Expected a non-empty value for `list_id` but received {list_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/gateway/lists/{list_id}",
+            path_template("/accounts/{account_id}/gateway/lists/{list_id}", account_id=account_id, list_id=list_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -591,24 +592,24 @@ class AsyncListsResource(AsyncAPIResource):
         list_id: str,
         *,
         account_id: str,
-        append: Iterable[list_edit_params.Append] | NotGiven = NOT_GIVEN,
-        remove: List[str] | NotGiven = NOT_GIVEN,
+        append: Iterable[list_edit_params.Append] | Omit = omit,
+        remove: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayList]:
         """
         Appends or removes an item from a configured Zero Trust list.
 
         Args:
-          list_id: API Resource UUID tag.
+          list_id: Identify the API resource with a UUID.
 
-          append: items to add to the list.
+          append: Add items to the list.
 
-          remove: A list of the item values you want to remove.
+          remove: Lists of item values you want to remove.
 
           extra_headers: Send extra headers
 
@@ -623,7 +624,7 @@ class AsyncListsResource(AsyncAPIResource):
         if not list_id:
             raise ValueError(f"Expected a non-empty value for `list_id` but received {list_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/gateway/lists/{list_id}",
+            path_template("/accounts/{account_id}/gateway/lists/{list_id}", account_id=account_id, list_id=list_id),
             body=await async_maybe_transform(
                 {
                     "append": append,
@@ -651,13 +652,13 @@ class AsyncListsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewayList]:
         """
-        Fetches a single Zero Trust list.
+        Fetch a single Zero Trust list.
 
         Args:
-          list_id: API Resource UUID tag.
+          list_id: Identify the API resource with a UUID.
 
           extra_headers: Send extra headers
 
@@ -672,7 +673,7 @@ class AsyncListsResource(AsyncAPIResource):
         if not list_id:
             raise ValueError(f"Expected a non-empty value for `list_id` but received {list_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/gateway/lists/{list_id}",
+            path_template("/accounts/{account_id}/gateway/lists/{list_id}", account_id=account_id, list_id=list_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

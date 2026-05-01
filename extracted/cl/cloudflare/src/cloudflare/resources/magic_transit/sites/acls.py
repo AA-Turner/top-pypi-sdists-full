@@ -6,8 +6,8 @@ from typing import List, Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -55,16 +55,16 @@ class ACLsResource(SyncAPIResource):
         lan_1: ACLConfigurationParam,
         lan_2: ACLConfigurationParam,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        forward_locally: bool | NotGiven = NOT_GIVEN,
-        protocols: List[AllowedProtocol] | NotGiven = NOT_GIVEN,
-        unidirectional: bool | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        forward_locally: bool | Omit = omit,
+        protocols: List[AllowedProtocol] | Omit = omit,
+        unidirectional: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ACL:
         """
         Creates a new Site ACL.
@@ -100,7 +100,7 @@ class ACLsResource(SyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return self._post(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/acls", account_id=account_id, site_id=site_id),
             body=maybe_transform(
                 {
                     "lan_1": lan_1,
@@ -129,19 +129,19 @@ class ACLsResource(SyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        forward_locally: bool | NotGiven = NOT_GIVEN,
-        lan_1: ACLConfigurationParam | NotGiven = NOT_GIVEN,
-        lan_2: ACLConfigurationParam | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        protocols: List[AllowedProtocol] | NotGiven = NOT_GIVEN,
-        unidirectional: bool | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        forward_locally: bool | Omit = omit,
+        lan_1: ACLConfigurationParam | Omit = omit,
+        lan_2: ACLConfigurationParam | Omit = omit,
+        name: str | Omit = omit,
+        protocols: List[AllowedProtocol] | Omit = omit,
+        unidirectional: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ACL:
         """
         Update a specific Site ACL.
@@ -181,7 +181,12 @@ class ACLsResource(SyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return self._put(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+                account_id=account_id,
+                site_id=site_id,
+                acl_id=acl_id,
+            ),
             body=maybe_transform(
                 {
                     "description": description,
@@ -214,7 +219,7 @@ class ACLsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[ACL]:
         """
         Lists Site ACLs associated with an account.
@@ -237,7 +242,7 @@ class ACLsResource(SyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/acls", account_id=account_id, site_id=site_id),
             page=SyncSinglePage[ACL],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -256,7 +261,7 @@ class ACLsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ACL:
         """
         Remove a specific Site ACL.
@@ -283,7 +288,12 @@ class ACLsResource(SyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+                account_id=account_id,
+                site_id=site_id,
+                acl_id=acl_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -300,19 +310,19 @@ class ACLsResource(SyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        forward_locally: bool | NotGiven = NOT_GIVEN,
-        lan_1: ACLConfigurationParam | NotGiven = NOT_GIVEN,
-        lan_2: ACLConfigurationParam | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        protocols: List[AllowedProtocol] | NotGiven = NOT_GIVEN,
-        unidirectional: bool | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        forward_locally: bool | Omit = omit,
+        lan_1: ACLConfigurationParam | Omit = omit,
+        lan_2: ACLConfigurationParam | Omit = omit,
+        name: str | Omit = omit,
+        protocols: List[AllowedProtocol] | Omit = omit,
+        unidirectional: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ACL:
         """
         Patch a specific Site ACL.
@@ -352,7 +362,12 @@ class ACLsResource(SyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+                account_id=account_id,
+                site_id=site_id,
+                acl_id=acl_id,
+            ),
             body=maybe_transform(
                 {
                     "description": description,
@@ -386,7 +401,7 @@ class ACLsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ACL:
         """
         Get a specific Site ACL.
@@ -413,7 +428,12 @@ class ACLsResource(SyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+                account_id=account_id,
+                site_id=site_id,
+                acl_id=acl_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -453,16 +473,16 @@ class AsyncACLsResource(AsyncAPIResource):
         lan_1: ACLConfigurationParam,
         lan_2: ACLConfigurationParam,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        forward_locally: bool | NotGiven = NOT_GIVEN,
-        protocols: List[AllowedProtocol] | NotGiven = NOT_GIVEN,
-        unidirectional: bool | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        forward_locally: bool | Omit = omit,
+        protocols: List[AllowedProtocol] | Omit = omit,
+        unidirectional: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ACL:
         """
         Creates a new Site ACL.
@@ -498,7 +518,7 @@ class AsyncACLsResource(AsyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/acls", account_id=account_id, site_id=site_id),
             body=await async_maybe_transform(
                 {
                     "lan_1": lan_1,
@@ -527,19 +547,19 @@ class AsyncACLsResource(AsyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        forward_locally: bool | NotGiven = NOT_GIVEN,
-        lan_1: ACLConfigurationParam | NotGiven = NOT_GIVEN,
-        lan_2: ACLConfigurationParam | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        protocols: List[AllowedProtocol] | NotGiven = NOT_GIVEN,
-        unidirectional: bool | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        forward_locally: bool | Omit = omit,
+        lan_1: ACLConfigurationParam | Omit = omit,
+        lan_2: ACLConfigurationParam | Omit = omit,
+        name: str | Omit = omit,
+        protocols: List[AllowedProtocol] | Omit = omit,
+        unidirectional: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ACL:
         """
         Update a specific Site ACL.
@@ -579,7 +599,12 @@ class AsyncACLsResource(AsyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+                account_id=account_id,
+                site_id=site_id,
+                acl_id=acl_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "description": description,
@@ -612,7 +637,7 @@ class AsyncACLsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ACL, AsyncSinglePage[ACL]]:
         """
         Lists Site ACLs associated with an account.
@@ -635,7 +660,7 @@ class AsyncACLsResource(AsyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/acls", account_id=account_id, site_id=site_id),
             page=AsyncSinglePage[ACL],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -654,7 +679,7 @@ class AsyncACLsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ACL:
         """
         Remove a specific Site ACL.
@@ -681,7 +706,12 @@ class AsyncACLsResource(AsyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+                account_id=account_id,
+                site_id=site_id,
+                acl_id=acl_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -698,19 +728,19 @@ class AsyncACLsResource(AsyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        forward_locally: bool | NotGiven = NOT_GIVEN,
-        lan_1: ACLConfigurationParam | NotGiven = NOT_GIVEN,
-        lan_2: ACLConfigurationParam | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        protocols: List[AllowedProtocol] | NotGiven = NOT_GIVEN,
-        unidirectional: bool | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        forward_locally: bool | Omit = omit,
+        lan_1: ACLConfigurationParam | Omit = omit,
+        lan_2: ACLConfigurationParam | Omit = omit,
+        name: str | Omit = omit,
+        protocols: List[AllowedProtocol] | Omit = omit,
+        unidirectional: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ACL:
         """
         Patch a specific Site ACL.
@@ -750,7 +780,12 @@ class AsyncACLsResource(AsyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+                account_id=account_id,
+                site_id=site_id,
+                acl_id=acl_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "description": description,
@@ -784,7 +819,7 @@ class AsyncACLsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ACL:
         """
         Get a specific Site ACL.
@@ -811,7 +846,12 @@ class AsyncACLsResource(AsyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/acls/{acl_id}",
+                account_id=account_id,
+                site_id=site_id,
+                acl_id=acl_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

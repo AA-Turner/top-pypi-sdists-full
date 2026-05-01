@@ -6,8 +6,8 @@ from typing import Dict, Type, Optional, cast
 
 import httpx
 
-from ......_types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ......_utils import maybe_transform, async_maybe_transform
+from ......_types import Body, Query, Headers, NotGiven, not_given
+from ......_utils import path_template, maybe_transform, async_maybe_transform
 from ......_compat import cached_property
 from ......_resource import SyncAPIResource, AsyncAPIResource
 from ......_response import (
@@ -58,7 +58,7 @@ class AssetUploadResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AssetUploadCreateResponse]:
         """Start uploading a collection of assets for use in a Worker version.
 
@@ -91,7 +91,12 @@ class AssetUploadResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._post(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/assets-upload-session",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/assets-upload-session",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+            ),
             body=maybe_transform({"manifest": manifest}, asset_upload_create_params.AssetUploadCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -136,7 +141,7 @@ class AsyncAssetUploadResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AssetUploadCreateResponse]:
         """Start uploading a collection of assets for use in a Worker version.
 
@@ -169,7 +174,12 @@ class AsyncAssetUploadResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._post(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/assets-upload-session",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/assets-upload-session",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+            ),
             body=await async_maybe_transform(
                 {"manifest": manifest}, asset_upload_create_params.AssetUploadCreateParams
             ),

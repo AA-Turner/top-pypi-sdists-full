@@ -8,8 +8,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -52,19 +52,19 @@ class OrganizationsResource(SyncAPIResource):
     def list(
         self,
         *,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        match: Literal["any", "all"] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        order: Literal["id", "name", "status"] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        status: Literal["member", "invited"] | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        match: Literal["any", "all"] | Omit = omit,
+        name: str | Omit = omit,
+        order: Literal["id", "name", "status"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        status: Literal["member", "invited"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[Organization]:
         """
         Lists organizations the user is associated with.
@@ -126,7 +126,7 @@ class OrganizationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OrganizationDeleteResponse:
         """
         Removes association to an organization.
@@ -145,7 +145,7 @@ class OrganizationsResource(SyncAPIResource):
         if not organization_id:
             raise ValueError(f"Expected a non-empty value for `organization_id` but received {organization_id!r}")
         return self._delete(
-            f"/user/organizations/{organization_id}",
+            path_template("/user/organizations/{organization_id}", organization_id=organization_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -162,7 +162,7 @@ class OrganizationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Gets a specific organization the user is associated with.
@@ -181,7 +181,7 @@ class OrganizationsResource(SyncAPIResource):
         if not organization_id:
             raise ValueError(f"Expected a non-empty value for `organization_id` but received {organization_id!r}")
         return self._get(
-            f"/user/organizations/{organization_id}",
+            path_template("/user/organizations/{organization_id}", organization_id=organization_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -217,19 +217,19 @@ class AsyncOrganizationsResource(AsyncAPIResource):
     def list(
         self,
         *,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        match: Literal["any", "all"] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        order: Literal["id", "name", "status"] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        status: Literal["member", "invited"] | NotGiven = NOT_GIVEN,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        match: Literal["any", "all"] | Omit = omit,
+        name: str | Omit = omit,
+        order: Literal["id", "name", "status"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        status: Literal["member", "invited"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Organization, AsyncV4PagePaginationArray[Organization]]:
         """
         Lists organizations the user is associated with.
@@ -291,7 +291,7 @@ class AsyncOrganizationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OrganizationDeleteResponse:
         """
         Removes association to an organization.
@@ -310,7 +310,7 @@ class AsyncOrganizationsResource(AsyncAPIResource):
         if not organization_id:
             raise ValueError(f"Expected a non-empty value for `organization_id` but received {organization_id!r}")
         return await self._delete(
-            f"/user/organizations/{organization_id}",
+            path_template("/user/organizations/{organization_id}", organization_id=organization_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -327,7 +327,7 @@ class AsyncOrganizationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Gets a specific organization the user is associated with.
@@ -346,7 +346,7 @@ class AsyncOrganizationsResource(AsyncAPIResource):
         if not organization_id:
             raise ValueError(f"Expected a non-empty value for `organization_id` but received {organization_id!r}")
         return await self._get(
-            f"/user/organizations/{organization_id}",
+            path_template("/user/organizations/{organization_id}", organization_id=organization_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -364,17 +364,17 @@ class OrganizationsResourceWithRawResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                organizations.list  # pyright: ignore[reportDeprecated],
+                organizations.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                organizations.delete  # pyright: ignore[reportDeprecated],
+                organizations.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                organizations.get  # pyright: ignore[reportDeprecated],
+                organizations.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -385,17 +385,17 @@ class AsyncOrganizationsResourceWithRawResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                organizations.list  # pyright: ignore[reportDeprecated],
+                organizations.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                organizations.delete  # pyright: ignore[reportDeprecated],
+                organizations.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                organizations.get  # pyright: ignore[reportDeprecated],
+                organizations.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -406,17 +406,17 @@ class OrganizationsResourceWithStreamingResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                organizations.list  # pyright: ignore[reportDeprecated],
+                organizations.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                organizations.delete  # pyright: ignore[reportDeprecated],
+                organizations.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                organizations.get  # pyright: ignore[reportDeprecated],
+                organizations.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -427,16 +427,16 @@ class AsyncOrganizationsResourceWithStreamingResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                organizations.list  # pyright: ignore[reportDeprecated],
+                organizations.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                organizations.delete  # pyright: ignore[reportDeprecated],
+                organizations.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                organizations.get  # pyright: ignore[reportDeprecated],
+                organizations.get,  # pyright: ignore[reportDeprecated],
             )
         )

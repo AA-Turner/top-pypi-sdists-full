@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_bedrock_agentcore_control.literals import AgentManagedRuntimeTypeType
+    from types_boto3_bedrock_agentcore_control.literals import ActorTokenContentTypeType
 
-    data: AgentManagedRuntimeTypeType = "NODE_22"
+    data: ActorTokenContentTypeType = "AWS_IAM_ID_TOKEN_JWT"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "ActorTokenContentTypeType",
     "AgentManagedRuntimeTypeType",
     "AgentRuntimeEndpointStatusType",
     "AgentRuntimeStatusType",
@@ -33,6 +34,7 @@ __all__ = (
     "BrowserProfileStatusType",
     "BrowserStatusType",
     "ClaimMatchOperatorTypeType",
+    "ClientAuthenticationMethodTypeType",
     "CodeInterpreterNetworkModeType",
     "CodeInterpreterStatusType",
     "ConfigurationBundleStatusType",
@@ -89,8 +91,10 @@ __all__ = (
     "MemoryStrategyStatusType",
     "MemoryStrategyTypeType",
     "MemoryViewType",
+    "MetadataValueTypeType",
     "NetworkModeType",
     "OAuthGrantTypeType",
+    "OnBehalfOfTokenExchangeGrantTypeTypeType",
     "OnlineEvaluationConfigStatusType",
     "OnlineEvaluationExecutionStatusType",
     "OverrideTypeType",
@@ -124,6 +128,7 @@ __all__ = (
     "WaiterName",
 )
 
+ActorTokenContentTypeType = Literal["AWS_IAM_ID_TOKEN_JWT", "M2M", "NONE"]
 AgentManagedRuntimeTypeType = Literal[
     "NODE_22", "PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13", "PYTHON_3_14"
 ]
@@ -142,6 +147,9 @@ BrowserStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
 ClaimMatchOperatorTypeType = Literal["CONTAINS", "CONTAINS_ANY", "EQUALS"]
+ClientAuthenticationMethodTypeType = Literal[
+    "AWS_IAM_ID_TOKEN_JWT", "CLIENT_SECRET_BASIC", "CLIENT_SECRET_POST"
+]
 CodeInterpreterNetworkModeType = Literal["PUBLIC", "SANDBOX", "VPC"]
 CodeInterpreterStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
@@ -255,8 +263,10 @@ MemoryStrategyTypeType = Literal[
     "CUSTOM", "EPISODIC", "SEMANTIC", "SUMMARIZATION", "USER_PREFERENCE"
 ]
 MemoryViewType = Literal["full", "without_decryption"]
+MetadataValueTypeType = Literal["NUMBER", "STRING", "STRINGLIST"]
 NetworkModeType = Literal["PUBLIC", "VPC"]
-OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS"]
+OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "TOKEN_EXCHANGE"]
+OnBehalfOfTokenExchangeGrantTypeTypeType = Literal["JWT_AUTHORIZATION_GRANT", "TOKEN_EXCHANGE"]
 OnlineEvaluationConfigStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "ERROR", "UPDATE_FAILED", "UPDATING"
 ]

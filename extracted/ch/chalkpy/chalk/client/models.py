@@ -5,9 +5,11 @@ import json
 import os
 import traceback
 import uuid
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, Sequence, Tuple, TypeAlias, Union
+from types import EllipsisType
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, TypeAlias, Union
 
 import numpy as np
 
@@ -48,9 +50,12 @@ MEMORY_REGEX = r"^\d+([EPTGMK]i|[EPTGMk])?$"
 TIMEDELTA_PREFIX = "delta:"  # used to disambiguate datetimes and timedeltas in string form
 
 FeatureReference: TypeAlias = Union[str, Any]
-UnloadResolvers: TypeAlias = Union[
-    Literal["all"], Sequence[Union[str, Resolver]], Mapping[Union[str, Resolver], Tuple[Any, ...]], None
-]
+UnloadResolvers: TypeAlias = (
+    EllipsisType
+    | Sequence[EllipsisType | Resolver | str]
+    | Mapping[EllipsisType | Resolver | str, tuple[Any, ...]]
+    | None
+)
 
 _CHALK_DEBUG_FULL_TRACE = os.getenv("CHALK_DEBUG_FULL_TRACE") == "1"
 

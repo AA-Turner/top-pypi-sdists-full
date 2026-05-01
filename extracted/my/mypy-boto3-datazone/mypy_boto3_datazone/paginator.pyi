@@ -33,6 +33,7 @@ Usage::
         ListLineageEventsPaginator,
         ListLineageNodeHistoryPaginator,
         ListMetadataGenerationRunsPaginator,
+        ListNotebookRunsPaginator,
         ListNotificationsPaginator,
         ListPolicyGrantsPaginator,
         ListProjectMembershipsPaginator,
@@ -76,6 +77,7 @@ Usage::
     list_lineage_events_paginator: ListLineageEventsPaginator = client.get_paginator("list_lineage_events")
     list_lineage_node_history_paginator: ListLineageNodeHistoryPaginator = client.get_paginator("list_lineage_node_history")
     list_metadata_generation_runs_paginator: ListMetadataGenerationRunsPaginator = client.get_paginator("list_metadata_generation_runs")
+    list_notebook_runs_paginator: ListNotebookRunsPaginator = client.get_paginator("list_notebook_runs")
     list_notifications_paginator: ListNotificationsPaginator = client.get_paginator("list_notifications")
     list_policy_grants_paginator: ListPolicyGrantsPaginator = client.get_paginator("list_policy_grants")
     list_project_memberships_paginator: ListProjectMembershipsPaginator = client.get_paginator("list_project_memberships")
@@ -146,6 +148,8 @@ from .type_defs import (
     ListLineageNodeHistoryOutputTypeDef,
     ListMetadataGenerationRunsInputPaginateTypeDef,
     ListMetadataGenerationRunsOutputTypeDef,
+    ListNotebookRunsInputPaginateTypeDef,
+    ListNotebookRunsOutputTypeDef,
     ListNotificationsInputPaginateTypeDef,
     ListNotificationsOutputTypeDef,
     ListPolicyGrantsInputPaginateTypeDef,
@@ -209,6 +213,7 @@ __all__ = (
     "ListLineageEventsPaginator",
     "ListLineageNodeHistoryPaginator",
     "ListMetadataGenerationRunsPaginator",
+    "ListNotebookRunsPaginator",
     "ListNotificationsPaginator",
     "ListPolicyGrantsPaginator",
     "ListProjectMembershipsPaginator",
@@ -608,6 +613,24 @@ class ListMetadataGenerationRunsPaginator(_ListMetadataGenerationRunsPaginatorBa
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListMetadataGenerationRuns.html#DataZone.Paginator.ListMetadataGenerationRuns.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/paginators/#listmetadatagenerationrunspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListNotebookRunsPaginatorBase = Paginator[ListNotebookRunsOutputTypeDef]
+else:
+    _ListNotebookRunsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListNotebookRunsPaginator(_ListNotebookRunsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListNotebookRuns.html#DataZone.Paginator.ListNotebookRuns)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/paginators/#listnotebookrunspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNotebookRunsInputPaginateTypeDef]
+    ) -> PageIterator[ListNotebookRunsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListNotebookRuns.html#DataZone.Paginator.ListNotebookRuns.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/paginators/#listnotebookrunspaginator)
         """
 
 if TYPE_CHECKING:

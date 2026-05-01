@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Query, Headers, NotGiven, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -55,10 +55,11 @@ class AccountMappingResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AccountMappingCreateResponse]:
         """
-        Create mapping
+        Creates a mapping between a Cloudflare account and an email provider for DLP
+        email scanning integration.
 
         Args:
           extra_headers: Send extra headers
@@ -72,7 +73,7 @@ class AccountMappingResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/dlp/email/account_mapping",
+            path_template("/accounts/{account_id}/dlp/email/account_mapping", account_id=account_id),
             body=maybe_transform(
                 {"auth_requirements": auth_requirements}, account_mapping_create_params.AccountMappingCreateParams
             ),
@@ -95,10 +96,10 @@ class AccountMappingResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AccountMappingGetResponse]:
         """
-        Get mapping
+        Retrieves the email provider mapping configuration for DLP email scanning.
 
         Args:
           extra_headers: Send extra headers
@@ -112,7 +113,7 @@ class AccountMappingResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/dlp/email/account_mapping",
+            path_template("/accounts/{account_id}/dlp/email/account_mapping", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -154,10 +155,11 @@ class AsyncAccountMappingResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AccountMappingCreateResponse]:
         """
-        Create mapping
+        Creates a mapping between a Cloudflare account and an email provider for DLP
+        email scanning integration.
 
         Args:
           extra_headers: Send extra headers
@@ -171,7 +173,7 @@ class AsyncAccountMappingResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/dlp/email/account_mapping",
+            path_template("/accounts/{account_id}/dlp/email/account_mapping", account_id=account_id),
             body=await async_maybe_transform(
                 {"auth_requirements": auth_requirements}, account_mapping_create_params.AccountMappingCreateParams
             ),
@@ -194,10 +196,10 @@ class AsyncAccountMappingResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AccountMappingGetResponse]:
         """
-        Get mapping
+        Retrieves the email provider mapping configuration for DLP email scanning.
 
         Args:
           extra_headers: Send extra headers
@@ -211,7 +213,7 @@ class AsyncAccountMappingResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/dlp/email/account_mapping",
+            path_template("/accounts/{account_id}/dlp/email/account_mapping", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

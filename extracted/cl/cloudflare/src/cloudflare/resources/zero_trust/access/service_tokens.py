@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Type, Optional, cast
+from typing import Type, Union, Optional, cast
+from datetime import datetime
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -17,11 +18,12 @@ from ...._response import (
     async_to_streamed_response_wrapper,
 )
 from ...._wrappers import ResultWrapper
-from ....pagination import SyncSinglePage, AsyncSinglePage
+from ....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ...._base_client import AsyncPaginator, make_request_options
 from ....types.zero_trust.access import (
     service_token_list_params,
     service_token_create_params,
+    service_token_rotate_params,
     service_token_update_params,
 )
 from ....types.zero_trust.access.service_token import ServiceToken
@@ -55,15 +57,17 @@ class ServiceTokensResource(SyncAPIResource):
         self,
         *,
         name: str,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        duration: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        client_secret_version: float | Omit = omit,
+        duration: str | Omit = omit,
+        previous_client_secret_expires_at: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceTokenCreateResponse]:
         """Generates a new service token.
 
@@ -78,9 +82,19 @@ class ServiceTokensResource(SyncAPIResource):
 
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
 
+          client_secret_version: A version number identifying the current `client_secret` associated with the
+              service token. Incrementing it triggers a rotation; the previous secret will
+              still be accepted until the time indicated by
+              `previous_client_secret_expires_at`.
+
           duration: The duration for how long the service token will be valid. Must be in the format
               `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h. The
               default is 1 year in hours (8760h).
+
+          previous_client_secret_expires_at: The expiration of the previous `client_secret`. This can be modified at any
+              point after a rotation. For example, you may extend it further into the future
+              if you need more time to update services with the new secret; or move it into
+              the past to immediately invalidate the previous token in case of compromise.
 
           extra_headers: Send extra headers
 
@@ -103,11 +117,17 @@ class ServiceTokensResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._post(
-            f"/{account_or_zone}/{account_or_zone_id}/access/service_tokens",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/service_tokens",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=maybe_transform(
                 {
                     "name": name,
+                    "client_secret_version": client_secret_version,
                     "duration": duration,
+                    "previous_client_secret_expires_at": previous_client_secret_expires_at,
                 },
                 service_token_create_params.ServiceTokenCreateParams,
             ),
@@ -125,16 +145,18 @@ class ServiceTokensResource(SyncAPIResource):
         self,
         service_token_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        duration: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        client_secret_version: float | Omit = omit,
+        duration: str | Omit = omit,
+        name: str | Omit = omit,
+        previous_client_secret_expires_at: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceToken]:
         """
         Updates a configured service token.
@@ -146,11 +168,21 @@ class ServiceTokensResource(SyncAPIResource):
 
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
 
+          client_secret_version: A version number identifying the current `client_secret` associated with the
+              service token. Incrementing it triggers a rotation; the previous secret will
+              still be accepted until the time indicated by
+              `previous_client_secret_expires_at`.
+
           duration: The duration for how long the service token will be valid. Must be in the format
               `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h. The
               default is 1 year in hours (8760h).
 
           name: The name of the service token.
+
+          previous_client_secret_expires_at: The expiration of the previous `client_secret`. This can be modified at any
+              point after a rotation. For example, you may extend it further into the future
+              if you need more time to update services with the new secret; or move it into
+              the past to immediately invalidate the previous token in case of compromise.
 
           extra_headers: Send extra headers
 
@@ -175,11 +207,18 @@ class ServiceTokensResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._put(
-            f"/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+                service_token_id=service_token_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=maybe_transform(
                 {
+                    "client_secret_version": client_secret_version,
                     "duration": duration,
                     "name": name,
+                    "previous_client_secret_expires_at": previous_client_secret_expires_at,
                 },
                 service_token_update_params.ServiceTokenUpdateParams,
             ),
@@ -196,17 +235,19 @@ class ServiceTokensResource(SyncAPIResource):
     def list(
         self,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        search: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        name: str | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        search: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncSinglePage[ServiceToken]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncV4PagePaginationArray[ServiceToken]:
         """
         Lists all service tokens.
 
@@ -216,6 +257,10 @@ class ServiceTokensResource(SyncAPIResource):
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
 
           name: The name of the service token.
+
+          page: Page number of results.
+
+          per_page: Number of results per page.
 
           search: Search for service tokens by other listed query parameters.
 
@@ -240,8 +285,12 @@ class ServiceTokensResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._get_api_list(
-            f"/{account_or_zone}/{account_or_zone_id}/access/service_tokens",
-            page=SyncSinglePage[ServiceToken],
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/service_tokens",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
+            page=SyncV4PagePaginationArray[ServiceToken],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -250,6 +299,8 @@ class ServiceTokensResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "name": name,
+                        "page": page,
+                        "per_page": per_page,
                         "search": search,
                     },
                     service_token_list_params.ServiceTokenListParams,
@@ -262,14 +313,14 @@ class ServiceTokensResource(SyncAPIResource):
         self,
         service_token_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceToken]:
         """
         Deletes a service token.
@@ -304,7 +355,12 @@ class ServiceTokensResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._delete(
-            f"/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+                service_token_id=service_token_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -319,14 +375,14 @@ class ServiceTokensResource(SyncAPIResource):
         self,
         service_token_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceToken]:
         """
         Fetches a single service token.
@@ -361,7 +417,12 @@ class ServiceTokensResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._get(
-            f"/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+                service_token_id=service_token_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -382,7 +443,7 @@ class ServiceTokensResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceToken]:
         """
         Refreshes the expiration of a service token.
@@ -405,7 +466,11 @@ class ServiceTokensResource(SyncAPIResource):
         if not service_token_id:
             raise ValueError(f"Expected a non-empty value for `service_token_id` but received {service_token_id!r}")
         return self._post(
-            f"/accounts/{account_id}/access/service_tokens/{service_token_id}/refresh",
+            path_template(
+                "/accounts/{account_id}/access/service_tokens/{service_token_id}/refresh",
+                account_id=account_id,
+                service_token_id=service_token_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -421,12 +486,13 @@ class ServiceTokensResource(SyncAPIResource):
         service_token_id: str,
         *,
         account_id: str,
+        previous_client_secret_expires_at: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceTokenRotateResponse]:
         """
         Generates a new Client Secret for a service token and revokes the old one.
@@ -435,6 +501,9 @@ class ServiceTokensResource(SyncAPIResource):
           account_id: Identifier.
 
           service_token_id: UUID.
+
+          previous_client_secret_expires_at: The expiration of the previous `client_secret`. If not provided, it defaults to
+              the current timestamp in order to immediately expire the previous secret.
 
           extra_headers: Send extra headers
 
@@ -449,7 +518,15 @@ class ServiceTokensResource(SyncAPIResource):
         if not service_token_id:
             raise ValueError(f"Expected a non-empty value for `service_token_id` but received {service_token_id!r}")
         return self._post(
-            f"/accounts/{account_id}/access/service_tokens/{service_token_id}/rotate",
+            path_template(
+                "/accounts/{account_id}/access/service_tokens/{service_token_id}/rotate",
+                account_id=account_id,
+                service_token_id=service_token_id,
+            ),
+            body=maybe_transform(
+                {"previous_client_secret_expires_at": previous_client_secret_expires_at},
+                service_token_rotate_params.ServiceTokenRotateParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -485,15 +562,17 @@ class AsyncServiceTokensResource(AsyncAPIResource):
         self,
         *,
         name: str,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        duration: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        client_secret_version: float | Omit = omit,
+        duration: str | Omit = omit,
+        previous_client_secret_expires_at: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceTokenCreateResponse]:
         """Generates a new service token.
 
@@ -508,9 +587,19 @@ class AsyncServiceTokensResource(AsyncAPIResource):
 
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
 
+          client_secret_version: A version number identifying the current `client_secret` associated with the
+              service token. Incrementing it triggers a rotation; the previous secret will
+              still be accepted until the time indicated by
+              `previous_client_secret_expires_at`.
+
           duration: The duration for how long the service token will be valid. Must be in the format
               `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h. The
               default is 1 year in hours (8760h).
+
+          previous_client_secret_expires_at: The expiration of the previous `client_secret`. This can be modified at any
+              point after a rotation. For example, you may extend it further into the future
+              if you need more time to update services with the new secret; or move it into
+              the past to immediately invalidate the previous token in case of compromise.
 
           extra_headers: Send extra headers
 
@@ -533,11 +622,17 @@ class AsyncServiceTokensResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._post(
-            f"/{account_or_zone}/{account_or_zone_id}/access/service_tokens",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/service_tokens",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "name": name,
+                    "client_secret_version": client_secret_version,
                     "duration": duration,
+                    "previous_client_secret_expires_at": previous_client_secret_expires_at,
                 },
                 service_token_create_params.ServiceTokenCreateParams,
             ),
@@ -555,16 +650,18 @@ class AsyncServiceTokensResource(AsyncAPIResource):
         self,
         service_token_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        duration: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        client_secret_version: float | Omit = omit,
+        duration: str | Omit = omit,
+        name: str | Omit = omit,
+        previous_client_secret_expires_at: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceToken]:
         """
         Updates a configured service token.
@@ -576,11 +673,21 @@ class AsyncServiceTokensResource(AsyncAPIResource):
 
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
 
+          client_secret_version: A version number identifying the current `client_secret` associated with the
+              service token. Incrementing it triggers a rotation; the previous secret will
+              still be accepted until the time indicated by
+              `previous_client_secret_expires_at`.
+
           duration: The duration for how long the service token will be valid. Must be in the format
               `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h. The
               default is 1 year in hours (8760h).
 
           name: The name of the service token.
+
+          previous_client_secret_expires_at: The expiration of the previous `client_secret`. This can be modified at any
+              point after a rotation. For example, you may extend it further into the future
+              if you need more time to update services with the new secret; or move it into
+              the past to immediately invalidate the previous token in case of compromise.
 
           extra_headers: Send extra headers
 
@@ -605,11 +712,18 @@ class AsyncServiceTokensResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._put(
-            f"/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+                service_token_id=service_token_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=await async_maybe_transform(
                 {
+                    "client_secret_version": client_secret_version,
                     "duration": duration,
                     "name": name,
+                    "previous_client_secret_expires_at": previous_client_secret_expires_at,
                 },
                 service_token_update_params.ServiceTokenUpdateParams,
             ),
@@ -626,17 +740,19 @@ class AsyncServiceTokensResource(AsyncAPIResource):
     def list(
         self,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        search: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        name: str | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        search: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[ServiceToken, AsyncSinglePage[ServiceToken]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[ServiceToken, AsyncV4PagePaginationArray[ServiceToken]]:
         """
         Lists all service tokens.
 
@@ -646,6 +762,10 @@ class AsyncServiceTokensResource(AsyncAPIResource):
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
 
           name: The name of the service token.
+
+          page: Page number of results.
+
+          per_page: Number of results per page.
 
           search: Search for service tokens by other listed query parameters.
 
@@ -670,8 +790,12 @@ class AsyncServiceTokensResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._get_api_list(
-            f"/{account_or_zone}/{account_or_zone_id}/access/service_tokens",
-            page=AsyncSinglePage[ServiceToken],
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/service_tokens",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
+            page=AsyncV4PagePaginationArray[ServiceToken],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -680,6 +804,8 @@ class AsyncServiceTokensResource(AsyncAPIResource):
                 query=maybe_transform(
                     {
                         "name": name,
+                        "page": page,
+                        "per_page": per_page,
                         "search": search,
                     },
                     service_token_list_params.ServiceTokenListParams,
@@ -692,14 +818,14 @@ class AsyncServiceTokensResource(AsyncAPIResource):
         self,
         service_token_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceToken]:
         """
         Deletes a service token.
@@ -734,7 +860,12 @@ class AsyncServiceTokensResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._delete(
-            f"/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+                service_token_id=service_token_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -749,14 +880,14 @@ class AsyncServiceTokensResource(AsyncAPIResource):
         self,
         service_token_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceToken]:
         """
         Fetches a single service token.
@@ -791,7 +922,12 @@ class AsyncServiceTokensResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._get(
-            f"/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/access/service_tokens/{service_token_id}",
+                service_token_id=service_token_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -812,7 +948,7 @@ class AsyncServiceTokensResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceToken]:
         """
         Refreshes the expiration of a service token.
@@ -835,7 +971,11 @@ class AsyncServiceTokensResource(AsyncAPIResource):
         if not service_token_id:
             raise ValueError(f"Expected a non-empty value for `service_token_id` but received {service_token_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/access/service_tokens/{service_token_id}/refresh",
+            path_template(
+                "/accounts/{account_id}/access/service_tokens/{service_token_id}/refresh",
+                account_id=account_id,
+                service_token_id=service_token_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -851,12 +991,13 @@ class AsyncServiceTokensResource(AsyncAPIResource):
         service_token_id: str,
         *,
         account_id: str,
+        previous_client_secret_expires_at: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceTokenRotateResponse]:
         """
         Generates a new Client Secret for a service token and revokes the old one.
@@ -865,6 +1006,9 @@ class AsyncServiceTokensResource(AsyncAPIResource):
           account_id: Identifier.
 
           service_token_id: UUID.
+
+          previous_client_secret_expires_at: The expiration of the previous `client_secret`. If not provided, it defaults to
+              the current timestamp in order to immediately expire the previous secret.
 
           extra_headers: Send extra headers
 
@@ -879,7 +1023,15 @@ class AsyncServiceTokensResource(AsyncAPIResource):
         if not service_token_id:
             raise ValueError(f"Expected a non-empty value for `service_token_id` but received {service_token_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/access/service_tokens/{service_token_id}/rotate",
+            path_template(
+                "/accounts/{account_id}/access/service_tokens/{service_token_id}/rotate",
+                account_id=account_id,
+                service_token_id=service_token_id,
+            ),
+            body=await async_maybe_transform(
+                {"previous_client_secret_expires_at": previous_client_secret_expires_at},
+                service_token_rotate_params.ServiceTokenRotateParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

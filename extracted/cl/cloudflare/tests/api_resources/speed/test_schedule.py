@@ -34,6 +34,7 @@ class TestSchedule:
         schedule = client.speed.schedule.create(
             url="example.com",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
+            frequency="DAILY",
             region="us-central1",
         )
         assert_matches_type(Optional[ScheduleCreateResponse], schedule, path=["response"])
@@ -194,7 +195,9 @@ class TestSchedule:
 
 
 class TestAsyncSchedule:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
@@ -209,6 +212,7 @@ class TestAsyncSchedule:
         schedule = await async_client.speed.schedule.create(
             url="example.com",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
+            frequency="DAILY",
             region="us-central1",
         )
         assert_matches_type(Optional[ScheduleCreateResponse], schedule, path=["response"])

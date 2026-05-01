@@ -12,9 +12,12 @@ __all__ = [
     "CustomEntry",
     "PredefinedEntry",
     "PredefinedEntryConfidence",
+    "PredefinedEntryVariant",
+    "PredefinedEntryVariantUnionMember0",
+    "PredefinedEntryVariantUnionMember1",
     "IntegrationEntry",
     "ExactDataEntry",
-    "DocumentTemplateEntry",
+    "DocumentFingerprintEntry",
     "WordListEntry",
 ]
 
@@ -34,6 +37,8 @@ class CustomEntry(BaseModel):
 
     updated_at: datetime
 
+    description: Optional[str] = None
+
     profile_id: Optional[str] = None
 
 
@@ -48,6 +53,32 @@ class PredefinedEntryConfidence(BaseModel):
     """
 
 
+class PredefinedEntryVariantUnionMember0(BaseModel):
+    """A Predefined AI prompt classification topic entry."""
+
+    topic_type: Literal["Intent", "Content"]
+
+    type: Literal["PromptTopic"]
+
+    description: Optional[str] = None
+    """
+    A customer-facing explanation of what this predefined AI prompt topic
+    represents.
+    """
+
+
+class PredefinedEntryVariantUnionMember1(BaseModel):
+    """A general predefined entry."""
+
+    type: Literal["General"]
+
+    description: Optional[str] = None
+    """A customer-facing explanation of what this predefined entry represents."""
+
+
+PredefinedEntryVariant: TypeAlias = Union[PredefinedEntryVariantUnionMember0, PredefinedEntryVariantUnionMember1]
+
+
 class PredefinedEntry(BaseModel):
     id: str
 
@@ -60,6 +91,9 @@ class PredefinedEntry(BaseModel):
     type: Literal["predefined"]
 
     profile_id: Optional[str] = None
+
+    variant: Optional[PredefinedEntryVariant] = None
+    """A Predefined AI prompt classification topic entry."""
 
 
 class IntegrationEntry(BaseModel):
@@ -100,7 +134,7 @@ class ExactDataEntry(BaseModel):
     updated_at: datetime
 
 
-class DocumentTemplateEntry(BaseModel):
+class DocumentFingerprintEntry(BaseModel):
     id: str
 
     created_at: datetime
@@ -109,7 +143,7 @@ class DocumentTemplateEntry(BaseModel):
 
     name: str
 
-    type: Literal["document_template"]
+    type: Literal["document_fingerprint"]
 
     updated_at: datetime
 
@@ -133,5 +167,5 @@ class WordListEntry(BaseModel):
 
 
 EntryUpdateResponse: TypeAlias = Union[
-    CustomEntry, PredefinedEntry, IntegrationEntry, ExactDataEntry, DocumentTemplateEntry, WordListEntry
+    CustomEntry, PredefinedEntry, IntegrationEntry, ExactDataEntry, DocumentFingerprintEntry, WordListEntry
 ]

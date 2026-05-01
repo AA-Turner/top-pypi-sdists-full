@@ -15,8 +15,8 @@ from .entries import (
     EntriesResourceWithStreamingResponse,
     AsyncEntriesResourceWithStreamingResponse,
 )
-from ......_types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ......_utils import maybe_transform, async_maybe_transform
+from ......_types import Body, Query, Headers, NotGiven, not_given
+from ......_utils import path_template, maybe_transform, async_maybe_transform
 from ......_compat import cached_property
 from ......_resource import SyncAPIResource, AsyncAPIResource
 from ......_response import (
@@ -69,7 +69,7 @@ class ContentListsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ContentList:
         """
         Update IPFS Universal Path Gateway Content List
@@ -96,7 +96,11 @@ class ContentListsResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._put(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list",
+                zone_id=zone_id,
+                identifier=identifier,
+            ),
             body=maybe_transform(
                 {
                     "action": action,
@@ -124,7 +128,7 @@ class ContentListsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ContentList:
         """
         IPFS Universal Path Gateway Content List Details
@@ -147,7 +151,11 @@ class ContentListsResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._get(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list",
+                zone_id=zone_id,
+                identifier=identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -195,7 +203,7 @@ class AsyncContentListsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ContentList:
         """
         Update IPFS Universal Path Gateway Content List
@@ -222,7 +230,11 @@ class AsyncContentListsResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._put(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list",
+                zone_id=zone_id,
+                identifier=identifier,
+            ),
             body=await async_maybe_transform(
                 {
                     "action": action,
@@ -250,7 +262,7 @@ class AsyncContentListsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ContentList:
         """
         IPFS Universal Path Gateway Content List Details
@@ -273,7 +285,11 @@ class AsyncContentListsResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._get(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list",
+                zone_id=zone_id,
+                identifier=identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

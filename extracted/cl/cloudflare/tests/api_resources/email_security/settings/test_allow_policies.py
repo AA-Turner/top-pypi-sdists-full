@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import pytest
 
@@ -36,7 +36,7 @@ class TestAllowPolicies:
             pattern_type="EMAIL",
             verify_sender=True,
         )
-        assert_matches_type(AllowPolicyCreateResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyCreateResponse], allow_policy, path=["response"])
 
     @parametrize
     def test_method_create_with_all_params(self, client: Cloudflare) -> None:
@@ -54,7 +54,7 @@ class TestAllowPolicies:
             is_sender=True,
             is_spoof=False,
         )
-        assert_matches_type(AllowPolicyCreateResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyCreateResponse], allow_policy, path=["response"])
 
     @parametrize
     def test_raw_response_create(self, client: Cloudflare) -> None:
@@ -72,7 +72,7 @@ class TestAllowPolicies:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         allow_policy = response.parse()
-        assert_matches_type(AllowPolicyCreateResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyCreateResponse], allow_policy, path=["response"])
 
     @parametrize
     def test_streaming_response_create(self, client: Cloudflare) -> None:
@@ -90,7 +90,7 @@ class TestAllowPolicies:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             allow_policy = response.parse()
-            assert_matches_type(AllowPolicyCreateResponse, allow_policy, path=["response"])
+            assert_matches_type(Optional[AllowPolicyCreateResponse], allow_policy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -122,14 +122,12 @@ class TestAllowPolicies:
             direction="asc",
             is_acceptable_sender=True,
             is_exempt_recipient=True,
-            is_recipient=True,
-            is_sender=True,
-            is_spoof=True,
             is_trusted_sender=True,
             order="pattern",
             page=1,
+            pattern="pattern",
             pattern_type="EMAIL",
-            per_page=1,
+            per_page=20,
             search="search",
             verify_sender=True,
         )
@@ -169,34 +167,34 @@ class TestAllowPolicies:
     @parametrize
     def test_method_delete(self, client: Cloudflare) -> None:
         allow_policy = client.email_security.settings.allow_policies.delete(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(AllowPolicyDeleteResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyDeleteResponse], allow_policy, path=["response"])
 
     @parametrize
     def test_raw_response_delete(self, client: Cloudflare) -> None:
         response = client.email_security.settings.allow_policies.with_raw_response.delete(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         allow_policy = response.parse()
-        assert_matches_type(AllowPolicyDeleteResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyDeleteResponse], allow_policy, path=["response"])
 
     @parametrize
     def test_streaming_response_delete(self, client: Cloudflare) -> None:
         with client.email_security.settings.allow_policies.with_streaming_response.delete(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             allow_policy = response.parse()
-            assert_matches_type(AllowPolicyDeleteResponse, allow_policy, path=["response"])
+            assert_matches_type(Optional[AllowPolicyDeleteResponse], allow_policy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -204,99 +202,119 @@ class TestAllowPolicies:
     def test_path_params_delete(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.email_security.settings.allow_policies.with_raw_response.delete(
-                policy_id=2401,
+                policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="",
             )
 
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `policy_id` but received ''"):
+            client.email_security.settings.allow_policies.with_raw_response.delete(
+                policy_id="",
+                account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            )
+
+    @pytest.mark.skip(reason="HTTP 422 error from prism")
     @parametrize
     def test_method_edit(self, client: Cloudflare) -> None:
         allow_policy = client.email_security.settings.allow_policies.edit(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(AllowPolicyEditResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyEditResponse], allow_policy, path=["response"])
 
+    @pytest.mark.skip(reason="HTTP 422 error from prism")
     @parametrize
     def test_method_edit_with_all_params(self, client: Cloudflare) -> None:
         allow_policy = client.email_security.settings.allow_policies.edit(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            comments="comments",
-            is_acceptable_sender=True,
-            is_exempt_recipient=True,
-            is_regex=True,
+            comments="Trust all messages send from test@example.com",
+            is_acceptable_sender=False,
+            is_exempt_recipient=False,
+            is_recipient=False,
+            is_regex=False,
+            is_sender=True,
+            is_spoof=False,
             is_trusted_sender=True,
-            pattern="x",
+            pattern="test@example.com",
             pattern_type="EMAIL",
             verify_sender=True,
         )
-        assert_matches_type(AllowPolicyEditResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyEditResponse], allow_policy, path=["response"])
 
+    @pytest.mark.skip(reason="HTTP 422 error from prism")
     @parametrize
     def test_raw_response_edit(self, client: Cloudflare) -> None:
         response = client.email_security.settings.allow_policies.with_raw_response.edit(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         allow_policy = response.parse()
-        assert_matches_type(AllowPolicyEditResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyEditResponse], allow_policy, path=["response"])
 
+    @pytest.mark.skip(reason="HTTP 422 error from prism")
     @parametrize
     def test_streaming_response_edit(self, client: Cloudflare) -> None:
         with client.email_security.settings.allow_policies.with_streaming_response.edit(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             allow_policy = response.parse()
-            assert_matches_type(AllowPolicyEditResponse, allow_policy, path=["response"])
+            assert_matches_type(Optional[AllowPolicyEditResponse], allow_policy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="HTTP 422 error from prism")
     @parametrize
     def test_path_params_edit(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.email_security.settings.allow_policies.with_raw_response.edit(
-                policy_id=2401,
+                policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `policy_id` but received ''"):
+            client.email_security.settings.allow_policies.with_raw_response.edit(
+                policy_id="",
+                account_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
     @parametrize
     def test_method_get(self, client: Cloudflare) -> None:
         allow_policy = client.email_security.settings.allow_policies.get(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(AllowPolicyGetResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyGetResponse], allow_policy, path=["response"])
 
     @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
         response = client.email_security.settings.allow_policies.with_raw_response.get(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         allow_policy = response.parse()
-        assert_matches_type(AllowPolicyGetResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyGetResponse], allow_policy, path=["response"])
 
     @parametrize
     def test_streaming_response_get(self, client: Cloudflare) -> None:
         with client.email_security.settings.allow_policies.with_streaming_response.get(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             allow_policy = response.parse()
-            assert_matches_type(AllowPolicyGetResponse, allow_policy, path=["response"])
+            assert_matches_type(Optional[AllowPolicyGetResponse], allow_policy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -304,13 +322,21 @@ class TestAllowPolicies:
     def test_path_params_get(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.email_security.settings.allow_policies.with_raw_response.get(
-                policy_id=2401,
+                policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `policy_id` but received ''"):
+            client.email_security.settings.allow_policies.with_raw_response.get(
+                policy_id="",
+                account_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
 
 class TestAsyncAllowPolicies:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
@@ -324,7 +350,7 @@ class TestAsyncAllowPolicies:
             pattern_type="EMAIL",
             verify_sender=True,
         )
-        assert_matches_type(AllowPolicyCreateResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyCreateResponse], allow_policy, path=["response"])
 
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncCloudflare) -> None:
@@ -342,7 +368,7 @@ class TestAsyncAllowPolicies:
             is_sender=True,
             is_spoof=False,
         )
-        assert_matches_type(AllowPolicyCreateResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyCreateResponse], allow_policy, path=["response"])
 
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncCloudflare) -> None:
@@ -360,7 +386,7 @@ class TestAsyncAllowPolicies:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         allow_policy = await response.parse()
-        assert_matches_type(AllowPolicyCreateResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyCreateResponse], allow_policy, path=["response"])
 
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncCloudflare) -> None:
@@ -378,7 +404,7 @@ class TestAsyncAllowPolicies:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             allow_policy = await response.parse()
-            assert_matches_type(AllowPolicyCreateResponse, allow_policy, path=["response"])
+            assert_matches_type(Optional[AllowPolicyCreateResponse], allow_policy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -410,14 +436,12 @@ class TestAsyncAllowPolicies:
             direction="asc",
             is_acceptable_sender=True,
             is_exempt_recipient=True,
-            is_recipient=True,
-            is_sender=True,
-            is_spoof=True,
             is_trusted_sender=True,
             order="pattern",
             page=1,
+            pattern="pattern",
             pattern_type="EMAIL",
-            per_page=1,
+            per_page=20,
             search="search",
             verify_sender=True,
         )
@@ -457,34 +481,34 @@ class TestAsyncAllowPolicies:
     @parametrize
     async def test_method_delete(self, async_client: AsyncCloudflare) -> None:
         allow_policy = await async_client.email_security.settings.allow_policies.delete(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(AllowPolicyDeleteResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyDeleteResponse], allow_policy, path=["response"])
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.email_security.settings.allow_policies.with_raw_response.delete(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         allow_policy = await response.parse()
-        assert_matches_type(AllowPolicyDeleteResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyDeleteResponse], allow_policy, path=["response"])
 
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncCloudflare) -> None:
         async with async_client.email_security.settings.allow_policies.with_streaming_response.delete(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             allow_policy = await response.parse()
-            assert_matches_type(AllowPolicyDeleteResponse, allow_policy, path=["response"])
+            assert_matches_type(Optional[AllowPolicyDeleteResponse], allow_policy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -492,99 +516,119 @@ class TestAsyncAllowPolicies:
     async def test_path_params_delete(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.email_security.settings.allow_policies.with_raw_response.delete(
-                policy_id=2401,
+                policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="",
             )
 
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `policy_id` but received ''"):
+            await async_client.email_security.settings.allow_policies.with_raw_response.delete(
+                policy_id="",
+                account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            )
+
+    @pytest.mark.skip(reason="HTTP 422 error from prism")
     @parametrize
     async def test_method_edit(self, async_client: AsyncCloudflare) -> None:
         allow_policy = await async_client.email_security.settings.allow_policies.edit(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(AllowPolicyEditResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyEditResponse], allow_policy, path=["response"])
 
+    @pytest.mark.skip(reason="HTTP 422 error from prism")
     @parametrize
     async def test_method_edit_with_all_params(self, async_client: AsyncCloudflare) -> None:
         allow_policy = await async_client.email_security.settings.allow_policies.edit(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            comments="comments",
-            is_acceptable_sender=True,
-            is_exempt_recipient=True,
-            is_regex=True,
+            comments="Trust all messages send from test@example.com",
+            is_acceptable_sender=False,
+            is_exempt_recipient=False,
+            is_recipient=False,
+            is_regex=False,
+            is_sender=True,
+            is_spoof=False,
             is_trusted_sender=True,
-            pattern="x",
+            pattern="test@example.com",
             pattern_type="EMAIL",
             verify_sender=True,
         )
-        assert_matches_type(AllowPolicyEditResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyEditResponse], allow_policy, path=["response"])
 
+    @pytest.mark.skip(reason="HTTP 422 error from prism")
     @parametrize
     async def test_raw_response_edit(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.email_security.settings.allow_policies.with_raw_response.edit(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         allow_policy = await response.parse()
-        assert_matches_type(AllowPolicyEditResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyEditResponse], allow_policy, path=["response"])
 
+    @pytest.mark.skip(reason="HTTP 422 error from prism")
     @parametrize
     async def test_streaming_response_edit(self, async_client: AsyncCloudflare) -> None:
         async with async_client.email_security.settings.allow_policies.with_streaming_response.edit(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             allow_policy = await response.parse()
-            assert_matches_type(AllowPolicyEditResponse, allow_policy, path=["response"])
+            assert_matches_type(Optional[AllowPolicyEditResponse], allow_policy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="HTTP 422 error from prism")
     @parametrize
     async def test_path_params_edit(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.email_security.settings.allow_policies.with_raw_response.edit(
-                policy_id=2401,
+                policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `policy_id` but received ''"):
+            await async_client.email_security.settings.allow_policies.with_raw_response.edit(
+                policy_id="",
+                account_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
     @parametrize
     async def test_method_get(self, async_client: AsyncCloudflare) -> None:
         allow_policy = await async_client.email_security.settings.allow_policies.get(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(AllowPolicyGetResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyGetResponse], allow_policy, path=["response"])
 
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.email_security.settings.allow_policies.with_raw_response.get(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         allow_policy = await response.parse()
-        assert_matches_type(AllowPolicyGetResponse, allow_policy, path=["response"])
+        assert_matches_type(Optional[AllowPolicyGetResponse], allow_policy, path=["response"])
 
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncCloudflare) -> None:
         async with async_client.email_security.settings.allow_policies.with_streaming_response.get(
-            policy_id=2401,
+            policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             allow_policy = await response.parse()
-            assert_matches_type(AllowPolicyGetResponse, allow_policy, path=["response"])
+            assert_matches_type(Optional[AllowPolicyGetResponse], allow_policy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -592,6 +636,12 @@ class TestAsyncAllowPolicies:
     async def test_path_params_get(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.email_security.settings.allow_policies.with_raw_response.get(
-                policy_id=2401,
+                policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `policy_id` but received ''"):
+            await async_client.email_security.settings.allow_policies.with_raw_response.get(
+                policy_id="",
+                account_id="023e105f4ecef8ad9ca31a8372d0c353",
             )

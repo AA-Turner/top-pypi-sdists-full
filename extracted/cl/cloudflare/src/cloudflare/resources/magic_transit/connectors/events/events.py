@@ -14,8 +14,8 @@ from .latest import (
     LatestResourceWithStreamingResponse,
     AsyncLatestResourceWithStreamingResponse,
 )
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -64,20 +64,23 @@ class EventsResource(SyncAPIResource):
         account_id: str,
         from_: float,
         to: float,
-        cursor: str | NotGiven = NOT_GIVEN,
-        limit: float | NotGiven = NOT_GIVEN,
+        cursor: str | Omit = omit,
+        k: str | Omit = omit,
+        limit: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EventListResponse:
         """
         List Events
 
         Args:
           account_id: Account identifier
+
+          k: Filter by event kind
 
           extra_headers: Send extra headers
 
@@ -92,7 +95,11 @@ class EventsResource(SyncAPIResource):
         if not connector_id:
             raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/connectors/{connector_id}/telemetry/events",
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}/telemetry/events",
+                account_id=account_id,
+                connector_id=connector_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -103,6 +110,7 @@ class EventsResource(SyncAPIResource):
                         "from_": from_,
                         "to": to,
                         "cursor": cursor,
+                        "k": k,
                         "limit": limit,
                     },
                     event_list_params.EventListParams,
@@ -124,7 +132,7 @@ class EventsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EventGetResponse:
         """
         Get Event
@@ -145,7 +153,13 @@ class EventsResource(SyncAPIResource):
         if not connector_id:
             raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/connectors/{connector_id}/telemetry/events/{event_t}.{event_n}",
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}/telemetry/events/{event_t}.{event_n}",
+                account_id=account_id,
+                connector_id=connector_id,
+                event_t=event_t,
+                event_n=event_n,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -188,20 +202,23 @@ class AsyncEventsResource(AsyncAPIResource):
         account_id: str,
         from_: float,
         to: float,
-        cursor: str | NotGiven = NOT_GIVEN,
-        limit: float | NotGiven = NOT_GIVEN,
+        cursor: str | Omit = omit,
+        k: str | Omit = omit,
+        limit: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EventListResponse:
         """
         List Events
 
         Args:
           account_id: Account identifier
+
+          k: Filter by event kind
 
           extra_headers: Send extra headers
 
@@ -216,7 +233,11 @@ class AsyncEventsResource(AsyncAPIResource):
         if not connector_id:
             raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/connectors/{connector_id}/telemetry/events",
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}/telemetry/events",
+                account_id=account_id,
+                connector_id=connector_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -227,6 +248,7 @@ class AsyncEventsResource(AsyncAPIResource):
                         "from_": from_,
                         "to": to,
                         "cursor": cursor,
+                        "k": k,
                         "limit": limit,
                     },
                     event_list_params.EventListParams,
@@ -248,7 +270,7 @@ class AsyncEventsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EventGetResponse:
         """
         Get Event
@@ -269,7 +291,13 @@ class AsyncEventsResource(AsyncAPIResource):
         if not connector_id:
             raise ValueError(f"Expected a non-empty value for `connector_id` but received {connector_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/connectors/{connector_id}/telemetry/events/{event_t}.{event_n}",
+            path_template(
+                "/accounts/{account_id}/magic/connectors/{connector_id}/telemetry/events/{event_t}.{event_n}",
+                account_id=account_id,
+                connector_id=connector_id,
+                event_t=event_t,
+                event_n=event_n,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

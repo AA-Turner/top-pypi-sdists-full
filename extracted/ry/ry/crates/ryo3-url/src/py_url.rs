@@ -500,10 +500,7 @@ impl PyUrl {
     // ========================================================================
     #[cfg(feature = "pydantic")]
     #[staticmethod]
-    fn _pydantic_validate<'py>(
-        value: &Bound<'py, PyAny>,
-        _handler: &Bound<'py, PyAny>,
-    ) -> PyResult<Bound<'py, PyAny>> {
+    fn _pydantic_validate<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
         use pyo3::IntoPyObjectExt;
         use ryo3_macro_rules::{py_value_err, py_value_error};
         if let Ok(url) = value.cast_exact::<Self>() {
@@ -553,7 +550,7 @@ impl PyUrl {
     #[pyo3(
         signature = (fragment = None),
         warn(
-            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            message = "`URL.replace_fragment` is deprecated; use `URL.with_fragment` instead [removal: v0.0.93]",
             category = pyo3::exceptions::PyDeprecationWarning
         )
     )]
@@ -564,7 +561,7 @@ impl PyUrl {
     #[pyo3(
         signature = (host = None),
         warn(
-            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            message = "`URL.replace_host` is deprecated; use `URL.with_host` instead [removal: v0.0.93]",
             category = pyo3::exceptions::PyDeprecationWarning
         )
     )]
@@ -574,7 +571,7 @@ impl PyUrl {
 
     #[pyo3(
         warn(
-            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            message = "`URL.replace_ip_host` is deprecated; use `URL.with_ip_host` instead [removal: v0.0.93]",
             category = pyo3::exceptions::PyDeprecationWarning
         )
     )]
@@ -585,7 +582,7 @@ impl PyUrl {
     #[pyo3(
         signature = (password = None),
         warn(
-            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            message = "`URL.replace_password` is deprecated; use `URL.with_password` instead [removal: v0.0.93]",
             category = pyo3::exceptions::PyDeprecationWarning
         )
     )]
@@ -595,7 +592,7 @@ impl PyUrl {
 
     #[pyo3(
         warn(
-            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            message = "`URL.replace_path` is deprecated; use `URL.with_path` instead [removal: v0.0.93]",
             category = pyo3::exceptions::PyDeprecationWarning
         )
     )]
@@ -606,7 +603,7 @@ impl PyUrl {
     #[pyo3(
         signature = (port = None),
         warn(
-            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            message = "`URL.replace_port` is deprecated; use `URL.with_port` instead [removal: v0.0.93]",
             category = pyo3::exceptions::PyDeprecationWarning
         )
     )]
@@ -617,7 +614,7 @@ impl PyUrl {
     #[pyo3(
         signature = (query = None),
         warn(
-            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            message = "`URL.replace_query` is deprecated; use `URL.with_query` instead [removal: v0.0.93]",
             category = pyo3::exceptions::PyDeprecationWarning
         )
     )]
@@ -627,7 +624,7 @@ impl PyUrl {
 
     #[pyo3(
         warn(
-            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            message = "`URL.replace_scheme` is deprecated; use `URL.with_scheme` instead [removal: v0.0.93]",
             category = pyo3::exceptions::PyDeprecationWarning
         )
     )]
@@ -637,7 +634,7 @@ impl PyUrl {
 
     #[pyo3(
         warn(
-            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            message = "`URL.replace_username` is deprecated; use `URL.with_username` instead [removal: v0.0.93]",
             category = pyo3::exceptions::PyDeprecationWarning
         )
     )]
@@ -685,15 +682,16 @@ impl ryo3_pydantic::GetPydanticCoreSchemaCls for PyUrl {
         let core_schema = ryo3_pydantic::core_schema(py)?;
         let url_schema = core_schema.call_method(pyo3::intern!(py, "url_schema"), (), None)?;
         let validation_fn = cls.getattr(interns::_pydantic_validate(py))?;
-        let args = PyTuple::new(py, vec![&validation_fn, &url_schema])?;
         let string_serialization_schema =
             core_schema.call_method(interns::to_string_ser_schema(py), (), None)?;
-        let serialization_kwargs = pyo3::types::PyDict::new(py);
-        serialization_kwargs.set_item(interns::serialization(py), &string_serialization_schema)?;
+        let plain_validator_kwargs = pyo3::types::PyDict::new(py);
+        plain_validator_kwargs.set_item(interns::json_schema_input_schema(py), &url_schema)?;
+        plain_validator_kwargs
+            .set_item(interns::serialization(py), &string_serialization_schema)?;
         core_schema.call_method(
-            interns::no_info_wrap_validator_function(py),
-            args,
-            Some(&serialization_kwargs),
+            interns::no_info_plain_validator_function(py),
+            (&validation_fn,),
+            Some(&plain_validator_kwargs),
         )
     }
 }

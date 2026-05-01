@@ -250,16 +250,11 @@ class AgentTask:
         if backend == "agent_browser":
             if info.ssh_key_path is None:
                 raise RuntimeError("agent-browser pre-login needs ssh_key_path on RuntimeInfo")
-            if env_alias is not None:
-                raise RuntimeError(
-                    "AgentConfig.pre_login_env_alias is not supported by the agent-browser "
-                    "login backend — it logs into every env on the session. Either drop the "
-                    "alias or switch to a package that uses the CDP backend."
-                )
             await self._session.login_via_agent_browser(
                 hostname=info.hostname,
                 ssh_key_path=info.ssh_key_path,
                 flow=flow,
+                env_alias=env_alias,
                 retries=3,
                 retry_delay_ms=2000,
                 log=logger,

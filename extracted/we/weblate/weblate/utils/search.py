@@ -8,6 +8,7 @@ import threading
 import warnings
 from datetime import datetime
 from functools import lru_cache, reduce
+from ipaddress import ip_address
 from itertools import chain
 from operator import and_, or_
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast, overload
@@ -416,7 +417,12 @@ class BaseTermExpr:
         try:
             return Change.ACTION_NAMES[text]
         except KeyError:
-            return Change.ACTION_STRINGS[text]
+            try:
+                return Change.ACTION_STRINGS[text]
+            except KeyError:
+                raise SearchQueryError(
+                    gettext("Unknown change action: {}").format(text)
+                ) from None
 
     def convert_change_time(self, text: str) -> datetime | tuple[datetime, datetime]:
         return self.convert_datetime(text)
@@ -843,12 +849,34 @@ class SuperuserUserTermExpr(UserTermExpr):
         "email": "social_auth__verifiedemail__email",
     }
 
+    def convert_ip(self, text: str) -> str:
+        try:
+            return str(ip_address(text))
+        except ValueError as exc:
+            raise SearchQueryError(
+                gettext("Could not parse IP address: {}").format(text)
+            ) from exc
+
+    def ip_field(self, text: str, context: dict) -> Q:
+        if self.operator not in {":", ":="}:
+            raise SearchQueryError(
+                gettext("Unsupported lookup for {field}: {value}").format(
+                    field="ip", value=text
+                )
+            )
+        return Q(auditlog__address=self.convert_ip(text))
+
     def convert_non_field(self) -> Q:
-        return (
+        result = (
             Q(username__icontains=self.match)
             | Q(full_name__icontains=self.match)
             | Q(social_auth__verifiedemail__email__iexact=self.match)
         )
+        try:
+            address = self.convert_ip(self.match)
+        except SearchQueryError:
+            return result
+        return result | Q(auditlog__address=address)
 
     def is_field(self, text: str, context: dict) -> Q:
         if text == "active":

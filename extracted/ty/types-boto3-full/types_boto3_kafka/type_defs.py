@@ -297,6 +297,7 @@ __all__ = (
     "VpcConnectivityScramTypeDef",
     "VpcConnectivityTlsTypeDef",
     "VpcConnectivityTypeDef",
+    "ZookeeperAccessTypeDef",
     "ZookeeperNodeInfoTypeDef",
 )
 
@@ -730,6 +731,10 @@ class VpcConnectionTypeDef(TypedDict):
     Authentication: NotRequired[str]
     VpcId: NotRequired[str]
     State: NotRequired[VpcConnectionStateType]
+
+
+class ZookeeperAccessTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
 
 
 class NodeExporterInfoTypeDef(TypedDict):
@@ -1672,6 +1677,7 @@ class MutableClusterInfoTypeDef(TypedDict):
     NumberOfBrokerNodes: NotRequired[int]
     EnhancedMonitoring: NotRequired[EnhancedMonitoringType]
     OpenMonitoring: NotRequired[OpenMonitoringTypeDef]
+    ZookeeperAccess: NotRequired[ZookeeperAccessTypeDef]
     KafkaVersion: NotRequired[str]
     LoggingInfo: NotRequired[LoggingInfoTypeDef]
     InstanceType: NotRequired[str]
@@ -1685,8 +1691,9 @@ class MutableClusterInfoTypeDef(TypedDict):
 
 class UpdateConnectivityRequestTypeDef(TypedDict):
     ClusterArn: str
-    ConnectivityInfo: ConnectivityInfoTypeDef
     CurrentVersion: str
+    ConnectivityInfo: NotRequired[ConnectivityInfoTypeDef]
+    ZookeeperAccess: NotRequired[ZookeeperAccessTypeDef]
 
 
 class ClusterInfoTypeDef(TypedDict):

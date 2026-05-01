@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -50,21 +50,21 @@ class ZoneResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        flatten_all_cnames: bool | NotGiven = NOT_GIVEN,
-        foundation_dns: bool | NotGiven = NOT_GIVEN,
-        internal_dns: zone_edit_params.InternalDNS | NotGiven = NOT_GIVEN,
-        multi_provider: bool | NotGiven = NOT_GIVEN,
-        nameservers: zone_edit_params.Nameservers | NotGiven = NOT_GIVEN,
-        ns_ttl: float | NotGiven = NOT_GIVEN,
-        secondary_overrides: bool | NotGiven = NOT_GIVEN,
-        soa: zone_edit_params.SOA | NotGiven = NOT_GIVEN,
-        zone_mode: Literal["standard", "cdn_only", "dns_only"] | NotGiven = NOT_GIVEN,
+        flatten_all_cnames: bool | Omit = omit,
+        foundation_dns: bool | Omit = omit,
+        internal_dns: zone_edit_params.InternalDNS | Omit = omit,
+        multi_provider: bool | Omit = omit,
+        nameservers: zone_edit_params.Nameservers | Omit = omit,
+        ns_ttl: float | Omit = omit,
+        secondary_overrides: bool | Omit = omit,
+        soa: zone_edit_params.SOA | Omit = omit,
+        zone_mode: Literal["standard", "cdn_only", "dns_only"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ZoneEditResponse]:
         """
         Update DNS settings for a zone
@@ -105,7 +105,7 @@ class ZoneResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._patch(
-            f"/zones/{zone_id}/dns_settings",
+            path_template("/zones/{zone_id}/dns_settings", zone_id=zone_id),
             body=maybe_transform(
                 {
                     "flatten_all_cnames": flatten_all_cnames,
@@ -139,7 +139,7 @@ class ZoneResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ZoneGetResponse]:
         """
         Show DNS settings for a zone
@@ -158,7 +158,7 @@ class ZoneResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/dns_settings",
+            path_template("/zones/{zone_id}/dns_settings", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -194,21 +194,21 @@ class AsyncZoneResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        flatten_all_cnames: bool | NotGiven = NOT_GIVEN,
-        foundation_dns: bool | NotGiven = NOT_GIVEN,
-        internal_dns: zone_edit_params.InternalDNS | NotGiven = NOT_GIVEN,
-        multi_provider: bool | NotGiven = NOT_GIVEN,
-        nameservers: zone_edit_params.Nameservers | NotGiven = NOT_GIVEN,
-        ns_ttl: float | NotGiven = NOT_GIVEN,
-        secondary_overrides: bool | NotGiven = NOT_GIVEN,
-        soa: zone_edit_params.SOA | NotGiven = NOT_GIVEN,
-        zone_mode: Literal["standard", "cdn_only", "dns_only"] | NotGiven = NOT_GIVEN,
+        flatten_all_cnames: bool | Omit = omit,
+        foundation_dns: bool | Omit = omit,
+        internal_dns: zone_edit_params.InternalDNS | Omit = omit,
+        multi_provider: bool | Omit = omit,
+        nameservers: zone_edit_params.Nameservers | Omit = omit,
+        ns_ttl: float | Omit = omit,
+        secondary_overrides: bool | Omit = omit,
+        soa: zone_edit_params.SOA | Omit = omit,
+        zone_mode: Literal["standard", "cdn_only", "dns_only"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ZoneEditResponse]:
         """
         Update DNS settings for a zone
@@ -249,7 +249,7 @@ class AsyncZoneResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._patch(
-            f"/zones/{zone_id}/dns_settings",
+            path_template("/zones/{zone_id}/dns_settings", zone_id=zone_id),
             body=await async_maybe_transform(
                 {
                     "flatten_all_cnames": flatten_all_cnames,
@@ -283,7 +283,7 @@ class AsyncZoneResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ZoneGetResponse]:
         """
         Show DNS settings for a zone
@@ -302,7 +302,7 @@ class AsyncZoneResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/dns_settings",
+            path_template("/zones/{zone_id}/dns_settings", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

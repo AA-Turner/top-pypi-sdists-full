@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -61,6 +61,7 @@ class ScansResource(SyncAPIResource):
         *,
         account_id: str,
         url: str,
+        agent_readiness: bool | Omit = omit,
         country: Literal[
             "AF",
             "AL",
@@ -258,18 +259,18 @@ class ScansResource(SyncAPIResource):
             "ZM",
             "ZW",
         ]
-        | NotGiven = NOT_GIVEN,
-        customagent: str | NotGiven = NOT_GIVEN,
-        custom_headers: Dict[str, str] | NotGiven = NOT_GIVEN,
-        referer: str | NotGiven = NOT_GIVEN,
-        screenshots_resolutions: List[Literal["desktop", "mobile", "tablet"]] | NotGiven = NOT_GIVEN,
-        visibility: Literal["Public", "Unlisted"] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        customagent: str | Omit = omit,
+        custom_headers: Dict[str, str] | Omit = omit,
+        referer: str | Omit = omit,
+        screenshots_resolutions: List[Literal["desktop", "mobile", "tablet"]] | Omit = omit,
+        visibility: Literal["Public", "Unlisted"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScanCreateResponse:
         """Submit a URL to scan.
 
@@ -278,6 +279,8 @@ class ScansResource(SyncAPIResource):
 
         Args:
           account_id: Account ID.
+
+          agent_readiness: Enable agent readiness checks.
 
           country: Country to geo egress from
 
@@ -302,10 +305,11 @@ class ScansResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/urlscanner/v2/scan",
+            path_template("/accounts/{account_id}/urlscanner/v2/scan", account_id=account_id),
             body=maybe_transform(
                 {
                     "url": url,
+                    "agent_readiness": agent_readiness,
                     "country": country,
                     "customagent": customagent,
                     "custom_headers": custom_headers,
@@ -325,14 +329,14 @@ class ScansResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        q: str | NotGiven = NOT_GIVEN,
-        size: int | NotGiven = NOT_GIVEN,
+        q: str | Omit = omit,
+        size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScanListResponse:
         """Use a subset of ElasticSearch Query syntax to filter scans.
 
@@ -363,7 +367,7 @@ class ScansResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/urlscanner/v2/search",
+            path_template("/accounts/{account_id}/urlscanner/v2/search", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -384,13 +388,13 @@ class ScansResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        body: Iterable[scan_bulk_create_params.Body] | NotGiven = NOT_GIVEN,
+        body: Iterable[scan_bulk_create_params.Body] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScanBulkCreateResponse:
         """Submit URLs to scan.
 
@@ -415,7 +419,7 @@ class ScansResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/urlscanner/v2/bulk",
+            path_template("/accounts/{account_id}/urlscanner/v2/bulk", account_id=account_id),
             body=maybe_transform(body, Iterable[scan_bulk_create_params.Body]),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -433,7 +437,7 @@ class ScansResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
         Returns a plain text response, with the scan's DOM content as rendered by
@@ -458,7 +462,7 @@ class ScansResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `scan_id` but received {scan_id!r}")
         extra_headers = {"Accept": "text/plain", **(extra_headers or {})}
         return self._get(
-            f"/accounts/{account_id}/urlscanner/v2/dom/{scan_id}",
+            path_template("/accounts/{account_id}/urlscanner/v2/dom/{scan_id}", account_id=account_id, scan_id=scan_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -475,7 +479,7 @@ class ScansResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScanGetResponse:
         """
         Get URL scan by uuid
@@ -498,7 +502,9 @@ class ScansResource(SyncAPIResource):
         if not scan_id:
             raise ValueError(f"Expected a non-empty value for `scan_id` but received {scan_id!r}")
         return self._get(
-            f"/accounts/{account_id}/urlscanner/v2/result/{scan_id}",
+            path_template(
+                "/accounts/{account_id}/urlscanner/v2/result/{scan_id}", account_id=account_id, scan_id=scan_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -515,7 +521,7 @@ class ScansResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScanHARResponse:
         """Get a URL scan's HAR file.
 
@@ -540,7 +546,7 @@ class ScansResource(SyncAPIResource):
         if not scan_id:
             raise ValueError(f"Expected a non-empty value for `scan_id` but received {scan_id!r}")
         return self._get(
-            f"/accounts/{account_id}/urlscanner/v2/har/{scan_id}",
+            path_template("/accounts/{account_id}/urlscanner/v2/har/{scan_id}", account_id=account_id, scan_id=scan_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -552,13 +558,13 @@ class ScansResource(SyncAPIResource):
         scan_id: str,
         *,
         account_id: str,
-        resolution: Literal["desktop", "mobile", "tablet"] | NotGiven = NOT_GIVEN,
+        resolution: Literal["desktop", "mobile", "tablet"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BinaryAPIResponse:
         """
         Get scan's screenshot by resolution (desktop/mobile/tablet).
@@ -584,7 +590,9 @@ class ScansResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `scan_id` but received {scan_id!r}")
         extra_headers = {"Accept": "image/png", **(extra_headers or {})}
         return self._get(
-            f"/accounts/{account_id}/urlscanner/v2/screenshots/{scan_id}.png",
+            path_template(
+                "/accounts/{account_id}/urlscanner/v2/screenshots/{scan_id}.png", account_id=account_id, scan_id=scan_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -621,6 +629,7 @@ class AsyncScansResource(AsyncAPIResource):
         *,
         account_id: str,
         url: str,
+        agent_readiness: bool | Omit = omit,
         country: Literal[
             "AF",
             "AL",
@@ -818,18 +827,18 @@ class AsyncScansResource(AsyncAPIResource):
             "ZM",
             "ZW",
         ]
-        | NotGiven = NOT_GIVEN,
-        customagent: str | NotGiven = NOT_GIVEN,
-        custom_headers: Dict[str, str] | NotGiven = NOT_GIVEN,
-        referer: str | NotGiven = NOT_GIVEN,
-        screenshots_resolutions: List[Literal["desktop", "mobile", "tablet"]] | NotGiven = NOT_GIVEN,
-        visibility: Literal["Public", "Unlisted"] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        customagent: str | Omit = omit,
+        custom_headers: Dict[str, str] | Omit = omit,
+        referer: str | Omit = omit,
+        screenshots_resolutions: List[Literal["desktop", "mobile", "tablet"]] | Omit = omit,
+        visibility: Literal["Public", "Unlisted"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScanCreateResponse:
         """Submit a URL to scan.
 
@@ -838,6 +847,8 @@ class AsyncScansResource(AsyncAPIResource):
 
         Args:
           account_id: Account ID.
+
+          agent_readiness: Enable agent readiness checks.
 
           country: Country to geo egress from
 
@@ -862,10 +873,11 @@ class AsyncScansResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/urlscanner/v2/scan",
+            path_template("/accounts/{account_id}/urlscanner/v2/scan", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "url": url,
+                    "agent_readiness": agent_readiness,
                     "country": country,
                     "customagent": customagent,
                     "custom_headers": custom_headers,
@@ -885,14 +897,14 @@ class AsyncScansResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        q: str | NotGiven = NOT_GIVEN,
-        size: int | NotGiven = NOT_GIVEN,
+        q: str | Omit = omit,
+        size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScanListResponse:
         """Use a subset of ElasticSearch Query syntax to filter scans.
 
@@ -923,7 +935,7 @@ class AsyncScansResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/urlscanner/v2/search",
+            path_template("/accounts/{account_id}/urlscanner/v2/search", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -944,13 +956,13 @@ class AsyncScansResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        body: Iterable[scan_bulk_create_params.Body] | NotGiven = NOT_GIVEN,
+        body: Iterable[scan_bulk_create_params.Body] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScanBulkCreateResponse:
         """Submit URLs to scan.
 
@@ -975,7 +987,7 @@ class AsyncScansResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/urlscanner/v2/bulk",
+            path_template("/accounts/{account_id}/urlscanner/v2/bulk", account_id=account_id),
             body=await async_maybe_transform(body, Iterable[scan_bulk_create_params.Body]),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -993,7 +1005,7 @@ class AsyncScansResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
         Returns a plain text response, with the scan's DOM content as rendered by
@@ -1018,7 +1030,7 @@ class AsyncScansResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `scan_id` but received {scan_id!r}")
         extra_headers = {"Accept": "text/plain", **(extra_headers or {})}
         return await self._get(
-            f"/accounts/{account_id}/urlscanner/v2/dom/{scan_id}",
+            path_template("/accounts/{account_id}/urlscanner/v2/dom/{scan_id}", account_id=account_id, scan_id=scan_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -1035,7 +1047,7 @@ class AsyncScansResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScanGetResponse:
         """
         Get URL scan by uuid
@@ -1058,7 +1070,9 @@ class AsyncScansResource(AsyncAPIResource):
         if not scan_id:
             raise ValueError(f"Expected a non-empty value for `scan_id` but received {scan_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/urlscanner/v2/result/{scan_id}",
+            path_template(
+                "/accounts/{account_id}/urlscanner/v2/result/{scan_id}", account_id=account_id, scan_id=scan_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -1075,7 +1089,7 @@ class AsyncScansResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScanHARResponse:
         """Get a URL scan's HAR file.
 
@@ -1100,7 +1114,7 @@ class AsyncScansResource(AsyncAPIResource):
         if not scan_id:
             raise ValueError(f"Expected a non-empty value for `scan_id` but received {scan_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/urlscanner/v2/har/{scan_id}",
+            path_template("/accounts/{account_id}/urlscanner/v2/har/{scan_id}", account_id=account_id, scan_id=scan_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -1112,13 +1126,13 @@ class AsyncScansResource(AsyncAPIResource):
         scan_id: str,
         *,
         account_id: str,
-        resolution: Literal["desktop", "mobile", "tablet"] | NotGiven = NOT_GIVEN,
+        resolution: Literal["desktop", "mobile", "tablet"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncBinaryAPIResponse:
         """
         Get scan's screenshot by resolution (desktop/mobile/tablet).
@@ -1144,7 +1158,9 @@ class AsyncScansResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `scan_id` but received {scan_id!r}")
         extra_headers = {"Accept": "image/png", **(extra_headers or {})}
         return await self._get(
-            f"/accounts/{account_id}/urlscanner/v2/screenshots/{scan_id}.png",
+            path_template(
+                "/accounts/{account_id}/urlscanner/v2/screenshots/{scan_id}.png", account_id=account_id, scan_id=scan_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -1492,13 +1492,14 @@ class Session:
         extra_ssh_opts: list[tuple[str, str]] | None = None,
         shell_prefix: str = CLAUDE_CODE_SSH_SHELL_PREFIX,
         flow: str = "login",
+        env_alias: str | None = None,
         port: int | None = None,
         screenshots_dir: Path | None = None,
         retries: int = 0,
         retry_delay_ms: int = 0,
         log: logging.Logger | None = None,
     ) -> list[str]:
-        """Log in to all envs, then hand each browser to an agent-browser daemon.
+        """Log in to envs, then hand each browser to an agent-browser daemon.
 
         For each env we launch a long-lived chromium on the remote VM with a
         CDP port, tunnel the port back, run the env's Playwright login flow
@@ -1520,6 +1521,9 @@ class Session:
             other images.
         flow:
             Name of the flow to run (default: ``"login"``).
+        env_alias:
+            Optional env alias to log into. When omitted, logs into every
+            artifact env in the session.
         port:
             Optional port for the env's public URL.
         retries:
@@ -1558,6 +1562,8 @@ class Session:
             if not env.artifact_id:
                 # Resource/compute envs have no login flow — skip cleanly so
                 # callers can pass ``session.envs`` without pre-filtering.
+                continue
+            if env_alias is not None and env.alias != env_alias:
                 continue
 
             cdp_port = CDP_PORT_BASE + idx
@@ -1623,6 +1629,9 @@ class Session:
                             await browser.close()
 
             logged_in.append(env.alias)
+
+        if env_alias is not None and not logged_in:
+            raise RuntimeError(f"No artifact env found for env_alias={env_alias!r}")
 
         return logged_in
 

@@ -12,6 +12,7 @@ class AppConfigFieldType(Enums.KnownString):
     ENTITY_LINK = "entity_link"
     MIXTURE_LINK = "mixture_link"
     MOLECULE_LINK = "molecule_link"
+    BASE_MOLECULE_LINK = "base_molecule_link"
     DROPDOWN = "dropdown"
     PART_LINK = "part_link"
     TRANSLATION_LINK = "translation_link"

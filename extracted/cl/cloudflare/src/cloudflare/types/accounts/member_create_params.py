@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List, Union, Iterable
+from typing import Union, Iterable
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
+
+from ..._types import SequenceNotStr
 
 __all__ = [
     "MemberCreateParams",
@@ -22,10 +24,16 @@ class IAMCreateMemberWithRoles(TypedDict, total=False):
     email: Required[str]
     """The contact email address of the user."""
 
-    roles: Required[List[str]]
+    roles: Required[SequenceNotStr[str]]
     """Array of roles associated with this member."""
 
     status: Literal["accepted", "pending"]
+    """Status of the member invitation.
+
+    If not provided during creation, defaults to 'pending'. Changing from 'accepted'
+    back to 'pending' will trigger a replacement of the member resource in
+    Terraform.
+    """
 
 
 class IAMCreateMemberWithPolicies(TypedDict, total=False):
@@ -39,14 +47,24 @@ class IAMCreateMemberWithPolicies(TypedDict, total=False):
     """Array of policies associated with this member."""
 
     status: Literal["accepted", "pending"]
+    """Status of the member invitation.
+
+    If not provided during creation, defaults to 'pending'. Changing from 'accepted'
+    back to 'pending' will trigger a replacement of the member resource in
+    Terraform.
+    """
 
 
 class IAMCreateMemberWithPoliciesPolicyPermissionGroup(TypedDict, total=False):
+    """A group of permissions."""
+
     id: Required[str]
     """Identifier of the group."""
 
 
 class IAMCreateMemberWithPoliciesPolicyResourceGroup(TypedDict, total=False):
+    """A group of scoped resources."""
+
     id: Required[str]
     """Identifier of the group."""
 

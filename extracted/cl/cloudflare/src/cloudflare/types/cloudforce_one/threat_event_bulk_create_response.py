@@ -1,69 +1,56 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import List, Optional
-from typing_extensions import TypeAlias
 
 from pydantic import Field as FieldInfo
 
 from ..._models import BaseModel
 
-__all__ = ["ThreatEventBulkCreateResponse", "ThreatEventBulkCreateResponseItem"]
+__all__ = ["ThreatEventBulkCreateResponse", "CreatedEvent", "Error"]
 
 
-class ThreatEventBulkCreateResponseItem(BaseModel):
-    id: float
+class CreatedEvent(BaseModel):
+    event_index: float = FieldInfo(alias="eventIndex")
+    """Original index in the input data array"""
 
-    account_id: float = FieldInfo(alias="accountId")
-
-    attacker: str
-
-    attacker_country: str = FieldInfo(alias="attackerCountry")
-
-    category: str
-
-    category_id: float = FieldInfo(alias="categoryId")
-
-    date: str
-
-    event: str
-
-    indicator: str
-
-    indicator_type: str = FieldInfo(alias="indicatorType")
-
-    indicator_type_id: float = FieldInfo(alias="indicatorTypeId")
-
-    kill_chain: float = FieldInfo(alias="killChain")
-
-    mitre_attack: List[str] = FieldInfo(alias="mitreAttack")
-
-    num_referenced: float = FieldInfo(alias="numReferenced")
-
-    num_references: float = FieldInfo(alias="numReferences")
-
-    raw_id: str = FieldInfo(alias="rawId")
-
-    referenced: List[str]
-
-    referenced_ids: List[float] = FieldInfo(alias="referencedIds")
-
-    references: List[str]
-
-    references_ids: List[float] = FieldInfo(alias="referencesIds")
-
-    tags: List[str]
-
-    target_country: str = FieldInfo(alias="targetCountry")
-
-    target_industry: str = FieldInfo(alias="targetIndustry")
-
-    tlp: str
+    shard_id: str = FieldInfo(alias="shardId")
+    """Dataset ID of the shard where the event was created"""
 
     uuid: str
-
-    insight: Optional[str] = None
-
-    releasability_id: Optional[str] = FieldInfo(alias="releasabilityId", default=None)
+    """UUID of the created event"""
 
 
-ThreatEventBulkCreateResponse: TypeAlias = List[ThreatEventBulkCreateResponseItem]
+class Error(BaseModel):
+    error: str
+    """Error message"""
+
+    event_index: float = FieldInfo(alias="eventIndex")
+    """Index of the event that caused the error"""
+
+
+class ThreatEventBulkCreateResponse(BaseModel):
+    """Detailed result of bulk event creation with auto-tag management"""
+
+    created_events_count: float = FieldInfo(alias="createdEventsCount")
+    """Number of events created"""
+
+    created_tags_count: float = FieldInfo(alias="createdTagsCount")
+    """Number of new tags created in SoT"""
+
+    error_count: float = FieldInfo(alias="errorCount")
+    """Number of errors encountered"""
+
+    queued_indicators_count: float = FieldInfo(alias="queuedIndicatorsCount")
+    """Number of indicators queued for async processing"""
+
+    create_bulk_events_request_id: Optional[str] = FieldInfo(alias="createBulkEventsRequestId", default=None)
+    """Correlation ID for async indicator processing"""
+
+    created_events: Optional[List[CreatedEvent]] = FieldInfo(alias="createdEvents", default=None)
+    """Array of created events with UUIDs and shard locations.
+
+    Only present when includeCreatedEvents=true
+    """
+
+    errors: Optional[List[Error]] = None
+    """Array of error details"""

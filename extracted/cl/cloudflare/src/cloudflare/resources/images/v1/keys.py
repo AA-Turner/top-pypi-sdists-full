@@ -6,7 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -54,7 +55,7 @@ class KeysResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> KeyUpdateResponse:
         """Create a new signing key with specified name.
 
@@ -76,7 +77,11 @@ class KeysResource(SyncAPIResource):
         if not signing_key_name:
             raise ValueError(f"Expected a non-empty value for `signing_key_name` but received {signing_key_name!r}")
         return self._put(
-            f"/accounts/{account_id}/images/v1/keys/{signing_key_name}",
+            path_template(
+                "/accounts/{account_id}/images/v1/keys/{signing_key_name}",
+                account_id=account_id,
+                signing_key_name=signing_key_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -96,7 +101,7 @@ class KeysResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> KeyListResponse:
         """Lists your signing keys.
 
@@ -116,7 +121,7 @@ class KeysResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/images/v1/keys",
+            path_template("/accounts/{account_id}/images/v1/keys", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -137,7 +142,7 @@ class KeysResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> KeyDeleteResponse:
         """Delete signing key with specified name.
 
@@ -160,7 +165,11 @@ class KeysResource(SyncAPIResource):
         if not signing_key_name:
             raise ValueError(f"Expected a non-empty value for `signing_key_name` but received {signing_key_name!r}")
         return self._delete(
-            f"/accounts/{account_id}/images/v1/keys/{signing_key_name}",
+            path_template(
+                "/accounts/{account_id}/images/v1/keys/{signing_key_name}",
+                account_id=account_id,
+                signing_key_name=signing_key_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -202,7 +211,7 @@ class AsyncKeysResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> KeyUpdateResponse:
         """Create a new signing key with specified name.
 
@@ -224,7 +233,11 @@ class AsyncKeysResource(AsyncAPIResource):
         if not signing_key_name:
             raise ValueError(f"Expected a non-empty value for `signing_key_name` but received {signing_key_name!r}")
         return await self._put(
-            f"/accounts/{account_id}/images/v1/keys/{signing_key_name}",
+            path_template(
+                "/accounts/{account_id}/images/v1/keys/{signing_key_name}",
+                account_id=account_id,
+                signing_key_name=signing_key_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -244,7 +257,7 @@ class AsyncKeysResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> KeyListResponse:
         """Lists your signing keys.
 
@@ -264,7 +277,7 @@ class AsyncKeysResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/images/v1/keys",
+            path_template("/accounts/{account_id}/images/v1/keys", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -285,7 +298,7 @@ class AsyncKeysResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> KeyDeleteResponse:
         """Delete signing key with specified name.
 
@@ -308,7 +321,11 @@ class AsyncKeysResource(AsyncAPIResource):
         if not signing_key_name:
             raise ValueError(f"Expected a non-empty value for `signing_key_name` but received {signing_key_name!r}")
         return await self._delete(
-            f"/accounts/{account_id}/images/v1/keys/{signing_key_name}",
+            path_template(
+                "/accounts/{account_id}/images/v1/keys/{signing_key_name}",
+                account_id=account_id,
+                signing_key_name=signing_key_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

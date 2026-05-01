@@ -11,33 +11,46 @@ from ...._models import BaseModel
 __all__ = [
     "VersionCreateResponse",
     "Resources",
-    "ResourcesBindings",
-    "ResourcesBindingsResult",
-    "ResourcesBindingsResultWorkersBindingKindAI",
-    "ResourcesBindingsResultWorkersBindingKindAnalyticsEngine",
-    "ResourcesBindingsResultWorkersBindingKindAssets",
-    "ResourcesBindingsResultWorkersBindingKindBrowser",
-    "ResourcesBindingsResultWorkersBindingKindD1",
-    "ResourcesBindingsResultWorkersBindingKindDispatchNamespace",
-    "ResourcesBindingsResultWorkersBindingKindDispatchNamespaceOutbound",
-    "ResourcesBindingsResultWorkersBindingKindDispatchNamespaceOutboundWorker",
-    "ResourcesBindingsResultWorkersBindingKindDurableObjectNamespace",
-    "ResourcesBindingsResultWorkersBindingKindHyperdrive",
-    "ResourcesBindingsResultWorkersBindingKindJson",
-    "ResourcesBindingsResultWorkersBindingKindKVNamespace",
-    "ResourcesBindingsResultWorkersBindingKindMTLSCertificate",
-    "ResourcesBindingsResultWorkersBindingKindPlainText",
-    "ResourcesBindingsResultWorkersBindingKindPipelines",
-    "ResourcesBindingsResultWorkersBindingKindQueue",
-    "ResourcesBindingsResultWorkersBindingKindR2Bucket",
-    "ResourcesBindingsResultWorkersBindingKindSecretText",
-    "ResourcesBindingsResultWorkersBindingKindService",
-    "ResourcesBindingsResultWorkersBindingKindTailConsumer",
-    "ResourcesBindingsResultWorkersBindingKindVectorize",
-    "ResourcesBindingsResultWorkersBindingKindVersionMetadata",
-    "ResourcesBindingsResultWorkersBindingKindSecretsStoreSecret",
-    "ResourcesBindingsResultWorkersBindingKindSecretKey",
-    "ResourcesBindingsResultWorkersBindingKindWorkflow",
+    "ResourcesBinding",
+    "ResourcesBindingWorkersBindingKindAI",
+    "ResourcesBindingWorkersBindingKindAISearch",
+    "ResourcesBindingWorkersBindingKindAISearchNamespace",
+    "ResourcesBindingWorkersBindingKindAnalyticsEngine",
+    "ResourcesBindingWorkersBindingKindAssets",
+    "ResourcesBindingWorkersBindingKindBrowser",
+    "ResourcesBindingWorkersBindingKindD1",
+    "ResourcesBindingWorkersBindingKindDataBlob",
+    "ResourcesBindingWorkersBindingKindDispatchNamespace",
+    "ResourcesBindingWorkersBindingKindDispatchNamespaceOutbound",
+    "ResourcesBindingWorkersBindingKindDispatchNamespaceOutboundParam",
+    "ResourcesBindingWorkersBindingKindDispatchNamespaceOutboundWorker",
+    "ResourcesBindingWorkersBindingKindDurableObjectNamespace",
+    "ResourcesBindingWorkersBindingKindHyperdrive",
+    "ResourcesBindingWorkersBindingKindInherit",
+    "ResourcesBindingWorkersBindingKindImages",
+    "ResourcesBindingWorkersBindingKindJson",
+    "ResourcesBindingWorkersBindingKindKVNamespace",
+    "ResourcesBindingWorkersBindingKindMedia",
+    "ResourcesBindingWorkersBindingKindMTLSCertificate",
+    "ResourcesBindingWorkersBindingKindPlainText",
+    "ResourcesBindingWorkersBindingKindPipelines",
+    "ResourcesBindingWorkersBindingKindQueue",
+    "ResourcesBindingWorkersBindingKindRatelimit",
+    "ResourcesBindingWorkersBindingKindRatelimitSimple",
+    "ResourcesBindingWorkersBindingKindR2Bucket",
+    "ResourcesBindingWorkersBindingKindSecretText",
+    "ResourcesBindingWorkersBindingKindSendEmail",
+    "ResourcesBindingWorkersBindingKindService",
+    "ResourcesBindingWorkersBindingKindTextBlob",
+    "ResourcesBindingWorkersBindingKindVectorize",
+    "ResourcesBindingWorkersBindingKindVersionMetadata",
+    "ResourcesBindingWorkersBindingKindSecretsStoreSecret",
+    "ResourcesBindingWorkersBindingKindFlagship",
+    "ResourcesBindingWorkersBindingKindSecretKey",
+    "ResourcesBindingWorkersBindingKindWorkflow",
+    "ResourcesBindingWorkersBindingKindWasmModule",
+    "ResourcesBindingWorkersBindingKindVPCService",
+    "ResourcesBindingWorkersBindingKindVPCNetwork",
     "ResourcesScript",
     "ResourcesScriptNamedHandler",
     "ResourcesScriptRuntime",
@@ -46,7 +59,7 @@ __all__ = [
 ]
 
 
-class ResourcesBindingsResultWorkersBindingKindAI(BaseModel):
+class ResourcesBindingWorkersBindingKindAI(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -54,7 +67,46 @@ class ResourcesBindingsResultWorkersBindingKindAI(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindAnalyticsEngine(BaseModel):
+class ResourcesBindingWorkersBindingKindAISearch(BaseModel):
+    instance_name: str
+    """The user-chosen instance name.
+
+    Must exist at deploy time. The worker can search, chat, update, and manage
+    items/jobs on this instance.
+    """
+
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    type: Literal["ai_search"]
+    """The kind of resource that the binding provides."""
+
+    namespace: Optional[str] = None
+    """The namespace the instance belongs to.
+
+    Defaults to "default" if omitted. Customers who don't use namespaces can simply
+    omit this field.
+    """
+
+
+class ResourcesBindingWorkersBindingKindAISearchNamespace(BaseModel):
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    namespace: str
+    """The user-chosen namespace name.
+
+    Must exist before deploy -- Wrangler handles auto-creation on deploy failure (R2
+    bucket pattern). The "default" namespace is auto-created by config-api for new
+    accounts. Grants full access (CRUD + search + chat) to all instances within the
+    namespace.
+    """
+
+    type: Literal["ai_search_namespace"]
+    """The kind of resource that the binding provides."""
+
+
+class ResourcesBindingWorkersBindingKindAnalyticsEngine(BaseModel):
     dataset: str
     """The name of the dataset to bind to."""
 
@@ -65,7 +117,7 @@ class ResourcesBindingsResultWorkersBindingKindAnalyticsEngine(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindAssets(BaseModel):
+class ResourcesBindingWorkersBindingKindAssets(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -73,7 +125,7 @@ class ResourcesBindingsResultWorkersBindingKindAssets(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindBrowser(BaseModel):
+class ResourcesBindingWorkersBindingKindBrowser(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -81,8 +133,8 @@ class ResourcesBindingsResultWorkersBindingKindBrowser(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindD1(BaseModel):
-    id: str
+class ResourcesBindingWorkersBindingKindD1(BaseModel):
+    database_id: str
     """Identifier of the D1 database to bind to."""
 
     name: str
@@ -91,8 +143,35 @@ class ResourcesBindingsResultWorkersBindingKindD1(BaseModel):
     type: Literal["d1"]
     """The kind of resource that the binding provides."""
 
+    id: Optional[str] = None
+    """Identifier of the D1 database to bind to."""
 
-class ResourcesBindingsResultWorkersBindingKindDispatchNamespaceOutboundWorker(BaseModel):
+
+class ResourcesBindingWorkersBindingKindDataBlob(BaseModel):
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    part: str
+    """The name of the file containing the data content.
+
+    Only accepted for `service worker syntax` Workers.
+    """
+
+    type: Literal["data_blob"]
+    """The kind of resource that the binding provides."""
+
+
+class ResourcesBindingWorkersBindingKindDispatchNamespaceOutboundParam(BaseModel):
+    name: str
+    """Name of the parameter."""
+
+
+class ResourcesBindingWorkersBindingKindDispatchNamespaceOutboundWorker(BaseModel):
+    """Outbound worker."""
+
+    entrypoint: Optional[str] = None
+    """Entrypoint to invoke on the outbound worker."""
+
     environment: Optional[str] = None
     """Environment of the outbound worker."""
 
@@ -100,32 +179,34 @@ class ResourcesBindingsResultWorkersBindingKindDispatchNamespaceOutboundWorker(B
     """Name of the outbound worker."""
 
 
-class ResourcesBindingsResultWorkersBindingKindDispatchNamespaceOutbound(BaseModel):
-    params: Optional[List[str]] = None
+class ResourcesBindingWorkersBindingKindDispatchNamespaceOutbound(BaseModel):
+    """Outbound worker."""
+
+    params: Optional[List[ResourcesBindingWorkersBindingKindDispatchNamespaceOutboundParam]] = None
     """
     Pass information from the Dispatch Worker to the Outbound Worker through the
     parameters.
     """
 
-    worker: Optional[ResourcesBindingsResultWorkersBindingKindDispatchNamespaceOutboundWorker] = None
+    worker: Optional[ResourcesBindingWorkersBindingKindDispatchNamespaceOutboundWorker] = None
     """Outbound worker."""
 
 
-class ResourcesBindingsResultWorkersBindingKindDispatchNamespace(BaseModel):
+class ResourcesBindingWorkersBindingKindDispatchNamespace(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
     namespace: str
-    """Namespace to bind to."""
+    """The name of the dispatch namespace."""
 
     type: Literal["dispatch_namespace"]
     """The kind of resource that the binding provides."""
 
-    outbound: Optional[ResourcesBindingsResultWorkersBindingKindDispatchNamespaceOutbound] = None
+    outbound: Optional[ResourcesBindingWorkersBindingKindDispatchNamespaceOutbound] = None
     """Outbound worker."""
 
 
-class ResourcesBindingsResultWorkersBindingKindDurableObjectNamespace(BaseModel):
+class ResourcesBindingWorkersBindingKindDurableObjectNamespace(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -134,6 +215,9 @@ class ResourcesBindingsResultWorkersBindingKindDurableObjectNamespace(BaseModel)
 
     class_name: Optional[str] = None
     """The exported class name of the Durable Object."""
+
+    dispatch_namespace: Optional[str] = None
+    """The dispatch namespace the Durable Object script belongs to."""
 
     environment: Optional[str] = None
     """The environment of the script_name to bind to."""
@@ -148,7 +232,7 @@ class ResourcesBindingsResultWorkersBindingKindDurableObjectNamespace(BaseModel)
     """
 
 
-class ResourcesBindingsResultWorkersBindingKindHyperdrive(BaseModel):
+class ResourcesBindingWorkersBindingKindHyperdrive(BaseModel):
     id: str
     """Identifier of the Hyperdrive connection to bind to."""
 
@@ -159,8 +243,38 @@ class ResourcesBindingsResultWorkersBindingKindHyperdrive(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindJson(BaseModel):
-    json_: str = FieldInfo(alias="json")
+class ResourcesBindingWorkersBindingKindInherit(BaseModel):
+    name: str
+    """The name of the inherited binding."""
+
+    type: Literal["inherit"]
+    """The kind of resource that the binding provides."""
+
+    old_name: Optional[str] = None
+    """The old name of the inherited binding.
+
+    If set, the binding will be renamed from `old_name` to `name` in the new
+    version. If not set, the binding will keep the same name between versions.
+    """
+
+    version_id: Optional[str] = None
+    """
+    Identifier for the version to inherit the binding from, which can be the version
+    ID or the literal "latest" to inherit from the latest version. Defaults to
+    inheriting the binding from the latest version.
+    """
+
+
+class ResourcesBindingWorkersBindingKindImages(BaseModel):
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    type: Literal["images"]
+    """The kind of resource that the binding provides."""
+
+
+class ResourcesBindingWorkersBindingKindJson(BaseModel):
+    json_: object = FieldInfo(alias="json")
     """JSON data to use."""
 
     name: str
@@ -170,7 +284,7 @@ class ResourcesBindingsResultWorkersBindingKindJson(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindKVNamespace(BaseModel):
+class ResourcesBindingWorkersBindingKindKVNamespace(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -181,7 +295,15 @@ class ResourcesBindingsResultWorkersBindingKindKVNamespace(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindMTLSCertificate(BaseModel):
+class ResourcesBindingWorkersBindingKindMedia(BaseModel):
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    type: Literal["media"]
+    """The kind of resource that the binding provides."""
+
+
+class ResourcesBindingWorkersBindingKindMTLSCertificate(BaseModel):
     certificate_id: str
     """Identifier of the certificate to bind to."""
 
@@ -192,7 +314,7 @@ class ResourcesBindingsResultWorkersBindingKindMTLSCertificate(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindPlainText(BaseModel):
+class ResourcesBindingWorkersBindingKindPlainText(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -203,7 +325,7 @@ class ResourcesBindingsResultWorkersBindingKindPlainText(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindPipelines(BaseModel):
+class ResourcesBindingWorkersBindingKindPipelines(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -214,7 +336,7 @@ class ResourcesBindingsResultWorkersBindingKindPipelines(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindQueue(BaseModel):
+class ResourcesBindingWorkersBindingKindQueue(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -225,7 +347,38 @@ class ResourcesBindingsResultWorkersBindingKindQueue(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindR2Bucket(BaseModel):
+class ResourcesBindingWorkersBindingKindRatelimitSimple(BaseModel):
+    """The rate limit configuration."""
+
+    limit: float
+    """The limit (requests per period)."""
+
+    period: int
+    """The period in seconds."""
+
+    mitigation_timeout: Optional[int] = None
+    """
+    Duration in seconds to apply the mitigation action after the rate limit is
+    exceeded. Valid values are 0 (disabled), 10, or multiples of 60 up to 86400.
+    Must be greater than or equal to the period when non-zero.
+    """
+
+
+class ResourcesBindingWorkersBindingKindRatelimit(BaseModel):
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    namespace_id: str
+    """Identifier of the rate limit namespace to bind to."""
+
+    simple: ResourcesBindingWorkersBindingKindRatelimitSimple
+    """The rate limit configuration."""
+
+    type: Literal["ratelimit"]
+    """The kind of resource that the binding provides."""
+
+
+class ResourcesBindingWorkersBindingKindR2Bucket(BaseModel):
     bucket_name: str
     """R2 bucket to bind to."""
 
@@ -235,8 +388,15 @@ class ResourcesBindingsResultWorkersBindingKindR2Bucket(BaseModel):
     type: Literal["r2_bucket"]
     """The kind of resource that the binding provides."""
 
+    jurisdiction: Optional[Literal["eu", "fedramp", "fedramp-high"]] = None
+    """
+    The
+    [jurisdiction](https://developers.cloudflare.com/r2/reference/data-location/#jurisdictional-restrictions)
+    of the R2 bucket.
+    """
 
-class ResourcesBindingsResultWorkersBindingKindSecretText(BaseModel):
+
+class ResourcesBindingWorkersBindingKindSecretText(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -244,10 +404,24 @@ class ResourcesBindingsResultWorkersBindingKindSecretText(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindService(BaseModel):
-    environment: str
-    """Optional environment if the Worker utilizes one."""
+class ResourcesBindingWorkersBindingKindSendEmail(BaseModel):
+    name: str
+    """A JavaScript variable name for the binding."""
 
+    type: Literal["send_email"]
+    """The kind of resource that the binding provides."""
+
+    allowed_destination_addresses: Optional[List[str]] = None
+    """List of allowed destination addresses."""
+
+    allowed_sender_addresses: Optional[List[str]] = None
+    """List of allowed sender addresses."""
+
+    destination_address: Optional[str] = None
+    """Destination address for the email."""
+
+
+class ResourcesBindingWorkersBindingKindService(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -257,19 +431,28 @@ class ResourcesBindingsResultWorkersBindingKindService(BaseModel):
     type: Literal["service"]
     """The kind of resource that the binding provides."""
 
+    entrypoint: Optional[str] = None
+    """Entrypoint to invoke on the target Worker."""
 
-class ResourcesBindingsResultWorkersBindingKindTailConsumer(BaseModel):
+    environment: Optional[str] = None
+    """Optional environment if the Worker utilizes one."""
+
+
+class ResourcesBindingWorkersBindingKindTextBlob(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
-    service: str
-    """Name of Tail Worker to bind to."""
+    part: str
+    """The name of the file containing the text content.
 
-    type: Literal["tail_consumer"]
+    Only accepted for `service worker syntax` Workers.
+    """
+
+    type: Literal["text_blob"]
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindVectorize(BaseModel):
+class ResourcesBindingWorkersBindingKindVectorize(BaseModel):
     index_name: str
     """Name of the Vectorize index to bind to."""
 
@@ -280,7 +463,7 @@ class ResourcesBindingsResultWorkersBindingKindVectorize(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindVersionMetadata(BaseModel):
+class ResourcesBindingWorkersBindingKindVersionMetadata(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -288,7 +471,7 @@ class ResourcesBindingsResultWorkersBindingKindVersionMetadata(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindSecretsStoreSecret(BaseModel):
+class ResourcesBindingWorkersBindingKindSecretsStoreSecret(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -302,7 +485,18 @@ class ResourcesBindingsResultWorkersBindingKindSecretsStoreSecret(BaseModel):
     """The kind of resource that the binding provides."""
 
 
-class ResourcesBindingsResultWorkersBindingKindSecretKey(BaseModel):
+class ResourcesBindingWorkersBindingKindFlagship(BaseModel):
+    app_id: str
+    """ID of the Flagship app to bind to for feature flag evaluation."""
+
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    type: Literal["flagship"]
+    """The kind of resource that the binding provides."""
+
+
+class ResourcesBindingWorkersBindingKindSecretKey(BaseModel):
     algorithm: object
     """Algorithm-specific key parameters.
 
@@ -328,7 +522,7 @@ class ResourcesBindingsResultWorkersBindingKindSecretKey(BaseModel):
     """
 
 
-class ResourcesBindingsResultWorkersBindingKindWorkflow(BaseModel):
+class ResourcesBindingWorkersBindingKindWorkflow(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
 
@@ -351,95 +545,177 @@ class ResourcesBindingsResultWorkersBindingKindWorkflow(BaseModel):
     """
 
 
-ResourcesBindingsResult: TypeAlias = Annotated[
+class ResourcesBindingWorkersBindingKindWasmModule(BaseModel):
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    part: str
+    """The name of the file containing the WebAssembly module content.
+
+    Only accepted for `service worker syntax` Workers.
+    """
+
+    type: Literal["wasm_module"]
+    """The kind of resource that the binding provides."""
+
+
+class ResourcesBindingWorkersBindingKindVPCService(BaseModel):
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    service_id: str
+    """Identifier of the VPC service to bind to."""
+
+    type: Literal["vpc_service"]
+    """The kind of resource that the binding provides."""
+
+
+class ResourcesBindingWorkersBindingKindVPCNetwork(BaseModel):
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    type: Literal["vpc_network"]
+    """The kind of resource that the binding provides."""
+
+    network_id: Optional[str] = None
+    """Identifier of the network to bind to.
+
+    Only "cf1:network" is currently supported. Mutually exclusive with tunnel_id.
+    """
+
+    tunnel_id: Optional[str] = None
+    """UUID of the Cloudflare Tunnel to bind to. Mutually exclusive with network_id."""
+
+
+ResourcesBinding: TypeAlias = Annotated[
     Union[
-        ResourcesBindingsResultWorkersBindingKindAI,
-        ResourcesBindingsResultWorkersBindingKindAnalyticsEngine,
-        ResourcesBindingsResultWorkersBindingKindAssets,
-        ResourcesBindingsResultWorkersBindingKindBrowser,
-        ResourcesBindingsResultWorkersBindingKindD1,
-        ResourcesBindingsResultWorkersBindingKindDispatchNamespace,
-        ResourcesBindingsResultWorkersBindingKindDurableObjectNamespace,
-        ResourcesBindingsResultWorkersBindingKindHyperdrive,
-        ResourcesBindingsResultWorkersBindingKindJson,
-        ResourcesBindingsResultWorkersBindingKindKVNamespace,
-        ResourcesBindingsResultWorkersBindingKindMTLSCertificate,
-        ResourcesBindingsResultWorkersBindingKindPlainText,
-        ResourcesBindingsResultWorkersBindingKindPipelines,
-        ResourcesBindingsResultWorkersBindingKindQueue,
-        ResourcesBindingsResultWorkersBindingKindR2Bucket,
-        ResourcesBindingsResultWorkersBindingKindSecretText,
-        ResourcesBindingsResultWorkersBindingKindService,
-        ResourcesBindingsResultWorkersBindingKindTailConsumer,
-        ResourcesBindingsResultWorkersBindingKindVectorize,
-        ResourcesBindingsResultWorkersBindingKindVersionMetadata,
-        ResourcesBindingsResultWorkersBindingKindSecretsStoreSecret,
-        ResourcesBindingsResultWorkersBindingKindSecretKey,
-        ResourcesBindingsResultWorkersBindingKindWorkflow,
+        ResourcesBindingWorkersBindingKindAI,
+        ResourcesBindingWorkersBindingKindAISearch,
+        ResourcesBindingWorkersBindingKindAISearchNamespace,
+        ResourcesBindingWorkersBindingKindAnalyticsEngine,
+        ResourcesBindingWorkersBindingKindAssets,
+        ResourcesBindingWorkersBindingKindBrowser,
+        ResourcesBindingWorkersBindingKindD1,
+        ResourcesBindingWorkersBindingKindDataBlob,
+        ResourcesBindingWorkersBindingKindDispatchNamespace,
+        ResourcesBindingWorkersBindingKindDurableObjectNamespace,
+        ResourcesBindingWorkersBindingKindHyperdrive,
+        ResourcesBindingWorkersBindingKindInherit,
+        ResourcesBindingWorkersBindingKindImages,
+        ResourcesBindingWorkersBindingKindJson,
+        ResourcesBindingWorkersBindingKindKVNamespace,
+        ResourcesBindingWorkersBindingKindMedia,
+        ResourcesBindingWorkersBindingKindMTLSCertificate,
+        ResourcesBindingWorkersBindingKindPlainText,
+        ResourcesBindingWorkersBindingKindPipelines,
+        ResourcesBindingWorkersBindingKindQueue,
+        ResourcesBindingWorkersBindingKindRatelimit,
+        ResourcesBindingWorkersBindingKindR2Bucket,
+        ResourcesBindingWorkersBindingKindSecretText,
+        ResourcesBindingWorkersBindingKindSendEmail,
+        ResourcesBindingWorkersBindingKindService,
+        ResourcesBindingWorkersBindingKindTextBlob,
+        ResourcesBindingWorkersBindingKindVectorize,
+        ResourcesBindingWorkersBindingKindVersionMetadata,
+        ResourcesBindingWorkersBindingKindSecretsStoreSecret,
+        ResourcesBindingWorkersBindingKindFlagship,
+        ResourcesBindingWorkersBindingKindSecretKey,
+        ResourcesBindingWorkersBindingKindWorkflow,
+        ResourcesBindingWorkersBindingKindWasmModule,
+        ResourcesBindingWorkersBindingKindVPCService,
+        ResourcesBindingWorkersBindingKindVPCNetwork,
     ],
     PropertyInfo(discriminator="type"),
 ]
 
 
-class ResourcesBindings(BaseModel):
-    result: Optional[List[ResourcesBindingsResult]] = None
+class ResourcesScriptNamedHandler(BaseModel):
+    handlers: Optional[List[str]] = None
+    """The names of handlers exported as part of the named export."""
+
+    name: Optional[str] = None
+    """The name of the exported class or entrypoint."""
+
+
+class ResourcesScript(BaseModel):
+    etag: Optional[str] = None
+    """Hashed script content"""
+
+    handlers: Optional[List[str]] = None
+    """The names of handlers exported as part of the default export."""
+
+    last_deployed_from: Optional[str] = None
+    """The client most recently used to deploy this Worker."""
+
+    named_handlers: Optional[List[ResourcesScriptNamedHandler]] = None
+    """
+    Named exports, such as Durable Object class implementations and named
+    entrypoints.
+    """
+
+
+class ResourcesScriptRuntimeLimits(BaseModel):
+    """Resource limits for the Worker."""
+
+    cpu_ms: Optional[int] = None
+    """The amount of CPU time this Worker can use in milliseconds."""
+
+
+class ResourcesScriptRuntime(BaseModel):
+    """Runtime configuration for the Worker."""
+
+    compatibility_date: Optional[str] = None
+    """Date indicating targeted support in the Workers runtime.
+
+    Backwards incompatible fixes to the runtime following this date will not affect
+    this Worker.
+    """
+
+    compatibility_flags: Optional[List[str]] = None
+    """Flags that enable or disable certain features in the Workers runtime."""
+
+    limits: Optional[ResourcesScriptRuntimeLimits] = None
+    """Resource limits for the Worker."""
+
+    migration_tag: Optional[str] = None
+    """
+    The tag of the Durable Object migration that was most recently applied for this
+    Worker.
+    """
+
+    usage_model: Optional[Literal["bundled", "unbound", "standard"]] = None
+    """Usage model for the Worker invocations."""
+
+
+class Resources(BaseModel):
+    bindings: Optional[List[ResourcesBinding]] = None
     """List of bindings attached to a Worker.
 
     You can find more about bindings on our docs:
     https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/#bindings.
     """
 
-
-class ResourcesScriptNamedHandler(BaseModel):
-    handlers: Optional[List[str]] = None
-
-    name: Optional[str] = None
-
-
-class ResourcesScript(BaseModel):
-    etag: Optional[str] = None
-
-    handlers: Optional[List[str]] = None
-
-    last_deployed_from: Optional[str] = None
-
-    named_handlers: Optional[List[ResourcesScriptNamedHandler]] = None
-
-
-class ResourcesScriptRuntimeLimits(BaseModel):
-    cpu_ms: Optional[int] = None
-
-
-class ResourcesScriptRuntime(BaseModel):
-    compatibility_date: Optional[str] = None
-
-    compatibility_flags: Optional[List[str]] = None
-
-    limits: Optional[ResourcesScriptRuntimeLimits] = None
-
-    migration_tag: Optional[str] = None
-
-    usage_model: Optional[Literal["bundled", "unbound", "standard"]] = None
-
-
-class Resources(BaseModel):
-    bindings: Optional[ResourcesBindings] = None
-
     script: Optional[ResourcesScript] = None
 
     script_runtime: Optional[ResourcesScriptRuntime] = None
+    """Runtime configuration for the Worker."""
 
 
 class Metadata(BaseModel):
     author_email: Optional[str] = None
+    """Email of the user who created the version."""
 
     author_id: Optional[str] = None
+    """Identifier of the user who created the version."""
 
     created_on: Optional[str] = None
+    """When the version was created."""
 
     has_preview: Optional[bool] = FieldInfo(alias="hasPreview", default=None)
+    """Whether the version can be previewed."""
 
     modified_on: Optional[str] = None
+    """When the version was last modified."""
 
     source: Optional[
         Literal[
@@ -455,15 +731,22 @@ class Metadata(BaseModel):
             "workersci",
         ]
     ] = None
+    """The source of the version upload."""
 
 
 class VersionCreateResponse(BaseModel):
     resources: Resources
 
     id: Optional[str] = None
+    """Unique identifier for the version."""
 
     metadata: Optional[Metadata] = None
 
     number: Optional[float] = None
+    """Sequential version number."""
 
     startup_time_ms: Optional[int] = None
+    """
+    Time in milliseconds spent on
+    [Worker startup](https://developers.cloudflare.com/workers/platform/limits/#worker-startup-time).
+    """

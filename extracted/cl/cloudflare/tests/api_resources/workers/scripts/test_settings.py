@@ -37,9 +37,18 @@ class TestSettings:
                 "logs": {
                     "enabled": True,
                     "invocation_logs": True,
+                    "destinations": ["cloudflare"],
                     "head_sampling_rate": 0.1,
+                    "persist": True,
+                },
+                "traces": {
+                    "destinations": ["cloudflare"],
+                    "enabled": True,
+                    "head_sampling_rate": 0.1,
+                    "persist": True,
                 },
             },
+            tags=["my-team", "my-public-api"],
             tail_consumers=[
                 {
                     "service": "my-log-consumer",
@@ -140,7 +149,9 @@ class TestSettings:
 
 
 class TestAsyncSettings:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_edit(self, async_client: AsyncCloudflare) -> None:
@@ -162,9 +173,18 @@ class TestAsyncSettings:
                 "logs": {
                     "enabled": True,
                     "invocation_logs": True,
+                    "destinations": ["cloudflare"],
                     "head_sampling_rate": 0.1,
+                    "persist": True,
+                },
+                "traces": {
+                    "destinations": ["cloudflare"],
+                    "enabled": True,
+                    "head_sampling_rate": 0.1,
+                    "persist": True,
                 },
             },
+            tags=["my-team", "my-public-api"],
             tail_consumers=[
                 {
                     "service": "my-log-consumer",

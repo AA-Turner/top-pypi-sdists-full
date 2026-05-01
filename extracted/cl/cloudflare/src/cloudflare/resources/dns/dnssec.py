@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -55,7 +55,7 @@ class DNSSECResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
         Delete DNSSEC.
@@ -74,7 +74,7 @@ class DNSSECResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._delete(
-            f"/zones/{zone_id}/dnssec",
+            path_template("/zones/{zone_id}/dnssec", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -89,16 +89,16 @@ class DNSSECResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        dnssec_multi_signer: bool | NotGiven = NOT_GIVEN,
-        dnssec_presigned: bool | NotGiven = NOT_GIVEN,
-        dnssec_use_nsec3: bool | NotGiven = NOT_GIVEN,
-        status: Literal["active", "disabled"] | NotGiven = NOT_GIVEN,
+        dnssec_multi_signer: bool | Omit = omit,
+        dnssec_presigned: bool | Omit = omit,
+        dnssec_use_nsec3: bool | Omit = omit,
+        status: Literal["active", "disabled"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSSEC]:
         """
         Enable or disable DNSSEC.
@@ -146,7 +146,7 @@ class DNSSECResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._patch(
-            f"/zones/{zone_id}/dnssec",
+            path_template("/zones/{zone_id}/dnssec", zone_id=zone_id),
             body=maybe_transform(
                 {
                     "dnssec_multi_signer": dnssec_multi_signer,
@@ -175,7 +175,7 @@ class DNSSECResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSSEC]:
         """
         Details about DNSSEC status and configuration.
@@ -194,7 +194,7 @@ class DNSSECResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/dnssec",
+            path_template("/zones/{zone_id}/dnssec", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -235,7 +235,7 @@ class AsyncDNSSECResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
         Delete DNSSEC.
@@ -254,7 +254,7 @@ class AsyncDNSSECResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._delete(
-            f"/zones/{zone_id}/dnssec",
+            path_template("/zones/{zone_id}/dnssec", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -269,16 +269,16 @@ class AsyncDNSSECResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        dnssec_multi_signer: bool | NotGiven = NOT_GIVEN,
-        dnssec_presigned: bool | NotGiven = NOT_GIVEN,
-        dnssec_use_nsec3: bool | NotGiven = NOT_GIVEN,
-        status: Literal["active", "disabled"] | NotGiven = NOT_GIVEN,
+        dnssec_multi_signer: bool | Omit = omit,
+        dnssec_presigned: bool | Omit = omit,
+        dnssec_use_nsec3: bool | Omit = omit,
+        status: Literal["active", "disabled"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSSEC]:
         """
         Enable or disable DNSSEC.
@@ -326,7 +326,7 @@ class AsyncDNSSECResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._patch(
-            f"/zones/{zone_id}/dnssec",
+            path_template("/zones/{zone_id}/dnssec", zone_id=zone_id),
             body=await async_maybe_transform(
                 {
                     "dnssec_multi_signer": dnssec_multi_signer,
@@ -355,7 +355,7 @@ class AsyncDNSSECResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DNSSEC]:
         """
         Details about DNSSEC status and configuration.
@@ -374,7 +374,7 @@ class AsyncDNSSECResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/dnssec",
+            path_template("/zones/{zone_id}/dnssec", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

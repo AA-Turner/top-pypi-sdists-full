@@ -1,25 +1,25 @@
 from _pytest import capture
 from contextlib import closing
+from devpi.main import Hub
+from devpi.main import get_pluginmanager
+from devpi.main import initmain
+from devpi.main import parse_args
 from devpi_common.contextlib import chdir
 from devpi_common.metadata import parse_version
+from devpi_common.url import URL
 from io import StringIO
 from pathlib import Path
-import codecs
 import gc
+import json
 import os
 import platform
 import pytest
-import socket
-import textwrap
 import shutil
-import sys
-import json
-import time
-
-from devpi.main import Hub, get_pluginmanager, initmain, parse_args
-from devpi_common.url import URL
-
+import socket
 import subprocess
+import sys
+import textwrap
+import time
 
 
 pytest_plugins = ["testing.reqmock"]
@@ -70,9 +70,33 @@ def print_info(*args, **kwargs):
     return print(*args, **kwargs)
 
 
+@pytest.fixture
+def remote_index_info(server_version):
+    from devpi_common.metadata import parse_version
+
+    if server_version < parse_version("7.0.0.dev2"):
+
+        class MirrorInfo:
+            refresh_option = "mirror_cache_expiry"
+            type = "mirror"
+            url_fmt_option = "mirror_web_url_fmt"
+            url_option = "mirror_url"
+
+        return MirrorInfo()
+
+    class RemoteInfo:
+        refresh_option = "remote_refresh_delay"
+        type = "remote"
+        url_fmt_option = "remote_web_url_fmt"
+        url_option = "remote_url"
+
+    return RemoteInfo()
+
+
 @pytest.fixture(scope="session")
 def simpypiserver():
-    from .simpypi import httpserver, SimPyPIRequestHandler
+    from .simpypi import SimPyPIRequestHandler
+    from .simpypi import httpserver
     import threading
     host = 'localhost'
     port = get_open_port(host)
@@ -225,7 +249,7 @@ def _liveserver(request, clientdir, indexer_backend_option, server_executable):
         "--serverdir", str(clientdir)]
     init_executable = server_executable.replace(
         "devpi-server", "devpi-init")
-    check_call(request, [init_executable, *args])
+    check_call(request, [init_executable, "--no-root-pypi", *args])
     args.extend(indexer_backend_option)
     out = check_output(request, [server_executable, "-h"])
     if b'--argon2' in out:
@@ -508,7 +532,7 @@ def out_devpi(devpi):
             out=capture.FDCapture(1),
             err=capture.FDCapture(2))
         cap.start_capturing()
-        now = time.time()
+        now = time.monotonic()
         ret = 0
         try:
             try:
@@ -525,7 +549,7 @@ def out_devpi(devpi):
             raise
         print(out)
         print(err, file=sys.stderr)
-        return RunResult(ret, out.split("\n"), None, time.time()-now)
+        return RunResult(ret, out.split("\n"), None, time.monotonic() - now)
     return out_devpi_func
 
 
@@ -587,15 +611,14 @@ def runprocess(tmpdir, cmdargs):
     cmdargs = [str(x) for x in cmdargs]
     p1 = Path(tmpdir) / "stdout"
     print_info("running", cmdargs, "curdir=", Path())
-    with codecs.open(str(p1), "w", encoding="utf8") as f1:
-        now = time.time()
+    with open(p1, "w", encoding="utf8") as f1:
+        now = time.monotonic()
         popen = subprocess.Popen(
             cmdargs, stdout=f1, stderr=subprocess.STDOUT,
             close_fds=(sys.platform != "win32"))
         ret = popen.wait()
-    with codecs.open(str(p1), "r", encoding="utf8") as f1:
-        outerr = f1.read().splitlines()
-    return RunResult(ret, outerr, None, time.time()-now)
+    outerr = p1.read_text().splitlines()
+    return RunResult(ret, outerr, None, time.monotonic() - now)
 
 
 @pytest.fixture

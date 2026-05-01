@@ -1,15 +1,21 @@
-from typing import Any, Callable, Sequence
+from collections.abc import Sequence
+from typing import Callable, cast
 
-from pyarrow import RecordBatchReader, Schema
+from cffi import FFI
+from pyarrow import RecordBatchReader, Schema, Table
 
-from .connection_raii import ConnectionRaii
+from .arrow_odbc import ffi, lib
+from .batch_reader_protocol import BatchReaderProtocol
+from .buffer import to_bytes_and_len
+from .error import raise_on_error
 from .pool import enable_odbc_connection_pooling
 from .reader import (
     DEFAULT_FETCH_BUFFER_LIMIT_IN_BYTES,
     DEFAULT_FETCH_BUFFER_LIMIT_IN_ROWS,
     BatchReader,
-    TextEncoding,
+    BatchReaderRaii,
 )
+from .text_encoding import TextEncoding
 from .writer import BatchWriter
 
 
@@ -18,8 +24,8 @@ class Connection:
     A strong reference to an ODBC connection.
     """
 
-    def __init__(self, raii: ConnectionRaii) -> None:
-        self.raii = raii
+    def __init__(self, handle: "FFI.CData") -> None:
+        self.handle: "FFI.CData" = handle
 
     @classmethod
     def enable_connection_pooling(cls) -> None:
@@ -171,33 +177,48 @@ class Connection:
             E.g. PostgreSQL, and Microsoft SQL Server do, but SQLite or MariaDB do not.
         :param payload_text_encoding: Controls the encoding used for transferring text data from the
                 ODBC data source to the application. The resulting Arrow arrays will still be UTF-8
-                encoded. You may want to use this if you get garbage characters or invalid UTF-8
-                errors on non-windows systems to set the encoding to ``TextEncoding.Utf16``. On
-                windows systems you may want to set this to ``TextEncoding::Utf8`` to gain
-                performance benefits, after you have verified that your system locale is set to
-                UTF-8.
+                encoded. If you see garbage characters or invalid UTF-8 errors in non-windows
+                systems, you may want to set the encoding to ``TextEncoding.Utf16``. On windows
+                systems you may want to set this to ``TextEncoding::Utf8`` to gain performance
+                benefits, after you have verified that your system locale is set to UTF-8.
         :return: A ``BatchReader`` is returned, which implements the iterator protocol and iterates
             over individual arrow batches.
         """
-        return BatchReader._from_connection(
-            connection=self.raii,
+        reader = BatchReaderRaii()
+
+        self._execute(
+            reader=reader,
             query=query,
-            batch_size=batch_size,
             parameters=parameters,
+            text_encoding=payload_text_encoding,
+            query_timeout_sec=query_timeout_sec,
+        )
+
+        if max_text_size is None:
+            max_text_size = 0
+        if max_binary_size is None:
+            max_binary_size = 0
+        if max_bytes_per_batch is None:
+            max_bytes_per_batch = 0
+
+        # Let us transition to reader state
+        reader.bind_buffers(
+            batch_size=batch_size,
             max_bytes_per_batch=max_bytes_per_batch,
             max_text_size=max_text_size,
             max_binary_size=max_binary_size,
             falliable_allocations=falliable_allocations,
+            payload_text_encoding=payload_text_encoding,
             schema=schema,
             map_schema=map_schema,
             fetch_concurrently=fetch_concurrently,
-            query_timeout_sec=query_timeout_sec,
-            payload_text_encoding=payload_text_encoding,
         )
+
+        return BatchReader(reader)
 
     def insert_into_table(
         self,
-        reader: Any,
+        reader: BatchReaderProtocol,
         table: str,
         chunk_size: int,
     ):
@@ -235,8 +256,8 @@ class Connection:
         :param chunk_size: Number of records to insert in each roundtrip to the database.
             Independent of batch size (i.e. number of rows in an individual record batch).
         """
-        writer = BatchWriter._from_connection(
-            connection=self.raii,
+        writer = BatchWriter.from_connection(
+            connection_handle=self.handle,
             reader=reader,
             chunk_size=chunk_size,
             table=table,
@@ -249,7 +270,7 @@ class Connection:
 
     def from_table_to_db(
         self,
-        source: Any,
+        source: Table,
         target: str,
         chunk_size: int = 1000,
     ):
@@ -303,19 +324,131 @@ class Connection:
             chunk_size=chunk_size,
         )
 
+    def execute(
+        self,
+        query: str,
+        parameters: Sequence[str | None] | None = None,
+        query_timeout_sec: int | None = None,
+        payload_text_encoding: TextEncoding = TextEncoding.AUTO,
+    ) -> None:
+        """
+        Execute a SQL statement which does not return a result set, e.g. ``INSERT``, ``UPDATE``,
+        ``DELETE`` or DDL like ``CREATE TABLE``. Any result set the statement might produce is
+        discarded.
+
+        Example:
+
+        .. code-block:: python
+
+            from arrow_odbc import connect
+
+            connection = connect(
+                connection_string=connection_string,
+                user="SA",
+                password="My@Test@Password",
+            )
+            connection.execute("CREATE TABLE MyTable (a INTEGER);")
+            connection.execute("INSERT INTO MyTable (a) VALUES (?);", parameters=["42"])
+
+        :param query: The SQL statement to execute.
+        :param parameters: ODBC allows you to use a question mark as placeholder marker (``?``) for
+            positional parameters. This argument takes a list of parameters those number must match
+            the number of placeholders in the SQL statement. Currently all parameters are passed as
+            VARCHAR strings. You can use ``None`` to pass ``NULL``.
+        :param query_timeout_sec: Use this to limit the time the query is allowed to take, before
+            responding to the application. The driver may replace the number of seconds you provide
+            with a minimum or maximum value. You can specify ``0`` to deactivate the timeout, this
+            is the default. For this to work the driver must support this feature. E.g. PostgreSQL
+            and Microsoft SQL Server do, but SQLite or MariaDB do not.
+        :param payload_text_encoding: Controls the encoding used for the string parameters bound
+            to the query. If you see garbage characters or invalid UTF-8 errors in non-windows
+            systems, you may want to set the encoding to ``TextEncoding.Utf16``. On windows
+            systems you may want to set this to ``TextEncoding::Utf8`` to gain performance
+            benefits, after you have verified that your system locale is set to UTF-8.
+        """
+        self._execute(
+            reader=None,
+            query=query,
+            parameters=parameters,
+            text_encoding=payload_text_encoding,
+            query_timeout_sec=query_timeout_sec,
+        )
+
     def rollback(self) -> None:
         """
         Rollback the current transaction. Behavior is only defined in manual commit mode, which can
         be set by setting ``autocommit`` to ``False`` when creating the connection.
         """
-        self.raii.rollback()
+        error = lib.arrow_odbc_connection_rollback(self.handle)
+        raise_on_error(error)
 
     def commit(self) -> None:
         """
         Commit the current transaction. Behavior is only defined in manual commit mode, which can
         be set by setting ``autocommit`` to ``False`` when creating the connection.
         """
-        self.raii.commit()
+        error = lib.arrow_odbc_connection_commit(self.handle)
+        raise_on_error(error)
+
+    def __del__(self):
+        if self.handle:
+            lib.arrow_odbc_connection_free(self.handle)
+
+    def _execute(
+        self,
+        reader: BatchReaderRaii | None,
+        query: str,
+        parameters: Sequence[str | None] | None,
+        text_encoding: TextEncoding,
+        query_timeout_sec: int | None,
+    ):
+        query_bytes = query.encode("utf-8")
+
+        if parameters is None:
+            parameters_array = FFI.NULL
+            parameters_len = 0
+            encoded_parameters = []
+        else:
+            # Check precondition in order to save users some debugging, in case they directly pass a
+            # non-string argument and do not use a type linter.
+            if not all([p is None or hasattr(p, "encode") for p in parameters]):
+                raise TypeError(
+                    "read_arrow_batches_from_odbc only supports string arguments for SQL query "
+                    + "parameters"
+                )
+
+            parameters_array = ffi.new("ArrowOdbcParameter *[]", len(parameters))
+            parameters_len = len(parameters)
+            # Must be kept alive. Within Rust code we only allocate an additional indicator the
+            # string payload is just referenced.
+            encoded_parameters = [to_bytes_and_len(p) for p in parameters]
+
+        text_encoding_int = text_encoding.value
+
+        for p_index in range(0, parameters_len):
+            (p_bytes, p_len) = encoded_parameters[p_index]
+            parameters_array[p_index] = lib.arrow_odbc_parameter_string_make(
+                p_bytes, p_len, text_encoding_int
+            )
+
+        if query_timeout_sec is None:
+            query_timeout_sec_pointer = ffi.NULL
+        else:
+            query_timeout_sec_pointer = ffi.new("uintptr_t *")
+            query_timeout_sec_pointer[0] = query_timeout_sec
+
+        reader_handle = ffi.NULL if reader is None else reader.handle
+        error = lib.arrow_odbc_connection_execute(
+            self.handle,
+            reader_handle,
+            query_bytes,
+            len(query_bytes),
+            parameters_array,
+            parameters_len,
+            query_timeout_sec_pointer,
+        )
+
+        raise_on_error(error)
 
 
 def connect(
@@ -382,16 +515,35 @@ def connect(
         queries in the same transaction. Insert performance might also differ based on commit mode.
     :return: A ``Connection`` is returned.
     """
-    raii = ConnectionRaii.connect(
-        connection_string=connection_string,
-        user=user,
-        password=password,
-        login_timeout_sec=login_timeout_sec,
-        packet_size=packet_size,
+    connection_string_bytes = connection_string.encode("utf-8")
+
+    (user_bytes, user_len) = to_bytes_and_len(user)
+    (password_bytes, password_len) = to_bytes_and_len(password)
+    # We use a pointer to pass the login time, so NULL can represent None
+    if login_timeout_sec is None:
+        login_timeout_sec_ptr = FFI.NULL
+    else:
+        login_timeout_sec_ptr = ffi.new("uint32_t *")
+        login_timeout_sec_ptr[0] = login_timeout_sec
+    if packet_size is None:
+        packet_size_ptr = FFI.NULL
+    else:
+        packet_size_ptr = ffi.new("uint32_t *")
+        packet_size_ptr[0] = packet_size
+    connection_out = ffi.new("ArrowOdbcConnection **")
+    error = lib.arrow_odbc_connection_make(
+        connection_string_bytes,
+        len(connection_string_bytes),
+        user_bytes,
+        user_len,
+        password_bytes,
+        password_len,
+        login_timeout_sec_ptr,
+        packet_size_ptr,
+        autocommit,
+        connection_out,
     )
-
-    # True is default
-    if not autocommit:
-        raii.set_autocommit(False)
-
-    return Connection(raii=raii)
+    raise_on_error(error)
+    # Take ownership of the ArrowOdbcConnection. The destructor of Connection will free it.
+    handle = cast("FFI.CData", connection_out[0])
+    return Connection(handle=handle)

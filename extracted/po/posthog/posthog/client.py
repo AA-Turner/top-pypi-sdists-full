@@ -3,11 +3,10 @@ import logging
 import os
 import sys
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Union
 from uuid import uuid4
 
-from dateutil.tz import tzutc
 from typing_extensions import Unpack
 
 from posthog.args import ID_TYPES, ExceptionArg, OptionalCaptureArgs, OptionalSetArgs
@@ -221,7 +220,7 @@ class Client(object):
         self.queue = queue.Queue(max_queue_size)
 
         # api_key: This should be the Team API Key (token), public
-        self.api_key = project_api_key.strip()
+        self.api_key = (project_api_key or "").strip()
 
         self.on_error = on_error
         self.debug = debug
@@ -246,7 +245,7 @@ class Client(object):
         self.flag_definition_version = 0
         self._flags_etag: Optional[str] = None
         self._flag_definition_cache_provider = flag_definition_cache_provider
-        self.disabled = disabled
+        self.disabled = disabled or not self.api_key
         self.disable_geoip = disable_geoip
         self.historical_migration = historical_migration
         self.super_properties = super_properties
@@ -539,6 +538,9 @@ class Client(object):
         Category:
             Feature flags
         """
+        if self.disabled:
+            return normalize_flags_response({})
+
         groups = groups or {}
         person_properties = person_properties or {}
         group_properties = group_properties or {}
@@ -1100,7 +1102,7 @@ class Client(object):
 
         timestamp = msg["timestamp"]
         if timestamp is None:
-            timestamp = datetime.now(tz=tzutc())
+            timestamp = datetime.now(tz=timezone.utc)
 
         # add common
         timestamp = guess_timezone(timestamp)
@@ -1277,7 +1279,7 @@ class Client(object):
                     self._update_flag_state(
                         cached_data, old_flags_by_key=self.feature_flags_by_key or {}
                     )
-                    self._last_feature_flag_poll = datetime.now(tz=tzutc())
+                    self._last_feature_flag_poll = datetime.now(tz=timezone.utc)
                     return
                 else:
                     # Emergency fallback: if cache is empty and we have no flags, fetch anyway.
@@ -1324,7 +1326,7 @@ class Client(object):
                 self.log.debug(
                     "[FEATURE FLAGS] Flags not modified (304), using cached data"
                 )
-                self._last_feature_flag_poll = datetime.now(tz=tzutc())
+                self._last_feature_flag_poll = datetime.now(tz=timezone.utc)
                 return
 
             if response.data is None:
@@ -1351,9 +1353,12 @@ class Client(object):
 
         except APIError as e:
             if e.status == 401:
-                self.log.error(
-                    "[FEATURE FLAGS] Error loading feature flags: To use feature flags, please set a valid personal_api_key. More information: https://posthog.com/docs/api/overview"
+                detail = (
+                    f"Error loading feature flags: {e.message}. "
+                    "Please verify both your project_api_key and personal_api_key. "
+                    "More information: https://posthog.com/docs/api/overview"
                 )
+                self.log.error("[FEATURE FLAGS] %s", detail)
                 self.feature_flags = []
                 self.group_type_mapping = {}
                 self.cohorts = {}
@@ -1362,12 +1367,7 @@ class Client(object):
                     self.flag_cache.clear()
 
                 if self.debug:
-                    raise APIError(
-                        status=401,
-                        message="You are using a write-only key with feature flags. "
-                        "To use feature flags, please set a personal_api_key "
-                        "More information: https://posthog.com/docs/api/overview",
-                    )
+                    raise APIError(status=401, message=detail)
             elif e.status == 402:
                 self.log.warning(
                     "[FEATURE FLAGS] PostHog feature flags quota limited, resetting feature flag data.  Learn more about billing limits at https://posthog.com/docs/billing/limits-alerts"
@@ -1395,7 +1395,7 @@ class Client(object):
             )
             self.log.warning(e)
 
-        self._last_feature_flag_poll = datetime.now(tz=tzutc())
+        self._last_feature_flag_poll = datetime.now(tz=timezone.utc)
 
     def load_feature_flags(self):
         """
@@ -1409,6 +1409,10 @@ class Client(object):
         Category:
             Feature flags
         """
+        if self.disabled:
+            self.feature_flags = []
+            return
+
         if not self.personal_api_key:
             self.log.warning(
                 "[FEATURE FLAGS] You have to specify a personal_api_key to use feature flags."

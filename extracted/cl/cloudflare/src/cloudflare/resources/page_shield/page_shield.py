@@ -22,8 +22,8 @@ from .scripts import (
     ScriptsResourceWithStreamingResponse,
     AsyncScriptsResourceWithStreamingResponse,
 )
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from .policies import (
     PoliciesResource,
     AsyncPoliciesResource,
@@ -97,15 +97,15 @@ class PageShieldResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        enabled: bool | NotGiven = NOT_GIVEN,
-        use_cloudflare_reporting_endpoint: bool | NotGiven = NOT_GIVEN,
-        use_connection_url_path: bool | NotGiven = NOT_GIVEN,
+        enabled: bool | Omit = omit,
+        use_cloudflare_reporting_endpoint: bool | Omit = omit,
+        use_connection_url_path: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PageShieldUpdateResponse]:
         """
         Updates Page Shield settings.
@@ -131,7 +131,7 @@ class PageShieldResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._put(
-            f"/zones/{zone_id}/page_shield",
+            path_template("/zones/{zone_id}/page_shield", zone_id=zone_id),
             body=maybe_transform(
                 {
                     "enabled": enabled,
@@ -159,7 +159,7 @@ class PageShieldResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Setting]:
         """
         Fetches the Page Shield settings.
@@ -178,7 +178,7 @@ class PageShieldResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/page_shield",
+            path_template("/zones/{zone_id}/page_shield", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -230,15 +230,15 @@ class AsyncPageShieldResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        enabled: bool | NotGiven = NOT_GIVEN,
-        use_cloudflare_reporting_endpoint: bool | NotGiven = NOT_GIVEN,
-        use_connection_url_path: bool | NotGiven = NOT_GIVEN,
+        enabled: bool | Omit = omit,
+        use_cloudflare_reporting_endpoint: bool | Omit = omit,
+        use_connection_url_path: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PageShieldUpdateResponse]:
         """
         Updates Page Shield settings.
@@ -264,7 +264,7 @@ class AsyncPageShieldResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._put(
-            f"/zones/{zone_id}/page_shield",
+            path_template("/zones/{zone_id}/page_shield", zone_id=zone_id),
             body=await async_maybe_transform(
                 {
                     "enabled": enabled,
@@ -292,7 +292,7 @@ class AsyncPageShieldResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Setting]:
         """
         Fetches the Page Shield settings.
@@ -311,7 +311,7 @@ class AsyncPageShieldResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/page_shield",
+            path_template("/zones/{zone_id}/page_shield", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

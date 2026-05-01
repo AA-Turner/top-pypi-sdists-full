@@ -10,14 +10,6 @@ from .limits import (
     LimitsResourceWithStreamingResponse,
     AsyncLimitsResourceWithStreamingResponse,
 )
-from .entries import (
-    EntriesResource,
-    AsyncEntriesResource,
-    EntriesResourceWithRawResponse,
-    AsyncEntriesResourceWithRawResponse,
-    EntriesResourceWithStreamingResponse,
-    AsyncEntriesResourceWithStreamingResponse,
-)
 from .patterns import (
     PatternsResource,
     AsyncPatternsResource,
@@ -25,6 +17,14 @@ from .patterns import (
     AsyncPatternsResourceWithRawResponse,
     PatternsResourceWithStreamingResponse,
     AsyncPatternsResourceWithStreamingResponse,
+)
+from .settings import (
+    SettingsResource,
+    AsyncSettingsResource,
+    SettingsResourceWithRawResponse,
+    AsyncSettingsResourceWithRawResponse,
+    SettingsResourceWithStreamingResponse,
+    AsyncSettingsResourceWithStreamingResponse,
 )
 from ...._compat import cached_property
 from .email.email import (
@@ -43,6 +43,14 @@ from .payload_logs import (
     AsyncPayloadLogsResourceWithRawResponse,
     PayloadLogsResourceWithStreamingResponse,
     AsyncPayloadLogsResourceWithStreamingResponse,
+)
+from .entries.entries import (
+    EntriesResource,
+    AsyncEntriesResource,
+    EntriesResourceWithRawResponse,
+    AsyncEntriesResourceWithRawResponse,
+    EntriesResourceWithStreamingResponse,
+    AsyncEntriesResourceWithStreamingResponse,
 )
 from .datasets.datasets import (
     DatasetsResource,
@@ -76,6 +84,10 @@ class DLPResource(SyncAPIResource):
     @cached_property
     def payload_logs(self) -> PayloadLogsResource:
         return PayloadLogsResource(self._client)
+
+    @cached_property
+    def settings(self) -> SettingsResource:
+        return SettingsResource(self._client)
 
     @cached_property
     def email(self) -> EmailResource:
@@ -125,6 +137,10 @@ class AsyncDLPResource(AsyncAPIResource):
     @cached_property
     def payload_logs(self) -> AsyncPayloadLogsResource:
         return AsyncPayloadLogsResource(self._client)
+
+    @cached_property
+    def settings(self) -> AsyncSettingsResource:
+        return AsyncSettingsResource(self._client)
 
     @cached_property
     def email(self) -> AsyncEmailResource:
@@ -179,6 +195,10 @@ class DLPResourceWithRawResponse:
         return PayloadLogsResourceWithRawResponse(self._dlp.payload_logs)
 
     @cached_property
+    def settings(self) -> SettingsResourceWithRawResponse:
+        return SettingsResourceWithRawResponse(self._dlp.settings)
+
+    @cached_property
     def email(self) -> EmailResourceWithRawResponse:
         return EmailResourceWithRawResponse(self._dlp.email)
 
@@ -210,6 +230,10 @@ class AsyncDLPResourceWithRawResponse:
     @cached_property
     def payload_logs(self) -> AsyncPayloadLogsResourceWithRawResponse:
         return AsyncPayloadLogsResourceWithRawResponse(self._dlp.payload_logs)
+
+    @cached_property
+    def settings(self) -> AsyncSettingsResourceWithRawResponse:
+        return AsyncSettingsResourceWithRawResponse(self._dlp.settings)
 
     @cached_property
     def email(self) -> AsyncEmailResourceWithRawResponse:
@@ -245,6 +269,10 @@ class DLPResourceWithStreamingResponse:
         return PayloadLogsResourceWithStreamingResponse(self._dlp.payload_logs)
 
     @cached_property
+    def settings(self) -> SettingsResourceWithStreamingResponse:
+        return SettingsResourceWithStreamingResponse(self._dlp.settings)
+
+    @cached_property
     def email(self) -> EmailResourceWithStreamingResponse:
         return EmailResourceWithStreamingResponse(self._dlp.email)
 
@@ -276,6 +304,10 @@ class AsyncDLPResourceWithStreamingResponse:
     @cached_property
     def payload_logs(self) -> AsyncPayloadLogsResourceWithStreamingResponse:
         return AsyncPayloadLogsResourceWithStreamingResponse(self._dlp.payload_logs)
+
+    @cached_property
+    def settings(self) -> AsyncSettingsResourceWithStreamingResponse:
+        return AsyncSettingsResourceWithStreamingResponse(self._dlp.settings)
 
     @cached_property
     def email(self) -> AsyncEmailResourceWithStreamingResponse:

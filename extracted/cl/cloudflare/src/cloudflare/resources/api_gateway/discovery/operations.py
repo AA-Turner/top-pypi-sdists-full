@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Type, cast
+from typing import Dict, Type, cast
 from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -52,23 +52,23 @@ class OperationsResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        diff: bool | NotGiven = NOT_GIVEN,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        endpoint: str | NotGiven = NOT_GIVEN,
-        host: List[str] | NotGiven = NOT_GIVEN,
-        method: List[str] | NotGiven = NOT_GIVEN,
+        diff: bool | Omit = omit,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        endpoint: str | Omit = omit,
+        host: SequenceNotStr[str] | Omit = omit,
+        method: SequenceNotStr[str] | Omit = omit,
         order: Literal["host", "method", "endpoint", "traffic_stats.requests", "traffic_stats.last_updated"]
-        | NotGiven = NOT_GIVEN,
-        origin: Literal["ML", "SessionIdentifier", "LabelDiscovery"] | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        state: Literal["review", "saved", "ignored"] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        origin: Literal["ML", "SessionIdentifier", "LabelDiscovery"] | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        state: Literal["review", "saved", "ignored"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[DiscoveryOperation]:
         """
         Retrieve the most up to date view of discovered operations
@@ -120,7 +120,7 @@ class OperationsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/api_gateway/discovery/operations",
+            path_template("/zones/{zone_id}/api_gateway/discovery/operations", zone_id=zone_id),
             page=SyncV4PagePaginationArray[DiscoveryOperation],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -156,7 +156,7 @@ class OperationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OperationBulkEditResponse:
         """
         Update the `state` on one or more discovered operations
@@ -175,7 +175,7 @@ class OperationsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._patch(
-            f"/zones/{zone_id}/api_gateway/discovery/operations",
+            path_template("/zones/{zone_id}/api_gateway/discovery/operations", zone_id=zone_id),
             body=maybe_transform(body, operation_bulk_edit_params.OperationBulkEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -192,13 +192,13 @@ class OperationsResource(SyncAPIResource):
         operation_id: str,
         *,
         zone_id: str,
-        state: Literal["review", "ignored"] | NotGiven = NOT_GIVEN,
+        state: Literal["review", "ignored"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OperationEditResponse:
         """
         Update the `state` on a discovered operation
@@ -226,7 +226,11 @@ class OperationsResource(SyncAPIResource):
         if not operation_id:
             raise ValueError(f"Expected a non-empty value for `operation_id` but received {operation_id!r}")
         return self._patch(
-            f"/zones/{zone_id}/api_gateway/discovery/operations/{operation_id}",
+            path_template(
+                "/zones/{zone_id}/api_gateway/discovery/operations/{operation_id}",
+                zone_id=zone_id,
+                operation_id=operation_id,
+            ),
             body=maybe_transform({"state": state}, operation_edit_params.OperationEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -263,23 +267,23 @@ class AsyncOperationsResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        diff: bool | NotGiven = NOT_GIVEN,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        endpoint: str | NotGiven = NOT_GIVEN,
-        host: List[str] | NotGiven = NOT_GIVEN,
-        method: List[str] | NotGiven = NOT_GIVEN,
+        diff: bool | Omit = omit,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        endpoint: str | Omit = omit,
+        host: SequenceNotStr[str] | Omit = omit,
+        method: SequenceNotStr[str] | Omit = omit,
         order: Literal["host", "method", "endpoint", "traffic_stats.requests", "traffic_stats.last_updated"]
-        | NotGiven = NOT_GIVEN,
-        origin: Literal["ML", "SessionIdentifier", "LabelDiscovery"] | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        state: Literal["review", "saved", "ignored"] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        origin: Literal["ML", "SessionIdentifier", "LabelDiscovery"] | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        state: Literal["review", "saved", "ignored"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DiscoveryOperation, AsyncV4PagePaginationArray[DiscoveryOperation]]:
         """
         Retrieve the most up to date view of discovered operations
@@ -331,7 +335,7 @@ class AsyncOperationsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/api_gateway/discovery/operations",
+            path_template("/zones/{zone_id}/api_gateway/discovery/operations", zone_id=zone_id),
             page=AsyncV4PagePaginationArray[DiscoveryOperation],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -367,7 +371,7 @@ class AsyncOperationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OperationBulkEditResponse:
         """
         Update the `state` on one or more discovered operations
@@ -386,7 +390,7 @@ class AsyncOperationsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._patch(
-            f"/zones/{zone_id}/api_gateway/discovery/operations",
+            path_template("/zones/{zone_id}/api_gateway/discovery/operations", zone_id=zone_id),
             body=await async_maybe_transform(body, operation_bulk_edit_params.OperationBulkEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -403,13 +407,13 @@ class AsyncOperationsResource(AsyncAPIResource):
         operation_id: str,
         *,
         zone_id: str,
-        state: Literal["review", "ignored"] | NotGiven = NOT_GIVEN,
+        state: Literal["review", "ignored"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> OperationEditResponse:
         """
         Update the `state` on a discovered operation
@@ -437,7 +441,11 @@ class AsyncOperationsResource(AsyncAPIResource):
         if not operation_id:
             raise ValueError(f"Expected a non-empty value for `operation_id` but received {operation_id!r}")
         return await self._patch(
-            f"/zones/{zone_id}/api_gateway/discovery/operations/{operation_id}",
+            path_template(
+                "/zones/{zone_id}/api_gateway/discovery/operations/{operation_id}",
+                zone_id=zone_id,
+                operation_id=operation_id,
+            ),
             body=await async_maybe_transform({"state": state}, operation_edit_params.OperationEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,

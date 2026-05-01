@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -50,21 +50,21 @@ class RegionsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        country_code_a2: str | NotGiven = NOT_GIVEN,
-        subdivision_code: str | NotGiven = NOT_GIVEN,
-        subdivision_code_a2: str | NotGiven = NOT_GIVEN,
+        country_code_a2: str | Omit = omit,
+        subdivision_code: str | Omit = omit,
+        subdivision_code_a2: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RegionListResponse:
         """
         List all region mappings.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           country_code_a2: Two-letter alpha-2 country code followed in ISO 3166-1.
 
@@ -85,7 +85,7 @@ class RegionsResource(SyncAPIResource):
         return cast(
             RegionListResponse,
             self._get(
-                f"/accounts/{account_id}/load_balancers/regions",
+                path_template("/accounts/{account_id}/load_balancers/regions", account_id=account_id),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -119,13 +119,13 @@ class RegionsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RegionGetResponse:
         """
         Get a single region mapping.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           region_id: A list of Cloudflare regions. WNAM: Western North America, ENAM: Eastern North
               America, WEU: Western Europe, EEU: Eastern Europe, NSAM: Northern South America,
@@ -148,7 +148,11 @@ class RegionsResource(SyncAPIResource):
         return cast(
             RegionGetResponse,
             self._get(
-                f"/accounts/{account_id}/load_balancers/regions/{region_id}",
+                path_template(
+                    "/accounts/{account_id}/load_balancers/regions/{region_id}",
+                    account_id=account_id,
+                    region_id=region_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -187,21 +191,21 @@ class AsyncRegionsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        country_code_a2: str | NotGiven = NOT_GIVEN,
-        subdivision_code: str | NotGiven = NOT_GIVEN,
-        subdivision_code_a2: str | NotGiven = NOT_GIVEN,
+        country_code_a2: str | Omit = omit,
+        subdivision_code: str | Omit = omit,
+        subdivision_code_a2: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RegionListResponse:
         """
         List all region mappings.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           country_code_a2: Two-letter alpha-2 country code followed in ISO 3166-1.
 
@@ -222,7 +226,7 @@ class AsyncRegionsResource(AsyncAPIResource):
         return cast(
             RegionListResponse,
             await self._get(
-                f"/accounts/{account_id}/load_balancers/regions",
+                path_template("/accounts/{account_id}/load_balancers/regions", account_id=account_id),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -256,13 +260,13 @@ class AsyncRegionsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RegionGetResponse:
         """
         Get a single region mapping.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           region_id: A list of Cloudflare regions. WNAM: Western North America, ENAM: Eastern North
               America, WEU: Western Europe, EEU: Eastern Europe, NSAM: Northern South America,
@@ -285,7 +289,11 @@ class AsyncRegionsResource(AsyncAPIResource):
         return cast(
             RegionGetResponse,
             await self._get(
-                f"/accounts/{account_id}/load_balancers/regions/{region_id}",
+                path_template(
+                    "/accounts/{account_id}/load_balancers/regions/{region_id}",
+                    account_id=account_id,
+                    region_id=region_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,

@@ -32,7 +32,6 @@ from typing_extensions import Literal
 # extensive boilerplate.
 # pylint: disable=g-import-not-at-top,g-bad-import-order
 
-_DEFAULT_FLOAT = "float32"
 _DEFAULT_INT = "int64"
 
 _TENSORFLOW_TILE_KEYWORD = "multiples"
@@ -359,7 +358,31 @@ def _jax_make_tensor_proto(values, dtype=None, shape=None):  # pylint: disable=u
       ),
   )
 
-  proto.tensor_content = values.tobytes()
+  if proto_dtype != types_pb2.DT_STRING and values.size > 1:
+    proto.tensor_content = values.tobytes()
+  else:
+    flat_values = values.flatten()
+    if proto_dtype == types_pb2.DT_FLOAT:
+      proto.float_val.extend(flat_values)
+    elif proto_dtype == types_pb2.DT_DOUBLE:
+      proto.double_val.extend(flat_values)
+    elif proto_dtype == types_pb2.DT_INT32:
+      proto.int_val.extend(flat_values)
+    elif proto_dtype == types_pb2.DT_INT64:
+      proto.int64_val.extend(flat_values)
+    elif proto_dtype == types_pb2.DT_BOOL:
+      proto.bool_val.extend(flat_values)
+    elif proto_dtype == types_pb2.DT_UINT32:
+      proto.uint32_val.extend(flat_values)
+    elif proto_dtype == types_pb2.DT_UINT64:
+      proto.uint64_val.extend(flat_values)
+    elif proto_dtype == types_pb2.DT_STRING:
+      proto.string_val.extend(
+          [v.encode("utf-8") if isinstance(v, str) else v for v in flat_values]
+      )
+    else:
+      proto.tensor_content = values.tobytes()
+
   return proto
 
 
@@ -946,6 +969,7 @@ if _BACKEND == config.Backend.JAX:
     media_reshaped = jax_ops.reshape(media_transposed, (1, -1, n_times_in))
 
     total_channels = media_reshaped.shape[1]
+    weights = jax_ops.asarray(weights, dtype=media.dtype)
     weights_expanded = jax_ops.expand_dims(weights, -3)
     weights_tiled = jax_ops.broadcast_to(
         weights_expanded, batch_dims + (n_geos, n_channels, window_size)
@@ -1080,7 +1104,9 @@ if _BACKEND == config.Backend.JAX:
   zeros = _ops.zeros
   zeros_like = _ops.zeros_like
 
-  float32 = _ops.float32
+  float_dtype = _ops.float64 if jax.config.jax_enable_x64 else _ops.float32
+  np_float_dtype = np.float64 if jax.config.jax_enable_x64 else np.float32
+  _DEFAULT_FLOAT = "float64" if jax.config.jax_enable_x64 else "float32"
   bool_ = _ops.bool_
   newaxis = _ops.newaxis
   TensorShape = _jax_tensor_shape
@@ -1265,7 +1291,9 @@ elif _BACKEND == config.Backend.TENSORFLOW:
 
   stabilize_rf_roi_grid = _tf_stabilize_rf_roi_grid
 
-  float32 = _ops.float32
+  float_dtype = _ops.float32
+  np_float_dtype = np.float32
+  _DEFAULT_FLOAT = "float32"
   bool_ = _ops.bool
   newaxis = _ops.newaxis
   TensorShape = _ops.TensorShape
@@ -1371,11 +1399,11 @@ class _JaxRNGHandler(_BaseRNGHandler):
     """Initializes the JAX RNG handler.
 
     Args:
-      seed: The initial seed, which must be a Python integer, a scalar integer
-        Tensor/array, or None.
+      seed: The initial seed, which must be a Python integer, a sequence of two
+        integers, a scalar integer Tensor/array, or None.
 
     Raises:
-      ValueError: If the provided seed is not a scalar integer or None.
+      ValueError: If the provided seed is invalid.
     """
     super().__init__(seed)
     self._key: Optional["_jax.Array"] = None
@@ -1394,10 +1422,19 @@ class _JaxRNGHandler(_BaseRNGHandler):
       self._key = seed
       return
 
+    try:
+      seed_arr = np.asarray(seed)
+      if seed_arr.shape == (2,) and np.issubdtype(seed_arr.dtype, np.integer):
+        self._key = jax_ops.asarray(seed_arr, dtype=jax_ops.uint32)
+        return
+    except (TypeError, ValueError):
+      pass
+
     if self._int_seed is None:
       raise ValueError(
-          "JAX backend requires a seed that is an integer or a scalar array,"
-          f" but got: {type(seed)} with value {seed!r}"
+          "JAX backend requires a seed that is an integer, a sequence of two"
+          f" integers, or a scalar array, but got: {type(seed)} with value"
+          f" {seed!r}"
       )
 
     self._key = random.prng_key(self._int_seed)
@@ -1529,3 +1566,20 @@ def computation_backend() -> config.ComputationBackend:
     return config.ComputationBackend.TENSORFLOW
 
   return config.ComputationBackend.COMPUTATION_BACKEND_UNSPECIFIED
+
+
+def computation_precision() -> config.ComputationPrecision:
+  """Returns the active computation precision.
+
+  Returns:
+    The ComputationPrecision enum corresponding to the active precision.
+
+  Raises:
+    ValueError: If `_DEFAULT_FLOAT` is an unsupported format.
+  """
+  if _DEFAULT_FLOAT == "float32":
+    return config.ComputationPrecision.FLOAT32
+  if _DEFAULT_FLOAT == "float64":
+    return config.ComputationPrecision.FLOAT64
+
+  raise ValueError(f"Unsupported computation precision: {_DEFAULT_FLOAT}")

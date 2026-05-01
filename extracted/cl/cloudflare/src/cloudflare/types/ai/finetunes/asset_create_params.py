@@ -12,6 +12,8 @@ __all__ = ["AssetCreateParams"]
 class AssetCreateParams(TypedDict, total=False):
     account_id: Required[str]
 
-    file: FileTypes
+    file: Required[FileTypes]
+    """File to upload"""
 
-    file_name: str
+    file_name: Required[str]
+    """Name of the file (adapter_config.json or adapter_model.safetensors)"""

@@ -18,6 +18,7 @@ from quack.cute_dsl_utils import (
     get_device_capacity,
     get_max_active_clusters,
 )
+from quack.gemm_sm80 import GemmSm80
 from quack.gemm_sm90 import GemmSm90
 from quack.gemm_sm100 import GemmSm100
 from quack.gemm_sm120 import GemmSm120
@@ -73,21 +74,25 @@ class GemmNormActMixin(GemmActMixin):
         vec_multiply(self, tRS_rD, tDrColVec, tDrRowVec)
         # Apply activation
         if const_expr(params.act_fn is not None):
-            tRS_rPostAct = cute.make_rmem_tensor(tRS_rD.layout.shape, self.acc_dtype)
+            tRS_rAuxOut = cute.make_rmem_tensor(tRS_rD.layout.shape, self.acc_dtype)
             if const_expr(self.arch != 100):
-                for i in cutlass.range(cute.size(tRS_rPostAct), unroll_full=True):
-                    tRS_rPostAct[i] = params.act_fn(tRS_rD[i])
+                for i in cutlass.range(cute.size(tRS_rAuxOut), unroll_full=True):
+                    tRS_rAuxOut[i] = params.act_fn(tRS_rD[i])
             else:
-                for i in cutlass.range(cute.size(tRS_rPostAct) // 2, unroll_full=True):
-                    tRS_rPostAct[2 * i], tRS_rPostAct[2 * i + 1] = params.act_fn(
+                for i in cutlass.range(cute.size(tRS_rAuxOut) // 2, unroll_full=True):
+                    tRS_rAuxOut[2 * i], tRS_rAuxOut[2 * i + 1] = params.act_fn(
                         (tRS_rD[2 * i], tRS_rD[2 * i + 1])
                     )
         else:
-            tRS_rPostAct = tRS_rD
-        return tRS_rPostAct
+            tRS_rAuxOut = tRS_rD
+        return tRS_rAuxOut
 
 
 class GemmNormActSm90(GemmNormActMixin, GemmSm90):
+    pass
+
+
+class GemmNormActSm80(GemmNormActMixin, GemmSm80):
     pass
 
 
@@ -127,21 +132,25 @@ class GemmNormGatedMixin(GemmGatedMixin):
         # Multiply by colvec (rstd) and rowvec (norm_weight)
         vec_multiply(self, tRS_rD, tDrColVec, tDrRowVec)
         # Gated activation on normalized D
-        tRS_rPostAct_layout = cute.recast_layout(2, 1, tRS_rD.layout)
-        tRS_rPostAct = cute.make_rmem_tensor(tRS_rPostAct_layout.shape, self.acc_dtype)
+        tRS_rAuxOut_layout = cute.recast_layout(2, 1, tRS_rD.layout)
+        tRS_rAuxOut = cute.make_rmem_tensor(tRS_rAuxOut_layout.shape, self.acc_dtype)
         if const_expr(self.arch != 100):
-            for i in cutlass.range(cute.size(tRS_rPostAct), unroll_full=True):
-                tRS_rPostAct[i] = params.act_fn(tRS_rD[2 * i], tRS_rD[2 * i + 1])
+            for i in cutlass.range(cute.size(tRS_rAuxOut), unroll_full=True):
+                tRS_rAuxOut[i] = params.act_fn(tRS_rD[2 * i], tRS_rD[2 * i + 1])
         else:
-            for i in cutlass.range(cute.size(tRS_rPostAct) // 2, unroll_full=True):
-                tRS_rPostAct[2 * i], tRS_rPostAct[2 * i + 1] = params.act_fn(
+            for i in cutlass.range(cute.size(tRS_rAuxOut) // 2, unroll_full=True):
+                tRS_rAuxOut[2 * i], tRS_rAuxOut[2 * i + 1] = params.act_fn(
                     (tRS_rD[4 * i], tRS_rD[4 * i + 2]),
                     (tRS_rD[4 * i + 1], tRS_rD[4 * i + 3]),
                 )
-        return tRS_rPostAct
+        return tRS_rAuxOut
 
 
 class GemmNormGatedSm90(GemmNormGatedMixin, GemmSm90):
+    pass
+
+
+class GemmNormGatedSm80(GemmNormGatedMixin, GemmSm80):
     pass
 
 
@@ -183,12 +192,14 @@ def _compile_gemm_norm_act(
 ):
     sm_to_cls = {
         "norm_act": {
+            8: GemmNormActSm80,
             9: GemmNormActSm90,
             10: GemmNormActSm100,
             11: GemmNormActSm100,
             12: GemmNormActSm120,
         },
         "norm_gated": {
+            8: GemmNormGatedSm80,
             9: GemmNormGatedSm90,
             10: GemmNormGatedSm100,
             11: GemmNormGatedSm100,
@@ -213,7 +224,7 @@ def _compile_gemm_norm_act(
     pa_n = cute.sym_int() if gemm_cls_name == "norm_gated" else n
     pa_leading_dim = 1 if gemm_cls_name == "norm_gated" else pa_leading
     pa_shape = (m, pa_n) if varlen_m else (m, pa_n, l)
-    mPostAct = fake_tensor(postact_dtype, pa_shape, leading_dim=pa_leading_dim, divisibility=div_pa)
+    mAuxOut = fake_tensor(postact_dtype, pa_shape, leading_dim=pa_leading_dim, divisibility=div_pa)
 
     mRowVec = fake_tensor(rowvec_dtype, (l, n), leading_dim=1, divisibility=4)
     if colvec_ndim == 2:
@@ -234,7 +245,7 @@ def _compile_gemm_norm_act(
             return make_ptr(dtype, 0, cute.AddressSpace.gmem, assumed_align=4)
 
     epi_args = GemmCls.EpilogueArguments(
-        mPostAct,
+        mAuxOut,
         act_fn,
         mRowVecBroadcast=mRowVec,
         mColVecBroadcast=mColVec,
@@ -327,9 +338,9 @@ def gemm_norm_act_fn(
     colvec_ndim = colvec.ndim if colvec is not None else 0
 
     device_capacity = get_device_capacity(A.device)
-    assert device_capacity[0] in [9, 10, 11, 12], "Only SM90, SM100, SM110, and SM120 are supported"
-    if tile_K is not None:
-        assert device_capacity[0] in [10, 11], "tile_K currently requires SM100/SM110"
+    assert device_capacity[0] in [8, 9, 10, 11, 12], (
+        "Only SM8x, SM90, SM100, SM110, and SM120 are supported"
+    )
     if rounding_mode == RoundingMode.RS:
         assert device_capacity[0] == 10, "Stochastic rounding requires SM100"
 

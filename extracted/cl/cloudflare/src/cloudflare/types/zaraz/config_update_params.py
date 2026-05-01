@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable
+from typing import Dict, Union, Iterable
 from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
 
+from ..._types import SequenceNotStr
 from ..._utils import PropertyInfo
 from .neo_event_param import NeoEventParam
 from .button_text_translation_param import ButtonTextTranslationParam
@@ -104,12 +105,16 @@ class ConfigUpdateParams(TypedDict, total=False):
 
 
 class SettingsContextEnricher(TypedDict, total=False):
+    """Details of the worker that receives and edits Zaraz Context object."""
+
     escaped_worker_name: Required[Annotated[str, PropertyInfo(alias="escapedWorkerName")]]
 
     worker_tag: Required[Annotated[str, PropertyInfo(alias="workerTag")]]
 
 
 class Settings(TypedDict, total=False):
+    """General Zaraz settings."""
+
     auto_inject_script: Required[Annotated[bool, PropertyInfo(alias="autoInjectScript")]]
     """Automatic injection of Zaraz scripts enabled."""
 
@@ -135,7 +140,7 @@ class Settings(TypedDict, total=False):
     """Removing URL query params enabled."""
 
     hide_user_agent: Annotated[bool, PropertyInfo(alias="hideUserAgent")]
-    """Removing sensitive data from User Aagent string enabled."""
+    """Removing sensitive data from User Agent string enabled."""
 
     init_path: Annotated[str, PropertyInfo(alias="initPath")]
     """Custom endpoint for Zaraz init script."""
@@ -154,26 +159,26 @@ class Settings(TypedDict, total=False):
 
 
 class ToolsZarazManagedComponent(TypedDict, total=False):
-    blocking_triggers: Required[Annotated[List[str], PropertyInfo(alias="blockingTriggers")]]
-    """List of blocking trigger IDs"""
+    blocking_triggers: Required[Annotated[SequenceNotStr[str], PropertyInfo(alias="blockingTriggers")]]
+    """List of blocking trigger IDs."""
 
     component: Required[str]
-    """Tool's internal name"""
+    """Tool's internal name."""
 
     default_fields: Required[Annotated[Dict[str, Union[str, bool]], PropertyInfo(alias="defaultFields")]]
-    """Default fields for tool's actions"""
+    """Default fields for tool's actions."""
 
     enabled: Required[bool]
-    """Whether tool is enabled"""
+    """Whether tool is enabled."""
 
     name: Required[str]
-    """Tool's name defined by the user"""
+    """Tool's name defined by the user."""
 
-    permissions: Required[List[str]]
-    """List of permissions granted to the component"""
+    permissions: Required[SequenceNotStr[str]]
+    """List of permissions granted to the component."""
 
     settings: Required[Dict[str, Union[str, bool]]]
-    """Tool's settings"""
+    """Tool's settings."""
 
     type: Required[Literal["component"]]
 
@@ -181,7 +186,7 @@ class ToolsZarazManagedComponent(TypedDict, total=False):
     """Actions configured on a tool. Either this or neoEvents field is required."""
 
     default_purpose: Annotated[str, PropertyInfo(alias="defaultPurpose")]
-    """Default consent purpose ID"""
+    """Default consent purpose ID."""
 
     neo_events: Annotated[Iterable[NeoEventParam], PropertyInfo(alias="neoEvents")]
     """DEPRECATED - List of actions configured on a tool.
@@ -193,54 +198,56 @@ class ToolsZarazManagedComponent(TypedDict, total=False):
     vendor_name: Annotated[str, PropertyInfo(alias="vendorName")]
     """
     Vendor name for TCF compliant consent modal, required for Custom Managed
-    Components and Custom HTML tool with a defaultPurpose assigned
+    Components and Custom HTML tool with a defaultPurpose assigned.
     """
 
     vendor_policy_url: Annotated[str, PropertyInfo(alias="vendorPolicyUrl")]
     """
     Vendor's Privacy Policy URL for TCF compliant consent modal, required for Custom
-    Managed Components and Custom HTML tool with a defaultPurpose assigned
+    Managed Components and Custom HTML tool with a defaultPurpose assigned.
     """
 
 
 class ToolsWorkerWorker(TypedDict, total=False):
+    """Cloudflare worker that acts as a managed component."""
+
     escaped_worker_name: Required[Annotated[str, PropertyInfo(alias="escapedWorkerName")]]
 
     worker_tag: Required[Annotated[str, PropertyInfo(alias="workerTag")]]
 
 
 class ToolsWorker(TypedDict, total=False):
-    blocking_triggers: Required[Annotated[List[str], PropertyInfo(alias="blockingTriggers")]]
-    """List of blocking trigger IDs"""
+    blocking_triggers: Required[Annotated[SequenceNotStr[str], PropertyInfo(alias="blockingTriggers")]]
+    """List of blocking trigger IDs."""
 
     component: Required[str]
-    """Tool's internal name"""
+    """Tool's internal name."""
 
     default_fields: Required[Annotated[Dict[str, Union[str, bool]], PropertyInfo(alias="defaultFields")]]
-    """Default fields for tool's actions"""
+    """Default fields for tool's actions."""
 
     enabled: Required[bool]
-    """Whether tool is enabled"""
+    """Whether tool is enabled."""
 
     name: Required[str]
-    """Tool's name defined by the user"""
+    """Tool's name defined by the user."""
 
-    permissions: Required[List[str]]
-    """List of permissions granted to the component"""
+    permissions: Required[SequenceNotStr[str]]
+    """List of permissions granted to the component."""
 
     settings: Required[Dict[str, Union[str, bool]]]
-    """Tool's settings"""
+    """Tool's settings."""
 
     type: Required[Literal["custom-mc"]]
 
     worker: Required[ToolsWorkerWorker]
-    """Cloudflare worker that acts as a managed component"""
+    """Cloudflare worker that acts as a managed component."""
 
     actions: Dict[str, NeoEventParam]
     """Actions configured on a tool. Either this or neoEvents field is required."""
 
     default_purpose: Annotated[str, PropertyInfo(alias="defaultPurpose")]
-    """Default consent purpose ID"""
+    """Default consent purpose ID."""
 
     neo_events: Annotated[Iterable[NeoEventParam], PropertyInfo(alias="neoEvents")]
     """DEPRECATED - List of actions configured on a tool.
@@ -252,13 +259,13 @@ class ToolsWorker(TypedDict, total=False):
     vendor_name: Annotated[str, PropertyInfo(alias="vendorName")]
     """
     Vendor name for TCF compliant consent modal, required for Custom Managed
-    Components and Custom HTML tool with a defaultPurpose assigned
+    Components and Custom HTML tool with a defaultPurpose assigned.
     """
 
     vendor_policy_url: Annotated[str, PropertyInfo(alias="vendorPolicyUrl")]
     """
     Vendor's Privacy Policy URL for TCF compliant consent modal, required for Custom
-    Managed Components and Custom HTML tool with a defaultPurpose assigned
+    Managed Components and Custom HTML tool with a defaultPurpose assigned.
     """
 
 
@@ -547,6 +554,8 @@ Variables: TypeAlias = Union[VariablesZarazStringVariable, VariablesZarazSecretV
 
 
 class Analytics(TypedDict, total=False):
+    """Cloudflare Monitoring settings."""
+
     default_purpose: Annotated[str, PropertyInfo(alias="defaultPurpose")]
     """Consent purpose assigned to Monitoring."""
 
@@ -565,15 +574,17 @@ class ConsentPurposes(TypedDict, total=False):
 
 class ConsentPurposesWithTranslations(TypedDict, total=False):
     description: Required[Dict[str, str]]
-    """Object where keys are language codes"""
+    """Object where keys are language codes."""
 
     name: Required[Dict[str, str]]
-    """Object where keys are language codes"""
+    """Object where keys are language codes."""
 
     order: Required[int]
 
 
 class Consent(TypedDict, total=False):
+    """Consent management configuration."""
+
     enabled: Required[bool]
 
     button_text_translations: Annotated[ButtonTextTranslationParam, PropertyInfo(alias="buttonTextTranslations")]
@@ -589,7 +600,7 @@ class Consent(TypedDict, total=False):
     consent_modal_intro_html_with_translations: Annotated[
         Dict[str, str], PropertyInfo(alias="consentModalIntroHTMLWithTranslations")
     ]
-    """Object where keys are language codes"""
+    """Object where keys are language codes."""
 
     cookie_name: Annotated[str, PropertyInfo(alias="cookieName")]
 
@@ -602,11 +613,11 @@ class Consent(TypedDict, total=False):
     hide_modal: Annotated[bool, PropertyInfo(alias="hideModal")]
 
     purposes: Dict[str, ConsentPurposes]
-    """Object where keys are purpose alpha-numeric IDs"""
+    """Object where keys are purpose alpha-numeric IDs."""
 
     purposes_with_translations: Annotated[
         Dict[str, ConsentPurposesWithTranslations], PropertyInfo(alias="purposesWithTranslations")
     ]
-    """Object where keys are purpose alpha-numeric IDs"""
+    """Object where keys are purpose alpha-numeric IDs."""
 
     tcf_compliant: Annotated[bool, PropertyInfo(alias="tcfCompliant")]

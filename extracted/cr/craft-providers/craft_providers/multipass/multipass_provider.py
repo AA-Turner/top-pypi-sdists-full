@@ -115,7 +115,7 @@ _BUILD_BASE_TO_MULTIPASS_REMOTE_IMAGE: dict[Enum, RemoteImage] = {
         remote=Remote.SNAPCRAFT, image_name="questing"
     ),
     ubuntu.BuilddBaseAlias.RESOLUTE: RemoteImage(
-        remote=Remote.DAILY, image_name="resolute"
+        remote=Remote.SNAPCRAFT, image_name="resolute"
     ),
     # devel images are not available on macos
     ubuntu.BuilddBaseAlias.DEVEL: RemoteImage(
@@ -179,6 +179,17 @@ class MultipassProvider(Provider):
             install()
         ensure_multipass_is_ready()
 
+    def prune(self, *, project_name: str, prune_templates: bool = False) -> None:
+        """Remove all instances of the provider."""
+        logger.debug(f"Pruning {self.name} instances")
+        instances = self.list_instances(
+            include_base_instances=prune_templates,
+            instance_name_prefix=f"{project_name}-",
+        )
+        for instance in instances:
+            logger.debug(f"Pruning {instance.name}")
+            instance.delete()
+
     @override
     def list_instances(
         self,
@@ -188,7 +199,6 @@ class MultipassProvider(Provider):
         include_base_instances: bool = False,
     ) -> Collection[MultipassInstance]:
         """Get a collection of all existing multipass VMs."""
-        multipass_name = project_name or self.name
         names = self.multipass.list()
 
         instances: list[MultipassInstance] = []
@@ -199,9 +209,7 @@ class MultipassProvider(Provider):
             if instance_name_prefix and not name.startswith(instance_name_prefix):
                 continue
 
-            instances.append(
-                MultipassInstance(name=multipass_name, multipass=self.multipass)
-            )
+            instances.append(MultipassInstance(name=name, multipass=self.multipass))
 
         return instances
 

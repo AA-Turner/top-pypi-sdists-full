@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Type, Optional, cast
+from typing import Type, Optional, cast
 from typing_extensions import Literal
 
 import httpx
@@ -15,8 +15,8 @@ from .quota import (
     QuotaResourceWithStreamingResponse,
     AsyncQuotaResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -27,10 +27,12 @@ from ...._response import (
 )
 from ...._wrappers import ResultWrapper
 from ....types.ssl import certificate_pack_edit_params, certificate_pack_list_params, certificate_pack_create_params
-from ....pagination import SyncSinglePage, AsyncSinglePage
+from ....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ...._base_client import AsyncPaginator, make_request_options
 from ....types.ssl.host import Host
+from ....types.ssl.certificate_pack_get_response import CertificatePackGetResponse
 from ....types.ssl.certificate_pack_edit_response import CertificatePackEditResponse
+from ....types.ssl.certificate_pack_list_response import CertificatePackListResponse
 from ....types.ssl.certificate_pack_create_response import CertificatePackCreateResponse
 from ....types.ssl.certificate_pack_delete_response import CertificatePackDeleteResponse
 
@@ -66,17 +68,17 @@ class CertificatePacksResource(SyncAPIResource):
         *,
         zone_id: str,
         certificate_authority: Literal["google", "lets_encrypt", "ssl_com"],
-        hosts: List[Host],
+        hosts: SequenceNotStr[Host],
         type: Literal["advanced"],
         validation_method: Literal["txt", "http", "email"],
         validity_days: Literal[14, 30, 90, 365],
-        cloudflare_branding: bool | NotGiven = NOT_GIVEN,
+        cloudflare_branding: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificatePackCreateResponse]:
         """
         For a given zone, order an advanced certificate pack.
@@ -111,7 +113,7 @@ class CertificatePacksResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
-            f"/zones/{zone_id}/ssl/certificate_packs/order",
+            path_template("/zones/{zone_id}/ssl/certificate_packs/order", zone_id=zone_id),
             body=maybe_transform(
                 {
                     "certificate_authority": certificate_authority,
@@ -137,19 +139,28 @@ class CertificatePacksResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        status: Literal["all"] | NotGiven = NOT_GIVEN,
+        deploy: Literal["staging", "production"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        status: Literal["all"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncSinglePage[object]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncV4PagePaginationArray[CertificatePackListResponse]:
         """
         For a given zone, list all active certificate packs.
 
         Args:
           zone_id: Identifier.
+
+          deploy: Specify the deployment environment for the certificate packs.
+
+          page: Page number of paginated results.
+
+          per_page: Number of certificate packs per page.
 
           status: Include Certificate Packs of all statuses, not just active ones.
 
@@ -164,16 +175,24 @@ class CertificatePacksResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/ssl/certificate_packs",
-            page=SyncSinglePage[object],
+            path_template("/zones/{zone_id}/ssl/certificate_packs", zone_id=zone_id),
+            page=SyncV4PagePaginationArray[CertificatePackListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform({"status": status}, certificate_pack_list_params.CertificatePackListParams),
+                query=maybe_transform(
+                    {
+                        "deploy": deploy,
+                        "page": page,
+                        "per_page": per_page,
+                        "status": status,
+                    },
+                    certificate_pack_list_params.CertificatePackListParams,
+                ),
             ),
-            model=object,
+            model=CertificatePackListResponse,
         )
 
     def delete(
@@ -186,7 +205,7 @@ class CertificatePacksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificatePackDeleteResponse]:
         """
         For a given zone, delete an advanced certificate pack.
@@ -211,7 +230,11 @@ class CertificatePacksResource(SyncAPIResource):
                 f"Expected a non-empty value for `certificate_pack_id` but received {certificate_pack_id!r}"
             )
         return self._delete(
-            f"/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+            path_template(
+                "/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+                zone_id=zone_id,
+                certificate_pack_id=certificate_pack_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -227,13 +250,13 @@ class CertificatePacksResource(SyncAPIResource):
         certificate_pack_id: str,
         *,
         zone_id: str,
-        cloudflare_branding: bool | NotGiven = NOT_GIVEN,
+        cloudflare_branding: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificatePackEditResponse]:
         """
         For a given zone, restart validation or add cloudflare branding for an advanced
@@ -263,7 +286,11 @@ class CertificatePacksResource(SyncAPIResource):
                 f"Expected a non-empty value for `certificate_pack_id` but received {certificate_pack_id!r}"
             )
         return self._patch(
-            f"/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+            path_template(
+                "/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+                zone_id=zone_id,
+                certificate_pack_id=certificate_pack_id,
+            ),
             body=maybe_transform(
                 {"cloudflare_branding": cloudflare_branding}, certificate_pack_edit_params.CertificatePackEditParams
             ),
@@ -287,8 +314,8 @@ class CertificatePacksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> object:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Optional[CertificatePackGetResponse]:
         """
         For a given zone, get a certificate pack.
 
@@ -312,15 +339,19 @@ class CertificatePacksResource(SyncAPIResource):
                 f"Expected a non-empty value for `certificate_pack_id` but received {certificate_pack_id!r}"
             )
         return self._get(
-            f"/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+            path_template(
+                "/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+                zone_id=zone_id,
+                certificate_pack_id=certificate_pack_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[object]]._unwrapper,
+                post_parser=ResultWrapper[Optional[CertificatePackGetResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[object], ResultWrapper[object]),
+            cast_to=cast(Type[Optional[CertificatePackGetResponse]], ResultWrapper[CertificatePackGetResponse]),
         )
 
 
@@ -353,17 +384,17 @@ class AsyncCertificatePacksResource(AsyncAPIResource):
         *,
         zone_id: str,
         certificate_authority: Literal["google", "lets_encrypt", "ssl_com"],
-        hosts: List[Host],
+        hosts: SequenceNotStr[Host],
         type: Literal["advanced"],
         validation_method: Literal["txt", "http", "email"],
         validity_days: Literal[14, 30, 90, 365],
-        cloudflare_branding: bool | NotGiven = NOT_GIVEN,
+        cloudflare_branding: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificatePackCreateResponse]:
         """
         For a given zone, order an advanced certificate pack.
@@ -398,7 +429,7 @@ class AsyncCertificatePacksResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
-            f"/zones/{zone_id}/ssl/certificate_packs/order",
+            path_template("/zones/{zone_id}/ssl/certificate_packs/order", zone_id=zone_id),
             body=await async_maybe_transform(
                 {
                     "certificate_authority": certificate_authority,
@@ -424,19 +455,28 @@ class AsyncCertificatePacksResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        status: Literal["all"] | NotGiven = NOT_GIVEN,
+        deploy: Literal["staging", "production"] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        status: Literal["all"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[object, AsyncSinglePage[object]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[CertificatePackListResponse, AsyncV4PagePaginationArray[CertificatePackListResponse]]:
         """
         For a given zone, list all active certificate packs.
 
         Args:
           zone_id: Identifier.
+
+          deploy: Specify the deployment environment for the certificate packs.
+
+          page: Page number of paginated results.
+
+          per_page: Number of certificate packs per page.
 
           status: Include Certificate Packs of all statuses, not just active ones.
 
@@ -451,16 +491,24 @@ class AsyncCertificatePacksResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/ssl/certificate_packs",
-            page=AsyncSinglePage[object],
+            path_template("/zones/{zone_id}/ssl/certificate_packs", zone_id=zone_id),
+            page=AsyncV4PagePaginationArray[CertificatePackListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform({"status": status}, certificate_pack_list_params.CertificatePackListParams),
+                query=maybe_transform(
+                    {
+                        "deploy": deploy,
+                        "page": page,
+                        "per_page": per_page,
+                        "status": status,
+                    },
+                    certificate_pack_list_params.CertificatePackListParams,
+                ),
             ),
-            model=object,
+            model=CertificatePackListResponse,
         )
 
     async def delete(
@@ -473,7 +521,7 @@ class AsyncCertificatePacksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificatePackDeleteResponse]:
         """
         For a given zone, delete an advanced certificate pack.
@@ -498,7 +546,11 @@ class AsyncCertificatePacksResource(AsyncAPIResource):
                 f"Expected a non-empty value for `certificate_pack_id` but received {certificate_pack_id!r}"
             )
         return await self._delete(
-            f"/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+            path_template(
+                "/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+                zone_id=zone_id,
+                certificate_pack_id=certificate_pack_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -514,13 +566,13 @@ class AsyncCertificatePacksResource(AsyncAPIResource):
         certificate_pack_id: str,
         *,
         zone_id: str,
-        cloudflare_branding: bool | NotGiven = NOT_GIVEN,
+        cloudflare_branding: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificatePackEditResponse]:
         """
         For a given zone, restart validation or add cloudflare branding for an advanced
@@ -550,7 +602,11 @@ class AsyncCertificatePacksResource(AsyncAPIResource):
                 f"Expected a non-empty value for `certificate_pack_id` but received {certificate_pack_id!r}"
             )
         return await self._patch(
-            f"/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+            path_template(
+                "/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+                zone_id=zone_id,
+                certificate_pack_id=certificate_pack_id,
+            ),
             body=await async_maybe_transform(
                 {"cloudflare_branding": cloudflare_branding}, certificate_pack_edit_params.CertificatePackEditParams
             ),
@@ -574,8 +630,8 @@ class AsyncCertificatePacksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> object:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Optional[CertificatePackGetResponse]:
         """
         For a given zone, get a certificate pack.
 
@@ -599,15 +655,19 @@ class AsyncCertificatePacksResource(AsyncAPIResource):
                 f"Expected a non-empty value for `certificate_pack_id` but received {certificate_pack_id!r}"
             )
         return await self._get(
-            f"/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+            path_template(
+                "/zones/{zone_id}/ssl/certificate_packs/{certificate_pack_id}",
+                zone_id=zone_id,
+                certificate_pack_id=certificate_pack_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[object]]._unwrapper,
+                post_parser=ResultWrapper[Optional[CertificatePackGetResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[object], ResultWrapper[object]),
+            cast_to=cast(Type[Optional[CertificatePackGetResponse]], ResultWrapper[CertificatePackGetResponse]),
         )
 
 

@@ -1,4 +1,4 @@
-.PHONY: all clean clean-env clean-test clean-pyc clean-build clean-other help dev test test-debug test-cov pre-commit lint format format-docs analyze docs
+.PHONY: all clean clean-env clean-test clean-pyc clean-build clean-other help dev test test-unit test-integration test-debug test-cov tests-cov-fail pre-commit lint format format-docs analyze docs
 .DEFAULT_GOAL := help
 
 # The `.ONESHELL` and setting `SHELL` allows us to run commands that require
@@ -38,6 +38,9 @@ endef
 export PRINT_HELP_PYSCRIPT
 
 BROWSER := python -c "$$BROWSER_PYSCRIPT"
+
+# Point 'all' to whatever you want to happen when someone just types `make`
+all: help
 
 clean:	clean-cov clean-build clean-pyc clean-test clean-temp clean-other ## remove all build, test, coverage and Python artifacts
 
@@ -89,7 +92,7 @@ environment:	## handles environment creation
 	conda run --name $(CONDA_ENV_NAME) pip install .
 
 environment-dev:	## Handles environment creation
-	conda env create -n $(CONDA_ENV_NAME)-dev -y --file environment-dev.yml
+	conda env create -n $(CONDA_ENV_NAME)-dev -y --file environment-dev.yaml
 	conda run --name $(CONDA_ENV_NAME)-dev pip install -e .
 
 install: clean	## install the package to the active Python's site-packages
@@ -111,38 +114,36 @@ dev-full: clean		## install the package's development version to a fresh environ
 	conda run --name $(CONDA_ENV_NAME)-dev pip install -e .
 	$(CONDA_ACTIVATE) $(CONDA_ENV_NAME)-dev && pre-commit install
 
-
 pre-commit:		## runs pre-commit against files. NOTE: older files are disabled in the pre-commit config.
 	pre-commit run --all-files
 
 check-env:
-	@missing=0; \
-	for v in $(REQUIRED_VARS); do \
-	  if [ -z "$${!v}" ]; then \
-	    echo "Missing required env var: $$v"; \
-	    missing=1; \
-	  fi; \
-	done; \
-	if [ $$missing -ne 0 ]; then \
-	  echo "Aborting tests due to missing env vars."; \
-	  exit 1; \
-	fi
+	@if [ -z "$(ENV_VAR)" ]; then echo "Missing ENV_VAR"; exit 1; fi; \
+	if [ -z "$(OTHER_VAR)" ]; then echo "Missing OTHER_VAR"; exit 1; fi; \
+	echo "Environment checks passed."
 
-test: check-env		## runs test cases
-	$(PYTHON3) -m pytest -v --capture=no $(TEST_DIR)/tests.py
+test: test-unit
 
-test-debug: check-env		## runs test cases with debugging info enabled
-	$(PYTHON3) -m pytest -vv --capture=no $(TEST_DIR)/tests.py
 
-test-cov: check-env		## checks test coverage requirements
+test-unit:		## run unit tests only (no API key required)
+	$(PYTHON3) -m pytest -v --capture=no $(TEST_DIR)/unit/
+
+test-integration: check-env		## run integration tests only (requires APIKEY and DOMAIN)
+	$(PYTHON3) -m pytest -v --capture=no $(TEST_DIR)/integration/tests.py
+
+test-debug:		## run unit tests with debugging info
+	$(PYTHON3) -m pytest -vv --capture=no $(TEST_DIR)/unit/
+
+test-cov:		## check test coverage (unit tests only)
 	$(PYTHON3) -m pytest --cov-config=.coveragerc --cov=$(SRC_DIR) \
-		$(TEST_DIR)/tests.py --cov-fail-under=80 --cov-report term-missing
+		$(TEST_DIR)/unit/ --cov-report term-missing
 
-tests-cov-fail:
-	@pytest --cov=$(SRC_DIR) --cov-report term-missing --cov-report=html --cov-fail-under=80
+test-cov-fail:		## check test coverage with fail-under (unit tests only)
+	$(PYTHON3) -m pytest --cov-config=.coveragerc --cov=$(SRC_DIR) \
+		$(TEST_DIR)/unit/ --cov-fail-under=80 --cov-report term-missing --cov-report=html
 
-coverage:	## check code coverage quickly with the default Python
-	coverage run --source $(SRC_DIR) -m pytest
+coverage:	## check code coverage quickly with the default Python (unit tests only)
+	coverage run --source $(SRC_DIR) -m pytest $(TEST_DIR)/unit/
 	coverage report -m
 	coverage html
 	$(BROWSER) htmlcov/index.html
@@ -162,11 +163,8 @@ format-black:
 	@black --line-length=100 $(SRC_DIR) $(TEST_DIR) $(SCRIPTS_DIR)
 format-isort:
 	@isort --profile black --line-length=88 $(SRC_DIR) $(TEST_DIR) $(SCRIPTS_DIR)
-format: format-black format-isort
-
-format:			## runs the code auto-formatter
-	isort
-	black
+format:
+	ruff check --fix .
 
 format-docs:	## runs the docstring auto-formatter. Note this requires manually installing `docconvert` with `pip`
 	docconvert --in-place --config .docconvert.json $(SRC_DIR)

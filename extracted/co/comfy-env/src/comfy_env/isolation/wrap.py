@@ -11,7 +11,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..config.types import DEFAULT_HEALTH_CHECK_TIMEOUT
 from ..debug import WORKER as _DBG_WORKER, MODELS as _DBG_MODELS, INSTALL as _DBG_INSTALL
@@ -23,6 +23,7 @@ _CLEANUP_DONE = False
 # ---------------------------------------------------------------------------
 _WORKER_POOL: Dict[str, Any] = {}  # str(env_dir) -> (SubprocessWorker, generation)
 _WORKER_PATCHERS: Dict[str, Dict[str, Any]] = {}  # str(env_dir) -> {model_id: SubprocessModelPatcher}
+_STALE_PATCHERS: List[Any] = []  # Keeps stale patchers alive until free_memory finishes
 _POOL_LOCK = threading.Lock()
 _WORKER_GENERATION = 0  # Monotonically increasing; incremented on each new worker
 
@@ -471,11 +472,19 @@ def _cleanup_stale_patchers(env_dir):
     We must NOT modify current_loaded_models here because this callback can
     fire inside free_memory's iteration (via model_unload -> send_command ->
     _ensure_started -> _on_restart), which would invalidate captured indices.
+
+    We also must keep the old patchers alive (in _STALE_PATCHERS) because
+    LoadedModel._model is a weakref -- if the patcher is GC'd, the
+    SubprocessModel finalizer fires cleanup_models() which pops items from
+    current_loaded_models, corrupting free_memory's index-based iteration.
+    The stale references are cleared on the next _register_new_patchers call.
     """
     key = str(env_dir)
     old_patchers = _WORKER_PATCHERS.pop(key, None)
     if not old_patchers:
         return
+    # Keep strong references to prevent GC during free_memory iteration
+    _STALE_PATCHERS.extend(old_patchers.values())
     _log(f"[comfy-env] Invalidated {len(old_patchers)} stale model patchers "
          f"(will be cleaned up during next unload)")
 
@@ -628,6 +637,7 @@ def _shutdown_all_workers():
                 pass
         _WORKER_POOL.clear()
         _WORKER_PATCHERS.clear()
+        _STALE_PATCHERS.clear()
 
 
 atexit.register(_shutdown_all_workers)
@@ -641,6 +651,10 @@ def _register_new_patchers(env_dir, worker, generation):
     metadata in response['_new_models'].  We create patchers here and register
     them with ComfyUI's memory manager so they participate in VRAM eviction.
     """
+    # Release stale patchers from previous worker restarts.  Safe to do here
+    # because we're outside free_memory's iteration loop.
+    _STALE_PATCHERS.clear()
+
     new_models = getattr(worker, '_last_new_models', [])
     if not new_models:
         return
@@ -671,35 +685,37 @@ def _register_new_patchers(env_dir, worker, generation):
             offload_device=offload_device,
             kind=ref.get("kind", "other"),
         )
-        # Mark as already loaded (the model is on GPU right now)
-        patcher.model.device = load_device
-        patcher.model.model_loaded_weight_memory = ref["size"]
+        # Set device based on where the model actually is in the subprocess.
+        # Models are auto-detected when they land on CUDA, but may have been
+        # offloaded back to CPU by the time the call finishes.
+        reported_device = ref.get("device", "cpu")
+        if reported_device.startswith("cuda"):
+            patcher.model.device = load_device
+            patcher.model.model_loaded_weight_memory = ref["size"]
+        else:
+            patcher.model.device = offload_device
+            patcher.model.model_loaded_weight_memory = 0
         patchers[model_id] = patcher
         created.append(model_id)
 
     if created:
         if _DBG_MODELS:
             _log(f"[comfy-env] Created {len(created)} model patchers: {created}")
-        # Register with ComfyUI memory manager (models are already on GPU)
-        comfy.model_management.load_models_gpu(list(patchers.values()))
+        # Register with ComfyUI memory manager.  We insert LoadedModel
+        # wrappers directly instead of calling load_models_gpu (which
+        # would try to load all models simultaneously and OOM).
+        import weakref
+        for model_id in created:
+            p = patchers[model_id]
+            lm = comfy.model_management.LoadedModel(p)
+            lm.currently_used = (p.model.device == load_device)
+            # Set real_model and model_finalizer (needed by model_unload)
+            lm.real_model = weakref.ref(p.model)
+            lm.model_finalizer = weakref.finalize(
+                p.model, comfy.model_management.cleanup_models)
+            lm.model_finalizer.atexit = False
+            comfy.model_management.current_loaded_models.insert(0, lm)
 
-
-def _load_worker_models(env_dir):
-    """Ensure all tracked models for this worker are on GPU before a call.
-
-    Called before each call_method.  If ComfyUI evicted models between calls,
-    load_models_gpu will send IPC commands to move them back.
-    """
-    key = str(env_dir)
-    patchers = _WORKER_PATCHERS.get(key)
-    if not patchers:
-        return
-
-    try:
-        import comfy.model_management
-        comfy.model_management.load_models_gpu(list(patchers.values()))
-    except Exception:
-        pass
 
 
 def register_nodes(nodes_package: str = "nodes") -> tuple:

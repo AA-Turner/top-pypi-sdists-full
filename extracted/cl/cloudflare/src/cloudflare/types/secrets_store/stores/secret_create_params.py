@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List, Iterable
+from typing import Iterable
 from typing_extensions import Required, TypedDict
+
+from ...._types import SequenceNotStr
 
 __all__ = ["SecretCreateParams", "Body"]
 
@@ -19,12 +21,15 @@ class Body(TypedDict, total=False):
     name: Required[str]
     """The name of the secret"""
 
-    scopes: Required[List[str]]
+    scopes: Required[SequenceNotStr[str]]
     """The list of services that can use this secret."""
 
     value: Required[str]
     """The value of the secret.
 
-    Note that this is 'write only' - no API reponse will provide this value, it is
-    only used to create/modify secrets.
+    Maximum 64 KiB (65,536 bytes). Note that this is 'write only' - no API response
+    will provide this value, it is only used to create/modify secrets.
     """
+
+    comment: str
+    """Freeform text describing the secret"""

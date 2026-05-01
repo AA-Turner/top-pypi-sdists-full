@@ -1,10 +1,53 @@
-Metadata-Version: 1.0
-Name: py-vollib
-Version: 1.0.1
-Summary: UNKNOWN
-Home-page: http://vollib.org
-Author: vollib
-Author-email: vollib@gammoncap.com
-License: MIT
-Description: UNKNOWN
-Platform: UNKNOWN
+Metadata-Version: 2.4
+Name: py_vollib
+Version: 1.0.7
+Summary: Deprecated transition package; install vollib instead.
+Author-email: vollib <vollib@gammoncap.com>
+License-Expression: MIT
+Project-URL: Homepage, http://vollib.org
+Project-URL: Repository, https://github.com/vollib/py_vollib
+Classifier: Development Status :: 7 - Inactive
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Office/Business :: Financial
+Requires-Python: <3.13,>=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: vollib==1.0.7
+
+# py_vollib
+
+`py_vollib` is deprecated.
+
+The canonical Python package is now `vollib`:
+
+```bash
+pip install vollib
+```
+
+`vollib` 1.0.7 supports Python 3.9 through 3.12.
+
+This transition package exists so existing users who run:
+
+```bash
+pip install py_vollib
+```
+
+receive the matching `vollib` release. Existing imports such as:
+
+```python
+from py_vollib.black_scholes import black_scholes
+```
+
+continue to work through the deprecated compatibility namespace included in
+`vollib`, but new code should import from `vollib` instead:
+
+```python
+from vollib.black_scholes import black_scholes
+```
+
+The temporary `vollib-test` package was a bridge while the official release path
+was being repaired. It is superseded by `vollib`.

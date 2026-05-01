@@ -1,129 +1,130 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 1.31.1
+Version: 1.32.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Classifier: Typing :: Typed
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: PyYAML>=6.0.2, <7.0.0
-Requires-Dist: aiosqlite>=0.21.0
-Requires-Dist: anyio>=4.9.0, <5.0.0
-Requires-Dist: authlib>=1.6.6, <2.0.0
-Requires-Dist: click>=8.1.8, <9.0.0
-Requires-Dist: fastapi>=0.124.1, <1.0.0
-Requires-Dist: google-api-python-client>=2.157.0, <3.0.0
-Requires-Dist: google-auth[pyopenssl]>=2.47.0
-Requires-Dist: google-cloud-aiplatform[agent-engines]>=1.148.1, <2.0.0
-Requires-Dist: google-cloud-bigquery-storage>=2.0.0
-Requires-Dist: google-cloud-bigquery>=2.2.0
-Requires-Dist: google-cloud-bigtable>=2.32.0
-Requires-Dist: google-cloud-dataplex>=1.7.0,<3.0.0
-Requires-Dist: google-cloud-discoveryengine>=0.13.12, <0.14.0
-Requires-Dist: google-cloud-pubsub>=2.0.0, <3.0.0
-Requires-Dist: google-cloud-secret-manager>=2.22.0, <3.0.0
-Requires-Dist: google-cloud-spanner>=3.56.0, <4.0.0
-Requires-Dist: google-cloud-speech>=2.30.0, <3.0.0
-Requires-Dist: google-cloud-storage>=2.18.0, <4.0.0
-Requires-Dist: google-genai>=1.72.0, <2.0.0
-Requires-Dist: graphviz>=0.20.2, <1.0.0
-Requires-Dist: httpx>=0.27.0, <1.0.0
-Requires-Dist: jsonschema>=4.23.0, <5.0.0
-Requires-Dist: mcp>=1.24.0, <2.0.0
-Requires-Dist: opentelemetry-api>=1.36.0, <1.39.0
-Requires-Dist: opentelemetry-exporter-gcp-logging>=1.9.0a0, <2.0.0
-Requires-Dist: opentelemetry-exporter-gcp-monitoring>=1.9.0a0, <2.0.0
-Requires-Dist: opentelemetry-exporter-gcp-trace>=1.9.0, <2.0.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.36.0
-Requires-Dist: opentelemetry-resourcedetector-gcp>=1.9.0a0, <2.0.0
-Requires-Dist: opentelemetry-sdk>=1.36.0, <1.39.0
-Requires-Dist: pyarrow>=14.0.0
-Requires-Dist: pydantic>=2.12.0, <3.0.0
-Requires-Dist: python-dateutil>=2.9.0.post0, <3.0.0
-Requires-Dist: python-dotenv>=1.0.0, <2.0.0
-Requires-Dist: requests>=2.32.4, <3.0.0
-Requires-Dist: sqlalchemy-spanner>=1.14.0
-Requires-Dist: sqlalchemy>=2.0, <3.0.0
-Requires-Dist: starlette>=0.49.1, <1.0.0
-Requires-Dist: tenacity>=9.0.0, <10.0.0
-Requires-Dist: typing-extensions>=4.5, <5
-Requires-Dist: tzlocal>=5.3, <6.0
-Requires-Dist: uvicorn>=0.34.0, <1.0.0
-Requires-Dist: watchdog>=6.0.0, <7.0.0
-Requires-Dist: websockets>=15.0.1, <16.0.0
-Requires-Dist: a2a-sdk>=0.3.4,<0.4.0 ; extra == "a2a"
-Requires-Dist: google-cloud-iamconnectorcredentials>=0.1.0, <0.2.0 ; extra == "agent-identity"
+Requires-Dist: aiosqlite>=0.21
+Requires-Dist: anyio>=4.9,<5
+Requires-Dist: authlib>=1.6.6,<2
+Requires-Dist: click>=8.1.8,<9
+Requires-Dist: fastapi>=0.124.1,<1
+Requires-Dist: google-api-python-client>=2.157,<3
+Requires-Dist: google-auth[pyopenssl]>=2.47
+Requires-Dist: google-cloud-aiplatform[agent-engines]>=1.148.1,<2
+Requires-Dist: google-cloud-bigquery>=2.2
+Requires-Dist: google-cloud-bigquery-storage>=2
+Requires-Dist: google-cloud-bigtable>=2.32
+Requires-Dist: google-cloud-dataplex>=1.7,<3
+Requires-Dist: google-cloud-discoveryengine>=0.13.12,<0.14
+Requires-Dist: google-cloud-pubsub>=2,<3
+Requires-Dist: google-cloud-secret-manager>=2.22,<3
+Requires-Dist: google-cloud-spanner>=3.56,<4
+Requires-Dist: google-cloud-speech>=2.30,<3
+Requires-Dist: google-cloud-storage>=2.18,<4
+Requires-Dist: google-genai>=1.72,<2
+Requires-Dist: graphviz>=0.20.2,<1
+Requires-Dist: httpx>=0.27,<1
+Requires-Dist: jsonschema>=4.23,<5
+Requires-Dist: mcp>=1.24,<2
+Requires-Dist: opentelemetry-api>=1.36,<=1.41.1
+Requires-Dist: opentelemetry-exporter-gcp-logging>=1.9.0a0,<=1.12.0a0
+Requires-Dist: opentelemetry-exporter-gcp-monitoring>=1.9.0a0,<2
+Requires-Dist: opentelemetry-exporter-gcp-trace>=1.9,<2
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.36
+Requires-Dist: opentelemetry-resourcedetector-gcp>=1.9.0a0,<2
+Requires-Dist: opentelemetry-sdk>=1.36,<=1.41.1
+Requires-Dist: pyarrow>=14
+Requires-Dist: pydantic>=2.12,<3
+Requires-Dist: python-dateutil>=2.9.0.post0,<3
+Requires-Dist: python-dotenv>=1,<2
+Requires-Dist: pyyaml>=6.0.2,<7
+Requires-Dist: requests>=2.32.4,<3
+Requires-Dist: sqlalchemy>=2,<3
+Requires-Dist: sqlalchemy-spanner>=1.14
+Requires-Dist: starlette>=0.49.1,<1
+Requires-Dist: tenacity>=9,<10
+Requires-Dist: typing-extensions>=4.5,<5
+Requires-Dist: tzlocal>=5.3,<6
+Requires-Dist: uvicorn>=0.34,<1
+Requires-Dist: watchdog>=6,<7
+Requires-Dist: websockets>=15.0.1,<16
+Requires-Dist: a2a-sdk>=0.3.4,<0.4 ; extra == "a2a"
+Requires-Dist: google-cloud-iamconnectorcredentials>=0.1,<0.2 ; extra == "agent-identity"
 Requires-Dist: google-adk-community ; extra == "community"
-Requires-Dist: flit>=3.10.0 ; extra == "dev"
-Requires-Dist: isort>=6.0.0 ; extra == "dev"
-Requires-Dist: mypy>=1.15.0 ; extra == "dev"
-Requires-Dist: pyink>=25.12.0 ; extra == "dev"
-Requires-Dist: pylint>=2.6.0 ; extra == "dev"
-Requires-Dist: autodoc_pydantic ; extra == "docs"
+Requires-Dist: flit>=3.10 ; extra == "dev"
+Requires-Dist: isort>=6 ; extra == "dev"
+Requires-Dist: mypy>=1.15 ; extra == "dev"
+Requires-Dist: pre-commit>=4 ; extra == "dev"
+Requires-Dist: pyink>=25.12 ; extra == "dev"
+Requires-Dist: pylint>=2.6 ; extra == "dev"
+Requires-Dist: autodoc-pydantic ; extra == "docs"
 Requires-Dist: furo ; extra == "docs"
 Requires-Dist: myst-parser ; extra == "docs"
-Requires-Dist: sphinx<9.0.0 ; extra == "docs"
+Requires-Dist: sphinx<9 ; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints ; extra == "docs"
+Requires-Dist: sphinx-click ; extra == "docs"
 Requires-Dist: sphinx-rtd-theme ; extra == "docs"
-Requires-Dist: Jinja2>=3.1.4,<4.0.0 ; extra == "eval"
-Requires-Dist: gepa>=0.1.0 ; extra == "eval"
-Requires-Dist: google-cloud-aiplatform[evaluation]>=1.148.0 ; extra == "eval"
+Requires-Dist: gepa>=0.1 ; extra == "eval"
+Requires-Dist: google-cloud-aiplatform[evaluation]>=1.148 ; extra == "eval"
+Requires-Dist: jinja2>=3.1.4,<4 ; extra == "eval"
 Requires-Dist: pandas>=2.2.3 ; extra == "eval"
 Requires-Dist: rouge-score>=0.1.2 ; extra == "eval"
-Requires-Dist: tabulate>=0.9.0 ; extra == "eval"
-Requires-Dist: anthropic>=0.43.0 ; extra == "extensions"
+Requires-Dist: tabulate>=0.9 ; extra == "eval"
+Requires-Dist: anthropic>=0.43 ; extra == "extensions"
 Requires-Dist: beautifulsoup4>=3.2.2 ; extra == "extensions"
-Requires-Dist: crewai[tools] ; extra == "extensions" and (python_version>='3.11' and python_version<'3.12')
-Requires-Dist: docker>=7.0.0 ; extra == "extensions"
-Requires-Dist: google-cloud-firestore>=2.11.0, <3.0.0 ; extra == "extensions"
-Requires-Dist: google-cloud-parametermanager>=0.4.0, <1.0.0 ; extra == "extensions"
-Requires-Dist: kubernetes>=29.0.0 ; extra == "extensions"
+Requires-Dist: crewai[tools] ; extra == "extensions" and ( python_version>='3.11' and python_version<'3.12')
+Requires-Dist: docker>=7 ; extra == "extensions"
+Requires-Dist: google-cloud-firestore>=2.11,<3 ; extra == "extensions"
+Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "extensions"
 Requires-Dist: k8s-agent-sandbox>=0.1.1.post3 ; extra == "extensions"
-Requires-Dist: langgraph>=0.2.60, <0.4.8 ; extra == "extensions"
-Requires-Dist: litellm>=1.75.5, <=1.82.6 ; extra == "extensions"
-Requires-Dist: llama-index-readers-file>=0.4.0 ; extra == "extensions"
-Requires-Dist: llama-index-embeddings-google-genai>=0.3.0 ; extra == "extensions"
-Requires-Dist: lxml>=5.3.0 ; extra == "extensions"
-Requires-Dist: pypika>=0.50.0 ; extra == "extensions"
-Requires-Dist: toolbox-adk>=1.0.0, <2.0.0 ; extra == "extensions"
-Requires-Dist: opentelemetry-instrumentation-google-genai>=0.6b0, <1.0.0 ; extra == "otel-gcp"
-Requires-Dist: slack-bolt>=1.22.0 ; extra == "slack"
-Requires-Dist: a2a-sdk>=0.3.0,<0.4.0 ; extra == "test"
-Requires-Dist: anthropic>=0.43.0 ; extra == "test"
-Requires-Dist: crewai[tools] ; extra == "test" and (python_version>='3.11' and python_version<'3.12')
-Requires-Dist: google-cloud-firestore>=2.11.0, <3.0.0 ; extra == "test"
-Requires-Dist: google-cloud-iamconnectorcredentials>=0.1.0, <0.2.0 ; extra == "test"
-Requires-Dist: google-cloud-parametermanager>=0.4.0, <1.0.0 ; extra == "test"
-Requires-Dist: kubernetes>=29.0.0 ; extra == "test"
+Requires-Dist: kubernetes>=29 ; extra == "extensions"
+Requires-Dist: langgraph>=0.2.60,<0.4.8 ; extra == "extensions"
+Requires-Dist: litellm>=1.83.7,<=1.83.14 ; extra == "extensions"
+Requires-Dist: llama-index-embeddings-google-genai>=0.3 ; extra == "extensions"
+Requires-Dist: llama-index-readers-file>=0.4 ; extra == "extensions"
+Requires-Dist: lxml>=5.3 ; extra == "extensions"
+Requires-Dist: pypika>=0.50 ; extra == "extensions"
+Requires-Dist: toolbox-adk>=1,<2 ; extra == "extensions"
+Requires-Dist: opentelemetry-instrumentation-google-genai>=0.6b0,<1 ; extra == "otel-gcp"
+Requires-Dist: slack-bolt>=1.22 ; extra == "slack"
+Requires-Dist: a2a-sdk>=0.3,<0.4 ; extra == "test"
+Requires-Dist: anthropic>=0.43 ; extra == "test"
+Requires-Dist: crewai[tools] ; extra == "test" and ( python_version>='3.11' and python_version<'3.12')
+Requires-Dist: google-cloud-firestore>=2.11,<3 ; extra == "test"
+Requires-Dist: google-cloud-iamconnectorcredentials>=0.1,<0.2 ; extra == "test"
+Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "test"
+Requires-Dist: kubernetes>=29 ; extra == "test"
 Requires-Dist: langchain-community>=0.3.17 ; extra == "test"
-Requires-Dist: langgraph>=0.2.60, <0.4.8 ; extra == "test"
-Requires-Dist: litellm>=1.75.5, <=1.82.6 ; extra == "test"
-Requires-Dist: llama-index-readers-file>=0.4.0 ; extra == "test"
+Requires-Dist: langgraph>=0.2.60,<0.4.8 ; extra == "test"
+Requires-Dist: litellm>=1.83.7,<=1.83.14 ; extra == "test"
+Requires-Dist: llama-index-readers-file>=0.4 ; extra == "test"
 Requires-Dist: openai>=1.100.2 ; extra == "test"
-Requires-Dist: opentelemetry-instrumentation-google-genai>=0.3b0, <1.0.0 ; extra == "test"
-Requires-Dist: pypika>=0.50.0 ; extra == "test"
-Requires-Dist: pytest-asyncio>=0.25.0 ; extra == "test"
-Requires-Dist: pytest-mock>=3.14.0 ; extra == "test"
+Requires-Dist: opentelemetry-instrumentation-google-genai>=0.3b0,<1 ; extra == "test"
+Requires-Dist: pypika>=0.50 ; extra == "test"
+Requires-Dist: pytest>=9,<10 ; extra == "test"
+Requires-Dist: pytest-asyncio>=0.25 ; extra == "test"
+Requires-Dist: pytest-mock>=3.14 ; extra == "test"
 Requires-Dist: pytest-xdist>=3.6.1 ; extra == "test"
-Requires-Dist: pytest>=9.0.0,<10.0.0 ; extra == "test"
 Requires-Dist: python-multipart>=0.0.9 ; extra == "test"
 Requires-Dist: rouge-score>=0.1.2 ; extra == "test"
-Requires-Dist: slack-bolt>=1.22.0 ; extra == "test"
-Requires-Dist: tabulate>=0.9.0 ; extra == "test"
-Requires-Dist: toolbox-adk>=1.0.0, <2.0.0 ; extra == "toolbox"
+Requires-Dist: slack-bolt>=1.22 ; extra == "test"
+Requires-Dist: tabulate>=0.9 ; extra == "test"
+Requires-Dist: toolbox-adk>=1,<2 ; extra == "toolbox"
 Project-URL: changelog, https://github.com/google/adk-python/blob/main/CHANGELOG.md
 Project-URL: documentation, https://google.github.io/adk-docs/
 Project-URL: homepage, https://google.github.io/adk-docs/
@@ -171,7 +172,7 @@ simplify building, deploying, and orchestrating agent workflows, from simple
 tasks to complex systems. While optimized for Gemini, ADK is model-agnostic,
 deployment-agnostic, and compatible with other frameworks.
 
----
+______________________________________________________________________
 
 ## 🔥 What's new
 
@@ -211,11 +212,18 @@ You can install the latest stable version of ADK using `pip`:
 pip install google-adk
 ```
 
+To install optional integrations, you can use the following command:
+
+```bash
+pip install "google-adk[extensions]"
+```
+
 The release cadence is roughly bi-weekly.
 
 This version is recommended for most users as it represents the most recent official release.
 
 ### Development Version
+
 Bug fixes and new features are merged into the main branch on GitHub first. If you need access to changes that haven't been included in an official PyPI release yet, you can install directly from the main branch:
 
 ```bash
@@ -236,7 +244,7 @@ for how they can work together.
 Explore the full documentation for detailed guides on building, evaluating, and
 deploying agents:
 
-* **[Documentation](https://google.github.io/adk-docs)**
+- **[Documentation](https://google.github.io/adk-docs)**
 
 ## 🏁 Feature Highlight
 
@@ -284,7 +292,7 @@ A built-in development UI to help you test, evaluate, debug, and showcase your a
 
 <img src="https://raw.githubusercontent.com/google/adk-python/main/assets/adk-web-dev-ui-function-call.png"/>
 
-###  Evaluate Agents
+### Evaluate Agents
 
 ```bash
 adk eval \
@@ -295,6 +303,7 @@ adk eval \
 ## 🤝 Contributing
 
 We welcome contributions from the community! Whether it's bug reports, feature requests, documentation improvements, or code contributions, please see our
+
 - [General contribution guideline and flow](https://google.github.io/adk-docs/contributing-guide/).
 - Then if you want to contribute code, please read [Code Contributing Guidelines](./CONTRIBUTING.md) to get started.
 
@@ -316,7 +325,7 @@ If you want to develop agent via vibe coding the [llms.txt](./llms.txt) and the 
 
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
----
+______________________________________________________________________
 
 *Happy Agent Building!*
 

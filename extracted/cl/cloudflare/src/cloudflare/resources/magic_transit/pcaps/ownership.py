@@ -6,8 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NoneType, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -55,13 +55,13 @@ class OwnershipResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Ownership:
         """
         Adds an AWS or GCP bucket to use with full packet captures.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           destination_conf: The full URI for the bucket. This field only applies to `full` packet captures.
 
@@ -76,7 +76,7 @@ class OwnershipResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/pcaps/ownership",
+            path_template("/accounts/{account_id}/pcaps/ownership", account_id=account_id),
             body=maybe_transform({"destination_conf": destination_conf}, ownership_create_params.OwnershipCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -98,15 +98,15 @@ class OwnershipResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Deletes buckets added to the packet captures API.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
-          ownership_id: Identifier
+          ownership_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -122,7 +122,11 @@ class OwnershipResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `ownership_id` but received {ownership_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/accounts/{account_id}/pcaps/ownership/{ownership_id}",
+            path_template(
+                "/accounts/{account_id}/pcaps/ownership/{ownership_id}",
+                account_id=account_id,
+                ownership_id=ownership_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -138,13 +142,13 @@ class OwnershipResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Ownership]:
         """
         List all buckets configured for use with PCAPs API.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -157,7 +161,7 @@ class OwnershipResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/pcaps/ownership",
+            path_template("/accounts/{account_id}/pcaps/ownership", account_id=account_id),
             page=SyncSinglePage[Ownership],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -176,13 +180,13 @@ class OwnershipResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Ownership:
         """
         Validates buckets added to the packet captures API.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           destination_conf: The full URI for the bucket. This field only applies to `full` packet captures.
 
@@ -199,7 +203,7 @@ class OwnershipResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/pcaps/ownership/validate",
+            path_template("/accounts/{account_id}/pcaps/ownership/validate", account_id=account_id),
             body=maybe_transform(
                 {
                     "destination_conf": destination_conf,
@@ -248,13 +252,13 @@ class AsyncOwnershipResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Ownership:
         """
         Adds an AWS or GCP bucket to use with full packet captures.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           destination_conf: The full URI for the bucket. This field only applies to `full` packet captures.
 
@@ -269,7 +273,7 @@ class AsyncOwnershipResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/pcaps/ownership",
+            path_template("/accounts/{account_id}/pcaps/ownership", account_id=account_id),
             body=await async_maybe_transform(
                 {"destination_conf": destination_conf}, ownership_create_params.OwnershipCreateParams
             ),
@@ -293,15 +297,15 @@ class AsyncOwnershipResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Deletes buckets added to the packet captures API.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
-          ownership_id: Identifier
+          ownership_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -317,7 +321,11 @@ class AsyncOwnershipResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `ownership_id` but received {ownership_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/accounts/{account_id}/pcaps/ownership/{ownership_id}",
+            path_template(
+                "/accounts/{account_id}/pcaps/ownership/{ownership_id}",
+                account_id=account_id,
+                ownership_id=ownership_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -333,13 +341,13 @@ class AsyncOwnershipResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Ownership, AsyncSinglePage[Ownership]]:
         """
         List all buckets configured for use with PCAPs API.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -352,7 +360,7 @@ class AsyncOwnershipResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/pcaps/ownership",
+            path_template("/accounts/{account_id}/pcaps/ownership", account_id=account_id),
             page=AsyncSinglePage[Ownership],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -371,13 +379,13 @@ class AsyncOwnershipResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Ownership:
         """
         Validates buckets added to the packet captures API.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           destination_conf: The full URI for the bucket. This field only applies to `full` packet captures.
 
@@ -394,7 +402,7 @@ class AsyncOwnershipResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/pcaps/ownership/validate",
+            path_template("/accounts/{account_id}/pcaps/ownership/validate", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "destination_conf": destination_conf,

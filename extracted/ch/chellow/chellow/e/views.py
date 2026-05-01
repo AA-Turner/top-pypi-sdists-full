@@ -46,6 +46,7 @@ import chellow.e.dno_rate_parser
 import chellow.e.lccc
 import chellow.e.neso
 from chellow.e.computer import SupplySource, contract_func, forecast_date
+from chellow.e.duos import CA_EMAIL_ADDRESSES
 from chellow.e.elexon import ELEXON_PORTAL_SCRIPTING_KEY_KEY
 from chellow.e.energy_management import totals_runner
 from chellow.e.glossary import glossary_elements, glossary_intro, glossary_terms
@@ -2036,8 +2037,13 @@ def dno_get(dno_id):
         .where(RateScript.contract == dno_contract)
         .order_by(RateScript.start_date.desc())
     ).scalars()
+    ca_email_address = CA_EMAIL_ADDRESSES.get(dno.dno_code)
     return render_template(
-        "dno.html", dno=dno, dno_contract=dno_contract, rate_scripts=rate_scripts
+        "dno.html",
+        dno=dno,
+        dno_contract=dno_contract,
+        rate_scripts=rate_scripts,
+        ca_email_address=ca_email_address,
     )
 
 
@@ -2961,6 +2967,7 @@ def issues_get():
     mop_contracts = g.sess.scalars(
         select(Contract)
         .join(Issue)
+        .join(Party)
         .join(MarketRole)
         .where(MarketRole.code.in_(MOP_MARKET_ROLE_CODES))
         .distinct()
@@ -2969,6 +2976,7 @@ def issues_get():
     dc_contracts = g.sess.scalars(
         select(Contract)
         .join(Issue)
+        .join(Party)
         .join(MarketRole)
         .where(MarketRole.code.in_(DC_MARKET_ROLE_CODES))
         .distinct()
@@ -2977,6 +2985,7 @@ def issues_get():
     supplier_contracts = g.sess.scalars(
         select(Contract)
         .join(Issue)
+        .join(Party)
         .join(MarketRole)
         .where(MarketRole.code == "X")
         .distinct()
@@ -3308,9 +3317,9 @@ def mop_batch_edit_post(batch_id):
 @e.route("/mop_batches/<int:batch_id>")
 def mop_batch_get(batch_id):
     batch = Batch.get_mop_by_id(g.sess, batch_id)
-    bills = (
-        g.sess.query(Bill).filter(Bill.batch == batch).order_by(Bill.reference).all()
-    )
+    bills = g.sess.scalars(
+        select(Bill).where(Bill.batch == batch).order_by(Bill.reference)
+    ).all()
 
     config_contract = Contract.get_non_core_by_name(g.sess, "configuration")
     properties = config_contract.make_properties()
@@ -3326,7 +3335,7 @@ def mop_batch_get(batch_id):
         .order_by(ReportRun.date_created.desc())
     )
     batch_reports = []
-    for report_id in properties["batch_reports"]:
+    for report_id in properties.get("batch_reports", []):
         batch_reports.append(Report.get_by_id(g.sess, report_id))
     return render_template(
         "mop_batch.html",
@@ -4561,7 +4570,12 @@ def participants_get():
 @e.route("/parties/<int:party_id>")
 def party_get(party_id):
     party = Party.get_by_id(g.sess, party_id)
-    return render_template("party.html", party=party)
+    return render_template(
+        "party.html",
+        party=party,
+        DC_MARKET_ROLE_CODES=DC_MARKET_ROLE_CODES,
+        MOP_MARKET_ROLE_CODE=MOP_MARKET_ROLE_CODES,
+    )
 
 
 @e.route("/parties")

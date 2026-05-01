@@ -70,6 +70,8 @@ from .literals import (
     ManagedPolicyTypeType,
     MetadataGenerationRunStatusType,
     MetadataGenerationRunTypeType,
+    NetworkAccessTypeType,
+    NotebookRunStatusType,
     NotificationRoleType,
     NotificationTypeType,
     OAuth2GrantTypeType,
@@ -99,6 +101,7 @@ from .literals import (
     TaskStatusType,
     TimeSeriesEntityTypeType,
     TimezoneType,
+    TriggerSourceTypeType,
     TypesSearchScopeType,
     UserAssignmentType,
     UserDesignationType,
@@ -187,6 +190,7 @@ __all__ = (
     "CloudFormationPropertiesTypeDef",
     "ColumnFilterConfigurationOutputTypeDef",
     "ColumnFilterConfigurationTypeDef",
+    "ComputeConfigTypeDef",
     "ConfigurableActionParameterTypeDef",
     "ConfigurableEnvironmentActionTypeDef",
     "ConfigurationOutputTypeDef",
@@ -332,6 +336,7 @@ __all__ = (
     "EnvironmentActionSummaryTypeDef",
     "EnvironmentBlueprintConfigurationItemTypeDef",
     "EnvironmentBlueprintSummaryTypeDef",
+    "EnvironmentConfigTypeDef",
     "EnvironmentConfigurationOutputTypeDef",
     "EnvironmentConfigurationParameterTypeDef",
     "EnvironmentConfigurationParametersDetailsOutputTypeDef",
@@ -416,6 +421,8 @@ __all__ = (
     "GetListingOutputTypeDef",
     "GetMetadataGenerationRunInputTypeDef",
     "GetMetadataGenerationRunOutputTypeDef",
+    "GetNotebookRunInputTypeDef",
+    "GetNotebookRunOutputTypeDef",
     "GetProjectInputTypeDef",
     "GetProjectOutputTypeDef",
     "GetProjectProfileInputTypeDef",
@@ -552,6 +559,9 @@ __all__ = (
     "ListMetadataGenerationRunsInputPaginateTypeDef",
     "ListMetadataGenerationRunsInputTypeDef",
     "ListMetadataGenerationRunsOutputTypeDef",
+    "ListNotebookRunsInputPaginateTypeDef",
+    "ListNotebookRunsInputTypeDef",
+    "ListNotebookRunsOutputTypeDef",
     "ListNotificationsInputPaginateTypeDef",
     "ListNotificationsInputTypeDef",
     "ListNotificationsOutputTypeDef",
@@ -611,10 +621,15 @@ __all__ = (
     "MlflowPropertiesPatchTypeDef",
     "ModelTypeDef",
     "NameIdentifierTypeDef",
+    "NetworkConfigOutputTypeDef",
+    "NetworkConfigTypeDef",
+    "NetworkConfigUnionTypeDef",
     "NotEqualToExpressionTypeDef",
     "NotInExpressionOutputTypeDef",
     "NotInExpressionTypeDef",
     "NotLikeExpressionTypeDef",
+    "NotebookRunErrorTypeDef",
+    "NotebookRunSummaryTypeDef",
     "NotificationOutputTypeDef",
     "NotificationResourceTypeDef",
     "OAuth2ClientApplicationTypeDef",
@@ -630,6 +645,7 @@ __all__ = (
     "OwnerPropertiesTypeDef",
     "OwnerUserPropertiesOutputTypeDef",
     "OwnerUserPropertiesTypeDef",
+    "PackageConfigTypeDef",
     "PaginatorConfigTypeDef",
     "PermissionsOutputTypeDef",
     "PermissionsTypeDef",
@@ -759,6 +775,11 @@ __all__ = (
     "StartDataSourceRunOutputTypeDef",
     "StartMetadataGenerationRunInputTypeDef",
     "StartMetadataGenerationRunOutputTypeDef",
+    "StartNotebookRunInputTypeDef",
+    "StartNotebookRunOutputTypeDef",
+    "StopNotebookRunInputTypeDef",
+    "StopNotebookRunOutputTypeDef",
+    "StorageConfigTypeDef",
     "SubscribedAssetListingTypeDef",
     "SubscribedAssetTypeDef",
     "SubscribedGroupInputTypeDef",
@@ -788,8 +809,10 @@ __all__ = (
     "TimeSeriesDataPointFormInputTypeDef",
     "TimeSeriesDataPointFormOutputTypeDef",
     "TimeSeriesDataPointSummaryFormOutputTypeDef",
+    "TimeoutConfigTypeDef",
     "TimestampTypeDef",
     "TopicTypeDef",
+    "TriggerSourceTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAccountPoolInputTypeDef",
     "UpdateAccountPoolOutputTypeDef",
@@ -1132,6 +1155,11 @@ class CancelSubscriptionInputTypeDef(TypedDict):
 
 class CloudFormationPropertiesTypeDef(TypedDict):
     templateUrl: str
+
+
+class ComputeConfigTypeDef(TypedDict):
+    instanceType: NotRequired[str]
+    environmentVersion: NotRequired[str]
 
 
 class ConfigurableActionParameterTypeDef(TypedDict):
@@ -1703,6 +1731,11 @@ class EncryptionConfigurationTypeDef(TypedDict):
     sseAlgorithm: NotRequired[str]
 
 
+class PackageConfigTypeDef(TypedDict):
+    packageManager: Literal["UV"]
+    packageSpecification: NotRequired[str]
+
+
 class RegionTypeDef(TypedDict):
     regionName: NotRequired[str]
     regionNamePath: NotRequired[str]
@@ -1956,6 +1989,40 @@ MetadataGenerationRunTypeStatTypeDef = TypedDict(
         "type": MetadataGenerationRunTypeType,
         "status": MetadataGenerationRunStatusType,
         "errorMessage": NotRequired[str],
+    },
+)
+
+
+class GetNotebookRunInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
+
+class NetworkConfigOutputTypeDef(TypedDict):
+    networkAccessType: NetworkAccessTypeType
+    vpcId: NotRequired[str]
+    subnetIds: NotRequired[list[str]]
+    securityGroupIds: NotRequired[list[str]]
+
+
+class NotebookRunErrorTypeDef(TypedDict):
+    message: str
+
+
+class StorageConfigTypeDef(TypedDict):
+    projectS3Path: NotRequired[str]
+    kmsKeyArn: NotRequired[str]
+
+
+class TimeoutConfigTypeDef(TypedDict):
+    runTimeoutInMinutes: NotRequired[int]
+
+
+TriggerSourceTypeDef = TypedDict(
+    "TriggerSourceTypeDef",
+    {
+        "type": NotRequired[TriggerSourceTypeType],
+        "name": NotRequired[str],
     },
 )
 
@@ -2364,6 +2431,17 @@ ListMetadataGenerationRunsInputTypeDef = TypedDict(
 )
 
 
+class ListNotebookRunsInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    notebookIdentifier: NotRequired[str]
+    status: NotRequired[NotebookRunStatusType]
+    scheduleIdentifier: NotRequired[str]
+    maxResults: NotRequired[int]
+    sortOrder: NotRequired[SortOrderType]
+    nextToken: NotRequired[str]
+
+
 class ListPolicyGrantsInputTypeDef(TypedDict):
     domainIdentifier: str
     entityType: TargetEntityTypeType
@@ -2529,6 +2607,13 @@ class MetadataFormSummaryTypeDef(TypedDict):
 class NameIdentifierTypeDef(TypedDict):
     name: NotRequired[str]
     namespace: NotRequired[str]
+
+
+class NetworkConfigTypeDef(TypedDict):
+    networkAccessType: NetworkAccessTypeType
+    vpcId: NotRequired[str]
+    subnetIds: NotRequired[Sequence[str]]
+    securityGroupIds: NotRequired[Sequence[str]]
 
 
 class NotEqualToExpressionTypeDef(TypedDict):
@@ -2711,6 +2796,12 @@ class SsoUserProfileDetailsTypeDef(TypedDict):
 class StartDataSourceRunInputTypeDef(TypedDict):
     domainIdentifier: str
     dataSourceIdentifier: str
+    clientToken: NotRequired[str]
+
+
+class StopNotebookRunInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
     clientToken: NotRequired[str]
 
 
@@ -2987,6 +3078,16 @@ StartMetadataGenerationRunOutputTypeDef = TypedDict(
         "createdAt": datetime,
         "createdBy": str,
         "owningProjectId": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+StopNotebookRunOutputTypeDef = TypedDict(
+    "StopNotebookRunOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "status": NotebookRunStatusType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -3893,6 +3994,11 @@ class PutDataExportConfigurationInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
+class EnvironmentConfigTypeDef(TypedDict):
+    imageVersion: NotRequired[str]
+    packageConfig: NotRequired[PackageConfigTypeDef]
+
+
 class EnvironmentConfigurationParametersDetailsOutputTypeDef(TypedDict):
     ssmPath: NotRequired[str]
     parameterOverrides: NotRequired[list[EnvironmentConfigurationParameterTypeDef]]
@@ -4136,6 +4242,24 @@ GetMetadataGenerationRunOutputTypeDef = TypedDict(
         "owningProjectId": str,
         "typeStats": list[MetadataGenerationRunTypeStatTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+NotebookRunSummaryTypeDef = TypedDict(
+    "NotebookRunSummaryTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "notebookId": str,
+        "status": NotebookRunStatusType,
+        "scheduleId": NotRequired[str],
+        "triggerSource": NotRequired[TriggerSourceTypeDef],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
+        "updatedAt": NotRequired[datetime],
+        "updatedBy": NotRequired[str],
+        "startedAt": NotRequired[datetime],
+        "completedAt": NotRequired[datetime],
     },
 )
 
@@ -4383,6 +4507,18 @@ ListMetadataGenerationRunsInputPaginateTypeDef = TypedDict(
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
 )
+
+
+class ListNotebookRunsInputPaginateTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    notebookIdentifier: NotRequired[str]
+    status: NotRequired[NotebookRunStatusType]
+    scheduleIdentifier: NotRequired[str]
+    sortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 ListNotificationsInputPaginateTypeDef = TypedDict(
     "ListNotificationsInputPaginateTypeDef",
     {
@@ -4552,6 +4688,7 @@ class OpenLineageRunEventSummaryTypeDef(TypedDict):
     outputs: NotRequired[list[NameIdentifierTypeDef]]
 
 
+NetworkConfigUnionTypeDef = Union[NetworkConfigTypeDef, NetworkConfigOutputTypeDef]
 RowFilterExpressionOutputTypeDef = TypedDict(
     "RowFilterExpressionOutputTypeDef",
     {
@@ -5290,6 +5427,62 @@ UpdateDomainUnitOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+GetNotebookRunOutputTypeDef = TypedDict(
+    "GetNotebookRunOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "notebookId": str,
+        "scheduleId": str,
+        "status": NotebookRunStatusType,
+        "cellOrder": list[dict[str, Any]],
+        "metadata": dict[str, str],
+        "parameters": dict[str, str],
+        "computeConfiguration": ComputeConfigTypeDef,
+        "networkConfiguration": NetworkConfigOutputTypeDef,
+        "timeoutConfiguration": TimeoutConfigTypeDef,
+        "environmentConfiguration": EnvironmentConfigTypeDef,
+        "storageConfiguration": StorageConfigTypeDef,
+        "triggerSource": TriggerSourceTypeDef,
+        "error": NotebookRunErrorTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "updatedAt": datetime,
+        "updatedBy": str,
+        "startedAt": datetime,
+        "completedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+StartNotebookRunOutputTypeDef = TypedDict(
+    "StartNotebookRunOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "notebookId": str,
+        "scheduleId": str,
+        "status": NotebookRunStatusType,
+        "cellOrder": list[dict[str, Any]],
+        "metadata": dict[str, str],
+        "parameters": dict[str, str],
+        "computeConfiguration": ComputeConfigTypeDef,
+        "networkConfiguration": NetworkConfigOutputTypeDef,
+        "timeoutConfiguration": TimeoutConfigTypeDef,
+        "environmentConfiguration": EnvironmentConfigTypeDef,
+        "storageConfiguration": StorageConfigTypeDef,
+        "triggerSource": TriggerSourceTypeDef,
+        "error": NotebookRunErrorTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "updatedAt": datetime,
+        "updatedBy": str,
+        "startedAt": datetime,
+        "completedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 EnvironmentConfigurationOutputTypeDef = TypedDict(
     "EnvironmentConfigurationOutputTypeDef",
     {
@@ -5505,6 +5698,12 @@ class ListMetadataGenerationRunsOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListNotebookRunsOutputTypeDef(TypedDict):
+    items: list[NotebookRunSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class SelfGrantStatusOutputTypeDef(TypedDict):
     glueSelfGrantStatus: NotRequired[GlueSelfGrantStatusOutputTypeDef]
     redshiftSelfGrantStatus: NotRequired[RedshiftSelfGrantStatusOutputTypeDef]
@@ -5589,6 +5788,20 @@ class RuleDetailTypeDef(TypedDict):
 
 class EventSummaryTypeDef(TypedDict):
     openLineageRunEventSummary: NotRequired[OpenLineageRunEventSummaryTypeDef]
+
+
+class StartNotebookRunInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    notebookIdentifier: str
+    scheduleIdentifier: NotRequired[str]
+    computeConfiguration: NotRequired[ComputeConfigTypeDef]
+    networkConfiguration: NotRequired[NetworkConfigUnionTypeDef]
+    timeoutConfiguration: NotRequired[TimeoutConfigTypeDef]
+    triggerSource: NotRequired[TriggerSourceTypeDef]
+    metadata: NotRequired[Mapping[str, str]]
+    parameters: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
 
 
 RowFilterOutputTypeDef = TypedDict(

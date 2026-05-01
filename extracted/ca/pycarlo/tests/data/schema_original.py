@@ -11142,6 +11142,7 @@ class NotificationExtra(sgqlc.types.Input):
         "dc_proxy",
         "turn_off_normalized_messages",
         "receive_normalized",
+        "receive_monitor_changes",
         "disable_ssl_verification",
         "include_incident_fields",
         "jira_project_id",
@@ -11198,6 +11199,11 @@ class NotificationExtra(sgqlc.types.Input):
 
     receive_normalized = sgqlc.types.Field(Boolean, graphql_name="receiveNormalized")
     """True if normalized messages should be received"""
+
+    receive_monitor_changes = sgqlc.types.Field(Boolean, graphql_name="receiveMonitorChanges")
+    """True if monitor enable/disable/delete notifications should be
+    received. Default false (opt-in).
+    """
 
     disable_ssl_verification = sgqlc.types.Field(Boolean, graphql_name="disableSslVerification")
     """True if HTTP requests proxied through the Data Collector should
@@ -56195,6 +56201,23 @@ class NotificationSetting(sgqlc.types.Type):
     """
 
 
+class NotificationTypeCapabilities(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("notification_type", "supports_monitor_changes")
+    notification_type = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="notificationType"
+    )
+    """The notification type these capability flags apply to"""
+
+    supports_monitor_changes = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsMonitorChanges"
+    )
+    """True if this notification type honors the `receiveMonitorChanges`
+    flag on `NotificationExtra`. The frontend should only render the
+    toggle for types where this is True.
+    """
+
+
 class NumericAnomalyCorrelation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("field", "metric", "value", "historical_value", "correlations", "outliers")
@@ -57749,6 +57772,7 @@ class Query(sgqlc.types.Type):
         "get_query_text",
         "get_queried_tables",
         "get_notification_settings",
+        "get_notification_type_capabilities",
         "get_notification_audiences",
         "get_notification_audiences_count",
         "get_notification_audience_creators",
@@ -63734,6 +63758,17 @@ class Query(sgqlc.types.Type):
 
     * `monitor_labels` (`[String]`): Filter by notifications that
       handle these monitor labels
+    """
+
+    get_notification_type_capabilities = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(NotificationTypeCapabilities))
+        ),
+        graphql_name="getNotificationTypeCapabilities",
+    )
+    """(experimental) Capability flags per notification type. Use
+    `supportsMonitorChanges` to decide whether to render the monitor-
+    change opt-in toggle for a type.
     """
 
     get_notification_audiences = sgqlc.types.Field(

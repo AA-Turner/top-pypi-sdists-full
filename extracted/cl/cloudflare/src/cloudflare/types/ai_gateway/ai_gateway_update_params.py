@@ -2,10 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Optional
-from typing_extensions import Literal, Required, TypedDict
+from typing import Dict, List, Union, Iterable, Optional
+from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
-__all__ = ["AIGatewayUpdateParams"]
+from ..._types import SequenceNotStr
+
+__all__ = [
+    "AIGatewayUpdateParams",
+    "DLP",
+    "DLPUnionMember0",
+    "DLPUnionMember1",
+    "DLPUnionMember1Policy",
+    "Otel",
+    "Stripe",
+    "StripeUsageEvent",
+]
 
 
 class AIGatewayUpdateParams(TypedDict, total=False):
@@ -21,9 +32,9 @@ class AIGatewayUpdateParams(TypedDict, total=False):
 
     rate_limiting_limit: Required[Optional[int]]
 
-    rate_limiting_technique: Required[Literal["fixed", "sliding"]]
-
     authentication: bool
+
+    dlp: DLP
 
     log_management: Optional[int]
 
@@ -32,3 +43,77 @@ class AIGatewayUpdateParams(TypedDict, total=False):
     logpush: bool
 
     logpush_public_key: Optional[str]
+
+    otel: Optional[Iterable[Otel]]
+
+    rate_limiting_technique: Optional[Literal["fixed", "sliding"]]
+
+    retry_backoff: Optional[Literal["constant", "linear", "exponential"]]
+    """Backoff strategy for retry delays"""
+
+    retry_delay: Optional[int]
+    """Delay between retry attempts in milliseconds (0-5000)"""
+
+    retry_max_attempts: Optional[int]
+    """Maximum number of retry attempts for failed requests (1-5)"""
+
+    store_id: Optional[str]
+
+    stripe: Optional[Stripe]
+
+    workers_ai_billing_mode: Literal["postpaid"]
+    """Controls how Workers AI inference calls routed through this gateway are billed.
+
+    Only 'postpaid' is currently supported.
+    """
+
+    zdr: bool
+
+
+class DLPUnionMember0(TypedDict, total=False):
+    action: Required[Literal["BLOCK", "FLAG"]]
+
+    enabled: Required[bool]
+
+    profiles: Required[SequenceNotStr[str]]
+
+
+class DLPUnionMember1Policy(TypedDict, total=False):
+    id: Required[str]
+
+    action: Required[Literal["FLAG", "BLOCK"]]
+
+    check: Required[List[Literal["REQUEST", "RESPONSE"]]]
+
+    enabled: Required[bool]
+
+    profiles: Required[SequenceNotStr[str]]
+
+
+class DLPUnionMember1(TypedDict, total=False):
+    enabled: Required[bool]
+
+    policies: Required[Iterable[DLPUnionMember1Policy]]
+
+
+DLP: TypeAlias = Union[DLPUnionMember0, DLPUnionMember1]
+
+
+class Otel(TypedDict, total=False):
+    authorization: Required[str]
+
+    headers: Required[Dict[str, str]]
+
+    url: Required[str]
+
+    content_type: Literal["json", "protobuf"]
+
+
+class StripeUsageEvent(TypedDict, total=False):
+    payload: Required[str]
+
+
+class Stripe(TypedDict, total=False):
+    authorization: Required[str]
+
+    usage_events: Required[Iterable[StripeUsageEvent]]

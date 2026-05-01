@@ -7,6 +7,7 @@ class TokensApiMock:
         self.mock_create_api_key_introspection = MagicMock()
         self.mock_create_authentication_document = MagicMock()
         self.mock_create_bulk_delete_session_task = MagicMock()
+        self.mock_create_bulk_expiry_session_task = MagicMock()
         self.mock_create_bulk_revoke_session_task = MagicMock()
         self.mock_create_bulk_revoke_token_task = MagicMock()
         self.mock_create_introspect_token = MagicMock()
@@ -61,6 +62,12 @@ class TokensApiMock:
         This method mocks the original api TokensApi.create_bulk_delete_session_task with MagicMock.
         """
         return self.mock_create_bulk_delete_session_task(self, *args, **kwargs)
+
+    def create_bulk_expiry_session_task(self, *args, **kwargs):
+        """
+        This method mocks the original api TokensApi.create_bulk_expiry_session_task with MagicMock.
+        """
+        return self.mock_create_bulk_expiry_session_task(self, *args, **kwargs)
 
     def create_bulk_revoke_session_task(self, *args, **kwargs):
         """

@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -55,7 +55,7 @@ class VariantsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[VariantDeleteResponse]:
         """
         Variant support enables caching variants of images with certain file extensions
@@ -65,7 +65,7 @@ class VariantsResource(SyncAPIResource):
         be indicated with BYPASS cache status in the response headers.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -78,7 +78,7 @@ class VariantsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._delete(
-            f"/zones/{zone_id}/cache/variants",
+            path_template("/zones/{zone_id}/cache/variants", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -99,7 +99,7 @@ class VariantsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[VariantEditResponse]:
         """
         Variant support enables caching variants of images with certain file extensions
@@ -109,7 +109,7 @@ class VariantsResource(SyncAPIResource):
         be indicated with BYPASS cache status in the response headers.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           value: Value of the zone setting.
 
@@ -124,7 +124,7 @@ class VariantsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._patch(
-            f"/zones/{zone_id}/cache/variants",
+            path_template("/zones/{zone_id}/cache/variants", zone_id=zone_id),
             body=maybe_transform({"value": value}, variant_edit_params.VariantEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -145,7 +145,7 @@ class VariantsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[VariantGetResponse]:
         """
         Variant support enables caching variants of images with certain file extensions
@@ -155,7 +155,7 @@ class VariantsResource(SyncAPIResource):
         be indicated with BYPASS cache status in the response headers.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -168,7 +168,7 @@ class VariantsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/cache/variants",
+            path_template("/zones/{zone_id}/cache/variants", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -209,7 +209,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[VariantDeleteResponse]:
         """
         Variant support enables caching variants of images with certain file extensions
@@ -219,7 +219,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         be indicated with BYPASS cache status in the response headers.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -232,7 +232,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._delete(
-            f"/zones/{zone_id}/cache/variants",
+            path_template("/zones/{zone_id}/cache/variants", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -253,7 +253,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[VariantEditResponse]:
         """
         Variant support enables caching variants of images with certain file extensions
@@ -263,7 +263,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         be indicated with BYPASS cache status in the response headers.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           value: Value of the zone setting.
 
@@ -278,7 +278,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._patch(
-            f"/zones/{zone_id}/cache/variants",
+            path_template("/zones/{zone_id}/cache/variants", zone_id=zone_id),
             body=await async_maybe_transform({"value": value}, variant_edit_params.VariantEditParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -299,7 +299,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[VariantGetResponse]:
         """
         Variant support enables caching variants of images with certain file extensions
@@ -309,7 +309,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         be indicated with BYPASS cache status in the response headers.
 
         Args:
-          zone_id: Identifier
+          zone_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -322,7 +322,7 @@ class AsyncVariantsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/cache/variants",
+            path_template("/zones/{zone_id}/cache/variants", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

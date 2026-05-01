@@ -6,7 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ....._types import Body, Query, Headers, NotGiven, not_given
+from ....._utils import path_template
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -52,7 +53,7 @@ class TokenResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
         Gets the token used to associate cloudflared with a specific tunnel.
@@ -75,7 +76,9 @@ class TokenResource(SyncAPIResource):
         if not tunnel_id:
             raise ValueError(f"Expected a non-empty value for `tunnel_id` but received {tunnel_id!r}")
         return self._get(
-            f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/token",
+            path_template(
+                "/accounts/{account_id}/cfd_tunnel/{tunnel_id}/token", account_id=account_id, tunnel_id=tunnel_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -117,7 +120,7 @@ class AsyncTokenResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
         Gets the token used to associate cloudflared with a specific tunnel.
@@ -140,7 +143,9 @@ class AsyncTokenResource(AsyncAPIResource):
         if not tunnel_id:
             raise ValueError(f"Expected a non-empty value for `tunnel_id` but received {tunnel_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/token",
+            path_template(
+                "/accounts/{account_id}/cfd_tunnel/{tunnel_id}/token", account_id=account_id, tunnel_id=tunnel_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

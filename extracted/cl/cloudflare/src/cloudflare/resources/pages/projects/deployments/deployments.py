@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Type, Optional, cast
+from typing import Type, Mapping, Optional, cast
 from typing_extensions import Literal
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, FileTypes, omit, not_given
+from ....._utils import extract_files, path_template, maybe_transform, deepcopy_minimal, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -18,7 +18,7 @@ from ....._response import (
     async_to_streamed_response_wrapper,
 )
 from ....._wrappers import ResultWrapper
-from .....pagination import SyncSinglePage, AsyncSinglePage
+from .....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from .history.history import (
     HistoryResource,
     AsyncHistoryResource,
@@ -28,12 +28,7 @@ from .history.history import (
     AsyncHistoryResourceWithStreamingResponse,
 )
 from ....._base_client import AsyncPaginator, make_request_options
-from .....types.pages.projects import (
-    deployment_list_params,
-    deployment_retry_params,
-    deployment_create_params,
-    deployment_rollback_params,
-)
+from .....types.pages.projects import deployment_list_params, deployment_create_params, deployment_delete_params
 from .....types.pages.deployment import Deployment
 
 __all__ = ["DeploymentsResource", "AsyncDeploymentsResource"]
@@ -68,13 +63,25 @@ class DeploymentsResource(SyncAPIResource):
         project_name: str,
         *,
         account_id: str,
-        branch: str | NotGiven = NOT_GIVEN,
+        _headers: FileTypes | Omit = omit,
+        _redirects: FileTypes | Omit = omit,
+        _routes_json: FileTypes | Omit = omit,
+        _worker_bundle: FileTypes | Omit = omit,
+        _worker_js: FileTypes | Omit = omit,
+        branch: str | Omit = omit,
+        commit_dirty: Literal["true", "false"] | Omit = omit,
+        commit_hash: str | Omit = omit,
+        commit_message: str | Omit = omit,
+        functions_filepath_routing_config_json: FileTypes | Omit = omit,
+        manifest: str | Omit = omit,
+        pages_build_output_dir: str | Omit = omit,
+        wrangler_config_hash: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Deployment:
         """Start a new deployment from production.
 
@@ -82,12 +89,40 @@ class DeploymentsResource(SyncAPIResource):
         already been authorized on the Cloudflare Pages dashboard.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
+          _headers: Headers configuration file for the deployment.
+
+          _redirects: Redirects configuration file for the deployment.
+
+          _routes_json: Routes configuration file defining routing rules.
+
+          _worker_bundle: Worker bundle file in multipart/form-data format. Mutually exclusive with
+              `_worker.js`. Cannot specify both `_worker.js` and `_worker.bundle` in the same
+              request. Maximum size: 25 MiB.
+
+          _worker_js: Worker JavaScript file. Mutually exclusive with `_worker.bundle`. Cannot specify
+              both `_worker.js` and `_worker.bundle` in the same request.
+
           branch: The branch to build the new deployment from. The `HEAD` of the branch will be
               used. If omitted, the production branch will be used by default.
+
+          commit_dirty: Boolean string indicating if the working directory has uncommitted changes.
+
+          commit_hash: Git commit SHA associated with this deployment.
+
+          commit_message: Git commit message associated with this deployment.
+
+          functions_filepath_routing_config_json: Functions routing configuration file.
+
+          manifest: JSON string containing a manifest of files to deploy. Maps file paths to their
+              content hashes. Required for direct upload deployments. Maximum 20,000 entries.
+
+          pages_build_output_dir: The build output directory path.
+
+          wrangler_config_hash: Hash of the Wrangler configuration file used for this deployment.
 
           extra_headers: Send extra headers
 
@@ -101,13 +136,46 @@ class DeploymentsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not project_name:
             raise ValueError(f"Expected a non-empty value for `project_name` but received {project_name!r}")
+        body = deepcopy_minimal(
+            {
+                "_headers": _headers,
+                "_redirects": _redirects,
+                "_routes_json": _routes_json,
+                "_worker_bundle": _worker_bundle,
+                "_worker_js": _worker_js,
+                "branch": branch,
+                "commit_dirty": commit_dirty,
+                "commit_hash": commit_hash,
+                "commit_message": commit_message,
+                "functions_filepath_routing_config_json": functions_filepath_routing_config_json,
+                "manifest": manifest,
+                "pages_build_output_dir": pages_build_output_dir,
+                "wrangler_config_hash": wrangler_config_hash,
+            }
+        )
+        files = extract_files(
+            cast(Mapping[str, object], body),
+            paths=[
+                ["_headers"],
+                ["_redirects"],
+                ["_routes.json"],
+                ["_worker.bundle"],
+                ["_worker.js"],
+                ["functions-filepath-routing-config.json"],
+            ],
+        )
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._post(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments",
-            body=maybe_transform({"branch": branch}, deployment_create_params.DeploymentCreateParams),
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments",
+                account_id=account_id,
+                project_name=project_name,
+            ),
+            body=maybe_transform(body, deployment_create_params.DeploymentCreateParams),
+            files=files,
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -123,23 +191,29 @@ class DeploymentsResource(SyncAPIResource):
         project_name: str,
         *,
         account_id: str,
-        env: Literal["production", "preview"] | NotGiven = NOT_GIVEN,
+        env: Literal["production", "preview"] | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncSinglePage[Deployment]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncV4PagePaginationArray[Deployment]:
         """
         Fetch a list of project deployments.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
           env: What type of deployments to fetch.
+
+          page: Which page of deployments to fetch.
+
+          per_page: How many deployments to return per page.
 
           extra_headers: Send extra headers
 
@@ -154,14 +228,25 @@ class DeploymentsResource(SyncAPIResource):
         if not project_name:
             raise ValueError(f"Expected a non-empty value for `project_name` but received {project_name!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments",
-            page=SyncSinglePage[Deployment],
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments",
+                account_id=account_id,
+                project_name=project_name,
+            ),
+            page=SyncV4PagePaginationArray[Deployment],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform({"env": env}, deployment_list_params.DeploymentListParams),
+                query=maybe_transform(
+                    {
+                        "env": env,
+                        "page": page,
+                        "per_page": per_page,
+                    },
+                    deployment_list_params.DeploymentListParams,
+                ),
             ),
             model=Deployment,
         )
@@ -172,22 +257,26 @@ class DeploymentsResource(SyncAPIResource):
         *,
         account_id: str,
         project_name: str,
+        force: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Delete a deployment.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
-          deployment_id: Identifier
+          deployment_id: Identifier.
+
+          force: Allow deletion of aliased non-production deployments when a normal delete would
+              be rejected.
 
           extra_headers: Send extra headers
 
@@ -204,12 +293,18 @@ class DeploymentsResource(SyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}",
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}",
+                account_id=account_id,
+                project_name=project_name,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=maybe_transform({"force": force}, deployment_delete_params.DeploymentDeleteParams),
                 post_parser=ResultWrapper[Optional[object]]._unwrapper,
             ),
             cast_to=cast(Type[object], ResultWrapper[object]),
@@ -226,17 +321,17 @@ class DeploymentsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Deployment:
         """
         Fetch information about a deployment.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
-          deployment_id: Identifier
+          deployment_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -253,7 +348,12 @@ class DeploymentsResource(SyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return self._get(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}",
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}",
+                account_id=account_id,
+                project_name=project_name,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -270,23 +370,22 @@ class DeploymentsResource(SyncAPIResource):
         *,
         account_id: str,
         project_name: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Deployment:
         """
         Retry a previous deployment.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
-          deployment_id: Identifier
+          deployment_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -303,8 +402,12 @@ class DeploymentsResource(SyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return self._post(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/retry",
-            body=maybe_transform(body, deployment_retry_params.DeploymentRetryParams),
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/retry",
+                account_id=account_id,
+                project_name=project_name,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -321,13 +424,12 @@ class DeploymentsResource(SyncAPIResource):
         *,
         account_id: str,
         project_name: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Deployment:
         """Rollback the production deployment to a previous deployment.
 
@@ -335,11 +437,11 @@ class DeploymentsResource(SyncAPIResource):
         rollback to succesful builds on production.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
-          deployment_id: Identifier
+          deployment_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -356,8 +458,12 @@ class DeploymentsResource(SyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return self._post(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/rollback",
-            body=maybe_transform(body, deployment_rollback_params.DeploymentRollbackParams),
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/rollback",
+                account_id=account_id,
+                project_name=project_name,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -398,13 +504,25 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         project_name: str,
         *,
         account_id: str,
-        branch: str | NotGiven = NOT_GIVEN,
+        _headers: FileTypes | Omit = omit,
+        _redirects: FileTypes | Omit = omit,
+        _routes_json: FileTypes | Omit = omit,
+        _worker_bundle: FileTypes | Omit = omit,
+        _worker_js: FileTypes | Omit = omit,
+        branch: str | Omit = omit,
+        commit_dirty: Literal["true", "false"] | Omit = omit,
+        commit_hash: str | Omit = omit,
+        commit_message: str | Omit = omit,
+        functions_filepath_routing_config_json: FileTypes | Omit = omit,
+        manifest: str | Omit = omit,
+        pages_build_output_dir: str | Omit = omit,
+        wrangler_config_hash: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Deployment:
         """Start a new deployment from production.
 
@@ -412,12 +530,40 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         already been authorized on the Cloudflare Pages dashboard.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
+          _headers: Headers configuration file for the deployment.
+
+          _redirects: Redirects configuration file for the deployment.
+
+          _routes_json: Routes configuration file defining routing rules.
+
+          _worker_bundle: Worker bundle file in multipart/form-data format. Mutually exclusive with
+              `_worker.js`. Cannot specify both `_worker.js` and `_worker.bundle` in the same
+              request. Maximum size: 25 MiB.
+
+          _worker_js: Worker JavaScript file. Mutually exclusive with `_worker.bundle`. Cannot specify
+              both `_worker.js` and `_worker.bundle` in the same request.
+
           branch: The branch to build the new deployment from. The `HEAD` of the branch will be
               used. If omitted, the production branch will be used by default.
+
+          commit_dirty: Boolean string indicating if the working directory has uncommitted changes.
+
+          commit_hash: Git commit SHA associated with this deployment.
+
+          commit_message: Git commit message associated with this deployment.
+
+          functions_filepath_routing_config_json: Functions routing configuration file.
+
+          manifest: JSON string containing a manifest of files to deploy. Maps file paths to their
+              content hashes. Required for direct upload deployments. Maximum 20,000 entries.
+
+          pages_build_output_dir: The build output directory path.
+
+          wrangler_config_hash: Hash of the Wrangler configuration file used for this deployment.
 
           extra_headers: Send extra headers
 
@@ -431,13 +577,46 @@ class AsyncDeploymentsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not project_name:
             raise ValueError(f"Expected a non-empty value for `project_name` but received {project_name!r}")
+        body = deepcopy_minimal(
+            {
+                "_headers": _headers,
+                "_redirects": _redirects,
+                "_routes_json": _routes_json,
+                "_worker_bundle": _worker_bundle,
+                "_worker_js": _worker_js,
+                "branch": branch,
+                "commit_dirty": commit_dirty,
+                "commit_hash": commit_hash,
+                "commit_message": commit_message,
+                "functions_filepath_routing_config_json": functions_filepath_routing_config_json,
+                "manifest": manifest,
+                "pages_build_output_dir": pages_build_output_dir,
+                "wrangler_config_hash": wrangler_config_hash,
+            }
+        )
+        files = extract_files(
+            cast(Mapping[str, object], body),
+            paths=[
+                ["_headers"],
+                ["_redirects"],
+                ["_routes.json"],
+                ["_worker.bundle"],
+                ["_worker.js"],
+                ["functions-filepath-routing-config.json"],
+            ],
+        )
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._post(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments",
-            body=await async_maybe_transform({"branch": branch}, deployment_create_params.DeploymentCreateParams),
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments",
+                account_id=account_id,
+                project_name=project_name,
+            ),
+            body=await async_maybe_transform(body, deployment_create_params.DeploymentCreateParams),
+            files=files,
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -453,23 +632,29 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         project_name: str,
         *,
         account_id: str,
-        env: Literal["production", "preview"] | NotGiven = NOT_GIVEN,
+        env: Literal["production", "preview"] | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[Deployment, AsyncSinglePage[Deployment]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[Deployment, AsyncV4PagePaginationArray[Deployment]]:
         """
         Fetch a list of project deployments.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
           env: What type of deployments to fetch.
+
+          page: Which page of deployments to fetch.
+
+          per_page: How many deployments to return per page.
 
           extra_headers: Send extra headers
 
@@ -484,14 +669,25 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         if not project_name:
             raise ValueError(f"Expected a non-empty value for `project_name` but received {project_name!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments",
-            page=AsyncSinglePage[Deployment],
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments",
+                account_id=account_id,
+                project_name=project_name,
+            ),
+            page=AsyncV4PagePaginationArray[Deployment],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform({"env": env}, deployment_list_params.DeploymentListParams),
+                query=maybe_transform(
+                    {
+                        "env": env,
+                        "page": page,
+                        "per_page": per_page,
+                    },
+                    deployment_list_params.DeploymentListParams,
+                ),
             ),
             model=Deployment,
         )
@@ -502,22 +698,26 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         *,
         account_id: str,
         project_name: str,
+        force: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Delete a deployment.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
-          deployment_id: Identifier
+          deployment_id: Identifier.
+
+          force: Allow deletion of aliased non-production deployments when a normal delete would
+              be rejected.
 
           extra_headers: Send extra headers
 
@@ -534,12 +734,18 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}",
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}",
+                account_id=account_id,
+                project_name=project_name,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=await async_maybe_transform({"force": force}, deployment_delete_params.DeploymentDeleteParams),
                 post_parser=ResultWrapper[Optional[object]]._unwrapper,
             ),
             cast_to=cast(Type[object], ResultWrapper[object]),
@@ -556,17 +762,17 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Deployment:
         """
         Fetch information about a deployment.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
-          deployment_id: Identifier
+          deployment_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -583,7 +789,12 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}",
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}",
+                account_id=account_id,
+                project_name=project_name,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -600,23 +811,22 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         *,
         account_id: str,
         project_name: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Deployment:
         """
         Retry a previous deployment.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
-          deployment_id: Identifier
+          deployment_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -633,8 +843,12 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/retry",
-            body=await async_maybe_transform(body, deployment_retry_params.DeploymentRetryParams),
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/retry",
+                account_id=account_id,
+                project_name=project_name,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -651,13 +865,12 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         *,
         account_id: str,
         project_name: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Deployment:
         """Rollback the production deployment to a previous deployment.
 
@@ -665,11 +878,11 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         rollback to succesful builds on production.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
-          deployment_id: Identifier
+          deployment_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -686,8 +899,12 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/rollback",
-            body=await async_maybe_transform(body, deployment_rollback_params.DeploymentRollbackParams),
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/rollback",
+                account_id=account_id,
+                project_name=project_name,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

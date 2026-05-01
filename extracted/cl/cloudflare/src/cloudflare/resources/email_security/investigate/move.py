@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from typing import List
 from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._utils import path_template, maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -48,7 +47,7 @@ class MoveResource(SyncAPIResource):
 
     def create(
         self,
-        postfix_id: str,
+        investigate_id: str,
         *,
         account_id: str,
         destination: Literal[
@@ -59,15 +58,17 @@ class MoveResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[MoveCreateResponse]:
         """
-        Move a message
+        Moves a single message to a specified mailbox folder (Inbox, JunkEmail,
+        DeletedItems, RecoverableItemsDeletions, or RecoverableItemsPurges). Requires
+        active integration.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
-          postfix_id: The identifier of the message.
+          investigate_id: Unique identifier for a message retrieved from investigation
 
           extra_headers: Send extra headers
 
@@ -79,10 +80,14 @@ class MoveResource(SyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        if not postfix_id:
-            raise ValueError(f"Expected a non-empty value for `postfix_id` but received {postfix_id!r}")
+        if not investigate_id:
+            raise ValueError(f"Expected a non-empty value for `investigate_id` but received {investigate_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email-security/investigate/{postfix_id}/move",
+            path_template(
+                "/accounts/{account_id}/email-security/investigate/{investigate_id}/move",
+                account_id=account_id,
+                investigate_id=investigate_id,
+            ),
             page=SyncSinglePage[MoveCreateResponse],
             body=maybe_transform({"destination": destination}, move_create_params.MoveCreateParams),
             options=make_request_options(
@@ -99,19 +104,27 @@ class MoveResource(SyncAPIResource):
         destination: Literal[
             "Inbox", "JunkEmail", "DeletedItems", "RecoverableItemsDeletions", "RecoverableItemsPurges"
         ],
-        postfix_ids: List[str],
+        ids: SequenceNotStr[str] | Omit = omit,
+        postfix_ids: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[MoveBulkResponse]:
         """
-        Move multiple messages
+        Moves multiple messages to a specified mailbox folder (Inbox, JunkEmail,
+        DeletedItems, RecoverableItemsDeletions, or RecoverableItemsPurges). Requires
+        active integration.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
+
+          ids: List of message IDs to move
+
+          postfix_ids: Deprecated, use `ids` instead. End of life: November 1, 2026. List of message
+              IDs to move.
 
           extra_headers: Send extra headers
 
@@ -124,11 +137,12 @@ class MoveResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email-security/investigate/move",
+            path_template("/accounts/{account_id}/email-security/investigate/move", account_id=account_id),
             page=SyncSinglePage[MoveBulkResponse],
             body=maybe_transform(
                 {
                     "destination": destination,
+                    "ids": ids,
                     "postfix_ids": postfix_ids,
                 },
                 move_bulk_params.MoveBulkParams,
@@ -163,7 +177,7 @@ class AsyncMoveResource(AsyncAPIResource):
 
     def create(
         self,
-        postfix_id: str,
+        investigate_id: str,
         *,
         account_id: str,
         destination: Literal[
@@ -174,15 +188,17 @@ class AsyncMoveResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[MoveCreateResponse, AsyncSinglePage[MoveCreateResponse]]:
         """
-        Move a message
+        Moves a single message to a specified mailbox folder (Inbox, JunkEmail,
+        DeletedItems, RecoverableItemsDeletions, or RecoverableItemsPurges). Requires
+        active integration.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
-          postfix_id: The identifier of the message.
+          investigate_id: Unique identifier for a message retrieved from investigation
 
           extra_headers: Send extra headers
 
@@ -194,10 +210,14 @@ class AsyncMoveResource(AsyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        if not postfix_id:
-            raise ValueError(f"Expected a non-empty value for `postfix_id` but received {postfix_id!r}")
+        if not investigate_id:
+            raise ValueError(f"Expected a non-empty value for `investigate_id` but received {investigate_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email-security/investigate/{postfix_id}/move",
+            path_template(
+                "/accounts/{account_id}/email-security/investigate/{investigate_id}/move",
+                account_id=account_id,
+                investigate_id=investigate_id,
+            ),
             page=AsyncSinglePage[MoveCreateResponse],
             body=maybe_transform({"destination": destination}, move_create_params.MoveCreateParams),
             options=make_request_options(
@@ -214,19 +234,27 @@ class AsyncMoveResource(AsyncAPIResource):
         destination: Literal[
             "Inbox", "JunkEmail", "DeletedItems", "RecoverableItemsDeletions", "RecoverableItemsPurges"
         ],
-        postfix_ids: List[str],
+        ids: SequenceNotStr[str] | Omit = omit,
+        postfix_ids: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[MoveBulkResponse, AsyncSinglePage[MoveBulkResponse]]:
         """
-        Move multiple messages
+        Moves multiple messages to a specified mailbox folder (Inbox, JunkEmail,
+        DeletedItems, RecoverableItemsDeletions, or RecoverableItemsPurges). Requires
+        active integration.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
+
+          ids: List of message IDs to move
+
+          postfix_ids: Deprecated, use `ids` instead. End of life: November 1, 2026. List of message
+              IDs to move.
 
           extra_headers: Send extra headers
 
@@ -239,11 +267,12 @@ class AsyncMoveResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email-security/investigate/move",
+            path_template("/accounts/{account_id}/email-security/investigate/move", account_id=account_id),
             page=AsyncSinglePage[MoveBulkResponse],
             body=maybe_transform(
                 {
                     "destination": destination,
+                    "ids": ids,
                     "postfix_ids": postfix_ids,
                 },
                 move_bulk_params.MoveBulkParams,

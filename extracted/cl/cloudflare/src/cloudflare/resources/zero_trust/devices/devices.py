@@ -40,7 +40,8 @@ from .unrevoke import (
     UnrevokeResourceWithStreamingResponse,
     AsyncUnrevokeResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template
 from .dex_tests import (
     DEXTestsResource,
     AsyncDEXTestsResource,
@@ -50,6 +51,14 @@ from .dex_tests import (
     AsyncDEXTestsResourceWithStreamingResponse,
 )
 from ...._compat import cached_property
+from .ip_profiles import (
+    IPProfilesResource,
+    AsyncIPProfilesResource,
+    IPProfilesResourceWithRawResponse,
+    AsyncIPProfilesResourceWithRawResponse,
+    IPProfilesResourceWithStreamingResponse,
+    AsyncIPProfilesResourceWithStreamingResponse,
+)
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
     to_raw_response_wrapper,
@@ -132,6 +141,10 @@ class DevicesResource(SyncAPIResource):
         return DEXTestsResource(self._client)
 
     @cached_property
+    def ip_profiles(self) -> IPProfilesResource:
+        return IPProfilesResource(self._client)
+
+    @cached_property
     def networks(self) -> NetworksResource:
         return NetworksResource(self._client)
 
@@ -192,7 +205,7 @@ class DevicesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Device]:
         """List WARP devices.
 
@@ -217,7 +230,7 @@ class DevicesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices",
+            path_template("/accounts/{account_id}/devices", account_id=account_id),
             page=SyncSinglePage[Device],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -236,7 +249,7 @@ class DevicesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DeviceGetResponse]:
         """Fetches a single WARP device.
 
@@ -266,7 +279,7 @@ class DevicesResource(SyncAPIResource):
         if not device_id:
             raise ValueError(f"Expected a non-empty value for `device_id` but received {device_id!r}")
         return self._get(
-            f"/accounts/{account_id}/devices/{device_id}",
+            path_template("/accounts/{account_id}/devices/{device_id}", account_id=account_id, device_id=device_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -294,6 +307,10 @@ class AsyncDevicesResource(AsyncAPIResource):
     @cached_property
     def dex_tests(self) -> AsyncDEXTestsResource:
         return AsyncDEXTestsResource(self._client)
+
+    @cached_property
+    def ip_profiles(self) -> AsyncIPProfilesResource:
+        return AsyncIPProfilesResource(self._client)
 
     @cached_property
     def networks(self) -> AsyncNetworksResource:
@@ -356,7 +373,7 @@ class AsyncDevicesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Device, AsyncSinglePage[Device]]:
         """List WARP devices.
 
@@ -381,7 +398,7 @@ class AsyncDevicesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices",
+            path_template("/accounts/{account_id}/devices", account_id=account_id),
             page=AsyncSinglePage[Device],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -400,7 +417,7 @@ class AsyncDevicesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DeviceGetResponse]:
         """Fetches a single WARP device.
 
@@ -430,7 +447,7 @@ class AsyncDevicesResource(AsyncAPIResource):
         if not device_id:
             raise ValueError(f"Expected a non-empty value for `device_id` but received {device_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/devices/{device_id}",
+            path_template("/accounts/{account_id}/devices/{device_id}", account_id=account_id, device_id=device_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -448,12 +465,12 @@ class DevicesResourceWithRawResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                devices.list  # pyright: ignore[reportDeprecated],
+                devices.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                devices.get  # pyright: ignore[reportDeprecated],
+                devices.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -472,6 +489,10 @@ class DevicesResourceWithRawResponse:
     @cached_property
     def dex_tests(self) -> DEXTestsResourceWithRawResponse:
         return DEXTestsResourceWithRawResponse(self._devices.dex_tests)
+
+    @cached_property
+    def ip_profiles(self) -> IPProfilesResourceWithRawResponse:
+        return IPProfilesResourceWithRawResponse(self._devices.ip_profiles)
 
     @cached_property
     def networks(self) -> NetworksResourceWithRawResponse:
@@ -512,12 +533,12 @@ class AsyncDevicesResourceWithRawResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                devices.list  # pyright: ignore[reportDeprecated],
+                devices.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                devices.get  # pyright: ignore[reportDeprecated],
+                devices.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -536,6 +557,10 @@ class AsyncDevicesResourceWithRawResponse:
     @cached_property
     def dex_tests(self) -> AsyncDEXTestsResourceWithRawResponse:
         return AsyncDEXTestsResourceWithRawResponse(self._devices.dex_tests)
+
+    @cached_property
+    def ip_profiles(self) -> AsyncIPProfilesResourceWithRawResponse:
+        return AsyncIPProfilesResourceWithRawResponse(self._devices.ip_profiles)
 
     @cached_property
     def networks(self) -> AsyncNetworksResourceWithRawResponse:
@@ -576,12 +601,12 @@ class DevicesResourceWithStreamingResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                devices.list  # pyright: ignore[reportDeprecated],
+                devices.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                devices.get  # pyright: ignore[reportDeprecated],
+                devices.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -600,6 +625,10 @@ class DevicesResourceWithStreamingResponse:
     @cached_property
     def dex_tests(self) -> DEXTestsResourceWithStreamingResponse:
         return DEXTestsResourceWithStreamingResponse(self._devices.dex_tests)
+
+    @cached_property
+    def ip_profiles(self) -> IPProfilesResourceWithStreamingResponse:
+        return IPProfilesResourceWithStreamingResponse(self._devices.ip_profiles)
 
     @cached_property
     def networks(self) -> NetworksResourceWithStreamingResponse:
@@ -640,12 +669,12 @@ class AsyncDevicesResourceWithStreamingResponse:
 
         self.list = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                devices.list  # pyright: ignore[reportDeprecated],
+                devices.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                devices.get  # pyright: ignore[reportDeprecated],
+                devices.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -664,6 +693,10 @@ class AsyncDevicesResourceWithStreamingResponse:
     @cached_property
     def dex_tests(self) -> AsyncDEXTestsResourceWithStreamingResponse:
         return AsyncDEXTestsResourceWithStreamingResponse(self._devices.dex_tests)
+
+    @cached_property
+    def ip_profiles(self) -> AsyncIPProfilesResourceWithStreamingResponse:
+        return AsyncIPProfilesResourceWithStreamingResponse(self._devices.ip_profiles)
 
     @cached_property
     def networks(self) -> AsyncNetworksResourceWithStreamingResponse:

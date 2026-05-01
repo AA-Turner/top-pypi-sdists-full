@@ -22,17 +22,7 @@ __all__ = [
 
 
 class BuildConfig(BaseModel):
-    build_caching: Optional[bool] = None
-    """Enable build caching for the project."""
-
-    build_command: Optional[str] = None
-    """Command used to build project."""
-
-    destination_dir: Optional[str] = None
-    """Output directory of the build."""
-
-    root_dir: Optional[str] = None
-    """Directory to run the command."""
+    """Configs for the project build process."""
 
     web_analytics_tag: Optional[str] = None
     """The classifying tag for analytics."""
@@ -40,27 +30,48 @@ class BuildConfig(BaseModel):
     web_analytics_token: Optional[str] = None
     """The auth token for analytics."""
 
+    build_caching: Optional[bool] = None
+    """Enable build caching for the project."""
+
+    build_command: Optional[str] = None
+    """Command used to build project."""
+
+    destination_dir: Optional[str] = None
+    """Assets output directory of the build."""
+
+    root_dir: Optional[str] = None
+    """Directory to run the command."""
+
 
 class DeploymentTriggerMetadata(BaseModel):
-    branch: Optional[str] = None
+    """Additional info about the trigger."""
+
+    branch: str
     """Where the trigger happened."""
 
-    commit_hash: Optional[str] = None
+    commit_dirty: bool
+    """Whether the deployment trigger commit was dirty."""
+
+    commit_hash: str
     """Hash of the deployment trigger commit."""
 
-    commit_message: Optional[str] = None
+    commit_message: str
     """Message of the deployment trigger commit."""
 
 
 class DeploymentTrigger(BaseModel):
-    metadata: Optional[DeploymentTriggerMetadata] = None
+    """Info about what caused the deployment."""
+
+    metadata: DeploymentTriggerMetadata
     """Additional info about the trigger."""
 
-    type: Optional[Literal["push", "ad_hoc"]] = None
+    type: Literal["github:push", "ad_hoc", "deploy_hook"]
     """What caused the deployment."""
 
 
 class EnvVarsPagesPlainTextEnvVar(BaseModel):
+    """A plaintext environment variable."""
+
     type: Literal["plain_text"]
 
     value: str
@@ -68,6 +79,8 @@ class EnvVarsPagesPlainTextEnvVar(BaseModel):
 
 
 class EnvVarsPagesSecretTextEnvVar(BaseModel):
+    """An encrypted environment variable."""
+
     type: Literal["secret_text"]
 
     value: str
@@ -75,85 +88,127 @@ class EnvVarsPagesSecretTextEnvVar(BaseModel):
 
 
 EnvVars: TypeAlias = Annotated[
-    Union[Optional[EnvVarsPagesPlainTextEnvVar], Optional[EnvVarsPagesSecretTextEnvVar]],
+    Union[Optional[EnvVarsPagesPlainTextEnvVar], Optional[EnvVarsPagesSecretTextEnvVar], None],
     PropertyInfo(discriminator="type"),
 ]
 
 
 class SourceConfig(BaseModel):
-    deployments_enabled: Optional[bool] = None
+    deployments_enabled: bool
+    """
+    Whether to enable automatic deployments when pushing to the source repository.
+    When disabled, no deployments (production or preview) will be triggered
+    automatically.
+    """
 
-    owner: Optional[str] = None
+    owner: str
+    """The owner of the repository."""
 
-    path_excludes: Optional[List[str]] = None
+    owner_id: str
+    """The owner ID of the repository."""
 
-    path_includes: Optional[List[str]] = None
+    path_excludes: List[str]
+    """A list of paths that should be excluded from triggering a preview deployment.
 
-    pr_comments_enabled: Optional[bool] = None
+    Wildcard syntax (`*`) is supported.
+    """
 
-    preview_branch_excludes: Optional[List[str]] = None
+    path_includes: List[str]
+    """A list of paths that should be watched to trigger a preview deployment.
 
-    preview_branch_includes: Optional[List[str]] = None
+    Wildcard syntax (`*`) is supported.
+    """
 
-    preview_deployment_setting: Optional[Literal["all", "none", "custom"]] = None
+    pr_comments_enabled: bool
+    """Whether to enable PR comments."""
 
-    production_branch: Optional[str] = None
+    preview_branch_excludes: List[str]
+    """A list of branches that should not trigger a preview deployment.
 
-    production_deployments_enabled: Optional[bool] = None
+    Wildcard syntax (`*`) is supported. Must be used with
+    `preview_deployment_setting` set to `custom`.
+    """
 
-    repo_name: Optional[str] = None
+    preview_branch_includes: List[str]
+    """A list of branches that should trigger a preview deployment.
+
+    Wildcard syntax (`*`) is supported. Must be used with
+    `preview_deployment_setting` set to `custom`.
+    """
+
+    preview_deployment_setting: Literal["all", "none", "custom"]
+    """Controls whether commits to preview branches trigger a preview deployment."""
+
+    production_branch: str
+    """The production branch of the repository."""
+
+    production_deployments_enabled: bool
+    """Whether to trigger a production deployment on commits to the production branch."""
+
+    repo_id: str
+    """The ID of the repository."""
+
+    repo_name: str
+    """The name of the repository."""
 
 
 class Source(BaseModel):
-    config: Optional[SourceConfig] = None
+    """Configs for the project source control."""
 
-    type: Optional[str] = None
+    config: SourceConfig
+
+    type: Literal["github", "gitlab"]
+    """The source control management provider."""
 
 
 class Deployment(BaseModel):
-    id: Optional[str] = None
+    id: str
     """Id of the deployment."""
 
     aliases: Optional[List[str]] = None
     """A list of alias URLs pointing to this deployment."""
 
-    build_config: Optional[BuildConfig] = None
+    build_config: BuildConfig
     """Configs for the project build process."""
 
-    created_on: Optional[datetime] = None
+    created_on: datetime
     """When the deployment was created."""
 
-    deployment_trigger: Optional[DeploymentTrigger] = None
+    deployment_trigger: DeploymentTrigger
     """Info about what caused the deployment."""
 
-    env_vars: Optional[Dict[str, EnvVars]] = None
+    env_vars: Optional[Dict[str, Optional[EnvVars]]] = None
     """Environment variables used for builds and Pages Functions."""
 
-    environment: Optional[Literal["preview", "production"]] = None
+    environment: Literal["preview", "production"]
     """Type of deploy."""
 
-    is_skipped: Optional[bool] = None
+    is_skipped: bool
     """If the deployment has been skipped."""
 
-    latest_stage: Optional[Stage] = None
+    latest_stage: Stage
     """The status of the deployment."""
 
-    modified_on: Optional[datetime] = None
+    modified_on: datetime
     """When the deployment was last modified."""
 
-    project_id: Optional[str] = None
+    project_id: str
     """Id of the project."""
 
-    project_name: Optional[str] = None
+    project_name: str
     """Name of the project."""
 
-    short_id: Optional[str] = None
+    short_id: str
     """Short Id (8 character) of the deployment."""
 
-    source: Optional[Source] = None
+    source: Source
+    """Configs for the project source control."""
 
-    stages: Optional[List[Stage]] = None
+    stages: List[Stage]
     """List of past stages."""
 
-    url: Optional[str] = None
+    url: str
     """The live URL to view this deployment."""
+
+    uses_functions: Optional[bool] = None
+    """Whether the deployment uses functions."""

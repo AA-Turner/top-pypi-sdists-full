@@ -6,8 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import is_given, maybe_transform, strip_not_given, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import is_given, path_template, maybe_transform, strip_not_given, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -57,17 +57,20 @@ class GRETunnelsResource(SyncAPIResource):
         customer_gre_endpoint: str,
         interface_address: str,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        health_check: gre_tunnel_create_params.HealthCheck | NotGiven = NOT_GIVEN,
-        mtu: int | NotGiven = NOT_GIVEN,
-        ttl: int | NotGiven = NOT_GIVEN,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        automatic_return_routing: bool | Omit = omit,
+        bgp: gre_tunnel_create_params.BGP | Omit = omit,
+        description: str | Omit = omit,
+        health_check: gre_tunnel_create_params.HealthCheck | Omit = omit,
+        interface_address6: str | Omit = omit,
+        mtu: int | Omit = omit,
+        ttl: int | Omit = omit,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelCreateResponse:
         """Creates a new GRE tunnel.
 
@@ -88,7 +91,16 @@ class GRETunnelsResource(SyncAPIResource):
           name: The name of the tunnel. The name cannot contain spaces or special characters,
               must be 15 characters or less, and cannot share a name with another GRE tunnel.
 
+          automatic_return_routing: True if automatic stateful return routing should be enabled for a tunnel, false
+              otherwise. Requires the `coupler_integration` account flag to be enabled;
+              requests setting this to `true` without that flag will be rejected.
+
           description: An optional description of the GRE tunnel.
+
+          interface_address6: A 127 bit IPV6 prefix from within the virtual_subnet6 prefix space with the
+              address being the first IP of the subnet and not same as the address of
+              virtual_subnet6. Eg if virtual_subnet6 is 2606:54c1:7:0:a9fe:12d2::/127 ,
+              interface_address6 could be 2606:54c1:7:0:a9fe:12d2:1:200/127
 
           mtu: Maximum Transmission Unit (MTU) in bytes for the GRE tunnel. The minimum value
               is 576.
@@ -110,21 +122,24 @@ class GRETunnelsResource(SyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return self._post(
-            f"/accounts/{account_id}/magic/gre_tunnels",
+            path_template("/accounts/{account_id}/magic/gre_tunnels", account_id=account_id),
             body=maybe_transform(
                 {
                     "cloudflare_gre_endpoint": cloudflare_gre_endpoint,
                     "customer_gre_endpoint": customer_gre_endpoint,
                     "interface_address": interface_address,
                     "name": name,
+                    "automatic_return_routing": automatic_return_routing,
+                    "bgp": bgp,
                     "description": description,
                     "health_check": health_check,
+                    "interface_address6": interface_address6,
                     "mtu": mtu,
                     "ttl": ttl,
                 },
@@ -149,17 +164,19 @@ class GRETunnelsResource(SyncAPIResource):
         customer_gre_endpoint: str,
         interface_address: str,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        health_check: gre_tunnel_update_params.HealthCheck | NotGiven = NOT_GIVEN,
-        mtu: int | NotGiven = NOT_GIVEN,
-        ttl: int | NotGiven = NOT_GIVEN,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        automatic_return_routing: bool | Omit = omit,
+        description: str | Omit = omit,
+        health_check: gre_tunnel_update_params.HealthCheck | Omit = omit,
+        interface_address6: str | Omit = omit,
+        mtu: int | Omit = omit,
+        ttl: int | Omit = omit,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelUpdateResponse:
         """Updates a specific GRE tunnel.
 
@@ -182,7 +199,16 @@ class GRETunnelsResource(SyncAPIResource):
           name: The name of the tunnel. The name cannot contain spaces or special characters,
               must be 15 characters or less, and cannot share a name with another GRE tunnel.
 
+          automatic_return_routing: True if automatic stateful return routing should be enabled for a tunnel, false
+              otherwise. Requires the `coupler_integration` account flag to be enabled;
+              requests setting this to `true` without that flag will be rejected.
+
           description: An optional description of the GRE tunnel.
+
+          interface_address6: A 127 bit IPV6 prefix from within the virtual_subnet6 prefix space with the
+              address being the first IP of the subnet and not same as the address of
+              virtual_subnet6. Eg if virtual_subnet6 is 2606:54c1:7:0:a9fe:12d2::/127 ,
+              interface_address6 could be 2606:54c1:7:0:a9fe:12d2:1:200/127
 
           mtu: Maximum Transmission Unit (MTU) in bytes for the GRE tunnel. The minimum value
               is 576.
@@ -206,21 +232,27 @@ class GRETunnelsResource(SyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return self._put(
-            f"/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+            path_template(
+                "/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+                account_id=account_id,
+                gre_tunnel_id=gre_tunnel_id,
+            ),
             body=maybe_transform(
                 {
                     "cloudflare_gre_endpoint": cloudflare_gre_endpoint,
                     "customer_gre_endpoint": customer_gre_endpoint,
                     "interface_address": interface_address,
                     "name": name,
+                    "automatic_return_routing": automatic_return_routing,
                     "description": description,
                     "health_check": health_check,
+                    "interface_address6": interface_address6,
                     "mtu": mtu,
                     "ttl": ttl,
                 },
@@ -240,13 +272,13 @@ class GRETunnelsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelListResponse:
         """
         Lists GRE tunnels associated with an account.
@@ -269,13 +301,13 @@ class GRETunnelsResource(SyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return self._get(
-            f"/accounts/{account_id}/magic/gre_tunnels",
+            path_template("/accounts/{account_id}/magic/gre_tunnels", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -291,13 +323,13 @@ class GRETunnelsResource(SyncAPIResource):
         gre_tunnel_id: str,
         *,
         account_id: str,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelDeleteResponse:
         """Disables and removes a specific static GRE tunnel.
 
@@ -326,13 +358,17 @@ class GRETunnelsResource(SyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return self._delete(
-            f"/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+            path_template(
+                "/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+                account_id=account_id,
+                gre_tunnel_id=gre_tunnel_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -348,13 +384,13 @@ class GRETunnelsResource(SyncAPIResource):
         *,
         account_id: str,
         body: object,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelBulkUpdateResponse:
         """Updates multiple GRE tunnels.
 
@@ -379,13 +415,13 @@ class GRETunnelsResource(SyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return self._put(
-            f"/accounts/{account_id}/magic/gre_tunnels",
+            path_template("/accounts/{account_id}/magic/gre_tunnels", account_id=account_id),
             body=maybe_transform(body, gre_tunnel_bulk_update_params.GRETunnelBulkUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -402,13 +438,13 @@ class GRETunnelsResource(SyncAPIResource):
         gre_tunnel_id: str,
         *,
         account_id: str,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelGetResponse:
         """
         Lists informtion for a specific GRE tunnel.
@@ -435,13 +471,17 @@ class GRETunnelsResource(SyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return self._get(
-            f"/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+            path_template(
+                "/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+                account_id=account_id,
+                gre_tunnel_id=gre_tunnel_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -481,17 +521,20 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
         customer_gre_endpoint: str,
         interface_address: str,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        health_check: gre_tunnel_create_params.HealthCheck | NotGiven = NOT_GIVEN,
-        mtu: int | NotGiven = NOT_GIVEN,
-        ttl: int | NotGiven = NOT_GIVEN,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        automatic_return_routing: bool | Omit = omit,
+        bgp: gre_tunnel_create_params.BGP | Omit = omit,
+        description: str | Omit = omit,
+        health_check: gre_tunnel_create_params.HealthCheck | Omit = omit,
+        interface_address6: str | Omit = omit,
+        mtu: int | Omit = omit,
+        ttl: int | Omit = omit,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelCreateResponse:
         """Creates a new GRE tunnel.
 
@@ -512,7 +555,16 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
           name: The name of the tunnel. The name cannot contain spaces or special characters,
               must be 15 characters or less, and cannot share a name with another GRE tunnel.
 
+          automatic_return_routing: True if automatic stateful return routing should be enabled for a tunnel, false
+              otherwise. Requires the `coupler_integration` account flag to be enabled;
+              requests setting this to `true` without that flag will be rejected.
+
           description: An optional description of the GRE tunnel.
+
+          interface_address6: A 127 bit IPV6 prefix from within the virtual_subnet6 prefix space with the
+              address being the first IP of the subnet and not same as the address of
+              virtual_subnet6. Eg if virtual_subnet6 is 2606:54c1:7:0:a9fe:12d2::/127 ,
+              interface_address6 could be 2606:54c1:7:0:a9fe:12d2:1:200/127
 
           mtu: Maximum Transmission Unit (MTU) in bytes for the GRE tunnel. The minimum value
               is 576.
@@ -534,21 +586,24 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return await self._post(
-            f"/accounts/{account_id}/magic/gre_tunnels",
+            path_template("/accounts/{account_id}/magic/gre_tunnels", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "cloudflare_gre_endpoint": cloudflare_gre_endpoint,
                     "customer_gre_endpoint": customer_gre_endpoint,
                     "interface_address": interface_address,
                     "name": name,
+                    "automatic_return_routing": automatic_return_routing,
+                    "bgp": bgp,
                     "description": description,
                     "health_check": health_check,
+                    "interface_address6": interface_address6,
                     "mtu": mtu,
                     "ttl": ttl,
                 },
@@ -573,17 +628,19 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
         customer_gre_endpoint: str,
         interface_address: str,
         name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        health_check: gre_tunnel_update_params.HealthCheck | NotGiven = NOT_GIVEN,
-        mtu: int | NotGiven = NOT_GIVEN,
-        ttl: int | NotGiven = NOT_GIVEN,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        automatic_return_routing: bool | Omit = omit,
+        description: str | Omit = omit,
+        health_check: gre_tunnel_update_params.HealthCheck | Omit = omit,
+        interface_address6: str | Omit = omit,
+        mtu: int | Omit = omit,
+        ttl: int | Omit = omit,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelUpdateResponse:
         """Updates a specific GRE tunnel.
 
@@ -606,7 +663,16 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
           name: The name of the tunnel. The name cannot contain spaces or special characters,
               must be 15 characters or less, and cannot share a name with another GRE tunnel.
 
+          automatic_return_routing: True if automatic stateful return routing should be enabled for a tunnel, false
+              otherwise. Requires the `coupler_integration` account flag to be enabled;
+              requests setting this to `true` without that flag will be rejected.
+
           description: An optional description of the GRE tunnel.
+
+          interface_address6: A 127 bit IPV6 prefix from within the virtual_subnet6 prefix space with the
+              address being the first IP of the subnet and not same as the address of
+              virtual_subnet6. Eg if virtual_subnet6 is 2606:54c1:7:0:a9fe:12d2::/127 ,
+              interface_address6 could be 2606:54c1:7:0:a9fe:12d2:1:200/127
 
           mtu: Maximum Transmission Unit (MTU) in bytes for the GRE tunnel. The minimum value
               is 576.
@@ -630,21 +696,27 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return await self._put(
-            f"/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+            path_template(
+                "/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+                account_id=account_id,
+                gre_tunnel_id=gre_tunnel_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "cloudflare_gre_endpoint": cloudflare_gre_endpoint,
                     "customer_gre_endpoint": customer_gre_endpoint,
                     "interface_address": interface_address,
                     "name": name,
+                    "automatic_return_routing": automatic_return_routing,
                     "description": description,
                     "health_check": health_check,
+                    "interface_address6": interface_address6,
                     "mtu": mtu,
                     "ttl": ttl,
                 },
@@ -664,13 +736,13 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelListResponse:
         """
         Lists GRE tunnels associated with an account.
@@ -693,13 +765,13 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return await self._get(
-            f"/accounts/{account_id}/magic/gre_tunnels",
+            path_template("/accounts/{account_id}/magic/gre_tunnels", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -715,13 +787,13 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
         gre_tunnel_id: str,
         *,
         account_id: str,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelDeleteResponse:
         """Disables and removes a specific static GRE tunnel.
 
@@ -750,13 +822,17 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return await self._delete(
-            f"/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+            path_template(
+                "/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+                account_id=account_id,
+                gre_tunnel_id=gre_tunnel_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -772,13 +848,13 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
         *,
         account_id: str,
         body: object,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelBulkUpdateResponse:
         """Updates multiple GRE tunnels.
 
@@ -803,13 +879,13 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return await self._put(
-            f"/accounts/{account_id}/magic/gre_tunnels",
+            path_template("/accounts/{account_id}/magic/gre_tunnels", account_id=account_id),
             body=await async_maybe_transform(body, gre_tunnel_bulk_update_params.GRETunnelBulkUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -826,13 +902,13 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
         gre_tunnel_id: str,
         *,
         account_id: str,
-        x_magic_new_hc_target: bool | NotGiven = NOT_GIVEN,
+        x_magic_new_hc_target: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> GRETunnelGetResponse:
         """
         Lists informtion for a specific GRE tunnel.
@@ -859,13 +935,17 @@ class AsyncGRETunnelsResource(AsyncAPIResource):
                 {
                     "x-magic-new-hc-target": ("true" if x_magic_new_hc_target else "false")
                     if is_given(x_magic_new_hc_target)
-                    else NOT_GIVEN
+                    else not_given
                 }
             ),
             **(extra_headers or {}),
         }
         return await self._get(
-            f"/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+            path_template(
+                "/accounts/{account_id}/magic/gre_tunnels/{gre_tunnel_id}",
+                account_id=account_id,
+                gre_tunnel_id=gre_tunnel_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

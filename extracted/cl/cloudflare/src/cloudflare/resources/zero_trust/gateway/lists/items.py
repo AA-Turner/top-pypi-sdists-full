@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ....._types import Body, Query, Headers, NotGiven, not_given
+from ....._utils import path_template
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -50,13 +51,13 @@ class ItemsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[ItemListResponse]:
         """
-        Fetches all items in a single Zero Trust list.
+        Fetch all items in a single Zero Trust list.
 
         Args:
-          list_id: API Resource UUID tag.
+          list_id: Identify the API resource with a UUID.
 
           extra_headers: Send extra headers
 
@@ -71,7 +72,9 @@ class ItemsResource(SyncAPIResource):
         if not list_id:
             raise ValueError(f"Expected a non-empty value for `list_id` but received {list_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/gateway/lists/{list_id}/items",
+            path_template(
+                "/accounts/{account_id}/gateway/lists/{list_id}/items", account_id=account_id, list_id=list_id
+            ),
             page=SyncSinglePage[ItemListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -110,13 +113,13 @@ class AsyncItemsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ItemListResponse, AsyncSinglePage[ItemListResponse]]:
         """
-        Fetches all items in a single Zero Trust list.
+        Fetch all items in a single Zero Trust list.
 
         Args:
-          list_id: API Resource UUID tag.
+          list_id: Identify the API resource with a UUID.
 
           extra_headers: Send extra headers
 
@@ -131,7 +134,9 @@ class AsyncItemsResource(AsyncAPIResource):
         if not list_id:
             raise ValueError(f"Expected a non-empty value for `list_id` but received {list_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/gateway/lists/{list_id}/items",
+            path_template(
+                "/accounts/{account_id}/gateway/lists/{list_id}/items", account_id=account_id, list_id=list_id
+            ),
             page=AsyncSinglePage[ItemListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

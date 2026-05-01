@@ -50,7 +50,8 @@ class StepUnionMember0Attempt(BaseModel):
 
 
 class StepUnionMember0ConfigRetries(BaseModel):
-    delay: Union[float, object]
+    delay: Union[str, float]
+    """Specifies the delay duration."""
 
     limit: float
 
@@ -60,7 +61,8 @@ class StepUnionMember0ConfigRetries(BaseModel):
 class StepUnionMember0Config(BaseModel):
     retries: StepUnionMember0ConfigRetries
 
-    timeout: Union[float, object]
+    timeout: Union[str, float]
+    """Specifies the timeout duration."""
 
 
 class StepUnionMember0(BaseModel):
@@ -72,7 +74,7 @@ class StepUnionMember0(BaseModel):
 
     name: str
 
-    output: object
+    output: Optional[str] = None
 
     start: datetime
 
@@ -126,11 +128,11 @@ class StepUnionMember3(BaseModel):
 
     name: str
 
-    output: Union[str, float, bool, object]
-
     start: datetime
 
     type: Literal["waitForEvent"]
+
+    output: Optional[str] = None
 
 
 Step: TypeAlias = Union[StepUnionMember0, StepUnionMember1, StepUnionMember2, StepUnionMember3]
@@ -154,6 +156,8 @@ class InstanceGetResponse(BaseModel):
     start: Optional[datetime] = None
 
     status: Literal["queued", "running", "paused", "errored", "terminated", "complete", "waitingForPause", "waiting"]
+
+    step_count: int
 
     steps: List[Step]
 

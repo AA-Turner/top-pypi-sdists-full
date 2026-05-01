@@ -11,6 +11,8 @@ __all__ = ["ARecord", "Settings"]
 
 
 class Settings(BaseModel):
+    """Settings for the DNS record."""
+
     ipv4_only: Optional[bool] = None
     """
     When enabled, only A records will be generated, and AAAA records will not be
@@ -30,7 +32,14 @@ class Settings(BaseModel):
 
 class ARecord(BaseModel):
     name: str
-    """DNS record name (or @ for the zone apex) in Punycode."""
+    """Complete DNS record name, including the zone name, in Punycode."""
+
+    ttl: TTL
+    """Time To Live (TTL) of the DNS record in seconds.
+
+    Setting to 1 means 'automatic'. Value must be between 60 and 86400, with the
+    minimum reduced to 30 for Enterprise zones.
+    """
 
     type: Literal["A"]
     """Record type."""
@@ -44,6 +53,9 @@ class ARecord(BaseModel):
     content: Optional[str] = None
     """A valid IPv4 address."""
 
+    private_routing: Optional[bool] = None
+    """Enables private network routing to the origin."""
+
     proxied: Optional[bool] = None
     """
     Whether the record is receiving the performance and security benefits of
@@ -55,10 +67,3 @@ class ARecord(BaseModel):
 
     tags: Optional[List[RecordTags]] = None
     """Custom tags for the DNS record. This field has no effect on DNS responses."""
-
-    ttl: Optional[TTL] = None
-    """Time To Live (TTL) of the DNS record in seconds.
-
-    Setting to 1 means 'automatic'. Value must be between 60 and 86400, with the
-    minimum reduced to 30 for Enterprise zones.
-    """

@@ -113,6 +113,58 @@ class SpotlightVulnerabilities(ServiceClass):
         return returned
 
     @force_default(defaults=["parameters"], default_types=["dict"])
+    def query_installed_patches_combined(self: object,
+                                         parameters: dict = None,
+                                         **kwargs
+                                         ) -> Union[Dict[str, Union[int, dict]], Result]:
+        """Retrieve installed patches information for hosts.
+
+        Returns a set of host entities containing installed patch details.
+
+        Keyword arguments:
+        after -- A pagination token used with the limit parameter to manage pagination of results.
+                 On your first request, don't provide an after token. On subsequent requests,
+                 provide the after token from the previous response to continue from that place in
+                 the results.
+        filter -- Filter items using a query in Falcon Query Language (FQL).
+                  Wildcards '*' are unsupported.
+        limit -- The number of items to return in this response.
+                 Use with the after parameter to manage pagination of results. Integer.
+        parameters - full parameters payload, not required if using other keywords.
+        sort -- The property to sort by.
+                FQL syntax (e.g. published_date|desc, hostname|asc).
+
+        This method only supports keywords for providing arguments.
+
+        Returns: dict object containing API response.
+
+        HTTP Method: GET
+
+        Swagger URL
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#
+            /spotlight-vulnerabilities/combinedQueryInstalledPatches
+        """
+        if not kwargs.get("filter", None) and not parameters.get("filter", None):
+            fail_msg = [
+                "The filter argument is required to use this method.",
+                "You may provide this as a keyword or as part of the parameters dictionary."
+            ]
+            returned = generate_error_result(
+                code=500,
+                message=" ".join(fail_msg)
+                )
+        else:
+            returned = process_service_request(
+                calling_object=self,
+                endpoints=Endpoints,
+                operation_id="combinedQueryInstalledPatches",
+                keywords=kwargs,
+                params=parameters
+                )
+
+        return returned
+
+    @force_default(defaults=["parameters"], default_types=["dict"])
     def get_vulnerabilities(self: object,
                             *args,
                             parameters: dict = None,
@@ -153,8 +205,19 @@ class SpotlightVulnerabilities(ServiceClass):
                  On your first request, don't provide an after token. On subsequent requests,
                  provide the after token from the previous response to continue from that place in
                  the results.
-        filter -- Filter items using a query in Falcon Query Language (FQL).
-                  Wildcards '*' are unsupported.
+        filter -- Filter items using a query in Falcon Query Language (FQL). Wildcards * and empty filter values are
+                  unsupported.
+                  Available filter fields that supports match (~): N/A
+                  Available filter fields that supports exact match: aid, cid, last_seen_within, status, cve.id,
+                  cve.is_cisa_kev, cve.remediation_level,
+                  cve.cps_rating, cve.exprt_rating, cve.exploit_status_to_include, cve.severity, cve.base_score, cve.types,
+                  host_info.asset_criticality,
+                  host_info.asset_roles, host_info.internet_exposure, host_info.tags, host_info.groups,
+                  host_info.product_type_desc, host_info.platform_name,
+                  suppression_info.is_suppressed, suppression_info.reason, host_info.instance_state
+                  Available filter fields that supports wildcard (*): N/A
+                  Available filter fields that supports range comparisons (>, <, >=, <=): created_timestamp, closed_timestamp,
+                  updated_timestamp, cve.base_score
         limit -- The number of items to return in this response (default: 100, max: 400).
                  Use with the after parameter to manage pagination of results. Integer.
         parameters - full parameters payload, not required if using other keywords.
@@ -243,6 +306,7 @@ class SpotlightVulnerabilities(ServiceClass):
     getVulnerabilities = get_vulnerabilities
     queryVulnerabilities = query_vulnerabilities
     combinedQueryVulnerabilities = query_vulnerabilities_combined
+    combinedQueryInstalledPatches = query_installed_patches_combined
     getRemediations = get_remediations
     getRemediationsV2 = get_remediations_v2
 

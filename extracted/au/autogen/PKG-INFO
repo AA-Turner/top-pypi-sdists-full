@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: autogen
-Version: 0.12.1
+Version: 0.12.2
 Summary: Alias package for ag2
 Home-page: https://github.com/ag2ai/ag2
 Author: Chi Wang & Qingyun Wu
@@ -66,6 +66,7 @@ Provides-Extra: together
 Provides-Extra: websurfer
 Provides-Extra: cosmosdb
 Provides-Extra: websockets
+Provides-Extra: watchdog
 Provides-Extra: long-context
 Provides-Extra: cerebras
 Provides-Extra: yepcode
@@ -79,6 +80,7 @@ Provides-Extra: duckduckgo
 Provides-Extra: ddgs
 Provides-Extra: tavily
 Provides-Extra: exa
+Provides-Extra: perplexity
 Provides-Extra: nlip
 Provides-Extra: test-core
 Provides-Extra: test

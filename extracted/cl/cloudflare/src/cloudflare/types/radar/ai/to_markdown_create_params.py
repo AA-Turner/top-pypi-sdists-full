@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing_extensions import Required, TypedDict
 
-from ...._types import FileTypes
+from ...._types import FileTypes, SequenceNotStr
 
 __all__ = ["ToMarkdownCreateParams"]
 
@@ -12,4 +12,4 @@ __all__ = ["ToMarkdownCreateParams"]
 class ToMarkdownCreateParams(TypedDict, total=False):
     account_id: Required[str]
 
-    body: FileTypes
+    files: Required[SequenceNotStr[FileTypes]]

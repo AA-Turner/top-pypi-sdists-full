@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class Scrollspy(Component):
@@ -41,12 +53,23 @@ Keyword arguments:
 - offset (number; optional):
     An integer to determine the scroll offset from an item that will
     trigger it active (default: -20)."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'Scrollspy'
-    @_explicitize_args
-    def __init__(self, menuGroups=Component.UNDEFINED, activeClassName=Component.UNDEFINED, menuClassName=Component.UNDEFINED, menuGroupLabelClassName=Component.UNDEFINED, menuItemContainerClassName=Component.UNDEFINED, menuItemClassName=Component.UNDEFINED, offset=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        menuGroups: typing.Optional[typing.Sequence] = None,
+        activeClassName: typing.Optional[str] = None,
+        menuClassName: typing.Optional[str] = None,
+        menuGroupLabelClassName: typing.Optional[str] = None,
+        menuItemContainerClassName: typing.Optional[str] = None,
+        menuItemClassName: typing.Optional[str] = None,
+        offset: typing.Optional[NumberType] = None,
+        **kwargs
+    ):
         self._prop_names = ['activeClassName', 'menuClassName', 'menuGroupLabelClassName', 'menuGroups', 'menuItemClassName', 'menuItemContainerClassName', 'offset']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['activeClassName', 'menuClassName', 'menuGroupLabelClassName', 'menuGroups', 'menuItemClassName', 'menuItemContainerClassName', 'offset']
@@ -57,3 +80,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args}
 
         super(Scrollspy, self).__init__(**args)
+
+setattr(Scrollspy, "__init__", _explicitize_args(Scrollspy.__init__))

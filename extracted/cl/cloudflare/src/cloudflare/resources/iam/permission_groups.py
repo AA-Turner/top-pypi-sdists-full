@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Type, Optional, cast
+
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -14,6 +16,7 @@ from ..._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
+from ..._wrappers import ResultWrapper
 from ...types.iam import permission_group_list_params
 from ...pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ..._base_client import AsyncPaginator, make_request_options
@@ -47,17 +50,17 @@ class PermissionGroupsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        id: str | NotGiven = NOT_GIVEN,
-        label: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
+        id: str | Omit = omit,
+        label: str | Omit = omit,
+        name: str | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[PermissionGroupListResponse]:
         """
         List all the permissions groups for an account.
@@ -86,7 +89,7 @@ class PermissionGroupsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/iam/permission_groups",
+            path_template("/accounts/{account_id}/iam/permission_groups", account_id=account_id),
             page=SyncV4PagePaginationArray[PermissionGroupListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -117,8 +120,8 @@ class PermissionGroupsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> PermissionGroupGetResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Optional[PermissionGroupGetResponse]:
         """
         Get information about a specific permission group in an account.
 
@@ -142,11 +145,19 @@ class PermissionGroupsResource(SyncAPIResource):
                 f"Expected a non-empty value for `permission_group_id` but received {permission_group_id!r}"
             )
         return self._get(
-            f"/accounts/{account_id}/iam/permission_groups/{permission_group_id}",
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            path_template(
+                "/accounts/{account_id}/iam/permission_groups/{permission_group_id}",
+                account_id=account_id,
+                permission_group_id=permission_group_id,
             ),
-            cast_to=PermissionGroupGetResponse,
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[Optional[PermissionGroupGetResponse]]._unwrapper,
+            ),
+            cast_to=cast(Type[Optional[PermissionGroupGetResponse]], ResultWrapper[PermissionGroupGetResponse]),
         )
 
 
@@ -174,17 +185,17 @@ class AsyncPermissionGroupsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        id: str | NotGiven = NOT_GIVEN,
-        label: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
+        id: str | Omit = omit,
+        label: str | Omit = omit,
+        name: str | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[PermissionGroupListResponse, AsyncV4PagePaginationArray[PermissionGroupListResponse]]:
         """
         List all the permissions groups for an account.
@@ -213,7 +224,7 @@ class AsyncPermissionGroupsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/iam/permission_groups",
+            path_template("/accounts/{account_id}/iam/permission_groups", account_id=account_id),
             page=AsyncV4PagePaginationArray[PermissionGroupListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -244,8 +255,8 @@ class AsyncPermissionGroupsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> PermissionGroupGetResponse:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Optional[PermissionGroupGetResponse]:
         """
         Get information about a specific permission group in an account.
 
@@ -269,11 +280,19 @@ class AsyncPermissionGroupsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `permission_group_id` but received {permission_group_id!r}"
             )
         return await self._get(
-            f"/accounts/{account_id}/iam/permission_groups/{permission_group_id}",
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            path_template(
+                "/accounts/{account_id}/iam/permission_groups/{permission_group_id}",
+                account_id=account_id,
+                permission_group_id=permission_group_id,
             ),
-            cast_to=PermissionGroupGetResponse,
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[Optional[PermissionGroupGetResponse]]._unwrapper,
+            ),
+            cast_to=cast(Type[Optional[PermissionGroupGetResponse]], ResultWrapper[PermissionGroupGetResponse]),
         )
 
 

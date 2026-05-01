@@ -144,6 +144,7 @@ class RestSession(object):
         be_geo_id=BE_GEO_ID,
         caller=MERAKI_PYTHON_SDK_CALLER,
         use_iterator_for_get_pages=USE_ITERATOR_FOR_GET_PAGES,
+        validate_kwargs=False,
     ):
         super(RestSession, self).__init__()
 
@@ -165,6 +166,7 @@ class RestSession(object):
         self._be_geo_id = be_geo_id
         self._caller = caller
         self.use_iterator_for_get_pages = use_iterator_for_get_pages
+        self._validate_kwargs = validate_kwargs
 
         # Initialize a new `requests` session
         self._req_session = requests.session()
@@ -288,7 +290,11 @@ class RestSession(object):
                             if "Retry-After" in response.headers:
                                 wait = int(response.headers["Retry-After"])
                             else:
-                                wait = random.randint(1, self._nginx_429_retry_wait_time)
+                                attempt = self._maximum_retries - retries
+                                wait = min(
+                                    (2**attempt) * (1 + random.random()),
+                                    self._nginx_429_retry_wait_time,
+                                )
                             if self._logger:
                                 self._logger.warning(f"{tag}, {operation} - {status} {reason}, retrying in {wait} seconds")
                             time.sleep(wait)

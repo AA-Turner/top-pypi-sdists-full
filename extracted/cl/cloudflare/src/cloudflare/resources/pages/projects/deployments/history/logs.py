@@ -6,7 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ......_types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ......_types import Body, Query, Headers, NotGiven, not_given
+from ......_utils import path_template
 from ......_compat import cached_property
 from ......_resource import SyncAPIResource, AsyncAPIResource
 from ......_response import (
@@ -53,17 +54,17 @@ class LogsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LogGetResponse:
         """
         Fetch deployment logs for a project.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
-          deployment_id: Identifier
+          deployment_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -80,7 +81,12 @@ class LogsResource(SyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return self._get(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/history/logs",
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/history/logs",
+                account_id=account_id,
+                project_name=project_name,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -123,17 +129,17 @@ class AsyncLogsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LogGetResponse:
         """
         Fetch deployment logs for a project.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           project_name: Name of the project.
 
-          deployment_id: Identifier
+          deployment_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -150,7 +156,12 @@ class AsyncLogsResource(AsyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/history/logs",
+            path_template(
+                "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/history/logs",
+                account_id=account_id,
+                project_name=project_name,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

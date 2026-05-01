@@ -6,8 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -52,13 +52,13 @@ class SubdomainResource(SyncAPIResource):
         *,
         account_id: str,
         enabled: bool,
-        previews_enabled: bool | NotGiven = NOT_GIVEN,
+        previews_enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainCreateResponse:
         """
         Enable or disable the Worker on the workers.dev subdomain.
@@ -86,7 +86,11 @@ class SubdomainResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._post(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             body=maybe_transform(
                 {
                     "enabled": enabled,
@@ -114,7 +118,7 @@ class SubdomainResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainDeleteResponse:
         """
         Disable all workers.dev subdomains for a Worker.
@@ -137,7 +141,11 @@ class SubdomainResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._delete(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -158,7 +166,7 @@ class SubdomainResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainGetResponse:
         """
         Get if the Worker is available on the workers.dev subdomain.
@@ -181,7 +189,11 @@ class SubdomainResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._get(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -219,13 +231,13 @@ class AsyncSubdomainResource(AsyncAPIResource):
         *,
         account_id: str,
         enabled: bool,
-        previews_enabled: bool | NotGiven = NOT_GIVEN,
+        previews_enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainCreateResponse:
         """
         Enable or disable the Worker on the workers.dev subdomain.
@@ -253,7 +265,11 @@ class AsyncSubdomainResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._post(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             body=await async_maybe_transform(
                 {
                     "enabled": enabled,
@@ -281,7 +297,7 @@ class AsyncSubdomainResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainDeleteResponse:
         """
         Disable all workers.dev subdomains for a Worker.
@@ -304,7 +320,11 @@ class AsyncSubdomainResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._delete(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -325,7 +345,7 @@ class AsyncSubdomainResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainGetResponse:
         """
         Get if the Worker is available on the workers.dev subdomain.
@@ -348,7 +368,11 @@ class AsyncSubdomainResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._get(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

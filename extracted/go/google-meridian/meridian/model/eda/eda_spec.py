@@ -17,8 +17,13 @@
 import dataclasses
 from typing import Any, Callable, Dict, TypeAlias
 
+from meridian.model.eda import constants as eda_constants
+
 __all__ = [
     "AggregationConfig",
+    "KpiInvariabilitySpec",
+    "PairwiseCorrSpec",
+    "StandardDeviationSpec",
     "VIFSpec",
     "EDASpec",
 ]
@@ -51,18 +56,69 @@ class AggregationConfig:
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
+class KpiInvariabilitySpec:
+  """A spec for the EDA KPI invariability check.
+
+  Attributes:
+    std_threshold: The threshold for KPI standard deviation. Exceeding this
+      threshold triggers an ERROR.
+  """
+
+  std_threshold: float = eda_constants.STD_THRESHOLD
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class PairwiseCorrSpec:
+  """A spec for the EDA pairwise correlation check.
+
+  Attributes:
+    overall_threshold: The threshold for overall pairwise correlation. Exceeding
+      this threshold triggers an ERROR.
+    geo_threshold: The threshold for geo-level pairwise correlation. Exceeding
+      this threshold triggers an ATTENTION.
+    national_threshold: The threshold for national pairwise correlation.
+      Exceeding this threshold triggers an ERROR.
+  """
+
+  overall_threshold: float = eda_constants.OVERALL_PAIRWISE_CORR_THRESHOLD
+  geo_threshold: float = eda_constants.GEO_PAIRWISE_CORR_THRESHOLD
+  national_threshold: float = eda_constants.NATIONAL_PAIRWISE_CORR_THRESHOLD
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class StandardDeviationSpec:
+  """A spec for the EDA standard deviation check.
+
+  Attributes:
+    geo_std_threshold: The threshold for geo-level standard deviation. Falling
+      below this threshold triggers an ATTENTION.
+    national_std_threshold: The threshold for national standard deviation.
+      Falling below this threshold triggers an ATTENTION.
+  """
+
+  geo_std_threshold: float = eda_constants.STD_THRESHOLD
+  national_std_threshold: float = eda_constants.STD_THRESHOLD
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class VIFSpec:
   """A spec for the EDA VIF check.
 
   Attributes:
-    geo_threshold: The threshold for geo-level VIF.
-    overall_threshold: The threshold for overall VIF.
-    national_threshold: The threshold for national VIF.
+    geo_threshold: The threshold for geo-level VIF. Exceeding this threshold
+      triggers an ATTENTION.
+    overall_threshold: The threshold for overall VIF. Exceeding this threshold
+      triggers an ERROR.
+    national_threshold: The threshold for national VIF. Exceeding this threshold
+      triggers an ERROR.
+    std_threshold: The threshold for standard deviation. Used to determine if a
+      variable is a constant.
   """
 
   geo_threshold: float = _DEFAULT_VIF_THRESHOLD
   overall_threshold: float = _DEFAULT_VIF_THRESHOLD
   national_threshold: float = _DEFAULT_VIF_THRESHOLD
+  std_threshold: float = eda_constants.STD_THRESHOLD
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -75,10 +131,24 @@ class EDASpec:
 
   Attributes:
     aggregation_config: A configuration object for custom aggregation functions.
+    kpi_invariability_spec: A configuration object for the EDA KPI invariability
+      check.
+    pairwise_corr_spec: A configuration object for the EDA pairwise correlation
+      check.
+    std_spec: A configuration object for the EDA standard deviation check.
     vif_spec: A configuration object for the EDA VIF check.
   """
 
   aggregation_config: AggregationConfig = dataclasses.field(
       default_factory=AggregationConfig
+  )
+  kpi_invariability_spec: KpiInvariabilitySpec = dataclasses.field(
+      default_factory=KpiInvariabilitySpec
+  )
+  pairwise_corr_spec: PairwiseCorrSpec = dataclasses.field(
+      default_factory=PairwiseCorrSpec
+  )
+  std_spec: StandardDeviationSpec = dataclasses.field(
+      default_factory=StandardDeviationSpec
   )
   vif_spec: VIFSpec = dataclasses.field(default_factory=VIFSpec)

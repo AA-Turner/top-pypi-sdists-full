@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -50,13 +50,13 @@ class PurgeResource(SyncAPIResource):
         queue_id: str,
         *,
         account_id: str,
-        delete_messages_permanently: bool | NotGiven = NOT_GIVEN,
+        delete_messages_permanently: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Queue]:
         """
         Deletes all messages from the Queue.
@@ -81,7 +81,7 @@ class PurgeResource(SyncAPIResource):
         if not queue_id:
             raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
         return self._post(
-            f"/accounts/{account_id}/queues/{queue_id}/purge",
+            path_template("/accounts/{account_id}/queues/{queue_id}/purge", account_id=account_id, queue_id=queue_id),
             body=maybe_transform(
                 {"delete_messages_permanently": delete_messages_permanently}, purge_start_params.PurgeStartParams
             ),
@@ -105,7 +105,7 @@ class PurgeResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PurgeStatusResponse]:
         """
         Get details about a Queue's purge status.
@@ -128,7 +128,7 @@ class PurgeResource(SyncAPIResource):
         if not queue_id:
             raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
         return self._get(
-            f"/accounts/{account_id}/queues/{queue_id}/purge",
+            path_template("/accounts/{account_id}/queues/{queue_id}/purge", account_id=account_id, queue_id=queue_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -165,13 +165,13 @@ class AsyncPurgeResource(AsyncAPIResource):
         queue_id: str,
         *,
         account_id: str,
-        delete_messages_permanently: bool | NotGiven = NOT_GIVEN,
+        delete_messages_permanently: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Queue]:
         """
         Deletes all messages from the Queue.
@@ -196,7 +196,7 @@ class AsyncPurgeResource(AsyncAPIResource):
         if not queue_id:
             raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/queues/{queue_id}/purge",
+            path_template("/accounts/{account_id}/queues/{queue_id}/purge", account_id=account_id, queue_id=queue_id),
             body=await async_maybe_transform(
                 {"delete_messages_permanently": delete_messages_permanently}, purge_start_params.PurgeStartParams
             ),
@@ -220,7 +220,7 @@ class AsyncPurgeResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PurgeStatusResponse]:
         """
         Get details about a Queue's purge status.
@@ -243,7 +243,7 @@ class AsyncPurgeResource(AsyncAPIResource):
         if not queue_id:
             raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/queues/{queue_id}/purge",
+            path_template("/accounts/{account_id}/queues/{queue_id}/purge", account_id=account_id, queue_id=queue_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

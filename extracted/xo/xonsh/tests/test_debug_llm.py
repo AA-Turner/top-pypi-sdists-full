@@ -211,6 +211,32 @@ def test_breakpoint_unknown_engine_raises(dbg):
         dbg.breakpoint(engine="gdb")
 
 
+@pytest.mark.parametrize("engine", ["pdb", "ipdb", "pdbp"])
+def test_breakpoint_uses_explicit_frame(dbg, debugger_recorder, engine):
+    """An explicit ``frame=`` overrides ``sys._getframe(1)``."""
+
+    def helper():
+        return sys._getframe()
+
+    helper_frame = helper()
+    dbg.breakpoint(engine=engine, frame=helper_frame)
+    assert len(debugger_recorder) == 1
+    recorded_engine, recorded_frame = debugger_recorder[0]
+    assert recorded_engine == engine
+    # The engine received the explicit frame, not breakpoint()'s own caller.
+    assert recorded_frame is helper_frame
+    assert recorded_frame.f_code is helper.__code__
+
+
+@pytest.mark.parametrize("engine", ["pdb", "ipdb", "pdbp"])
+def test_breakpoint_default_frame_is_caller(dbg, debugger_recorder, engine):
+    """Omitting ``frame=`` must still default to the immediate caller."""
+    dbg.breakpoint(engine=engine)
+    assert len(debugger_recorder) == 1
+    # Frame belongs to *this* test function, not to dbg.breakpoint itself.
+    assert debugger_recorder[0][1].f_code is sys._getframe().f_code
+
+
 # ---------------------------------------------------------------------------
 # eval REPL — plain Python
 # ---------------------------------------------------------------------------
@@ -287,6 +313,21 @@ def test_eval_repl_abort_runs_after_computation(dbg, monkeypatch, capsys, isolat
     assert "3" in out
 
 
+def test_eval_repl_uses_explicit_frame(dbg, monkeypatch, capsys, isolate_env):
+    """The eval REPL evaluates against the passed frame, not the caller."""
+    sentinel = "unique-eval-frame-marker-7q"
+
+    def helper():
+        my_sentinel = sentinel  # noqa: F841 - read via frame inspection
+        return sys._getframe()
+
+    helper_frame = helper()
+    _feed_lines(monkeypatch, ["my_sentinel", "c"])
+    dbg.breakpoint(engine="eval", frame=helper_frame)
+    out = capsys.readouterr().out
+    assert sentinel in out
+
+
 # ---------------------------------------------------------------------------
 # execer REPL
 # ---------------------------------------------------------------------------
@@ -295,9 +336,11 @@ def test_eval_repl_abort_runs_after_computation(dbg, monkeypatch, capsys, isolat
 class _ExecerStub:
     def __init__(self):
         self.calls: list = []
+        self.frames: list = []
 
     def exec(self, input, mode="exec", glbs=None, locs=None, **kw):
         self.calls.append((input, mode))
+        self.frames.append((glbs, locs))
 
 
 def _install_session_with_execer(monkeypatch, execer):
@@ -349,6 +392,27 @@ def test_eval_repl_ignores_execer(dbg, monkeypatch, capsys):
     assert "python REPL" in out
     assert stub.calls == []  # execer was never called
     assert "2" in out  # python eval produced the result
+
+
+def test_execer_repl_uses_explicit_frame(dbg, monkeypatch, capsys):
+    """Execer REPL must run against the explicit frame's globals/locals."""
+    stub = _ExecerStub()
+    _install_session_with_execer(monkeypatch, stub)
+
+    def helper():
+        helper_local = "execer-helper-local-marker"  # noqa: F841 - via frame
+        return sys._getframe()
+
+    helper_frame = helper()
+    _feed_lines(monkeypatch, ["echo hi", "c"])
+    dbg.breakpoint(engine="execer", frame=helper_frame)
+
+    assert stub.frames, "stub.exec was not invoked"
+    glbs, locs = stub.frames[0]
+    # Module globals are a stable dict — identity holds.
+    assert glbs is helper_frame.f_globals
+    # Locals must contain the helper's local variable.
+    assert locs.get("helper_local") == "execer-helper-local-marker"
 
 
 # ---------------------------------------------------------------------------
@@ -526,6 +590,36 @@ def test_replace_builtin_breakpoint_honours_engine_arg(
     assert debugger_recorder[0][0] == "ipdb"
 
 
+def test_builtin_breakpoint_forwards_frame(
+    dbg, restore_breakpointhook, debugger_recorder
+):
+    """PEP 553 forwards kwargs to ``sys.breakpointhook`` — honour ``frame=``."""
+    dbg.replace_builtin_breakpoint(engine="pdb")
+
+    def helper():
+        return sys._getframe()
+
+    custom_frame = helper()
+    breakpoint(frame=custom_frame)  # noqa: T100
+    assert debugger_recorder[0][0] == "pdb"
+    assert debugger_recorder[0][1] is custom_frame
+
+
+def test_builtin_breakpoint_handles_frame_with_other_kwargs(
+    dbg, restore_breakpointhook, debugger_recorder
+):
+    """Mixing ``frame=`` with positional/extra kwargs must not raise."""
+    dbg.replace_builtin_breakpoint(engine="pdb")
+
+    def helper():
+        return sys._getframe()
+
+    custom_frame = helper()
+    breakpoint(1, 2, frame=custom_frame, key="value")  # noqa: T100
+    assert debugger_recorder[0][0] == "pdb"
+    assert debugger_recorder[0][1] is custom_frame
+
+
 # ---------------------------------------------------------------------------
 # session wiring
 # ---------------------------------------------------------------------------
@@ -544,3 +638,74 @@ def test_env_var_validator_rejects_invalid(xession):
     with pytest.warns(RuntimeWarning):
         xession.env["XONSH_DEBUG_BREAKPOINT_ENGINE"] = "nonsense"
     assert xession.env["XONSH_DEBUG_BREAKPOINT_ENGINE"] == "auto"
+
+
+# ---------------------------------------------------------------------------
+# worker-thread guard
+#
+# CPython's readline integration in ``input()`` is only fully active in the
+# main thread. xonsh runs callable aliases in worker threads, so ``pdbp``,
+# ``ipdb``, and ``pdb`` lose tab completion in that context. ``@.debug``
+# auto-walks past those engines and warns when the user picked one
+# explicitly.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def in_worker_thread(monkeypatch):
+    """Pretend the debugger is being invoked off the main thread."""
+    monkeypatch.setattr(XonshDebug, "_is_main_thread", staticmethod(lambda: False))
+
+
+def test_resolve_auto_in_worker_falls_to_eval_without_execer(
+    dbg, fake_specs, isolate_env, in_worker_thread
+):
+    fake_specs({"pdbp", "ipdb", "pdb"})  # all available but skipped
+    assert dbg._resolve_engine("auto") == "eval"
+
+
+def test_resolve_auto_in_worker_prefers_execer_when_session_has_one(
+    dbg, fake_specs, monkeypatch, in_worker_thread
+):
+    fake_specs({"pdbp", "ipdb", "pdb"})
+    _install_session_with_execer(monkeypatch, _ExecerStub())
+    assert dbg._resolve_engine("auto") == "execer"
+
+
+@pytest.mark.parametrize("engine", ["pdbp", "ipdb", "pdb"])
+def test_resolve_explicit_readline_engine_in_worker_warns(
+    dbg, isolate_env, in_worker_thread, engine
+):
+    with pytest.warns(UserWarning, match="non-main thread"):
+        assert dbg._resolve_engine(engine) == engine
+
+
+@pytest.mark.parametrize("engine", ["execer", "eval"])
+def test_resolve_explicit_repl_engine_in_worker_does_not_warn(
+    dbg, isolate_env, in_worker_thread, engine, recwarn
+):
+    assert dbg._resolve_engine(engine) == engine
+    assert not [w for w in recwarn if issubclass(w.category, UserWarning)]
+
+
+@pytest.mark.parametrize("engine", ["pdbp", "ipdb", "pdb"])
+def test_resolve_explicit_readline_engine_in_main_thread_no_warning(
+    dbg, isolate_env, engine, recwarn
+):
+    # Default _is_main_thread returns True under the test runner.
+    assert dbg._resolve_engine(engine) == engine
+    assert not [w for w in recwarn if issubclass(w.category, UserWarning)]
+
+
+def test_resolve_auto_via_env_var_in_worker_warns(
+    dbg, xession, fake_specs, in_worker_thread
+):
+    # Env var pins a readline engine; auto-resolution honours it but warns.
+    xession.env["XONSH_DEBUG_BREAKPOINT_ENGINE"] = "pdbp"
+    fake_specs({"pdbp"})
+    with pytest.warns(UserWarning, match="non-main thread"):
+        assert dbg._resolve_engine("auto") == "pdbp"
+
+
+def test_is_main_thread_returns_true_under_pytest(dbg):
+    assert dbg._is_main_thread() is True

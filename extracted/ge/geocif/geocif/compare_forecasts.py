@@ -118,27 +118,40 @@ def _query_mape_by_stage(db_path, table, model, experiment_name="outlook"):
 
 
 def _compute_mape_summary(df):
-    """Compute per-region and national MAPE per stage."""
+    """Compute per-region and national MAPE per stage.
+
+    National MAPE is the metric on production-aggregated national yields
+    (Σ pred·area / Σ area per year), not the area-weighted average of per-
+    region MAPEs.  The two differ whenever regional errors partially cancel
+    in aggregation; the former is the quantity a stakeholder summing
+    predicted production into a national total would actually observe.
+    """
     if df.empty:
         return pd.DataFrame(), pd.DataFrame()
 
     # Per-region MAPE
     regional = df.groupby(["Stage Name", "Region"])["MAPE"].mean().reset_index()
 
-    # National (area-weighted if available)
     has_area = "Area (ha)" in df.columns and df["Area (ha)"].notna().any()
     rows = []
     for stage in df["Stage Name"].unique():
         ds = df[df["Stage Name"] == stage]
+        national = np.nan
         if has_area:
-            stats = ds.groupby("Region").agg(
-                mape=("MAPE", "mean"), area=("Area (ha)", "first")
-            ).dropna()
-            if stats.empty or stats["area"].sum() == 0:
-                national = ds["MAPE"].mean()
-            else:
-                national = (stats["mape"] * stats["area"]).sum() / stats["area"].sum()
-        else:
+            ds2 = ds.copy()
+            ds2["_prod_obs"] = ds2["Observed"] * ds2["Area (ha)"]
+            ds2["_prod_pred"] = ds2["Predicted"] * ds2["Area (ha)"]
+            nat = ds2.groupby("Harvest Year").agg(
+                _prod_obs=("_prod_obs", "sum"),
+                _prod_pred=("_prod_pred", "sum"),
+                _area=("Area (ha)", "sum"),
+            )
+            nat = nat[(nat["_area"] > 0) & (nat["_prod_obs"] != 0)]
+            if not nat.empty:
+                obs_y = nat["_prod_obs"] / nat["_area"]
+                pred_y = nat["_prod_pred"] / nat["_area"]
+                national = ((pred_y - obs_y).abs() / obs_y * 100).mean()
+        if pd.isna(national):
             national = ds["MAPE"].mean()
         rows.append({"Stage Name": stage, "MAPE": national})
 

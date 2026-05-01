@@ -40,6 +40,7 @@ __all__ = (
     "ListTelemetryRulesForOrganizationPaginatorName",
     "ListTelemetryRulesPaginatorName",
     "LogTypeType",
+    "MskEnhancedMonitoringLevelType",
     "OutputFormatType",
     "PaginatorName",
     "RecordFormatType",
@@ -82,6 +83,9 @@ ListTelemetryRulesPaginatorName = Literal["list_telemetry_rules"]
 LogTypeType = Literal[
     "ACCESS_LOGS", "APPLICATION_LOGS", "CONNECTION_LOGS", "SECURITY_FINDING_LOGS", "USAGE_LOGS"
 ]
+MskEnhancedMonitoringLevelType = Literal[
+    "DEFAULT", "PER_BROKER", "PER_TOPIC_PER_BROKER", "PER_TOPIC_PER_PARTITION"
+]
 OutputFormatType = Literal["json", "plain"]
 RecordFormatType = Literal["JSON", "STRING"]
 ResourceTypeType = Literal[
@@ -90,13 +94,16 @@ ResourceTypeType = Literal[
     "AWS::BedrockAgentCore::Gateway",
     "AWS::BedrockAgentCore::Memory",
     "AWS::BedrockAgentCore::Runtime",
+    "AWS::BedrockAgentCore::WorkloadIdentity",
     "AWS::CloudFront::Distribution",
     "AWS::CloudTrail",
+    "AWS::CloudWatch::OTelEnrichment",
     "AWS::EC2::Instance",
     "AWS::EC2::VPC",
     "AWS::EKS::Cluster",
     "AWS::ElasticLoadBalancingV2::LoadBalancer",
     "AWS::Lambda::Function",
+    "AWS::MSK::Cluster",
     "AWS::Route53Resolver::ResolverEndpoint",
     "AWS::SecurityHub::Hub",
     "AWS::SecurityHub::HubV2",

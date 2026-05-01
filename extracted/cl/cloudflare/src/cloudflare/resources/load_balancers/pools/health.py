@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Type, cast
+from typing import Dict, Type, Optional, cast
 from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -51,28 +51,28 @@ class HealthResource(SyncAPIResource):
         pool_id: str,
         *,
         account_id: str,
-        allow_insecure: bool | NotGiven = NOT_GIVEN,
-        consecutive_down: int | NotGiven = NOT_GIVEN,
-        consecutive_up: int | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        expected_body: str | NotGiven = NOT_GIVEN,
-        expected_codes: str | NotGiven = NOT_GIVEN,
-        follow_redirects: bool | NotGiven = NOT_GIVEN,
-        header: Dict[str, List[str]] | NotGiven = NOT_GIVEN,
-        interval: int | NotGiven = NOT_GIVEN,
-        method: str | NotGiven = NOT_GIVEN,
-        path: str | NotGiven = NOT_GIVEN,
-        port: int | NotGiven = NOT_GIVEN,
-        probe_zone: str | NotGiven = NOT_GIVEN,
-        retries: int | NotGiven = NOT_GIVEN,
-        load_balancer_monitor_timeout: int | NotGiven = NOT_GIVEN,
-        type: Literal["http", "https", "tcp", "udp_icmp", "icmp_ping", "smtp"] | NotGiven = NOT_GIVEN,
+        allow_insecure: bool | Omit = omit,
+        consecutive_down: int | Omit = omit,
+        consecutive_up: int | Omit = omit,
+        description: str | Omit = omit,
+        expected_body: str | Omit = omit,
+        expected_codes: str | Omit = omit,
+        follow_redirects: bool | Omit = omit,
+        header: Dict[str, SequenceNotStr[str]] | Omit = omit,
+        interval: int | Omit = omit,
+        method: str | Omit = omit,
+        path: str | Omit = omit,
+        port: Optional[int] | Omit = omit,
+        probe_zone: str | Omit = omit,
+        retries: int | Omit = omit,
+        load_balancer_monitor_timeout: int | Omit = omit,
+        type: Literal["http", "https", "tcp", "udp_icmp", "icmp_ping", "smtp"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> HealthCreateResponse:
         """Preview pool health using provided monitor details.
 
@@ -80,7 +80,7 @@ class HealthResource(SyncAPIResource):
         be used in the preview endpoint to retrieve the results.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           allow_insecure: Do not validate the certificate when monitor use HTTPS. This parameter is
               currently only valid for HTTP and HTTPS monitors.
@@ -144,7 +144,9 @@ class HealthResource(SyncAPIResource):
         if not pool_id:
             raise ValueError(f"Expected a non-empty value for `pool_id` but received {pool_id!r}")
         return self._post(
-            f"/accounts/{account_id}/load_balancers/pools/{pool_id}/preview",
+            path_template(
+                "/accounts/{account_id}/load_balancers/pools/{pool_id}/preview", account_id=account_id, pool_id=pool_id
+            ),
             body=maybe_transform(
                 {
                     "allow_insecure": allow_insecure,
@@ -186,13 +188,13 @@ class HealthResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> HealthGetResponse:
         """
         Fetch the latest pool health status for a single pool.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -207,7 +209,9 @@ class HealthResource(SyncAPIResource):
         if not pool_id:
             raise ValueError(f"Expected a non-empty value for `pool_id` but received {pool_id!r}")
         return self._get(
-            f"/accounts/{account_id}/load_balancers/pools/{pool_id}/health",
+            path_template(
+                "/accounts/{account_id}/load_balancers/pools/{pool_id}/health", account_id=account_id, pool_id=pool_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -244,28 +248,28 @@ class AsyncHealthResource(AsyncAPIResource):
         pool_id: str,
         *,
         account_id: str,
-        allow_insecure: bool | NotGiven = NOT_GIVEN,
-        consecutive_down: int | NotGiven = NOT_GIVEN,
-        consecutive_up: int | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        expected_body: str | NotGiven = NOT_GIVEN,
-        expected_codes: str | NotGiven = NOT_GIVEN,
-        follow_redirects: bool | NotGiven = NOT_GIVEN,
-        header: Dict[str, List[str]] | NotGiven = NOT_GIVEN,
-        interval: int | NotGiven = NOT_GIVEN,
-        method: str | NotGiven = NOT_GIVEN,
-        path: str | NotGiven = NOT_GIVEN,
-        port: int | NotGiven = NOT_GIVEN,
-        probe_zone: str | NotGiven = NOT_GIVEN,
-        retries: int | NotGiven = NOT_GIVEN,
-        load_balancer_monitor_timeout: int | NotGiven = NOT_GIVEN,
-        type: Literal["http", "https", "tcp", "udp_icmp", "icmp_ping", "smtp"] | NotGiven = NOT_GIVEN,
+        allow_insecure: bool | Omit = omit,
+        consecutive_down: int | Omit = omit,
+        consecutive_up: int | Omit = omit,
+        description: str | Omit = omit,
+        expected_body: str | Omit = omit,
+        expected_codes: str | Omit = omit,
+        follow_redirects: bool | Omit = omit,
+        header: Dict[str, SequenceNotStr[str]] | Omit = omit,
+        interval: int | Omit = omit,
+        method: str | Omit = omit,
+        path: str | Omit = omit,
+        port: Optional[int] | Omit = omit,
+        probe_zone: str | Omit = omit,
+        retries: int | Omit = omit,
+        load_balancer_monitor_timeout: int | Omit = omit,
+        type: Literal["http", "https", "tcp", "udp_icmp", "icmp_ping", "smtp"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> HealthCreateResponse:
         """Preview pool health using provided monitor details.
 
@@ -273,7 +277,7 @@ class AsyncHealthResource(AsyncAPIResource):
         be used in the preview endpoint to retrieve the results.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           allow_insecure: Do not validate the certificate when monitor use HTTPS. This parameter is
               currently only valid for HTTP and HTTPS monitors.
@@ -337,7 +341,9 @@ class AsyncHealthResource(AsyncAPIResource):
         if not pool_id:
             raise ValueError(f"Expected a non-empty value for `pool_id` but received {pool_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/load_balancers/pools/{pool_id}/preview",
+            path_template(
+                "/accounts/{account_id}/load_balancers/pools/{pool_id}/preview", account_id=account_id, pool_id=pool_id
+            ),
             body=await async_maybe_transform(
                 {
                     "allow_insecure": allow_insecure,
@@ -379,13 +385,13 @@ class AsyncHealthResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> HealthGetResponse:
         """
         Fetch the latest pool health status for a single pool.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -400,7 +406,9 @@ class AsyncHealthResource(AsyncAPIResource):
         if not pool_id:
             raise ValueError(f"Expected a non-empty value for `pool_id` but received {pool_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/load_balancers/pools/{pool_id}/health",
+            path_template(
+                "/accounts/{account_id}/load_balancers/pools/{pool_id}/health", account_id=account_id, pool_id=pool_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

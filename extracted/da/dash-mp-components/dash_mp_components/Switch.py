@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class Switch(Component):
@@ -20,12 +32,22 @@ Keyword arguments:
 - truthyLabel (string; optional)
 
 - value (boolean; optional)"""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'Switch'
-    @_explicitize_args
-    def __init__(self, id=Component.UNDEFINED, className=Component.UNDEFINED, value=Component.UNDEFINED, hasLabel=Component.UNDEFINED, truthyLabel=Component.UNDEFINED, falsyLabel=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        id: typing.Optional[typing.Union[str, dict]] = None,
+        className: typing.Optional[str] = None,
+        value: typing.Optional[bool] = None,
+        hasLabel: typing.Optional[bool] = None,
+        truthyLabel: typing.Optional[str] = None,
+        falsyLabel: typing.Optional[str] = None,
+        **kwargs
+    ):
         self._prop_names = ['id', 'className', 'falsyLabel', 'hasLabel', 'truthyLabel', 'value']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['id', 'className', 'falsyLabel', 'hasLabel', 'truthyLabel', 'value']
@@ -36,3 +58,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args}
 
         super(Switch, self).__init__(**args)
+
+setattr(Switch, "__init__", _explicitize_args(Switch.__init__))

@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -58,22 +58,22 @@ class CertificatesResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        validity_period_days: int | NotGiven = NOT_GIVEN,
+        validity_period_days: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificateCreateResponse]:
         """
-        Creates a new Zero Trust certificate.
+        Create a new Zero Trust certificate.
 
         Args:
-          validity_period_days: Number of days the generated certificate will be valid, minimum 1 day and
-              maximum 30 years. Defaults to 5 years. In terraform, validity_period_days can
-              only be used while creating a certificate, and this CAN NOT be used to extend
-              the validity of an already generated certificate.
+          validity_period_days: Sets the certificate validity period in days (range: 1-10,950 days / ~30 years).
+              Defaults to 1,825 days (5 years). **Important**: This field is only settable
+              during the certificate creation. Certificates becomes immutable after creation -
+              use the `/activate` and `/deactivate` endpoints to manage certificate lifecycle.
 
           extra_headers: Send extra headers
 
@@ -86,7 +86,7 @@ class CertificatesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/gateway/certificates",
+            path_template("/accounts/{account_id}/gateway/certificates", account_id=account_id),
             body=maybe_transform(
                 {"validity_period_days": validity_period_days}, certificate_create_params.CertificateCreateParams
             ),
@@ -109,10 +109,10 @@ class CertificatesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[CertificateListResponse]:
         """
-        Fetches all Zero Trust certificates for an account.
+        List all Zero Trust certificates for an account.
 
         Args:
           extra_headers: Send extra headers
@@ -126,7 +126,7 @@ class CertificatesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/gateway/certificates",
+            path_template("/accounts/{account_id}/gateway/certificates", account_id=account_id),
             page=SyncSinglePage[CertificateListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -144,15 +144,15 @@ class CertificatesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificateDeleteResponse]:
-        """Deletes a gateway-managed Zero Trust certificate.
+        """Delete a gateway-managed Zero Trust certificate.
 
-        A certificate must be
-        deactivated from the edge (inactive) before it is deleted.
+        You must deactivate the
+        certificate from the edge (inactive) before deleting it.
 
         Args:
-          certificate_id: Certificate UUID tag.
+          certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
 
@@ -167,7 +167,11 @@ class CertificatesResource(SyncAPIResource):
         if not certificate_id:
             raise ValueError(f"Expected a non-empty value for `certificate_id` but received {certificate_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/gateway/certificates/{certificate_id}",
+            path_template(
+                "/accounts/{account_id}/gateway/certificates/{certificate_id}",
+                account_id=account_id,
+                certificate_id=certificate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -189,13 +193,13 @@ class CertificatesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificateActivateResponse]:
         """
-        Binds a single Zero Trust certificate to the edge.
+        Bind a single Zero Trust certificate to the edge.
 
         Args:
-          certificate_id: Certificate UUID tag.
+          certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
 
@@ -210,7 +214,11 @@ class CertificatesResource(SyncAPIResource):
         if not certificate_id:
             raise ValueError(f"Expected a non-empty value for `certificate_id` but received {certificate_id!r}")
         return self._post(
-            f"/accounts/{account_id}/gateway/certificates/{certificate_id}/activate",
+            path_template(
+                "/accounts/{account_id}/gateway/certificates/{certificate_id}/activate",
+                account_id=account_id,
+                certificate_id=certificate_id,
+            ),
             body=maybe_transform(body, certificate_activate_params.CertificateActivateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -233,13 +241,13 @@ class CertificatesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificateDeactivateResponse]:
         """
-        Unbinds a single Zero Trust certificate from the edge
+        Unbind a single Zero Trust certificate from the edge.
 
         Args:
-          certificate_id: Certificate UUID tag.
+          certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
 
@@ -254,7 +262,11 @@ class CertificatesResource(SyncAPIResource):
         if not certificate_id:
             raise ValueError(f"Expected a non-empty value for `certificate_id` but received {certificate_id!r}")
         return self._post(
-            f"/accounts/{account_id}/gateway/certificates/{certificate_id}/deactivate",
+            path_template(
+                "/accounts/{account_id}/gateway/certificates/{certificate_id}/deactivate",
+                account_id=account_id,
+                certificate_id=certificate_id,
+            ),
             body=maybe_transform(body, certificate_deactivate_params.CertificateDeactivateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -276,13 +288,13 @@ class CertificatesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificateGetResponse]:
         """
-        Fetches a single Zero Trust certificate.
+        Get a single Zero Trust certificate.
 
         Args:
-          certificate_id: Certificate UUID tag.
+          certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
 
@@ -297,7 +309,11 @@ class CertificatesResource(SyncAPIResource):
         if not certificate_id:
             raise ValueError(f"Expected a non-empty value for `certificate_id` but received {certificate_id!r}")
         return self._get(
-            f"/accounts/{account_id}/gateway/certificates/{certificate_id}",
+            path_template(
+                "/accounts/{account_id}/gateway/certificates/{certificate_id}",
+                account_id=account_id,
+                certificate_id=certificate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -333,22 +349,22 @@ class AsyncCertificatesResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        validity_period_days: int | NotGiven = NOT_GIVEN,
+        validity_period_days: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificateCreateResponse]:
         """
-        Creates a new Zero Trust certificate.
+        Create a new Zero Trust certificate.
 
         Args:
-          validity_period_days: Number of days the generated certificate will be valid, minimum 1 day and
-              maximum 30 years. Defaults to 5 years. In terraform, validity_period_days can
-              only be used while creating a certificate, and this CAN NOT be used to extend
-              the validity of an already generated certificate.
+          validity_period_days: Sets the certificate validity period in days (range: 1-10,950 days / ~30 years).
+              Defaults to 1,825 days (5 years). **Important**: This field is only settable
+              during the certificate creation. Certificates becomes immutable after creation -
+              use the `/activate` and `/deactivate` endpoints to manage certificate lifecycle.
 
           extra_headers: Send extra headers
 
@@ -361,7 +377,7 @@ class AsyncCertificatesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/gateway/certificates",
+            path_template("/accounts/{account_id}/gateway/certificates", account_id=account_id),
             body=await async_maybe_transform(
                 {"validity_period_days": validity_period_days}, certificate_create_params.CertificateCreateParams
             ),
@@ -384,10 +400,10 @@ class AsyncCertificatesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[CertificateListResponse, AsyncSinglePage[CertificateListResponse]]:
         """
-        Fetches all Zero Trust certificates for an account.
+        List all Zero Trust certificates for an account.
 
         Args:
           extra_headers: Send extra headers
@@ -401,7 +417,7 @@ class AsyncCertificatesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/gateway/certificates",
+            path_template("/accounts/{account_id}/gateway/certificates", account_id=account_id),
             page=AsyncSinglePage[CertificateListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -419,15 +435,15 @@ class AsyncCertificatesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificateDeleteResponse]:
-        """Deletes a gateway-managed Zero Trust certificate.
+        """Delete a gateway-managed Zero Trust certificate.
 
-        A certificate must be
-        deactivated from the edge (inactive) before it is deleted.
+        You must deactivate the
+        certificate from the edge (inactive) before deleting it.
 
         Args:
-          certificate_id: Certificate UUID tag.
+          certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
 
@@ -442,7 +458,11 @@ class AsyncCertificatesResource(AsyncAPIResource):
         if not certificate_id:
             raise ValueError(f"Expected a non-empty value for `certificate_id` but received {certificate_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/gateway/certificates/{certificate_id}",
+            path_template(
+                "/accounts/{account_id}/gateway/certificates/{certificate_id}",
+                account_id=account_id,
+                certificate_id=certificate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -464,13 +484,13 @@ class AsyncCertificatesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificateActivateResponse]:
         """
-        Binds a single Zero Trust certificate to the edge.
+        Bind a single Zero Trust certificate to the edge.
 
         Args:
-          certificate_id: Certificate UUID tag.
+          certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
 
@@ -485,7 +505,11 @@ class AsyncCertificatesResource(AsyncAPIResource):
         if not certificate_id:
             raise ValueError(f"Expected a non-empty value for `certificate_id` but received {certificate_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/gateway/certificates/{certificate_id}/activate",
+            path_template(
+                "/accounts/{account_id}/gateway/certificates/{certificate_id}/activate",
+                account_id=account_id,
+                certificate_id=certificate_id,
+            ),
             body=await async_maybe_transform(body, certificate_activate_params.CertificateActivateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -508,13 +532,13 @@ class AsyncCertificatesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificateDeactivateResponse]:
         """
-        Unbinds a single Zero Trust certificate from the edge
+        Unbind a single Zero Trust certificate from the edge.
 
         Args:
-          certificate_id: Certificate UUID tag.
+          certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
 
@@ -529,7 +553,11 @@ class AsyncCertificatesResource(AsyncAPIResource):
         if not certificate_id:
             raise ValueError(f"Expected a non-empty value for `certificate_id` but received {certificate_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/gateway/certificates/{certificate_id}/deactivate",
+            path_template(
+                "/accounts/{account_id}/gateway/certificates/{certificate_id}/deactivate",
+                account_id=account_id,
+                certificate_id=certificate_id,
+            ),
             body=await async_maybe_transform(body, certificate_deactivate_params.CertificateDeactivateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -551,13 +579,13 @@ class AsyncCertificatesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CertificateGetResponse]:
         """
-        Fetches a single Zero Trust certificate.
+        Get a single Zero Trust certificate.
 
         Args:
-          certificate_id: Certificate UUID tag.
+          certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
 
@@ -572,7 +600,11 @@ class AsyncCertificatesResource(AsyncAPIResource):
         if not certificate_id:
             raise ValueError(f"Expected a non-empty value for `certificate_id` but received {certificate_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/gateway/certificates/{certificate_id}",
+            path_template(
+                "/accounts/{account_id}/gateway/certificates/{certificate_id}",
+                account_id=account_id,
+                certificate_id=certificate_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

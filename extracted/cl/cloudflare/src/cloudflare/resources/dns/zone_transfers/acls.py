@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -57,7 +57,7 @@ class ACLsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ACL]:
         """
         Create ACL.
@@ -82,7 +82,7 @@ class ACLsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/secondary_dns/acls",
+            path_template("/accounts/{account_id}/secondary_dns/acls", account_id=account_id),
             body=maybe_transform(
                 {
                     "ip_range": ip_range,
@@ -112,7 +112,7 @@ class ACLsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ACL]:
         """
         Modify ACL.
@@ -139,7 +139,7 @@ class ACLsResource(SyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return self._put(
-            f"/accounts/{account_id}/secondary_dns/acls/{acl_id}",
+            path_template("/accounts/{account_id}/secondary_dns/acls/{acl_id}", account_id=account_id, acl_id=acl_id),
             body=maybe_transform(
                 {
                     "ip_range": ip_range,
@@ -166,7 +166,7 @@ class ACLsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[ACL]:
         """
         List ACLs.
@@ -183,7 +183,7 @@ class ACLsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/secondary_dns/acls",
+            path_template("/accounts/{account_id}/secondary_dns/acls", account_id=account_id),
             page=SyncSinglePage[ACL],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -201,7 +201,7 @@ class ACLsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ACLDeleteResponse]:
         """
         Delete ACL.
@@ -220,7 +220,7 @@ class ACLsResource(SyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/secondary_dns/acls/{acl_id}",
+            path_template("/accounts/{account_id}/secondary_dns/acls/{acl_id}", account_id=account_id, acl_id=acl_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -241,7 +241,7 @@ class ACLsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ACL]:
         """
         Get ACL.
@@ -260,7 +260,7 @@ class ACLsResource(SyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return self._get(
-            f"/accounts/{account_id}/secondary_dns/acls/{acl_id}",
+            path_template("/accounts/{account_id}/secondary_dns/acls/{acl_id}", account_id=account_id, acl_id=acl_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -303,7 +303,7 @@ class AsyncACLsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ACL]:
         """
         Create ACL.
@@ -328,7 +328,7 @@ class AsyncACLsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/secondary_dns/acls",
+            path_template("/accounts/{account_id}/secondary_dns/acls", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "ip_range": ip_range,
@@ -358,7 +358,7 @@ class AsyncACLsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ACL]:
         """
         Modify ACL.
@@ -385,7 +385,7 @@ class AsyncACLsResource(AsyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/secondary_dns/acls/{acl_id}",
+            path_template("/accounts/{account_id}/secondary_dns/acls/{acl_id}", account_id=account_id, acl_id=acl_id),
             body=await async_maybe_transform(
                 {
                     "ip_range": ip_range,
@@ -412,7 +412,7 @@ class AsyncACLsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ACL, AsyncSinglePage[ACL]]:
         """
         List ACLs.
@@ -429,7 +429,7 @@ class AsyncACLsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/secondary_dns/acls",
+            path_template("/accounts/{account_id}/secondary_dns/acls", account_id=account_id),
             page=AsyncSinglePage[ACL],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -447,7 +447,7 @@ class AsyncACLsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ACLDeleteResponse]:
         """
         Delete ACL.
@@ -466,7 +466,7 @@ class AsyncACLsResource(AsyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/secondary_dns/acls/{acl_id}",
+            path_template("/accounts/{account_id}/secondary_dns/acls/{acl_id}", account_id=account_id, acl_id=acl_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -487,7 +487,7 @@ class AsyncACLsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ACL]:
         """
         Get ACL.
@@ -506,7 +506,7 @@ class AsyncACLsResource(AsyncAPIResource):
         if not acl_id:
             raise ValueError(f"Expected a non-empty value for `acl_id` but received {acl_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/secondary_dns/acls/{acl_id}",
+            path_template("/accounts/{account_id}/secondary_dns/acls/{acl_id}", account_id=account_id, acl_id=acl_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

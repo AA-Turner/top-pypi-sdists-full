@@ -31,8 +31,10 @@ class TestTests:
             account_id="01a7362d577a6c3019a474fd6f485823",
             colo="colo",
             device_id=["string"],
+            kind="http",
             page=1,
             per_page=1,
+            registration_id="registration_id",
             test_name="testName",
         )
         assert_matches_type(SyncV4PagePagination[Optional[Tests]], test, path=["response"])
@@ -70,7 +72,9 @@ class TestTests:
 
 
 class TestAsyncTests:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_list(self, async_client: AsyncCloudflare) -> None:
@@ -85,8 +89,10 @@ class TestAsyncTests:
             account_id="01a7362d577a6c3019a474fd6f485823",
             colo="colo",
             device_id=["string"],
+            kind="http",
             page=1,
             per_page=1,
+            registration_id="registration_id",
             test_name="testName",
         )
         assert_matches_type(AsyncV4PagePagination[Optional[Tests]], test, path=["response"])

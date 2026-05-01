@@ -37,22 +37,19 @@ class ComputationBackend(enum.IntEnum):
   JAX = 2
 
 
+class ComputationPrecision(enum.IntEnum):
+  """A computational precision for a Meridian model.
+
+  This mirrors the `ComputationPrecision` enum in
+  `proto/mmm/v1/model/meridian/meridian_model.proto`.
+  """
+
+  COMPUTATION_PRECISION_UNSPECIFIED = 0
+  FLOAT32 = 1
+  FLOAT64 = 2
+
+
 _DEFAULT_BACKEND = Backend.TENSORFLOW
-
-
-def _warn_jax_experimental() -> None:
-  """Issues a warning that the JAX backend is experimental."""
-  warnings.warn(
-      (
-          "The JAX backend is currently under development and is not yet"
-          " functional. It is intended for internal testing only and should"
-          " not be used. Please use the TensorFlow backend."
-      ),
-      UserWarning,
-      # Set stacklevel=2 so the warning points to the caller of set_backend
-      # or the location where the module is imported if initialized via env var.
-      stacklevel=2,
-  )
 
 
 def _initialize_backend() -> Backend:
@@ -64,8 +61,6 @@ def _initialize_backend() -> Backend:
 
   try:
     backend = Backend(env_backend_str.lower())
-    if backend == Backend.JAX:
-      _warn_jax_experimental()
     return backend
   except ValueError:
     warnings.warn(
@@ -79,7 +74,17 @@ def _initialize_backend() -> Backend:
     return _DEFAULT_BACKEND
 
 
+_TRUTHY_JAX_X64_VALUES = ("1", "true")
+
+
 _BACKEND = _initialize_backend()
+
+if _BACKEND == Backend.JAX:
+  _enable_jax_x64_str = os.environ.get("MERIDIAN_ENABLE_JAX_X64", "false")
+  if _enable_jax_x64_str.lower() in _TRUTHY_JAX_X64_VALUES:
+    import jax  # pylint: disable=g-import-not-at-top,unused-import # pytype: disable=import-error
+
+    jax.config.update("jax_enable_x64", True)
 
 
 def set_backend(backend: Union[Backend, str]) -> None:
@@ -91,8 +96,6 @@ def set_backend(backend: Union[Backend, str]) -> None:
   Changing the backend after Meridian's functions or classes have been
   imported can lead to unpredictable behavior. This is because already-imported
   modules will not reflect the backend change.
-
-  Note: The JAX backend is currently under development and should not be used.
 
   Changing the backend at runtime requires reloading the `meridian.backend`
   module for the changes to take effect globally.
@@ -118,9 +121,6 @@ def set_backend(backend: Union[Backend, str]) -> None:
     backend_enum = backend
   else:
     raise ValueError("Backend must be a Backend enum member or a string.")
-
-  if backend_enum == Backend.JAX and _BACKEND != Backend.JAX:
-    _warn_jax_experimental()
 
   _BACKEND = backend_enum
 

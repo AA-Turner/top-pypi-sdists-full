@@ -12,6 +12,7 @@ import httpx
 from ..types import (
     Currency,
     SubscriptionStatus,
+    CancellationFeedback,
     subscription_list_params,
     subscription_charge_params,
     subscription_create_params,
@@ -39,11 +40,13 @@ from ..types.attach_addon_param import AttachAddonParam
 from ..types.subscription_status import SubscriptionStatus
 from ..types.payment_method_types import PaymentMethodTypes
 from ..types.billing_address_param import BillingAddressParam
+from ..types.cancellation_feedback import CancellationFeedback
 from ..types.customer_request_param import CustomerRequestParam
 from ..types.subscription_list_response import SubscriptionListResponse
 from ..types.on_demand_subscription_param import OnDemandSubscriptionParam
 from ..types.subscription_charge_response import SubscriptionChargeResponse
 from ..types.subscription_create_response import SubscriptionCreateResponse
+from ..types.one_time_product_cart_item_param import OneTimeProductCartItemParam
 from ..types.subscription_preview_change_plan_response import SubscriptionPreviewChangePlanResponse
 from ..types.subscription_retrieve_credit_usage_response import SubscriptionRetrieveCreditUsageResponse
 from ..types.subscription_update_payment_method_response import SubscriptionUpdatePaymentMethodResponse
@@ -85,12 +88,14 @@ class SubscriptionsResource(SyncAPIResource):
         billing_currency: Optional[Currency] | Omit = omit,
         discount_code: Optional[str] | Omit = omit,
         force_3ds: Optional[bool] | Omit = omit,
+        mandate_min_amount_inr_paise: Optional[int] | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         on_demand: Optional[OnDemandSubscriptionParam] | Omit = omit,
-        one_time_product_cart: Optional[Iterable[subscription_create_params.OneTimeProductCart]] | Omit = omit,
+        one_time_product_cart: Optional[Iterable[OneTimeProductCartItemParam]] | Omit = omit,
         payment_link: Optional[bool] | Omit = omit,
         payment_method_id: Optional[str] | Omit = omit,
         redirect_immediately: bool | Omit = omit,
+        require_phone_number: bool | Omit = omit,
         return_url: Optional[str] | Omit = omit,
         short_link: Optional[bool] | Omit = omit,
         show_saved_payment_methods: bool | Omit = omit,
@@ -129,6 +134,13 @@ class SubscriptionsResource(SyncAPIResource):
 
           force_3ds: Override merchant default 3DS behaviour for this subscription
 
+          mandate_min_amount_inr_paise: Override the merchant-level mandate floor (in INR paise) for INR e-mandates on
+              Indian-card recurring payments. The mandate amount sent to the processor is
+              `max(this_floor, actual_billing_amount)`, so this is effectively the
+              customer-facing authorization ceiling whenever billing is lower. When unset, the
+              merchant setting applies; when that's also unset, the system default of ₹15,000
+              applies.
+
           metadata: Additional metadata for the subscription Defaults to empty if not specified
 
           one_time_product_cart: List of one time products that will be bundled with the first payment for this
@@ -142,6 +154,10 @@ class SubscriptionsResource(SyncAPIResource):
 
           redirect_immediately: If true, redirects the customer immediately after payment completion False by
               default
+
+          require_phone_number: If true, the customer's phone number is required to create this subscription.
+              Typically set alongside `payment_link=true` so merchants can enforce phone
+              collection on the hosted payment page. Defaults to false.
 
           return_url: Optional URL to redirect after successful subscription creation
 
@@ -176,12 +192,14 @@ class SubscriptionsResource(SyncAPIResource):
                     "billing_currency": billing_currency,
                     "discount_code": discount_code,
                     "force_3ds": force_3ds,
+                    "mandate_min_amount_inr_paise": mandate_min_amount_inr_paise,
                     "metadata": metadata,
                     "on_demand": on_demand,
                     "one_time_product_cart": one_time_product_cart,
                     "payment_link": payment_link,
                     "payment_method_id": payment_method_id,
                     "redirect_immediately": redirect_immediately,
+                    "require_phone_number": require_phone_number,
                     "return_url": return_url,
                     "short_link": short_link,
                     "show_saved_payment_methods": show_saved_payment_methods,
@@ -234,9 +252,11 @@ class SubscriptionsResource(SyncAPIResource):
         billing: Optional[BillingAddressParam] | Omit = omit,
         cancel_at_next_billing_date: Optional[bool] | Omit = omit,
         cancel_reason: Optional[
-            Literal["cancelled_by_customer", "cancelled_by_merchant", "cancelled_by_merchant_send_dunning"]
+            Literal["cancelled_by_customer", "cancelled_by_merchant", "cancelled_by_merchant_send_dunning", "dodo_team"]
         ]
         | Omit = omit,
+        cancellation_comment: Optional[str] | Omit = omit,
+        cancellation_feedback: Optional[CancellationFeedback] | Omit = omit,
         credit_entitlement_cart: Optional[Iterable[subscription_update_params.CreditEntitlementCart]] | Omit = omit,
         customer_name: Optional[str] | Omit = omit,
         disable_on_demand: Optional[subscription_update_params.DisableOnDemand] | Omit = omit,
@@ -254,6 +274,12 @@ class SubscriptionsResource(SyncAPIResource):
         """
         Args:
           cancel_at_next_billing_date: When set, the subscription will remain active until the end of billing period
+
+          cancellation_comment: Free-text cancellation comment (only valid when cancelling or scheduling
+              cancellation).
+
+          cancellation_feedback: Customer-supplied churn reason (only valid when cancelling or scheduling
+              cancellation).
 
           credit_entitlement_cart: Update credit entitlement cart settings
 
@@ -274,6 +300,8 @@ class SubscriptionsResource(SyncAPIResource):
                     "billing": billing,
                     "cancel_at_next_billing_date": cancel_at_next_billing_date,
                     "cancel_reason": cancel_reason,
+                    "cancellation_comment": cancellation_comment,
+                    "cancellation_feedback": cancellation_feedback,
                     "credit_entitlement_cart": credit_entitlement_cart,
                     "customer_name": customer_name,
                     "disable_on_demand": disable_on_demand,
@@ -400,6 +428,7 @@ class SubscriptionsResource(SyncAPIResource):
             "prorated_immediately", "full_immediately", "difference_immediately", "do_not_bill"
         ],
         quantity: int,
+        adaptive_currency_fees_inclusive: Optional[bool] | Omit = omit,
         addons: Optional[Iterable[AttachAddonParam]] | Omit = omit,
         discount_code: Optional[str] | Omit = omit,
         effective_at: Literal["immediately", "next_billing_date"] | Omit = omit,
@@ -419,6 +448,9 @@ class SubscriptionsResource(SyncAPIResource):
           proration_billing_mode: Proration Billing Mode
 
           quantity: Number of units to subscribe for. Must be at least 1.
+
+          adaptive_currency_fees_inclusive: Whether adaptive currency fees should be included in the price (true) or added
+              on top (false). If not specified, uses the subscription's stored setting.
 
           addons: Addons for the new plan. Note : Leaving this empty would remove any existing
               addons
@@ -462,6 +494,7 @@ class SubscriptionsResource(SyncAPIResource):
                     "product_id": product_id,
                     "proration_billing_mode": proration_billing_mode,
                     "quantity": quantity,
+                    "adaptive_currency_fees_inclusive": adaptive_currency_fees_inclusive,
                     "addons": addons,
                     "discount_code": discount_code,
                     "effective_at": effective_at,
@@ -552,6 +585,7 @@ class SubscriptionsResource(SyncAPIResource):
             "prorated_immediately", "full_immediately", "difference_immediately", "do_not_bill"
         ],
         quantity: int,
+        adaptive_currency_fees_inclusive: Optional[bool] | Omit = omit,
         addons: Optional[Iterable[AttachAddonParam]] | Omit = omit,
         discount_code: Optional[str] | Omit = omit,
         effective_at: Literal["immediately", "next_billing_date"] | Omit = omit,
@@ -571,6 +605,9 @@ class SubscriptionsResource(SyncAPIResource):
           proration_billing_mode: Proration Billing Mode
 
           quantity: Number of units to subscribe for. Must be at least 1.
+
+          adaptive_currency_fees_inclusive: Whether adaptive currency fees should be included in the price (true) or added
+              on top (false). If not specified, uses the subscription's stored setting.
 
           addons: Addons for the new plan. Note : Leaving this empty would remove any existing
               addons
@@ -613,6 +650,7 @@ class SubscriptionsResource(SyncAPIResource):
                     "product_id": product_id,
                     "proration_billing_mode": proration_billing_mode,
                     "quantity": quantity,
+                    "adaptive_currency_fees_inclusive": adaptive_currency_fees_inclusive,
                     "addons": addons,
                     "discount_code": discount_code,
                     "effective_at": effective_at,
@@ -880,12 +918,14 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
         billing_currency: Optional[Currency] | Omit = omit,
         discount_code: Optional[str] | Omit = omit,
         force_3ds: Optional[bool] | Omit = omit,
+        mandate_min_amount_inr_paise: Optional[int] | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         on_demand: Optional[OnDemandSubscriptionParam] | Omit = omit,
-        one_time_product_cart: Optional[Iterable[subscription_create_params.OneTimeProductCart]] | Omit = omit,
+        one_time_product_cart: Optional[Iterable[OneTimeProductCartItemParam]] | Omit = omit,
         payment_link: Optional[bool] | Omit = omit,
         payment_method_id: Optional[str] | Omit = omit,
         redirect_immediately: bool | Omit = omit,
+        require_phone_number: bool | Omit = omit,
         return_url: Optional[str] | Omit = omit,
         short_link: Optional[bool] | Omit = omit,
         show_saved_payment_methods: bool | Omit = omit,
@@ -924,6 +964,13 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
 
           force_3ds: Override merchant default 3DS behaviour for this subscription
 
+          mandate_min_amount_inr_paise: Override the merchant-level mandate floor (in INR paise) for INR e-mandates on
+              Indian-card recurring payments. The mandate amount sent to the processor is
+              `max(this_floor, actual_billing_amount)`, so this is effectively the
+              customer-facing authorization ceiling whenever billing is lower. When unset, the
+              merchant setting applies; when that's also unset, the system default of ₹15,000
+              applies.
+
           metadata: Additional metadata for the subscription Defaults to empty if not specified
 
           one_time_product_cart: List of one time products that will be bundled with the first payment for this
@@ -937,6 +984,10 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
 
           redirect_immediately: If true, redirects the customer immediately after payment completion False by
               default
+
+          require_phone_number: If true, the customer's phone number is required to create this subscription.
+              Typically set alongside `payment_link=true` so merchants can enforce phone
+              collection on the hosted payment page. Defaults to false.
 
           return_url: Optional URL to redirect after successful subscription creation
 
@@ -971,12 +1022,14 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
                     "billing_currency": billing_currency,
                     "discount_code": discount_code,
                     "force_3ds": force_3ds,
+                    "mandate_min_amount_inr_paise": mandate_min_amount_inr_paise,
                     "metadata": metadata,
                     "on_demand": on_demand,
                     "one_time_product_cart": one_time_product_cart,
                     "payment_link": payment_link,
                     "payment_method_id": payment_method_id,
                     "redirect_immediately": redirect_immediately,
+                    "require_phone_number": require_phone_number,
                     "return_url": return_url,
                     "short_link": short_link,
                     "show_saved_payment_methods": show_saved_payment_methods,
@@ -1029,9 +1082,11 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
         billing: Optional[BillingAddressParam] | Omit = omit,
         cancel_at_next_billing_date: Optional[bool] | Omit = omit,
         cancel_reason: Optional[
-            Literal["cancelled_by_customer", "cancelled_by_merchant", "cancelled_by_merchant_send_dunning"]
+            Literal["cancelled_by_customer", "cancelled_by_merchant", "cancelled_by_merchant_send_dunning", "dodo_team"]
         ]
         | Omit = omit,
+        cancellation_comment: Optional[str] | Omit = omit,
+        cancellation_feedback: Optional[CancellationFeedback] | Omit = omit,
         credit_entitlement_cart: Optional[Iterable[subscription_update_params.CreditEntitlementCart]] | Omit = omit,
         customer_name: Optional[str] | Omit = omit,
         disable_on_demand: Optional[subscription_update_params.DisableOnDemand] | Omit = omit,
@@ -1049,6 +1104,12 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
         """
         Args:
           cancel_at_next_billing_date: When set, the subscription will remain active until the end of billing period
+
+          cancellation_comment: Free-text cancellation comment (only valid when cancelling or scheduling
+              cancellation).
+
+          cancellation_feedback: Customer-supplied churn reason (only valid when cancelling or scheduling
+              cancellation).
 
           credit_entitlement_cart: Update credit entitlement cart settings
 
@@ -1069,6 +1130,8 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
                     "billing": billing,
                     "cancel_at_next_billing_date": cancel_at_next_billing_date,
                     "cancel_reason": cancel_reason,
+                    "cancellation_comment": cancellation_comment,
+                    "cancellation_feedback": cancellation_feedback,
                     "credit_entitlement_cart": credit_entitlement_cart,
                     "customer_name": customer_name,
                     "disable_on_demand": disable_on_demand,
@@ -1195,6 +1258,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
             "prorated_immediately", "full_immediately", "difference_immediately", "do_not_bill"
         ],
         quantity: int,
+        adaptive_currency_fees_inclusive: Optional[bool] | Omit = omit,
         addons: Optional[Iterable[AttachAddonParam]] | Omit = omit,
         discount_code: Optional[str] | Omit = omit,
         effective_at: Literal["immediately", "next_billing_date"] | Omit = omit,
@@ -1214,6 +1278,9 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
           proration_billing_mode: Proration Billing Mode
 
           quantity: Number of units to subscribe for. Must be at least 1.
+
+          adaptive_currency_fees_inclusive: Whether adaptive currency fees should be included in the price (true) or added
+              on top (false). If not specified, uses the subscription's stored setting.
 
           addons: Addons for the new plan. Note : Leaving this empty would remove any existing
               addons
@@ -1257,6 +1324,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
                     "product_id": product_id,
                     "proration_billing_mode": proration_billing_mode,
                     "quantity": quantity,
+                    "adaptive_currency_fees_inclusive": adaptive_currency_fees_inclusive,
                     "addons": addons,
                     "discount_code": discount_code,
                     "effective_at": effective_at,
@@ -1347,6 +1415,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
             "prorated_immediately", "full_immediately", "difference_immediately", "do_not_bill"
         ],
         quantity: int,
+        adaptive_currency_fees_inclusive: Optional[bool] | Omit = omit,
         addons: Optional[Iterable[AttachAddonParam]] | Omit = omit,
         discount_code: Optional[str] | Omit = omit,
         effective_at: Literal["immediately", "next_billing_date"] | Omit = omit,
@@ -1366,6 +1435,9 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
           proration_billing_mode: Proration Billing Mode
 
           quantity: Number of units to subscribe for. Must be at least 1.
+
+          adaptive_currency_fees_inclusive: Whether adaptive currency fees should be included in the price (true) or added
+              on top (false). If not specified, uses the subscription's stored setting.
 
           addons: Addons for the new plan. Note : Leaving this empty would remove any existing
               addons
@@ -1408,6 +1480,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
                     "product_id": product_id,
                     "proration_billing_mode": proration_billing_mode,
                     "quantity": quantity,
+                    "adaptive_currency_fees_inclusive": adaptive_currency_fees_inclusive,
                     "addons": addons,
                     "discount_code": discount_code,
                     "effective_at": effective_at,

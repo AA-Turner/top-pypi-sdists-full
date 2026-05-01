@@ -318,6 +318,11 @@ real_patterns = [
         name="unblock-user",
     ),
     path(
+        "access/<name:project>/revert-blocked/",
+        weblate.trans.views.acl.revert_blocked_user_edits,
+        name="revert-blocked-user-edits",
+    ),
+    path(
         "access/<name:project>/invite/",
         weblate.trans.views.acl.invite_user,
         name="invite-user",
@@ -867,6 +872,16 @@ real_patterns = [
     path("user/", weblate.accounts.views.UserList.as_view(), name="user_list"),
     path(
         "user/<name:user>/", weblate.accounts.views.UserPage.as_view(), name="user_page"
+    ),
+    path(
+        "user/<name:user>/contact/",
+        weblate.accounts.views.user_contact,
+        name="user_contact",
+    ),
+    path(
+        "user/<name:user>/link/<slug:link>/",
+        weblate.accounts.views.user_profile_link,
+        name="user_profile_link",
     ),
     path(
         "user/<name:user>/contributions/",

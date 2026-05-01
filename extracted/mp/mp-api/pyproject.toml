@@ -10,7 +10,7 @@ authors = [
 description = "API Client for the Materials Project"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "modified BSD" }
+license = "BSD-3-Clause-LBNL"
 classifiers = [
   "Programming Language :: Python :: 3",
   "Development Status :: 4 - Beta",
@@ -20,24 +20,27 @@ classifiers = [
   "Topic :: Scientific/Engineering",
 ]
 dependencies = [
-  "pymatgen>=2022.3.7,!=2024.2.20",
+  "pymatgen>2024.2.20",
   "typing-extensions>=3.7.4.1",
   "requests>=2.23.0",
   "monty>=2024.12.10",
-  "emmet-core>=0.86.3",
+  "emmet-core>=0.86.4rc1,<0.86.5",
   "boto3",
   "orjson >= 3.10,<4",
+  "pyarrow >= 20.0.0",
+  "deltalake >= 1.4.0",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
 mcp = ["fastmcp"]
+server = ["flask"]
 all = [
-  "emmet-core[all]>=0.86.3",
   "custodian",
-  "mpcontribs-client>=5.10",
+  "emmet-core[all]>=0.86.4rc1,<0.86.5",
   "fastmcp",
-  "matminer>=0.10.0",
+  "flask",
+  "mpcontribs-client>=5.10",
 ]
 test = [
   "pre-commit",
@@ -55,6 +58,9 @@ test = [
   "types-requests",
 ]
 docs = ["sphinx"]
+
+[project.scripts]
+mpmcp = "mp_api.mcp.server:_run_mp_mcp_server"
 
 [tool.setuptools.packages.find]
 include = ["mp_api*"]
@@ -111,3 +117,13 @@ isort.required-imports = ["from __future__ import annotations"]
 
 [tool.ruff.per-file-ignores]
 "*/__init__.py" = ["F401"] # F401: imported but unused
+
+[tool.mypy]
+namespace_packages = true
+ignore_missing_imports = true
+
+[tool.coverage.report]
+exclude_also = [
+  # A pragma comment that excludes an entire file:
+  '\A(?s:.*# pragma: exclude file.*)\Z',
+]

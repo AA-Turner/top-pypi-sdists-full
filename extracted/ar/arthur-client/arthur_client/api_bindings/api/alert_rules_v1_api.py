@@ -588,6 +588,480 @@ class AlertRulesV1Api:
 
 
     @validate_call
+    def get_alert_rules_in_workspace(
+        self,
+        workspace_id: StrictStr,
+        sort: Annotated[Optional[AlertRuleSort], Field(description="The field to sort by.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="The order to sort by.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Optional filter to alert rules of a single model.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="The name of the alert rule to search by.")] = None,
+        bound: Annotated[Optional[AlertBound], Field(description="The bound to filter by.")] = None,
+        query: Annotated[Optional[StrictStr], Field(description="The query to filter by.")] = None,
+        threshold_less_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, less than.")] = None,
+        threshold_greater_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, greater than.")] = None,
+        metric_name: Annotated[Optional[StrictStr], Field(description="The name of the alert rule query metric to search by.")] = None,
+        policy_model_assignment_id: Annotated[Optional[StrictStr], Field(description="Optional policy model assignment ID to filter alert rules by.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ResourceListAlertRule:
+        """Get Workspace Alert Rules.
+
+        Returns alert rules across all models in the workspace, including rules attached indirectly via policy assignments. Applies the caller's per-model RBAC. Requires workspace_list_alert_rules permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param sort: The field to sort by.
+        :type sort: AlertRuleSort
+        :param order: The order to sort by.
+        :type order: SortOrder
+        :param model_id: Optional filter to alert rules of a single model.
+        :type model_id: str
+        :param name: The name of the alert rule to search by.
+        :type name: str
+        :param bound: The bound to filter by.
+        :type bound: AlertBound
+        :param query: The query to filter by.
+        :type query: str
+        :param threshold_less_than: The threshold to filter by, less than.
+        :type threshold_less_than: float
+        :param threshold_greater_than: The threshold to filter by, greater than.
+        :type threshold_greater_than: float
+        :param metric_name: The name of the alert rule query metric to search by.
+        :type metric_name: str
+        :param policy_model_assignment_id: Optional policy model assignment ID to filter alert rules by.
+        :type policy_model_assignment_id: str
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_alert_rules_in_workspace_serialize(
+            workspace_id=workspace_id,
+            sort=sort,
+            order=order,
+            model_id=model_id,
+            name=name,
+            bound=bound,
+            query=query,
+            threshold_less_than=threshold_less_than,
+            threshold_greater_than=threshold_greater_than,
+            metric_name=metric_name,
+            policy_model_assignment_id=policy_model_assignment_id,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListAlertRule",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_alert_rules_in_workspace_with_http_info(
+        self,
+        workspace_id: StrictStr,
+        sort: Annotated[Optional[AlertRuleSort], Field(description="The field to sort by.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="The order to sort by.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Optional filter to alert rules of a single model.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="The name of the alert rule to search by.")] = None,
+        bound: Annotated[Optional[AlertBound], Field(description="The bound to filter by.")] = None,
+        query: Annotated[Optional[StrictStr], Field(description="The query to filter by.")] = None,
+        threshold_less_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, less than.")] = None,
+        threshold_greater_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, greater than.")] = None,
+        metric_name: Annotated[Optional[StrictStr], Field(description="The name of the alert rule query metric to search by.")] = None,
+        policy_model_assignment_id: Annotated[Optional[StrictStr], Field(description="Optional policy model assignment ID to filter alert rules by.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ResourceListAlertRule]:
+        """Get Workspace Alert Rules.
+
+        Returns alert rules across all models in the workspace, including rules attached indirectly via policy assignments. Applies the caller's per-model RBAC. Requires workspace_list_alert_rules permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param sort: The field to sort by.
+        :type sort: AlertRuleSort
+        :param order: The order to sort by.
+        :type order: SortOrder
+        :param model_id: Optional filter to alert rules of a single model.
+        :type model_id: str
+        :param name: The name of the alert rule to search by.
+        :type name: str
+        :param bound: The bound to filter by.
+        :type bound: AlertBound
+        :param query: The query to filter by.
+        :type query: str
+        :param threshold_less_than: The threshold to filter by, less than.
+        :type threshold_less_than: float
+        :param threshold_greater_than: The threshold to filter by, greater than.
+        :type threshold_greater_than: float
+        :param metric_name: The name of the alert rule query metric to search by.
+        :type metric_name: str
+        :param policy_model_assignment_id: Optional policy model assignment ID to filter alert rules by.
+        :type policy_model_assignment_id: str
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_alert_rules_in_workspace_serialize(
+            workspace_id=workspace_id,
+            sort=sort,
+            order=order,
+            model_id=model_id,
+            name=name,
+            bound=bound,
+            query=query,
+            threshold_less_than=threshold_less_than,
+            threshold_greater_than=threshold_greater_than,
+            metric_name=metric_name,
+            policy_model_assignment_id=policy_model_assignment_id,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListAlertRule",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_alert_rules_in_workspace_without_preload_content(
+        self,
+        workspace_id: StrictStr,
+        sort: Annotated[Optional[AlertRuleSort], Field(description="The field to sort by.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="The order to sort by.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Optional filter to alert rules of a single model.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="The name of the alert rule to search by.")] = None,
+        bound: Annotated[Optional[AlertBound], Field(description="The bound to filter by.")] = None,
+        query: Annotated[Optional[StrictStr], Field(description="The query to filter by.")] = None,
+        threshold_less_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, less than.")] = None,
+        threshold_greater_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, greater than.")] = None,
+        metric_name: Annotated[Optional[StrictStr], Field(description="The name of the alert rule query metric to search by.")] = None,
+        policy_model_assignment_id: Annotated[Optional[StrictStr], Field(description="Optional policy model assignment ID to filter alert rules by.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get Workspace Alert Rules.
+
+        Returns alert rules across all models in the workspace, including rules attached indirectly via policy assignments. Applies the caller's per-model RBAC. Requires workspace_list_alert_rules permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param sort: The field to sort by.
+        :type sort: AlertRuleSort
+        :param order: The order to sort by.
+        :type order: SortOrder
+        :param model_id: Optional filter to alert rules of a single model.
+        :type model_id: str
+        :param name: The name of the alert rule to search by.
+        :type name: str
+        :param bound: The bound to filter by.
+        :type bound: AlertBound
+        :param query: The query to filter by.
+        :type query: str
+        :param threshold_less_than: The threshold to filter by, less than.
+        :type threshold_less_than: float
+        :param threshold_greater_than: The threshold to filter by, greater than.
+        :type threshold_greater_than: float
+        :param metric_name: The name of the alert rule query metric to search by.
+        :type metric_name: str
+        :param policy_model_assignment_id: Optional policy model assignment ID to filter alert rules by.
+        :type policy_model_assignment_id: str
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_alert_rules_in_workspace_serialize(
+            workspace_id=workspace_id,
+            sort=sort,
+            order=order,
+            model_id=model_id,
+            name=name,
+            bound=bound,
+            query=query,
+            threshold_less_than=threshold_less_than,
+            threshold_greater_than=threshold_greater_than,
+            metric_name=metric_name,
+            policy_model_assignment_id=policy_model_assignment_id,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListAlertRule",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_alert_rules_in_workspace_serialize(
+        self,
+        workspace_id,
+        sort,
+        order,
+        model_id,
+        name,
+        bound,
+        query,
+        threshold_less_than,
+        threshold_greater_than,
+        metric_name,
+        policy_model_assignment_id,
+        page,
+        page_size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if workspace_id is not None:
+            _path_params['workspace_id'] = workspace_id
+        # process the query parameters
+        if sort is not None:
+            
+            _query_params.append(('sort', sort.value))
+            
+        if order is not None:
+            
+            _query_params.append(('order', order.value))
+            
+        if model_id is not None:
+            
+            _query_params.append(('model_id', model_id))
+            
+        if name is not None:
+            
+            _query_params.append(('name', name))
+            
+        if bound is not None:
+            
+            _query_params.append(('bound', bound.value))
+            
+        if query is not None:
+            
+            _query_params.append(('query', query))
+            
+        if threshold_less_than is not None:
+            
+            _query_params.append(('threshold_less_than', threshold_less_than))
+            
+        if threshold_greater_than is not None:
+            
+            _query_params.append(('threshold_greater_than', threshold_greater_than))
+            
+        if metric_name is not None:
+            
+            _query_params.append(('metric_name', metric_name))
+            
+        if policy_model_assignment_id is not None:
+            
+            _query_params.append(('policy_model_assignment_id', policy_model_assignment_id))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/workspaces/{workspace_id}/alert_rules',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def get_model_alert_rules(
         self,
         model_id: StrictStr,

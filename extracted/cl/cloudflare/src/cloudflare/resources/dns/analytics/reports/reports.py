@@ -15,8 +15,8 @@ from .bytimes import (
     BytimesResourceWithStreamingResponse,
     AsyncBytimesResourceWithStreamingResponse,
 )
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -61,19 +61,19 @@ class ReportsResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        dimensions: str | NotGiven = NOT_GIVEN,
-        filters: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        metrics: str | NotGiven = NOT_GIVEN,
-        since: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        sort: str | NotGiven = NOT_GIVEN,
-        until: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        dimensions: str | Omit = omit,
+        filters: str | Omit = omit,
+        limit: int | Omit = omit,
+        metrics: str | Omit = omit,
+        since: Union[str, datetime] | Omit = omit,
+        sort: str | Omit = omit,
+        until: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Report]:
         """
         Retrieves a list of summarised aggregate metrics over a given time period.
@@ -111,7 +111,7 @@ class ReportsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/dns_analytics/report",
+            path_template("/zones/{zone_id}/dns_analytics/report", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -163,19 +163,19 @@ class AsyncReportsResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        dimensions: str | NotGiven = NOT_GIVEN,
-        filters: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        metrics: str | NotGiven = NOT_GIVEN,
-        since: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        sort: str | NotGiven = NOT_GIVEN,
-        until: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        dimensions: str | Omit = omit,
+        filters: str | Omit = omit,
+        limit: int | Omit = omit,
+        metrics: str | Omit = omit,
+        since: Union[str, datetime] | Omit = omit,
+        sort: str | Omit = omit,
+        until: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Report]:
         """
         Retrieves a list of summarised aggregate metrics over a given time period.
@@ -213,7 +213,7 @@ class AsyncReportsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/dns_analytics/report",
+            path_template("/zones/{zone_id}/dns_analytics/report", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

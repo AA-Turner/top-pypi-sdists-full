@@ -6,7 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -52,13 +53,13 @@ class PreviewsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> PreviewGetResponse:
         """
         Get the result of a previous preview operation using the provided preview_id.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -73,7 +74,11 @@ class PreviewsResource(SyncAPIResource):
         if not preview_id:
             raise ValueError(f"Expected a non-empty value for `preview_id` but received {preview_id!r}")
         return self._get(
-            f"/accounts/{account_id}/load_balancers/preview/{preview_id}",
+            path_template(
+                "/accounts/{account_id}/load_balancers/preview/{preview_id}",
+                account_id=account_id,
+                preview_id=preview_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -115,13 +120,13 @@ class AsyncPreviewsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> PreviewGetResponse:
         """
         Get the result of a previous preview operation using the provided preview_id.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -136,7 +141,11 @@ class AsyncPreviewsResource(AsyncAPIResource):
         if not preview_id:
             raise ValueError(f"Expected a non-empty value for `preview_id` but received {preview_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/load_balancers/preview/{preview_id}",
+            path_template(
+                "/accounts/{account_id}/load_balancers/preview/{preview_id}",
+                account_id=account_id,
+                preview_id=preview_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import List
 from typing_extensions import Literal, Required, Annotated, TypedDict
 
+from ..._types import SequenceNotStr
 from ..._utils import PropertyInfo
 
 __all__ = ["LiveInputUpdateParams", "Recording"]
@@ -26,6 +26,9 @@ class LiveInputUpdateParams(TypedDict, total=False):
     scheduled deletion.
     """
 
+    enabled: bool
+    """Indicates whether the live input is enabled and can accept streams."""
+
     meta: object
     """
     A user modifiable key-value store used to reference other systems of record for
@@ -42,7 +45,12 @@ class LiveInputUpdateParams(TypedDict, total=False):
 
 
 class Recording(TypedDict, total=False):
-    allowed_origins: Annotated[List[str], PropertyInfo(alias="allowedOrigins")]
+    """Records the input to a Cloudflare Stream video.
+
+    Behavior depends on the mode. In most cases, the video will initially be viewable as a live video and transition to on-demand after a condition is satisfied.
+    """
+
+    allowed_origins: Annotated[SequenceNotStr[str], PropertyInfo(alias="allowedOrigins")]
     """Lists the origins allowed to display videos created with this input.
 
     Enter allowed origin domains in an array and use `*` for wildcard subdomains. An

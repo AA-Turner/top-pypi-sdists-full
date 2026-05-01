@@ -9,7 +9,7 @@ __all__ = ["PreviewCreateParams"]
 
 class PreviewCreateParams(TypedDict, total=False):
     account_id: Required[str]
-    """Account Identifier"""
+    """Identifier."""
 
     postfix_id: Required[str]
-    """The identifier of the message."""
+    """The identifier of the message"""

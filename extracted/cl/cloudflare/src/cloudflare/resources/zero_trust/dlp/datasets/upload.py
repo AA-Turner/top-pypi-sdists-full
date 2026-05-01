@@ -2,12 +2,23 @@
 
 from __future__ import annotations
 
+import os
 from typing import Type, Optional, cast
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven, FileTypes
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._files import read_file_content, async_read_file_content
+from ....._types import (
+    Body,
+    Query,
+    Headers,
+    NotGiven,
+    BinaryTypes,
+    FileContent,
+    AsyncBinaryTypes,
+    not_given,
+)
+from ....._utils import path_template
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -19,7 +30,6 @@ from ....._response import (
 from ....._wrappers import ResultWrapper
 from ....._base_client import make_request_options
 from .....types.zero_trust.dlp.dataset import Dataset
-from .....types.zero_trust.dlp.datasets import upload_edit_params
 from .....types.zero_trust.dlp.datasets.new_version import NewVersion
 
 __all__ = ["UploadResource", "AsyncUploadResource"]
@@ -55,10 +65,11 @@ class UploadResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[NewVersion]:
         """
-        Prepare to upload a new version of a dataset
+        Creates a new version of a DLP dataset, allowing you to stage changes before
+        activation. Used for single-column EDM and custom word lists.
 
         Args:
           extra_headers: Send extra headers
@@ -74,7 +85,9 @@ class UploadResource(SyncAPIResource):
         if not dataset_id:
             raise ValueError(f"Expected a non-empty value for `dataset_id` but received {dataset_id!r}")
         return self._post(
-            f"/accounts/{account_id}/dlp/datasets/{dataset_id}/upload",
+            path_template(
+                "/accounts/{account_id}/dlp/datasets/{dataset_id}/upload", account_id=account_id, dataset_id=dataset_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -88,16 +101,16 @@ class UploadResource(SyncAPIResource):
     def edit(
         self,
         version: int,
+        dataset: FileContent | BinaryTypes,
         *,
         account_id: str,
         dataset_id: str,
-        body: FileTypes,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Dataset]:
         """This is used for single-column EDMv1 and Custom Word Lists.
 
@@ -119,9 +132,15 @@ class UploadResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not dataset_id:
             raise ValueError(f"Expected a non-empty value for `dataset_id` but received {dataset_id!r}")
+        extra_headers = {"Content-Type": "application/octet-stream", **(extra_headers or {})}
         return self._post(
-            f"/accounts/{account_id}/dlp/datasets/{dataset_id}/upload/{version}",
-            body=maybe_transform(body, upload_edit_params.UploadEditParams),
+            path_template(
+                "/accounts/{account_id}/dlp/datasets/{dataset_id}/upload/{version}",
+                account_id=account_id,
+                dataset_id=dataset_id,
+                version=version,
+            ),
+            content=read_file_content(dataset) if isinstance(dataset, os.PathLike) else dataset,
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -163,10 +182,11 @@ class AsyncUploadResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[NewVersion]:
         """
-        Prepare to upload a new version of a dataset
+        Creates a new version of a DLP dataset, allowing you to stage changes before
+        activation. Used for single-column EDM and custom word lists.
 
         Args:
           extra_headers: Send extra headers
@@ -182,7 +202,9 @@ class AsyncUploadResource(AsyncAPIResource):
         if not dataset_id:
             raise ValueError(f"Expected a non-empty value for `dataset_id` but received {dataset_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/dlp/datasets/{dataset_id}/upload",
+            path_template(
+                "/accounts/{account_id}/dlp/datasets/{dataset_id}/upload", account_id=account_id, dataset_id=dataset_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -196,16 +218,16 @@ class AsyncUploadResource(AsyncAPIResource):
     async def edit(
         self,
         version: int,
+        dataset: FileContent | AsyncBinaryTypes,
         *,
         account_id: str,
         dataset_id: str,
-        body: FileTypes,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Dataset]:
         """This is used for single-column EDMv1 and Custom Word Lists.
 
@@ -227,9 +249,15 @@ class AsyncUploadResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not dataset_id:
             raise ValueError(f"Expected a non-empty value for `dataset_id` but received {dataset_id!r}")
+        extra_headers = {"Content-Type": "application/octet-stream", **(extra_headers or {})}
         return await self._post(
-            f"/accounts/{account_id}/dlp/datasets/{dataset_id}/upload/{version}",
-            body=await async_maybe_transform(body, upload_edit_params.UploadEditParams),
+            path_template(
+                "/accounts/{account_id}/dlp/datasets/{dataset_id}/upload/{version}",
+                account_id=account_id,
+                dataset_id=dataset_id,
+                version=version,
+            ),
+            content=await async_read_file_content(dataset) if isinstance(dataset, os.PathLike) else dataset,
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

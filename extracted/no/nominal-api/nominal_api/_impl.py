@@ -19945,13 +19945,13 @@ when accounting for out-of-order points.
     _bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None
     _bucketed_enum: Optional["scout_compute_api_BucketedEnumPlot"] = None
     _multivariate: Optional["scout_compute_api_BucketedMultivariatePlot"] = None
-    _arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None
-    _arrow_enum: Optional["scout_compute_api_ArrowEnumPlot"] = None
-    _arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None
-    _arrow_bucketed_enum: Optional["scout_compute_api_ArrowBucketedEnumPlot"] = None
-    _arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None
-    _arrow_bucketed_struct: Optional["scout_compute_api_ArrowBucketedStructPlot"] = None
-    _arrow_struct: Optional["scout_compute_api_ArrowStructPlot"] = None
+    _arrow_numeric: Optional["scout_compute_api_ArrowPlot"] = None
+    _arrow_enum: Optional["scout_compute_api_ArrowPlot"] = None
+    _arrow_bucketed_numeric: Optional["scout_compute_api_ArrowPlot"] = None
+    _arrow_bucketed_enum: Optional["scout_compute_api_ArrowPlot"] = None
+    _arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowPlot"] = None
+    _arrow_bucketed_struct: Optional["scout_compute_api_ArrowPlot"] = None
+    _arrow_struct: Optional["scout_compute_api_ArrowPlot"] = None
     _grouped: Optional["persistent_compute_api_GroupedComputeNodeAppendResponses"] = None
 
     @builtins.classmethod
@@ -19968,13 +19968,13 @@ when accounting for out-of-order points.
             'bucketed_numeric': ConjureFieldDefinition('bucketedNumeric', scout_compute_api_BucketedNumericPlot),
             'bucketed_enum': ConjureFieldDefinition('bucketedEnum', scout_compute_api_BucketedEnumPlot),
             'multivariate': ConjureFieldDefinition('multivariate', scout_compute_api_BucketedMultivariatePlot),
-            'arrow_numeric': ConjureFieldDefinition('arrowNumeric', scout_compute_api_ArrowNumericPlot),
-            'arrow_enum': ConjureFieldDefinition('arrowEnum', scout_compute_api_ArrowEnumPlot),
-            'arrow_bucketed_numeric': ConjureFieldDefinition('arrowBucketedNumeric', scout_compute_api_ArrowBucketedNumericPlot),
-            'arrow_bucketed_enum': ConjureFieldDefinition('arrowBucketedEnum', scout_compute_api_ArrowBucketedEnumPlot),
-            'arrow_bucketed_multivariate': ConjureFieldDefinition('arrowBucketedMultivariate', scout_compute_api_ArrowBucketedMultivariatePlot),
-            'arrow_bucketed_struct': ConjureFieldDefinition('arrowBucketedStruct', scout_compute_api_ArrowBucketedStructPlot),
-            'arrow_struct': ConjureFieldDefinition('arrowStruct', scout_compute_api_ArrowStructPlot),
+            'arrow_numeric': ConjureFieldDefinition('arrowNumeric', scout_compute_api_ArrowPlot),
+            'arrow_enum': ConjureFieldDefinition('arrowEnum', scout_compute_api_ArrowPlot),
+            'arrow_bucketed_numeric': ConjureFieldDefinition('arrowBucketedNumeric', scout_compute_api_ArrowPlot),
+            'arrow_bucketed_enum': ConjureFieldDefinition('arrowBucketedEnum', scout_compute_api_ArrowPlot),
+            'arrow_bucketed_multivariate': ConjureFieldDefinition('arrowBucketedMultivariate', scout_compute_api_ArrowPlot),
+            'arrow_bucketed_struct': ConjureFieldDefinition('arrowBucketedStruct', scout_compute_api_ArrowPlot),
+            'arrow_struct': ConjureFieldDefinition('arrowStruct', scout_compute_api_ArrowPlot),
             'grouped': ConjureFieldDefinition('grouped', persistent_compute_api_GroupedComputeNodeAppendResponses)
         }
 
@@ -19991,13 +19991,13 @@ when accounting for out-of-order points.
             bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None,
             bucketed_enum: Optional["scout_compute_api_BucketedEnumPlot"] = None,
             multivariate: Optional["scout_compute_api_BucketedMultivariatePlot"] = None,
-            arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None,
-            arrow_enum: Optional["scout_compute_api_ArrowEnumPlot"] = None,
-            arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None,
-            arrow_bucketed_enum: Optional["scout_compute_api_ArrowBucketedEnumPlot"] = None,
-            arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None,
-            arrow_bucketed_struct: Optional["scout_compute_api_ArrowBucketedStructPlot"] = None,
-            arrow_struct: Optional["scout_compute_api_ArrowStructPlot"] = None,
+            arrow_numeric: Optional["scout_compute_api_ArrowPlot"] = None,
+            arrow_enum: Optional["scout_compute_api_ArrowPlot"] = None,
+            arrow_bucketed_numeric: Optional["scout_compute_api_ArrowPlot"] = None,
+            arrow_bucketed_enum: Optional["scout_compute_api_ArrowPlot"] = None,
+            arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowPlot"] = None,
+            arrow_bucketed_struct: Optional["scout_compute_api_ArrowPlot"] = None,
+            arrow_struct: Optional["scout_compute_api_ArrowPlot"] = None,
             grouped: Optional["persistent_compute_api_GroupedComputeNodeAppendResponses"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
@@ -20234,19 +20234,19 @@ with the newer ones.
         return self._multivariate
 
     @builtins.property
-    def arrow_numeric(self) -> Optional["scout_compute_api_ArrowNumericPlot"]:
+    def arrow_numeric(self) -> Optional["scout_compute_api_ArrowPlot"]:
         """Merging can be done by dropping any old points and adding the new ones, accounting for overlaps
         """
         return self._arrow_numeric
 
     @builtins.property
-    def arrow_enum(self) -> Optional["scout_compute_api_ArrowEnumPlot"]:
+    def arrow_enum(self) -> Optional["scout_compute_api_ArrowPlot"]:
         """Merging can be done by dropping any old points and adding the new ones, accounting for overlaps
         """
         return self._arrow_enum
 
     @builtins.property
-    def arrow_bucketed_numeric(self) -> Optional["scout_compute_api_ArrowBucketedNumericPlot"]:
+    def arrow_bucketed_numeric(self) -> Optional["scout_compute_api_ArrowPlot"]:
         """Merging can be done by dropping any old buckets and adding the new ones. Overlapping buckets are
 guaranteed to align (same bucket end timestamp) and the older version of the bucket can be replaced
 with the newer ones.
@@ -20254,7 +20254,7 @@ with the newer ones.
         return self._arrow_bucketed_numeric
 
     @builtins.property
-    def arrow_bucketed_enum(self) -> Optional["scout_compute_api_ArrowBucketedEnumPlot"]:
+    def arrow_bucketed_enum(self) -> Optional["scout_compute_api_ArrowPlot"]:
         """Merging can be done by dropping any old buckets and adding the new ones. Overlapping buckets are
 guaranteed to align (same bucket end timestamp) and the older version of the bucket can be replaced
 with the newer ones.
@@ -20262,7 +20262,7 @@ with the newer ones.
         return self._arrow_bucketed_enum
 
     @builtins.property
-    def arrow_bucketed_multivariate(self) -> Optional["scout_compute_api_ArrowBucketedMultivariatePlot"]:
+    def arrow_bucketed_multivariate(self) -> Optional["scout_compute_api_ArrowPlot"]:
         """Merging can be done by dropping any old buckets and adding the new ones. Overlapping buckets are
 guaranteed to align (same bucket end timestamp) and the older version of the bucket can be replaced
 with the newer ones.
@@ -20270,7 +20270,7 @@ with the newer ones.
         return self._arrow_bucketed_multivariate
 
     @builtins.property
-    def arrow_bucketed_struct(self) -> Optional["scout_compute_api_ArrowBucketedStructPlot"]:
+    def arrow_bucketed_struct(self) -> Optional["scout_compute_api_ArrowPlot"]:
         """Merging can be done by dropping any old buckets and adding the new ones. Overlapping buckets are
 guaranteed to align (same bucket end timestamp) and the older version of the bucket can be replaced
 with the newer ones.
@@ -20278,7 +20278,7 @@ with the newer ones.
         return self._arrow_bucketed_struct
 
     @builtins.property
-    def arrow_struct(self) -> Optional["scout_compute_api_ArrowStructPlot"]:
+    def arrow_struct(self) -> Optional["scout_compute_api_ArrowPlot"]:
         """Merging can be done by dropping any old points and adding the new ones, accounting for overlaps
         """
         return self._arrow_struct
@@ -20384,31 +20384,31 @@ class persistent_compute_api_ComputeNodeAppendResponseVisitor:
         pass
 
     @abstractmethod
-    def _arrow_numeric(self, arrow_numeric: "scout_compute_api_ArrowNumericPlot") -> Any:
+    def _arrow_numeric(self, arrow_numeric: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
-    def _arrow_enum(self, arrow_enum: "scout_compute_api_ArrowEnumPlot") -> Any:
+    def _arrow_enum(self, arrow_enum: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
-    def _arrow_bucketed_numeric(self, arrow_bucketed_numeric: "scout_compute_api_ArrowBucketedNumericPlot") -> Any:
+    def _arrow_bucketed_numeric(self, arrow_bucketed_numeric: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
-    def _arrow_bucketed_enum(self, arrow_bucketed_enum: "scout_compute_api_ArrowBucketedEnumPlot") -> Any:
+    def _arrow_bucketed_enum(self, arrow_bucketed_enum: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
-    def _arrow_bucketed_multivariate(self, arrow_bucketed_multivariate: "scout_compute_api_ArrowBucketedMultivariatePlot") -> Any:
+    def _arrow_bucketed_multivariate(self, arrow_bucketed_multivariate: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
-    def _arrow_bucketed_struct(self, arrow_bucketed_struct: "scout_compute_api_ArrowBucketedStructPlot") -> Any:
+    def _arrow_bucketed_struct(self, arrow_bucketed_struct: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
-    def _arrow_struct(self, arrow_struct: "scout_compute_api_ArrowStructPlot") -> Any:
+    def _arrow_struct(self, arrow_struct: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
@@ -20756,6 +20756,8 @@ use polling mode instead of expecting append updates.
     '''LOG_SERIES'''
     CURVE_FITTING = 'CURVE_FITTING'
     '''CURVE_FITTING'''
+    SIGNAL_FILTER = 'SIGNAL_FILTER'
+    '''SIGNAL_FILTER'''
     ARRAY = 'ARRAY'
     '''ARRAY'''
     STRUCT = 'STRUCT'
@@ -30801,6 +30803,864 @@ class scout_catalog_WeakTimestampType(ConjureEnumType):
 scout_catalog_WeakTimestampType.__name__ = "WeakTimestampType"
 scout_catalog_WeakTimestampType.__qualname__ = "WeakTimestampType"
 scout_catalog_WeakTimestampType.__module__ = "nominal_api.scout_catalog"
+
+
+class scout_channel_api_ChannelChildEntry(ConjureUnionType):
+    _channel: Optional["scout_channel_api_ChannelEntry"] = None
+    _prefix: Optional["scout_channel_api_PrefixEntry"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'channel': ConjureFieldDefinition('channel', scout_channel_api_ChannelEntry),
+            'prefix': ConjureFieldDefinition('prefix', scout_channel_api_PrefixEntry)
+        }
+
+    def __init__(
+            self,
+            channel: Optional["scout_channel_api_ChannelEntry"] = None,
+            prefix: Optional["scout_channel_api_PrefixEntry"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (channel is not None) + (prefix is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if channel is not None:
+                self._channel = channel
+                self._type = 'channel'
+            if prefix is not None:
+                self._prefix = prefix
+                self._type = 'prefix'
+
+        elif type_of_union == 'channel':
+            if channel is None:
+                raise ValueError('a union value must not be None')
+            self._channel = channel
+            self._type = 'channel'
+        elif type_of_union == 'prefix':
+            if prefix is None:
+                raise ValueError('a union value must not be None')
+            self._prefix = prefix
+            self._type = 'prefix'
+
+    @builtins.property
+    def channel(self) -> Optional["scout_channel_api_ChannelEntry"]:
+        return self._channel
+
+    @builtins.property
+    def prefix(self) -> Optional["scout_channel_api_PrefixEntry"]:
+        return self._prefix
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_channel_api_ChannelChildEntryVisitor):
+            raise ValueError('{} is not an instance of scout_channel_api_ChannelChildEntryVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'channel' and self.channel is not None:
+            return visitor._channel(self.channel)
+        if self._type == 'prefix' and self.prefix is not None:
+            return visitor._prefix(self.prefix)
+
+
+scout_channel_api_ChannelChildEntry.__name__ = "ChannelChildEntry"
+scout_channel_api_ChannelChildEntry.__qualname__ = "ChannelChildEntry"
+scout_channel_api_ChannelChildEntry.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_ChannelChildEntryVisitor:
+
+    @abstractmethod
+    def _channel(self, channel: "scout_channel_api_ChannelEntry") -> Any:
+        pass
+
+    @abstractmethod
+    def _prefix(self, prefix: "scout_channel_api_PrefixEntry") -> Any:
+        pass
+
+
+scout_channel_api_ChannelChildEntryVisitor.__name__ = "ChannelChildEntryVisitor"
+scout_channel_api_ChannelChildEntryVisitor.__qualname__ = "ChannelChildEntryVisitor"
+scout_channel_api_ChannelChildEntryVisitor.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_ChannelEntry(ConjureBeanType):
+    """A channel (by name) found in one or more locators of the frame. `locatorMetadata` has one
+entry per locator the channel exists in; locators not represented here are ones where the
+channel does not exist.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', api_Channel),
+            'locator_metadata': ConjureFieldDefinition('locatorMetadata', List[scout_channel_api_LocatorChannelMetadata])
+        }
+
+    __slots__: List[str] = ['_name', '_locator_metadata']
+
+    def __init__(self, locator_metadata: List["scout_channel_api_LocatorChannelMetadata"], name: str) -> None:
+        self._name = name
+        self._locator_metadata = locator_metadata
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def locator_metadata(self) -> List["scout_channel_api_LocatorChannelMetadata"]:
+        return self._locator_metadata
+
+
+scout_channel_api_ChannelEntry.__name__ = "ChannelEntry"
+scout_channel_api_ChannelEntry.__qualname__ = "ChannelEntry"
+scout_channel_api_ChannelEntry.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_ChannelSearchDataFrame(ConjureUnionType):
+    """Subset of `DataFrame` variants currently supported by channel search.
+    """
+    _asset: Optional["scout_compute_api_Asset"] = None
+    _dataset: Optional["scout_compute_api_Dataset"] = None
+    _search: Optional["scout_compute_api_SearchFrame"] = None
+    _combine_assets: Optional["scout_compute_api_CombineAssetsFrame"] = None
+    _combine_runs: Optional["scout_compute_api_CombineRunsFrame"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset': ConjureFieldDefinition('asset', scout_compute_api_Asset),
+            'dataset': ConjureFieldDefinition('dataset', scout_compute_api_Dataset),
+            'search': ConjureFieldDefinition('search', scout_compute_api_SearchFrame),
+            'combine_assets': ConjureFieldDefinition('combineAssets', scout_compute_api_CombineAssetsFrame),
+            'combine_runs': ConjureFieldDefinition('combineRuns', scout_compute_api_CombineRunsFrame)
+        }
+
+    def __init__(
+            self,
+            asset: Optional["scout_compute_api_Asset"] = None,
+            dataset: Optional["scout_compute_api_Dataset"] = None,
+            search: Optional["scout_compute_api_SearchFrame"] = None,
+            combine_assets: Optional["scout_compute_api_CombineAssetsFrame"] = None,
+            combine_runs: Optional["scout_compute_api_CombineRunsFrame"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (asset is not None) + (dataset is not None) + (search is not None) + (combine_assets is not None) + (combine_runs is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if asset is not None:
+                self._asset = asset
+                self._type = 'asset'
+            if dataset is not None:
+                self._dataset = dataset
+                self._type = 'dataset'
+            if search is not None:
+                self._search = search
+                self._type = 'search'
+            if combine_assets is not None:
+                self._combine_assets = combine_assets
+                self._type = 'combineAssets'
+            if combine_runs is not None:
+                self._combine_runs = combine_runs
+                self._type = 'combineRuns'
+
+        elif type_of_union == 'asset':
+            if asset is None:
+                raise ValueError('a union value must not be None')
+            self._asset = asset
+            self._type = 'asset'
+        elif type_of_union == 'dataset':
+            if dataset is None:
+                raise ValueError('a union value must not be None')
+            self._dataset = dataset
+            self._type = 'dataset'
+        elif type_of_union == 'search':
+            if search is None:
+                raise ValueError('a union value must not be None')
+            self._search = search
+            self._type = 'search'
+        elif type_of_union == 'combineAssets':
+            if combine_assets is None:
+                raise ValueError('a union value must not be None')
+            self._combine_assets = combine_assets
+            self._type = 'combineAssets'
+        elif type_of_union == 'combineRuns':
+            if combine_runs is None:
+                raise ValueError('a union value must not be None')
+            self._combine_runs = combine_runs
+            self._type = 'combineRuns'
+
+    @builtins.property
+    def asset(self) -> Optional["scout_compute_api_Asset"]:
+        return self._asset
+
+    @builtins.property
+    def dataset(self) -> Optional["scout_compute_api_Dataset"]:
+        return self._dataset
+
+    @builtins.property
+    def search(self) -> Optional["scout_compute_api_SearchFrame"]:
+        """A frame that is the result of a dynamic search operation.
+        """
+        return self._search
+
+    @builtins.property
+    def combine_assets(self) -> Optional["scout_compute_api_CombineAssetsFrame"]:
+        return self._combine_assets
+
+    @builtins.property
+    def combine_runs(self) -> Optional["scout_compute_api_CombineRunsFrame"]:
+        return self._combine_runs
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_channel_api_ChannelSearchDataFrameVisitor):
+            raise ValueError('{} is not an instance of scout_channel_api_ChannelSearchDataFrameVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'asset' and self.asset is not None:
+            return visitor._asset(self.asset)
+        if self._type == 'dataset' and self.dataset is not None:
+            return visitor._dataset(self.dataset)
+        if self._type == 'search' and self.search is not None:
+            return visitor._search(self.search)
+        if self._type == 'combineAssets' and self.combine_assets is not None:
+            return visitor._combine_assets(self.combine_assets)
+        if self._type == 'combineRuns' and self.combine_runs is not None:
+            return visitor._combine_runs(self.combine_runs)
+
+
+scout_channel_api_ChannelSearchDataFrame.__name__ = "ChannelSearchDataFrame"
+scout_channel_api_ChannelSearchDataFrame.__qualname__ = "ChannelSearchDataFrame"
+scout_channel_api_ChannelSearchDataFrame.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_ChannelSearchDataFrameVisitor:
+
+    @abstractmethod
+    def _asset(self, asset: "scout_compute_api_Asset") -> Any:
+        pass
+
+    @abstractmethod
+    def _dataset(self, dataset: "scout_compute_api_Dataset") -> Any:
+        pass
+
+    @abstractmethod
+    def _search(self, search: "scout_compute_api_SearchFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _combine_assets(self, combine_assets: "scout_compute_api_CombineAssetsFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _combine_runs(self, combine_runs: "scout_compute_api_CombineRunsFrame") -> Any:
+        pass
+
+
+scout_channel_api_ChannelSearchDataFrameVisitor.__name__ = "ChannelSearchDataFrameVisitor"
+scout_channel_api_ChannelSearchDataFrameVisitor.__qualname__ = "ChannelSearchDataFrameVisitor"
+scout_channel_api_ChannelSearchDataFrameVisitor.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_ChannelSearchQuery(ConjureUnionType):
+    """Text search strategy.
+ - substring: characters must appear contiguously (case-insensitive).
+ - subsequence: characters must appear in order, not necessarily adjacent.
+ - fuzzy: similarity-based match.
+    """
+    _substring: Optional[str] = None
+    _subsequence: Optional[str] = None
+    _fuzzy: Optional[str] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'substring': ConjureFieldDefinition('substring', str),
+            'subsequence': ConjureFieldDefinition('subsequence', str),
+            'fuzzy': ConjureFieldDefinition('fuzzy', str)
+        }
+
+    def __init__(
+            self,
+            substring: Optional[str] = None,
+            subsequence: Optional[str] = None,
+            fuzzy: Optional[str] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (substring is not None) + (subsequence is not None) + (fuzzy is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if substring is not None:
+                self._substring = substring
+                self._type = 'substring'
+            if subsequence is not None:
+                self._subsequence = subsequence
+                self._type = 'subsequence'
+            if fuzzy is not None:
+                self._fuzzy = fuzzy
+                self._type = 'fuzzy'
+
+        elif type_of_union == 'substring':
+            if substring is None:
+                raise ValueError('a union value must not be None')
+            self._substring = substring
+            self._type = 'substring'
+        elif type_of_union == 'subsequence':
+            if subsequence is None:
+                raise ValueError('a union value must not be None')
+            self._subsequence = subsequence
+            self._type = 'subsequence'
+        elif type_of_union == 'fuzzy':
+            if fuzzy is None:
+                raise ValueError('a union value must not be None')
+            self._fuzzy = fuzzy
+            self._type = 'fuzzy'
+
+    @builtins.property
+    def substring(self) -> Optional[str]:
+        return self._substring
+
+    @builtins.property
+    def subsequence(self) -> Optional[str]:
+        return self._subsequence
+
+    @builtins.property
+    def fuzzy(self) -> Optional[str]:
+        return self._fuzzy
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_channel_api_ChannelSearchQueryVisitor):
+            raise ValueError('{} is not an instance of scout_channel_api_ChannelSearchQueryVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'substring' and self.substring is not None:
+            return visitor._substring(self.substring)
+        if self._type == 'subsequence' and self.subsequence is not None:
+            return visitor._subsequence(self.subsequence)
+        if self._type == 'fuzzy' and self.fuzzy is not None:
+            return visitor._fuzzy(self.fuzzy)
+
+
+scout_channel_api_ChannelSearchQuery.__name__ = "ChannelSearchQuery"
+scout_channel_api_ChannelSearchQuery.__qualname__ = "ChannelSearchQuery"
+scout_channel_api_ChannelSearchQuery.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_ChannelSearchQueryVisitor:
+
+    @abstractmethod
+    def _substring(self, substring: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _subsequence(self, subsequence: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _fuzzy(self, fuzzy: str) -> Any:
+        pass
+
+
+scout_channel_api_ChannelSearchQueryVisitor.__name__ = "ChannelSearchQueryVisitor"
+scout_channel_api_ChannelSearchQueryVisitor.__qualname__ = "ChannelSearchQueryVisitor"
+scout_channel_api_ChannelSearchQueryVisitor.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_ChannelSearchService(Service):
+    """Channel search over a `DataFrame`, which can expand to multiple locators.
+    """
+
+    def get_locator_delimiters(self, auth_header: str, request: "scout_channel_api_GetLocatorDelimitersRequest") -> "scout_channel_api_GetLocatorDelimitersResponse":
+        """Returns the expanded locator topology for a frame plus per-locator delimiter
+info.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/channels/v1/delimiters'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_channel_api_GetLocatorDelimitersResponse, self._return_none_for_unknown_union_types)
+
+    def list_channel_children(self, auth_header: str, request: "scout_channel_api_ListChannelChildrenRequest") -> "scout_channel_api_ListChannelChildrenResponse":
+        """Lazy one-level hierarchical expansion under `parent`. Returns a mix of leaf
+channels and prefix nodes, each labelled with the set of locators where
+they exist.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/channels/v1/browse'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_channel_api_ListChannelChildrenResponse, self._return_none_for_unknown_union_types)
+
+    def search_channels(self, auth_header: str, request: "scout_channel_api_SearchChannelsRequest") -> "scout_channel_api_SearchChannelsResponse":
+        """Flat text search across the frame. Returns matching channels, each labelled
+with the set of locators in which they exist.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/channels/v1/search'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_channel_api_SearchChannelsResponse, self._return_none_for_unknown_union_types)
+
+
+scout_channel_api_ChannelSearchService.__name__ = "ChannelSearchService"
+scout_channel_api_ChannelSearchService.__qualname__ = "ChannelSearchService"
+scout_channel_api_ChannelSearchService.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_GetLocatorDelimitersRequest(ConjureBeanType):
+    """Returns the expanded locators of a frame plus per-locator delimiter (if that locator's 
+data source has an indexed prefix tree).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'scope': ConjureFieldDefinition('scope', scout_channel_api_ChannelSearchDataFrame),
+            'context': ConjureFieldDefinition('context', scout_compute_api_Context),
+            'time_range': ConjureFieldDefinition('timeRange', api_Range)
+        }
+
+    __slots__: List[str] = ['_scope', '_context', '_time_range']
+
+    def __init__(self, context: "scout_compute_api_Context", scope: "scout_channel_api_ChannelSearchDataFrame", time_range: "api_Range") -> None:
+        self._scope = scope
+        self._context = context
+        self._time_range = time_range
+
+    @builtins.property
+    def scope(self) -> "scout_channel_api_ChannelSearchDataFrame":
+        return self._scope
+
+    @builtins.property
+    def context(self) -> "scout_compute_api_Context":
+        return self._context
+
+    @builtins.property
+    def time_range(self) -> "api_Range":
+        return self._time_range
+
+
+scout_channel_api_GetLocatorDelimitersRequest.__name__ = "GetLocatorDelimitersRequest"
+scout_channel_api_GetLocatorDelimitersRequest.__qualname__ = "GetLocatorDelimitersRequest"
+scout_channel_api_GetLocatorDelimitersRequest.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_GetLocatorDelimitersResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'locators': ConjureFieldDefinition('locators', List[scout_channel_api_LocatorWithDelimiter])
+        }
+
+    __slots__: List[str] = ['_locators']
+
+    def __init__(self, locators: List["scout_channel_api_LocatorWithDelimiter"]) -> None:
+        self._locators = locators
+
+    @builtins.property
+    def locators(self) -> List["scout_channel_api_LocatorWithDelimiter"]:
+        return self._locators
+
+
+scout_channel_api_GetLocatorDelimitersResponse.__name__ = "GetLocatorDelimitersResponse"
+scout_channel_api_GetLocatorDelimitersResponse.__qualname__ = "GetLocatorDelimitersResponse"
+scout_channel_api_GetLocatorDelimitersResponse.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_ListChannelChildrenRequest(ConjureBeanType):
+    """Lazy one-level expansion of the frame's channel namespace under `parent`.
+For the root, pass an empty list.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'scope': ConjureFieldDefinition('scope', scout_channel_api_ChannelSearchDataFrame),
+            'parent': ConjureFieldDefinition('parent', List[str]),
+            'context': ConjureFieldDefinition('context', scout_compute_api_Context),
+            'time_range': ConjureFieldDefinition('timeRange', api_Range)
+        }
+
+    __slots__: List[str] = ['_scope', '_parent', '_context', '_time_range']
+
+    def __init__(self, context: "scout_compute_api_Context", parent: List[str], scope: "scout_channel_api_ChannelSearchDataFrame", time_range: "api_Range") -> None:
+        self._scope = scope
+        self._parent = parent
+        self._context = context
+        self._time_range = time_range
+
+    @builtins.property
+    def scope(self) -> "scout_channel_api_ChannelSearchDataFrame":
+        return self._scope
+
+    @builtins.property
+    def parent(self) -> List[str]:
+        """Ancestor parts. Empty means top-level.
+        """
+        return self._parent
+
+    @builtins.property
+    def context(self) -> "scout_compute_api_Context":
+        return self._context
+
+    @builtins.property
+    def time_range(self) -> "api_Range":
+        """Time filter applied to the search. Only channels with data within this time range will be returned.
+A shorter time range will improve performance!
+        """
+        return self._time_range
+
+
+scout_channel_api_ListChannelChildrenRequest.__name__ = "ListChannelChildrenRequest"
+scout_channel_api_ListChannelChildrenRequest.__qualname__ = "ListChannelChildrenRequest"
+scout_channel_api_ListChannelChildrenRequest.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_ListChannelChildrenResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'all_expanded_locators': ConjureFieldDefinition('allExpandedLocators', List[scout_channel_api_Locator]),
+            'entries': ConjureFieldDefinition('entries', List[scout_channel_api_ChannelChildEntry])
+        }
+
+    __slots__: List[str] = ['_all_expanded_locators', '_entries']
+
+    def __init__(self, all_expanded_locators: List["scout_channel_api_Locator"], entries: List["scout_channel_api_ChannelChildEntry"]) -> None:
+        self._all_expanded_locators = all_expanded_locators
+        self._entries = entries
+
+    @builtins.property
+    def all_expanded_locators(self) -> List["scout_channel_api_Locator"]:
+        """All locators expanded from the request scope, independent of which channels exist within them.
+Useful for callers that need to know the complete locator topology (e.g. to render empty
+locators in a tree view) even when no matching channel was found in some of them.
+        """
+        return self._all_expanded_locators
+
+    @builtins.property
+    def entries(self) -> List["scout_channel_api_ChannelChildEntry"]:
+        """Mix of channel leaves and prefix nodes, one entry per distinct
+(channel name | prefix part) collapsed across locators.
+        """
+        return self._entries
+
+
+scout_channel_api_ListChannelChildrenResponse.__name__ = "ListChannelChildrenResponse"
+scout_channel_api_ListChannelChildrenResponse.__qualname__ = "ListChannelChildrenResponse"
+scout_channel_api_ListChannelChildrenResponse.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_Locator(ConjureBeanType):
+    """One expanded leaf of the data frame. Semantic fields (assetRid, runRid, dataScope)
+carry the branch context from frame expansion.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset_rid': ConjureFieldDefinition('assetRid', OptionalTypeWrapper[scout_rids_api_AssetRid]),
+            'run_rid': ConjureFieldDefinition('runRid', OptionalTypeWrapper[scout_run_api_RunRid]),
+            'data_scope': ConjureFieldDefinition('dataScope', OptionalTypeWrapper[str]),
+            'data_source_rid': ConjureFieldDefinition('dataSourceRid', api_rids_DataSourceRid)
+        }
+
+    __slots__: List[str] = ['_asset_rid', '_run_rid', '_data_scope', '_data_source_rid']
+
+    def __init__(self, data_source_rid: str, asset_rid: Optional[str] = None, data_scope: Optional[str] = None, run_rid: Optional[str] = None) -> None:
+        self._asset_rid = asset_rid
+        self._run_rid = run_rid
+        self._data_scope = data_scope
+        self._data_source_rid = data_source_rid
+
+    @builtins.property
+    def asset_rid(self) -> Optional[str]:
+        return self._asset_rid
+
+    @builtins.property
+    def run_rid(self) -> Optional[str]:
+        return self._run_rid
+
+    @builtins.property
+    def data_scope(self) -> Optional[str]:
+        return self._data_scope
+
+    @builtins.property
+    def data_source_rid(self) -> str:
+        return self._data_source_rid
+
+
+scout_channel_api_Locator.__name__ = "Locator"
+scout_channel_api_Locator.__qualname__ = "Locator"
+scout_channel_api_Locator.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_LocatorChannelMetadata(ConjureBeanType):
+    """Metadata for a channel as it appears at one specific locator. Channels can have different
+metadata (seriesId, dataType, unit) across locators, so callers should treat each entry
+independently.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'locator': ConjureFieldDefinition('locator', scout_channel_api_Locator),
+            'unit': ConjureFieldDefinition('unit', OptionalTypeWrapper[api_Unit]),
+            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
+            'data_type': ConjureFieldDefinition('dataType', OptionalTypeWrapper[api_SeriesDataType]),
+            'series_id': ConjureFieldDefinition('seriesId', datasource_api_SeriesMetadataRidOrLogicalSeriesRid)
+        }
+
+    __slots__: List[str] = ['_locator', '_unit', '_description', '_data_type', '_series_id']
+
+    def __init__(self, locator: "scout_channel_api_Locator", series_id: "datasource_api_SeriesMetadataRidOrLogicalSeriesRid", data_type: Optional["api_SeriesDataType"] = None, description: Optional[str] = None, unit: Optional[str] = None) -> None:
+        self._locator = locator
+        self._unit = unit
+        self._description = description
+        self._data_type = data_type
+        self._series_id = series_id
+
+    @builtins.property
+    def locator(self) -> "scout_channel_api_Locator":
+        return self._locator
+
+    @builtins.property
+    def unit(self) -> Optional[str]:
+        return self._unit
+
+    @builtins.property
+    def description(self) -> Optional[str]:
+        return self._description
+
+    @builtins.property
+    def data_type(self) -> Optional["api_SeriesDataType"]:
+        return self._data_type
+
+    @builtins.property
+    def series_id(self) -> "datasource_api_SeriesMetadataRidOrLogicalSeriesRid":
+        return self._series_id
+
+
+scout_channel_api_LocatorChannelMetadata.__name__ = "LocatorChannelMetadata"
+scout_channel_api_LocatorChannelMetadata.__qualname__ = "LocatorChannelMetadata"
+scout_channel_api_LocatorChannelMetadata.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_LocatorWithDelimiter(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'locator': ConjureFieldDefinition('locator', scout_channel_api_Locator),
+            'delimiter': ConjureFieldDefinition('delimiter', OptionalTypeWrapper[str])
+        }
+
+    __slots__: List[str] = ['_locator', '_delimiter']
+
+    def __init__(self, locator: "scout_channel_api_Locator", delimiter: Optional[str] = None) -> None:
+        self._locator = locator
+        self._delimiter = delimiter
+
+    @builtins.property
+    def locator(self) -> "scout_channel_api_Locator":
+        return self._locator
+
+    @builtins.property
+    def delimiter(self) -> Optional[str]:
+        """Absent when the locator's data source has no indexed prefix tree
+(callers should fall back to flat search for those locators).
+        """
+        return self._delimiter
+
+
+scout_channel_api_LocatorWithDelimiter.__name__ = "LocatorWithDelimiter"
+scout_channel_api_LocatorWithDelimiter.__qualname__ = "LocatorWithDelimiter"
+scout_channel_api_LocatorWithDelimiter.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_PrefixEntry(ConjureBeanType):
+    """A prefix node collapsed across locators. `presentAtLocators` lists the locators where this
+prefix exists.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'part': ConjureFieldDefinition('part', str),
+            'present_at_locators': ConjureFieldDefinition('presentAtLocators', List[scout_channel_api_Locator])
+        }
+
+    __slots__: List[str] = ['_part', '_present_at_locators']
+
+    def __init__(self, part: str, present_at_locators: List["scout_channel_api_Locator"]) -> None:
+        self._part = part
+        self._present_at_locators = present_at_locators
+
+    @builtins.property
+    def part(self) -> str:
+        return self._part
+
+    @builtins.property
+    def present_at_locators(self) -> List["scout_channel_api_Locator"]:
+        return self._present_at_locators
+
+
+scout_channel_api_PrefixEntry.__name__ = "PrefixEntry"
+scout_channel_api_PrefixEntry.__qualname__ = "PrefixEntry"
+scout_channel_api_PrefixEntry.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_SearchChannelsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'scope': ConjureFieldDefinition('scope', scout_channel_api_ChannelSearchDataFrame),
+            'query': ConjureFieldDefinition('query', scout_channel_api_ChannelSearchQuery),
+            'context': ConjureFieldDefinition('context', scout_compute_api_Context),
+            'time_range': ConjureFieldDefinition('timeRange', api_Range),
+            'max_result_channels': ConjureFieldDefinition('maxResultChannels', OptionalTypeWrapper[int])
+        }
+
+    __slots__: List[str] = ['_scope', '_query', '_context', '_time_range', '_max_result_channels']
+
+    def __init__(self, context: "scout_compute_api_Context", query: "scout_channel_api_ChannelSearchQuery", scope: "scout_channel_api_ChannelSearchDataFrame", time_range: "api_Range", max_result_channels: Optional[int] = None) -> None:
+        self._scope = scope
+        self._query = query
+        self._context = context
+        self._time_range = time_range
+        self._max_result_channels = max_result_channels
+
+    @builtins.property
+    def scope(self) -> "scout_channel_api_ChannelSearchDataFrame":
+        return self._scope
+
+    @builtins.property
+    def query(self) -> "scout_channel_api_ChannelSearchQuery":
+        return self._query
+
+    @builtins.property
+    def context(self) -> "scout_compute_api_Context":
+        return self._context
+
+    @builtins.property
+    def time_range(self) -> "api_Range":
+        """Time filter applied to the search. Only channels with data within this time range will be returned.
+A shorter time range will improve performance!
+        """
+        return self._time_range
+
+    @builtins.property
+    def max_result_channels(self) -> Optional[int]:
+        """Max number of distinct channels to return. Defaults to 200. Capped at 200.
+        """
+        return self._max_result_channels
+
+
+scout_channel_api_SearchChannelsRequest.__name__ = "SearchChannelsRequest"
+scout_channel_api_SearchChannelsRequest.__qualname__ = "SearchChannelsRequest"
+scout_channel_api_SearchChannelsRequest.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_SearchChannelsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'all_expanded_locators': ConjureFieldDefinition('allExpandedLocators', List[scout_channel_api_Locator]),
+            'results': ConjureFieldDefinition('results', List[scout_channel_api_ChannelEntry])
+        }
+
+    __slots__: List[str] = ['_all_expanded_locators', '_results']
+
+    def __init__(self, all_expanded_locators: List["scout_channel_api_Locator"], results: List["scout_channel_api_ChannelEntry"]) -> None:
+        self._all_expanded_locators = all_expanded_locators
+        self._results = results
+
+    @builtins.property
+    def all_expanded_locators(self) -> List["scout_channel_api_Locator"]:
+        """All locators expanded from the request scope, independent of which channels exist within them.
+Useful for callers that need to know the complete locator topology (e.g. to render empty
+locators in a tree view) even when no matching channel was found in some of them or if the channel
+only exists in a subset of locators.
+        """
+        return self._all_expanded_locators
+
+    @builtins.property
+    def results(self) -> List["scout_channel_api_ChannelEntry"]:
+        return self._results
+
+
+scout_channel_api_SearchChannelsResponse.__name__ = "SearchChannelsResponse"
+scout_channel_api_SearchChannelsResponse.__qualname__ = "SearchChannelsResponse"
+scout_channel_api_SearchChannelsResponse.__module__ = "nominal_api.scout_channel_api"
 
 
 class scout_channelvariables_api_ChannelVariable(ConjureBeanType):
@@ -49719,7 +50579,10 @@ scout_compute_api_ArrowArrayPlotVisitor.__qualname__ = "ArrowArrayPlotVisitor"
 scout_compute_api_ArrowArrayPlotVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
-class scout_compute_api_ArrowBucketedEnumPlot(ConjureBeanType):
+class scout_compute_api_ArrowPlot(ConjureBeanType):
+    """A generic Arrow IPC plot response. Used for all Arrow-serialized plot types (numeric, bucketed numeric,
+enum, bucketed enum, struct, bucketed struct, full resolution, and bucketed multivariate).
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -49736,7 +50599,7 @@ class scout_compute_api_ArrowBucketedEnumPlot(ConjureBeanType):
 
     @builtins.property
     def arrow_binary(self) -> Any:
-        """The raw binary containing Arrow IPC stream for BucketedEnumPlot
+        """The raw binary containing an Arrow IPC stream.
         """
         return self._arrow_binary
 
@@ -49748,247 +50611,9 @@ this list represents the superset of all group by keys used across every individ
         return self._group_by_keys
 
 
-scout_compute_api_ArrowBucketedEnumPlot.__name__ = "ArrowBucketedEnumPlot"
-scout_compute_api_ArrowBucketedEnumPlot.__qualname__ = "ArrowBucketedEnumPlot"
-scout_compute_api_ArrowBucketedEnumPlot.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_ArrowBucketedMultivariatePlot(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
-            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
-        }
-
-    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
-
-    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
-        self._arrow_binary = arrow_binary
-        self._group_by_keys = group_by_keys
-
-    @builtins.property
-    def arrow_binary(self) -> Any:
-        """The raw binary containing Arrow IPC stream for BucketedMultivariatePlot
-        """
-        return self._arrow_binary
-
-    @builtins.property
-    def group_by_keys(self) -> Optional[List[str]]:
-        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
-this list represents the superset of all group by keys used across every individual channel.
-        """
-        return self._group_by_keys
-
-
-scout_compute_api_ArrowBucketedMultivariatePlot.__name__ = "ArrowBucketedMultivariatePlot"
-scout_compute_api_ArrowBucketedMultivariatePlot.__qualname__ = "ArrowBucketedMultivariatePlot"
-scout_compute_api_ArrowBucketedMultivariatePlot.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_ArrowBucketedNumericPlot(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
-            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
-        }
-
-    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
-
-    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
-        self._arrow_binary = arrow_binary
-        self._group_by_keys = group_by_keys
-
-    @builtins.property
-    def arrow_binary(self) -> Any:
-        """The raw binary containing Arrow IPC stream for BucketedNumericPlot
-        """
-        return self._arrow_binary
-
-    @builtins.property
-    def group_by_keys(self) -> Optional[List[str]]:
-        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
-this list represents the superset of all group by keys used across every individual channel.
-        """
-        return self._group_by_keys
-
-
-scout_compute_api_ArrowBucketedNumericPlot.__name__ = "ArrowBucketedNumericPlot"
-scout_compute_api_ArrowBucketedNumericPlot.__qualname__ = "ArrowBucketedNumericPlot"
-scout_compute_api_ArrowBucketedNumericPlot.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_ArrowBucketedStructPlot(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
-            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
-        }
-
-    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
-
-    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
-        self._arrow_binary = arrow_binary
-        self._group_by_keys = group_by_keys
-
-    @builtins.property
-    def arrow_binary(self) -> Any:
-        """The raw binary containing Arrow IPC stream for bucketed struct plot
-        """
-        return self._arrow_binary
-
-    @builtins.property
-    def group_by_keys(self) -> Optional[List[str]]:
-        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
-this list represents the superset of all group by keys used across every individual channel.
-        """
-        return self._group_by_keys
-
-
-scout_compute_api_ArrowBucketedStructPlot.__name__ = "ArrowBucketedStructPlot"
-scout_compute_api_ArrowBucketedStructPlot.__qualname__ = "ArrowBucketedStructPlot"
-scout_compute_api_ArrowBucketedStructPlot.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_ArrowEnumPlot(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
-            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
-        }
-
-    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
-
-    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
-        self._arrow_binary = arrow_binary
-        self._group_by_keys = group_by_keys
-
-    @builtins.property
-    def arrow_binary(self) -> Any:
-        """The raw binary containing Arrow IPC stream for EnumPlot
-        """
-        return self._arrow_binary
-
-    @builtins.property
-    def group_by_keys(self) -> Optional[List[str]]:
-        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
-this list represents the superset of all group by keys used across every individual channel.
-        """
-        return self._group_by_keys
-
-
-scout_compute_api_ArrowEnumPlot.__name__ = "ArrowEnumPlot"
-scout_compute_api_ArrowEnumPlot.__qualname__ = "ArrowEnumPlot"
-scout_compute_api_ArrowEnumPlot.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_ArrowFullResolutionPlot(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
-            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
-        }
-
-    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
-
-    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
-        self._arrow_binary = arrow_binary
-        self._group_by_keys = group_by_keys
-
-    @builtins.property
-    def arrow_binary(self) -> Any:
-        """The raw binary containing Arrow IPC stream for the first n rows of a full resolution plot sorted by timestamp.
-        """
-        return self._arrow_binary
-
-    @builtins.property
-    def group_by_keys(self) -> Optional[List[str]]:
-        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
-this list represents the superset of all group by keys used across every individual channel.
-        """
-        return self._group_by_keys
-
-
-scout_compute_api_ArrowFullResolutionPlot.__name__ = "ArrowFullResolutionPlot"
-scout_compute_api_ArrowFullResolutionPlot.__qualname__ = "ArrowFullResolutionPlot"
-scout_compute_api_ArrowFullResolutionPlot.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_ArrowNumericPlot(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
-            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
-        }
-
-    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
-
-    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
-        self._arrow_binary = arrow_binary
-        self._group_by_keys = group_by_keys
-
-    @builtins.property
-    def arrow_binary(self) -> Any:
-        """The raw binary containing Arrow IPC stream for NumericPlot
-        """
-        return self._arrow_binary
-
-    @builtins.property
-    def group_by_keys(self) -> Optional[List[str]]:
-        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
-this list represents the superset of all group by keys used across every individual channel.
-        """
-        return self._group_by_keys
-
-
-scout_compute_api_ArrowNumericPlot.__name__ = "ArrowNumericPlot"
-scout_compute_api_ArrowNumericPlot.__qualname__ = "ArrowNumericPlot"
-scout_compute_api_ArrowNumericPlot.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_ArrowStructPlot(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
-            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
-        }
-
-    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
-
-    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
-        self._arrow_binary = arrow_binary
-        self._group_by_keys = group_by_keys
-
-    @builtins.property
-    def arrow_binary(self) -> Any:
-        """The raw binary containing Arrow IPC stream for struct plot
-        """
-        return self._arrow_binary
-
-    @builtins.property
-    def group_by_keys(self) -> Optional[List[str]]:
-        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
-this list represents the superset of all group by keys used across every individual channel.
-        """
-        return self._group_by_keys
-
-
-scout_compute_api_ArrowStructPlot.__name__ = "ArrowStructPlot"
-scout_compute_api_ArrowStructPlot.__qualname__ = "ArrowStructPlot"
-scout_compute_api_ArrowStructPlot.__module__ = "nominal_api.scout_compute_api"
+scout_compute_api_ArrowPlot.__name__ = "ArrowPlot"
+scout_compute_api_ArrowPlot.__qualname__ = "ArrowPlot"
+scout_compute_api_ArrowPlot.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_Asin(ConjureBeanType):
@@ -52876,13 +53501,13 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
     _bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None
     _numeric_point: Optional[Optional["scout_compute_api_NumericPoint"]] = None
     _single_point: Optional[Optional["scout_compute_api_SinglePoint"]] = None
-    _arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None
-    _arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None
+    _arrow_numeric: Optional["scout_compute_api_ArrowPlot"] = None
+    _arrow_bucketed_numeric: Optional["scout_compute_api_ArrowPlot"] = None
     _enum: Optional["scout_compute_api_EnumPlot"] = None
     _enum_point: Optional[Optional["scout_compute_api_EnumPoint"]] = None
     _bucketed_enum: Optional["scout_compute_api_BucketedEnumPlot"] = None
-    _arrow_enum: Optional["scout_compute_api_ArrowEnumPlot"] = None
-    _arrow_bucketed_enum: Optional["scout_compute_api_ArrowBucketedEnumPlot"] = None
+    _arrow_enum: Optional["scout_compute_api_ArrowPlot"] = None
+    _arrow_bucketed_enum: Optional["scout_compute_api_ArrowPlot"] = None
     _paged_log: Optional["scout_compute_api_PagedLogPlot"] = None
     _log_point: Optional[Optional["scout_compute_api_LogPoint"]] = None
     _cartesian: Optional["scout_compute_api_CartesianPlot"] = None
@@ -52896,10 +53521,10 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
     _curve_fit: Optional["scout_compute_api_CurveFitResult"] = None
     _grouped: Optional["scout_compute_api_GroupedComputeNodeResponses"] = None
     _array: Optional["scout_compute_api_ArrowArrayPlot"] = None
-    _bucketed_struct: Optional["scout_compute_api_ArrowBucketedStructPlot"] = None
-    _arrow_struct: Optional["scout_compute_api_ArrowStructPlot"] = None
-    _full_resolution: Optional["scout_compute_api_ArrowFullResolutionPlot"] = None
-    _arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None
+    _bucketed_struct: Optional["scout_compute_api_ArrowPlot"] = None
+    _arrow_struct: Optional["scout_compute_api_ArrowPlot"] = None
+    _full_resolution: Optional["scout_compute_api_ArrowPlot"] = None
+    _arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowPlot"] = None
     _multivariate: Optional["scout_compute_api_BucketedMultivariatePlot"] = None
 
     @builtins.classmethod
@@ -52912,13 +53537,13 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             'bucketed_numeric': ConjureFieldDefinition('bucketedNumeric', scout_compute_api_BucketedNumericPlot),
             'numeric_point': ConjureFieldDefinition('numericPoint', OptionalTypeWrapper[scout_compute_api_NumericPoint]),
             'single_point': ConjureFieldDefinition('singlePoint', OptionalTypeWrapper[scout_compute_api_SinglePoint]),
-            'arrow_numeric': ConjureFieldDefinition('arrowNumeric', scout_compute_api_ArrowNumericPlot),
-            'arrow_bucketed_numeric': ConjureFieldDefinition('arrowBucketedNumeric', scout_compute_api_ArrowBucketedNumericPlot),
+            'arrow_numeric': ConjureFieldDefinition('arrowNumeric', scout_compute_api_ArrowPlot),
+            'arrow_bucketed_numeric': ConjureFieldDefinition('arrowBucketedNumeric', scout_compute_api_ArrowPlot),
             'enum': ConjureFieldDefinition('enum', scout_compute_api_EnumPlot),
             'enum_point': ConjureFieldDefinition('enumPoint', OptionalTypeWrapper[scout_compute_api_EnumPoint]),
             'bucketed_enum': ConjureFieldDefinition('bucketedEnum', scout_compute_api_BucketedEnumPlot),
-            'arrow_enum': ConjureFieldDefinition('arrowEnum', scout_compute_api_ArrowEnumPlot),
-            'arrow_bucketed_enum': ConjureFieldDefinition('arrowBucketedEnum', scout_compute_api_ArrowBucketedEnumPlot),
+            'arrow_enum': ConjureFieldDefinition('arrowEnum', scout_compute_api_ArrowPlot),
+            'arrow_bucketed_enum': ConjureFieldDefinition('arrowBucketedEnum', scout_compute_api_ArrowPlot),
             'paged_log': ConjureFieldDefinition('pagedLog', scout_compute_api_PagedLogPlot),
             'log_point': ConjureFieldDefinition('logPoint', OptionalTypeWrapper[scout_compute_api_LogPoint]),
             'cartesian': ConjureFieldDefinition('cartesian', scout_compute_api_CartesianPlot),
@@ -52932,10 +53557,10 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             'curve_fit': ConjureFieldDefinition('curveFit', scout_compute_api_CurveFitResult),
             'grouped': ConjureFieldDefinition('grouped', scout_compute_api_GroupedComputeNodeResponses),
             'array': ConjureFieldDefinition('array', scout_compute_api_ArrowArrayPlot),
-            'bucketed_struct': ConjureFieldDefinition('bucketedStruct', scout_compute_api_ArrowBucketedStructPlot),
-            'arrow_struct': ConjureFieldDefinition('arrowStruct', scout_compute_api_ArrowStructPlot),
-            'full_resolution': ConjureFieldDefinition('fullResolution', scout_compute_api_ArrowFullResolutionPlot),
-            'arrow_bucketed_multivariate': ConjureFieldDefinition('arrowBucketedMultivariate', scout_compute_api_ArrowBucketedMultivariatePlot),
+            'bucketed_struct': ConjureFieldDefinition('bucketedStruct', scout_compute_api_ArrowPlot),
+            'arrow_struct': ConjureFieldDefinition('arrowStruct', scout_compute_api_ArrowPlot),
+            'full_resolution': ConjureFieldDefinition('fullResolution', scout_compute_api_ArrowPlot),
+            'arrow_bucketed_multivariate': ConjureFieldDefinition('arrowBucketedMultivariate', scout_compute_api_ArrowPlot),
             'multivariate': ConjureFieldDefinition('multivariate', scout_compute_api_BucketedMultivariatePlot)
         }
 
@@ -52948,13 +53573,13 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None,
             numeric_point: Optional[Optional["scout_compute_api_NumericPoint"]] = None,
             single_point: Optional[Optional["scout_compute_api_SinglePoint"]] = None,
-            arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None,
-            arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None,
+            arrow_numeric: Optional["scout_compute_api_ArrowPlot"] = None,
+            arrow_bucketed_numeric: Optional["scout_compute_api_ArrowPlot"] = None,
             enum: Optional["scout_compute_api_EnumPlot"] = None,
             enum_point: Optional[Optional["scout_compute_api_EnumPoint"]] = None,
             bucketed_enum: Optional["scout_compute_api_BucketedEnumPlot"] = None,
-            arrow_enum: Optional["scout_compute_api_ArrowEnumPlot"] = None,
-            arrow_bucketed_enum: Optional["scout_compute_api_ArrowBucketedEnumPlot"] = None,
+            arrow_enum: Optional["scout_compute_api_ArrowPlot"] = None,
+            arrow_bucketed_enum: Optional["scout_compute_api_ArrowPlot"] = None,
             paged_log: Optional["scout_compute_api_PagedLogPlot"] = None,
             log_point: Optional[Optional["scout_compute_api_LogPoint"]] = None,
             cartesian: Optional["scout_compute_api_CartesianPlot"] = None,
@@ -52968,10 +53593,10 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             curve_fit: Optional["scout_compute_api_CurveFitResult"] = None,
             grouped: Optional["scout_compute_api_GroupedComputeNodeResponses"] = None,
             array: Optional["scout_compute_api_ArrowArrayPlot"] = None,
-            bucketed_struct: Optional["scout_compute_api_ArrowBucketedStructPlot"] = None,
-            arrow_struct: Optional["scout_compute_api_ArrowStructPlot"] = None,
-            full_resolution: Optional["scout_compute_api_ArrowFullResolutionPlot"] = None,
-            arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None,
+            bucketed_struct: Optional["scout_compute_api_ArrowPlot"] = None,
+            arrow_struct: Optional["scout_compute_api_ArrowPlot"] = None,
+            full_resolution: Optional["scout_compute_api_ArrowPlot"] = None,
+            arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowPlot"] = None,
             multivariate: Optional["scout_compute_api_BucketedMultivariatePlot"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
@@ -53266,11 +53891,11 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
         return self._single_point
 
     @builtins.property
-    def arrow_numeric(self) -> Optional["scout_compute_api_ArrowNumericPlot"]:
+    def arrow_numeric(self) -> Optional["scout_compute_api_ArrowPlot"]:
         return self._arrow_numeric
 
     @builtins.property
-    def arrow_bucketed_numeric(self) -> Optional["scout_compute_api_ArrowBucketedNumericPlot"]:
+    def arrow_bucketed_numeric(self) -> Optional["scout_compute_api_ArrowPlot"]:
         return self._arrow_bucketed_numeric
 
     @builtins.property
@@ -53286,11 +53911,11 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
         return self._bucketed_enum
 
     @builtins.property
-    def arrow_enum(self) -> Optional["scout_compute_api_ArrowEnumPlot"]:
+    def arrow_enum(self) -> Optional["scout_compute_api_ArrowPlot"]:
         return self._arrow_enum
 
     @builtins.property
-    def arrow_bucketed_enum(self) -> Optional["scout_compute_api_ArrowBucketedEnumPlot"]:
+    def arrow_bucketed_enum(self) -> Optional["scout_compute_api_ArrowPlot"]:
         return self._arrow_bucketed_enum
 
     @builtins.property
@@ -53346,19 +53971,19 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
         return self._array
 
     @builtins.property
-    def bucketed_struct(self) -> Optional["scout_compute_api_ArrowBucketedStructPlot"]:
+    def bucketed_struct(self) -> Optional["scout_compute_api_ArrowPlot"]:
         return self._bucketed_struct
 
     @builtins.property
-    def arrow_struct(self) -> Optional["scout_compute_api_ArrowStructPlot"]:
+    def arrow_struct(self) -> Optional["scout_compute_api_ArrowPlot"]:
         return self._arrow_struct
 
     @builtins.property
-    def full_resolution(self) -> Optional["scout_compute_api_ArrowFullResolutionPlot"]:
+    def full_resolution(self) -> Optional["scout_compute_api_ArrowPlot"]:
         return self._full_resolution
 
     @builtins.property
-    def arrow_bucketed_multivariate(self) -> Optional["scout_compute_api_ArrowBucketedMultivariatePlot"]:
+    def arrow_bucketed_multivariate(self) -> Optional["scout_compute_api_ArrowPlot"]:
         return self._arrow_bucketed_multivariate
 
     @builtins.property
@@ -53470,11 +54095,11 @@ class scout_compute_api_ComputeNodeResponseVisitor:
         pass
 
     @abstractmethod
-    def _arrow_numeric(self, arrow_numeric: "scout_compute_api_ArrowNumericPlot") -> Any:
+    def _arrow_numeric(self, arrow_numeric: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
-    def _arrow_bucketed_numeric(self, arrow_bucketed_numeric: "scout_compute_api_ArrowBucketedNumericPlot") -> Any:
+    def _arrow_bucketed_numeric(self, arrow_bucketed_numeric: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
@@ -53490,11 +54115,11 @@ class scout_compute_api_ComputeNodeResponseVisitor:
         pass
 
     @abstractmethod
-    def _arrow_enum(self, arrow_enum: "scout_compute_api_ArrowEnumPlot") -> Any:
+    def _arrow_enum(self, arrow_enum: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
-    def _arrow_bucketed_enum(self, arrow_bucketed_enum: "scout_compute_api_ArrowBucketedEnumPlot") -> Any:
+    def _arrow_bucketed_enum(self, arrow_bucketed_enum: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
@@ -53550,19 +54175,19 @@ class scout_compute_api_ComputeNodeResponseVisitor:
         pass
 
     @abstractmethod
-    def _bucketed_struct(self, bucketed_struct: "scout_compute_api_ArrowBucketedStructPlot") -> Any:
+    def _bucketed_struct(self, bucketed_struct: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
-    def _arrow_struct(self, arrow_struct: "scout_compute_api_ArrowStructPlot") -> Any:
+    def _arrow_struct(self, arrow_struct: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
-    def _full_resolution(self, full_resolution: "scout_compute_api_ArrowFullResolutionPlot") -> Any:
+    def _full_resolution(self, full_resolution: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod
-    def _arrow_bucketed_multivariate(self, arrow_bucketed_multivariate: "scout_compute_api_ArrowBucketedMultivariatePlot") -> Any:
+    def _arrow_bucketed_multivariate(self, arrow_bucketed_multivariate: "scout_compute_api_ArrowPlot") -> Any:
         pass
 
     @abstractmethod

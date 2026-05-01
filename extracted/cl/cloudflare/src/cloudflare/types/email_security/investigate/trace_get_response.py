@@ -9,27 +9,39 @@ __all__ = ["TraceGetResponse", "Inbound", "InboundLine", "Outbound", "OutboundLi
 
 
 class InboundLine(BaseModel):
-    lineno: int
+    lineno: Optional[int] = None
+    """Line number in the trace log"""
 
-    message: str
+    logged_at: Optional[datetime] = None
 
-    ts: datetime
+    message: Optional[str] = None
+
+    ts: Optional[str] = None
+    """Deprecated, use `logged_at` instead. End of life: November 1, 2026."""
 
 
 class Inbound(BaseModel):
     lines: Optional[List[InboundLine]] = None
 
+    pending: Optional[bool] = None
+
 
 class OutboundLine(BaseModel):
-    lineno: int
+    lineno: Optional[int] = None
+    """Line number in the trace log"""
 
-    message: str
+    logged_at: Optional[datetime] = None
 
-    ts: datetime
+    message: Optional[str] = None
+
+    ts: Optional[str] = None
+    """Deprecated, use `logged_at` instead. End of life: November 1, 2026."""
 
 
 class Outbound(BaseModel):
     lines: Optional[List[OutboundLine]] = None
+
+    pending: Optional[bool] = None
 
 
 class TraceGetResponse(BaseModel):

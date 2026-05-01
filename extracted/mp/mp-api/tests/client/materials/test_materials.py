@@ -1,8 +1,9 @@
 import os
-from ..conftest import client_search_testing, requires_api_key
 
 import pytest
 from emmet.core.symmetry import CrystalSystem
+
+from mp_api._test_utils import client_search_testing, requires_api_key
 
 from mp_api.client.routes.materials.materials import MaterialsRester
 from mp_api.client.routes.materials import MATERIALS_RESTERS
@@ -69,7 +70,6 @@ def test_client(rester):
     )
 
 
-@pytest.mark.xfail(condition=True, reason="Needs new deployment.", strict=False)
 @pytest.mark.parametrize(
     "run_type, uncorrected_energy, use_document_model",
     [("PBE", None, True), ("r2SCAN", 1.0, False), ("GGA_U", (-50e4, 0.0), True)],

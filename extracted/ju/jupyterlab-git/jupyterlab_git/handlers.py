@@ -21,11 +21,16 @@ try:
 except ImportError:
     hybridcontents = None
 
-from ._version import __version__
-from .git import DEFAULT_REMOTE_NAME, Git, RebaseAction
-from .log import get_logger
-
-from .ssh import SSH
+from jupyterlab_git_core import __version__
+from jupyterlab_git_core.git import (
+    DEFAULT_REMOTE_NAME,
+    Git,
+    GitCommandError,
+    GitParameterError,
+    RebaseAction,
+)
+from jupyterlab_git_core.log import get_logger
+from jupyterlab_git_core.ssh import SSH
 
 # Git configuration options exposed through the REST API
 ALLOWED_OPTIONS = ["user.name", "user.email"]
@@ -55,6 +60,26 @@ class GitHandler(APIHandler):
     @property
     def git(self) -> Git:
         return self.settings["git"]
+
+    def handle_git_error(self, e: Exception) -> None:
+        """Translate a Git exception into a JSON HTTP error response."""
+        if isinstance(e, GitParameterError):
+            self.set_status(400)
+            self.finish(json.dumps({"code": 400, "message": str(e)}))
+        elif isinstance(e, GitCommandError):
+            self.set_status(500)
+            self.finish(
+                json.dumps(
+                    {
+                        "code": 500,
+                        "message": str(e),
+                        "command": getattr(e, "command", None),
+                    }
+                )
+            )
+        else:
+            self.set_status(500)
+            self.finish(json.dumps({"code": 500, "message": str(e)}))
 
     async def prepare(self):
         """Check if the path should be skipped"""
@@ -118,47 +143,6 @@ class GitCloneHandler(GitHandler):
         if response["code"] != 0:
             self.set_status(500)
         self.finish(json.dumps(response))
-
-
-class GitAllHistoryHandler(GitHandler):
-    """
-    Parent handler for all four history/status git commands:
-    1. git show_top_level
-    2. git branch
-    3. git log
-    4. git status
-    Called on refresh of extension's widget
-    """
-
-    @tornado.web.authenticated
-    async def post(self, path: str = ""):
-        """
-        POST request handler, calls individual handlers for
-        'git show_top_level', 'git branch', 'git log', and 'git status'
-        """
-        body = self.get_json_body()
-        history_count = body["history_count"]
-        local_path = self.url2localpath(path)
-
-        show_top_level = await self.git.show_top_level(local_path)
-        if show_top_level.get("path") is None:
-            self.set_status(500)
-            self.finish(json.dumps(show_top_level))
-        else:
-            branch = await self.git.branch(local_path)
-            log = await self.git.log(local_path, history_count)
-            status = await self.git.status(local_path)
-
-            result = {
-                "code": show_top_level["code"],
-                "data": {
-                    "show_top_level": show_top_level,
-                    "branch": branch,
-                    "log": log,
-                    "status": status,
-                },
-            }
-            self.finish(json.dumps(result))
 
 
 class GitShowTopLevelHandler(GitHandler):
@@ -530,24 +514,14 @@ class GitCheckoutHandler(GitHandler):
         """
         data = self.get_json_body()
         local_path = self.url2localpath(path)
-
         if data["checkout_branch"]:
-            if data["new_check"]:
-                #  Need to check if startpoint is valid
-                is_start_point_valid = await self.git._get_branch_reference(
-                    data["startpoint"], local_path
-                )
-
-                #  If start point is not valid, we need to make an empty commit
-                if not is_start_point_valid:
-                    await self.git._empty_commit(local_path)
-
-                body = await self.git.checkout_new_branch(
-                    data["branchname"], data["startpoint"], local_path
-                )
-            else:
-                body = await self.git.checkout_branch(data["branchname"], local_path)
-        elif data["checkout_all"]:
+            body = await self.git.checkout_branch_safe(
+                data["branchname"],
+                data.get("startpoint"),
+                local_path,
+                new_branch=data["new_check"],
+            )
+        elif data.get("checkout_all"):
             body = await self.git.checkout_all(local_path)
         else:
             body = await self.git.checkout(data["filename"], local_path)
@@ -697,73 +671,14 @@ class GitPushHandler(GitHandler):
         data = self.get_json_body()
         known_remote = data.get("remote")
         force = data.get("force", False)
+        auth = data.get("auth")
 
-        current_local_branch = await self.git.get_current_branch(local_path)
-
-        set_upstream = False
-        current_upstream_branch = await self.git.get_upstream_branch(
-            local_path, current_local_branch
+        response = await self.git.push_current_branch(
+            local_path=local_path, remote=known_remote, auth=auth, force=force
         )
-
-        if known_remote is not None:
-            set_upstream = current_upstream_branch["code"] != 0
-
-            remote_name, _, remote_branch = known_remote.partition("/")
-
-            current_upstream_branch = {
-                "code": 0,
-                "remote_branch": remote_branch or current_local_branch,
-                "remote_short_name": remote_name,
-            }
-
-        if current_upstream_branch["code"] == 0:
-            branch = ":".join(["HEAD", current_upstream_branch["remote_branch"]])
-            response = await self.git.push(
-                current_upstream_branch["remote_short_name"],
-                branch,
-                local_path,
-                data.get("auth", None),
-                set_upstream,
-                force,
-            )
-
-        else:
-            # Allow users to specify upstream through their configuration
-            # https://git-scm.com/docs/git-config#Documentation/git-config.txt-pushdefault
-            # Or use the remote defined if only one remote exists
-            config = await self.git.config(local_path)
-            config_options = config["options"]
-            list_remotes = await self.git.remote_show(local_path)
-            remotes = list_remotes.get("remotes", list())
-            push_default = config_options.get("remote.pushdefault")
-
-            default_remote = None
-            if push_default is not None and push_default in remotes:
-                default_remote = push_default
-            elif len(remotes) == 1:
-                default_remote = remotes[0]
-
-            if default_remote is not None:
-                response = await self.git.push(
-                    default_remote,
-                    current_local_branch,
-                    local_path,
-                    data.get("auth", None),
-                    set_upstream=True,
-                    force=force,
-                )
-            else:
-                response = {
-                    "code": 128,
-                    "message": "fatal: The current branch {} has no upstream branch.".format(
-                        current_local_branch
-                    ),
-                    "remotes": remotes,  # Returns the list of known remotes
-                }
 
         if response["code"] != 0:
             self.set_status(500)
-
         self.finish(json.dumps(response))
 
 
@@ -791,9 +706,13 @@ class GitInitHandler(GitHandler):
 class GitChangedFilesHandler(GitHandler):
     @tornado.web.authenticated
     async def post(self, path: str = ""):
-        body = await self.git.changed_files(
-            self.url2localpath(path), **self.get_json_body()
-        )
+        try:
+            body = await self.git.changed_files(
+                self.url2localpath(path), **self.get_json_body()
+            )
+        except Exception as e:
+            self.handle_git_error(e)
+            return
 
         if body["code"] != 0:
             self.set_status(500)
@@ -838,10 +757,16 @@ class GitContentHandler(GitHandler):
         filename = data["filename"]
         reference = data["reference"]
         local_path, cm = self.url2localpath(path, with_contents_manager=True)
-        response = await self.git.get_content_at_reference(
-            filename, reference, local_path, cm
-        )
-        self.finish(json.dumps(response))
+
+        try:
+            response = await self.git.get_content_at_reference(
+                filename, reference, local_path, cm
+            )
+        except Exception as e:
+            self.handle_git_error(e)
+            return
+
+        self.finish(json.dumps({"code": 0, "content": response["content"]}))
 
 
 class GitDiffNotebookHandler(GitHandler):
@@ -856,7 +781,7 @@ class GitDiffNotebookHandler(GitHandler):
             prev_content = data["previousContent"]
             curr_content = data["currentContent"]
         except KeyError as e:
-            get_logger().error(f"Missing key in POST request.", exc_info=e)
+            get_logger().error("Missing key in POST request.", exc_info=e)
             raise tornado.web.HTTPError(
                 status_code=400, reason=f"Missing POST key: {e}"
             )
@@ -866,11 +791,9 @@ class GitDiffNotebookHandler(GitHandler):
                 prev_content, curr_content, base_content
             )
         except Exception as e:
-            get_logger().error(f"Error computing notebook diff.", exc_info=e)
-            raise tornado.web.HTTPError(
-                status_code=500,
-                reason=f"Error diffing content: {e}.",
-            ) from e
+            get_logger().error("Error computing notebook diff.", exc_info=e)
+            self.handle_git_error(e)
+            return
         self.finish(json.dumps(content))
 
 
@@ -900,16 +823,13 @@ class GitIgnoreHandler(GitHandler):
         file_path = data.get("file_path", None)
         content = data.get("content", None)
         use_extension = data.get("use_extension", False)
-        if content:
-            body = await self.git.write_gitignore(local_path, content)
-        elif file_path:
-            if use_extension:
-                suffixes = Path(file_path).suffixes
-                if len(suffixes) > 0:
-                    file_path = "**/*" + ".".join(suffixes)
-            body = await self.git.ignore(local_path, file_path)
-        else:
-            body = await self.git.ensure_gitignore(local_path)
+
+        body = await self.git.update_gitignore(
+            local_path,
+            file_path=file_path,
+            content=content,
+            use_extension=use_extension,
+        )
         if body["code"] != 0:
             self.set_status(500)
         self.finish(json.dumps(body))
@@ -1184,7 +1104,6 @@ def setup_handlers(web_app):
     handlers_with_path = [
         ("/add_all_unstaged", GitAddAllUnstagedHandler),
         ("/add_all_untracked", GitAddAllUntrackedHandler),
-        ("/all_history", GitAllHistoryHandler),
         ("/branch/delete", GitBranchDeleteHandler),
         ("/branch", GitBranchHandler),
         ("/changed_files", GitChangedFilesHandler),

@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ......_types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ......_utils import maybe_transform, async_maybe_transform
+from ......_types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ......_utils import path_template, maybe_transform, async_maybe_transform
 from ......_compat import cached_property
 from ......_resource import SyncAPIResource, AsyncAPIResource
 from ......_response import (
@@ -56,13 +56,13 @@ class EntriesResource(SyncAPIResource):
         zone_id: str,
         content: str,
         type: Literal["cid", "content_path"],
-        description: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EntryCreateResponse:
         """
         Create IPFS Universal Path Gateway Content List Entry
@@ -91,7 +91,11 @@ class EntriesResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._post(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries",
+                zone_id=zone_id,
+                identifier=identifier,
+            ),
             body=maybe_transform(
                 {
                     "content": content,
@@ -118,13 +122,13 @@ class EntriesResource(SyncAPIResource):
         identifier: str,
         content: str,
         type: Literal["cid", "content_path"],
-        description: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EntryUpdateResponse:
         """
         Edit IPFS Universal Path Gateway Content List Entry
@@ -159,7 +163,12 @@ class EntriesResource(SyncAPIResource):
                 f"Expected a non-empty value for `content_list_entry_identifier` but received {content_list_entry_identifier!r}"
             )
         return self._put(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+                zone_id=zone_id,
+                identifier=identifier,
+                content_list_entry_identifier=content_list_entry_identifier,
+            ),
             body=maybe_transform(
                 {
                     "content": content,
@@ -188,7 +197,7 @@ class EntriesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[EntryListResponse]:
         """
         List IPFS Universal Path Gateway Content List Entries
@@ -211,7 +220,11 @@ class EntriesResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._get(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries",
+                zone_id=zone_id,
+                identifier=identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -233,7 +246,7 @@ class EntriesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[EntryDeleteResponse]:
         """
         Delete IPFS Universal Path Gateway Content List Entry
@@ -262,7 +275,12 @@ class EntriesResource(SyncAPIResource):
                 f"Expected a non-empty value for `content_list_entry_identifier` but received {content_list_entry_identifier!r}"
             )
         return self._delete(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+                zone_id=zone_id,
+                identifier=identifier,
+                content_list_entry_identifier=content_list_entry_identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -284,7 +302,7 @@ class EntriesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EntryGetResponse:
         """
         IPFS Universal Path Gateway Content List Entry Details
@@ -313,7 +331,12 @@ class EntriesResource(SyncAPIResource):
                 f"Expected a non-empty value for `content_list_entry_identifier` but received {content_list_entry_identifier!r}"
             )
         return self._get(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+                zone_id=zone_id,
+                identifier=identifier,
+                content_list_entry_identifier=content_list_entry_identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -352,13 +375,13 @@ class AsyncEntriesResource(AsyncAPIResource):
         zone_id: str,
         content: str,
         type: Literal["cid", "content_path"],
-        description: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EntryCreateResponse:
         """
         Create IPFS Universal Path Gateway Content List Entry
@@ -387,7 +410,11 @@ class AsyncEntriesResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._post(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries",
+                zone_id=zone_id,
+                identifier=identifier,
+            ),
             body=await async_maybe_transform(
                 {
                     "content": content,
@@ -414,13 +441,13 @@ class AsyncEntriesResource(AsyncAPIResource):
         identifier: str,
         content: str,
         type: Literal["cid", "content_path"],
-        description: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EntryUpdateResponse:
         """
         Edit IPFS Universal Path Gateway Content List Entry
@@ -455,7 +482,12 @@ class AsyncEntriesResource(AsyncAPIResource):
                 f"Expected a non-empty value for `content_list_entry_identifier` but received {content_list_entry_identifier!r}"
             )
         return await self._put(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+                zone_id=zone_id,
+                identifier=identifier,
+                content_list_entry_identifier=content_list_entry_identifier,
+            ),
             body=await async_maybe_transform(
                 {
                     "content": content,
@@ -484,7 +516,7 @@ class AsyncEntriesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[EntryListResponse]:
         """
         List IPFS Universal Path Gateway Content List Entries
@@ -507,7 +539,11 @@ class AsyncEntriesResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._get(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries",
+                zone_id=zone_id,
+                identifier=identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -529,7 +565,7 @@ class AsyncEntriesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[EntryDeleteResponse]:
         """
         Delete IPFS Universal Path Gateway Content List Entry
@@ -558,7 +594,12 @@ class AsyncEntriesResource(AsyncAPIResource):
                 f"Expected a non-empty value for `content_list_entry_identifier` but received {content_list_entry_identifier!r}"
             )
         return await self._delete(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+                zone_id=zone_id,
+                identifier=identifier,
+                content_list_entry_identifier=content_list_entry_identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -580,7 +621,7 @@ class AsyncEntriesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EntryGetResponse:
         """
         IPFS Universal Path Gateway Content List Entry Details
@@ -609,7 +650,12 @@ class AsyncEntriesResource(AsyncAPIResource):
                 f"Expected a non-empty value for `content_list_entry_identifier` but received {content_list_entry_identifier!r}"
             )
         return await self._get(
-            f"/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+            path_template(
+                "/zones/{zone_id}/web3/hostnames/{identifier}/ipfs_universal_path/content_list/entries/{content_list_entry_identifier}",
+                zone_id=zone_id,
+                identifier=identifier,
+                content_list_entry_identifier=content_list_entry_identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -2,7 +2,7 @@ import asyncio
 import uuid
 from datetime import timedelta
 from typing import cast
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 from sqlalchemy import select
@@ -13,6 +13,7 @@ from dstack._internal.core.errors import BackendError
 from dstack._internal.core.models.backends.base import BackendType
 from dstack._internal.core.models.common import RegistryAuth
 from dstack._internal.core.models.configurations import TaskConfiguration
+from dstack._internal.core.models.envs import Env
 from dstack._internal.core.models.fleets import FleetNodesSpec, InstanceGroupPlacement
 from dstack._internal.core.models.instances import InstanceStatus
 from dstack._internal.core.models.placement import PlacementGroup
@@ -40,6 +41,8 @@ from dstack._internal.server.models import (
     PlacementGroupModel,
     VolumeAttachmentModel,
 )
+from dstack._internal.server.services.docker import ImageConfig
+from dstack._internal.server.services.jobs.configurators.base import JobConfigurator
 from dstack._internal.server.testing.common import (
     ComputeMockSpec,
     create_export,
@@ -50,6 +53,7 @@ from dstack._internal.server.testing.common import (
     create_project,
     create_repo,
     create_run,
+    create_secret,
     create_user,
     create_volume,
     get_compute_group_provisioning_data,
@@ -387,21 +391,17 @@ class TestJobSubmittedWorker:
         assert job.lock_token is None
         assert job.lock_expires_at is None
 
-    async def test_provisions_new_capacity_for_assigned_job(
+    async def test_provisions_new_capacity_for_assigned_job_with_placeholder(
         self, test_db, session: AsyncSession, worker: JobSubmittedWorker
     ):
         project = await create_project(session=session)
         user = await create_user(session=session)
         repo = await create_repo(session=session, project_id=project.id)
-        fleet = await create_fleet(session=session, project=project)
-        run = await create_run(
-            session=session,
-            project=project,
-            repo=repo,
-            user=user,
-            fleet=fleet,
-        )
-        job = await create_job(session=session, run=run, instance_assigned=True)
+        fleet_spec = get_fleet_spec()
+        fleet_spec.configuration.nodes = FleetNodesSpec(min=0, target=0, max=1)
+        fleet = await create_fleet(session=session, project=project, spec=fleet_spec)
+        run = await create_run(session=session, project=project, repo=repo, user=user)
+        job = await create_job(session=session, run=run)
 
         offer = get_instance_offer_with_availability(backend=BackendType.AWS)
         with patch("dstack._internal.server.services.backends.get_project_backends") as m:
@@ -416,13 +416,128 @@ class TestJobSubmittedWorker:
 
             await _process_job(session=session, worker=worker, job_model=job)
 
+            job = await _get_job(session, job.id)
+            assert job.status == JobStatus.SUBMITTED
+            assert job.instance_assigned
+            assert job.instance is not None
+            placeholder_id = job.instance.id
+            assert job.used_instance_id == placeholder_id
+            assert job.instance.status == InstanceStatus.PENDING
+
+            await _process_job(session=session, worker=worker, job_model=job)
+
         job = await _get_job(session, job.id)
         assert job.status == JobStatus.PROVISIONING
         assert job.instance is not None
+        assert job.instance.id == placeholder_id
+        assert job.used_instance_id == placeholder_id
+        assert job.instance.status == InstanceStatus.PROVISIONING
         assert job.instance.fleet_id == fleet.id
-        assert job.lock_owner is None
-        assert job.lock_token is None
-        assert job.lock_expires_at is None
+        assert job.instance.offer is not None
+        assert job.instance.provisioning_job_id == job.id  # never cleared
+        res = await session.execute(
+            select(InstanceModel).where(
+                InstanceModel.fleet_id == fleet.id,
+                InstanceModel.deleted == False,
+            )
+        )
+        assert len(res.scalars().all()) == 1
+
+    async def test_multinode_master_reuses_placeholder_when_provisioning_falls_back_to_run_job(
+        self, test_db, session: AsyncSession, worker: JobSubmittedWorker
+    ):
+        project = await create_project(session=session)
+        user = await create_user(session=session)
+        repo = await create_repo(session=session, project_id=project.id)
+        fleet_spec = get_fleet_spec()
+        fleet_spec.configuration.nodes = FleetNodesSpec(min=0, target=0, max=1)
+        fleet = await create_fleet(session=session, project=project, spec=fleet_spec)
+        run_spec = get_run_spec(
+            run_name="run",
+            repo_id=repo.name,
+            configuration=TaskConfiguration(image="debian", nodes=2),
+        )
+        run = await create_run(
+            session=session,
+            run_name="run",
+            project=project,
+            repo=repo,
+            user=user,
+            run_spec=run_spec,
+            fleet=fleet,
+        )
+        master_job = await create_job(
+            session=session,
+            run=run,
+            job_num=0,
+            waiting_master_job=False,
+        )
+        worker_job = await create_job(
+            session=session,
+            run=run,
+            job_num=1,
+            waiting_master_job=True,
+        )
+
+        offer = get_instance_offer_with_availability(backend=BackendType.AWS)
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            backend_mock = Mock()
+            compute_mock = Mock(spec=ComputeMockSpec)
+            backend_mock.TYPE = BackendType.AWS
+            backend_mock.compute.return_value = compute_mock
+            m.return_value = [backend_mock]
+            compute_mock.get_offers.return_value = [offer]
+            compute_mock.run_job.return_value = get_job_provisioning_data(
+                dockerized=True,
+                backend=BackendType.AWS,
+            )
+
+            await _process_job(session=session, worker=worker, job_model=master_job)
+
+            master_job = await _get_job(session, master_job.id)
+            worker_job = await _get_job(session, worker_job.id)
+            assert master_job.status == JobStatus.SUBMITTED
+            assert master_job.instance_assigned
+            assert master_job.instance is not None
+            placeholder_id = master_job.instance.id
+            assert master_job.instance.status == InstanceStatus.PENDING
+            assert master_job.used_instance_id == placeholder_id
+            assert master_job.fleet_id == fleet.id
+            assert worker_job.waiting_master_job
+            compute_mock.run_job.assert_not_called()
+            compute_mock.run_jobs.assert_not_called()
+
+            competing_instance = await create_instance(
+                session=session,
+                project=project,
+                fleet=fleet,
+                status=InstanceStatus.BUSY,
+                backend=BackendType.AWS,
+                job_provisioning_data=get_job_provisioning_data(backend=BackendType.AWS),
+            )
+
+            await _process_job(session=session, worker=worker, job_model=master_job)
+
+        master_job = await _get_job(session, master_job.id)
+        worker_job = await _get_job(session, worker_job.id)
+        assert master_job.status == JobStatus.PROVISIONING
+        assert master_job.instance is not None
+        assert master_job.instance.id == placeholder_id
+        assert master_job.instance.status == InstanceStatus.PROVISIONING
+        assert master_job.used_instance_id == placeholder_id
+        assert worker_job.waiting_master_job is False
+        compute_mock.run_job.assert_called_once()
+        compute_mock.run_jobs.assert_not_called()
+        res = await session.execute(
+            select(InstanceModel).where(
+                InstanceModel.fleet_id == fleet.id,
+                InstanceModel.deleted == False,
+            )
+        )
+        assert {instance.id for instance in res.scalars().all()} == {
+            placeholder_id,
+            competing_instance.id,
+        }
 
     async def test_provisioning_master_job_respects_cluster_placement_in_non_empty_fleet(
         self, test_db, session: AsyncSession, worker: JobSubmittedWorker
@@ -541,7 +656,7 @@ class TestJobSubmittedWorker:
         assert job.lock_token is None
         assert job.lock_expires_at is None
         hint_fetch = cast(Mock, worker._pipeline_hinter.hint_fetch)
-        hint_fetch.assert_called_once_with(FleetModel.__name__)
+        hint_fetch.assert_has_calls([call(FleetModel.__name__), call(JobModel.__name__)])
 
     async def test_provisioning_non_master_job_ignores_cluster_master_fleet_lock(
         self, test_db, session: AsyncSession, worker: JobSubmittedWorker
@@ -1049,6 +1164,134 @@ class TestJobSubmittedWorker:
         assert job.instance_assigned
         assert job.instance is not None and job.instance.id == instance_2.id
         assert job.fleet_id == fleet_2.id
+
+    async def test_assignment_creates_placeholder_instance_for_new_capacity(
+        self, test_db, session: AsyncSession, worker: JobSubmittedWorker
+    ):
+        project = await create_project(session=session)
+        user = await create_user(session=session)
+        repo = await create_repo(session=session, project_id=project.id)
+        fleet = await create_fleet(session=session, project=project)
+        run = await create_run(session=session, project=project, repo=repo, user=user)
+        job = await create_job(session=session, run=run)
+
+        offer = get_instance_offer_with_availability(backend=BackendType.AWS)
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            backend_mock = Mock()
+            m.return_value = [backend_mock]
+            backend_mock.TYPE = BackendType.AWS
+            backend_mock.compute.return_value.get_offers.return_value = [offer]
+
+            await _process_job(session=session, worker=worker, job_model=job)
+
+        job = await _get_job(session, job.id)
+        assert job.status == JobStatus.SUBMITTED
+        assert job.instance_assigned
+        assert job.fleet_id == fleet.id
+        assert job.used_instance_id is not None
+        # Query the placeholder instance directly to avoid stale session cache
+        res = await session.execute(
+            select(InstanceModel)
+            .where(InstanceModel.id == job.used_instance_id)
+            .execution_options(populate_existing=True)
+        )
+        placeholder = res.scalar_one()
+        assert placeholder.status == InstanceStatus.PENDING
+        assert placeholder.provisioning_job_id == job.id
+        assert placeholder.fleet_id == fleet.id
+        assert placeholder.offer is None
+        assert placeholder.instance_num == 0
+
+    async def test_assignment_retries_when_fleet_is_full(
+        self, test_db, session: AsyncSession, worker: JobSubmittedWorker
+    ):
+        project = await create_project(session=session)
+        user = await create_user(session=session)
+        repo = await create_repo(session=session, project_id=project.id)
+        fleet_spec = get_fleet_spec()
+        fleet_spec.configuration.nodes = FleetNodesSpec(min=0, target=0, max=1)
+        fleet = await create_fleet(session=session, project=project, spec=fleet_spec)
+        await create_instance(
+            session=session,
+            project=project,
+            fleet=fleet,
+            status=InstanceStatus.BUSY,
+        )
+        run = await create_run(session=session, project=project, repo=repo, user=user)
+        job = await create_job(session=session, run=run)
+
+        offer = get_instance_offer_with_availability(backend=BackendType.AWS)
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            backend_mock = Mock()
+            m.return_value = [backend_mock]
+            backend_mock.TYPE = BackendType.AWS
+            backend_mock.compute.return_value.get_offers.return_value = [offer]
+
+            await _process_job(session=session, worker=worker, job_model=job)
+
+        job = await _get_job(session, job.id)
+        # Assignment retried — job not committed as assigned
+        assert job.status == JobStatus.SUBMITTED
+        assert not job.instance_assigned
+        assert job.instance is None
+        # No placeholder must be committed when the fleet is full.
+        res = await session.execute(
+            select(InstanceModel).where(
+                InstanceModel.fleet_id == fleet.id,
+                InstanceModel.deleted == False,
+            )
+        )
+        assert len(res.scalars().all()) == 1
+
+    async def test_leaves_placeholder_for_terminating_pipeline_on_failed_new_capacity_provisioning(
+        self, test_db, session: AsyncSession, worker: JobSubmittedWorker
+    ):
+        project = await create_project(session=session)
+        user = await create_user(session=session)
+        repo = await create_repo(session=session, project_id=project.id)
+        fleet_spec = get_fleet_spec()
+        fleet_spec.configuration.nodes = FleetNodesSpec(min=0, target=0, max=None)
+        fleet = await create_fleet(session=session, project=project, spec=fleet_spec)
+        run = await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            fleet=fleet,
+        )
+        placeholder = await create_instance(
+            session=session,
+            project=project,
+            fleet=fleet,
+            status=InstanceStatus.PENDING,
+            offer=None,
+            job_provisioning_data=None,
+            backend=BackendType.AWS,
+        )
+        job = await create_job(
+            session=session, run=run, instance=placeholder, instance_assigned=True
+        )
+        placeholder.provisioning_job_id = job.id
+        await session.commit()
+
+        offer = get_instance_offer_with_availability(backend=BackendType.AWS)
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            backend_mock = Mock()
+            compute_mock = Mock(spec=ComputeMockSpec)
+            backend_mock.TYPE = BackendType.AWS
+            backend_mock.compute.return_value = compute_mock
+            m.return_value = [backend_mock]
+            compute_mock.get_offers.return_value = [offer]
+            compute_mock.run_job.side_effect = BackendError("boom")
+
+            await _process_job(session=session, worker=worker, job_model=job)
+
+        job = await _get_job(session, job.id)
+        assert job.status == JobStatus.TERMINATING
+        assert job.termination_reason == JobTerminationReason.FAILED_TO_START_DUE_TO_NO_CAPACITY
+        await session.refresh(placeholder)
+        assert not placeholder.deleted
+        assert placeholder.status == InstanceStatus.PENDING
 
     async def test_provisions_compute_group(
         self, test_db, session: AsyncSession, worker: JobSubmittedWorker
@@ -1633,6 +1876,125 @@ class TestJobSubmittedWorker:
             assert job_configuration.job.job_spec.registry_auth == RegistryAuth(
                 username="server-user", password="server-pass"
             )
+
+    async def test_interpolates_secrets_when_provisioning_new_capacity(
+        self,
+        test_db,
+        session: AsyncSession,
+        image_config_mock: ImageConfig,
+        worker: JobSubmittedWorker,
+    ):
+        project = await create_project(session=session)
+        user = await create_user(session=session)
+        repo = await create_repo(session=session, project_id=project.id)
+        fleet = await create_fleet(session=session, project=project)
+        await create_secret(session=session, project=project, name="token", value="s3cret")
+        await create_secret(
+            session=session, project=project, name="registry_user", value="docker-user"
+        )
+        await create_secret(
+            session=session, project=project, name="registry_pass", value="docker-pass"
+        )
+        run_spec = get_run_spec(
+            run_name="test-run",
+            repo_id=repo.name,
+            configuration=TaskConfiguration(
+                image="ubuntu",
+                env=Env.parse_obj({"TOKEN": "${{ secrets.token }}"}),
+                registry_auth=RegistryAuth(
+                    username="${{ secrets.registry_user }}",
+                    password="${{ secrets.registry_pass }}",
+                ),
+            ),
+        )
+        run = await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            fleet=fleet,
+            run_spec=run_spec,
+        )
+        with patch.object(JobConfigurator, "_get_image_config") as m:
+            m.return_value = image_config_mock
+            job = await create_job(session=session, run=run, instance_assigned=True)
+
+        offer = get_instance_offer_with_availability(backend=BackendType.RUNPOD)
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            backend_mock = Mock()
+            m.return_value = [backend_mock]
+            backend_mock.TYPE = BackendType.RUNPOD
+            backend_mock.compute.return_value.get_offers.return_value = [offer]
+            backend_mock.compute.return_value.run_job.return_value = get_job_provisioning_data(
+                dockerized=False, backend=BackendType.RUNPOD
+            )
+
+            await _process_job(session=session, worker=worker, job_model=job)
+
+        backend_mock.compute.return_value.run_job.assert_called_once()
+        submitted_job = backend_mock.compute.return_value.run_job.call_args[0][1]
+        assert submitted_job.job_spec.env == {"TOKEN": "s3cret"}
+        assert submitted_job.job_spec.registry_auth == RegistryAuth(
+            username="docker-user", password="docker-pass"
+        )
+        # The persisted JobModel keeps the unresolved literals so secrets aren't leaked.
+        await session.refresh(job)
+        assert "${{ secrets.token }}" in job.job_spec_data
+        assert "${{ secrets.registry_user }}" in job.job_spec_data
+        assert "${{ secrets.registry_pass }}" in job.job_spec_data
+
+    async def test_terminates_job_when_secret_is_missing(
+        self,
+        test_db,
+        session: AsyncSession,
+        image_config_mock: ImageConfig,
+        worker: JobSubmittedWorker,
+    ):
+        project = await create_project(session=session)
+        user = await create_user(session=session)
+        repo = await create_repo(session=session, project_id=project.id)
+        fleet = await create_fleet(session=session, project=project)
+        run_spec = get_run_spec(
+            run_name="test-run",
+            repo_id=repo.name,
+            configuration=TaskConfiguration(
+                image="ubuntu",
+                registry_auth=RegistryAuth(
+                    username="registry_user",
+                    password="${{ secrets.registry_pass }}",
+                ),
+            ),
+        )
+        run = await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            fleet=fleet,
+            run_spec=run_spec,
+        )
+        with patch.object(JobConfigurator, "_get_image_config") as m:
+            m.return_value = image_config_mock
+            job = await create_job(session=session, run=run, instance_assigned=True)
+
+        offer = get_instance_offer_with_availability(backend=BackendType.RUNPOD)
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            backend_mock = Mock()
+            m.return_value = [backend_mock]
+            backend_mock.TYPE = BackendType.RUNPOD
+            backend_mock.compute.return_value.get_offers.return_value = [offer]
+            backend_mock.compute.return_value.run_job.return_value = get_job_provisioning_data(
+                dockerized=False, backend=BackendType.RUNPOD
+            )
+
+            await _process_job(session=session, worker=worker, job_model=job)
+
+        await session.refresh(job)
+        assert job.status == JobStatus.TERMINATING
+        assert job.termination_reason == JobTerminationReason.TERMINATED_BY_SERVER
+        assert job.termination_reason_message is not None
+        assert "Secrets interpolation error" in job.termination_reason_message
+        backend_mock.compute.return_value.run_job.assert_not_called()
 
 
 @pytest.mark.asyncio

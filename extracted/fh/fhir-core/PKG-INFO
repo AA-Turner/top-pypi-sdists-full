@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhir_core
-Version: 1.1.7
+Version: 1.1.8
 Summary: FHIR Core library
 Home-page: https://github.com/nazrulworld/fhir-core
 Author: Md Nazrul Islam
@@ -186,6 +186,12 @@ owned by `Health Level Seven International <https://www.hl7.org/legal/trademarks
 
 History
 =======
+
+1.1.8 (2026-04-30)
+------------------
+
+- Fixes: Decimal values lose precision during serialization — Decimal('19') becomes 19.0 in both model_dump() and model_dump_json() fhir.resources#203 [cmodevcodes]
+
 
 1.1.7 (2026-03-22)
 ------------------

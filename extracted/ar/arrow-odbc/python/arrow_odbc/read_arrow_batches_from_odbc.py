@@ -1,4 +1,5 @@
-from typing import Optional, Callable, Sequence
+from collections.abc import Sequence
+from typing import Callable
 
 from pyarrow import Schema
 
@@ -7,27 +8,27 @@ from .reader import (
     DEFAULT_FETCH_BUFFER_LIMIT_IN_BYTES,
     DEFAULT_FETCH_BUFFER_LIMIT_IN_ROWS,
     BatchReader,
-    TextEncoding,
 )
+from .text_encoding import TextEncoding
 
 
 def read_arrow_batches_from_odbc(
     query: str,
     connection_string: str,
     batch_size: int = DEFAULT_FETCH_BUFFER_LIMIT_IN_ROWS,
-    user: Optional[str] = None,
-    password: Optional[str] = None,
-    parameters: Optional[Sequence[Optional[str]]] = None,
-    max_bytes_per_batch: Optional[int] = DEFAULT_FETCH_BUFFER_LIMIT_IN_BYTES,
-    max_text_size: Optional[int] = None,
-    max_binary_size: Optional[int] = None,
+    user: str | None = None,
+    password: str | None = None,
+    parameters: Sequence[str | None] | None = None,
+    max_bytes_per_batch: int | None = DEFAULT_FETCH_BUFFER_LIMIT_IN_BYTES,
+    max_text_size: int | None = None,
+    max_binary_size: int | None = None,
     falliable_allocations: bool = False,
-    login_timeout_sec: Optional[int] = None,
-    packet_size: Optional[int] = None,
-    schema: Optional[Schema] = None,
-    map_schema: Optional[Callable[[Schema], Schema]] = None,
-    fetch_concurrently=True,
-    query_timeout_sec: Optional[int] = None,
+    login_timeout_sec: int | None = None,
+    packet_size: int | None = None,
+    schema: Schema | None = None,
+    map_schema: Callable[[Schema], Schema] | None = None,
+    fetch_concurrently: bool = True,
+    query_timeout_sec: int | None = None,
     payload_text_encoding: TextEncoding = TextEncoding.AUTO,
 ) -> BatchReader:
     """
@@ -144,10 +145,10 @@ def read_arrow_batches_from_odbc(
         and Microsoft SQL Server do, but SQLite or MariaDB do not.
     :param payload_text_encoding: Controls the encoding used for transferring text data from the
             ODBC data source to the application. The resulting Arrow arrays will still be UTF-8
-            encoded. You may want to use this if you get garbage characters or invalid UTF-8 errors
-            on non-windows systems to set the encoding to ``TextEncoding.Utf16``. On windows systems
-            you may want to set this to ``TextEncoding::Utf8`` to gain performance benefits, after
-            you have verified that your system locale is set to UTF-8.
+            encoded. If you see garbage characters or invalid UTF-8 errors in non-windows systems,
+            you may want to set the encoding to ``TextEncoding.Utf16``. On windows systems you may
+            want to set this to ``TextEncoding::Utf8`` to gain performance benefits, after you have
+            verified that your system locale is set to UTF-8.
     :return: A ``BatchReader`` is returned, which implements the iterator protocol and iterates over
         individual arrow batches.
     """

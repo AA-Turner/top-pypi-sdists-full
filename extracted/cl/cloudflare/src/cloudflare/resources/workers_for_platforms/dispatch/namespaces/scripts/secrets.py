@@ -7,8 +7,8 @@ from typing_extensions import Literal, overload
 
 import httpx
 
-from ......_types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ......_utils import required_args, maybe_transform, async_maybe_transform
+from ......_types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ......_utils import path_template, required_args, maybe_transform, async_maybe_transform
 from ......_compat import cached_property
 from ......_resource import SyncAPIResource, AsyncAPIResource
 from ......_response import (
@@ -20,7 +20,11 @@ from ......_response import (
 from ......_wrappers import ResultWrapper
 from ......pagination import SyncSinglePage, AsyncSinglePage
 from ......_base_client import AsyncPaginator, make_request_options
-from ......types.workers_for_platforms.dispatch.namespaces.scripts import secret_update_params
+from ......types.workers_for_platforms.dispatch.namespaces.scripts import (
+    secret_get_params,
+    secret_delete_params,
+    secret_update_params,
+)
 from ......types.workers_for_platforms.dispatch.namespaces.scripts.secret_get_response import SecretGetResponse
 from ......types.workers_for_platforms.dispatch.namespaces.scripts.secret_list_response import SecretListResponse
 from ......types.workers_for_platforms.dispatch.namespaces.scripts.secret_update_response import SecretUpdateResponse
@@ -63,7 +67,7 @@ class SecretsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretUpdateResponse:
         """
         Add a secret to a script uploaded to a Workers for Platforms namespace.
@@ -105,14 +109,14 @@ class SecretsResource(SyncAPIResource):
         usages: List[
             Literal["encrypt", "decrypt", "sign", "verify", "deriveKey", "deriveBits", "wrapKey", "unwrapKey"]
         ],
-        key_base64: str | NotGiven = NOT_GIVEN,
-        key_jwk: object | NotGiven = NOT_GIVEN,
+        key_base64: str | Omit = omit,
+        key_jwk: object | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretUpdateResponse:
         """
         Add a secret to a script uploaded to a Workers for Platforms namespace.
@@ -164,20 +168,20 @@ class SecretsResource(SyncAPIResource):
         account_id: str,
         dispatch_namespace: str,
         name: str,
-        text: str | NotGiven = NOT_GIVEN,
+        text: str | Omit = omit,
         type: Literal["secret_text"] | Literal["secret_key"],
-        algorithm: object | NotGiven = NOT_GIVEN,
-        format: Literal["raw", "pkcs8", "spki", "jwk"] | NotGiven = NOT_GIVEN,
+        algorithm: object | Omit = omit,
+        format: Literal["raw", "pkcs8", "spki", "jwk"] | Omit = omit,
         usages: List[Literal["encrypt", "decrypt", "sign", "verify", "deriveKey", "deriveBits", "wrapKey", "unwrapKey"]]
-        | NotGiven = NOT_GIVEN,
-        key_base64: str | NotGiven = NOT_GIVEN,
-        key_jwk: object | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        key_base64: str | Omit = omit,
+        key_jwk: object | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretUpdateResponse:
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
@@ -188,7 +192,12 @@ class SecretsResource(SyncAPIResource):
         return cast(
             SecretUpdateResponse,
             self._put(
-                f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets",
+                path_template(
+                    "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets",
+                    account_id=account_id,
+                    dispatch_namespace=dispatch_namespace,
+                    script_name=script_name,
+                ),
                 body=maybe_transform(
                     {
                         "name": name,
@@ -226,7 +235,7 @@ class SecretsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[SecretListResponse]:
         """
         List secrets bound to a script uploaded to a Workers for Platforms namespace.
@@ -253,7 +262,12 @@ class SecretsResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+            ),
             page=SyncSinglePage[SecretListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -268,12 +282,13 @@ class SecretsResource(SyncAPIResource):
         account_id: str,
         dispatch_namespace: str,
         script_name: str,
+        url_encoded: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Remove a secret from a script uploaded to a Workers for Platforms namespace.
@@ -286,6 +301,8 @@ class SecretsResource(SyncAPIResource):
           script_name: Name of the script, used in URLs and route configuration.
 
           secret_name: A JavaScript variable name for the secret binding.
+
+          url_encoded: Flag that indicates whether the secret name is URL encoded.
 
           extra_headers: Send extra headers
 
@@ -304,12 +321,19 @@ class SecretsResource(SyncAPIResource):
         if not secret_name:
             raise ValueError(f"Expected a non-empty value for `secret_name` but received {secret_name!r}")
         return self._delete(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets/{secret_name}",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets/{secret_name}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+                secret_name=secret_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=maybe_transform({"url_encoded": url_encoded}, secret_delete_params.SecretDeleteParams),
                 post_parser=ResultWrapper[Optional[object]]._unwrapper,
             ),
             cast_to=cast(Type[object], ResultWrapper[object]),
@@ -322,12 +346,13 @@ class SecretsResource(SyncAPIResource):
         account_id: str,
         dispatch_namespace: str,
         script_name: str,
+        url_encoded: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretGetResponse:
         """
         Get a given secret binding (value omitted) on a script uploaded to a Workers for
@@ -341,6 +366,8 @@ class SecretsResource(SyncAPIResource):
           script_name: Name of the script, used in URLs and route configuration.
 
           secret_name: A JavaScript variable name for the secret binding.
+
+          url_encoded: Flag that indicates whether the secret name is URL encoded.
 
           extra_headers: Send extra headers
 
@@ -361,12 +388,19 @@ class SecretsResource(SyncAPIResource):
         return cast(
             SecretGetResponse,
             self._get(
-                f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets/{secret_name}",
+                path_template(
+                    "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets/{secret_name}",
+                    account_id=account_id,
+                    dispatch_namespace=dispatch_namespace,
+                    script_name=script_name,
+                    secret_name=secret_name,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
                     extra_body=extra_body,
                     timeout=timeout,
+                    query=maybe_transform({"url_encoded": url_encoded}, secret_get_params.SecretGetParams),
                     post_parser=ResultWrapper[SecretGetResponse]._unwrapper,
                 ),
                 cast_to=cast(
@@ -411,7 +445,7 @@ class AsyncSecretsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretUpdateResponse:
         """
         Add a secret to a script uploaded to a Workers for Platforms namespace.
@@ -453,14 +487,14 @@ class AsyncSecretsResource(AsyncAPIResource):
         usages: List[
             Literal["encrypt", "decrypt", "sign", "verify", "deriveKey", "deriveBits", "wrapKey", "unwrapKey"]
         ],
-        key_base64: str | NotGiven = NOT_GIVEN,
-        key_jwk: object | NotGiven = NOT_GIVEN,
+        key_base64: str | Omit = omit,
+        key_jwk: object | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretUpdateResponse:
         """
         Add a secret to a script uploaded to a Workers for Platforms namespace.
@@ -512,20 +546,20 @@ class AsyncSecretsResource(AsyncAPIResource):
         account_id: str,
         dispatch_namespace: str,
         name: str,
-        text: str | NotGiven = NOT_GIVEN,
+        text: str | Omit = omit,
         type: Literal["secret_text"] | Literal["secret_key"],
-        algorithm: object | NotGiven = NOT_GIVEN,
-        format: Literal["raw", "pkcs8", "spki", "jwk"] | NotGiven = NOT_GIVEN,
+        algorithm: object | Omit = omit,
+        format: Literal["raw", "pkcs8", "spki", "jwk"] | Omit = omit,
         usages: List[Literal["encrypt", "decrypt", "sign", "verify", "deriveKey", "deriveBits", "wrapKey", "unwrapKey"]]
-        | NotGiven = NOT_GIVEN,
-        key_base64: str | NotGiven = NOT_GIVEN,
-        key_jwk: object | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        key_base64: str | Omit = omit,
+        key_jwk: object | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretUpdateResponse:
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
@@ -536,7 +570,12 @@ class AsyncSecretsResource(AsyncAPIResource):
         return cast(
             SecretUpdateResponse,
             await self._put(
-                f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets",
+                path_template(
+                    "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets",
+                    account_id=account_id,
+                    dispatch_namespace=dispatch_namespace,
+                    script_name=script_name,
+                ),
                 body=await async_maybe_transform(
                     {
                         "name": name,
@@ -574,7 +613,7 @@ class AsyncSecretsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SecretListResponse, AsyncSinglePage[SecretListResponse]]:
         """
         List secrets bound to a script uploaded to a Workers for Platforms namespace.
@@ -601,7 +640,12 @@ class AsyncSecretsResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+            ),
             page=AsyncSinglePage[SecretListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -616,12 +660,13 @@ class AsyncSecretsResource(AsyncAPIResource):
         account_id: str,
         dispatch_namespace: str,
         script_name: str,
+        url_encoded: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Remove a secret from a script uploaded to a Workers for Platforms namespace.
@@ -634,6 +679,8 @@ class AsyncSecretsResource(AsyncAPIResource):
           script_name: Name of the script, used in URLs and route configuration.
 
           secret_name: A JavaScript variable name for the secret binding.
+
+          url_encoded: Flag that indicates whether the secret name is URL encoded.
 
           extra_headers: Send extra headers
 
@@ -652,12 +699,21 @@ class AsyncSecretsResource(AsyncAPIResource):
         if not secret_name:
             raise ValueError(f"Expected a non-empty value for `secret_name` but received {secret_name!r}")
         return await self._delete(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets/{secret_name}",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets/{secret_name}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+                script_name=script_name,
+                secret_name=secret_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
+                query=await async_maybe_transform(
+                    {"url_encoded": url_encoded}, secret_delete_params.SecretDeleteParams
+                ),
                 post_parser=ResultWrapper[Optional[object]]._unwrapper,
             ),
             cast_to=cast(Type[object], ResultWrapper[object]),
@@ -670,12 +726,13 @@ class AsyncSecretsResource(AsyncAPIResource):
         account_id: str,
         dispatch_namespace: str,
         script_name: str,
+        url_encoded: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretGetResponse:
         """
         Get a given secret binding (value omitted) on a script uploaded to a Workers for
@@ -689,6 +746,8 @@ class AsyncSecretsResource(AsyncAPIResource):
           script_name: Name of the script, used in URLs and route configuration.
 
           secret_name: A JavaScript variable name for the secret binding.
+
+          url_encoded: Flag that indicates whether the secret name is URL encoded.
 
           extra_headers: Send extra headers
 
@@ -709,12 +768,19 @@ class AsyncSecretsResource(AsyncAPIResource):
         return cast(
             SecretGetResponse,
             await self._get(
-                f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets/{secret_name}",
+                path_template(
+                    "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets/{secret_name}",
+                    account_id=account_id,
+                    dispatch_namespace=dispatch_namespace,
+                    script_name=script_name,
+                    secret_name=secret_name,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
                     extra_body=extra_body,
                     timeout=timeout,
+                    query=await async_maybe_transform({"url_encoded": url_encoded}, secret_get_params.SecretGetParams),
                     post_parser=ResultWrapper[SecretGetResponse]._unwrapper,
                 ),
                 cast_to=cast(

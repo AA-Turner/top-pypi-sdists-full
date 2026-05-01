@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -52,15 +53,15 @@ class ContentResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BinaryAPIResponse:
         """
-        Snippet Content
+        Fetches the content of a snippet belonging to the zone.
 
         Args:
-          zone_id: Identifier
+          zone_id: Use this field to specify the unique ID of the zone.
 
-          snippet_name: Snippet identifying name
+          snippet_name: Identify the snippet.
 
           extra_headers: Send extra headers
 
@@ -76,7 +77,9 @@ class ContentResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `snippet_name` but received {snippet_name!r}")
         extra_headers = {"Accept": "multipart/form-data", **(extra_headers or {})}
         return self._get(
-            f"/zones/{zone_id}/snippets/{snippet_name}/content",
+            path_template(
+                "/zones/{zone_id}/snippets/{snippet_name}/content", zone_id=zone_id, snippet_name=snippet_name
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -114,15 +117,15 @@ class AsyncContentResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncBinaryAPIResponse:
         """
-        Snippet Content
+        Fetches the content of a snippet belonging to the zone.
 
         Args:
-          zone_id: Identifier
+          zone_id: Use this field to specify the unique ID of the zone.
 
-          snippet_name: Snippet identifying name
+          snippet_name: Identify the snippet.
 
           extra_headers: Send extra headers
 
@@ -138,7 +141,9 @@ class AsyncContentResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `snippet_name` but received {snippet_name!r}")
         extra_headers = {"Accept": "multipart/form-data", **(extra_headers or {})}
         return await self._get(
-            f"/zones/{zone_id}/snippets/{snippet_name}/content",
+            path_template(
+                "/zones/{zone_id}/snippets/{snippet_name}/content", zone_id=zone_id, snippet_name=snippet_name
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

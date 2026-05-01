@@ -7,8 +7,8 @@ from datetime import datetime
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -49,16 +49,16 @@ class HistoryResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        before: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        since: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        before: Union[str, datetime] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        since: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[History]:
         """Gets a list of history records for notifications sent to an account.
 
@@ -90,7 +90,7 @@ class HistoryResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/alerting/v3/history",
+            path_template("/accounts/{account_id}/alerting/v3/history", account_id=account_id),
             page=SyncV4PagePaginationArray[History],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -135,16 +135,16 @@ class AsyncHistoryResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        before: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        since: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        before: Union[str, datetime] | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        since: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[History, AsyncV4PagePaginationArray[History]]:
         """Gets a list of history records for notifications sent to an account.
 
@@ -176,7 +176,7 @@ class AsyncHistoryResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/alerting/v3/history",
+            path_template("/accounts/{account_id}/alerting/v3/history", account_id=account_id),
             page=AsyncV4PagePaginationArray[History],
             options=make_request_options(
                 extra_headers=extra_headers,

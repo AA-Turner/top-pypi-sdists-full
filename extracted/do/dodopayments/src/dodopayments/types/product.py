@@ -1,108 +1,17 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Optional
 from datetime import datetime
-from typing_extensions import Literal, TypeAlias
 
 from .price import Price
 from .._models import BaseModel
 from .tax_category import TaxCategory
 from .license_key_duration import LicenseKeyDuration
 from .digital_product_delivery import DigitalProductDelivery
+from .product_entitlement_summary import ProductEntitlementSummary
 from .credit_entitlement_mapping_response import CreditEntitlementMappingResponse
 
-__all__ = [
-    "Product",
-    "Entitlement",
-    "EntitlementIntegrationConfig",
-    "EntitlementIntegrationConfigGitHubConfig",
-    "EntitlementIntegrationConfigDiscordConfig",
-    "EntitlementIntegrationConfigTelegramConfig",
-    "EntitlementIntegrationConfigFigmaConfig",
-    "EntitlementIntegrationConfigFramerConfig",
-    "EntitlementIntegrationConfigNotionConfig",
-    "EntitlementIntegrationConfigDigitalFilesConfig",
-    "EntitlementIntegrationConfigLicenseKeyConfig",
-]
-
-
-class EntitlementIntegrationConfigGitHubConfig(BaseModel):
-    permission: str
-    """One of: pull, push, admin, maintain, triage"""
-
-    target_id: str
-
-
-class EntitlementIntegrationConfigDiscordConfig(BaseModel):
-    guild_id: str
-
-    role_id: Optional[str] = None
-
-
-class EntitlementIntegrationConfigTelegramConfig(BaseModel):
-    chat_id: str
-
-
-class EntitlementIntegrationConfigFigmaConfig(BaseModel):
-    figma_file_id: str
-
-
-class EntitlementIntegrationConfigFramerConfig(BaseModel):
-    framer_template_id: str
-
-
-class EntitlementIntegrationConfigNotionConfig(BaseModel):
-    notion_template_id: str
-
-
-class EntitlementIntegrationConfigDigitalFilesConfig(BaseModel):
-    digital_file_ids: List[str]
-
-    external_url: Optional[str] = None
-
-    instructions: Optional[str] = None
-
-
-class EntitlementIntegrationConfigLicenseKeyConfig(BaseModel):
-    activation_message: Optional[str] = None
-
-    activations_limit: Optional[int] = None
-
-    duration_count: Optional[int] = None
-
-    duration_interval: Optional[str] = None
-
-
-EntitlementIntegrationConfig: TypeAlias = Union[
-    EntitlementIntegrationConfigGitHubConfig,
-    EntitlementIntegrationConfigDiscordConfig,
-    EntitlementIntegrationConfigTelegramConfig,
-    EntitlementIntegrationConfigFigmaConfig,
-    EntitlementIntegrationConfigFramerConfig,
-    EntitlementIntegrationConfigNotionConfig,
-    EntitlementIntegrationConfigDigitalFilesConfig,
-    EntitlementIntegrationConfigLicenseKeyConfig,
-]
-
-
-class Entitlement(BaseModel):
-    """Summary of an entitlement attached to a product"""
-
-    id: str
-
-    integration_config: EntitlementIntegrationConfig
-    """
-    Platform-specific configuration for an entitlement. Each variant uses unique
-    field names so `#[serde(untagged)]` can disambiguate correctly.
-    """
-
-    integration_type: Literal[
-        "discord", "telegram", "github", "figma", "framer", "notion", "digital_files", "license_key"
-    ]
-
-    name: str
-
-    description: Optional[str] = None
+__all__ = ["Product"]
 
 
 class Product(BaseModel):
@@ -117,7 +26,7 @@ class Product(BaseModel):
     credit_entitlements: List[CreditEntitlementMappingResponse]
     """Attached credit entitlements with settings"""
 
-    entitlements: List[Entitlement]
+    entitlements: List[ProductEntitlementSummary]
     """Attached entitlements (integration-based access grants)"""
 
     is_recurring: bool
@@ -148,6 +57,12 @@ class Product(BaseModel):
     """Description of the product, optional."""
 
     digital_product_delivery: Optional[DigitalProductDelivery] = None
+    """Digital-product-delivery payload for a grant.
+
+    Populated for grants whose entitlement has `integration_type = 'digital_files'`.
+    `files` carries presigned download URLs; the source (EE service or legacy
+    in-process S3 presigning) is opaque to the caller.
+    """
 
     image: Optional[str] = None
     """URL of the product image, optional."""

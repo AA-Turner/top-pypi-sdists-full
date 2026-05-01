@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-pyspark"
-version = "0.29.2"
+version = "0.29.3"
 description = "Package for PySpark Dagster framework components."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -20,8 +20,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.13.2",
-    "dagster-spark==0.29.2",
+    "dagster==1.13.3",
+    "dagster-spark==0.29.3",
     "pyspark>=3,<5",
 ]
 

@@ -5,7 +5,7 @@ from langgraph.types import Command, Send
 
 from langgraph_grpc_common import serde
 from langgraph_grpc_common.conversion._compat import MISSING, TASKS
-from langgraph_grpc_common.proto import engine_api_pb2, engine_common_pb2
+from langgraph_grpc_common.proto import engine_common_pb2
 
 
 def serialized_value_from_proto(value: engine_common_pb2.SerializedValue) -> Any:
@@ -207,19 +207,3 @@ def base_value_to_proto(value: Any) -> engine_common_pb2.ChannelValue:
     )
 
     return engine_common_pb2.ChannelValue(serialized_value=serialize_value_proto)
-
-
-def input_to_proto(value: Any) -> engine_api_pb2.RunInput | None:
-    """Convert a Python value to a RunInput proto.
-
-    Returns None if value is None (for resuming execution).
-    If the value is a Command, wraps it in RunInput with command field.
-    Otherwise, serializes it and wraps in RunInput with input field.
-    """
-    if value is None:
-        return None
-    elif isinstance(value, Command):
-        return engine_api_pb2.RunInput(command=command_to_proto(value))
-    else:
-        serialize_value_proto = any_to_serialized_value(value)
-        return engine_api_pb2.RunInput(input=serialize_value_proto)

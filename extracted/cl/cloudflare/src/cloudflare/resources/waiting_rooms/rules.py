@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -56,7 +56,7 @@ class RulesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[WaitingRoomRule]:
         """Only available for the Waiting Room Advanced subscription.
 
@@ -79,7 +79,11 @@ class RulesResource(SyncAPIResource):
         if not waiting_room_id:
             raise ValueError(f"Expected a non-empty value for `waiting_room_id` but received {waiting_room_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+            ),
             page=SyncSinglePage[WaitingRoomRule],
             body=maybe_transform(rules, rule_create_params.RuleCreateParams),
             options=make_request_options(
@@ -100,7 +104,7 @@ class RulesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[WaitingRoomRule]:
         """Only available for the Waiting Room Advanced subscription.
 
@@ -123,7 +127,11 @@ class RulesResource(SyncAPIResource):
         if not waiting_room_id:
             raise ValueError(f"Expected a non-empty value for `waiting_room_id` but received {waiting_room_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+            ),
             page=SyncSinglePage[WaitingRoomRule],
             body=maybe_transform(rules, Iterable[rule_update_params.Rule]),
             options=make_request_options(
@@ -144,7 +152,7 @@ class RulesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[WaitingRoomRule]:
         """
         Deletes a rule for a waiting room.
@@ -169,7 +177,12 @@ class RulesResource(SyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules/{rule_id}",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules/{rule_id}",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+                rule_id=rule_id,
+            ),
             page=SyncSinglePage[WaitingRoomRule],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -186,15 +199,15 @@ class RulesResource(SyncAPIResource):
         waiting_room_id: str,
         action: Literal["bypass_waiting_room"],
         expression: str,
-        description: str | NotGiven = NOT_GIVEN,
-        enabled: bool | NotGiven = NOT_GIVEN,
-        position: rule_edit_params.Position | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        enabled: bool | Omit = omit,
+        position: rule_edit_params.Position | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[WaitingRoomRule]:
         """
         Patches a rule for a waiting room.
@@ -229,7 +242,12 @@ class RulesResource(SyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules/{rule_id}",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules/{rule_id}",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+                rule_id=rule_id,
+            ),
             page=SyncSinglePage[WaitingRoomRule],
             body=maybe_transform(
                 {
@@ -258,7 +276,7 @@ class RulesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[WaitingRoomRule]:
         """
         Lists rules for a waiting room.
@@ -279,7 +297,11 @@ class RulesResource(SyncAPIResource):
         if not waiting_room_id:
             raise ValueError(f"Expected a non-empty value for `waiting_room_id` but received {waiting_room_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+            ),
             page=SyncSinglePage[WaitingRoomRule],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -319,7 +341,7 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[WaitingRoomRule, AsyncSinglePage[WaitingRoomRule]]:
         """Only available for the Waiting Room Advanced subscription.
 
@@ -342,7 +364,11 @@ class AsyncRulesResource(AsyncAPIResource):
         if not waiting_room_id:
             raise ValueError(f"Expected a non-empty value for `waiting_room_id` but received {waiting_room_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+            ),
             page=AsyncSinglePage[WaitingRoomRule],
             body=maybe_transform(rules, rule_create_params.RuleCreateParams),
             options=make_request_options(
@@ -363,7 +389,7 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[WaitingRoomRule, AsyncSinglePage[WaitingRoomRule]]:
         """Only available for the Waiting Room Advanced subscription.
 
@@ -386,7 +412,11 @@ class AsyncRulesResource(AsyncAPIResource):
         if not waiting_room_id:
             raise ValueError(f"Expected a non-empty value for `waiting_room_id` but received {waiting_room_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+            ),
             page=AsyncSinglePage[WaitingRoomRule],
             body=maybe_transform(rules, Iterable[rule_update_params.Rule]),
             options=make_request_options(
@@ -407,7 +437,7 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[WaitingRoomRule, AsyncSinglePage[WaitingRoomRule]]:
         """
         Deletes a rule for a waiting room.
@@ -432,7 +462,12 @@ class AsyncRulesResource(AsyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules/{rule_id}",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules/{rule_id}",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+                rule_id=rule_id,
+            ),
             page=AsyncSinglePage[WaitingRoomRule],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -449,15 +484,15 @@ class AsyncRulesResource(AsyncAPIResource):
         waiting_room_id: str,
         action: Literal["bypass_waiting_room"],
         expression: str,
-        description: str | NotGiven = NOT_GIVEN,
-        enabled: bool | NotGiven = NOT_GIVEN,
-        position: rule_edit_params.Position | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        enabled: bool | Omit = omit,
+        position: rule_edit_params.Position | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[WaitingRoomRule, AsyncSinglePage[WaitingRoomRule]]:
         """
         Patches a rule for a waiting room.
@@ -492,7 +527,12 @@ class AsyncRulesResource(AsyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules/{rule_id}",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules/{rule_id}",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+                rule_id=rule_id,
+            ),
             page=AsyncSinglePage[WaitingRoomRule],
             body=maybe_transform(
                 {
@@ -521,7 +561,7 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[WaitingRoomRule, AsyncSinglePage[WaitingRoomRule]]:
         """
         Lists rules for a waiting room.
@@ -542,7 +582,11 @@ class AsyncRulesResource(AsyncAPIResource):
         if not waiting_room_id:
             raise ValueError(f"Expected a non-empty value for `waiting_room_id` but received {waiting_room_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/rules",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+            ),
             page=AsyncSinglePage[WaitingRoomRule],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

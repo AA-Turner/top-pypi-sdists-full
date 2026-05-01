@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Type, Iterable, Optional, cast
+from typing_extensions import Literal
 
 import httpx
 
@@ -14,8 +15,8 @@ from .members import (
     MembersResourceWithStreamingResponse,
     AsyncMembersResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -66,13 +67,13 @@ class UserGroupsResource(SyncAPIResource):
         *,
         account_id: str,
         name: str,
-        policies: Iterable[user_group_create_params.Policy],
+        policies: Iterable[user_group_create_params.Policy] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[UserGroupCreateResponse]:
         """
         Create a new user group under the specified account.
@@ -95,7 +96,7 @@ class UserGroupsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/iam/user_groups",
+            path_template("/accounts/{account_id}/iam/user_groups", account_id=account_id),
             body=maybe_transform(
                 {
                     "name": name,
@@ -118,14 +119,14 @@ class UserGroupsResource(SyncAPIResource):
         user_group_id: str,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        policies: Iterable[user_group_update_params.Policy] | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        policies: Iterable[user_group_update_params.Policy] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[UserGroupUpdateResponse]:
         """
         Modify an existing user group.
@@ -152,7 +153,11 @@ class UserGroupsResource(SyncAPIResource):
         if not user_group_id:
             raise ValueError(f"Expected a non-empty value for `user_group_id` but received {user_group_id!r}")
         return self._put(
-            f"/accounts/{account_id}/iam/user_groups/{user_group_id}",
+            path_template(
+                "/accounts/{account_id}/iam/user_groups/{user_group_id}",
+                account_id=account_id,
+                user_group_id=user_group_id,
+            ),
             body=maybe_transform(
                 {
                     "name": name,
@@ -174,18 +179,18 @@ class UserGroupsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        id: str | NotGiven = NOT_GIVEN,
-        direction: str | NotGiven = NOT_GIVEN,
-        fuzzy_name: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
+        id: str | Omit = omit,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        fuzzy_name: str | Omit = omit,
+        name: str | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[UserGroupListResponse]:
         """
         List all the user groups for an account.
@@ -195,8 +200,7 @@ class UserGroupsResource(SyncAPIResource):
 
           id: ID of the user group to be fetched.
 
-          direction: The sort order of returned user groups by name. Default sort order is ascending.
-              To switch to descending, set this parameter to "desc"
+          direction: The sort order of returned user groups by name (ascending or descending).
 
           fuzzy_name: A string used for searching for user groups containing that substring.
 
@@ -217,7 +221,7 @@ class UserGroupsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/iam/user_groups",
+            path_template("/accounts/{account_id}/iam/user_groups", account_id=account_id),
             page=SyncV4PagePaginationArray[UserGroupListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -249,7 +253,7 @@ class UserGroupsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[UserGroupDeleteResponse]:
         """
         Remove a user group from an account.
@@ -272,7 +276,11 @@ class UserGroupsResource(SyncAPIResource):
         if not user_group_id:
             raise ValueError(f"Expected a non-empty value for `user_group_id` but received {user_group_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/iam/user_groups/{user_group_id}",
+            path_template(
+                "/accounts/{account_id}/iam/user_groups/{user_group_id}",
+                account_id=account_id,
+                user_group_id=user_group_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -293,7 +301,7 @@ class UserGroupsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[UserGroupGetResponse]:
         """
         Get information about a specific user group in an account.
@@ -316,7 +324,11 @@ class UserGroupsResource(SyncAPIResource):
         if not user_group_id:
             raise ValueError(f"Expected a non-empty value for `user_group_id` but received {user_group_id!r}")
         return self._get(
-            f"/accounts/{account_id}/iam/user_groups/{user_group_id}",
+            path_template(
+                "/accounts/{account_id}/iam/user_groups/{user_group_id}",
+                account_id=account_id,
+                user_group_id=user_group_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -357,13 +369,13 @@ class AsyncUserGroupsResource(AsyncAPIResource):
         *,
         account_id: str,
         name: str,
-        policies: Iterable[user_group_create_params.Policy],
+        policies: Iterable[user_group_create_params.Policy] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[UserGroupCreateResponse]:
         """
         Create a new user group under the specified account.
@@ -386,7 +398,7 @@ class AsyncUserGroupsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/iam/user_groups",
+            path_template("/accounts/{account_id}/iam/user_groups", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -409,14 +421,14 @@ class AsyncUserGroupsResource(AsyncAPIResource):
         user_group_id: str,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        policies: Iterable[user_group_update_params.Policy] | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        policies: Iterable[user_group_update_params.Policy] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[UserGroupUpdateResponse]:
         """
         Modify an existing user group.
@@ -443,7 +455,11 @@ class AsyncUserGroupsResource(AsyncAPIResource):
         if not user_group_id:
             raise ValueError(f"Expected a non-empty value for `user_group_id` but received {user_group_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/iam/user_groups/{user_group_id}",
+            path_template(
+                "/accounts/{account_id}/iam/user_groups/{user_group_id}",
+                account_id=account_id,
+                user_group_id=user_group_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -465,18 +481,18 @@ class AsyncUserGroupsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        id: str | NotGiven = NOT_GIVEN,
-        direction: str | NotGiven = NOT_GIVEN,
-        fuzzy_name: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
+        id: str | Omit = omit,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        fuzzy_name: str | Omit = omit,
+        name: str | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[UserGroupListResponse, AsyncV4PagePaginationArray[UserGroupListResponse]]:
         """
         List all the user groups for an account.
@@ -486,8 +502,7 @@ class AsyncUserGroupsResource(AsyncAPIResource):
 
           id: ID of the user group to be fetched.
 
-          direction: The sort order of returned user groups by name. Default sort order is ascending.
-              To switch to descending, set this parameter to "desc"
+          direction: The sort order of returned user groups by name (ascending or descending).
 
           fuzzy_name: A string used for searching for user groups containing that substring.
 
@@ -508,7 +523,7 @@ class AsyncUserGroupsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/iam/user_groups",
+            path_template("/accounts/{account_id}/iam/user_groups", account_id=account_id),
             page=AsyncV4PagePaginationArray[UserGroupListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -540,7 +555,7 @@ class AsyncUserGroupsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[UserGroupDeleteResponse]:
         """
         Remove a user group from an account.
@@ -563,7 +578,11 @@ class AsyncUserGroupsResource(AsyncAPIResource):
         if not user_group_id:
             raise ValueError(f"Expected a non-empty value for `user_group_id` but received {user_group_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/iam/user_groups/{user_group_id}",
+            path_template(
+                "/accounts/{account_id}/iam/user_groups/{user_group_id}",
+                account_id=account_id,
+                user_group_id=user_group_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -584,7 +603,7 @@ class AsyncUserGroupsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[UserGroupGetResponse]:
         """
         Get information about a specific user group in an account.
@@ -607,7 +626,11 @@ class AsyncUserGroupsResource(AsyncAPIResource):
         if not user_group_id:
             raise ValueError(f"Expected a non-empty value for `user_group_id` but received {user_group_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/iam/user_groups/{user_group_id}",
+            path_template(
+                "/accounts/{account_id}/iam/user_groups/{user_group_id}",
+                account_id=account_id,
+                user_group_id=user_group_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

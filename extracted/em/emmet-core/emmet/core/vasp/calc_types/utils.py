@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from monty.serialization import loadfn
-
+import numpy as np
 from pymatgen.io.vasp import Kpoints
 
 from emmet.core.vasp.calc_types.enums import CalcType, RunType, TaskType
@@ -79,7 +79,8 @@ def task_type(inputs: dict[str, Any]) -> TaskType:
     if incar.get("ICHARG", 0) > 10:
         try:
             kpt_labels = kpts.get("labels") or []
-            num_kpt_labels = len(list(filter(None.__ne__, kpt_labels)))
+            # Don't change below: `None.__ne__` is `NotImplemented`
+            num_kpt_labels = len([lbl for lbl in kpt_labels if lbl is not None])
         except Exception as e:
             raise Exception("Couldn't identify total number of kpt labels") from e
 
@@ -110,12 +111,18 @@ def task_type(inputs: dict[str, Any]) -> TaskType:
     elif incar.get("NSW", 1) == 0:
         if incar.get("LOPTICS", False) is True and incar.get("ALGO", None) == "Exact":
             calc_type.append("Optic")
-        elif incar.get("ALGO", None) == "CHI":
+        elif incar.get("ALGO", "").upper() == "CHI":
             calc_type.append("Optic")
+        elif np.any(np.abs(kpts.get("kpts_weights") or [1e20]) < 1e-6) and (
+            incar.get("METAGGA") is not None or incar.get("LHFCALC", False)
+        ):
+            # Static meta-GGA or hybrid calculation with zero-weighted k-points
+            # Highly-likely to be a self-consistent line-mode calculation
+            calc_type.append("SCF Line")
         else:
             calc_type.append("Static")
 
-    elif incar.get("LOPTICS", False) is True or incar.get("ALGO", None) == "CHI":
+    elif incar.get("LOPTICS", False) is True or incar.get("ALGO", "").upper() == "CHI":
         calc_type.append("Optic")
 
     elif incar.get("ISIF", 2) == 3 and incar.get("IBRION", 0) > 0:

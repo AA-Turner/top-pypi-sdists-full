@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class PeriodicElement(Component):
@@ -14,12 +26,19 @@ Keyword arguments:
 - element (string; optional)
 
 - size (number; optional)"""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'PeriodicElement'
-    @_explicitize_args
-    def __init__(self, id=Component.UNDEFINED, size=Component.UNDEFINED, element=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        id: typing.Optional[typing.Union[str, dict]] = None,
+        size: typing.Optional[NumberType] = None,
+        element: typing.Optional[str] = None,
+        **kwargs
+    ):
         self._prop_names = ['id', 'element', 'size']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['id', 'element', 'size']
@@ -30,3 +49,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args}
 
         super(PeriodicElement, self).__init__(**args)
+
+setattr(PeriodicElement, "__init__", _explicitize_args(PeriodicElement.__init__))

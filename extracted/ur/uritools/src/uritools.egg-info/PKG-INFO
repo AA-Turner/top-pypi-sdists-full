@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uritools
-Version: 6.0.2
+Version: 6.1.0
 Summary: URI parsing, classification and composition
 Author-email: Thomas Kemmer <tkemmer@computer.org>
 Maintainer-email: Thomas Kemmer <tkemmer@computer.org>

@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class GlobalSearchBar(Component):
@@ -38,12 +50,22 @@ Keyword arguments:
     Ga, N),  a chemical formula (e.g. C3N), or a material id (e.g.
     mp-10152).  You can also click elements on the periodic table to
     add them to your search.'."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'GlobalSearchBar'
-    @_explicitize_args
-    def __init__(self, redirectRoute=Component.UNDEFINED, autocompleteFormulaUrl=Component.UNDEFINED, apiKey=Component.UNDEFINED, hidePeriodicTable=Component.UNDEFINED, tooltip=Component.UNDEFINED, placeholder=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        redirectRoute: typing.Optional[str] = None,
+        autocompleteFormulaUrl: typing.Optional[str] = None,
+        apiKey: typing.Optional[str] = None,
+        hidePeriodicTable: typing.Optional[bool] = None,
+        tooltip: typing.Optional[str] = None,
+        placeholder: typing.Optional[str] = None,
+        **kwargs
+    ):
         self._prop_names = ['apiKey', 'autocompleteFormulaUrl', 'hidePeriodicTable', 'placeholder', 'redirectRoute', 'tooltip']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['apiKey', 'autocompleteFormulaUrl', 'hidePeriodicTable', 'placeholder', 'redirectRoute', 'tooltip']
@@ -54,3 +76,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args}
 
         super(GlobalSearchBar, self).__init__(**args)
+
+setattr(GlobalSearchBar, "__init__", _explicitize_args(GlobalSearchBar.__init__))

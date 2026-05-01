@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: b2sdk
-Version: 2.10.4
+Version: 2.11.0
 Summary: Backblaze B2 SDK
 Project-URL: Homepage, https://github.com/Backblaze/b2-sdk-python
 Author-email: Backblaze Inc <support@backblaze.com>
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.9
 Requires-Dist: annotated-types>=0.5.0

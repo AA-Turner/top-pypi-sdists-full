@@ -3,7 +3,7 @@
 import enum
 import math
 from dataclasses import dataclass
-from typing import Callable, Literal, Optional, Sequence, Tuple
+from typing import Callable, Dict, Literal, Optional, Sequence, Tuple
 
 import cutlass
 import cutlass.cute as cute
@@ -14,6 +14,7 @@ from cutlass.utils import LayoutEnum
 
 import quack.copy_utils as copy_utils
 from quack.cute_dsl_utils import ParamsBase
+from quack.epi_ops import EpiSmemBytes
 from quack.pipeline import PipelineTmaCpAsync
 from quack.rounding import RoundingMode, epilogue_sr_seed
 from quack.tile_scheduler import (
@@ -49,11 +50,14 @@ class GemmBase:
 
     EpilogueParams = ParamsBase
 
+    def epi_smem_warp_shape_mnk(self):
+        return (self.num_epi_warps, 1, 1)
+
     @cute.jit
     def epilogue(
         self,
         params: EpilogueParams,
-        epi_smem_tensors: Tuple[cute.Tensor, ...],
+        epi_smem_tensors: Dict[str, cute.Tensor],
         epi_pipeline: Optional[cutlass.pipeline.PipelineAsync],
         epi_store_pipeline: Optional[cutlass.pipeline.PipelineAsync],
         epi_read_state: Optional[cutlass.pipeline.PipelineState],
@@ -78,17 +82,19 @@ class GemmBase:
         is_tma_warp: cutlass.Boolean,
     ) -> Tuple[cutlass.pipeline.PipelineState, cutlass.pipeline.PipelineState]:
         has_C = const_expr(tRS_rC is not None)
+        has_epi_load = const_expr(self.epi_c_stage > 0)
         has_D = const_expr(copy_D is not None)
         use_tma_epi = const_expr(epi_store_pipeline is not None)
         use_tma_c = const_expr(epi_pipeline is not None)
+        inline_epi_load = const_expr(copy_C is not None)
         use_stochastic_rounding = const_expr(
             self.rounding_mode == RoundingMode.RS
             and self.acc_dtype == cutlass.Float32
             and self.d_dtype == cutlass.BFloat16
         )
 
-        # Setup postact output (returns None for default epilogue, context tuple for Act)
-        postact_ctx = self.epi_setup_postact(
+        # Setup aux output (returns None for default epilogue, context tuple for Act)
+        aux_out_ctx = self.epi_setup_aux_out(
             params,
             epi_smem_tensors,
             tiled_copy_r2s,
@@ -117,9 +123,10 @@ class GemmBase:
             varlen_manager,
             epilogue_barrier,
             tidx,
+            tRS_rD.layout,
         )
 
-        if const_expr(copy_C is not None):
+        if const_expr(inline_epi_load):
             for epi_idx in cutlass.range(min(epi_tile_num, self.epi_c_stage), unroll=1):
                 epi_coord_C = epi_tile_layout.get_hier_coord(epi_idx)
                 if const_expr(use_tma_c):
@@ -138,13 +145,14 @@ class GemmBase:
             epi_coord = epi_tile_layout.get_hier_coord(epi_idx)  # (epi_m, epi_n)
             # Copy from acc to D registers
             load_acc_subtile(tRS_rD, epi_coord)
-            epi_loop_tensors = self.epi_begin_loop(params, epi_tensors, epi_coord)
-            if const_expr(has_C):
+            if const_expr(has_epi_load):
                 if const_expr(use_tma_c):
                     epi_pipeline.consumer_wait(epi_read_state)
-                    cute.copy(
-                        tiled_copy_s2r, tSR_sC[None, None, None, epi_read_state.index], tSR_rC
-                    )
+                    if const_expr(has_C):
+                        cute.copy(
+                            tiled_copy_s2r, tSR_sC[None, None, None, epi_read_state.index], tSR_rC
+                        )
+                    self.epi_tile_load_s2r(params, epi_tensors, epi_read_state.index)
                     cute.arch.fence_view_async_shared()
                     cute.arch.sync_warp()
                     with cute.arch.elect_one():
@@ -155,7 +163,8 @@ class GemmBase:
                     cute.copy(tiled_copy_s2r, tSR_sC[None, None, None, c_buffer], tSR_rC)
                     # TODO: cp.async wait once we switch to cp.async
                     epilogue_barrier.arrive_and_wait()
-            if const_expr(copy_C is not None and epi_idx + self.epi_c_stage < epi_tile_num):
+            epi_loop_tensors = self.epi_begin_loop(params, epi_tensors, epi_coord)
+            if const_expr(inline_epi_load and epi_idx + self.epi_c_stage < epi_tile_num):
                 epi_coord_C = epi_tile_layout.get_hier_coord(epi_idx + self.epi_c_stage)
                 if const_expr(use_tma_c):
                     if is_tma_warp:
@@ -169,10 +178,21 @@ class GemmBase:
                         src_idx=epi_coord_C,
                         dst_idx=(epi_idx + self.epi_c_stage) % self.epi_c_stage,
                     )
-            tRS_rPostAct = self.epi_visit_subtile(params, epi_loop_tensors, tRS_rD, tRS_rC)
-            if const_expr(postact_ctx is not None):
-                tRS_rPostAct_out = self.epi_convert_postact(
-                    tRS_rPostAct,
+            tRS_rAuxOut = self.epi_visit_subtile(params, epi_loop_tensors, tRS_rD, tRS_rC)
+            self.epi_end_loop(
+                params,
+                epi_tensors,
+                epi_coord,
+                epi_tile,
+                tiled_copy_t2r,
+                tiled_copy_r2s,
+                tile_coord_mnkl,
+                varlen_manager,
+                tidx,
+            )
+            if const_expr(aux_out_ctx is not None):
+                tRS_rAuxOut_out = self.epi_convert_aux_out(
+                    tRS_rAuxOut,
                     epi_loop_tensors["sr_seed"],
                     tidx,
                     tile_coord_mnkl,
@@ -196,13 +216,13 @@ class GemmBase:
                     copy_utils.sr_cvt_copy(tiled_copy_r2s, tRS_rD, tRS_sD_cur, seed, tidx)
                 else:
                     copy_utils.cvt_copy(tiled_copy_r2s, tRS_rD, tRS_sD_cur)
-            if const_expr(postact_ctx is not None):
-                tiled_copy_postact_r2s, tRS_sPostAct, copy_postact = postact_ctx
+            if const_expr(aux_out_ctx is not None):
+                tiled_copy_aux_out_r2s, tRS_sAuxOut, copy_aux_out = aux_out_ctx
                 cute.copy(
-                    tiled_copy_postact_r2s,
+                    tiled_copy_aux_out_r2s,
                     # Need contiguous for Sm80 and Sm120 where acc layout is ((2, 2), MMA_M, MMA_N)
-                    copy_utils.contiguous(tiled_copy_postact_r2s.retile(tRS_rPostAct_out)),
-                    tRS_sPostAct[None, None, None, epi_buffer],
+                    copy_utils.contiguous(tiled_copy_aux_out_r2s.retile(tRS_rAuxOut_out)),
+                    tRS_sAuxOut[None, None, None, epi_buffer],
                 )
             if const_expr(use_tma_epi):
                 cute.arch.fence_view_async_shared()
@@ -210,15 +230,15 @@ class GemmBase:
                 if is_tma_warp:
                     if const_expr(has_D):
                         copy_D(src_idx=epi_buffer, dst_idx=epi_coord)
-                    if const_expr(postact_ctx is not None):
-                        copy_postact(src_idx=epi_buffer, dst_idx=epi_coord)
+                    if const_expr(aux_out_ctx is not None):
+                        copy_aux_out(src_idx=epi_buffer, dst_idx=epi_coord)
                     epi_store_pipeline.producer_commit()
             else:
                 epilogue_barrier.arrive_and_wait()
                 if const_expr(has_D):
                     copy_D(src_idx=epi_buffer, dst_idx=epi_coord)
-                if const_expr(postact_ctx is not None):
-                    copy_postact(src_idx=epi_buffer, dst_idx=epi_coord)
+                if const_expr(aux_out_ctx is not None):
+                    copy_aux_out(src_idx=epi_buffer, dst_idx=epi_coord)
                 epilogue_barrier.arrive_and_wait()
 
         self.epi_end(
@@ -285,7 +305,7 @@ class GemmBase:
                 persistence_mode=persistence_mode,
             )
         else:
-            assert (mD is not None) or (epilogue_args.mPostAct is not None) or (not self.gather_A)
+            assert (mD is not None) or (epilogue_args.mAuxOut is not None) or (not self.gather_A)
             problem_shape_ntile_mnl = (
                 None,
                 cute.ceil_div(cute.size(mB, mode=[0]), self.cta_tile_shape_mnk[1]),
@@ -325,7 +345,7 @@ class GemmBase:
     def epi_begin(
         self,
         params: EpilogueParams,
-        epi_smem_tensors: Tuple[cute.Tensor, ...],
+        epi_smem_tensors: Dict[str, cute.Tensor],
         epi_tile: cute.Tile,
         tiled_copy_t2r: Optional[cute.TiledCopy],
         tiled_copy_r2s: cute.TiledCopy,
@@ -333,6 +353,7 @@ class GemmBase:
         varlen_manager: VarlenManager,
         epilogue_barrier: cutlass.pipeline.NamedBarrier,
         tidx: Int32,
+        tRS_rD_layout=None,
     ) -> Tuple[cute.Tensor, ...]:
         return ()
 
@@ -361,6 +382,21 @@ class GemmBase:
         pass
 
     @cute.jit
+    def epi_end_loop(
+        self,
+        params: EpilogueParams,
+        epi_tensors: Tuple[cute.Tensor, ...],
+        epi_coord: cute.Coord,
+        epi_tile: cute.Tile,
+        tiled_copy_t2r: Optional[cute.TiledCopy],
+        tiled_copy_r2s: cute.TiledCopy,
+        tile_coord_mnkl: cute.Coord,
+        varlen_manager,
+        tidx,
+    ) -> None:
+        pass
+
+    @cute.jit
     def epi_end(
         self,
         params: EpilogueParams,
@@ -385,21 +421,36 @@ class GemmBase:
         """Subclasses can override this."""
         return []
 
+    def epi_tile_load_g2s_copy_fns(
+        self,
+        params,
+        epi_smem_tensors,
+        tile_coord_mnkl,
+        varlen_manager,
+        epi_pipeline,
+    ):
+        return ()
+
+    @cute.jit
+    def epi_tile_load_s2r(self, params, epi_tensors, stage_idx):
+        pass
+
     @staticmethod
-    def epi_smem_bytes_per_stage(
+    def epi_smem_bytes(
         args: Optional[EpilogueArguments],
         cta_tile_shape_mnk: Tuple[int, int, int],
         epi_tile: cute.Tile,
-    ) -> int:
-        return 0
+        warp_shape_mnk: Tuple[int, int, int] | None = None,
+    ) -> EpiSmemBytes:
+        return EpiSmemBytes()
 
     def epi_get_smem_struct(self, params: EpilogueParams):
         return cute.struct.MemRange[Int32, 0]  # Dummy struct
 
-    def epi_get_smem_tensors(self, params: EpilogueParams, storage) -> Tuple[cute.Tensor, ...]:
-        return tuple()
+    def epi_get_smem_tensors(self, params: EpilogueParams, storage) -> Dict[str, cute.Tensor]:
+        return {}
 
-    def epi_setup_postact(
+    def epi_setup_aux_out(
         self,
         params,
         epi_smem_tensors,
@@ -409,15 +460,15 @@ class GemmBase:
         varlen_manager,
         tidx,
     ):
-        """Default epilogue has no postact output."""
+        """Default epilogue has no aux output."""
         return None
 
     @cute.jit
-    def epi_convert_postact(
-        self, tRS_rPostAct, sr_seed, tidx, tile_coord_mnkl, num_prev_subtiles, epi_idx
+    def epi_convert_aux_out(
+        self, tRS_rAuxOut, sr_seed, tidx, tile_coord_mnkl, num_prev_subtiles, epi_idx
     ):
-        """Convert postact from acc_dtype to output dtype. Override for custom postprocessing."""
-        return tRS_rPostAct
+        """Convert aux output from acc_dtype to output dtype. Override for custom postprocessing."""
+        return tRS_rAuxOut
 
 
 class GemmTmaBase(GemmBase):
@@ -587,7 +638,9 @@ class GemmTmaBase(GemmBase):
         )
 
     def make_epi_pipeline(
-        self, c_smem_layout: cute.Layout | cute.ComposedLayout, epi_pipeline_mbar_ptr: cute.Pointer
+        self,
+        epi_pipeline_mbar_ptr: cute.Pointer,
+        tx_count: int,
     ):
         epi_pipeline_producer_group = pipeline.CooperativeGroup(pipeline.Agent.Thread)
         # Each warp will contribute 1 to the arrive count
@@ -595,13 +648,12 @@ class GemmTmaBase(GemmBase):
         epi_pipeline_consumer_group = pipeline.CooperativeGroup(
             pipeline.Agent.Thread, consumer_arrive_cnt
         )
-        tma_copy_c_bytes = cute.size_in_bytes(self.c_dtype, c_smem_layout)
         return pipeline.PipelineTmaAsync.create(
             barrier_storage=epi_pipeline_mbar_ptr,
             num_stages=self.epi_c_stage,
             producer_group=epi_pipeline_producer_group,
             consumer_group=epi_pipeline_consumer_group,
-            tx_count=tma_copy_c_bytes,
+            tx_count=tx_count,
             defer_sync=True,
         )
 

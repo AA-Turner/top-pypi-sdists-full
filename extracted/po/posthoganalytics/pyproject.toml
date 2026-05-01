@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthoganalytics"
-version = "7.13.1"
+version = "7.13.2"
 description = "Integrate PostHog into any python application."
 authors = [
     { name = "PostHog", email = "engineering@posthog.com" },
@@ -31,7 +31,6 @@ classifiers = [
 ]
 dependencies = [
     "requests>=2.7,<3.0",
-    "python-dateutil>=2.2",
     "backoff>=1.10.0",
     "distro>=1.5.0",
     "typing-extensions>=4.2.0",
@@ -57,7 +56,6 @@ dev = [
     "lxml",
     "mypy",
     "mypy-baseline",
-    "types-python-dateutil",
     "types-requests",
     "types-setuptools",
     "pre-commit",
@@ -72,6 +70,8 @@ dev = [
 ]
 test = [
     "freezegun==1.5.1",
+    "python-dateutil>=2.9.0.post0",
+    "tzdata",
     "coverage",
     "pytest",
     "pytest-timeout",

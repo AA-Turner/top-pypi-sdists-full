@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai
-Version: 1.14.3
+Version: 1.14.4
 Summary: Cutting-edge framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks.
 Project-URL: Homepage, https://crewai.com
 Project-URL: Documentation, https://docs.crewai.com
@@ -19,7 +19,7 @@ Requires-Dist: json5~=0.10.0
 Requires-Dist: jsonref~=1.1.0
 Requires-Dist: lancedb<0.30.1,>=0.29.2
 Requires-Dist: mcp~=1.26.0
-Requires-Dist: openai<3,>=2.0.0
+Requires-Dist: openai<3,>=2.30.0
 Requires-Dist: openpyxl~=3.1.5
 Requires-Dist: opentelemetry-api~=1.34.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.34.0
@@ -27,7 +27,7 @@ Requires-Dist: opentelemetry-sdk~=1.34.0
 Requires-Dist: pdfplumber~=0.11.4
 Requires-Dist: portalocker~=2.7.0
 Requires-Dist: pydantic-settings~=2.10.1
-Requires-Dist: pydantic~=2.11.9
+Requires-Dist: pydantic<2.13,>=2.11.9
 Requires-Dist: pyjwt<3,>=2.9.0
 Requires-Dist: python-dotenv<2,>=1.2.2
 Requires-Dist: pyyaml~=6.0
@@ -55,13 +55,13 @@ Requires-Dist: boto3~=1.42.79; extra == 'bedrock'
 Provides-Extra: docling
 Requires-Dist: docling~=2.84.0; extra == 'docling'
 Provides-Extra: embeddings
-Requires-Dist: tiktoken~=0.8.0; extra == 'embeddings'
+Requires-Dist: tiktoken<0.13,>=0.8.0; extra == 'embeddings'
 Provides-Extra: file-processing
 Requires-Dist: crewai-files; extra == 'file-processing'
 Provides-Extra: google-genai
 Requires-Dist: google-genai~=1.65.0; extra == 'google-genai'
 Provides-Extra: litellm
-Requires-Dist: litellm~=1.83.0; extra == 'litellm'
+Requires-Dist: litellm<1.84,>=1.83.7; extra == 'litellm'
 Provides-Extra: mem0
 Requires-Dist: mem0ai~=0.1.94; extra == 'mem0'
 Provides-Extra: openpyxl
@@ -73,7 +73,7 @@ Requires-Dist: qdrant-client[fastembed]~=1.14.3; extra == 'qdrant'
 Provides-Extra: qdrant-edge
 Requires-Dist: qdrant-edge-py>=0.6.0; extra == 'qdrant-edge'
 Provides-Extra: tools
-Requires-Dist: crewai-tools==1.14.3; extra == 'tools'
+Requires-Dist: crewai-tools==1.14.4; extra == 'tools'
 Provides-Extra: voyageai
 Requires-Dist: voyageai~=0.3.5; extra == 'voyageai'
 Provides-Extra: watson

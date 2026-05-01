@@ -8,8 +8,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -50,36 +50,38 @@ class SubmissionsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        end: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        original_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"]
-        | NotGiven = NOT_GIVEN,
-        outcome_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        query: Optional[str] | NotGiven = NOT_GIVEN,
-        requested_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"]
-        | NotGiven = NOT_GIVEN,
-        start: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        submission_id: str | NotGiven = NOT_GIVEN,
-        type: Literal["TEAM", "USER"] | NotGiven = NOT_GIVEN,
+        end: Union[str, datetime] | Omit = omit,
+        original_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | Omit = omit,
+        outcome_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        query: Optional[str] | Omit = omit,
+        requested_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | Omit = omit,
+        start: Union[str, datetime] | Omit = omit,
+        status: str | Omit = omit,
+        submission_id: str | Omit = omit,
+        type: Literal["TEAM", "USER"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[SubmissionListResponse]:
-        """
-        This endpoint returns information for submissions to made to reclassify emails.
+        """Returns information for submissions made to reclassify emails.
+
+        Shows the status,
+        outcome, and disposition changes for reclassification requests made by users or
+        the security team. Useful for tracking false positive/negative reports.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
           end: The end of the search date range. Defaults to `now`.
 
-          page: The page number of paginated results.
+          page: Current page within paginated list of results.
 
-          per_page: The number of results per page.
+          per_page: The number of results per page. Maximum value is 1000.
 
           start: The beginning of the search date range. Defaults to `now - 30 days`.
 
@@ -94,7 +96,7 @@ class SubmissionsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email-security/submissions",
+            path_template("/accounts/{account_id}/email-security/submissions", account_id=account_id),
             page=SyncV4PagePaginationArray[SubmissionListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -111,6 +113,7 @@ class SubmissionsResource(SyncAPIResource):
                         "query": query,
                         "requested_disposition": requested_disposition,
                         "start": start,
+                        "status": status,
                         "submission_id": submission_id,
                         "type": type,
                     },
@@ -145,36 +148,38 @@ class AsyncSubmissionsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        end: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        original_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"]
-        | NotGiven = NOT_GIVEN,
-        outcome_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        query: Optional[str] | NotGiven = NOT_GIVEN,
-        requested_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"]
-        | NotGiven = NOT_GIVEN,
-        start: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        submission_id: str | NotGiven = NOT_GIVEN,
-        type: Literal["TEAM", "USER"] | NotGiven = NOT_GIVEN,
+        end: Union[str, datetime] | Omit = omit,
+        original_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | Omit = omit,
+        outcome_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        query: Optional[str] | Omit = omit,
+        requested_disposition: Literal["MALICIOUS", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "NONE"] | Omit = omit,
+        start: Union[str, datetime] | Omit = omit,
+        status: str | Omit = omit,
+        submission_id: str | Omit = omit,
+        type: Literal["TEAM", "USER"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SubmissionListResponse, AsyncV4PagePaginationArray[SubmissionListResponse]]:
-        """
-        This endpoint returns information for submissions to made to reclassify emails.
+        """Returns information for submissions made to reclassify emails.
+
+        Shows the status,
+        outcome, and disposition changes for reclassification requests made by users or
+        the security team. Useful for tracking false positive/negative reports.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
           end: The end of the search date range. Defaults to `now`.
 
-          page: The page number of paginated results.
+          page: Current page within paginated list of results.
 
-          per_page: The number of results per page.
+          per_page: The number of results per page. Maximum value is 1000.
 
           start: The beginning of the search date range. Defaults to `now - 30 days`.
 
@@ -189,7 +194,7 @@ class AsyncSubmissionsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email-security/submissions",
+            path_template("/accounts/{account_id}/email-security/submissions", account_id=account_id),
             page=AsyncV4PagePaginationArray[SubmissionListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -206,6 +211,7 @@ class AsyncSubmissionsResource(AsyncAPIResource):
                         "query": query,
                         "requested_disposition": requested_disposition,
                         "start": start,
+                        "status": status,
                         "submission_id": submission_id,
                         "type": type,
                     },

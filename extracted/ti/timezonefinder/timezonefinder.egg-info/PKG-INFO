@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: timezonefinder
-Version: 8.2.2
+Version: 8.2.3
 Summary: python package for finding the timezone of any point on earth (coordinates) offline
 Author-email: jannikmi <github@michelfe.it>
 License: The MIT License (MIT)
@@ -47,7 +47,7 @@ Requires-Dist: h3>=4
 Requires-Dist: cffi<3,>=1.15.1
 Requires-Dist: flatbuffers>=25.2.10
 Provides-Extra: numba
-Requires-Dist: numba<1,>=0.56; extra == "numba"
+Requires-Dist: numba<1,>=0.60; extra == "numba"
 Provides-Extra: pytz
 Requires-Dist: pytz>=2022.7.1; extra == "pytz"
 Dynamic: license-file
@@ -114,12 +114,13 @@ It is recommended to install it together with the optional `Numba <https://numba
 
 .. code-block:: python
 
+    # use the global function for convenience:
     from timezonefinder import timezone_at
 
     tz = timezone_at(lng=13.358, lat=52.5061)  # 'Europe/Paris'
 
 
-    # For thread safety, increased performance and control, re-use an instance:
+    # For improved performance and control, create and reuse an instance:
     from timezonefinder import TimezoneFinder
 
     tf = TimezoneFinder(in_memory=True)  # reuse

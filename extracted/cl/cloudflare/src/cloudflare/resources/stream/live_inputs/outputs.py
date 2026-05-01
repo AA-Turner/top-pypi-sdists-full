@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -52,13 +52,13 @@ class OutputsResource(SyncAPIResource):
         account_id: str,
         stream_key: str,
         url: str,
-        enabled: bool | NotGiven = NOT_GIVEN,
+        enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Output]:
         """
         Creates a new output that can be used to simulcast or restream live video to
@@ -95,7 +95,11 @@ class OutputsResource(SyncAPIResource):
                 f"Expected a non-empty value for `live_input_identifier` but received {live_input_identifier!r}"
             )
         return self._post(
-            f"/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs",
+            path_template(
+                "/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs",
+                account_id=account_id,
+                live_input_identifier=live_input_identifier,
+            ),
             body=maybe_transform(
                 {
                     "stream_key": stream_key,
@@ -126,7 +130,7 @@ class OutputsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Output]:
         """
         Updates the state of an output.
@@ -161,7 +165,12 @@ class OutputsResource(SyncAPIResource):
         if not output_identifier:
             raise ValueError(f"Expected a non-empty value for `output_identifier` but received {output_identifier!r}")
         return self._put(
-            f"/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs/{output_identifier}",
+            path_template(
+                "/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs/{output_identifier}",
+                account_id=account_id,
+                live_input_identifier=live_input_identifier,
+                output_identifier=output_identifier,
+            ),
             body=maybe_transform({"enabled": enabled}, output_update_params.OutputUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -183,7 +192,7 @@ class OutputsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Output]:
         """
         Retrieves all outputs associated with a specified live input.
@@ -208,7 +217,11 @@ class OutputsResource(SyncAPIResource):
                 f"Expected a non-empty value for `live_input_identifier` but received {live_input_identifier!r}"
             )
         return self._get_api_list(
-            f"/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs",
+            path_template(
+                "/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs",
+                account_id=account_id,
+                live_input_identifier=live_input_identifier,
+            ),
             page=SyncSinglePage[Output],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -227,7 +240,7 @@ class OutputsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Deletes an output and removes it from the associated live input.
@@ -257,7 +270,12 @@ class OutputsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `output_identifier` but received {output_identifier!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs/{output_identifier}",
+            path_template(
+                "/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs/{output_identifier}",
+                account_id=account_id,
+                live_input_identifier=live_input_identifier,
+                output_identifier=output_identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -292,13 +310,13 @@ class AsyncOutputsResource(AsyncAPIResource):
         account_id: str,
         stream_key: str,
         url: str,
-        enabled: bool | NotGiven = NOT_GIVEN,
+        enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Output]:
         """
         Creates a new output that can be used to simulcast or restream live video to
@@ -335,7 +353,11 @@ class AsyncOutputsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `live_input_identifier` but received {live_input_identifier!r}"
             )
         return await self._post(
-            f"/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs",
+            path_template(
+                "/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs",
+                account_id=account_id,
+                live_input_identifier=live_input_identifier,
+            ),
             body=await async_maybe_transform(
                 {
                     "stream_key": stream_key,
@@ -366,7 +388,7 @@ class AsyncOutputsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Output]:
         """
         Updates the state of an output.
@@ -401,7 +423,12 @@ class AsyncOutputsResource(AsyncAPIResource):
         if not output_identifier:
             raise ValueError(f"Expected a non-empty value for `output_identifier` but received {output_identifier!r}")
         return await self._put(
-            f"/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs/{output_identifier}",
+            path_template(
+                "/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs/{output_identifier}",
+                account_id=account_id,
+                live_input_identifier=live_input_identifier,
+                output_identifier=output_identifier,
+            ),
             body=await async_maybe_transform({"enabled": enabled}, output_update_params.OutputUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -423,7 +450,7 @@ class AsyncOutputsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Output, AsyncSinglePage[Output]]:
         """
         Retrieves all outputs associated with a specified live input.
@@ -448,7 +475,11 @@ class AsyncOutputsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `live_input_identifier` but received {live_input_identifier!r}"
             )
         return self._get_api_list(
-            f"/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs",
+            path_template(
+                "/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs",
+                account_id=account_id,
+                live_input_identifier=live_input_identifier,
+            ),
             page=AsyncSinglePage[Output],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -467,7 +498,7 @@ class AsyncOutputsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Deletes an output and removes it from the associated live input.
@@ -497,7 +528,12 @@ class AsyncOutputsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `output_identifier` but received {output_identifier!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs/{output_identifier}",
+            path_template(
+                "/accounts/{account_id}/stream/live_inputs/{live_input_identifier}/outputs/{output_identifier}",
+                account_id=account_id,
+                live_input_identifier=live_input_identifier,
+                output_identifier=output_identifier,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

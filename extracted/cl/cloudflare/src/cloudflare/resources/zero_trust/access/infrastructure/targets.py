@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import typing_extensions
-from typing import List, Type, Union, Iterable, Optional, cast
+from typing import Type, Union, Iterable, Optional, cast
 from datetime import datetime
 from typing_extensions import Literal
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NoneType, NotGiven, SequenceNotStr, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -69,7 +69,7 @@ class TargetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TargetCreateResponse]:
         """
         Create new target
@@ -94,7 +94,7 @@ class TargetsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/infrastructure/targets",
+            path_template("/accounts/{account_id}/infrastructure/targets", account_id=account_id),
             body=maybe_transform(
                 {
                     "hostname": hostname,
@@ -124,7 +124,7 @@ class TargetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TargetUpdateResponse]:
         """
         Update target
@@ -153,7 +153,9 @@ class TargetsResource(SyncAPIResource):
         if not target_id:
             raise ValueError(f"Expected a non-empty value for `target_id` but received {target_id!r}")
         return self._put(
-            f"/accounts/{account_id}/infrastructure/targets/{target_id}",
+            path_template(
+                "/accounts/{account_id}/infrastructure/targets/{target_id}", account_id=account_id, target_id=target_id
+            ),
             body=maybe_transform(
                 {
                     "hostname": hostname,
@@ -175,32 +177,32 @@ class TargetsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        created_after: Union[str, datetime, None] | NotGiven = NOT_GIVEN,
-        created_before: Union[str, datetime, None] | NotGiven = NOT_GIVEN,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        hostname: Optional[str] | NotGiven = NOT_GIVEN,
-        hostname_contains: Optional[str] | NotGiven = NOT_GIVEN,
-        ip_like: Optional[str] | NotGiven = NOT_GIVEN,
-        ip_v4: Optional[str] | NotGiven = NOT_GIVEN,
-        ip_v6: Optional[str] | NotGiven = NOT_GIVEN,
-        ips: List[str] | NotGiven = NOT_GIVEN,
-        ipv4_end: Optional[str] | NotGiven = NOT_GIVEN,
-        ipv4_start: Optional[str] | NotGiven = NOT_GIVEN,
-        ipv6_end: Optional[str] | NotGiven = NOT_GIVEN,
-        ipv6_start: Optional[str] | NotGiven = NOT_GIVEN,
-        modified_after: Union[str, datetime, None] | NotGiven = NOT_GIVEN,
-        modified_before: Union[str, datetime, None] | NotGiven = NOT_GIVEN,
-        order: Literal["hostname", "created_at"] | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        target_ids: List[str] | NotGiven = NOT_GIVEN,
-        virtual_network_id: Optional[str] | NotGiven = NOT_GIVEN,
+        created_after: Union[str, datetime, None] | Omit = omit,
+        created_before: Union[str, datetime, None] | Omit = omit,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        hostname: Optional[str] | Omit = omit,
+        hostname_contains: Optional[str] | Omit = omit,
+        ip_like: Optional[str] | Omit = omit,
+        ip_v4: Optional[str] | Omit = omit,
+        ip_v6: Optional[str] | Omit = omit,
+        ips: SequenceNotStr[str] | Omit = omit,
+        ipv4_end: Optional[str] | Omit = omit,
+        ipv4_start: Optional[str] | Omit = omit,
+        ipv6_end: Optional[str] | Omit = omit,
+        ipv6_start: Optional[str] | Omit = omit,
+        modified_after: Union[str, datetime, None] | Omit = omit,
+        modified_before: Union[str, datetime, None] | Omit = omit,
+        order: Literal["hostname", "created_at"] | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        target_ids: SequenceNotStr[str] | Omit = omit,
+        virtual_network_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[TargetListResponse]:
         """Lists and sorts an account’s targets.
 
@@ -268,7 +270,7 @@ class TargetsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/infrastructure/targets",
+            path_template("/accounts/{account_id}/infrastructure/targets", account_id=account_id),
             page=SyncV4PagePaginationArray[TargetListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -314,7 +316,7 @@ class TargetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Delete target
@@ -338,7 +340,9 @@ class TargetsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `target_id` but received {target_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/accounts/{account_id}/infrastructure/targets/{target_id}",
+            path_template(
+                "/accounts/{account_id}/infrastructure/targets/{target_id}", account_id=account_id, target_id=target_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -355,7 +359,7 @@ class TargetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Removes one or more targets.
@@ -375,7 +379,7 @@ class TargetsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/accounts/{account_id}/infrastructure/targets/batch",
+            path_template("/accounts/{account_id}/infrastructure/targets/batch", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -386,13 +390,13 @@ class TargetsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        target_ids: List[str],
+        target_ids: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Removes one or more targets.
@@ -414,7 +418,7 @@ class TargetsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._post(
-            f"/accounts/{account_id}/infrastructure/targets/batch_delete",
+            path_template("/accounts/{account_id}/infrastructure/targets/batch_delete", account_id=account_id),
             body=maybe_transform({"target_ids": target_ids}, target_bulk_delete_v2_params.TargetBulkDeleteV2Params),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -432,7 +436,7 @@ class TargetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[TargetBulkUpdateResponse]:
         """
         Adds one or more targets.
@@ -451,7 +455,7 @@ class TargetsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/infrastructure/targets/batch",
+            path_template("/accounts/{account_id}/infrastructure/targets/batch", account_id=account_id),
             page=SyncSinglePage[TargetBulkUpdateResponse],
             body=maybe_transform(body, Iterable[target_bulk_update_params.Body]),
             options=make_request_options(
@@ -471,7 +475,7 @@ class TargetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TargetGetResponse]:
         """
         Get target
@@ -494,7 +498,9 @@ class TargetsResource(SyncAPIResource):
         if not target_id:
             raise ValueError(f"Expected a non-empty value for `target_id` but received {target_id!r}")
         return self._get(
-            f"/accounts/{account_id}/infrastructure/targets/{target_id}",
+            path_template(
+                "/accounts/{account_id}/infrastructure/targets/{target_id}", account_id=account_id, target_id=target_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -537,7 +543,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TargetCreateResponse]:
         """
         Create new target
@@ -562,7 +568,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/infrastructure/targets",
+            path_template("/accounts/{account_id}/infrastructure/targets", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "hostname": hostname,
@@ -592,7 +598,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TargetUpdateResponse]:
         """
         Update target
@@ -621,7 +627,9 @@ class AsyncTargetsResource(AsyncAPIResource):
         if not target_id:
             raise ValueError(f"Expected a non-empty value for `target_id` but received {target_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/infrastructure/targets/{target_id}",
+            path_template(
+                "/accounts/{account_id}/infrastructure/targets/{target_id}", account_id=account_id, target_id=target_id
+            ),
             body=await async_maybe_transform(
                 {
                     "hostname": hostname,
@@ -643,32 +651,32 @@ class AsyncTargetsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        created_after: Union[str, datetime, None] | NotGiven = NOT_GIVEN,
-        created_before: Union[str, datetime, None] | NotGiven = NOT_GIVEN,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        hostname: Optional[str] | NotGiven = NOT_GIVEN,
-        hostname_contains: Optional[str] | NotGiven = NOT_GIVEN,
-        ip_like: Optional[str] | NotGiven = NOT_GIVEN,
-        ip_v4: Optional[str] | NotGiven = NOT_GIVEN,
-        ip_v6: Optional[str] | NotGiven = NOT_GIVEN,
-        ips: List[str] | NotGiven = NOT_GIVEN,
-        ipv4_end: Optional[str] | NotGiven = NOT_GIVEN,
-        ipv4_start: Optional[str] | NotGiven = NOT_GIVEN,
-        ipv6_end: Optional[str] | NotGiven = NOT_GIVEN,
-        ipv6_start: Optional[str] | NotGiven = NOT_GIVEN,
-        modified_after: Union[str, datetime, None] | NotGiven = NOT_GIVEN,
-        modified_before: Union[str, datetime, None] | NotGiven = NOT_GIVEN,
-        order: Literal["hostname", "created_at"] | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        target_ids: List[str] | NotGiven = NOT_GIVEN,
-        virtual_network_id: Optional[str] | NotGiven = NOT_GIVEN,
+        created_after: Union[str, datetime, None] | Omit = omit,
+        created_before: Union[str, datetime, None] | Omit = omit,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        hostname: Optional[str] | Omit = omit,
+        hostname_contains: Optional[str] | Omit = omit,
+        ip_like: Optional[str] | Omit = omit,
+        ip_v4: Optional[str] | Omit = omit,
+        ip_v6: Optional[str] | Omit = omit,
+        ips: SequenceNotStr[str] | Omit = omit,
+        ipv4_end: Optional[str] | Omit = omit,
+        ipv4_start: Optional[str] | Omit = omit,
+        ipv6_end: Optional[str] | Omit = omit,
+        ipv6_start: Optional[str] | Omit = omit,
+        modified_after: Union[str, datetime, None] | Omit = omit,
+        modified_before: Union[str, datetime, None] | Omit = omit,
+        order: Literal["hostname", "created_at"] | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        target_ids: SequenceNotStr[str] | Omit = omit,
+        virtual_network_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[TargetListResponse, AsyncV4PagePaginationArray[TargetListResponse]]:
         """Lists and sorts an account’s targets.
 
@@ -736,7 +744,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/infrastructure/targets",
+            path_template("/accounts/{account_id}/infrastructure/targets", account_id=account_id),
             page=AsyncV4PagePaginationArray[TargetListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -782,7 +790,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Delete target
@@ -806,7 +814,9 @@ class AsyncTargetsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `target_id` but received {target_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/accounts/{account_id}/infrastructure/targets/{target_id}",
+            path_template(
+                "/accounts/{account_id}/infrastructure/targets/{target_id}", account_id=account_id, target_id=target_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -823,7 +833,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Removes one or more targets.
@@ -843,7 +853,7 @@ class AsyncTargetsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/accounts/{account_id}/infrastructure/targets/batch",
+            path_template("/accounts/{account_id}/infrastructure/targets/batch", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -854,13 +864,13 @@ class AsyncTargetsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        target_ids: List[str],
+        target_ids: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Removes one or more targets.
@@ -882,7 +892,7 @@ class AsyncTargetsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._post(
-            f"/accounts/{account_id}/infrastructure/targets/batch_delete",
+            path_template("/accounts/{account_id}/infrastructure/targets/batch_delete", account_id=account_id),
             body=await async_maybe_transform(
                 {"target_ids": target_ids}, target_bulk_delete_v2_params.TargetBulkDeleteV2Params
             ),
@@ -902,7 +912,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[TargetBulkUpdateResponse, AsyncSinglePage[TargetBulkUpdateResponse]]:
         """
         Adds one or more targets.
@@ -921,7 +931,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/infrastructure/targets/batch",
+            path_template("/accounts/{account_id}/infrastructure/targets/batch", account_id=account_id),
             page=AsyncSinglePage[TargetBulkUpdateResponse],
             body=maybe_transform(body, Iterable[target_bulk_update_params.Body]),
             options=make_request_options(
@@ -941,7 +951,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TargetGetResponse]:
         """
         Get target
@@ -964,7 +974,9 @@ class AsyncTargetsResource(AsyncAPIResource):
         if not target_id:
             raise ValueError(f"Expected a non-empty value for `target_id` but received {target_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/infrastructure/targets/{target_id}",
+            path_template(
+                "/accounts/{account_id}/infrastructure/targets/{target_id}", account_id=account_id, target_id=target_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -994,7 +1006,7 @@ class TargetsResourceWithRawResponse:
         )
         self.bulk_delete = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                targets.bulk_delete  # pyright: ignore[reportDeprecated],
+                targets.bulk_delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.bulk_delete_v2 = to_raw_response_wrapper(
@@ -1026,7 +1038,7 @@ class AsyncTargetsResourceWithRawResponse:
         )
         self.bulk_delete = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                targets.bulk_delete  # pyright: ignore[reportDeprecated],
+                targets.bulk_delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.bulk_delete_v2 = async_to_raw_response_wrapper(
@@ -1058,7 +1070,7 @@ class TargetsResourceWithStreamingResponse:
         )
         self.bulk_delete = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                targets.bulk_delete  # pyright: ignore[reportDeprecated],
+                targets.bulk_delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.bulk_delete_v2 = to_streamed_response_wrapper(
@@ -1090,7 +1102,7 @@ class AsyncTargetsResourceWithStreamingResponse:
         )
         self.bulk_delete = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                targets.bulk_delete  # pyright: ignore[reportDeprecated],
+                targets.bulk_delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.bulk_delete_v2 = async_to_streamed_response_wrapper(

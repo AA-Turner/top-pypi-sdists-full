@@ -15,17 +15,41 @@
 import base64
 import binascii
 import io
+import itertools
 import logging
 from typing import Annotated
 from typing import Any
+
+from datarobot.errors import ClientError
 
 from datarobot_genai.drtools.core import tool_metadata
 from datarobot_genai.drtools.core.clients.datarobot import DataRobotClient
 from datarobot_genai.drtools.core.clients.datarobot import get_datarobot_access_token
 from datarobot_genai.drtools.core.exceptions import ToolError
+from datarobot_genai.drtools.core.exceptions import ToolErrorKind
 from datarobot_genai.drtools.core.utils import is_valid_url
+from datarobot_genai.drtools.predictive.client_exceptions import raise_tool_error_for_client_error
 
 logger = logging.getLogger(__name__)
+
+# Max page / batch size for predictive `data` tools
+DR_PREDICTIVE_API_PAGINATION_MAX = 100
+
+
+def _clamp_limit(limit: int) -> tuple[int, str | None]:
+    """Clamp page size to [1, DR_PREDICTIVE_API_PAGINATION_MAX] and an optional user-facing note."""
+    m = DR_PREDICTIVE_API_PAGINATION_MAX
+    if limit < 1:
+        return (
+            m,
+            f"Limit must be at least 1. The maximum limit of {m} was applied.",
+        )
+    if limit > m:
+        return (
+            m,
+            f"Limit cannot exceed {m}. The maximum limit of {m} was applied.",
+        )
+    return (limit, None)
 
 
 def _serialize_datastore_params(params: Any) -> dict[str, Any]:
@@ -40,6 +64,32 @@ def _serialize_datastore_params(params: Any) -> dict[str, Any]:
         if isinstance(payload, dict):
             return payload
     return {}
+
+
+def _merge_pagination_metadata(
+    final_results: dict[str, Any],
+    api_response: dict[str, Any] | list,
+    message: str | None = None,
+    *,
+    offset: int | None = None,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """Add offset/limit echo and DataRobot list pagination (next, previous, total) when present."""
+    if offset is not None:
+        final_results["offset"] = offset
+    if limit is not None:
+        final_results["limit"] = limit
+    if message is not None:
+        final_results["note"] = message
+    if isinstance(api_response, dict):
+        for key in ("next", "previous"):
+            if key in api_response and api_response[key] is not None:
+                final_results[key] = api_response[key]
+        for total_key in ("total_count", "total"):
+            if total_key in api_response and api_response[total_key] is not None:
+                final_results["total_count"] = api_response[total_key]
+                break
+    return final_results
 
 
 @tool_metadata(
@@ -70,9 +120,15 @@ async def upload_dataset_to_ai_catalog(
     | None = None,
 ) -> dict[str, Any]:
     if not file_content_base64 and not file_url:
-        raise ToolError("Either file_content_base64 or file_url must be provided.")
+        raise ToolError(
+            "Either file_content_base64 or file_url must be provided.",
+            kind=ToolErrorKind.VALIDATION,
+        )
     if file_content_base64 and file_url:
-        raise ToolError("Please provide either file_content_base64 or file_url, not both.")
+        raise ToolError(
+            "Please provide either file_content_base64 or file_url, not both.",
+            kind=ToolErrorKind.VALIDATION,
+        )
 
     token = await get_datarobot_access_token()
     client = DataRobotClient(token).get_client()
@@ -80,13 +136,18 @@ async def upload_dataset_to_ai_catalog(
     if file_content_base64 is not None:
         raw_b64 = file_content_base64.strip()
         if not raw_b64:
-            raise ToolError("Argument validation error: 'file_content_base64' cannot be empty.")
+            raise ToolError(
+                "Argument validation error: 'file_content_base64' cannot be empty.",
+                kind=ToolErrorKind.VALIDATION,
+            )
         try:
             raw = base64.b64decode(raw_b64)
         except binascii.Error as e:
-            raise ToolError("Invalid base64 in file_content_base64.") from e
+            raise ToolError(
+                "Invalid base64 in file_content_base64.", kind=ToolErrorKind.VALIDATION
+            ) from e
         if not raw:
-            raise ToolError("Decoded file content is empty.")
+            raise ToolError("Decoded file content is empty.", kind=ToolErrorKind.VALIDATION)
         fname = (
             dataset_filename.strip()
             if dataset_filename and dataset_filename.strip()
@@ -94,15 +155,21 @@ async def upload_dataset_to_ai_catalog(
         )
         buffer = io.BytesIO(raw)
         buffer.name = fname
-        catalog_item = client.Dataset.create_from_file(filelike=buffer)
+        try:
+            catalog_item = client.Dataset.create_from_file(filelike=buffer)
+        except ClientError as e:
+            raise_tool_error_for_client_error(e)
     else:
         if file_url is None or not is_valid_url(file_url):
             logger.error("Invalid file URL: %s", file_url)
-            raise ToolError(f"Invalid file URL: {file_url}")
-        catalog_item = client.Dataset.create_from_url(file_url)
+            raise ToolError(f"Invalid file URL: {file_url}", kind=ToolErrorKind.VALIDATION)
+        try:
+            catalog_item = client.Dataset.create_from_url(file_url)
+        except ClientError as e:
+            raise_tool_error_for_client_error(e)
 
     if not catalog_item:
-        raise ToolError("Failed to upload dataset.")
+        raise ToolError("Failed to upload dataset.", kind=ToolErrorKind.UPSTREAM)
 
     return {
         "dataset_id": catalog_item.id,
@@ -120,21 +187,59 @@ async def upload_dataset_to_ai_catalog(
         "get_dataset_details or scoring tools that take dataset_id."
     ),
 )
-async def list_ai_catalog_items() -> dict[str, Any]:
+async def list_ai_catalog_items(
+    offset: Annotated[
+        int | None,
+        "Skip this many catalog items (0-based). Example: page 2 with page size 3 uses offset=3.",
+    ] = None,
+    limit: Annotated[
+        int,
+        (
+            "Max datasets to return in this call (default 100). Use with offset to page. "
+            "Values above 100 are rejected; use offset to continue."
+        ),
+    ] = DR_PREDICTIVE_API_PAGINATION_MAX,
+) -> dict[str, Any]:
+
+    if offset is not None and offset < 0:
+        raise ToolError("offset must be non-negative", kind=ToolErrorKind.VALIDATION)
+
+    limit, message = _clamp_limit(limit)
+
     token = await get_datarobot_access_token()
     client = DataRobotClient(token).get_client()
-    datasets = client.Dataset.list()
+    # DataRobot ``Dataset.iterate`` expects an int; do not pass ``None`` when offset is omitted.
+    iterate_offset = 0 if offset is None else offset
+    try:
+        gen = client.Dataset.iterate(offset=iterate_offset, limit=limit)
+        datasets = list(itertools.islice(gen, limit))
+    except ClientError as e:
+        raise_tool_error_for_client_error(e)
 
     if not datasets:
         logger.info("No AI Catalog items found")
-        return {"datasets": []}
+        final_results: dict[str, Any] = {"datasets": {}, "count": 0}
+        return _merge_pagination_metadata(
+            final_results=final_results,
+            api_response={},
+            message=message,
+            offset=offset,
+            limit=limit,
+        )
 
     datasets_dict = {ds.id: ds.name for ds in datasets}
-
-    return {
-        "datasets": datasets_dict,
-        "count": len(datasets),
-    }
+    final_results = _merge_pagination_metadata(
+        {
+            "datasets": datasets_dict,
+            "count": len(datasets),
+        },
+        {},
+        message=message,
+        offset=offset,
+        limit=limit,
+    )
+    final_results["may_have_more"] = len(datasets) == limit
+    return final_results
 
 
 @tool_metadata(
@@ -156,11 +261,14 @@ async def get_dataset_details(
     sample_rows: Annotated[int, "Max sample rows when include_sample is true."] = 10,
 ) -> dict[str, Any]:
     if not dataset_id:
-        raise ToolError("Dataset ID must be provided")
+        raise ToolError("Dataset ID must be provided", kind=ToolErrorKind.VALIDATION)
 
     token = await get_datarobot_access_token()
     client = DataRobotClient(token).get_client()
-    dataset = client.Dataset.get(dataset_id)
+    try:
+        dataset = client.Dataset.get(dataset_id)
+    except ClientError as e:
+        raise_tool_error_for_client_error(e)
 
     result: dict = {
         "id": dataset.id,
@@ -188,23 +296,59 @@ async def get_dataset_details(
         "or query_datastore."
     ),
 )
-async def list_datastores() -> dict[str, Any]:
-    token = await get_datarobot_access_token()
-    client = DataRobotClient(token).get_client()
-    datastores = client.DataStore.list()
+async def list_datastores(
+    offset: Annotated[
+        int | None,
+        "Skip this many datastores (0-based). Use with limit for paged listing; omit for all.",
+    ] = None,
+    limit: Annotated[
+        int,
+        (
+            "Max datastores to return (default 100). Values above 100 are rejected; "
+            "use offset to page."
+        ),
+    ] = DR_PREDICTIVE_API_PAGINATION_MAX,
+) -> dict[str, Any]:
+    if offset is not None and offset < 0:
+        raise ToolError("offset must be non-negative", kind=ToolErrorKind.VALIDATION)
 
-    return {
+    limit, message = _clamp_limit(limit)
+
+    token = await get_datarobot_access_token()
+    dr_module = DataRobotClient(token).get_client()
+    rest_client = dr_module.client.get_client()
+
+    params: dict[str, Any] = {"limit": limit}
+    if offset is not None:
+        params["offset"] = offset
+    try:
+        response = rest_client.get("externalDataStores/", params=params)
+    except ClientError as e:
+        raise_tool_error_for_client_error(e)
+    api_response = response.json()
+    items = api_response.get("data", [])
+    if not isinstance(items, list):
+        items = []
+
+    final_results: dict[str, Any] = {
         "datastores": [
             {
-                "id": ds.id,
-                "canonical_name": getattr(ds, "canonical_name", ""),
-                "creator_id": getattr(ds, "creator_id", ""),
-                "params": _serialize_datastore_params(getattr(ds, "params", None)),
+                "id": ds.get("id", ""),
+                "canonical_name": ds.get("canonicalName", ""),
+                "creator_id": ds.get("creatorId", ""),
+                "params": _serialize_datastore_params(ds.get("params", {})),
             }
-            for ds in datastores
+            for ds in items
         ],
-        "count": len(datastores),
+        "count": len(items),
     }
+    return _merge_pagination_metadata(
+        final_results=final_results,
+        api_response=api_response,
+        message=message,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @tool_metadata(
@@ -221,11 +365,21 @@ async def browse_datastore(
     path: Annotated[str, "Path within the connection (e.g. schema or folder); omit for root."]
     | None = None,
     offset: Annotated[int, "Pagination offset."] = 0,
-    limit: Annotated[int, "Max entries to return."] = 100,
+    limit: Annotated[
+        int,
+        (
+            "Maximum items to return (default 100). Values above 100 are rejected; "
+            "use offset to page."
+        ),
+    ] = DR_PREDICTIVE_API_PAGINATION_MAX,
     search: Annotated[str, "Optional filter substring for object names."] | None = None,
 ) -> dict[str, Any]:
     if not datastore_id:
-        raise ToolError("Datastore ID must be provided")
+        raise ToolError("Datastore ID must be provided", kind=ToolErrorKind.VALIDATION)
+    if offset < 0:
+        raise ToolError("offset must be non-negative", kind=ToolErrorKind.VALIDATION)
+
+    limit, message = _clamp_limit(limit)
 
     token = await get_datarobot_access_token()
     dr_module = DataRobotClient(token).get_client()
@@ -236,16 +390,29 @@ async def browse_datastore(
         params["path"] = path
     if search:
         params["search"] = search
-    response = rest_client.get(f"externalDataDrivers/{datastore_id}/tables/", params=params)
+    try:
+        response = rest_client.get(f"externalDataDrivers/{datastore_id}/tables/", params=params)
+    except ClientError as e:
+        raise_tool_error_for_client_error(e)
     data = response.json()
     items = data.get("data", data) if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        items = [items] if items is not None else []
 
-    return {
+    final_results: dict[str, Any] = {
         "datastore_id": datastore_id,
         "path": path or "/",
         "items": items,
         "count": len(items),
     }
+    api_response = data if isinstance(data, dict) else {}
+    return _merge_pagination_metadata(
+        final_results=final_results,
+        api_response=api_response,
+        message=message,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @tool_metadata(
@@ -261,26 +428,48 @@ async def query_datastore(
     *,
     datastore_id: Annotated[str, "Connection id from list_datastores."] | None = None,
     sql: Annotated[str, "SQL statement to run against that connection."] | None = None,
-    limit: Annotated[int, "Max rows returned from the query result."] = 1000,
+    offset: Annotated[int, "Number of rows to skip (0-based) for pagination"] = 0,
+    limit: Annotated[
+        int,
+        (
+            "Maximum rows to return (default 100). Values above 100 are rejected; "
+            "use offset to page."
+        ),
+    ] = DR_PREDICTIVE_API_PAGINATION_MAX,
 ) -> dict[str, Any]:
     if not datastore_id:
-        raise ToolError("Datastore ID must be provided")
+        raise ToolError("Datastore ID must be provided", kind=ToolErrorKind.VALIDATION)
     if not sql:
-        raise ToolError("SQL query must be provided")
+        raise ToolError("SQL query must be provided", kind=ToolErrorKind.VALIDATION)
+    if offset < 0:
+        raise ToolError("offset must be non-negative", kind=ToolErrorKind.VALIDATION)
+
+    limit, message = _clamp_limit(limit)
 
     token = await get_datarobot_access_token()
     dr_module = DataRobotClient(token).get_client()
     rest_client = dr_module.client.get_client()
 
-    payload = {"query": sql, "limit": limit}
-    response = rest_client.post(f"externalDataDrivers/{datastore_id}/execute/", json=payload)
-    data = response.json()
+    payload = {"query": sql, "offset": offset, "limit": limit}
+    try:
+        response = rest_client.post(f"externalDataDrivers/{datastore_id}/execute/", json=payload)
+    except ClientError as e:
+        raise_tool_error_for_client_error(e)
+    api_response = response.json()
+    row_data = api_response.get("data", [])
 
-    return {
-        "rows": data.get("data", []),
-        "row_count": len(data.get("data", [])),
-        "columns": data.get("columns", []),
+    final_results: dict[str, Any] = {
+        "rows": row_data,
+        "row_count": len(row_data) if isinstance(row_data, list) else 0,
+        "columns": api_response.get("columns", []),
     }
+    return _merge_pagination_metadata(
+        final_results=final_results,
+        api_response=api_response,
+        message=message,
+        offset=offset,
+        limit=limit,
+    )
 
 
 # from fastmcp import Context

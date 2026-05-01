@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-filters
-Version: 3.1.0
+Version: 3.3.0
 Summary: Open edX Filters from Hooks Extensions Framework (OEP-50).
 Home-page: https://github.com/openedx/openedx-filters
 Author: eduNEXT
@@ -16,7 +16,7 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or l
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.12
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: django

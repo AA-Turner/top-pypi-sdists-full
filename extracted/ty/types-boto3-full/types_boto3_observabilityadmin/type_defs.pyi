@@ -30,6 +30,7 @@ from .literals import (
     FilterRequirementType,
     IntegrationStatusType,
     LogTypeType,
+    MskEnhancedMonitoringLevelType,
     OutputFormatType,
     RecordFormatType,
     ResourceTypeType,
@@ -133,6 +134,7 @@ __all__ = (
     "LoggingFilterTypeDef",
     "LogsBackupConfigurationTypeDef",
     "LogsEncryptionConfigurationTypeDef",
+    "MskMonitoringParametersTypeDef",
     "PaginatorConfigTypeDef",
     "PipelineOutputErrorTypeDef",
     "PipelineOutputTypeDef",
@@ -378,6 +380,9 @@ class LogDeliveryParametersOutputTypeDef(TypedDict):
 
 class LogDeliveryParametersTypeDef(TypedDict):
     LogTypes: NotRequired[Sequence[LogTypeType]]
+
+class MskMonitoringParametersTypeDef(TypedDict):
+    EnhancedMonitoring: NotRequired[MskEnhancedMonitoringLevelType]
 
 class PipelineOutputErrorTypeDef(TypedDict):
     Message: NotRequired[str]
@@ -732,6 +737,7 @@ class TelemetryDestinationConfigurationOutputTypeDef(TypedDict):
     ELBLoadBalancerLoggingParameters: NotRequired[ELBLoadBalancerLoggingParametersTypeDef]
     WAFLoggingParameters: NotRequired[WAFLoggingParametersOutputTypeDef]
     LogDeliveryParameters: NotRequired[LogDeliveryParametersOutputTypeDef]
+    MskMonitoringParameters: NotRequired[MskMonitoringParametersTypeDef]
 
 class TelemetryDestinationConfigurationTypeDef(TypedDict):
     DestinationType: NotRequired[Literal["cloud-watch-logs"]]
@@ -742,6 +748,7 @@ class TelemetryDestinationConfigurationTypeDef(TypedDict):
     ELBLoadBalancerLoggingParameters: NotRequired[ELBLoadBalancerLoggingParametersTypeDef]
     WAFLoggingParameters: NotRequired[WAFLoggingParametersTypeDef]
     LogDeliveryParameters: NotRequired[LogDeliveryParametersTypeDef]
+    MskMonitoringParameters: NotRequired[MskMonitoringParametersTypeDef]
 
 class CreateCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleName: str

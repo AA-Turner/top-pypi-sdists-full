@@ -7,6 +7,7 @@ from redisvl.mcp.config import MCPConfig
 from redisvl.mcp.errors import MCPErrorCode, RedisVLMCPError
 from redisvl.mcp.tools.search import (
     _build_fallback_hybrid_kwargs,
+    _build_search_tool_description,
     _embed_query,
     register_search_tool,
     search_records,
@@ -45,6 +46,8 @@ def _config_with_search(
     search_type: str,
     params: dict[str, Any] | None = None,
     runtime_overrides: dict[str, Any] | None = None,
+    *,
+    include_vectorizer: bool = True,
 ) -> MCPConfig:
     runtime_config = {
         "text_field_name": "content",
@@ -56,17 +59,18 @@ def _config_with_search(
     if runtime_overrides:
         runtime_config.update(runtime_overrides)
 
+    binding = {
+        "redis_name": "docs-index",
+        "search": {"type": search_type, "params": params or {}},
+        "runtime": runtime_config,
+    }
+    if include_vectorizer:
+        binding["vectorizer"] = {"class": "FakeVectorizer", "model": "test-model"}
+
     return MCPConfig.model_validate(
         {
             "server": {"redis_url": "redis://localhost:6379"},
-            "indexes": {
-                "knowledge": {
-                    "redis_name": "docs-index",
-                    "vectorizer": {"class": "FakeVectorizer", "model": "test-model"},
-                    "search": {"type": search_type, "params": params or {}},
-                    "runtime": runtime_config,
-                }
-            },
+            "indexes": {"knowledge": binding},
         }
     )
 
@@ -93,15 +97,17 @@ class FakeServer:
         search_type: str = "vector",
         search_params: dict[str, Any] | None = None,
         runtime_overrides: dict[str, Any] | None = None,
+        include_vectorizer: bool = True,
     ):
         self.config = _config_with_search(
             search_type,
             search_params,
             runtime_overrides,
+            include_vectorizer=include_vectorizer,
         )
         self.mcp_settings = SimpleNamespace(tool_search_description=None)
         self.index = FakeIndex()
-        self.vectorizer = FakeVectorizer()
+        self.vectorizer = FakeVectorizer() if include_vectorizer else None
         self.registered_tools = []
         self.native_hybrid_supported = False
 
@@ -109,6 +115,8 @@ class FakeServer:
         return self.index
 
     async def get_vectorizer(self):
+        if self.vectorizer is None:
+            raise RuntimeError("MCP server vectorizer is not configured")
         return self.vectorizer
 
     async def run_guarded(self, operation_name, awaitable):
@@ -327,6 +335,11 @@ async def test_search_records_builds_fulltext_query(monkeypatch):
             "stopwords": None,
             "text_weights": {"medical": 2.5},
         },
+        runtime_overrides={
+            "vector_field_name": None,
+            "default_embed_text_field": None,
+        },
+        include_vectorizer=False,
     )
     built_queries = []
 
@@ -369,6 +382,38 @@ async def test_search_records_builds_fulltext_query(monkeypatch):
     assert response["results"][0]["score_type"] == "text_score"
     assert "score" not in response["results"][0]["record"]
     assert "hybrid_score" not in response["results"][0]["record"]
+
+
+@pytest.mark.asyncio
+async def test_search_records_fulltext_does_not_touch_vectorizer_when_unconfigured(
+    monkeypatch,
+):
+    server = FakeServer(
+        search_type="fulltext",
+        runtime_overrides={
+            "vector_field_name": None,
+            "default_embed_text_field": None,
+        },
+        include_vectorizer=False,
+    )
+    built_queries = []
+
+    class FakeTextQuery(FakeQuery):
+        def __init__(self, **kwargs):
+            built_queries.append(kwargs)
+            super().__init__(**kwargs)
+
+    async def fake_query(query):
+        server.index.query_calls.append(query)
+        return [{"id": "doc:2", "__score": "1.5", "content": "medical science"}]
+
+    monkeypatch.setattr("redisvl.mcp.tools.search.TextQuery", FakeTextQuery)
+    server.index.query = fake_query
+
+    response = await search_records(server, query="medical science")
+
+    assert built_queries[0]["return_fields"] == ["content", "category", "rating"]
+    assert response["results"][0]["record"]["content"] == "medical science"
 
 
 @pytest.mark.asyncio
@@ -664,17 +709,85 @@ async def test_search_records_rejects_native_only_hybrid_runtime_params(monkeypa
 
 def test_register_search_tool_uses_default_and_override_descriptions():
     default_server = FakeServer()
-    register_search_tool(default_server)
+    register_search_tool(default_server, default_server.index.schema)
 
     assert default_server.registered_tools[0]["name"] == "search-records"
     assert "Search records" in default_server.registered_tools[0]["description"]
+    assert (
+        "Object filter fields: content(text), category(tag), rating(numeric)."
+        in default_server.registered_tools[0]["description"]
+    )
+    assert (
+        "Object filter exists support: content, category, rating, embedding."
+        in default_server.registered_tools[0]["description"]
+    )
+    assert (
+        "Allowed return_fields: content, category, rating."
+        in default_server.registered_tools[0]["description"]
+    )
     assert "query" in default_server.registered_tools[0]["fn"].__annotations__
     assert "search_type" not in default_server.registered_tools[0]["fn"].__annotations__
 
     custom_server = FakeServer()
     custom_server.mcp_settings.tool_search_description = "Custom search description"
-    register_search_tool(custom_server)
+    register_search_tool(custom_server, custom_server.index.schema)
+
+    assert custom_server.registered_tools[0]["description"] == (
+        "Custom search description "
+        "Object filter fields: content(text), category(tag), rating(numeric). "
+        "Object filter exists support: content, category, rating, embedding. "
+        "Allowed return_fields: content, category, rating."
+    )
+
+
+def test_build_search_tool_description_preserves_schema_order_and_excludes_vectors():
+    description = _build_search_tool_description(_schema())
 
     assert (
-        custom_server.registered_tools[0]["description"] == "Custom search description"
+        "Object filter fields: content(text), category(tag), rating(numeric)."
+        in description
     )
+    assert (
+        "Object filter exists support: content, category, rating, embedding."
+        in description
+    )
+    assert "Allowed return_fields: content, category, rating." in description
+    assert "embedding" not in description.split("Allowed return_fields: ", 1)[1]
+
+
+def test_build_search_tool_description_distinguishes_typed_and_exists_support():
+    schema = IndexSchema.from_dict(
+        {
+            "index": {
+                "name": "docs-index",
+                "prefix": "doc",
+                "storage_type": "hash",
+            },
+            "fields": [
+                {"name": "content", "type": "text"},
+                {"name": "category", "type": "tag"},
+                {"name": "rating", "type": "numeric"},
+                {"name": "location", "type": "geo"},
+                {
+                    "name": "embedding",
+                    "type": "vector",
+                    "attrs": {
+                        "algorithm": "flat",
+                        "dims": 3,
+                        "distance_metric": "cosine",
+                        "datatype": "float32",
+                    },
+                },
+            ],
+        }
+    )
+
+    description = _build_search_tool_description(schema)
+
+    assert "location(geo)" not in description
+    assert "embedding(vector)" not in description
+    assert (
+        "Object filter exists support: content, category, rating, location, embedding."
+        in description
+    )
+    assert "Allowed return_fields: content, category, rating, location." in description

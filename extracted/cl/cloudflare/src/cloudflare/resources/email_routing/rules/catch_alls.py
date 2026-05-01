@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -54,18 +54,19 @@ class CatchAllsResource(SyncAPIResource):
         zone_id: str,
         actions: Iterable[CatchAllActionParam],
         matchers: Iterable[CatchAllMatcherParam],
-        enabled: Literal[True, False] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        enabled: Literal[True, False] | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CatchAllUpdateResponse]:
         """
         Enable or disable catch-all routing rule, or change action to forward to
-        specific destination address.
+        specific destination address. Forward actions require all destination addresses
+        to be verified.
 
         Args:
           zone_id: Identifier.
@@ -89,7 +90,7 @@ class CatchAllsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._put(
-            f"/zones/{zone_id}/email/routing/rules/catch_all",
+            path_template("/zones/{zone_id}/email/routing/rules/catch_all", zone_id=zone_id),
             body=maybe_transform(
                 {
                     "actions": actions,
@@ -118,7 +119,7 @@ class CatchAllsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CatchAllGetResponse]:
         """
         Get information on the default catch-all routing rule.
@@ -137,7 +138,7 @@ class CatchAllsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/email/routing/rules/catch_all",
+            path_template("/zones/{zone_id}/email/routing/rules/catch_all", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -175,18 +176,19 @@ class AsyncCatchAllsResource(AsyncAPIResource):
         zone_id: str,
         actions: Iterable[CatchAllActionParam],
         matchers: Iterable[CatchAllMatcherParam],
-        enabled: Literal[True, False] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        enabled: Literal[True, False] | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CatchAllUpdateResponse]:
         """
         Enable or disable catch-all routing rule, or change action to forward to
-        specific destination address.
+        specific destination address. Forward actions require all destination addresses
+        to be verified.
 
         Args:
           zone_id: Identifier.
@@ -210,7 +212,7 @@ class AsyncCatchAllsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._put(
-            f"/zones/{zone_id}/email/routing/rules/catch_all",
+            path_template("/zones/{zone_id}/email/routing/rules/catch_all", zone_id=zone_id),
             body=await async_maybe_transform(
                 {
                     "actions": actions,
@@ -239,7 +241,7 @@ class AsyncCatchAllsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CatchAllGetResponse]:
         """
         Get information on the default catch-all routing rule.
@@ -258,7 +260,7 @@ class AsyncCatchAllsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/email/routing/rules/catch_all",
+            path_template("/zones/{zone_id}/email/routing/rules/catch_all", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

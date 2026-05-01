@@ -19,6 +19,7 @@ import asyncio
 import contextlib
 import logging
 import shlex
+import socket
 from collections.abc import AsyncIterator
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
@@ -39,6 +40,13 @@ CDP_PORT_BASE = 9320
 """Default base port for per-env CDP chromium. Env at index ``i`` uses
 ``CDP_PORT_BASE + i``. Kept low-enough to avoid ephemeral-port clashes and
 high-enough to not collide with app defaults."""
+
+
+def _reserve_local_port() -> int:
+    """Return an available local TCP port for a short-lived SSH tunnel bind."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
 
 
 async def _resolve_chrome_bin(run_cmd: RunCmd) -> str:
@@ -405,16 +413,17 @@ async def shared_cdp_chromium(
         log=active_log,
     )
 
+    local_port = _reserve_local_port()
     tunnel = await _open_ssh_tunnel(
         ssh_key_path=ssh_key_path,
         hostname=hostname,
         extra_ssh_opts=extra_ssh_opts,
-        local_port=port,
+        local_port=local_port,
         remote_port=port,
         log=active_log,
     )
     try:
-        ws_url = await resolve_cdp_ws_url(f"http://127.0.0.1:{port}")
+        ws_url = await resolve_cdp_ws_url(f"http://127.0.0.1:{local_port}")
         yield ws_url
     finally:
         await _terminate_tunnel(tunnel)

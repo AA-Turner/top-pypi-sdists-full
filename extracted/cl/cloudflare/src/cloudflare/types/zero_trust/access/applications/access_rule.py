@@ -1,7 +1,7 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Union
-from typing_extensions import TypeAlias
+from typing import List, Union
+from typing_extensions import Literal, TypeAlias
 
 from .ip_rule import IPRule
 from .email_rule import EmailRule
@@ -32,6 +32,12 @@ __all__ = [
     "AccessCommonNameRuleCommonName",
     "AccessLoginMethodRule",
     "AccessLoginMethodRuleLoginMethod",
+    "AccessOIDCClaimRule",
+    "AccessOIDCClaimRuleOIDC",
+    "AccessLinkedAppTokenRule",
+    "AccessLinkedAppTokenRuleLinkedAppToken",
+    "AccessUserRiskScoreRule",
+    "AccessUserRiskScoreRuleUserRiskScore",
 ]
 
 
@@ -47,6 +53,11 @@ class AccessAuthContextRuleAuthContext(BaseModel):
 
 
 class AccessAuthContextRule(BaseModel):
+    """
+    Matches an Azure Authentication Context.
+    Requires an Azure identity provider.
+    """
+
     auth_context: AccessAuthContextRuleAuthContext
 
 
@@ -56,6 +67,8 @@ class AccessCommonNameRuleCommonName(BaseModel):
 
 
 class AccessCommonNameRule(BaseModel):
+    """Matches a specific common name."""
+
     common_name: AccessCommonNameRuleCommonName
 
 
@@ -65,7 +78,56 @@ class AccessLoginMethodRuleLoginMethod(BaseModel):
 
 
 class AccessLoginMethodRule(BaseModel):
+    """Matches a specific identity provider id."""
+
     login_method: AccessLoginMethodRuleLoginMethod
+
+
+class AccessOIDCClaimRuleOIDC(BaseModel):
+    claim_name: str
+    """The name of the OIDC claim."""
+
+    claim_value: str
+    """The OIDC claim value to look for."""
+
+    identity_provider_id: str
+    """The ID of your OIDC identity provider."""
+
+
+class AccessOIDCClaimRule(BaseModel):
+    """
+    Matches an OIDC claim.
+    Requires an OIDC identity provider.
+    """
+
+    oidc: AccessOIDCClaimRuleOIDC
+
+
+class AccessLinkedAppTokenRuleLinkedAppToken(BaseModel):
+    app_uid: str
+    """The ID of an Access OIDC SaaS application"""
+
+
+class AccessLinkedAppTokenRule(BaseModel):
+    """
+    Matches OAuth 2.0 access tokens issued by the specified Access OIDC SaaS application. Only compatible with non_identity and bypass decisions.
+    """
+
+    linked_app_token: AccessLinkedAppTokenRuleLinkedAppToken
+
+
+class AccessUserRiskScoreRuleUserRiskScore(BaseModel):
+    user_risk_score: List[Literal["low", "medium", "high", "unscored"]]
+    """A list of risk score levels to match.
+
+    Values can be low, medium, high, or unscored.
+    """
+
+
+class AccessUserRiskScoreRule(BaseModel):
+    """Matches a user's risk score."""
+
+    user_risk_score: AccessUserRiskScoreRuleUserRiskScore
 
 
 AccessRule: TypeAlias = Union[
@@ -90,5 +152,8 @@ AccessRule: TypeAlias = Union[
     IPRule,
     OktaGroupRule,
     SAMLGroupRule,
+    AccessOIDCClaimRule,
     ServiceTokenRule,
+    AccessLinkedAppTokenRule,
+    AccessUserRiskScoreRule,
 ]

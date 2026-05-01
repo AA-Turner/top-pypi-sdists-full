@@ -368,7 +368,8 @@ mod goto_declaration_tests {
                     schema_items.push(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
                         toml_version: None,
                         path: schema_uri.to_string(),
-                        include: vec!["*.toml".to_string()],
+                        include: vec!["*.toml".into()],
+                        exclude: None,
                         lint: None,
                         format: None,
                         overrides: None,
@@ -387,7 +388,8 @@ mod goto_declaration_tests {
 
                     schema_items.push(tombi_config::SchemaItem::Sub(tombi_config::SubSchema {
                         path: subschema_uri.to_string(),
-                        include: vec!["*.toml".to_string()],
+                        include: vec!["*.toml".into()],
+                        exclude: None,
                         root: subschema.root.clone(),
                         lint: None,
                         format: None,

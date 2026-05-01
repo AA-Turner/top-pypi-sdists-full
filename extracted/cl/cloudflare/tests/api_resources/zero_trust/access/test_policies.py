@@ -9,7 +9,7 @@ import pytest
 
 from cloudflare import Cloudflare, AsyncCloudflare
 from tests.utils import assert_matches_type
-from cloudflare.pagination import SyncSinglePage, AsyncSinglePage
+from cloudflare.pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from cloudflare.types.zero_trust.access import (
     PolicyGetResponse,
     PolicyListResponse,
@@ -29,7 +29,7 @@ class TestPolicies:
         policy = client.zero_trust.access.policies.create(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         )
         assert_matches_type(Optional[PolicyCreateResponse], policy, path=["response"])
@@ -39,7 +39,7 @@ class TestPolicies:
         policy = client.zero_trust.access.policies.create(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             approval_groups=[
                 {
@@ -54,11 +54,22 @@ class TestPolicies:
                 },
             ],
             approval_required=True,
-            exclude=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            connection_rules={
+                "rdp": {
+                    "allowed_clipboard_local_to_remote_formats": ["text"],
+                    "allowed_clipboard_remote_to_local_formats": ["text"],
+                }
+            },
+            exclude=[{"certificate": {}}],
             isolation_required=False,
+            mfa_config={
+                "allowed_authenticators": ["totp", "biometrics", "security_key"],
+                "mfa_disabled": False,
+                "session_duration": "24h",
+            },
             purpose_justification_prompt="Please enter a justification for entering this protected domain.",
             purpose_justification_required=True,
-            require=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            require=[{"certificate": {}}],
             session_duration="24h",
         )
         assert_matches_type(Optional[PolicyCreateResponse], policy, path=["response"])
@@ -68,7 +79,7 @@ class TestPolicies:
         response = client.zero_trust.access.policies.with_raw_response.create(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         )
 
@@ -82,7 +93,7 @@ class TestPolicies:
         with client.zero_trust.access.policies.with_streaming_response.create(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         ) as response:
             assert not response.is_closed
@@ -99,7 +110,7 @@ class TestPolicies:
             client.zero_trust.access.policies.with_raw_response.create(
                 account_id="",
                 decision="allow",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
             )
 
@@ -109,7 +120,7 @@ class TestPolicies:
             policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         )
         assert_matches_type(Optional[PolicyUpdateResponse], policy, path=["response"])
@@ -120,7 +131,7 @@ class TestPolicies:
             policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             approval_groups=[
                 {
@@ -135,11 +146,22 @@ class TestPolicies:
                 },
             ],
             approval_required=True,
-            exclude=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            connection_rules={
+                "rdp": {
+                    "allowed_clipboard_local_to_remote_formats": ["text"],
+                    "allowed_clipboard_remote_to_local_formats": ["text"],
+                }
+            },
+            exclude=[{"certificate": {}}],
             isolation_required=False,
+            mfa_config={
+                "allowed_authenticators": ["totp", "biometrics", "security_key"],
+                "mfa_disabled": False,
+                "session_duration": "24h",
+            },
             purpose_justification_prompt="Please enter a justification for entering this protected domain.",
             purpose_justification_required=True,
-            require=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            require=[{"certificate": {}}],
             session_duration="24h",
         )
         assert_matches_type(Optional[PolicyUpdateResponse], policy, path=["response"])
@@ -150,7 +172,7 @@ class TestPolicies:
             policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         )
 
@@ -165,7 +187,7 @@ class TestPolicies:
             policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         ) as response:
             assert not response.is_closed
@@ -183,7 +205,7 @@ class TestPolicies:
                 policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="",
                 decision="allow",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
             )
 
@@ -192,7 +214,7 @@ class TestPolicies:
                 policy_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 decision="allow",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
             )
 
@@ -201,7 +223,16 @@ class TestPolicies:
         policy = client.zero_trust.access.policies.list(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(SyncSinglePage[PolicyListResponse], policy, path=["response"])
+        assert_matches_type(SyncV4PagePaginationArray[PolicyListResponse], policy, path=["response"])
+
+    @parametrize
+    def test_method_list_with_all_params(self, client: Cloudflare) -> None:
+        policy = client.zero_trust.access.policies.list(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            page=0,
+            per_page=0,
+        )
+        assert_matches_type(SyncV4PagePaginationArray[PolicyListResponse], policy, path=["response"])
 
     @parametrize
     def test_raw_response_list(self, client: Cloudflare) -> None:
@@ -212,7 +243,7 @@ class TestPolicies:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         policy = response.parse()
-        assert_matches_type(SyncSinglePage[PolicyListResponse], policy, path=["response"])
+        assert_matches_type(SyncV4PagePaginationArray[PolicyListResponse], policy, path=["response"])
 
     @parametrize
     def test_streaming_response_list(self, client: Cloudflare) -> None:
@@ -223,7 +254,7 @@ class TestPolicies:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             policy = response.parse()
-            assert_matches_type(SyncSinglePage[PolicyListResponse], policy, path=["response"])
+            assert_matches_type(SyncV4PagePaginationArray[PolicyListResponse], policy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -332,14 +363,16 @@ class TestPolicies:
 
 
 class TestAsyncPolicies:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
         policy = await async_client.zero_trust.access.policies.create(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         )
         assert_matches_type(Optional[PolicyCreateResponse], policy, path=["response"])
@@ -349,7 +382,7 @@ class TestAsyncPolicies:
         policy = await async_client.zero_trust.access.policies.create(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             approval_groups=[
                 {
@@ -364,11 +397,22 @@ class TestAsyncPolicies:
                 },
             ],
             approval_required=True,
-            exclude=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            connection_rules={
+                "rdp": {
+                    "allowed_clipboard_local_to_remote_formats": ["text"],
+                    "allowed_clipboard_remote_to_local_formats": ["text"],
+                }
+            },
+            exclude=[{"certificate": {}}],
             isolation_required=False,
+            mfa_config={
+                "allowed_authenticators": ["totp", "biometrics", "security_key"],
+                "mfa_disabled": False,
+                "session_duration": "24h",
+            },
             purpose_justification_prompt="Please enter a justification for entering this protected domain.",
             purpose_justification_required=True,
-            require=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            require=[{"certificate": {}}],
             session_duration="24h",
         )
         assert_matches_type(Optional[PolicyCreateResponse], policy, path=["response"])
@@ -378,7 +422,7 @@ class TestAsyncPolicies:
         response = await async_client.zero_trust.access.policies.with_raw_response.create(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         )
 
@@ -392,7 +436,7 @@ class TestAsyncPolicies:
         async with async_client.zero_trust.access.policies.with_streaming_response.create(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         ) as response:
             assert not response.is_closed
@@ -409,7 +453,7 @@ class TestAsyncPolicies:
             await async_client.zero_trust.access.policies.with_raw_response.create(
                 account_id="",
                 decision="allow",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
             )
 
@@ -419,7 +463,7 @@ class TestAsyncPolicies:
             policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         )
         assert_matches_type(Optional[PolicyUpdateResponse], policy, path=["response"])
@@ -430,7 +474,7 @@ class TestAsyncPolicies:
             policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
             approval_groups=[
                 {
@@ -445,11 +489,22 @@ class TestAsyncPolicies:
                 },
             ],
             approval_required=True,
-            exclude=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            connection_rules={
+                "rdp": {
+                    "allowed_clipboard_local_to_remote_formats": ["text"],
+                    "allowed_clipboard_remote_to_local_formats": ["text"],
+                }
+            },
+            exclude=[{"certificate": {}}],
             isolation_required=False,
+            mfa_config={
+                "allowed_authenticators": ["totp", "biometrics", "security_key"],
+                "mfa_disabled": False,
+                "session_duration": "24h",
+            },
             purpose_justification_prompt="Please enter a justification for entering this protected domain.",
             purpose_justification_required=True,
-            require=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            require=[{"certificate": {}}],
             session_duration="24h",
         )
         assert_matches_type(Optional[PolicyUpdateResponse], policy, path=["response"])
@@ -460,7 +515,7 @@ class TestAsyncPolicies:
             policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         )
 
@@ -475,7 +530,7 @@ class TestAsyncPolicies:
             policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             decision="allow",
-            include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+            include=[{"certificate": {}}],
             name="Allow devs",
         ) as response:
             assert not response.is_closed
@@ -493,7 +548,7 @@ class TestAsyncPolicies:
                 policy_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="",
                 decision="allow",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
             )
 
@@ -502,7 +557,7 @@ class TestAsyncPolicies:
                 policy_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 decision="allow",
-                include=[{"group": {"id": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"}}],
+                include=[{"certificate": {}}],
                 name="Allow devs",
             )
 
@@ -511,7 +566,16 @@ class TestAsyncPolicies:
         policy = await async_client.zero_trust.access.policies.list(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(AsyncSinglePage[PolicyListResponse], policy, path=["response"])
+        assert_matches_type(AsyncV4PagePaginationArray[PolicyListResponse], policy, path=["response"])
+
+    @parametrize
+    async def test_method_list_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        policy = await async_client.zero_trust.access.policies.list(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            page=0,
+            per_page=0,
+        )
+        assert_matches_type(AsyncV4PagePaginationArray[PolicyListResponse], policy, path=["response"])
 
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -522,7 +586,7 @@ class TestAsyncPolicies:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         policy = await response.parse()
-        assert_matches_type(AsyncSinglePage[PolicyListResponse], policy, path=["response"])
+        assert_matches_type(AsyncV4PagePaginationArray[PolicyListResponse], policy, path=["response"])
 
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -533,7 +597,7 @@ class TestAsyncPolicies:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             policy = await response.parse()
-            assert_matches_type(AsyncSinglePage[PolicyListResponse], policy, path=["response"])
+            assert_matches_type(AsyncV4PagePaginationArray[PolicyListResponse], policy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

@@ -5,10 +5,10 @@ import pytest
 
 from emmet.core.phonon import PhononBS, PhononDOS
 
+from mp_api._test_utils import client_search_testing, requires_api_key
+
 from mp_api.client.core.exceptions import MPRestError
 from mp_api.client.routes.materials.phonon import PhononRester
-
-from ..conftest import client_search_testing, requires_api_key
 
 
 @requires_api_key
@@ -76,6 +76,5 @@ def test_phonon_thermo(use_document_model):
     num_vals = 100
 
     assert all(
-        isinstance(v, np.ndarray if k == "temperature" else list) and len(v) == num_vals
-        for k, v in thermo_props.items()
+        isinstance(v, list) and len(v) == num_vals for k, v in thermo_props.items()
     )

@@ -33,10 +33,10 @@ class TestEvents:
             event_id=0,
             format="JSON",
             involved_asn=0,
-            involved_country="involvedCountry",
+            involved_country="PT",
             leak_asn=0,
-            page=0,
-            per_page=0,
+            page=1,
+            per_page=1,
             sort_by="TIME",
             sort_order="ASC",
         )
@@ -64,7 +64,9 @@ class TestEvents:
 
 
 class TestAsyncEvents:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_list(self, async_client: AsyncCloudflare) -> None:
@@ -80,10 +82,10 @@ class TestAsyncEvents:
             event_id=0,
             format="JSON",
             involved_asn=0,
-            involved_country="involvedCountry",
+            involved_country="PT",
             leak_asn=0,
-            page=0,
-            per_page=0,
+            page=1,
+            per_page=1,
             sort_by="TIME",
             sort_order="ASC",
         )

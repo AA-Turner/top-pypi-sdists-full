@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: recurring-ical-events
-Version: 3.8.1
+Version: 3.8.2
 Summary: Calculate recurrence times of events, todos, alarms and journals based on icalendar RFC5545.
 Project-URL: Homepage, https://recurring-ical-events.readthedocs.io/
 Project-URL: Repository, https://github.com/niccokunzmann/python-recurring-ical-events
-Project-URL: Source Archive, https://github.com/niccokunzmann/python-recurring-ical-events/archive/daacf8619b873ea266ac128b10ac37a771504ff8.zip
+Project-URL: Source Archive, https://github.com/niccokunzmann/python-recurring-ical-events/archive/10792b9039e5ec1ba01ff3098af3beb705c1e649.zip
 Project-URL: Issues, https://github.com/niccokunzmann/python-recurring-ical-events/issues
 Project-URL: Documentation, https://github.com/niccokunzmann/python-recurring-ical-events
 Project-URL: Changelog, https://github.com/niccokunzmann/python-recurring-ical-events?tab=readme-ov-file#changelog

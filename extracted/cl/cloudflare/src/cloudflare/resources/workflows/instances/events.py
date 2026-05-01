@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -50,16 +50,16 @@ class EventsResource(SyncAPIResource):
         account_id: str,
         workflow_name: str,
         instance_id: str,
-        body: object | NotGiven = NOT_GIVEN,
+        body: object | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Send event to instance
+        Sends an event to a running workflow instance to trigger state transitions.
 
         Args:
           extra_headers: Send extra headers
@@ -79,7 +79,13 @@ class EventsResource(SyncAPIResource):
         if not event_type:
             raise ValueError(f"Expected a non-empty value for `event_type` but received {event_type!r}")
         return self._post(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}/events/{event_type}",
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}/events/{event_type}",
+                account_id=account_id,
+                workflow_name=workflow_name,
+                instance_id=instance_id,
+                event_type=event_type,
+            ),
             body=maybe_transform(body, event_create_params.EventCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -119,16 +125,16 @@ class AsyncEventsResource(AsyncAPIResource):
         account_id: str,
         workflow_name: str,
         instance_id: str,
-        body: object | NotGiven = NOT_GIVEN,
+        body: object | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Send event to instance
+        Sends an event to a running workflow instance to trigger state transitions.
 
         Args:
           extra_headers: Send extra headers
@@ -148,7 +154,13 @@ class AsyncEventsResource(AsyncAPIResource):
         if not event_type:
             raise ValueError(f"Expected a non-empty value for `event_type` but received {event_type!r}")
         return await self._post(
-            f"/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}/events/{event_type}",
+            path_template(
+                "/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}/events/{event_type}",
+                account_id=account_id,
+                workflow_name=workflow_name,
+                instance_id=instance_id,
+                event_type=event_type,
+            ),
             body=await async_maybe_transform(body, event_create_params.EventCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,

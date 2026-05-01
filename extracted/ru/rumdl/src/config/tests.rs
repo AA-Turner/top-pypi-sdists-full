@@ -1517,6 +1517,375 @@ fn test_per_file_flavor_character_class() {
     assert_eq!(flavor, MarkdownFlavor::Standard);
 }
 
+// ==========================================
+// Path normalization robustness tests
+// (regression: per-file-flavor / per-file-ignores must work even when
+// `project_root` was not discovered, as long as the file lives under CWD.
+// This mirrors how rumdl is invoked from CI runners, language servers,
+// and editors that pass absolute paths through the API.)
+// ==========================================
+
+/// Create an absolute file path inside the given temp dir by creating
+/// the parent directories and an empty file at `rel`, then canonicalizing.
+fn make_file(temp: &tempfile::TempDir, rel: &str) -> std::path::PathBuf {
+    let abs = temp.path().join(rel);
+    fs::create_dir_all(abs.parent().unwrap()).unwrap();
+    fs::write(&abs, "").unwrap();
+    abs.canonicalize().unwrap()
+}
+
+#[test]
+fn test_normalize_match_path_uses_project_root() {
+    // Happy path: project_root is set, file is under it. Result is the
+    // path relative to project_root, regardless of where cwd points.
+    let temp = tempdir().unwrap();
+    let cwd = tempdir().unwrap(); // unrelated cwd
+    let file = make_file(&temp, "docs/guide.md");
+    let root = temp.path().canonicalize().unwrap();
+
+    let result = super::types::normalize_match_path(&file, Some(&root), Some(cwd.path()));
+    assert_eq!(result.as_ref(), std::path::Path::new("docs/guide.md"));
+}
+
+#[test]
+fn test_normalize_match_path_falls_back_to_cwd_when_project_root_none() {
+    // The actual fix: when project_root is None but the file is under cwd,
+    // the result must be the path relative to cwd.
+    let temp = tempdir().unwrap();
+    let file = make_file(&temp, "docs/guide.md");
+    let cwd = temp.path().canonicalize().unwrap();
+
+    let result = super::types::normalize_match_path(&file, None, Some(&cwd));
+    assert_eq!(result.as_ref(), std::path::Path::new("docs/guide.md"));
+}
+
+#[test]
+fn test_normalize_match_path_falls_back_to_cwd_when_project_root_unrelated() {
+    // When project_root is set but the file lives outside it (e.g. when the
+    // user invokes rumdl on a file outside the configured project), fall back
+    // to cwd-relative matching rather than blindly using the raw absolute path.
+    let temp = tempdir().unwrap();
+    let elsewhere = tempdir().unwrap();
+    let file = make_file(&temp, "docs/guide.md");
+    let cwd = temp.path().canonicalize().unwrap();
+    let unrelated_root = elsewhere.path().canonicalize().unwrap();
+
+    let result = super::types::normalize_match_path(&file, Some(&unrelated_root), Some(&cwd));
+    assert_eq!(result.as_ref(), std::path::Path::new("docs/guide.md"));
+}
+
+#[test]
+fn test_normalize_match_path_relative_path_passthrough() {
+    // A relative path needs no normalization regardless of project_root or cwd.
+    let temp = tempdir().unwrap();
+    let result = super::types::normalize_match_path(
+        std::path::Path::new("docs/guide.md"),
+        Some(temp.path()),
+        Some(temp.path()),
+    );
+    assert_eq!(result.as_ref(), std::path::Path::new("docs/guide.md"));
+}
+
+#[test]
+fn test_normalize_match_path_nonexistent_file_passthrough() {
+    // Editor/LSP buffers may reference a path that does not exist on disk yet,
+    // so canonicalize() will fail. Such relative paths must still be matchable.
+    let result = super::types::normalize_match_path(std::path::Path::new("docs/draft.md"), None, None);
+    assert_eq!(result.as_ref(), std::path::Path::new("docs/draft.md"));
+}
+
+#[test]
+fn test_normalize_match_path_outside_cwd_returns_raw_path() {
+    // Path is absolute and lives nowhere we can map to relative form.
+    // Returning the raw path is the safe fallback — a relative glob pattern
+    // simply won't match it, which is the desired behavior.
+    let outside = tempdir().unwrap();
+    let cwd = tempdir().unwrap();
+    let file = make_file(&outside, "docs/elsewhere.md");
+    let cwd_path = cwd.path().canonicalize().unwrap();
+
+    let result = super::types::normalize_match_path(&file, None, Some(&cwd_path));
+    assert_eq!(result.as_ref(), file.as_path());
+}
+
+#[test]
+fn test_normalize_match_path_silent_fallback_when_project_root_and_cwd_both_unrelated() {
+    // Comprehensive silent-fallback case: file lives outside BOTH project_root
+    // and cwd. The function must return the raw absolute path so the
+    // downstream glob simply doesn't match — never panic, never short-circuit
+    // to a wrong relative form.
+    let project = tempdir().unwrap();
+    let working = tempdir().unwrap();
+    let elsewhere = tempdir().unwrap();
+    let file = make_file(&elsewhere, "docs/orphan.md");
+    let project_root = project.path().canonicalize().unwrap();
+    let cwd = working.path().canonicalize().unwrap();
+
+    let result = super::types::normalize_match_path(&file, Some(&project_root), Some(&cwd));
+    assert_eq!(
+        result.as_ref(),
+        file.as_path(),
+        "silent fallback must return the raw absolute path verbatim",
+    );
+}
+
+#[test]
+fn test_per_file_flavor_matches_absolute_path_with_project_root_only_no_cwd() {
+    // End-to-end: the public API must wire normalize_match_path correctly so
+    // that an absolute path under project_root resolves to the override flavor.
+    let temp = tempdir().unwrap();
+    let file = make_file(&temp, "docs/guide.md");
+
+    let mut per_file_flavor = indexmap::IndexMap::new();
+    per_file_flavor.insert("docs/**/*.md".to_string(), MarkdownFlavor::MkDocs);
+    let config = Config {
+        per_file_flavor,
+        project_root: Some(temp.path().canonicalize().unwrap()),
+        ..Default::default()
+    };
+
+    let flavor = config.get_flavor_for_file(&file);
+    assert_eq!(flavor, MarkdownFlavor::MkDocs);
+}
+
+#[test]
+#[serial_test::serial]
+fn test_per_file_flavor_matches_absolute_path_with_cwd_fallback() {
+    // End-to-end: when project_root is None, an absolute path under cwd must
+    // resolve via the cwd fallback path. This is the scenario from #591.
+    // Mutates global cwd, so #[serial_test::serial] guards parallel races.
+    let temp = tempdir().unwrap();
+    let file = make_file(&temp, "docs/guide.md");
+    let cwd = temp.path().canonicalize().unwrap();
+
+    let mut per_file_flavor = indexmap::IndexMap::new();
+    per_file_flavor.insert("docs/**/*.md".to_string(), MarkdownFlavor::MkDocs);
+    let config = Config {
+        per_file_flavor,
+        project_root: None,
+        ..Default::default()
+    };
+
+    let prev_cwd = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&cwd).unwrap();
+    let result = std::panic::catch_unwind(|| config.get_flavor_for_file(&file));
+    std::env::set_current_dir(&prev_cwd).unwrap();
+    let flavor = result.unwrap();
+
+    assert_eq!(flavor, MarkdownFlavor::MkDocs);
+}
+
+#[test]
+#[serial_test::serial]
+fn test_per_file_ignores_matches_absolute_path_with_cwd_fallback() {
+    // Sibling end-to-end test for the per-file-ignores path, which uses the
+    // same normalize_match_path helper. An absolute file path under cwd must
+    // resolve the rule list correctly when project_root is None.
+    use std::collections::HashMap;
+
+    let temp = tempdir().unwrap();
+    let file = make_file(&temp, "docs/guide.md");
+    let cwd = temp.path().canonicalize().unwrap();
+
+    let mut per_file_ignores = HashMap::new();
+    per_file_ignores.insert("docs/**/*.md".to_string(), vec!["MD013".to_string()]);
+    let config = Config {
+        per_file_ignores,
+        project_root: None,
+        ..Default::default()
+    };
+
+    let prev_cwd = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&cwd).unwrap();
+    let result = std::panic::catch_unwind(|| config.get_ignored_rules_for_file(&file));
+    std::env::set_current_dir(&prev_cwd).unwrap();
+    let ignored = result.unwrap();
+
+    assert!(
+        ignored.contains("MD013"),
+        "MD013 should be ignored for docs/guide.md via cwd fallback. Got: {ignored:?}",
+    );
+}
+
+#[test]
+fn test_normalize_match_path_globset_round_trip() {
+    // The full pipeline (normalize → globset match) must produce a relative
+    // path that a forward-slash glob can match. On Windows this additionally
+    // exercises UNC-prefix stripping (canonicalize() returns `\\?\C:\...`)
+    // and backslash → forward-slash normalization in globset; on Unix the
+    // canonical path is already free of UNC and uses forward slashes.
+    let temp = tempdir().unwrap();
+    let file = make_file(&temp, "docs/guide.md");
+    let root = temp.path().canonicalize().unwrap();
+
+    let result = super::types::normalize_match_path(&file, Some(&root), None);
+    assert!(result.is_relative(), "expected relative path, got {result:?}");
+
+    let glob = globset::GlobBuilder::new("docs/**/*.md")
+        .literal_separator(true)
+        .build()
+        .unwrap()
+        .compile_matcher();
+    assert!(
+        glob.is_match(result.as_ref()),
+        "globset must match {result:?} against `docs/**/*.md`",
+    );
+}
+
+#[test]
+fn test_canonical_project_root_cache_returns_stable_reference() {
+    // The cache contract is: subsequent calls return a borrow of the same
+    // stored `PathBuf`, not a freshly canonicalized one. We verify this
+    // structurally by comparing pointers — deterministic, no timing.
+    let temp = tempdir().unwrap();
+    let config = Config {
+        project_root: Some(temp.path().to_path_buf()),
+        ..Config::default()
+    };
+
+    let first: *const std::path::Path = config.canonical_project_root().expect("project_root canonicalizes");
+    let second: *const std::path::Path = config.canonical_project_root().expect("cache hit");
+
+    assert!(
+        std::ptr::eq(first, second),
+        "cached lookup must return a borrow of the stored PathBuf, not a fresh canonicalization",
+    );
+}
+
+#[test]
+fn test_first_call_warn_else_debug_returns_warn_then_debug() {
+    use std::sync::OnceLock;
+
+    let latch: OnceLock<()> = OnceLock::new();
+
+    assert_eq!(
+        super::types::first_call_warn_else_debug(&latch),
+        log::Level::Warn,
+        "first call must surface at warn level",
+    );
+    assert_eq!(
+        super::types::first_call_warn_else_debug(&latch),
+        log::Level::Debug,
+        "second call must downgrade to debug",
+    );
+    assert_eq!(
+        super::types::first_call_warn_else_debug(&latch),
+        log::Level::Debug,
+        "subsequent calls remain at debug",
+    );
+}
+
+#[test]
+fn test_format_silent_fallback_message_renders_paths_with_display_formatting() {
+    // Paths must appear via Display (not Debug) so the diagnostic doesn't
+    // contain stray quote characters that came from Debug's PathBuf impl.
+    use std::path::PathBuf;
+
+    let file = PathBuf::from("/elsewhere/notes/draft.md");
+    let root = PathBuf::from("/projects/myrepo");
+    let cwd = PathBuf::from("/tmp/build");
+
+    let msg = super::types::format_silent_fallback_message(&file, Some(&root), Some(&cwd));
+
+    assert_eq!(
+        msg,
+        "Per-file glob patterns will not match /elsewhere/notes/draft.md: \
+         file is outside project_root (/projects/myrepo) and cwd (/tmp/build)",
+        "exact message format is part of the diagnostic contract; got: {msg}",
+    );
+    assert!(
+        !msg.contains('"'),
+        "Display formatting must not emit Debug-style quotes; got: {msg}",
+    );
+}
+
+#[test]
+fn test_format_silent_fallback_message_renders_unset_root_and_cwd_explicitly() {
+    // When project_root and/or cwd are unavailable the diagnostic must
+    // surface that explicitly as "(unset)" rather than leaking Rust's
+    // `None` Debug representation.
+    use std::path::PathBuf;
+
+    let file = PathBuf::from("/anywhere/file.md");
+    let msg = super::types::format_silent_fallback_message(&file, None, None);
+
+    assert_eq!(
+        msg,
+        "Per-file glob patterns will not match /anywhere/file.md: \
+         file is outside project_root (<unset>) and cwd (<unset>)",
+    );
+    assert!(
+        !msg.contains("None"),
+        "must not surface Rust's Debug `None`; got: {msg}"
+    );
+}
+
+#[test]
+fn test_format_silent_fallback_message_renders_partial_unset() {
+    // Mixed Some/None must render each independently — the placeholder
+    // should appear only where it's actually unset.
+    use std::path::PathBuf;
+
+    let file = PathBuf::from("/file.md");
+    let root = PathBuf::from("/projects/repo");
+
+    let only_root = super::types::format_silent_fallback_message(&file, Some(&root), None);
+    assert!(only_root.contains("project_root (/projects/repo)"), "got: {only_root}");
+    assert!(only_root.contains("cwd (<unset>)"), "got: {only_root}");
+
+    let only_cwd = super::types::format_silent_fallback_message(&file, None, Some(&root));
+    assert!(only_cwd.contains("project_root (<unset>)"), "got: {only_cwd}");
+    assert!(only_cwd.contains("cwd (/projects/repo)"), "got: {only_cwd}");
+}
+
+#[test]
+fn test_first_call_warn_else_debug_independent_latches() {
+    // Each latch tracks its own first-call state. A fresh latch must not
+    // be influenced by a different latch having already been set.
+    use std::sync::OnceLock;
+
+    let latch_a: OnceLock<()> = OnceLock::new();
+    let latch_b: OnceLock<()> = OnceLock::new();
+
+    assert_eq!(super::types::first_call_warn_else_debug(&latch_a), log::Level::Warn);
+    assert_eq!(super::types::first_call_warn_else_debug(&latch_a), log::Level::Debug);
+
+    assert_eq!(
+        super::types::first_call_warn_else_debug(&latch_b),
+        log::Level::Warn,
+        "latch_b is independent of latch_a",
+    );
+}
+
+#[test]
+fn test_canonical_project_root_cache_shared_across_clones() {
+    // `Config: Clone` and the cache is wrapped in `Arc<OnceLock<_>>` so a
+    // value computed by any clone is observable to all. Verify that:
+    // a clone created BEFORE the cache is populated still sees the cached
+    // value once the original populates it.
+    let temp = tempdir().unwrap();
+    let root = temp.path().to_path_buf();
+
+    let original = Config {
+        project_root: Some(root.clone()),
+        ..Config::default()
+    };
+    let clone_before_init = original.clone();
+
+    // Populate via the original.
+    let canonical = original
+        .canonical_project_root()
+        .expect("project_root canonicalizes")
+        .to_path_buf();
+
+    // The pre-init clone must observe the same cached value without
+    // re-canonicalizing, because both share the same `Arc<OnceLock<_>>`.
+    let observed = clone_before_init
+        .canonical_project_root()
+        .expect("clone observes cached value");
+    assert_eq!(observed, canonical.as_path());
+}
+
 #[test]
 fn test_generate_json_schema() {
     use schemars::schema_for;

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import List
-from typing_extensions import Required, Annotated, TypedDict
+from typing_extensions import Literal, Required, Annotated, TypedDict
 
+from ...._types import SequenceNotStr
 from ...._utils import PropertyInfo
 
 __all__ = ["TestListParams"]
@@ -19,17 +19,26 @@ class TestListParams(TypedDict, total=False):
     Cannot be used in combination with deviceId param.
     """
 
-    device_id: Annotated[List[str], PropertyInfo(alias="deviceId")]
+    device_id: Annotated[SequenceNotStr[str], PropertyInfo(alias="deviceId")]
     """Optionally filter result stats to a specific device(s).
 
     Cannot be used in combination with colo param.
     """
+
+    kind: Literal["http", "traceroute"]
+    """Filter by test type"""
 
     page: float
     """Page number of paginated results"""
 
     per_page: float
     """Number of items per page"""
+
+    registration_id: str
+    """Optionally filter results to a specific device registration.
+
+    Must be used in combination with a single deviceId.
+    """
 
     test_name: Annotated[str, PropertyInfo(alias="testName")]
     """Optionally filter results by test name"""

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from time import sleep
+from types import SimpleNamespace
 from unittest import mock
 
 from django.conf import settings
@@ -16,6 +17,7 @@ from django.test.utils import modify_settings, override_settings
 from django.urls import reverse
 from jsonschema import validate
 from requests.exceptions import HTTPError
+from rest_framework.authtoken.models import Token
 from social_core.exceptions import (
     AuthCanceled,
     AuthFailed,
@@ -27,6 +29,7 @@ from social_core.exceptions import (
 )
 from weblate_schemas import load_schema
 
+from weblate.accounts.forms import ProfileForm
 from weblate.accounts.models import Profile, Subscription
 from weblate.accounts.notifications import NotificationFrequency, NotificationScope
 from weblate.accounts.views import log_handled_auth_failure
@@ -40,6 +43,7 @@ from weblate.trans.tests.utils import (
     social_core_override_settings,
 )
 from weblate.utils.ratelimit import reset_rate_limit
+from weblate.utils.state import STATE_TRANSLATED
 
 CONTACT_DATA = {
     "name": "Test",
@@ -536,7 +540,8 @@ class ViewTest(RepoTestCase):
 
     def test_password(self) -> None:
         # Create user
-        self.get_user()
+        user = self.get_user()
+        old_token = user.auth_token.key
         # Login
         self.client.login(username="testuser", password="testpassword")
         # Change without data
@@ -561,13 +566,34 @@ class ViewTest(RepoTestCase):
                 "password": "testpassword",
                 "new_password1": "1pa$$word!",
                 "new_password2": "1pa$$word!",
+                "regenerate_api_key": "on",
             },
         )
 
         self.assertRedirects(response, f"{reverse('profile')}#account")
-        self.assertTrue(
-            User.objects.get(username="testuser").check_password("1pa$$word!")
+        updated_user = User.objects.get(username="testuser")
+        self.assertTrue(updated_user.check_password("1pa$$word!"))
+        self.assertNotEqual(updated_user.auth_token.key, old_token)
+        self.assertFalse(Token.objects.filter(key=old_token).exists())
+
+    def test_password_keeps_api_key(self) -> None:
+        user = self.get_user()
+        old_token = user.auth_token.key
+
+        self.client.login(username="testuser", password="testpassword")
+        response = self.client.post(
+            reverse("password"),
+            {
+                "password": "testpassword",
+                "new_password1": "1pa$$word!",
+                "new_password2": "1pa$$word!",
+            },
         )
+
+        self.assertRedirects(response, f"{reverse('profile')}#account")
+        updated_user = User.objects.get(username="testuser")
+        self.assertTrue(updated_user.check_password("1pa$$word!"))
+        self.assertEqual(updated_user.auth_token.key, old_token)
 
     def test_api_key(self) -> None:
         # Create user
@@ -624,6 +650,178 @@ class ProfileTest(FixtureTestCase):
             },
         )
         self.assertRedirects(response, reverse("profile"))
+
+    def test_profile_contact_rejects_direct_download(self) -> None:
+        form = ProfileForm(
+            {"contact": "https://example.org/file.zip"},
+            instance=self.user.profile,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("not directly to a file download", form.errors["contact"][0])
+
+    def test_profile_contact_rejects_userinfo(self) -> None:
+        form = ProfileForm(
+            {"contact": "https://user@example.org/contact"},
+            instance=self.user.profile,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("username or password credentials", form.errors["contact"][0])
+
+    def test_profile_contact_rejects_private_target(self) -> None:
+        form = ProfileForm(
+            {"contact": "https://127.0.0.1/contact"},
+            instance=self.user.profile,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("internal or non-public address", form.errors["contact"][0])
+
+    def test_profile_url_fields_reject_direct_download(self) -> None:
+        for field in ("website", "codesite", "fediverse"):
+            with self.subTest(field=field):
+                form = ProfileForm(
+                    {field: "https://example.org/file.zip"},
+                    instance=self.user.profile,
+                )
+
+                self.assertFalse(form.is_valid())
+                self.assertIn("not directly to a file download", form.errors[field][0])
+
+    def test_profile_url_fields_reject_userinfo(self) -> None:
+        for field in ("website", "codesite", "fediverse"):
+            with self.subTest(field=field):
+                form = ProfileForm(
+                    {field: "https://user@example.org/profile"},
+                    instance=self.user.profile,
+                )
+
+                self.assertFalse(form.is_valid())
+                self.assertIn("username or password credentials", form.errors[field][0])
+
+    def test_profile_url_fields_reject_private_target(self) -> None:
+        for field in ("website", "codesite", "fediverse"):
+            with self.subTest(field=field):
+                form = ProfileForm(
+                    {field: "https://127.0.0.1/profile"},
+                    instance=self.user.profile,
+                )
+
+                self.assertFalse(form.is_valid())
+                self.assertIn("internal or non-public address", form.errors[field][0])
+
+    def test_profile_url_fields_reject_non_profile_paths(self) -> None:
+        for field, url, message in (
+            (
+                "codesite",
+                "https://codeberg.org/explore/repos",
+                "profile or repository page on a code hosting site",
+            ),
+            (
+                "fediverse",
+                "https://mastodon.example/tags/weblate",
+                "Fediverse user profile",
+            ),
+        ):
+            with self.subTest(field=field):
+                form = ProfileForm({field: url}, instance=self.user.profile)
+
+                self.assertFalse(form.is_valid())
+                self.assertIn(message, form.errors[field][0])
+
+    def test_profile_url_fields_accept_common_legacy_or_platform_paths(self) -> None:
+        for field, url in (
+            ("codesite", "https://codeberg.org/user/project"),
+            ("codesite", "https://gitlab.example/group/subgroup/project"),
+            ("fediverse", "https://peertube.example/accounts/example"),
+            ("fediverse", "https://hubzilla.example/channel/example"),
+            ("fediverse", "https://social.example/example"),
+            ("fediverse", "https://social.example/web/@example"),
+        ):
+            with self.subTest(field=field, url=url):
+                form = ProfileForm({field: url}, instance=self.user.profile)
+
+                self.assertTrue(form.is_valid())
+
+    def test_user_profile_link_warning(self) -> None:
+        profile = self.anotheruser.profile
+        profile.website = (
+            "https://example.org/users/profile-with-a-very-long-path-name-that-"
+            "should-not-be-shortened-on-warning-page"
+        )
+        profile.contact = "https://example.org/contact"
+        profile.codesite = "https://codeberg.org/example"
+        profile.fediverse = "https://mastodon.example/@example"
+        profile.save(update_fields=["website", "contact", "codesite", "fediverse"])
+
+        response = self.client.get(
+            reverse("user_page", kwargs={"user": self.anotheruser.username})
+        )
+
+        for link, url in (
+            ("website", profile.website),
+            ("contact", "https://example.org/contact"),
+            ("codesite", "https://codeberg.org/example"),
+        ):
+            with self.subTest(link=link):
+                warning_url = reverse(
+                    "user_profile_link",
+                    kwargs={"user": self.anotheruser.username, "link": link},
+                )
+                self.assertContains(response, f'href="{warning_url}"')
+                self.assertNotContains(response, f'href="{url}"')
+
+                warning_response = self.client.get(warning_url)
+                self.assertContains(warning_response, "External profile link")
+                self.assertContains(warning_response, f"Destination: {url}")
+                self.assertContains(warning_response, f'href="{url}"')
+
+        self.assertContains(response, 'href="https://mastodon.example/@example"')
+        self.assertContains(response, 'rel="ugc me"')
+        self.assertNotContains(
+            response,
+            reverse(
+                "user_profile_link",
+                kwargs={"user": self.anotheruser.username, "link": "fediverse"},
+            ),
+        )
+
+    def test_user_profile_link_missing(self) -> None:
+        for link in ("website", "contact", "codesite", "fediverse"):
+            with self.subTest(link=link):
+                response = self.client.get(
+                    reverse(
+                        "user_profile_link",
+                        kwargs={"user": self.anotheruser.username, "link": link},
+                    )
+                )
+
+                self.assertEqual(response.status_code, 404)
+
+    def test_user_profile_link_redirects_legacy_invalid_values(self) -> None:
+        profile_url = reverse("user_page", kwargs={"user": self.anotheruser.username})
+
+        for link, url in (
+            ("website", "https://example.org/file.zip"),
+            ("contact", "https://user@example.org/contact"),
+            ("codesite", "https://127.0.0.1/profile"),
+        ):
+            with self.subTest(link=link):
+                warning_url = reverse(
+                    "user_profile_link",
+                    kwargs={"user": self.anotheruser.username, "link": link},
+                )
+                Profile.objects.filter(pk=self.anotheruser.profile.pk).update(
+                    **{link: url}
+                )
+
+                response = self.client.get(warning_url, follow=True)
+
+                self.assertRedirects(response, profile_url)
+                self.assertContains(
+                    response, "This profile link is no longer available."
+                )
 
     def test_profile_dashboard(self) -> None:
         # Save profile with invalid settings
@@ -896,6 +1094,8 @@ class EditUserTest(FixtureTestCase):
         self.assertRedirects(response, user.get_absolute_url())
         self.assertTrue(user.is_active)
         self.assertFalse(user.is_superuser)
+        audit = user.auditlog_set.get(activity="superuser-revoked")
+        self.assertEqual(audit.params["username"], self.user.username)
         # No permissions now
         response = self.client.post(
             self.user.get_absolute_url(),
@@ -907,3 +1107,78 @@ class EditUserTest(FixtureTestCase):
             },
         )
         self.assertEqual(response.status_code, 403)
+
+
+class AdminUserRevertTest(FixtureTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.user.is_superuser = True
+        self.user.save()
+        self.target_user = User.objects.create_user(
+            username="sitewide-target", password="testpassword"
+        )
+
+    def test_revert_user_edits(self) -> None:
+        unit = self.get_unit()
+        self.change_unit("Nazdar svete!\n", user=self.target_user)
+
+        with mock.patch(
+            "weblate.accounts.views.revert_user_edits_task.delay",
+            return_value=SimpleNamespace(id="task-1"),
+        ) as mocked_delay:
+            response = self.client.post(
+                self.target_user.get_absolute_url(),
+                {"revert_user_edits": "1"},
+                follow=True,
+            )
+
+        mocked_delay.assert_called_once_with(
+            target_user_id=self.target_user.id,
+            acting_user_id=self.user.id,
+            sitewide=True,
+        )
+        self.assertContains(
+            response, "Reverting edits by sitewide-target site-wide was scheduled."
+        )
+        unit.refresh_from_db()
+        self.assertEqual(unit.target, "Nazdar svete!\n")
+        self.assertEqual(unit.state, STATE_TRANSLATED)
+
+    def test_revert_user_edits_cleanup_options(self) -> None:
+        with (
+            mock.patch(
+                "weblate.accounts.views.revert_user_edits_task.delay",
+                return_value=SimpleNamespace(id="task-revert"),
+            ) as mocked_revert,
+            mock.patch(
+                "weblate.accounts.views.cleanup_user_contributions_task.delay",
+                return_value=SimpleNamespace(id="task-cleanup"),
+            ) as mocked_cleanup,
+        ):
+            response = self.client.post(
+                self.target_user.get_absolute_url(),
+                {
+                    "cleanup_user_contributions": "1",
+                    "revert_edits": "on",
+                    "reject_suggestions": "on",
+                    "delete_comments": "on",
+                },
+                follow=True,
+            )
+
+        mocked_revert.assert_called_once_with(
+            target_user_id=self.target_user.id,
+            acting_user_id=self.user.id,
+            sitewide=True,
+        )
+        mocked_cleanup.assert_called_once_with(
+            target_user_id=self.target_user.id,
+            acting_user_id=self.user.id,
+            sitewide=True,
+            reject_suggestions=True,
+            delete_comments=True,
+        )
+        self.assertContains(
+            response,
+            "Cleaning up contributions by sitewide-target site-wide was scheduled.",
+        )

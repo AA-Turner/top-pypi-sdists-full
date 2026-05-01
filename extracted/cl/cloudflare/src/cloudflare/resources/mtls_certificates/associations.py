@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -50,7 +51,7 @@ class AssociationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[CertificateAsssociation]:
         """
         Lists all active associations between the certificate and Cloudflare services.
@@ -75,7 +76,11 @@ class AssociationsResource(SyncAPIResource):
                 f"Expected a non-empty value for `mtls_certificate_id` but received {mtls_certificate_id!r}"
             )
         return self._get_api_list(
-            f"/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}/associations",
+            path_template(
+                "/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}/associations",
+                account_id=account_id,
+                mtls_certificate_id=mtls_certificate_id,
+            ),
             page=SyncSinglePage[CertificateAsssociation],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -114,7 +119,7 @@ class AsyncAssociationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[CertificateAsssociation, AsyncSinglePage[CertificateAsssociation]]:
         """
         Lists all active associations between the certificate and Cloudflare services.
@@ -139,7 +144,11 @@ class AsyncAssociationsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `mtls_certificate_id` but received {mtls_certificate_id!r}"
             )
         return self._get_api_list(
-            f"/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}/associations",
+            path_template(
+                "/accounts/{account_id}/mtls_certificates/{mtls_certificate_id}/associations",
+                account_id=account_id,
+                mtls_certificate_id=mtls_certificate_id,
+            ),
             page=AsyncSinglePage[CertificateAsssociation],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

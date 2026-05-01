@@ -5,14 +5,26 @@
 import os
 import pathlib
 import tempfile
-from unittest.mock import patch
+from typing import TYPE_CHECKING
+from unittest.mock import call, patch
 
+from django.test import SimpleTestCase
 from django.test.utils import override_settings
+from translation_finder import DiscoveryResult
 
-from weblate.trans.discovery import ComponentDiscovery
+from weblate.trans.discovery import (
+    ComponentDiscovery,
+    build_detected_discovery_preset,
+    get_component_detected_discovery_presets,
+    get_detected_discovery_preset_values_key,
+    get_detected_discovery_presets_from_results,
+)
 from weblate.trans.tasks import create_component
 from weblate.trans.tests.test_models import RepoTestCase
 from weblate.utils.files import remove_tree
+
+if TYPE_CHECKING:
+    from translation_finder.discovery.result import ResultDict
 
 
 class ComponentDiscoveryTest(RepoTestCase):
@@ -155,6 +167,74 @@ class ComponentDiscoveryTest(RepoTestCase):
             },
         )
 
+    def test_matched_components_for_filename_language_variants(self) -> None:
+        docs = pathlib.Path(self.component.full_path) / "docs"
+        docs.mkdir(exist_ok=True)
+        for name in (
+            "news_en.md",
+            "news_cs.md",
+            "guide_en.md",
+            "news_pt_BR.md",
+            "news_flash_pt_BR.md",
+        ):
+            (docs / name).write_text(f"# {name}\n", encoding="utf-8")
+
+        discovery = ComponentDiscovery(
+            self.component,
+            file_format="markdown",
+            match=r"(?:(?P<path>.*/))?(?P<component>.+?)_(?P<language>[A-Za-z]{2,3}(?:[_-][A-Za-z0-9]+)*)\.(?P<extension>[^/.]+)",
+            name_template="{{ component }}",
+            language_regex="^[^.]+$",
+            path=os.fspath(docs),
+        )
+
+        self.assertEqual(
+            discovery.matched_components,
+            {
+                "guide_*.md": {
+                    "files": {"guide_en.md"},
+                    "files_langs": (("guide_en.md", "en"),),
+                    "languages": {"en"},
+                    "mask": "guide_*.md",
+                    "name": "guide",
+                    "slug": "guide",
+                    "base_file": "",
+                    "new_base": "",
+                    "intermediate": "",
+                },
+                "news_*.md": {
+                    "files": {
+                        "news_cs.md",
+                        "news_en.md",
+                        "news_pt_BR.md",
+                    },
+                    "files_langs": (
+                        ("news_cs.md", "cs"),
+                        ("news_en.md", "en"),
+                        ("news_pt_BR.md", "pt_BR"),
+                    ),
+                    "languages": {"cs", "en", "pt_BR"},
+                    "mask": "news_*.md",
+                    "name": "news",
+                    "slug": "news",
+                    "base_file": "",
+                    "new_base": "",
+                    "intermediate": "",
+                },
+                "news_flash_*.md": {
+                    "files": {"news_flash_pt_BR.md"},
+                    "files_langs": (("news_flash_pt_BR.md", "pt_BR"),),
+                    "languages": {"pt_BR"},
+                    "mask": "news_flash_*.md",
+                    "name": "news_flash",
+                    "slug": "news_flash",
+                    "base_file": "",
+                    "new_base": "",
+                    "intermediate": "",
+                },
+            },
+        )
+
     def test_perform(self) -> None:
         # Preview should not create anything
         with override_settings(CREATE_GLOSSARIES=self.CREATE_GLOSSARIES):
@@ -221,6 +301,34 @@ class ComponentDiscoveryTest(RepoTestCase):
         self.assertEqual(len(matched), 2)
         self.assertEqual(len(deleted), 0)
         self.assertEqual(len(skipped), 1)
+
+    def test_perform_disables_unsupported_unit_management(self) -> None:
+        docs = pathlib.Path(self.component.full_path) / "docs"
+        docs.mkdir(exist_ok=True)
+        for language in ("cs", "en"):
+            (docs / f"news_{language}.md").write_text(
+                "# News\n\nContent\n", encoding="utf-8"
+            )
+
+        self.component.manage_units = True
+        discovery = ComponentDiscovery(
+            self.component,
+            file_format="markdown",
+            match=r"docs/(?P<component>.+?)_(?P<language>[^/.]+)\.md",
+            name_template="{{ component }}",
+            base_file_template="docs/{{ component }}_en.md",
+        )
+
+        created, matched, deleted, skipped = discovery.perform(preview=True)
+
+        self.assertEqual(skipped, [])
+        self.assertEqual(matched, [])
+        self.assertEqual(deleted, [])
+        self.assertEqual(len(created), 1)
+        self.assertEqual(created[0][0]["mask"], "docs/news_*.md")
+        component = created[0][1]
+        self.assertIsNotNone(component)
+        self.assertFalse(component.manage_units)
 
     def test_create_component_tolerates_missing_copy_from_addons_source(self) -> None:
         source_component = self._create_component(
@@ -370,3 +478,263 @@ class ComponentDiscoveryTest(RepoTestCase):
         self.assertEqual(len(deleted), 0)
         self.assertEqual(len(deleted), 0)
         self.assertEqual(len(skipped), 0)
+
+
+class DetectedDiscoveryPresetTest(SimpleTestCase):
+    @staticmethod
+    def make_discovery_result(
+        *,
+        name: str = "",
+        filemask: str = "",
+        template: str = "",
+        file_format: str = "",
+        intermediate: str = "",
+        new_base: str = "",
+    ) -> DiscoveryResult:
+        data: ResultDict = {}
+        if name:
+            data["name"] = name
+        if filemask:
+            data["filemask"] = filemask
+        if template:
+            data["template"] = template
+        if file_format:
+            data["file_format"] = file_format
+        if intermediate:
+            data["intermediate"] = intermediate
+        if new_base:
+            data["new_base"] = new_base
+
+        result = DiscoveryResult(data)
+        result.meta = {"priority": 1000, "origin": None}
+        return result
+
+    def test_detected_presets_deduplicate_discovery_results(self) -> None:
+        first = self.make_discovery_result(
+            file_format="aresource",
+            filemask="android/values-*/strings.xml",
+            template="android/values/strings.xml",
+        )
+        second = self.make_discovery_result(
+            file_format="aresource",
+            filemask="android-not-synced/values-*/strings.xml",
+            template="android-not-synced/values/strings.xml",
+        )
+
+        presets = get_detected_discovery_presets_from_results(
+            [first, first.copy(), second, second.copy()]
+        )
+
+        self.assertEqual(len(presets), 1)
+        self.assertEqual(
+            presets[0]["values"]["match"],
+            r"(?P<component>[^/]*)/values\-(?P<language>[^/.]*)/strings\.xml",
+        )
+        self.assertEqual(
+            presets[0]["values"]["base_file_template"],
+            "{{ component }}/values/strings.xml",
+        )
+
+    def test_detected_presets_keep_filename_suffix_from_translation_finder_cases(
+        self,
+    ) -> None:
+        first = self.make_discovery_result(
+            file_format="po",
+            filemask="translations/manual/*/regexp.po",
+            new_base="translations/manual/regexp.pot",
+        )
+        second = self.make_discovery_result(
+            file_format="po",
+            filemask="translations/manual/*/regexp_quick_reference.po",
+            new_base="translations/manual/regexp_quick_reference.pot",
+        )
+
+        presets = get_detected_discovery_presets_from_results([first, second])
+
+        self.assertEqual(len(presets), 1)
+        self.assertEqual(
+            presets[0]["values"]["match"],
+            r"translations/manual/(?P<language>[^/.]*)/(?P<component>[^/]*)\.po",
+        )
+        self.assertEqual(
+            presets[0]["values"]["new_base_template"],
+            "translations/manual/{{ component }}.pot",
+        )
+
+    def test_detected_presets_cover_docs_filename_language_example(self) -> None:
+        first = self.make_discovery_result(
+            file_format="markdown",
+            filemask="docs/news_*.md",
+        )
+        second = self.make_discovery_result(
+            file_format="markdown",
+            filemask="docs/guide_*.md",
+        )
+
+        presets = get_detected_discovery_presets_from_results([first, second])
+
+        self.assertEqual(len(presets), 1)
+        self.assertEqual(
+            presets[0]["values"]["match"],
+            r"docs/(?P<component>[^/]*)_(?P<language>[^/.]*)\.md",
+        )
+        self.assertEqual(
+            presets[0]["values"]["name_template"],
+            "{{ component }}",
+        )
+
+    def test_detected_presets_cover_translation_finder_locales_examples(self) -> None:
+        first = self.make_discovery_result(
+            file_format="po",
+            filemask="locales/*/messages.po",
+            new_base="locales/messages.pot",
+        )
+        second = self.make_discovery_result(
+            file_format="po",
+            filemask="locales/*/other.po",
+            new_base="locales/other.pot",
+        )
+
+        presets = get_detected_discovery_presets_from_results([first, second])
+
+        self.assertEqual(len(presets), 1)
+        self.assertEqual(
+            presets[0]["values"]["match"],
+            r"locales/(?P<language>[^/.]*)/(?P<component>[^/]*)\.po",
+        )
+        self.assertEqual(
+            presets[0]["values"]["new_base_template"],
+            "locales/{{ component }}.pot",
+        )
+
+    def test_detected_presets_skip_ambiguous_generic_and_variant_pairs(self) -> None:
+        first = self.make_discovery_result(
+            file_format="csv",
+            filemask="weblate/trans/tests/data/*.csv",
+        )
+        second = self.make_discovery_result(
+            file_format="csv",
+            filemask="weblate/trans/tests/data/*-mono.csv",
+        )
+
+        preset = build_detected_discovery_preset(first, second)
+
+        self.assertIsNone(preset)
+
+    def test_detected_presets_trim_common_word_fragments_to_separators(self) -> None:
+        first = self.make_discovery_result(
+            file_format="po",
+            filemask="weblate/trans/tests/data/*-simple.po",
+            new_base="weblate/trans/tests/data/hello-charset.pot",
+        )
+        second = self.make_discovery_result(
+            file_format="po",
+            filemask="weblate/trans/tests/data/*-three.po",
+            new_base="weblate/trans/tests/data/hello-charset.pot",
+        )
+
+        preset = build_detected_discovery_preset(first, second)
+
+        self.assertIsNotNone(preset)
+        if preset is None:
+            self.fail("Expected a detected preset")
+        self.assertEqual(
+            preset["values"]["match"],
+            r"weblate/trans/tests/data/(?P<language>[^/.]*)\-(?P<component>[^/]*)\.po",
+        )
+
+    def test_detected_presets_skip_dot_suffix_variants_in_same_segment(self) -> None:
+        first = self.make_discovery_result(
+            file_format="ini",
+            filemask="weblate/trans/tests/data/*.ini",
+        )
+        second = self.make_discovery_result(
+            file_format="ini",
+            filemask="weblate/trans/tests/data/*.joomla.ini",
+        )
+
+        preset = build_detected_discovery_preset(first, second)
+
+        self.assertIsNone(preset)
+
+    def test_component_detected_presets_fallback_to_eager_scan(self) -> None:
+        component = self.make_mock_component()
+        discovered = [
+            self.make_discovery_result(
+                file_format="aresource",
+                filemask="android/values-*/strings.xml",
+                template="android/values/strings.xml",
+            ),
+            self.make_discovery_result(
+                file_format="aresource",
+                filemask="android-not-synced/values-*/strings.xml",
+                template="android-not-synced/values/strings.xml",
+            ),
+        ]
+
+        with patch(
+            "weblate.trans.discovery.discover",
+            side_effect=[[], discovered],
+        ) as mocked:
+            presets = get_component_detected_discovery_presets(component)
+
+        self.assertEqual(len(presets), 1)
+        self.assertEqual(presets[0]["values"]["file_format"], "aresource")
+        self.assertEqual(
+            mocked.call_args_list,
+            [
+                call(
+                    component.full_path,
+                    source_language=component.source_language.code,
+                    hint=component.filemask,
+                ),
+                call(
+                    component.full_path,
+                    source_language=component.source_language.code,
+                    eager=True,
+                    hint=component.filemask,
+                ),
+            ],
+        )
+
+    def test_detected_preset_key_matches_builtin_equivalent_po_layout(self) -> None:
+        first = self.make_discovery_result(
+            file_format="po",
+            filemask="*/application.po",
+        )
+        second = self.make_discovery_result(
+            file_format="po",
+            filemask="*/other.po",
+        )
+
+        presets = get_detected_discovery_presets_from_results([first, second])
+
+        self.assertEqual(len(presets), 1)
+        self.assertEqual(
+            get_detected_discovery_preset_values_key(presets[0]["values"]),
+            (
+                r"(?P<language>[^/.]*)/(?P<component>[^/]*)\.po",
+                "po",
+                "{{ component }}",
+                "",
+                "",
+                "",
+                "^[^.]+$",
+            ),
+        )
+
+    @staticmethod
+    def make_mock_component():
+        class MockSourceLanguage:
+            code = "en"
+
+        class MockProject:
+            pass
+
+        class MockComponent:
+            full_path = "mock-component"
+            filemask = "po/*.po"
+            source_language = MockSourceLanguage()
+            project = MockProject()
+
+        return MockComponent()

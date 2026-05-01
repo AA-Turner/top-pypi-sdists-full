@@ -7,8 +7,8 @@ from typing_extensions import Literal, overload
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
-from ..._utils import required_args, maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
+from ..._utils import path_template, required_args, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -55,13 +55,13 @@ class InterconnectsResource(SyncAPIResource):
         account: str,
         slot_id: str,
         type: str,
-        speed: Optional[str] | NotGiven = NOT_GIVEN,
+        speed: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectCreateResponse:
         """
         Create a new interconnect
@@ -93,7 +93,7 @@ class InterconnectsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectCreateResponse:
         """
         Create a new interconnect
@@ -123,25 +123,25 @@ class InterconnectsResource(SyncAPIResource):
         *,
         account_id: str,
         account: str,
-        slot_id: str | NotGiven = NOT_GIVEN,
+        slot_id: str | Omit = omit,
         type: str,
-        speed: Optional[str] | NotGiven = NOT_GIVEN,
+        speed: Optional[str] | Omit = omit,
         bandwidth: Literal["50M", "100M", "200M", "300M", "400M", "500M", "1G", "2G", "5G", "10G", "20G", "50G"]
-        | NotGiven = NOT_GIVEN,
-        pairing_key: str | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        pairing_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectCreateResponse:
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return cast(
             InterconnectCreateResponse,
             self._post(
-                f"/accounts/{account_id}/cni/interconnects",
+                path_template("/accounts/{account_id}/cni/interconnects", account_id=account_id),
                 body=maybe_transform(
                     {
                         "account": account,
@@ -166,16 +166,16 @@ class InterconnectsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        cursor: Optional[int] | NotGiven = NOT_GIVEN,
-        limit: Optional[int] | NotGiven = NOT_GIVEN,
-        site: Optional[str] | NotGiven = NOT_GIVEN,
-        type: Optional[str] | NotGiven = NOT_GIVEN,
+        cursor: Optional[int] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        site: Optional[str] | Omit = omit,
+        type: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectListResponse:
         """
         List existing interconnects
@@ -198,7 +198,7 @@ class InterconnectsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/cni/interconnects",
+            path_template("/accounts/{account_id}/cni/interconnects", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -227,7 +227,7 @@ class InterconnectsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Delete an interconnect object
@@ -249,7 +249,7 @@ class InterconnectsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `icon` but received {icon!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/accounts/{account_id}/cni/interconnects/{icon}",
+            path_template("/accounts/{account_id}/cni/interconnects/{icon}", account_id=account_id, icon=icon),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -266,7 +266,7 @@ class InterconnectsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectGetResponse:
         """
         Get information about an interconnect object
@@ -289,7 +289,7 @@ class InterconnectsResource(SyncAPIResource):
         return cast(
             InterconnectGetResponse,
             self._get(
-                f"/accounts/{account_id}/cni/interconnects/{icon}",
+                path_template("/accounts/{account_id}/cni/interconnects/{icon}", account_id=account_id, icon=icon),
                 options=make_request_options(
                     extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
                 ),
@@ -309,7 +309,7 @@ class InterconnectsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Generate the Letter of Authorization (LOA) for a given interconnect
@@ -331,7 +331,7 @@ class InterconnectsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `icon` but received {icon!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._get(
-            f"/accounts/{account_id}/cni/interconnects/{icon}/loa",
+            path_template("/accounts/{account_id}/cni/interconnects/{icon}/loa", account_id=account_id, icon=icon),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -348,7 +348,7 @@ class InterconnectsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectStatusResponse:
         """
         Get the current status of an interconnect object
@@ -371,7 +371,9 @@ class InterconnectsResource(SyncAPIResource):
         return cast(
             InterconnectStatusResponse,
             self._get(
-                f"/accounts/{account_id}/cni/interconnects/{icon}/status",
+                path_template(
+                    "/accounts/{account_id}/cni/interconnects/{icon}/status", account_id=account_id, icon=icon
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
                 ),
@@ -410,13 +412,13 @@ class AsyncInterconnectsResource(AsyncAPIResource):
         account: str,
         slot_id: str,
         type: str,
-        speed: Optional[str] | NotGiven = NOT_GIVEN,
+        speed: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectCreateResponse:
         """
         Create a new interconnect
@@ -448,7 +450,7 @@ class AsyncInterconnectsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectCreateResponse:
         """
         Create a new interconnect
@@ -478,25 +480,25 @@ class AsyncInterconnectsResource(AsyncAPIResource):
         *,
         account_id: str,
         account: str,
-        slot_id: str | NotGiven = NOT_GIVEN,
+        slot_id: str | Omit = omit,
         type: str,
-        speed: Optional[str] | NotGiven = NOT_GIVEN,
+        speed: Optional[str] | Omit = omit,
         bandwidth: Literal["50M", "100M", "200M", "300M", "400M", "500M", "1G", "2G", "5G", "10G", "20G", "50G"]
-        | NotGiven = NOT_GIVEN,
-        pairing_key: str | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        pairing_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectCreateResponse:
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return cast(
             InterconnectCreateResponse,
             await self._post(
-                f"/accounts/{account_id}/cni/interconnects",
+                path_template("/accounts/{account_id}/cni/interconnects", account_id=account_id),
                 body=await async_maybe_transform(
                     {
                         "account": account,
@@ -521,16 +523,16 @@ class AsyncInterconnectsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        cursor: Optional[int] | NotGiven = NOT_GIVEN,
-        limit: Optional[int] | NotGiven = NOT_GIVEN,
-        site: Optional[str] | NotGiven = NOT_GIVEN,
-        type: Optional[str] | NotGiven = NOT_GIVEN,
+        cursor: Optional[int] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        site: Optional[str] | Omit = omit,
+        type: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectListResponse:
         """
         List existing interconnects
@@ -553,7 +555,7 @@ class AsyncInterconnectsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/cni/interconnects",
+            path_template("/accounts/{account_id}/cni/interconnects", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -582,7 +584,7 @@ class AsyncInterconnectsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Delete an interconnect object
@@ -604,7 +606,7 @@ class AsyncInterconnectsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `icon` but received {icon!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/accounts/{account_id}/cni/interconnects/{icon}",
+            path_template("/accounts/{account_id}/cni/interconnects/{icon}", account_id=account_id, icon=icon),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -621,7 +623,7 @@ class AsyncInterconnectsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectGetResponse:
         """
         Get information about an interconnect object
@@ -644,7 +646,7 @@ class AsyncInterconnectsResource(AsyncAPIResource):
         return cast(
             InterconnectGetResponse,
             await self._get(
-                f"/accounts/{account_id}/cni/interconnects/{icon}",
+                path_template("/accounts/{account_id}/cni/interconnects/{icon}", account_id=account_id, icon=icon),
                 options=make_request_options(
                     extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
                 ),
@@ -664,7 +666,7 @@ class AsyncInterconnectsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Generate the Letter of Authorization (LOA) for a given interconnect
@@ -686,7 +688,7 @@ class AsyncInterconnectsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `icon` but received {icon!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._get(
-            f"/accounts/{account_id}/cni/interconnects/{icon}/loa",
+            path_template("/accounts/{account_id}/cni/interconnects/{icon}/loa", account_id=account_id, icon=icon),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -703,7 +705,7 @@ class AsyncInterconnectsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InterconnectStatusResponse:
         """
         Get the current status of an interconnect object
@@ -726,7 +728,9 @@ class AsyncInterconnectsResource(AsyncAPIResource):
         return cast(
             InterconnectStatusResponse,
             await self._get(
-                f"/accounts/{account_id}/cni/interconnects/{icon}/status",
+                path_template(
+                    "/accounts/{account_id}/cni/interconnects/{icon}/status", account_id=account_id, icon=icon
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
                 ),

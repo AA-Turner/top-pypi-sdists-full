@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List, Union, Iterable
+from typing import Union, Iterable
 from typing_extensions import Literal, Required, Annotated, TypedDict
 
+from ..._types import SequenceNotStr
 from ..._utils import PropertyInfo
 
 __all__ = ["ThreatEventListParams", "Search"]
@@ -14,24 +15,61 @@ class ThreatEventListParams(TypedDict, total=False):
     account_id: Required[str]
     """Account ID."""
 
-    dataset_id: Annotated[List[str], PropertyInfo(alias="datasetId")]
+    cursor: str
+    """Cursor for pagination.
+
+    When provided, filters are embedded in the cursor so you only need to pass
+    cursor and pageSize. Returned in the previous response's result_info.cursor
+    field. Use cursor-based pagination for deep pagination (beyond 100,000 records)
+    or for optimal performance.
+    """
+
+    dataset_id: Annotated[SequenceNotStr[str], PropertyInfo(alias="datasetId")]
+    """
+    Dataset IDs to query events from (array of UUIDs), or special value 'all' or
+    '\\**' to query all event datasets for the account. If not provided, uses the
+    default dataset.
+    """
 
     force_refresh: Annotated[bool, PropertyInfo(alias="forceRefresh")]
+
+    format: Literal["json", "stix2"]
 
     order: Literal["asc", "desc"]
 
     order_by: Annotated[str, PropertyInfo(alias="orderBy")]
 
     page: float
+    """Page number (1-indexed) for offset-based pagination.
+
+    Limited to offset of 100,000 records. For deep pagination, use cursor-based
+    pagination instead.
+    """
 
     page_size: Annotated[float, PropertyInfo(alias="pageSize")]
+    """Number of results per page. Maximum 25,000."""
 
     search: Iterable[Search]
 
 
 class Search(TypedDict, total=False):
     field: str
+    """Event field to search on.
+
+    Allowed: attacker, attackerCountry, category, createdAt, date, event, indicator,
+    indicatorType, killChain, mitreAttack, tags, targetCountry, targetIndustry, tlp,
+    uuid.
+    """
 
     op: Literal["equals", "not", "gt", "gte", "lt", "lte", "like", "contains", "startsWith", "endsWith", "in", "find"]
+    """Search operator.
 
-    value: Union[str, float, List[Union[str, float]]]
+    Use 'in' for bulk lookup of up to 100 values at once, e.g. {field:'tags',
+    op:'in', value:['malware','apt']}.
+    """
+
+    value: Union[str, float, SequenceNotStr[Union[str, float]]]
+    """Search value.
+
+    String or number for most operators. Array for 'in' operator (max 100 items).
+    """

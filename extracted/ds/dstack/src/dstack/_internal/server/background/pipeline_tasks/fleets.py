@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Optional, Sequence, TypedDict
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import joinedload, load_only, selectinload
 
@@ -33,6 +33,7 @@ from dstack._internal.server.background.pipeline_tasks.base import (
 )
 from dstack._internal.server.db import get_db, get_session_ctx
 from dstack._internal.server.models import (
+    ExportedFleetModel,
     FleetModel,
     InstanceModel,
     JobModel,
@@ -49,7 +50,10 @@ from dstack._internal.server.services.fleets import (
     is_fleet_empty,
     is_fleet_in_use,
 )
-from dstack._internal.server.services.instances import instance_matches_constraints
+from dstack._internal.server.services.instances import (
+    instance_matches_constraints,
+    is_placeholder_instance,
+)
 from dstack._internal.server.services.locking import get_locker
 from dstack._internal.server.services.pipelines import PipelineHinterProtocol
 from dstack._internal.server.utils import sentry_utils
@@ -485,6 +489,11 @@ async def _apply_process_result(
                 update(PlacementGroupModel)
                 .where(PlacementGroupModel.fleet_id == context.fleet_model.id)
                 .values(fleet_deleted=True)
+            )
+            await session.execute(
+                delete(ExportedFleetModel).where(
+                    ExportedFleetModel.fleet_id == context.fleet_model.id
+                )
             )
         if instance_update_rows:
             await session.execute(
@@ -935,8 +944,12 @@ def _select_current_master_instance_id(
             return instance_model.id
 
     # Prefer existing surviving instances over freshly planned replacements to
-    # avoid election churn during min-nodes backfill.
+    # avoid election churn during min-nodes backfill. Skip placeholders —
+    # they have no JPD and cannot anchor cluster placement, so electing one
+    # just defers the real master decision.
     for instance_model in surviving_instance_models:
+        if is_placeholder_instance(instance_model):
+            continue
         if (
             _get_effective_instance_status(
                 instance_model,

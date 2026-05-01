@@ -17,6 +17,7 @@ from falconpy._payload import (
     ngsiem_auto_update_policy_payload,
     ngsiem_install_parser_payload,
     ngsiem_bulk_install_parsers_payload,
+    ngsiem_clone_parser_payload,
 )
 
 auth = Authorization.TestAuthorization()
@@ -38,6 +39,7 @@ class TestNGSIEM:
         tests = {
             "UploadLookupV1" : falcon.upload_file(repository="search-all", lookup_file="tests/testfile.csv"),
             "UploadLookupV1" : falcon.upload_file(repository="search-all", lookup_file="tests/testfile.json"),
+            "UploadLookupV1" : falcon.upload_file(repository="search-all", file="tests/testfile.json"),
             "GetLookupFromPackageWithNamespaceV1": falcon.get_file_from_package_with_namespace(repository="search-all",
                                                                                                filename="manny",
                                                                                                package="moe",
@@ -69,6 +71,7 @@ class TestNGSIEM:
 
         fail_tests = {
             "UploadLookupV1-fail": falcon.upload_file(repository="search-all", lookup_file="tests/badfile.csv"),
+            "UploadLookupV1-fail1": falcon.upload_file(repository="search-all", file="tests/badfile.csv"),
             "UploadLookupV1-fail2": falcon.upload_file(repository="search-all"),
             "GetLookupV1-fail": falcon.get_file(),
             "GetLookupFromPackageWithNamespaceV1Fail": falcon.get_file_from_package_with_namespace(),
@@ -116,6 +119,10 @@ class TestNGSIEM:
             "UpdateLookupFile": falcon.update_lookup_file(search_domain="all", filename="testfile.yml", file=test_db),
             "UpdateLookupFileFail": falcon.update_lookup_file(search_domain="all", filename="testfile.yml"),
             "DeleteLookupFile": falcon.delete_lookup_file(ids="12345678"),
+            "CloneParser": falcon.clone_parser(new_name="cloned-parser", source_id="12345678"),
+            "CloneParserBody": falcon.clone_parser(body={"new_name": "cloned-parser", "source_id": "12345678"}),
+            "TestParserFromTemplate": falcon.test_parser_from_template(yaml_template=test_db),
+            "TestParserFromTemplateFail": falcon.test_parser_from_template(),
             "GetParserTemplate": falcon.get_parser_template(ids="12345678"),
             "CreateParserFromTemplate": falcon.create_parser_from_template(repository="whatever", name="whatever", yaml_template=test_db),
             "CreateParserFromTemplateFail": falcon.create_parser_from_template(repository="whatever", name="whatever"),
@@ -207,28 +214,18 @@ class TestNGSIEM:
         result_error = falcon.stop_search(repository="search-all")
         assert result_error["status_code"] == 500
 
-    def test_all_functionality(self):
-        assert self.run_all_tests() is True
-
-    def test_pagination_params(self):
-        """Test that pagination parameters are properly handled (Issue #1383)."""
-        # Test with camelCase parameters
+    def test_get_search_status_pagination_aliases(self):
+        """Test get_search_status accepts pythonic pagination_limit/pagination_offset aliases."""
         result = falcon.get_search_status(
             repository="search-all",
-            id="test-id",
-            paginationLimit=100,
-            paginationOffset=0
-        )
-        assert result["status_code"] in AllowedResponses
-
-        # Test with pythonic parameters
-        result = falcon.get_search_status(
-            repository="search-all",
-            id="test-id",
-            pagination_limit=100,
+            search_id="test-id",
+            pagination_limit=10,
             pagination_offset=0
         )
         assert result["status_code"] in AllowedResponses
+
+    def test_all_functionality(self):
+        assert self.run_all_tests() is True
 
 class TestNGSIEMPayloadCoverage:
     """Cover _payload/_ngsiem.py gaps."""
@@ -302,6 +299,20 @@ class TestNGSIEMPayloadCoverage:
         result = ngsiem_bulk_install_parsers_payload({})
         assert result == {}
 
+    def test_ngsiem_clone_parser_payload(self):
+        """Cover clone parser payload."""
+        result = ngsiem_clone_parser_payload({
+            "new_name": "cloned-parser",
+            "source_id": "abc123"
+        })
+        assert result["new_name"] == "cloned-parser"
+        assert result["source_id"] == "abc123"
+
+    def test_ngsiem_clone_parser_payload_empty(self):
+        """Cover empty clone parser payload."""
+        result = ngsiem_clone_parser_payload({})
+        assert result == {}
+
 
 class TestNGSIEMConnectorCoverage:
     """Cover ngsiem.py connector config operations."""
@@ -331,3 +342,35 @@ class TestNGSIEMConnectorCoverage:
                 print(f"{key} returned {tests[key]['status_code']}")
 
         assert error_checks
+
+
+class TestNGSIEMUploadCoverage:
+    """Cover ngsiem.py upload_file response handling branches."""
+
+    def test_upload_file_json_response(self, monkeypatch):
+        """Cover upload_file when API returns Response with application/json content type (line 128)."""
+        import falconpy.ngsiem as ngsiem_mod
+
+        class FakeResponse(Response):
+            def __init__(self):
+                super().__init__()
+                self.status_code = 200
+                self.headers["Content-Type"] = "application/json"
+                self._content = b'{"resources": ["file-id-123"]}'
+
+            def json(self):
+                return {"resources": ["file-id-123"]}
+
+        monkeypatch.setattr(ngsiem_mod, "process_service_request", lambda **kw: FakeResponse())
+        result = falcon.upload_file(repository="search-all", lookup_file="tests/testfile.csv")
+        assert result["status_code"] == 200
+        assert result["body"]["resources"] == ["file-id-123"]
+
+    def test_upload_file_non_response(self, monkeypatch):
+        """Cover upload_file when process_service_request returns a dict (line 133)."""
+        import falconpy.ngsiem as ngsiem_mod
+
+        error_dict = {"status_code": 403, "body": {"errors": [{"message": "forbidden"}]}, "headers": {}}
+        monkeypatch.setattr(ngsiem_mod, "process_service_request", lambda **kw: error_dict)
+        result = falcon.upload_file(repository="search-all", lookup_file="tests/testfile.csv")
+        assert result["status_code"] == 403

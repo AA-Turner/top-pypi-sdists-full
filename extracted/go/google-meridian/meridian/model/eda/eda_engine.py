@@ -222,18 +222,25 @@ def _compute_correlation_matrix(
   return corr_mat_da
 
 
-def _get_upper_triangle_corr_mat(corr_mat_da: xr.DataArray) -> xr.DataArray:
-  """Gets the upper triangle of a correlation matrix.
+def get_triangle_corr_mat(
+    corr_mat_da: xr.DataArray,
+    lower: bool = False,
+) -> xr.DataArray:
+  """Gets the upper or lower triangle of a correlation matrix.
 
   Args:
     corr_mat_da: An xr.DataArray containing the correlation matrix.
+    lower: Whether to return the lower triangle instead of the upper triangle.
 
   Returns:
-    An xr.DataArray containing only the elements in the upper triangle of the
-    correlation matrix, with other elements masked as NaN.
+    An xr.DataArray containing only the elements in the specified triangle of
+    the correlation matrix, with other elements masked as NaN.
   """
   n_vars = corr_mat_da.sizes[eda_constants.VARIABLE_1]
-  mask_np = np.triu(np.ones((n_vars, n_vars), dtype=bool), k=1)
+  if lower:
+    mask_np = np.tri(n_vars, n_vars, k=-1, dtype=bool)
+  else:
+    mask_np = ~np.tri(n_vars, n_vars, k=0, dtype=bool)
   mask = xr.DataArray(
       mask_np,
       dims=[eda_constants.VARIABLE_1, eda_constants.VARIABLE_2],
@@ -249,8 +256,10 @@ def _find_extreme_corr_pairs(
     extreme_corr_da: xr.DataArray, extreme_corr_threshold: float
 ) -> pd.DataFrame:
   """Finds extreme correlation pairs in a correlation matrix."""
-  corr_tri = _get_upper_triangle_corr_mat(extreme_corr_da)
-  extreme_corr_da = corr_tri.where(abs(corr_tri) > extreme_corr_threshold)
+  corr_upper_tri = get_triangle_corr_mat(extreme_corr_da, lower=False)
+  extreme_corr_da = corr_upper_tri.where(
+      abs(corr_upper_tri) > extreme_corr_threshold
+  )
 
   return (
       extreme_corr_da.to_dataframe(name=eda_constants.CORRELATION)
@@ -271,7 +280,7 @@ def _find_extreme_corr_pairs(
 def _get_outlier_bounds(
     input_da: xr.DataArray,
 ) -> tuple[xr.DataArray, xr.DataArray]:
-  """Computes lower and upper bounds for outliers across time using the IQR method.
+  """Computes lower and upper bounds for outliers across time based on IQR.
 
   Args:
     input_da: A DataArray for which to calculate outlier bounds.
@@ -297,8 +306,11 @@ def _calculate_std(
     input_da: A DataArray for which to calculate the std.
 
   Returns:
-    A Dataset with two data variables: 'std_with_outliers' and
-    'std_without_outliers'.
+    A Dataset with 'std_with_outliers' and 'std_without_outliers' data
+    variables. It preserves the input DataArray's dimensions and coordinates,
+    except for the time dimension over which the standard deviation is
+    calculated. If the input includes geo or variable dimensions, they will be
+    retained in the output.
   """
   std_with_outliers = input_da.std(dim=constants.TIME, ddof=1)
 
@@ -323,8 +335,9 @@ def _calculate_outliers(
     input_da: A DataArray from which to extract outliers.
 
   Returns:
-    A DataFrame with columns for variables, geo (if applicable), time, and
-    outlier values.
+    A DataFrame containing outlier values, including columns for time, and
+    optionally for variables and geo if the input DataArray includes these
+    dimensions.
   """
   lower_bound, upper_bound = _get_outlier_bounds(input_da)
   return (
@@ -344,7 +357,11 @@ def _calculate_outliers(
   )
 
 
-def _calculate_vif(input_da: xr.DataArray, var_dim: str) -> xr.DataArray:
+def _calculate_vif(
+    input_da: xr.DataArray,
+    var_dim: str,
+    std_threshold: float,
+) -> xr.DataArray:
   """Helper function to compute variance inflation factor.
 
   The VIF calculation only focuses on multicollinearity among non-constant
@@ -354,6 +371,7 @@ def _calculate_vif(input_da: xr.DataArray, var_dim: str) -> xr.DataArray:
     input_da: A DataArray for which to calculate the VIF over sample dimensions
       (e.g. time and geo if applicable).
     var_dim: The dimension name of the variable to compute VIF for.
+    std_threshold: The threshold to consider a variable as constant.
 
   Returns:
     A DataArray containing the VIF for each variable in the variable dimension.
@@ -362,7 +380,7 @@ def _calculate_vif(input_da: xr.DataArray, var_dim: str) -> xr.DataArray:
   num_vars = input_da.sizes[var_dim]
   np_data = input_da.values.reshape(-1, num_vars)
 
-  is_constant = np.std(np_data, axis=0) < eda_constants.STD_THRESHOLD
+  is_constant = np.std(np_data, axis=0) < std_threshold
   vif_values = np.full(num_vars, np.nan)
   (non_constant_vars_indices,) = (~is_constant).nonzero()
 
@@ -550,7 +568,7 @@ class EDAEngine:
 
   def __init__(
       self,
-      # TODO: b/476230365 - Remove meridian arg.
+      # TODO: Remove meridian arg.
       meridian: model.Meridian | None = None,
       spec: eda_spec.EDASpec = eda_spec.EDASpec(),
       *,
@@ -1338,7 +1356,7 @@ class EDAEngine:
     if transformer_class is None:
       return da
     if population is None:
-      population = backend.ones([1], dtype=backend.float32)
+      population = backend.ones([1], dtype=backend.float_dtype)
     if transformer_class is transformers.CenteringAndScalingTransformer:
       xarray_transformer = transformers.CenteringAndScalingTransformer(
           tensor=da.values, population=population
@@ -1434,7 +1452,9 @@ class EDAEngine:
       )
 
     national_da = national_da.assign_coords({constants.GEO: [temp_geo_dim]})
-    national_da.values = backend.cast(national_da.values, dtype=backend.float32)
+    national_da.values = backend.cast(
+        national_da.values, dtype=backend.float_dtype
+    )
     national_da = self._scale_xarray(national_da, transformer_class)
 
     national_da = national_da.sel({constants.GEO: temp_geo_dim}, drop=True)
@@ -1475,7 +1495,7 @@ class EDAEngine:
     impressions_raw_da = reach_raw_da * frequency_da
     impressions_raw_da.name = names.impressions
     impressions_raw_da.values = backend.cast(
-        impressions_raw_da.values, dtype=backend.float32
+        impressions_raw_da.values, dtype=backend.float_dtype
     )
 
     if self._is_national_data:
@@ -1525,7 +1545,7 @@ class EDAEngine:
       )
       national_frequency_da.name = names.national_frequency
       national_frequency_da.values = backend.cast(
-          national_frequency_da.values, dtype=backend.float32
+          national_frequency_da.values, dtype=backend.float_dtype
       )
 
       # Scale the impressions by population
@@ -1571,7 +1591,7 @@ class EDAEngine:
   def check_geo_pairwise_corr(
       self,
   ) -> eda_outcome.EDAOutcome[eda_outcome.PairwiseCorrArtifact]:
-    """Checks pairwise correlation among treatments and controls for geo data.
+    """Checks pairwise correlation for geo treatments and controls.
 
     Returns:
       An EDAOutcome object with findings and result values.
@@ -1586,18 +1606,19 @@ class EDAEngine:
       )
 
     findings = []
+    spec = self.spec.pairwise_corr_spec
 
     overall_corr_mat, overall_extreme_corr_var_pairs_df = (
         self._pairwise_corr_for_geo_data(
             dims=[constants.GEO, constants.TIME],
-            extreme_corr_threshold=eda_constants.OVERALL_PAIRWISE_CORR_THRESHOLD,
+            extreme_corr_threshold=spec.overall_threshold,
         )
     )
     overall_artifact = eda_outcome.PairwiseCorrArtifact(
         level=eda_outcome.AnalysisLevel.OVERALL,
         corr_matrix=overall_corr_mat,
         extreme_corr_var_pairs=overall_extreme_corr_var_pairs_df,
-        extreme_corr_threshold=eda_constants.OVERALL_PAIRWISE_CORR_THRESHOLD,
+        extreme_corr_threshold=spec.overall_threshold,
     )
 
     if not overall_extreme_corr_var_pairs_df.empty:
@@ -1619,7 +1640,7 @@ class EDAEngine:
     geo_corr_mat, geo_extreme_corr_var_pairs_df = (
         self._pairwise_corr_for_geo_data(
             dims=constants.TIME,
-            extreme_corr_threshold=eda_constants.GEO_PAIRWISE_CORR_THRESHOLD,
+            extreme_corr_threshold=spec.geo_threshold,
         )
     )
     # Pairs that cause overall level findings are very likely to cause geo
@@ -1634,7 +1655,7 @@ class EDAEngine:
         level=eda_outcome.AnalysisLevel.GEO,
         corr_matrix=geo_corr_mat,
         extreme_corr_var_pairs=geo_extreme_corr_var_pairs_df,
-        extreme_corr_threshold=eda_constants.GEO_PAIRWISE_CORR_THRESHOLD,
+        extreme_corr_threshold=spec.geo_threshold,
     )
 
     if not geo_df_for_attention.empty:
@@ -1672,25 +1693,26 @@ class EDAEngine:
   def check_national_pairwise_corr(
       self,
   ) -> eda_outcome.EDAOutcome[eda_outcome.PairwiseCorrArtifact]:
-    """Checks pairwise correlation among treatments and controls for national data.
+    """Checks pairwise correlation for national treatments and controls.
 
     Returns:
       An EDAOutcome object with findings and result values.
     """
     findings = []
+    spec = self.spec.pairwise_corr_spec
 
     corr_mat = _compute_correlation_matrix(
         self._stacked_national_treatment_control_scaled_da, dims=constants.TIME
     )
     extreme_corr_var_pairs_df = _find_extreme_corr_pairs(
-        corr_mat, eda_constants.NATIONAL_PAIRWISE_CORR_THRESHOLD
+        corr_mat, spec.national_threshold
     )
 
     artifact = eda_outcome.PairwiseCorrArtifact(
         level=eda_outcome.AnalysisLevel.NATIONAL,
         corr_matrix=corr_mat,
         extreme_corr_var_pairs=extreme_corr_var_pairs_df,
-        extreme_corr_threshold=eda_constants.NATIONAL_PAIRWISE_CORR_THRESHOLD,
+        extreme_corr_threshold=spec.national_threshold,
     )
 
     if not extreme_corr_var_pairs_df.empty:
@@ -1739,9 +1761,11 @@ class EDAEngine:
   def _check_std(
       self,
       data: xr.DataArray,
+      *,
       level: eda_outcome.AnalysisLevel,
       zero_std_message: str,
       outlier_message: str,
+      std_threshold: float,
   ) -> tuple[
       list[eda_outcome.EDAFinding], eda_outcome.StandardDeviationArtifact
   ]:
@@ -1758,8 +1782,7 @@ class EDAEngine:
 
     findings = []
     if (
-        std_ds[eda_constants.STD_WITHOUT_OUTLIERS_VAR_NAME]
-        < eda_constants.STD_THRESHOLD
+        std_ds[eda_constants.STD_WITHOUT_OUTLIERS_VAR_NAME] < std_threshold
     ).any():
       findings.append(
           eda_outcome.EDAFinding(
@@ -1809,11 +1832,13 @@ class EDAEngine:
         (
             self._stacked_treatment_control_scaled_da,
             (
-                'Some treatment or control variables have zero standard'
-                ' deviation after removing outliers in certain geo(s). Please'
-                ' review the input data. If these variables are sparse,'
-                ' consider combining them to mitigate potential model'
-                ' identifiability and convergence issues.'
+                'Some treatment or control variables show zero standard'
+                ' deviation in specific geo(s) after outlier removal. While'
+                " this may be intentional (e.g., data sparsity due to 'go dark'"
+                ' periods), it can impact model convergence and'
+                ' identifiability. Please verify if this is by design. If not,'
+                ' consider aggregating these variables to improve model'
+                ' stability.'
             ),
             (
                 'There are outliers in the scaled treatment or control'
@@ -1861,6 +1886,7 @@ class EDAEngine:
           data=data_da,
           zero_std_message=std_message,
           outlier_message=outlier_message,
+          std_threshold=self.spec.std_spec.geo_std_threshold,
       )
       artifacts.append(artifact)
       if current_findings:
@@ -1907,12 +1933,12 @@ class EDAEngine:
         (
             self._stacked_national_treatment_control_scaled_da,
             (
-                'The standard deviation of these scaled treatment or control'
-                ' variables drops from positive to zero after removing'
-                ' outliers. This indicates sparsity of these variables, which'
-                ' may cause model identifiability and convergence issues.'
-                ' Please review the input data, and/or consider combining these'
-                ' variables to mitigate sparsity.'
+                'Some treatment or control variables show zero standard'
+                ' deviation after outlier removal. While this may be'
+                " intentional (e.g., data sparsity due to 'go dark' periods),"
+                ' it can impact model convergence and identifiability. Please'
+                ' verify if this is by design. If not, consider aggregating'
+                ' these variables to improve model stability.'
             ),
             (
                 'There are outliers in the scaled treatment or control'
@@ -1957,6 +1983,7 @@ class EDAEngine:
           level=eda_outcome.AnalysisLevel.NATIONAL,
           zero_std_message=std_message,
           outlier_message=outlier_message,
+          std_threshold=self.spec.std_spec.national_std_threshold,
       )
       artifacts.append(artifact)
       if current_findings:
@@ -2009,8 +2036,13 @@ class EDAEngine:
     # Overall level VIF check for geo data.
     tc_da = self._stacked_treatment_control_scaled_da
     overall_threshold = self._spec.vif_spec.overall_threshold
+    std_threshold = self._spec.vif_spec.std_threshold
 
-    overall_vif_da = _calculate_vif(tc_da, eda_constants.VARIABLE)
+    overall_vif_da = _calculate_vif(
+        tc_da,
+        eda_constants.VARIABLE,
+        std_threshold,
+    )
     extreme_overall_vif_da = overall_vif_da.where(
         overall_vif_da > overall_threshold
     )
@@ -2027,7 +2059,7 @@ class EDAEngine:
     # Geo level VIF check.
     geo_threshold = self._spec.vif_spec.geo_threshold
     geo_vif_da = tc_da.groupby(constants.GEO).map(
-        lambda x: _calculate_vif(x, eda_constants.VARIABLE)
+        lambda x: _calculate_vif(x, eda_constants.VARIABLE, std_threshold)
     )
     extreme_geo_vif_da = geo_vif_da.where(geo_vif_da > geo_threshold)
     extreme_geo_vif_df = extreme_geo_vif_da.to_dataframe(
@@ -2115,7 +2147,12 @@ class EDAEngine:
     """
     national_tc_da = self._stacked_national_treatment_control_scaled_da
     national_threshold = self._spec.vif_spec.national_threshold
-    national_vif_da = _calculate_vif(national_tc_da, eda_constants.VARIABLE)
+    std_threshold = self._spec.vif_spec.std_threshold
+    national_vif_da = _calculate_vif(
+        national_tc_da,
+        eda_constants.VARIABLE,
+        std_threshold,
+    )
 
     extreme_national_vif_df = (
         national_vif_da.where(national_vif_da > national_threshold)
@@ -2184,7 +2221,7 @@ class EDAEngine:
     """Whether the KPI has variability across geos and times."""
     return (
         self._overall_scaled_kpi_invariability_artifact.kpi_stdev.item()
-        >= eda_constants.STD_THRESHOLD
+        >= self.spec.kpi_invariability_spec.std_threshold
     )
 
   def check_overall_kpi_invariability(
@@ -2476,4 +2513,48 @@ class EDAEngine:
         ds=xr.merge(to_merge, join='inner'),
         explanation=eda_constants.POPULATION_CORRELATION_RAW_MEDIA_INFO,
         check_name='check_population_corr_raw_media',
+    )
+
+  def check_data_param_ratio(
+      self,
+  ) -> eda_outcome.EDAOutcome[eda_outcome.DataParameterRatioArtifact]:
+    """Checks the ratio of data points to model parameters.
+
+    Returns:
+      An EDAOutcome object with findings and result values.
+    """
+    n_geos = self._model_context.n_geos
+    n_times = self._model_context.n_times
+    n_knots = self._model_context.knot_info.n_knots
+    n_controls = self._model_context.n_controls
+    n_treatments = (
+        self._model_context.n_media_channels
+        + self._model_context.n_rf_channels
+        + self._model_context.n_organic_media_channels
+        + self._model_context.n_organic_rf_channels
+        + self._model_context.n_non_media_channels
+    )
+
+    artifact = eda_outcome.DataParameterRatioArtifact(
+        level=eda_outcome.AnalysisLevel.OVERALL,
+        n_geos=n_geos,
+        n_times=n_times,
+        n_knots=n_knots,
+        n_controls=n_controls,
+        n_treatments=n_treatments,
+    )
+
+    findings = [
+        eda_outcome.EDAFinding(
+            severity=eda_outcome.EDASeverity.INFO,
+            explanation=eda_constants.DATA_ADEQUACY_INFO,
+            finding_cause=eda_outcome.FindingCause.NONE,
+            associated_artifact=artifact,
+        )
+    ]
+
+    return eda_outcome.EDAOutcome(
+        check_type=eda_outcome.EDACheckType.DATA_ADEQUACY,
+        findings=findings,
+        analysis_artifacts=[artifact],
     )

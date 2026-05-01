@@ -94,21 +94,21 @@ _iocs_endpoints = [
     "CreateIOC",
     "POST",
     "/indicators/entities/iocs/v1",
-    "Create a new IOC. *** Deprecated - Use the new IOC Management endpoint (POST /iocs/entities/indicators/v1). ***",
+    "Create a new IOC. *** Deprecated - Use the new IOC Management endpoint (indicator_create_v1). ***",
     "iocs",
     [
       {
         "description": "Create a new IOC by providing a JSON object that includes these key/value "
-        "pairs:\n\n**type** (required): The type of the indicator. Valid values:\n\n- sha256: A hex-encoded sha256 hash "
-        " string. Length - min: 64, max: 64.\n\n- md5: A hex-encoded md5 hash string. Length - min 32, max: 32.\n\n- "
-        "domain: A domain name. Length - min: 1, max: 200.\n\n- ipv4: An IPv4 address. Must be a valid IP address.\n\n-"
-        " ipv6: An IPv6 address. Must be a valid IP address.\n\n**value** (required): The string representation of the "
-        "indicator.\n\n**policy** (required): Action to take when a host observes the custom IOC. Values:\n\n- detect: "
-        "Enable detections for this custom IOC\n\n- none: Disable detections for this custom IOC\n\n**share_level** "
+        "pairs:\n\n**type** (required): The type of the indicator. Valid values:\n  sha256: A hex-encoded sha256 hash "
+        "string. Length - min: 64, max: 64.\n  md5: A hex-encoded md5 hash string. Length - min 32, max: 32.\n  domain: "
+        " A domain name. Length - min: 1, max: 200.\n  ipv4: An IPv4 address. Must be a valid IP address.\n  ipv6: An "
+        "IPv6 address. Must be a valid IP address.\n\n**value** (required): The string representation of the "
+        "indicator.\n\n**policy** (required): Action to take when a host observes the custom IOC. Values:\n  detect: "
+        "Enable detections for this custom IOC\n  none: Disable detections for this custom IOC\n\n**share_level** "
         "(optional): Visibility of this custom IOC. All custom IOCs are visible only within your customer account, so "
-        "only one value is valid:\n\n- red\n\n**expiration_days** (optional): Number of days this custom IOC is active. "
-        " Only applies for the types `domain`, `ipv4`, and `ipv6`.\n\n**source** (optional): The source where this "
-        "indicator originated. This can be used for tracking where this indicator was defined. Limit 200 "
+        "only one value is valid:\n  red\n\n**expiration_days** (optional): Number of days this custom IOC is active. "
+        "Only applies for the types domain, ipv4, and ipv6.\n\n**source** (optional): The source where this indicator "
+        "originated. This can be used for tracking where this indicator was defined. Limit 200 "
         "characters.\n\n**description** (optional): Descriptive label for this custom IOC",
         "name": "body",
         "in": "body",
@@ -179,7 +179,7 @@ _iocs_endpoints = [
     "DevicesRanOn",
     "GET",
     "/indicators/queries/devices/v1",
-    "Find hosts that have observed a given custom IOC. For details about those hosts, use GET /devices/entities/devices/v1",
+    "Find hosts that have observed a given custom IOC. For details about those hosts, use GetDeviceDetailsV2",
     "iocs",
     [
       {
@@ -220,7 +220,7 @@ _iocs_endpoints = [
     "GET",
     "/indicators/queries/iocs/v1",
     "Search the custom IOCs in your customer account. *** Deprecated - Use the new IOC Management endpoint "
-    "(GET /iocs/queries/indicators/v1). ***",
+    "(indicator_search_v1). ***",
     "iocs",
     [
       {

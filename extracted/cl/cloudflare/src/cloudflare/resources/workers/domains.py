@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Type, Optional, cast
+from typing import Type, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -20,7 +20,10 @@ from ..._wrappers import ResultWrapper
 from ...pagination import SyncSinglePage, AsyncSinglePage
 from ..._base_client import AsyncPaginator, make_request_options
 from ...types.workers import domain_list_params, domain_update_params
-from ...types.workers.domain import Domain
+from ...types.workers.domain_get_response import DomainGetResponse
+from ...types.workers.domain_list_response import DomainListResponse
+from ...types.workers.domain_delete_response import DomainDeleteResponse
+from ...types.workers.domain_update_response import DomainUpdateResponse
 
 __all__ = ["DomainsResource", "AsyncDomainsResource"]
 
@@ -49,30 +52,35 @@ class DomainsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        environment: str,
         hostname: str,
         service: str,
-        zone_id: str,
+        environment: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        zone_name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Optional[Domain]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DomainUpdateResponse:
         """
-        Attaches a Worker to a zone and hostname.
+        Attaches a domain that routes traffic to a Worker.
 
         Args:
-          account_id: Identifer of the account.
+          account_id: Identifier.
 
-          environment: Worker environment associated with the zone and hostname.
+          hostname: Hostname of the domain. Can be either the zone apex or a subdomain of the zone.
+              Requests to this hostname will be routed to the configured Worker.
 
-          hostname: Hostname of the Worker Domain.
+          service: Name of the Worker associated with the domain. Requests to the configured
+              hostname will be routed to this Worker.
 
-          service: Worker service associated with the zone and hostname.
+          environment: Worker environment associated with the domain.
 
-          zone_id: Identifier of the zone.
+          zone_id: ID of the zone containing the domain hostname.
+
+          zone_name: Name of the zone containing the domain hostname.
 
           extra_headers: Send extra headers
 
@@ -85,13 +93,14 @@ class DomainsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._put(
-            f"/accounts/{account_id}/workers/domains",
+            path_template("/accounts/{account_id}/workers/domains", account_id=account_id),
             body=maybe_transform(
                 {
-                    "environment": environment,
                     "hostname": hostname,
                     "service": service,
+                    "environment": environment,
                     "zone_id": zone_id,
+                    "zone_name": zone_name,
                 },
                 domain_update_params.DomainUpdateParams,
             ),
@@ -100,42 +109,42 @@ class DomainsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[Domain]]._unwrapper,
+                post_parser=ResultWrapper[DomainUpdateResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[Domain]], ResultWrapper[Domain]),
+            cast_to=cast(Type[DomainUpdateResponse], ResultWrapper[DomainUpdateResponse]),
         )
 
     def list(
         self,
         *,
         account_id: str,
-        environment: str | NotGiven = NOT_GIVEN,
-        hostname: str | NotGiven = NOT_GIVEN,
-        service: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        zone_name: str | NotGiven = NOT_GIVEN,
+        environment: str | Omit = omit,
+        hostname: str | Omit = omit,
+        service: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        zone_name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncSinglePage[Domain]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncSinglePage[DomainListResponse]:
         """
-        Lists all Worker Domains for an account.
+        Lists all domains for an account.
 
         Args:
-          account_id: Identifer of the account.
+          account_id: Identifier.
 
-          environment: Worker environment associated with the zone and hostname.
+          environment: Worker environment associated with the domain.
 
-          hostname: Hostname of the Worker Domain.
+          hostname: Hostname of the domain.
 
-          service: Worker service associated with the zone and hostname.
+          service: Name of the Worker associated with the domain.
 
-          zone_id: Identifier of the zone.
+          zone_id: ID of the zone containing the domain hostname.
 
-          zone_name: Name of the zone.
+          zone_name: Name of the zone containing the domain hostname.
 
           extra_headers: Send extra headers
 
@@ -148,8 +157,8 @@ class DomainsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workers/domains",
-            page=SyncSinglePage[Domain],
+            path_template("/accounts/{account_id}/workers/domains", account_id=account_id),
+            page=SyncSinglePage[DomainListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -166,7 +175,7 @@ class DomainsResource(SyncAPIResource):
                     domain_list_params.DomainListParams,
                 ),
             ),
-            model=Domain,
+            model=DomainListResponse,
         )
 
     def delete(
@@ -179,15 +188,17 @@ class DomainsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> None:
-        """
-        Detaches a Worker from a zone and hostname.
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DomainDeleteResponse:
+        """Detaches a domain from a Worker.
+
+        Both the Worker and all of its previews are no
+        longer routable using this domain.
 
         Args:
-          account_id: Identifer of the account.
+          account_id: Identifier.
 
-          domain_id: Identifer of the Worker Domain.
+          domain_id: ID of the domain.
 
           extra_headers: Send extra headers
 
@@ -201,13 +212,14 @@ class DomainsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not domain_id:
             raise ValueError(f"Expected a non-empty value for `domain_id` but received {domain_id!r}")
-        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/accounts/{account_id}/workers/domains/{domain_id}",
+            path_template(
+                "/accounts/{account_id}/workers/domains/{domain_id}", account_id=account_id, domain_id=domain_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=NoneType,
+            cast_to=DomainDeleteResponse,
         )
 
     def get(
@@ -220,15 +232,15 @@ class DomainsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Optional[Domain]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DomainGetResponse:
         """
-        Gets a Worker domain.
+        Gets information about a domain.
 
         Args:
-          account_id: Identifer of the account.
+          account_id: Identifier.
 
-          domain_id: Identifer of the Worker Domain.
+          domain_id: ID of the domain.
 
           extra_headers: Send extra headers
 
@@ -243,15 +255,17 @@ class DomainsResource(SyncAPIResource):
         if not domain_id:
             raise ValueError(f"Expected a non-empty value for `domain_id` but received {domain_id!r}")
         return self._get(
-            f"/accounts/{account_id}/workers/domains/{domain_id}",
+            path_template(
+                "/accounts/{account_id}/workers/domains/{domain_id}", account_id=account_id, domain_id=domain_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[Domain]]._unwrapper,
+                post_parser=ResultWrapper[DomainGetResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[Domain]], ResultWrapper[Domain]),
+            cast_to=cast(Type[DomainGetResponse], ResultWrapper[DomainGetResponse]),
         )
 
 
@@ -279,30 +293,35 @@ class AsyncDomainsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        environment: str,
         hostname: str,
         service: str,
-        zone_id: str,
+        environment: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        zone_name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Optional[Domain]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DomainUpdateResponse:
         """
-        Attaches a Worker to a zone and hostname.
+        Attaches a domain that routes traffic to a Worker.
 
         Args:
-          account_id: Identifer of the account.
+          account_id: Identifier.
 
-          environment: Worker environment associated with the zone and hostname.
+          hostname: Hostname of the domain. Can be either the zone apex or a subdomain of the zone.
+              Requests to this hostname will be routed to the configured Worker.
 
-          hostname: Hostname of the Worker Domain.
+          service: Name of the Worker associated with the domain. Requests to the configured
+              hostname will be routed to this Worker.
 
-          service: Worker service associated with the zone and hostname.
+          environment: Worker environment associated with the domain.
 
-          zone_id: Identifier of the zone.
+          zone_id: ID of the zone containing the domain hostname.
+
+          zone_name: Name of the zone containing the domain hostname.
 
           extra_headers: Send extra headers
 
@@ -315,13 +334,14 @@ class AsyncDomainsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/workers/domains",
+            path_template("/accounts/{account_id}/workers/domains", account_id=account_id),
             body=await async_maybe_transform(
                 {
-                    "environment": environment,
                     "hostname": hostname,
                     "service": service,
+                    "environment": environment,
                     "zone_id": zone_id,
+                    "zone_name": zone_name,
                 },
                 domain_update_params.DomainUpdateParams,
             ),
@@ -330,42 +350,42 @@ class AsyncDomainsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[Domain]]._unwrapper,
+                post_parser=ResultWrapper[DomainUpdateResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[Domain]], ResultWrapper[Domain]),
+            cast_to=cast(Type[DomainUpdateResponse], ResultWrapper[DomainUpdateResponse]),
         )
 
     def list(
         self,
         *,
         account_id: str,
-        environment: str | NotGiven = NOT_GIVEN,
-        hostname: str | NotGiven = NOT_GIVEN,
-        service: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        zone_name: str | NotGiven = NOT_GIVEN,
+        environment: str | Omit = omit,
+        hostname: str | Omit = omit,
+        service: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        zone_name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[Domain, AsyncSinglePage[Domain]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[DomainListResponse, AsyncSinglePage[DomainListResponse]]:
         """
-        Lists all Worker Domains for an account.
+        Lists all domains for an account.
 
         Args:
-          account_id: Identifer of the account.
+          account_id: Identifier.
 
-          environment: Worker environment associated with the zone and hostname.
+          environment: Worker environment associated with the domain.
 
-          hostname: Hostname of the Worker Domain.
+          hostname: Hostname of the domain.
 
-          service: Worker service associated with the zone and hostname.
+          service: Name of the Worker associated with the domain.
 
-          zone_id: Identifier of the zone.
+          zone_id: ID of the zone containing the domain hostname.
 
-          zone_name: Name of the zone.
+          zone_name: Name of the zone containing the domain hostname.
 
           extra_headers: Send extra headers
 
@@ -378,8 +398,8 @@ class AsyncDomainsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workers/domains",
-            page=AsyncSinglePage[Domain],
+            path_template("/accounts/{account_id}/workers/domains", account_id=account_id),
+            page=AsyncSinglePage[DomainListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -396,7 +416,7 @@ class AsyncDomainsResource(AsyncAPIResource):
                     domain_list_params.DomainListParams,
                 ),
             ),
-            model=Domain,
+            model=DomainListResponse,
         )
 
     async def delete(
@@ -409,15 +429,17 @@ class AsyncDomainsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> None:
-        """
-        Detaches a Worker from a zone and hostname.
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DomainDeleteResponse:
+        """Detaches a domain from a Worker.
+
+        Both the Worker and all of its previews are no
+        longer routable using this domain.
 
         Args:
-          account_id: Identifer of the account.
+          account_id: Identifier.
 
-          domain_id: Identifer of the Worker Domain.
+          domain_id: ID of the domain.
 
           extra_headers: Send extra headers
 
@@ -431,13 +453,14 @@ class AsyncDomainsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not domain_id:
             raise ValueError(f"Expected a non-empty value for `domain_id` but received {domain_id!r}")
-        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/accounts/{account_id}/workers/domains/{domain_id}",
+            path_template(
+                "/accounts/{account_id}/workers/domains/{domain_id}", account_id=account_id, domain_id=domain_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=NoneType,
+            cast_to=DomainDeleteResponse,
         )
 
     async def get(
@@ -450,15 +473,15 @@ class AsyncDomainsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Optional[Domain]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DomainGetResponse:
         """
-        Gets a Worker domain.
+        Gets information about a domain.
 
         Args:
-          account_id: Identifer of the account.
+          account_id: Identifier.
 
-          domain_id: Identifer of the Worker Domain.
+          domain_id: ID of the domain.
 
           extra_headers: Send extra headers
 
@@ -473,15 +496,17 @@ class AsyncDomainsResource(AsyncAPIResource):
         if not domain_id:
             raise ValueError(f"Expected a non-empty value for `domain_id` but received {domain_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/workers/domains/{domain_id}",
+            path_template(
+                "/accounts/{account_id}/workers/domains/{domain_id}", account_id=account_id, domain_id=domain_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[Domain]]._unwrapper,
+                post_parser=ResultWrapper[DomainGetResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[Domain]], ResultWrapper[Domain]),
+            cast_to=cast(Type[DomainGetResponse], ResultWrapper[DomainGetResponse]),
         )
 
 

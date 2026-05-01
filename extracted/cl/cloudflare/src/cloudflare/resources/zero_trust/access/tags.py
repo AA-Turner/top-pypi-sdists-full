@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -17,9 +17,9 @@ from ...._response import (
     async_to_streamed_response_wrapper,
 )
 from ...._wrappers import ResultWrapper
-from ....pagination import SyncSinglePage, AsyncSinglePage
+from ....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ...._base_client import AsyncPaginator, make_request_options
-from ....types.zero_trust.access import tag_create_params, tag_update_params
+from ....types.zero_trust.access import tag_list_params, tag_create_params, tag_update_params
 from ....types.zero_trust.access.tag import Tag
 from ....types.zero_trust.access.tag_delete_response import TagDeleteResponse
 
@@ -50,13 +50,13 @@ class TagsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Tag]:
         """
         Create a tag
@@ -77,7 +77,7 @@ class TagsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/access/tags",
+            path_template("/accounts/{account_id}/access/tags", account_id=account_id),
             body=maybe_transform({"name": name}, tag_create_params.TagCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -100,7 +100,7 @@ class TagsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Tag]:
         """
         Update a tag
@@ -125,7 +125,7 @@ class TagsResource(SyncAPIResource):
         if not tag_name:
             raise ValueError(f"Expected a non-empty value for `tag_name` but received {tag_name!r}")
         return self._put(
-            f"/accounts/{account_id}/access/tags/{tag_name}",
+            path_template("/accounts/{account_id}/access/tags/{tag_name}", account_id=account_id, tag_name=tag_name),
             body=maybe_transform({"name": name}, tag_update_params.TagUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -141,18 +141,24 @@ class TagsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncSinglePage[Tag]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncV4PagePaginationArray[Tag]:
         """
         List tags
 
         Args:
           account_id: Identifier.
+
+          page: Page number of results.
+
+          per_page: Number of results per page.
 
           extra_headers: Send extra headers
 
@@ -165,10 +171,20 @@ class TagsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/access/tags",
-            page=SyncSinglePage[Tag],
+            path_template("/accounts/{account_id}/access/tags", account_id=account_id),
+            page=SyncV4PagePaginationArray[Tag],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "page": page,
+                        "per_page": per_page,
+                    },
+                    tag_list_params.TagListParams,
+                ),
             ),
             model=Tag,
         )
@@ -183,7 +199,7 @@ class TagsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TagDeleteResponse]:
         """
         Delete a tag
@@ -206,7 +222,7 @@ class TagsResource(SyncAPIResource):
         if not tag_name:
             raise ValueError(f"Expected a non-empty value for `tag_name` but received {tag_name!r}")
         return self._delete(
-            f"/accounts/{account_id}/access/tags/{tag_name}",
+            path_template("/accounts/{account_id}/access/tags/{tag_name}", account_id=account_id, tag_name=tag_name),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -227,7 +243,7 @@ class TagsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Tag]:
         """
         Get a tag
@@ -250,7 +266,7 @@ class TagsResource(SyncAPIResource):
         if not tag_name:
             raise ValueError(f"Expected a non-empty value for `tag_name` but received {tag_name!r}")
         return self._get(
-            f"/accounts/{account_id}/access/tags/{tag_name}",
+            path_template("/accounts/{account_id}/access/tags/{tag_name}", account_id=account_id, tag_name=tag_name),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -286,13 +302,13 @@ class AsyncTagsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Tag]:
         """
         Create a tag
@@ -313,7 +329,7 @@ class AsyncTagsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/access/tags",
+            path_template("/accounts/{account_id}/access/tags", account_id=account_id),
             body=await async_maybe_transform({"name": name}, tag_create_params.TagCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -336,7 +352,7 @@ class AsyncTagsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Tag]:
         """
         Update a tag
@@ -361,7 +377,7 @@ class AsyncTagsResource(AsyncAPIResource):
         if not tag_name:
             raise ValueError(f"Expected a non-empty value for `tag_name` but received {tag_name!r}")
         return await self._put(
-            f"/accounts/{account_id}/access/tags/{tag_name}",
+            path_template("/accounts/{account_id}/access/tags/{tag_name}", account_id=account_id, tag_name=tag_name),
             body=await async_maybe_transform({"name": name}, tag_update_params.TagUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -377,18 +393,24 @@ class AsyncTagsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[Tag, AsyncSinglePage[Tag]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[Tag, AsyncV4PagePaginationArray[Tag]]:
         """
         List tags
 
         Args:
           account_id: Identifier.
+
+          page: Page number of results.
+
+          per_page: Number of results per page.
 
           extra_headers: Send extra headers
 
@@ -401,10 +423,20 @@ class AsyncTagsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/access/tags",
-            page=AsyncSinglePage[Tag],
+            path_template("/accounts/{account_id}/access/tags", account_id=account_id),
+            page=AsyncV4PagePaginationArray[Tag],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "page": page,
+                        "per_page": per_page,
+                    },
+                    tag_list_params.TagListParams,
+                ),
             ),
             model=Tag,
         )
@@ -419,7 +451,7 @@ class AsyncTagsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TagDeleteResponse]:
         """
         Delete a tag
@@ -442,7 +474,7 @@ class AsyncTagsResource(AsyncAPIResource):
         if not tag_name:
             raise ValueError(f"Expected a non-empty value for `tag_name` but received {tag_name!r}")
         return await self._delete(
-            f"/accounts/{account_id}/access/tags/{tag_name}",
+            path_template("/accounts/{account_id}/access/tags/{tag_name}", account_id=account_id, tag_name=tag_name),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -463,7 +495,7 @@ class AsyncTagsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Tag]:
         """
         Get a tag
@@ -486,7 +518,7 @@ class AsyncTagsResource(AsyncAPIResource):
         if not tag_name:
             raise ValueError(f"Expected a non-empty value for `tag_name` but received {tag_name!r}")
         return await self._get(
-            f"/accounts/{account_id}/access/tags/{tag_name}",
+            path_template("/accounts/{account_id}/access/tags/{tag_name}", account_id=account_id, tag_name=tag_name),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

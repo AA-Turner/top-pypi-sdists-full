@@ -10,18 +10,23 @@ __all__ = ["RuleUpdateParams", "Rule"]
 
 class RuleUpdateParams(TypedDict, total=False):
     zone_id: Required[str]
-    """Identifier"""
+    """Use this field to specify the unique ID of the zone."""
 
-    rules: Iterable[Rule]
-    """List of snippet rules"""
+    rules: Required[Iterable[Rule]]
+    """Lists snippet rules."""
 
 
 class Rule(TypedDict, total=False):
+    """Define a snippet rule."""
+
+    expression: Required[str]
+    """Define the expression that determines which traffic matches the rule."""
+
+    snippet_name: Required[str]
+    """Identify the snippet."""
+
     description: str
+    """Provide an informative description of the rule."""
 
     enabled: bool
-
-    expression: str
-
-    snippet_name: str
-    """Snippet identifying name"""
+    """Indicate whether to execute the rule."""

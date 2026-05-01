@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: devpi-server
-Version: 6.19.3
+Version: 6.20.0
 Summary: devpi-server: backend for hosting private package indexes and PyPI on-demand mirrors
 Maintainer-email: Florian Schulze <mail@pyfidelity.com>
 License-Expression: MIT
@@ -121,6 +121,20 @@ Changelog
 
 .. towncrier release notes start
 
+6.20.0 (2026-04-30)
+===================
+
+Features
+--------
+
+- Add experimental bare bones core-metadata ([PEP 658](https://peps.python.org/pep-0658/), [PEP 714](https://peps.python.org/pep-0714/)) support with ``--enable-core-metadata`` command line option and ``mirror_provides_core_metadata`` mirror index option. Refs #1018
+
+Bug Fixes
+---------
+
+- Update replica status when the replica is waiting for new serials using the streaming changelog endpoint.
+
+
 6.19.3 (2026-04-13)
 ===================
 
@@ -192,35 +206,4 @@ Bug Fixes
 - Fix removal with ``-=`` of index options with default values from ``devpiserver_indexconfig_defaults`` hooks.
 
 - Fix #1110: a list for the ``listen`` option in a config file stopped working in 6.18.0.
-
-
-6.18.0 (2026-01-27)
-===================
-
-Features
---------
-
-- Store all available hashes of files.
-
-- Validate hashes of all files during devpi-import, not only releases.
-
-Bug Fixes
----------
-
-- Apply argparse transformations on values read from config file or environment.
-
-- Restore Python and platform info in user agent string after switch to httpx.
-
-- Remove all database entries on project deletion instead of only emptying them.
-
-- Fix error at end of replica streaming caused by changed behavior from switch to httpx.
-
-- Fix #1102: The data stream was cut off after 64k when proxying from replica to primary after switching to httpx.
-
-- Fix #1107: retry file downloads if there has been an error during download.
-
-Other Changes
--------------
-
-- The filenames of some exported doczip files change due to normalization of the project name caused by changing the internals during export to allow ``--hard-links`` to work.
 

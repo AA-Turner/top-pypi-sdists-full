@@ -1,12 +1,12 @@
 [package]
 name = "temporalio-sdk"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 authors = ["Spencer Judge <spencer@temporal.io>"]
 license-file = { workspace = true }
 description = "Temporal Rust SDK"
 homepage = "https://temporal.io/"
-repository = "https://github.com/temporalio/sdk-core"
+repository = "https://github.com/temporalio/sdk-rust"
 keywords = ["temporal", "workflow"]
 categories = ["development-tools"]
 readme = "README.md"
@@ -21,38 +21,39 @@ futures-util = { version = "0.3", default-features = false, features = [
   "async-await-macro",
 ] }
 gethostname = "1.0.2"
-parking_lot = { version = "0.12", features = ["send_guard"] }
+parking_lot = { version = "0.12" }
 prost-types = { workspace = true }
 serde = "1.0"
 thiserror = "2"
-tokio = { version = "1.47", features = [
+tokio = { version = "1.47", default-features = false, features = [
   "rt",
   "rt-multi-thread",
   "parking_lot",
   "time",
   "fs",
+  "macros",
 ] }
 tokio-util = { version = "0.7" }
-tokio-stream = "0.1"
+tokio-stream = { version = "0.1", default-features = false }
 tracing = "0.1"
-uuid = { version = "1.18", features = ["v4"] }
+uuid = { version = "1.18", default-features = false, features = ["v4"] }
 
 [dependencies.temporalio-sdk-core]
 path = "../sdk-core"
-version = "0.2"
+version = "0.3"
 default-features = false
 
 [dependencies.temporalio-common]
 path = "../common"
-version = "0.2"
+version = "0.3"
 
 [dependencies.temporalio-client]
 path = "../client"
-version = "0.2"
+version = "0.3"
 
 [dependencies.temporalio-macros]
 path = "../macros"
-version = "0.2"
+version = "0.3"
 
 [dev-dependencies]
 futures = "0.3"

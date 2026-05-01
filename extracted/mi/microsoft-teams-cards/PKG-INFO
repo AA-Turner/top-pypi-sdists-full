@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-teams-cards
-Version: 2.0.0a78
+Version: 2.0.0
 Summary: Cards package for Microsoft Teams
 Project-URL: Homepage, https://github.com/microsoft/teams.py/tree/main/packages/cards/src/microsoft/teams/cards
 Author-email: Microsoft <TeamsAISDKFeedback@microsoft.com>
@@ -8,9 +8,6 @@ License-Expression: MIT
 Keywords: agents,ai,bot,microsoft,teams
 Requires-Python: <3.15,>=3.12
 Description-Content-Type: text/markdown
-
-> [!CAUTION]
-> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
 
 # Microsoft Teams Cards
 

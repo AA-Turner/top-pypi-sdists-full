@@ -17,11 +17,11 @@ class ServerVariable(ObjectExtended):
     description: str | None = Field(default=None)
 
     @model_validator(mode="after")
-    def validate_ServerVariable(cls, s: "ServerVariable"):
-        assert isinstance(s.enum, (list, None.__class__))
+    def validate_ServerVariable(self):
+        assert isinstance(self.enum, (list, None.__class__))
         # default value must be in enum
-        assert s.default is None or s.default in (s.enum or [s.default])
-        return s
+        assert self.default is None or self.default in (self.enum or [self.default])
+        return self
 
 
 class Server(ObjectExtended):
@@ -38,7 +38,7 @@ class Server(ObjectExtended):
     @model_validator(mode="after")
     def validate_server_url_parameters(self) -> "Server":
         if (p := frozenset(re.findall(r"\{([^\}]+)\}", self.url))) != (r := frozenset(self.variables.keys())):
-            raise ValueError(f"Missing Server Variables {sorted(p-r)} in {self.url}")
+            raise ValueError(f"Missing Server Variables {sorted(p - r)} in {self.url}")
         return self
 
     def validate_parameter_enum(self, parameters: dict[str, str]):

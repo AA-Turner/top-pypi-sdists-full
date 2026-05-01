@@ -9,6 +9,8 @@ __all__ = ["AppListResponse", "MagicAccountApp", "MagicManagedApp"]
 
 
 class MagicAccountApp(BaseModel):
+    """Custom app defined for an account."""
+
     account_app_id: str
     """Magic account app ID."""
 
@@ -24,11 +26,19 @@ class MagicAccountApp(BaseModel):
     name: Optional[str] = None
     """Display name for the app."""
 
+    source_subnets: Optional[List[str]] = None
+    """IPv4 CIDRs to associate with traffic decisions.
+
+    (IPv6 CIDRs are currently unsupported)
+    """
+
     type: Optional[str] = None
     """Category of the app."""
 
 
 class MagicManagedApp(BaseModel):
+    """Managed app defined by Cloudflare."""
+
     managed_app_id: str
     """Managed app ID."""
 
@@ -43,6 +53,12 @@ class MagicManagedApp(BaseModel):
 
     name: Optional[str] = None
     """Display name for the app."""
+
+    source_subnets: Optional[List[str]] = None
+    """IPv4 CIDRs to associate with traffic decisions.
+
+    (IPv6 CIDRs are currently unsupported)
+    """
 
     type: Optional[str] = None
     """Category of the app."""

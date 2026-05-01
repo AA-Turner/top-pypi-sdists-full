@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Iterable, Optional, Tuple, Union, cast
+from warnings import warn
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -11,28 +12,26 @@ from mapie.conformity_scores import BaseRegressionScore
 from mapie.regression.regression import _MapieRegressor
 from mapie.utils import (
     _check_alpha,
-    _check_gamma,
     _transform_confidence_level_to_alpha_list,
     check_is_fitted,
 )
-from warnings import warn
 
 
 class TimeSeriesRegressor(_MapieRegressor):
     """
     Prediction intervals with out-of-fold residuals for time series.
-    This class only has two valid ``method`` : ``"enbpi"`` or ``"aci"``
+    This class only has two valid `method` : `"enbpi"` or `"aci"`
 
     The prediction intervals are calibrated on a split of the trained data.
     Both strategies are estimating prediction intervals
     on single-output time series.
 
-    EnbPI allows you to update conformal scores using the ``update``
+    EnbPI allows you to update conformal scores using the `update`
     function. It will replace the oldest one with the newest scores.
     It will keep the same amount of total scores
 
-    Actually, EnbPI only corresponds to ``TimeSeriesRegressor`` if the
-    ``cv`` argument is of type ``BlockBootstrap``.
+    Actually, EnbPI only corresponds to `TimeSeriesRegressor` if the
+    `cv` argument is of type `BlockBootstrap`.
 
     The ACI strategy allows you to adapt the conformal inference
     (i.e the quantile). If the real values are not in the coverage,
@@ -102,14 +101,14 @@ class TimeSeriesRegressor(_MapieRegressor):
 
         ensemble: bool
             Boolean determining whether the predictions are ensembled or not.
-            If ``False``, predictions are those of the model trained on the
+            If `False`, predictions are those of the model trained on the
             whole training set.
-            If ``True``, predictions from perturbed models are aggregated by
-            the aggregation function specified in the ``agg_function``
+            If `True`, predictions from perturbed models are aggregated by
+            the aggregation function specified in the `agg_function`
             attribute.
-            If ``cv`` is ``"prefit"`` or ``"split"``, ``ensemble`` is ignored.
+            If `cv` is `"prefit"` or `"split"`, `ensemble` is ignored.
 
-            By default ``False``.
+            By default `False`.
 
         Returns
         -------
@@ -128,9 +127,9 @@ class TimeSeriesRegressor(_MapieRegressor):
         ensemble: bool = False,
     ) -> TimeSeriesRegressor:
         """
-        Update the ``conformity_scores_`` attribute when new data with known
+        Update the `conformity_scores_` attribute when new data with known
         labels are available.
-        Note: Don't use ``_update_conformity_scores_with_ensemble`` with samples of the training set.
+        Note: Don't use `_update_conformity_scores_with_ensemble` with samples of the training set.
 
         Parameters
         ----------
@@ -142,14 +141,14 @@ class TimeSeriesRegressor(_MapieRegressor):
 
         ensemble: bool
             Boolean determining whether the predictions are ensembled or not.
-            If ``False``, predictions are those of the model trained on the
+            If `False`, predictions are those of the model trained on the
             whole training set.
-            If ``True``, predictions from perturbed models are aggregated by
-            the aggregation function specified in the ``agg_function``
+            If `True`, predictions from perturbed models are aggregated by
+            the aggregation function specified in the `agg_function`
             attribute.
-            If ``cv`` is ``"prefit"`` or ``"split"``, ``ensemble`` is ignored.
+            If `cv` is `"prefit"` or `"split"`, `ensemble` is ignored.
 
-            By default ``False``.
+            By default `False`.
 
         Returns
         -------
@@ -159,7 +158,7 @@ class TimeSeriesRegressor(_MapieRegressor):
         Raises
         ------
         ValueError
-            If the length of ``y`` is greater than
+            If the length of `y` is greater than
             the length of the training set.
         """
         check_is_fitted(self)
@@ -179,6 +178,23 @@ class TimeSeriesRegressor(_MapieRegressor):
         self.conformity_scores_[-len(new_conformity_scores_) :] = new_conformity_scores_
         return self
 
+    @staticmethod
+    def _check_gamma(gamma: float) -> None:
+        """
+        Check if gamma is between 0 and 1.
+
+        Parameters
+        ----------
+        gamma: float
+
+        Raises
+        ------
+        ValueError
+            If gamma is lower than 0 or higher than 1.
+        """
+        if (gamma < 0) or (gamma > 1):
+            raise ValueError("Invalid gamma. Allowed values are between 0 and 1.")
+
     def _get_alpha(
         self, alpha: Optional[Union[float, Iterable[float]]] = None, reset: bool = False
     ) -> Optional[NDArray]:
@@ -194,10 +210,10 @@ class TimeSeriesRegressor(_MapieRegressor):
         Parameters
         ----------
         alpha: Optional[NDArray]
-            Between ``0`` and ``1``, represents the uncertainty of the
+            Between `0` and `1`, represents the uncertainty of the
             confidence interval.
 
-            By default ``None``.
+            By default `None`.
 
         reset: bool
             Flag indicating whether to reset the current alpha value(s).
@@ -230,7 +246,7 @@ class TimeSeriesRegressor(_MapieRegressor):
         optimize_beta: bool = False,
     ) -> TimeSeriesRegressor:
         """
-        Adapt the ``alpha_t`` attribute when new data with known
+        Adapt the `alpha_t` attribute when new data with known
         labels are available.
 
         Parameters
@@ -243,28 +259,28 @@ class TimeSeriesRegressor(_MapieRegressor):
 
         ensemble: bool
             Boolean determining whether the predictions are ensembled or not.
-            If ``False``, predictions are those of the model trained on the
+            If `False`, predictions are those of the model trained on the
             whole training set.
-            If ``True``, predictions from perturbed models are aggregated by
-            the aggregation function specified in the ``agg_function``
+            If `True`, predictions from perturbed models are aggregated by
+            the aggregation function specified in the `agg_function`
             attribute.
-            If ``cv`` is ``"prefit"`` or ``"split"``, ``ensemble`` is ignored.
+            If `cv` is `"prefit"` or `"split"`, `ensemble` is ignored.
 
-            By default ``False``.
+            By default `False`.
 
         gamma: float
             Coefficient that decides the correction of the conformal inference.
             If it equals 0, there are no corrections.
 
         confidence_level: Optional[Union[float, Iterable[float]]]
-            Between ``0`` and ``1``, represents the confidence level of the interval.
+            Between `0` and `1`, represents the confidence level of the interval.
 
-            By default ``None``.
+            By default `None`.
 
         optimize_beta: bool
             Whether to optimize the PIs' width or not.
 
-            By default ``False``.
+            By default `False`.
 
         Returns
         -------
@@ -274,7 +290,7 @@ class TimeSeriesRegressor(_MapieRegressor):
         Raises
         ------
         ValueError
-            If the length of ``y`` is greater than
+            If the length of `y` is greater than
             the length of the training set.
         """
         if self.method != "aci":
@@ -284,7 +300,7 @@ class TimeSeriesRegressor(_MapieRegressor):
             )
 
         check_is_fitted(self)
-        _check_gamma(gamma)
+        self._check_gamma(gamma)
         X, y = cast(NDArray, X), cast(NDArray, y)
 
         self._get_alpha()
@@ -337,33 +353,33 @@ class TimeSeriesRegressor(_MapieRegressor):
 
         ensemble: bool
             Boolean determining whether the predictions are ensembled or not.
-            If ``False``, predictions are those of the model trained on the
+            If `False`, predictions are those of the model trained on the
             whole training set.
-            If ``True``, predictions from perturbed models are aggregated by
-            the aggregation function specified in the ``agg_function``
+            If `True`, predictions from perturbed models are aggregated by
+            the aggregation function specified in the `agg_function`
             attribute.
-            If ``cv`` is ``"prefit"`` or ``"split"``, ``ensemble`` is ignored.
+            If `cv` is `"prefit"` or `"split"`, `ensemble` is ignored.
 
-            By default ``False``.
+            By default `False`.
 
         confidence_level: Optional[Union[float, Iterable[float]]]
             (deprecated)
-            Between ``0`` and ``1``, represents the confidence level of the interval.
+            Between `0` and `1`, represents the confidence level of the interval.
 
-            By default ``None``.
+            By default `None`.
 
         gamma: float
             (deprecated)
             Coefficient that decides the correction of the conformal inference.
             If it equals 0, there are no corrections.
 
-            By default ``0.``.
+            By default `0.`.
 
         optimize_beta: bool
             (deprecated)
             Whether to optimize the PIs' width or not.
 
-            By default ``False``.
+            By default `False`.
 
         Returns
         -------
@@ -373,7 +389,7 @@ class TimeSeriesRegressor(_MapieRegressor):
         Raises
         ------
         ValueError
-            If the length of ``y`` is greater than
+            If the length of `y` is greater than
             the length of the training set.
         """
         warn("""
@@ -411,24 +427,24 @@ class TimeSeriesRegressor(_MapieRegressor):
 
         ensemble: bool
             Boolean determining whether the predictions are ensembled or not.
-            If ``False``, predictions are those of the model trained on the
+            If `False`, predictions are those of the model trained on the
             whole training set.
-            If ``True``, predictions from perturbed models are aggregated by
-            the aggregation function specified in the ``agg_function``
+            If `True`, predictions from perturbed models are aggregated by
+            the aggregation function specified in the `agg_function`
             attribute.
-            If ``cv`` is ``"prefit"`` or ``"split"``, ``ensemble`` is ignored.
+            If `cv` is `"prefit"` or `"split"`, `ensemble` is ignored.
 
-            By default ``False``.
+            By default `False`.
 
         confidence_level: Optional[Union[float, Iterable[float]]]
-            Between ``0`` and ``1``, represents the confidence level of the interval.
+            Between `0` and `1`, represents the confidence level of the interval.
 
-            By default ``None``.
+            By default `None`.
 
         optimize_beta: bool
             Whether to optimize the PIs' width or not.
 
-            By default ``False``.
+            By default `False`.
 
         allow_infinite_bounds: bool
             Allow infinite prediction intervals to be produced.
@@ -439,9 +455,9 @@ class TimeSeriesRegressor(_MapieRegressor):
         Returns
         -------
         Union[NDArray, Tuple[NDArray, NDArray]]
-            - NDArray of shape (n_samples,) if ``alpha`` is ``None``.
+            - NDArray of shape (n_samples,) if `alpha` is `None`.
             - Tuple[NDArray, NDArray] of shapes (n_samples,) and
-              (n_samples, 2, n_alpha) if ``alpha`` is not ``None``.
+              (n_samples, 2, n_alpha) if `alpha` is not `None`.
               - [:, 0, :]: Lower bound of the prediction interval.
               - [:, 1, :]: Upper bound of the prediction interval.
         """

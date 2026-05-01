@@ -149,6 +149,27 @@ def test_secrets_override(monkeypatch):
 
 
 @moto.mock_aws()
+def test_repository_credentials_override(monkeypatch):
+    repository_credentials_arn = (
+        "arn:aws:secretsmanager:us-west-2:111122223333:secret:fake-registry-creds-AbCdEf"
+    )
+    with ecs_instance(
+        monkeypatch, {"repository_credentials": repository_credentials_arn}
+    ) as instance:
+        assert (
+            instance.user_code_launcher.repository_credentials  # pyright: ignore[reportAttributeAccessIssue]
+            == repository_credentials_arn
+        )
+        assert instance.run_launcher.repository_credentials == repository_credentials_arn  # pyright: ignore[reportAttributeAccessIssue]
+
+        run_launcher_kwargs = instance.user_code_launcher._run_launcher_kwargs()  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        assert (
+            run_launcher_kwargs["task_definition"]["repository_credentials"]
+            == repository_credentials_arn
+        )
+
+
+@moto.mock_aws()
 def test_empty_secrets(monkeypatch):
     with ecs_instance(monkeypatch, {"secrets": [], "secrets_tag": None}) as instance:
         assert instance.user_code_launcher.secrets == []  # pyright: ignore[reportAttributeAccessIssue]
@@ -312,6 +333,82 @@ def test_cannot_set_system_tags(monkeypatch):
                 location_name="test_location",
                 desired_entry=UserCodeLauncherEntry(metadata_with_container_context, time.time()),
             )
+
+
+@moto.mock_aws()
+def test_repository_credentials_from_launcher_spinup(monkeypatch):
+    repository_credentials_arn = (
+        "arn:aws:secretsmanager:us-west-2:111122223333:secret:fake-registry-creds-AbCdEf"
+    )
+    with ecs_instance(
+        monkeypatch, {"repository_credentials": repository_credentials_arn}
+    ) as instance:
+        fake_client = mock.MagicMock()
+        fake_client.create_service = mock.MagicMock(
+            return_value=Service(
+                client=fake_client,
+                arn="arn:aws:ecs::us-west-2:123456:service/my-cluster-name/my-service-name",
+            )
+        )
+
+        instance.user_code_launcher.client = fake_client  # pyright: ignore[reportAttributeAccessIssue]
+
+        instance.user_code_launcher._wait_for_dagster_server_process = mock.MagicMock(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+            return_value=None
+        )  # fmt: skip
+
+        metadata = CodeLocationDeployData(
+            image="foo_image",
+            python_file="repo.py",
+        )
+
+        instance.user_code_launcher._start_new_server_spinup(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+            deployment_name="sandbox",
+            location_name="test_location",
+            desired_entry=UserCodeLauncherEntry(metadata, time.time()),
+        )
+
+        instance.user_code_launcher.client.create_service.assert_called_once()  # pyright: ignore[reportAttributeAccessIssue]
+        _args, kwargs = instance.user_code_launcher.client.create_service.call_args  # pyright: ignore[reportAttributeAccessIssue]
+        assert kwargs["repository_credentials"] == repository_credentials_arn
+
+    # container_context value overrides launcher-level value
+    container_context_creds = (
+        "arn:aws:secretsmanager:us-west-2:111122223333:secret:override-creds-XyZ"
+    )
+    with ecs_instance(
+        monkeypatch, {"repository_credentials": repository_credentials_arn}
+    ) as instance:
+        fake_client = mock.MagicMock()
+        fake_client.create_service = mock.MagicMock(
+            return_value=Service(
+                client=fake_client,
+                arn="arn:aws:ecs::us-west-2:123456:service/my-cluster-name/my-service-name",
+            )
+        )
+
+        instance.user_code_launcher.client = fake_client  # pyright: ignore[reportAttributeAccessIssue]
+
+        instance.user_code_launcher._wait_for_dagster_server_process = mock.MagicMock(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+            return_value=None
+        )  # fmt: skip
+
+        metadata = CodeLocationDeployData(
+            image="foo_image",
+            python_file="repo.py",
+            container_context={
+                "ecs": {"repository_credentials": container_context_creds},
+            },
+        )
+
+        instance.user_code_launcher._start_new_server_spinup(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+            deployment_name="sandbox",
+            location_name="test_location",
+            desired_entry=UserCodeLauncherEntry(metadata, time.time()),
+        )
+
+        _args, kwargs = instance.user_code_launcher.client.create_service.call_args  # pyright: ignore[reportAttributeAccessIssue]
+        assert kwargs["repository_credentials"] == container_context_creds
 
 
 @moto.mock_aws()

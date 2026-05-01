@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: interface_meta
-Version: 2.0.0
+Version: 2.0.1
 Summary: `interface_meta` provides a convenient way to expose an extensible API with enforced method signatures and consistent documentation.
 Project-URL: Homepage, https://github.com/matthewwardrop/interface_meta
 Project-URL: Repository, https://github.com/matthewwardrop/interface_meta

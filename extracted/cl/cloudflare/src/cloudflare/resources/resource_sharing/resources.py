@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -58,16 +58,22 @@ class ResourcesResource(SyncAPIResource):
         meta: object,
         resource_account_id: str,
         resource_id: str,
-        resource_type: Literal["custom-ruleset", "widget"],
+        resource_type: Literal[
+            "custom-ruleset",
+            "gateway-policy",
+            "gateway-destination-ip",
+            "gateway-block-page-settings",
+            "gateway-extended-email-matching",
+        ],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ResourceCreateResponse]:
         """
-        Create a new share resource
+        Adds a resource to an existing share, making it available to share recipients.
 
         Args:
           account_id: Account identifier.
@@ -95,7 +101,9 @@ class ResourcesResource(SyncAPIResource):
         if not share_id:
             raise ValueError(f"Expected a non-empty value for `share_id` but received {share_id!r}")
         return self._post(
-            f"/accounts/{account_id}/shares/{share_id}/resources",
+            path_template(
+                "/accounts/{account_id}/shares/{share_id}/resources", account_id=account_id, share_id=share_id
+            ),
             body=maybe_transform(
                 {
                     "meta": meta,
@@ -127,7 +135,7 @@ class ResourcesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ResourceUpdateResponse]:
         """
         Update is not immediate, an updated share resource object with a new status will
@@ -157,7 +165,12 @@ class ResourcesResource(SyncAPIResource):
         if not resource_id:
             raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
         return self._put(
-            f"/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+            path_template(
+                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                account_id=account_id,
+                share_id=share_id,
+                resource_id=resource_id,
+            ),
             body=maybe_transform({"meta": meta}, resource_update_params.ResourceUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -174,16 +187,23 @@ class ResourcesResource(SyncAPIResource):
         share_id: str,
         *,
         account_id: str,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        resource_type: Literal["custom-ruleset", "widget"] | NotGiven = NOT_GIVEN,
-        status: Literal["active", "deleting", "deleted"] | NotGiven = NOT_GIVEN,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        resource_type: Literal[
+            "custom-ruleset",
+            "gateway-policy",
+            "gateway-destination-ip",
+            "gateway-block-page-settings",
+            "gateway-extended-email-matching",
+        ]
+        | Omit = omit,
+        status: Literal["active", "deleting", "deleted"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[ResourceListResponse]:
         """
         List share resources by share ID.
@@ -214,7 +234,9 @@ class ResourcesResource(SyncAPIResource):
         if not share_id:
             raise ValueError(f"Expected a non-empty value for `share_id` but received {share_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/shares/{share_id}/resources",
+            path_template(
+                "/accounts/{account_id}/shares/{share_id}/resources", account_id=account_id, share_id=share_id
+            ),
             page=SyncV4PagePaginationArray[ResourceListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -245,7 +267,7 @@ class ResourcesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ResourceDeleteResponse]:
         """
         Deletion is not immediate, an updated share resource object with a new status
@@ -273,7 +295,12 @@ class ResourcesResource(SyncAPIResource):
         if not resource_id:
             raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+            path_template(
+                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                account_id=account_id,
+                share_id=share_id,
+                resource_id=resource_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -295,7 +322,7 @@ class ResourcesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ResourceGetResponse]:
         """
         Get share resource by ID.
@@ -322,7 +349,12 @@ class ResourcesResource(SyncAPIResource):
         if not resource_id:
             raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
         return self._get(
-            f"/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+            path_template(
+                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                account_id=account_id,
+                share_id=share_id,
+                resource_id=resource_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -362,16 +394,22 @@ class AsyncResourcesResource(AsyncAPIResource):
         meta: object,
         resource_account_id: str,
         resource_id: str,
-        resource_type: Literal["custom-ruleset", "widget"],
+        resource_type: Literal[
+            "custom-ruleset",
+            "gateway-policy",
+            "gateway-destination-ip",
+            "gateway-block-page-settings",
+            "gateway-extended-email-matching",
+        ],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ResourceCreateResponse]:
         """
-        Create a new share resource
+        Adds a resource to an existing share, making it available to share recipients.
 
         Args:
           account_id: Account identifier.
@@ -399,7 +437,9 @@ class AsyncResourcesResource(AsyncAPIResource):
         if not share_id:
             raise ValueError(f"Expected a non-empty value for `share_id` but received {share_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/shares/{share_id}/resources",
+            path_template(
+                "/accounts/{account_id}/shares/{share_id}/resources", account_id=account_id, share_id=share_id
+            ),
             body=await async_maybe_transform(
                 {
                     "meta": meta,
@@ -431,7 +471,7 @@ class AsyncResourcesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ResourceUpdateResponse]:
         """
         Update is not immediate, an updated share resource object with a new status will
@@ -461,7 +501,12 @@ class AsyncResourcesResource(AsyncAPIResource):
         if not resource_id:
             raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+            path_template(
+                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                account_id=account_id,
+                share_id=share_id,
+                resource_id=resource_id,
+            ),
             body=await async_maybe_transform({"meta": meta}, resource_update_params.ResourceUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -478,16 +523,23 @@ class AsyncResourcesResource(AsyncAPIResource):
         share_id: str,
         *,
         account_id: str,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        resource_type: Literal["custom-ruleset", "widget"] | NotGiven = NOT_GIVEN,
-        status: Literal["active", "deleting", "deleted"] | NotGiven = NOT_GIVEN,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        resource_type: Literal[
+            "custom-ruleset",
+            "gateway-policy",
+            "gateway-destination-ip",
+            "gateway-block-page-settings",
+            "gateway-extended-email-matching",
+        ]
+        | Omit = omit,
+        status: Literal["active", "deleting", "deleted"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ResourceListResponse, AsyncV4PagePaginationArray[ResourceListResponse]]:
         """
         List share resources by share ID.
@@ -518,7 +570,9 @@ class AsyncResourcesResource(AsyncAPIResource):
         if not share_id:
             raise ValueError(f"Expected a non-empty value for `share_id` but received {share_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/shares/{share_id}/resources",
+            path_template(
+                "/accounts/{account_id}/shares/{share_id}/resources", account_id=account_id, share_id=share_id
+            ),
             page=AsyncV4PagePaginationArray[ResourceListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -549,7 +603,7 @@ class AsyncResourcesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ResourceDeleteResponse]:
         """
         Deletion is not immediate, an updated share resource object with a new status
@@ -577,7 +631,12 @@ class AsyncResourcesResource(AsyncAPIResource):
         if not resource_id:
             raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+            path_template(
+                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                account_id=account_id,
+                share_id=share_id,
+                resource_id=resource_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -599,7 +658,7 @@ class AsyncResourcesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ResourceGetResponse]:
         """
         Get share resource by ID.
@@ -626,7 +685,12 @@ class AsyncResourcesResource(AsyncAPIResource):
         if not resource_id:
             raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+            path_template(
+                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                account_id=account_id,
+                share_id=share_id,
+                resource_id=resource_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

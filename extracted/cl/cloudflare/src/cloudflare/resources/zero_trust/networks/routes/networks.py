@@ -8,8 +8,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -55,14 +55,14 @@ class NetworksResource(SyncAPIResource):
         *,
         account_id: str,
         tunnel_id: str,
-        comment: str | NotGiven = NOT_GIVEN,
-        virtual_network_id: str | NotGiven = NOT_GIVEN,
+        comment: str | Omit = omit,
+        virtual_network_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Route:
         """Routes a private network through a Cloudflare Tunnel.
 
@@ -93,7 +93,11 @@ class NetworksResource(SyncAPIResource):
         if not ip_network_encoded:
             raise ValueError(f"Expected a non-empty value for `ip_network_encoded` but received {ip_network_encoded!r}")
         return self._post(
-            f"/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+            path_template(
+                "/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+                account_id=account_id,
+                ip_network_encoded=ip_network_encoded,
+            ),
             body=maybe_transform(
                 {
                     "tunnel_id": tunnel_id,
@@ -120,16 +124,15 @@ class NetworksResource(SyncAPIResource):
         ip_network_encoded: str,
         *,
         account_id: str,
-        tun_type: Literal["cfd_tunnel", "warp_connector", "warp", "magic", "ip_sec", "gre", "cni"]
-        | NotGiven = NOT_GIVEN,
-        tunnel_id: str | NotGiven = NOT_GIVEN,
-        virtual_network_id: str | NotGiven = NOT_GIVEN,
+        tun_type: Literal["cfd_tunnel", "warp_connector", "warp", "magic", "ip_sec", "gre", "cni"] | Omit = omit,
+        tunnel_id: str | Omit = omit,
+        virtual_network_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Route:
         """Deletes a private network route from an account.
 
@@ -165,7 +168,11 @@ class NetworksResource(SyncAPIResource):
         if not ip_network_encoded:
             raise ValueError(f"Expected a non-empty value for `ip_network_encoded` but received {ip_network_encoded!r}")
         return self._delete(
-            f"/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+            path_template(
+                "/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+                account_id=account_id,
+                ip_network_encoded=ip_network_encoded,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -197,7 +204,7 @@ class NetworksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Route:
         """Updates an existing private network route in an account.
 
@@ -222,7 +229,11 @@ class NetworksResource(SyncAPIResource):
         if not ip_network_encoded:
             raise ValueError(f"Expected a non-empty value for `ip_network_encoded` but received {ip_network_encoded!r}")
         return self._patch(
-            f"/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+            path_template(
+                "/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+                account_id=account_id,
+                ip_network_encoded=ip_network_encoded,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -263,14 +274,14 @@ class AsyncNetworksResource(AsyncAPIResource):
         *,
         account_id: str,
         tunnel_id: str,
-        comment: str | NotGiven = NOT_GIVEN,
-        virtual_network_id: str | NotGiven = NOT_GIVEN,
+        comment: str | Omit = omit,
+        virtual_network_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Route:
         """Routes a private network through a Cloudflare Tunnel.
 
@@ -301,7 +312,11 @@ class AsyncNetworksResource(AsyncAPIResource):
         if not ip_network_encoded:
             raise ValueError(f"Expected a non-empty value for `ip_network_encoded` but received {ip_network_encoded!r}")
         return await self._post(
-            f"/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+            path_template(
+                "/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+                account_id=account_id,
+                ip_network_encoded=ip_network_encoded,
+            ),
             body=await async_maybe_transform(
                 {
                     "tunnel_id": tunnel_id,
@@ -328,16 +343,15 @@ class AsyncNetworksResource(AsyncAPIResource):
         ip_network_encoded: str,
         *,
         account_id: str,
-        tun_type: Literal["cfd_tunnel", "warp_connector", "warp", "magic", "ip_sec", "gre", "cni"]
-        | NotGiven = NOT_GIVEN,
-        tunnel_id: str | NotGiven = NOT_GIVEN,
-        virtual_network_id: str | NotGiven = NOT_GIVEN,
+        tun_type: Literal["cfd_tunnel", "warp_connector", "warp", "magic", "ip_sec", "gre", "cni"] | Omit = omit,
+        tunnel_id: str | Omit = omit,
+        virtual_network_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Route:
         """Deletes a private network route from an account.
 
@@ -373,7 +387,11 @@ class AsyncNetworksResource(AsyncAPIResource):
         if not ip_network_encoded:
             raise ValueError(f"Expected a non-empty value for `ip_network_encoded` but received {ip_network_encoded!r}")
         return await self._delete(
-            f"/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+            path_template(
+                "/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+                account_id=account_id,
+                ip_network_encoded=ip_network_encoded,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -405,7 +423,7 @@ class AsyncNetworksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Route:
         """Updates an existing private network route in an account.
 
@@ -430,7 +448,11 @@ class AsyncNetworksResource(AsyncAPIResource):
         if not ip_network_encoded:
             raise ValueError(f"Expected a non-empty value for `ip_network_encoded` but received {ip_network_encoded!r}")
         return await self._patch(
-            f"/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+            path_template(
+                "/accounts/{account_id}/teamnet/routes/network/{ip_network_encoded}",
+                account_id=account_id,
+                ip_network_encoded=ip_network_encoded,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -448,17 +470,17 @@ class NetworksResourceWithRawResponse:
 
         self.create = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                networks.create  # pyright: ignore[reportDeprecated],
+                networks.create,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                networks.delete  # pyright: ignore[reportDeprecated],
+                networks.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.edit = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                networks.edit  # pyright: ignore[reportDeprecated],
+                networks.edit,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -469,17 +491,17 @@ class AsyncNetworksResourceWithRawResponse:
 
         self.create = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                networks.create  # pyright: ignore[reportDeprecated],
+                networks.create,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                networks.delete  # pyright: ignore[reportDeprecated],
+                networks.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.edit = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                networks.edit  # pyright: ignore[reportDeprecated],
+                networks.edit,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -490,17 +512,17 @@ class NetworksResourceWithStreamingResponse:
 
         self.create = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                networks.create  # pyright: ignore[reportDeprecated],
+                networks.create,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                networks.delete  # pyright: ignore[reportDeprecated],
+                networks.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.edit = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                networks.edit  # pyright: ignore[reportDeprecated],
+                networks.edit,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -511,16 +533,16 @@ class AsyncNetworksResourceWithStreamingResponse:
 
         self.create = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                networks.create  # pyright: ignore[reportDeprecated],
+                networks.create,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                networks.delete  # pyright: ignore[reportDeprecated],
+                networks.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.edit = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                networks.edit  # pyright: ignore[reportDeprecated],
+                networks.edit,  # pyright: ignore[reportDeprecated],
             )
         )

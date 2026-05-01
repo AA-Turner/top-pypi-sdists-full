@@ -6,8 +6,8 @@ from typing import Type, Iterable, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -57,19 +57,22 @@ class LANsResource(SyncAPIResource):
         site_id: str,
         *,
         account_id: str,
-        physport: int,
-        ha_link: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        nat: NatParam | NotGiven = NOT_GIVEN,
-        routed_subnets: Iterable[RoutedSubnetParam] | NotGiven = NOT_GIVEN,
-        static_addressing: LANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        bond_id: int | Omit = omit,
+        ha_link: bool | Omit = omit,
+        is_breakout: bool | Omit = omit,
+        is_prioritized: bool | Omit = omit,
+        name: str | Omit = omit,
+        nat: NatParam | Omit = omit,
+        physport: int | Omit = omit,
+        routed_subnets: Iterable[RoutedSubnetParam] | Omit = omit,
+        static_addressing: LANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[LAN]:
         """Creates a new Site LAN.
 
@@ -83,6 +86,10 @@ class LANsResource(SyncAPIResource):
 
           ha_link: mark true to use this LAN for HA probing. only works for site with HA turned on.
               only one LAN can be set as the ha_link.
+
+          is_breakout: mark true to use this LAN for source-based breakout traffic
+
+          is_prioritized: mark true to use this LAN for source-based prioritized traffic
 
           static_addressing: If the site is not configured in high availability mode, this configuration is
               optional (if omitted, use DHCP). However, if in high availability mode,
@@ -103,14 +110,17 @@ class LANsResource(SyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/lans", account_id=account_id, site_id=site_id),
             page=SyncSinglePage[LAN],
             body=maybe_transform(
                 {
-                    "physport": physport,
+                    "bond_id": bond_id,
                     "ha_link": ha_link,
+                    "is_breakout": is_breakout,
+                    "is_prioritized": is_prioritized,
                     "name": name,
                     "nat": nat,
+                    "physport": physport,
                     "routed_subnets": routed_subnets,
                     "static_addressing": static_addressing,
                     "vlan_tag": vlan_tag,
@@ -130,18 +140,21 @@ class LANsResource(SyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        nat: NatParam | NotGiven = NOT_GIVEN,
-        physport: int | NotGiven = NOT_GIVEN,
-        routed_subnets: Iterable[RoutedSubnetParam] | NotGiven = NOT_GIVEN,
-        static_addressing: LANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        bond_id: int | Omit = omit,
+        is_breakout: bool | Omit = omit,
+        is_prioritized: bool | Omit = omit,
+        name: str | Omit = omit,
+        nat: NatParam | Omit = omit,
+        physport: int | Omit = omit,
+        routed_subnets: Iterable[RoutedSubnetParam] | Omit = omit,
+        static_addressing: LANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LAN:
         """
         Update a specific Site LAN.
@@ -152,6 +165,10 @@ class LANsResource(SyncAPIResource):
           site_id: Identifier
 
           lan_id: Identifier
+
+          is_breakout: mark true to use this LAN for source-based breakout traffic
+
+          is_prioritized: mark true to use this LAN for source-based prioritized traffic
 
           static_addressing: If the site is not configured in high availability mode, this configuration is
               optional (if omitted, use DHCP). However, if in high availability mode,
@@ -174,9 +191,17 @@ class LANsResource(SyncAPIResource):
         if not lan_id:
             raise ValueError(f"Expected a non-empty value for `lan_id` but received {lan_id!r}")
         return self._put(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                lan_id=lan_id,
+            ),
             body=maybe_transform(
                 {
+                    "bond_id": bond_id,
+                    "is_breakout": is_breakout,
+                    "is_prioritized": is_prioritized,
                     "name": name,
                     "nat": nat,
                     "physport": physport,
@@ -206,7 +231,7 @@ class LANsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[LAN]:
         """
         Lists Site LANs associated with an account.
@@ -229,7 +254,7 @@ class LANsResource(SyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/lans", account_id=account_id, site_id=site_id),
             page=SyncSinglePage[LAN],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -248,7 +273,7 @@ class LANsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LAN:
         """
         Remove a specific Site LAN.
@@ -275,7 +300,12 @@ class LANsResource(SyncAPIResource):
         if not lan_id:
             raise ValueError(f"Expected a non-empty value for `lan_id` but received {lan_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                lan_id=lan_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -292,18 +322,21 @@ class LANsResource(SyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        nat: NatParam | NotGiven = NOT_GIVEN,
-        physport: int | NotGiven = NOT_GIVEN,
-        routed_subnets: Iterable[RoutedSubnetParam] | NotGiven = NOT_GIVEN,
-        static_addressing: LANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        bond_id: int | Omit = omit,
+        is_breakout: bool | Omit = omit,
+        is_prioritized: bool | Omit = omit,
+        name: str | Omit = omit,
+        nat: NatParam | Omit = omit,
+        physport: int | Omit = omit,
+        routed_subnets: Iterable[RoutedSubnetParam] | Omit = omit,
+        static_addressing: LANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LAN:
         """
         Patch a specific Site LAN.
@@ -314,6 +347,10 @@ class LANsResource(SyncAPIResource):
           site_id: Identifier
 
           lan_id: Identifier
+
+          is_breakout: mark true to use this LAN for source-based breakout traffic
+
+          is_prioritized: mark true to use this LAN for source-based prioritized traffic
 
           static_addressing: If the site is not configured in high availability mode, this configuration is
               optional (if omitted, use DHCP). However, if in high availability mode,
@@ -336,9 +373,17 @@ class LANsResource(SyncAPIResource):
         if not lan_id:
             raise ValueError(f"Expected a non-empty value for `lan_id` but received {lan_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                lan_id=lan_id,
+            ),
             body=maybe_transform(
                 {
+                    "bond_id": bond_id,
+                    "is_breakout": is_breakout,
+                    "is_prioritized": is_prioritized,
                     "name": name,
                     "nat": nat,
                     "physport": physport,
@@ -369,7 +414,7 @@ class LANsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LAN:
         """
         Get a specific Site LAN.
@@ -396,7 +441,12 @@ class LANsResource(SyncAPIResource):
         if not lan_id:
             raise ValueError(f"Expected a non-empty value for `lan_id` but received {lan_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                lan_id=lan_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -433,19 +483,22 @@ class AsyncLANsResource(AsyncAPIResource):
         site_id: str,
         *,
         account_id: str,
-        physport: int,
-        ha_link: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        nat: NatParam | NotGiven = NOT_GIVEN,
-        routed_subnets: Iterable[RoutedSubnetParam] | NotGiven = NOT_GIVEN,
-        static_addressing: LANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        bond_id: int | Omit = omit,
+        ha_link: bool | Omit = omit,
+        is_breakout: bool | Omit = omit,
+        is_prioritized: bool | Omit = omit,
+        name: str | Omit = omit,
+        nat: NatParam | Omit = omit,
+        physport: int | Omit = omit,
+        routed_subnets: Iterable[RoutedSubnetParam] | Omit = omit,
+        static_addressing: LANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[LAN, AsyncSinglePage[LAN]]:
         """Creates a new Site LAN.
 
@@ -459,6 +512,10 @@ class AsyncLANsResource(AsyncAPIResource):
 
           ha_link: mark true to use this LAN for HA probing. only works for site with HA turned on.
               only one LAN can be set as the ha_link.
+
+          is_breakout: mark true to use this LAN for source-based breakout traffic
+
+          is_prioritized: mark true to use this LAN for source-based prioritized traffic
 
           static_addressing: If the site is not configured in high availability mode, this configuration is
               optional (if omitted, use DHCP). However, if in high availability mode,
@@ -479,14 +536,17 @@ class AsyncLANsResource(AsyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/lans", account_id=account_id, site_id=site_id),
             page=AsyncSinglePage[LAN],
             body=maybe_transform(
                 {
-                    "physport": physport,
+                    "bond_id": bond_id,
                     "ha_link": ha_link,
+                    "is_breakout": is_breakout,
+                    "is_prioritized": is_prioritized,
                     "name": name,
                     "nat": nat,
+                    "physport": physport,
                     "routed_subnets": routed_subnets,
                     "static_addressing": static_addressing,
                     "vlan_tag": vlan_tag,
@@ -506,18 +566,21 @@ class AsyncLANsResource(AsyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        nat: NatParam | NotGiven = NOT_GIVEN,
-        physport: int | NotGiven = NOT_GIVEN,
-        routed_subnets: Iterable[RoutedSubnetParam] | NotGiven = NOT_GIVEN,
-        static_addressing: LANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        bond_id: int | Omit = omit,
+        is_breakout: bool | Omit = omit,
+        is_prioritized: bool | Omit = omit,
+        name: str | Omit = omit,
+        nat: NatParam | Omit = omit,
+        physport: int | Omit = omit,
+        routed_subnets: Iterable[RoutedSubnetParam] | Omit = omit,
+        static_addressing: LANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LAN:
         """
         Update a specific Site LAN.
@@ -528,6 +591,10 @@ class AsyncLANsResource(AsyncAPIResource):
           site_id: Identifier
 
           lan_id: Identifier
+
+          is_breakout: mark true to use this LAN for source-based breakout traffic
+
+          is_prioritized: mark true to use this LAN for source-based prioritized traffic
 
           static_addressing: If the site is not configured in high availability mode, this configuration is
               optional (if omitted, use DHCP). However, if in high availability mode,
@@ -550,9 +617,17 @@ class AsyncLANsResource(AsyncAPIResource):
         if not lan_id:
             raise ValueError(f"Expected a non-empty value for `lan_id` but received {lan_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                lan_id=lan_id,
+            ),
             body=await async_maybe_transform(
                 {
+                    "bond_id": bond_id,
+                    "is_breakout": is_breakout,
+                    "is_prioritized": is_prioritized,
                     "name": name,
                     "nat": nat,
                     "physport": physport,
@@ -582,7 +657,7 @@ class AsyncLANsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[LAN, AsyncSinglePage[LAN]]:
         """
         Lists Site LANs associated with an account.
@@ -605,7 +680,7 @@ class AsyncLANsResource(AsyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/lans", account_id=account_id, site_id=site_id),
             page=AsyncSinglePage[LAN],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -624,7 +699,7 @@ class AsyncLANsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LAN:
         """
         Remove a specific Site LAN.
@@ -651,7 +726,12 @@ class AsyncLANsResource(AsyncAPIResource):
         if not lan_id:
             raise ValueError(f"Expected a non-empty value for `lan_id` but received {lan_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                lan_id=lan_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -668,18 +748,21 @@ class AsyncLANsResource(AsyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        nat: NatParam | NotGiven = NOT_GIVEN,
-        physport: int | NotGiven = NOT_GIVEN,
-        routed_subnets: Iterable[RoutedSubnetParam] | NotGiven = NOT_GIVEN,
-        static_addressing: LANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        bond_id: int | Omit = omit,
+        is_breakout: bool | Omit = omit,
+        is_prioritized: bool | Omit = omit,
+        name: str | Omit = omit,
+        nat: NatParam | Omit = omit,
+        physport: int | Omit = omit,
+        routed_subnets: Iterable[RoutedSubnetParam] | Omit = omit,
+        static_addressing: LANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LAN:
         """
         Patch a specific Site LAN.
@@ -690,6 +773,10 @@ class AsyncLANsResource(AsyncAPIResource):
           site_id: Identifier
 
           lan_id: Identifier
+
+          is_breakout: mark true to use this LAN for source-based breakout traffic
+
+          is_prioritized: mark true to use this LAN for source-based prioritized traffic
 
           static_addressing: If the site is not configured in high availability mode, this configuration is
               optional (if omitted, use DHCP). However, if in high availability mode,
@@ -712,9 +799,17 @@ class AsyncLANsResource(AsyncAPIResource):
         if not lan_id:
             raise ValueError(f"Expected a non-empty value for `lan_id` but received {lan_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                lan_id=lan_id,
+            ),
             body=await async_maybe_transform(
                 {
+                    "bond_id": bond_id,
+                    "is_breakout": is_breakout,
+                    "is_prioritized": is_prioritized,
                     "name": name,
                     "nat": nat,
                     "physport": physport,
@@ -745,7 +840,7 @@ class AsyncLANsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LAN:
         """
         Get a specific Site LAN.
@@ -772,7 +867,12 @@ class AsyncLANsResource(AsyncAPIResource):
         if not lan_id:
             raise ValueError(f"Expected a non-empty value for `lan_id` but received {lan_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/lans/{lan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                lan_id=lan_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

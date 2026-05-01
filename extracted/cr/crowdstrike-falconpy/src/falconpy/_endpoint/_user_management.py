@@ -55,7 +55,7 @@ _user_management_endpoints = [
     "combinedUserRolesV1",
     "GET",
     "/user-management/combined/user-roles/v1",
-    "Deprecated : Please use GET /user-management/combined/user-roles/v2. Get User Grant(s). This endpoint "
+    "Deprecated : Please use CombinedUserRolesV2. Get User Grant(s). This endpoint "
     "lists both direct as well as flight control grants between a User and a Customer.",
     "user_management",
     [
@@ -89,23 +89,25 @@ _user_management_endpoints = [
         "in": "query"
       },
       {
-        "minimum": 0,
         "type": "integer",
         "default": 0,
+        "minimum": 0,
         "description": "The offset to start retrieving records from",
         "name": "offset",
         "in": "query"
       },
       {
-        "maximum": 500,
-        "minimum": 1,
         "type": "integer",
         "default": 100,
+        "maximum": 500,
+        "minimum": 1,
         "description": "The maximum records to return. [1-500]",
         "name": "limit",
         "in": "query"
       },
       {
+        "type": "string",
+        "default": "role_name|asc",
         "enum": [
           "cid",
           "cid|asc",
@@ -123,8 +125,6 @@ _user_management_endpoints = [
           "user_uuid|asc",
           "user_uuid|desc"
         ],
-        "type": "string",
-        "default": "role_name|asc",
         "description": "The property to sort by",
         "name": "sort",
         "in": "query"
@@ -168,23 +168,25 @@ _user_management_endpoints = [
         "in": "query"
       },
       {
-        "minimum": 0,
         "type": "integer",
         "default": 0,
+        "minimum": 0,
         "description": "The offset to start retrieving records from",
         "name": "offset",
         "in": "query"
       },
       {
-        "maximum": 500,
-        "minimum": 1,
         "type": "integer",
         "default": 100,
+        "maximum": 500,
+        "minimum": 1,
         "description": "The maximum records to return. [1-500]",
         "name": "limit",
         "in": "query"
       },
       {
+        "type": "string",
+        "default": "role_name|asc",
         "enum": [
           "cid",
           "cid|asc",
@@ -202,8 +204,6 @@ _user_management_endpoints = [
           "user_uuid|asc",
           "user_uuid|desc"
         ],
-        "type": "string",
-        "default": "role_name|asc",
         "description": "The property to sort by",
         "name": "sort",
         "in": "query"
@@ -250,7 +250,7 @@ _user_management_endpoints = [
           "type": "string"
         },
         "collectionFormat": "multi",
-        "description": "ID of a role. Find a role ID from /user-management/queries/roles/v1.",
+        "description": "ID of a role. Find a role ID from queriesRolesV1.",
         "name": "ids",
         "in": "query",
         "required": True
@@ -310,7 +310,7 @@ _user_management_endpoints = [
     "createUserV1",
     "POST",
     "/user-management/entities/users/v1",
-    "Create a new user. After creating a user, assign one or more roles with userRolesActionV1",
+    "Create a new user. After creating a user, assign one or more roles with queriesRolesV1",
     "user_management",
     [
       {
@@ -329,6 +329,22 @@ _user_management_endpoints = [
         "create the user with no password. The user should use the activation email to set their own password.",
         "name": "body",
         "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "deleteUserV1",
+    "DELETE",
+    "/user-management/entities/users/v1",
+    "Delete a user permanently.",
+    "user_management",
+    [
+      {
+        "type": "string",
+        "description": "User UUID.",
+        "name": "user_uuid",
+        "in": "query",
         "required": True
       }
     ]
@@ -356,27 +372,11 @@ _user_management_endpoints = [
     ]
   ],
   [
-    "deleteUserV1",
-    "DELETE",
-    "/user-management/entities/users/v1",
-    "Delete a user permanently.",
-    "user_management",
-    [
-      {
-        "type": "string",
-        "description": "User UUID.",
-        "name": "user_uuid",
-        "in": "query",
-        "required": True
-      }
-    ]
-  ],
-  [
     "queriesRolesV1",
     "GET",
     "/user-management/queries/roles/v1",
     "Show role IDs for all roles available in your customer account. For more information on each role, "
-    "provide the role ID to entitiesRolesV1.",
+    "provide the role ID to queriesRolesV1.",
     "user_management",
     [
       {
@@ -406,7 +406,7 @@ _user_management_endpoints = [
     "GET",
     "/user-management/queries/users/v1",
     "List user IDs for all users in your customer account. For more information on each user, provide the user "
-    "ID to retrieveUsersGETV1.",
+    "ID to `retrieveUsersGETV1`.",
     "user_management",
     [
       {
@@ -418,23 +418,25 @@ _user_management_endpoints = [
         "in": "query"
       },
       {
-        "minimum": 0,
         "type": "integer",
         "default": 0,
+        "minimum": 0,
         "description": "The offset to start retrieving records from",
         "name": "offset",
         "in": "query"
       },
       {
-        "maximum": 500,
-        "minimum": 1,
         "type": "integer",
         "default": 100,
+        "maximum": 500,
+        "minimum": 1,
         "description": "The maximum records to return. [1-500]",
         "name": "limit",
         "in": "query"
       },
       {
+        "type": "string",
+        "default": "uid|asc",
         "enum": [
           "cid_name",
           "cid_name|asc",
@@ -467,8 +469,6 @@ _user_management_endpoints = [
           "uid|asc",
           "uid|desc"
         ],
-        "type": "string",
-        "default": "uid|asc",
         "description": "The property to sort by",
         "name": "sort",
         "in": "query"
@@ -488,7 +488,7 @@ _user_management_endpoints = [
           "type": "string"
         },
         "collectionFormat": "multi",
-        "description": "ID of a role. Find a role ID from GetAvailableRoleIds or queriesRolesV1.",
+        "description": "ID of a role. Find a role ID from /customer/queries/roles/v1 or queriesRolesV1.",
         "name": "ids",
         "in": "query",
         "required": True
@@ -537,7 +537,7 @@ _user_management_endpoints = [
           "type": "string"
         },
         "collectionFormat": "multi",
-        "description": "One or more role IDs to revoke. Find a role's ID from queriesRolesV1.",
+        "description": "One or more role IDs to revoke. Find a role's ID from queryUserV1.",
         "name": "ids",
         "in": "query",
         "required": True
@@ -548,8 +548,9 @@ _user_management_endpoints = [
     "GetAvailableRoleIds",
     "GET",
     "/user-roles/queries/user-role-ids-by-cid/v1",
-    "Deprecated : Please use queriesRolesV1. Show role IDs for all roles available in your customer account. "
-    "For more information on each role, provide the role ID to entitiesRolesV1.",
+    "Deprecated : Please use GET queriesRolesV1. Show role IDs for all roles available in "
+    "your customer account. For more information on each role, provide the role ID to "
+    "`CombinedUserRolesV2`.",
     "user_management",
     []
   ],
@@ -557,8 +558,8 @@ _user_management_endpoints = [
     "GetUserRoleIds",
     "GET",
     "/user-roles/queries/user-role-ids-by-user-uuid/v1",
-    "Deprecated : Please use combinedUserRolesV1. Show role IDs of roles assigned to a user. For more "
-    "information on each role, provide the role ID to entitiesRolesV1.",
+    "Deprecated : Please use GET combinedUserRolesV1. Show role IDs of roles assigned to a "
+    "user. For more information on each role, provide the role ID to `GetAvailableRoleIds`.",
     "user_management",
     [
       {
@@ -614,8 +615,8 @@ _user_management_endpoints = [
     "CreateUser",
     "POST",
     "/users/entities/users/v1",
-    "Deprecated : Please use createUserV1. Create a new user. After creating a user, assign one or more roles "
-    "with GrantUserRoleIds",
+    "Deprecated : Please use createUserV1. Create a new user. After creating a "
+    "user, assign one or more roles with userRolesActionV1",
     "user_management",
     [
       {
@@ -627,6 +628,22 @@ _user_management_endpoints = [
         "create the user with no password. The user should use the activation email to set their own password.",
         "name": "body",
         "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "DeleteUser",
+    "DELETE",
+    "/users/entities/users/v1",
+    "Deprecated : Please use deleteUserV1. Delete a user permanently",
+    "user_management",
+    [
+      {
+        "type": "string",
+        "description": "ID of a user. Find a user's ID from queryUserV1.",
+        "name": "user_uuid",
+        "in": "query",
         "required": True
       }
     ]
@@ -654,27 +671,11 @@ _user_management_endpoints = [
     ]
   ],
   [
-    "DeleteUser",
-    "DELETE",
-    "/users/entities/users/v1",
-    "Deprecated : Please use deleteUserV1. Delete a user permanently",
-    "user_management",
-    [
-      {
-        "type": "string",
-        "description": "ID of a user. Find a user's ID from queryUserV1.",
-        "name": "user_uuid",
-        "in": "query",
-        "required": True
-      }
-    ]
-  ],
-  [
     "RetrieveEmailsByCID",
     "GET",
     "/users/queries/emails-by-cid/v1",
-    "Deprecated : Please use retrieveUsersGETV1. List the usernames (usually an email address) for all users "
-    "in your customer account",
+    "Deprecated : Please use retrieveUsersGETV1. List the usernames (usually an email "
+    "address) for all users in your customer account",
     "user_management",
     []
   ],
@@ -682,8 +683,8 @@ _user_management_endpoints = [
     "RetrieveUserUUIDsByCID",
     "GET",
     "/users/queries/user-uuids-by-cid/v1",
-    "Deprecated : Please use queryUserV1. List user IDs for all users in your customer account. For more "
-    "information on each user, provide the user ID to queryUserV1.",
+    "Deprecated : Please use queryUserV1. List user IDs for all users in your "
+    "customer account. For more information on each user, provide the user ID to `queryUserV1`.",
     "user_management",
     []
   ],
@@ -691,7 +692,8 @@ _user_management_endpoints = [
     "RetrieveUserUUID",
     "GET",
     "/users/queries/user-uuids-by-email/v1",
-    "Deprecated : Please use queryUserV1. Get a user's ID by providing a username (usually an email address)",
+    "Deprecated : Please use queryUserV1. Get a user's ID by providing a username "
+    "(usually an email address)",
     "user_management",
     [
       {

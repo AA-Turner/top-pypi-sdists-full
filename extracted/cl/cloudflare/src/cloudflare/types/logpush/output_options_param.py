@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 from typing_extensions import Literal, Annotated, TypedDict
 
+from ..._types import SequenceNotStr
 from ..._utils import PropertyInfo
 
 __all__ = ["OutputOptionsParam"]
 
 
 class OutputOptionsParam(TypedDict, total=False):
+    """The structured replacement for `logpull_options`.
+
+    When including this field, the `logpull_option` field will be ignored.
+    """
+
     batch_prefix: Optional[str]
     """String to be prepended before each batch."""
 
@@ -26,11 +32,17 @@ class OutputOptionsParam(TypedDict, total=False):
     field_delimiter: Optional[str]
     """String to join fields. This field be ignored when `record_template` is set."""
 
-    field_names: List[str]
+    field_names: SequenceNotStr[str]
     """List of field names to be included in the Logpush output.
 
     For the moment, there is no option to add all fields at once, so you must
     specify all the fields names you are interested in.
+    """
+
+    merge_subrequests: Optional[bool]
+    """If set to true, subrequests will be merged into the parent request.
+
+    Only supported for the `http_requests` dataset.
     """
 
     output_type: Literal["ndjson", "csv"]
@@ -65,8 +77,8 @@ class OutputOptionsParam(TypedDict, total=False):
     `sample_interval` of the data.
     """
 
-    timestamp_format: Literal["unixnano", "unix", "rfc3339"]
+    timestamp_format: Literal["unixnano", "unix", "rfc3339", "rfc3339ms", "rfc3339ns"]
     """
-    String to specify the format for timestamps, such as `unixnano`, `unix`, or
-    `rfc3339`.
+    String to specify the format for timestamps, such as `unixnano`, `unix`,
+    `rfc3339`, `rfc3339ms` or `rfc3339ns`.
     """

@@ -58,7 +58,7 @@ class PackageDAG(Mapping[DistPackage, list[ReqPackage]]):
     ) -> PackageDAG:
         warning_printer = get_warning_printer()
         dist_pkgs = [DistPackage(p) for p in pkgs]
-        idx = {p.key: p for p in dist_pkgs}
+        idx: dict[str, DistPackage] = {p.key: p for p in dist_pkgs}
         pkg_deps: dict[DistPackage, list[ReqPackage]] = {}
         dist_name_to_invalid_reqs_dict: dict[str, list[str]] = {}
         for pkg in dist_pkgs:
@@ -299,14 +299,18 @@ class PackageDAG(Mapping[DistPackage, list[ReqPackage]]):
                 reversed_dag[parent.as_requirement()] = []
         return ReversedPackageDAG(dict(reversed_dag))  # ty: ignore[invalid-argument-type]
 
-    def sort(self) -> PackageDAG:
+    def sort(self, *, in_place: bool = False) -> PackageDAG:
         """
         Return sorted tree in which the underlying _obj dict is an dict, sorted alphabetically by the keys.
 
-        :returns: Instance of same class with dict
+        :returns: shallow copy of the DAG or the same DAG if in_place is set
 
         """
-        return self.__class__({k: sorted(v) for k, v in sorted(self._obj.items())})
+        sorted_obj = {k: sorted(v) for k, v in sorted(self._obj.items())}
+        if in_place:
+            self._obj = sorted_obj
+            return self
+        return self.__class__(sorted_obj)
 
     # Methods required by the abstract base class Mapping
     def __getitem__(self, arg: DistPackage) -> list[ReqPackage]:

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Type, Optional, cast
+from typing import Type, cast
 from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -46,27 +46,31 @@ class ReclassifyResource(SyncAPIResource):
 
     def create(
         self,
-        postfix_id: str,
+        investigate_id: str,
         *,
         account_id: str,
         expected_disposition: Literal["NONE", "BULK", "MALICIOUS", "SPAM", "SPOOF", "SUSPICIOUS"],
-        eml_content: Optional[str] | NotGiven = NOT_GIVEN,
+        eml_content: str | Omit = omit,
+        escalated_submission_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """
-        Change email classfication
+        """Submits a request to reclassify an email's disposition.
+
+        Use for reporting false
+        positives or false negatives. Optionally provide the raw EML content for
+        reanalysis. The reclassification is processed asynchronously.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
-          postfix_id: The identifier of the message.
+          investigate_id: Unique identifier for a message retrieved from investigation
 
-          eml_content: Base64 encoded content of the EML file
+          eml_content: Base64 encoded content of the EML file.
 
           extra_headers: Send extra headers
 
@@ -78,14 +82,19 @@ class ReclassifyResource(SyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        if not postfix_id:
-            raise ValueError(f"Expected a non-empty value for `postfix_id` but received {postfix_id!r}")
+        if not investigate_id:
+            raise ValueError(f"Expected a non-empty value for `investigate_id` but received {investigate_id!r}")
         return self._post(
-            f"/accounts/{account_id}/email-security/investigate/{postfix_id}/reclassify",
+            path_template(
+                "/accounts/{account_id}/email-security/investigate/{investigate_id}/reclassify",
+                account_id=account_id,
+                investigate_id=investigate_id,
+            ),
             body=maybe_transform(
                 {
                     "expected_disposition": expected_disposition,
                     "eml_content": eml_content,
+                    "escalated_submission_id": escalated_submission_id,
                 },
                 reclassify_create_params.ReclassifyCreateParams,
             ),
@@ -122,27 +131,31 @@ class AsyncReclassifyResource(AsyncAPIResource):
 
     async def create(
         self,
-        postfix_id: str,
+        investigate_id: str,
         *,
         account_id: str,
         expected_disposition: Literal["NONE", "BULK", "MALICIOUS", "SPAM", "SPOOF", "SUSPICIOUS"],
-        eml_content: Optional[str] | NotGiven = NOT_GIVEN,
+        eml_content: str | Omit = omit,
+        escalated_submission_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """
-        Change email classfication
+        """Submits a request to reclassify an email's disposition.
+
+        Use for reporting false
+        positives or false negatives. Optionally provide the raw EML content for
+        reanalysis. The reclassification is processed asynchronously.
 
         Args:
-          account_id: Account Identifier
+          account_id: Identifier.
 
-          postfix_id: The identifier of the message.
+          investigate_id: Unique identifier for a message retrieved from investigation
 
-          eml_content: Base64 encoded content of the EML file
+          eml_content: Base64 encoded content of the EML file.
 
           extra_headers: Send extra headers
 
@@ -154,14 +167,19 @@ class AsyncReclassifyResource(AsyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        if not postfix_id:
-            raise ValueError(f"Expected a non-empty value for `postfix_id` but received {postfix_id!r}")
+        if not investigate_id:
+            raise ValueError(f"Expected a non-empty value for `investigate_id` but received {investigate_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/email-security/investigate/{postfix_id}/reclassify",
+            path_template(
+                "/accounts/{account_id}/email-security/investigate/{investigate_id}/reclassify",
+                account_id=account_id,
+                investigate_id=investigate_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "expected_disposition": expected_disposition,
                     "eml_content": eml_content,
+                    "escalated_submission_id": escalated_submission_id,
                 },
                 reclassify_create_params.ReclassifyCreateParams,
             ),

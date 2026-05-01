@@ -6,8 +6,8 @@ from typing import Type, Iterable, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -62,10 +62,10 @@ class DatasetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetCreateResponse:
         """
-        Create a new Dataset
+        Creates a new AI Gateway.
 
         Args:
           gateway_id: gateway id
@@ -83,7 +83,11 @@ class DatasetsResource(SyncAPIResource):
         if not gateway_id:
             raise ValueError(f"Expected a non-empty value for `gateway_id` but received {gateway_id!r}")
         return self._post(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets",
+                account_id=account_id,
+                gateway_id=gateway_id,
+            ),
             body=maybe_transform(
                 {
                     "enable": enable,
@@ -116,10 +120,10 @@ class DatasetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetUpdateResponse:
         """
-        Update a Dataset
+        Updates an existing AI Gateway dataset.
 
         Args:
           gateway_id: gateway id
@@ -139,7 +143,12 @@ class DatasetsResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._put(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             body=maybe_transform(
                 {
                     "enable": enable,
@@ -163,20 +172,20 @@ class DatasetsResource(SyncAPIResource):
         gateway_id: str,
         *,
         account_id: str,
-        enable: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        search: str | NotGiven = NOT_GIVEN,
+        enable: bool | Omit = omit,
+        name: str | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        search: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[DatasetListResponse]:
         """
-        List Datasets
+        Lists all AI Gateway evaluator types configured for the account.
 
         Args:
           gateway_id: gateway id
@@ -196,7 +205,11 @@ class DatasetsResource(SyncAPIResource):
         if not gateway_id:
             raise ValueError(f"Expected a non-empty value for `gateway_id` but received {gateway_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets",
+                account_id=account_id,
+                gateway_id=gateway_id,
+            ),
             page=SyncV4PagePaginationArray[DatasetListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -228,10 +241,10 @@ class DatasetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetDeleteResponse:
         """
-        Delete a Dataset
+        Deletes an AI Gateway dataset.
 
         Args:
           gateway_id: gateway id
@@ -251,7 +264,12 @@ class DatasetsResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._delete(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -273,10 +291,10 @@ class DatasetsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetGetResponse:
         """
-        Fetch a Dataset
+        Retrieves details for a specific AI Gateway dataset.
 
         Args:
           gateway_id: gateway id
@@ -296,7 +314,12 @@ class DatasetsResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._get(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -341,10 +364,10 @@ class AsyncDatasetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetCreateResponse:
         """
-        Create a new Dataset
+        Creates a new AI Gateway.
 
         Args:
           gateway_id: gateway id
@@ -362,7 +385,11 @@ class AsyncDatasetsResource(AsyncAPIResource):
         if not gateway_id:
             raise ValueError(f"Expected a non-empty value for `gateway_id` but received {gateway_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets",
+                account_id=account_id,
+                gateway_id=gateway_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "enable": enable,
@@ -395,10 +422,10 @@ class AsyncDatasetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetUpdateResponse:
         """
-        Update a Dataset
+        Updates an existing AI Gateway dataset.
 
         Args:
           gateway_id: gateway id
@@ -418,7 +445,12 @@ class AsyncDatasetsResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return await self._put(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             body=await async_maybe_transform(
                 {
                     "enable": enable,
@@ -442,20 +474,20 @@ class AsyncDatasetsResource(AsyncAPIResource):
         gateway_id: str,
         *,
         account_id: str,
-        enable: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        search: str | NotGiven = NOT_GIVEN,
+        enable: bool | Omit = omit,
+        name: str | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        search: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DatasetListResponse, AsyncV4PagePaginationArray[DatasetListResponse]]:
         """
-        List Datasets
+        Lists all AI Gateway evaluator types configured for the account.
 
         Args:
           gateway_id: gateway id
@@ -475,7 +507,11 @@ class AsyncDatasetsResource(AsyncAPIResource):
         if not gateway_id:
             raise ValueError(f"Expected a non-empty value for `gateway_id` but received {gateway_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets",
+                account_id=account_id,
+                gateway_id=gateway_id,
+            ),
             page=AsyncV4PagePaginationArray[DatasetListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -507,10 +543,10 @@ class AsyncDatasetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetDeleteResponse:
         """
-        Delete a Dataset
+        Deletes an AI Gateway dataset.
 
         Args:
           gateway_id: gateway id
@@ -530,7 +566,12 @@ class AsyncDatasetsResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -552,10 +593,10 @@ class AsyncDatasetsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetGetResponse:
         """
-        Fetch a Dataset
+        Retrieves details for a specific AI Gateway dataset.
 
         Args:
           gateway_id: gateway id
@@ -575,7 +616,12 @@ class AsyncDatasetsResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return await self._get(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/datasets/{id}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

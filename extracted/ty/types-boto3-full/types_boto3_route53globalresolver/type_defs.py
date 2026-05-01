@@ -669,6 +669,7 @@ class UpdateGlobalResolverInputTypeDef(TypedDict):
     observabilityRegion: NotRequired[str]
     description: NotRequired[str]
     ipAddressType: NotRequired[GlobalResolverIpAddressTypeType]
+    regions: NotRequired[Sequence[str]]
 
 
 class UpdateHostedZoneAssociationInputTypeDef(TypedDict):

@@ -38,8 +38,8 @@ from .publish import (
     PublishResourceWithStreamingResponse,
     AsyncPublishResourceWithStreamingResponse,
 )
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from .workflow import (
     WorkflowResource,
     AsyncWorkflowResource,
@@ -126,7 +126,7 @@ class ZarazResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Workflow:
         """
         Updates Zaraz workflow for a zone.
@@ -134,7 +134,7 @@ class ZarazResource(SyncAPIResource):
         Args:
           zone_id: Identifier.
 
-          workflow: Zaraz workflow
+          workflow: Zaraz workflow.
 
           extra_headers: Send extra headers
 
@@ -147,7 +147,7 @@ class ZarazResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._put(
-            f"/zones/{zone_id}/settings/zaraz/workflow",
+            path_template("/zones/{zone_id}/settings/zaraz/workflow", zone_id=zone_id),
             body=maybe_transform(workflow, zaraz_update_params.ZarazUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -216,7 +216,7 @@ class AsyncZarazResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Workflow:
         """
         Updates Zaraz workflow for a zone.
@@ -224,7 +224,7 @@ class AsyncZarazResource(AsyncAPIResource):
         Args:
           zone_id: Identifier.
 
-          workflow: Zaraz workflow
+          workflow: Zaraz workflow.
 
           extra_headers: Send extra headers
 
@@ -237,7 +237,7 @@ class AsyncZarazResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._put(
-            f"/zones/{zone_id}/settings/zaraz/workflow",
+            path_template("/zones/{zone_id}/settings/zaraz/workflow", zone_id=zone_id),
             body=await async_maybe_transform(workflow, zaraz_update_params.ZarazUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,

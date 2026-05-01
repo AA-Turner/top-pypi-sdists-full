@@ -6,8 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -57,7 +57,7 @@ class TailResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TailCreateResponse:
         """
         Starts a tail that receives logs and exception from a Worker.
@@ -80,7 +80,11 @@ class TailResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._post(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/tails",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/tails",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             body=maybe_transform(body, tail_create_params.TailCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -103,7 +107,7 @@ class TailResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TailDeleteResponse:
         """
         Deletes a tail from a Worker.
@@ -130,7 +134,12 @@ class TailResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._delete(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/tails/{id}",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/tails/{id}",
+                account_id=account_id,
+                script_name=script_name,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -147,7 +156,7 @@ class TailResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TailGetResponse:
         """
         Get list of tails currently deployed on a Worker.
@@ -170,7 +179,11 @@ class TailResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._get(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/tails",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/tails",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -213,7 +226,7 @@ class AsyncTailResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TailCreateResponse:
         """
         Starts a tail that receives logs and exception from a Worker.
@@ -236,7 +249,11 @@ class AsyncTailResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._post(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/tails",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/tails",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             body=await async_maybe_transform(body, tail_create_params.TailCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -259,7 +276,7 @@ class AsyncTailResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TailDeleteResponse:
         """
         Deletes a tail from a Worker.
@@ -286,7 +303,12 @@ class AsyncTailResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/tails/{id}",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/tails/{id}",
+                account_id=account_id,
+                script_name=script_name,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -303,7 +325,7 @@ class AsyncTailResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TailGetResponse:
         """
         Get list of tails currently deployed on a Worker.
@@ -326,7 +348,11 @@ class AsyncTailResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._get(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/tails",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/tails",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

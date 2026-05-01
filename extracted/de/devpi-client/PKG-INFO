@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: devpi-client
-Version: 7.2.1
+Version: 7.3.0
 Summary: devpi upload/install/... workflow commands for Python developers
 Maintainer-email: Florian Schulze <mail@pyfidelity.com>
 License: 
@@ -92,6 +92,15 @@ Changelog
 
 .. towncrier release notes start
 
+7.3.0 (2026-04-30)
+==================
+
+Features
+--------
+
+- Allow ``patchjson`` to read from stdin with ``-`` as JSON filename.
+
+
 7.2.1 (2026-03-17)
 ==================
 
@@ -161,13 +170,4 @@ Bug Fixes
 - Provide proper error message if the API request for ``devpi use`` fails.
 
 - Fix #1011: change HTTP status codes >=400 to use self.fatal instead of raw SystemExit, protect 403 and 404 errors from SystemExit
-
-
-7.0.2 (2023-10-19)
-==================
-
-Bug Fixes
----------
-
-- Fix #992: Fix error added in 6.0.4 when old authentication data from before 6.x exists.
 

@@ -6,8 +6,8 @@ from typing import Iterable
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -54,7 +54,7 @@ class SeatsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Seat]:
         """
         Removes a user from a Zero Trust seat when both `access_seat` and `gateway_seat`
@@ -74,7 +74,7 @@ class SeatsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/access/seats",
+            path_template("/accounts/{account_id}/access/seats", account_id=account_id),
             page=SyncSinglePage[Seat],
             body=maybe_transform(body, Iterable[seat_edit_params.Body]),
             options=make_request_options(
@@ -115,7 +115,7 @@ class AsyncSeatsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Seat, AsyncSinglePage[Seat]]:
         """
         Removes a user from a Zero Trust seat when both `access_seat` and `gateway_seat`
@@ -135,7 +135,7 @@ class AsyncSeatsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/access/seats",
+            path_template("/accounts/{account_id}/access/seats", account_id=account_id),
             page=AsyncSinglePage[Seat],
             body=maybe_transform(body, Iterable[seat_edit_params.Body]),
             options=make_request_options(

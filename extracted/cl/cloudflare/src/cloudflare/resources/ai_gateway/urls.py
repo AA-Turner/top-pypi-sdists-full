@@ -6,7 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -53,10 +54,10 @@ class URLsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
-        Get Gateway URL
+        Retrieves the endpoint URL for an AI Gateway.
 
         Args:
           gateway_id: gateway id
@@ -76,7 +77,12 @@ class URLsResource(SyncAPIResource):
         if not provider:
             raise ValueError(f"Expected a non-empty value for `provider` but received {provider!r}")
         return self._get(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/url/{provider}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/url/{provider}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                provider=provider,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -119,10 +125,10 @@ class AsyncURLsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
-        Get Gateway URL
+        Retrieves the endpoint URL for an AI Gateway.
 
         Args:
           gateway_id: gateway id
@@ -142,7 +148,12 @@ class AsyncURLsResource(AsyncAPIResource):
         if not provider:
             raise ValueError(f"Expected a non-empty value for `provider` but received {provider!r}")
         return await self._get(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/url/{provider}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/url/{provider}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                provider=provider,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

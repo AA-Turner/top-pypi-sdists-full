@@ -14,8 +14,8 @@ from .views import (
     ViewsResourceWithStreamingResponse,
     AsyncViewsResourceWithStreamingResponse,
 )
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -61,19 +61,26 @@ class AccountResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        zone_defaults: account_edit_params.ZoneDefaults | NotGiven = NOT_GIVEN,
+        enforce_dns_only: bool | Omit = omit,
+        zone_defaults: account_edit_params.ZoneDefaults | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AccountEditResponse]:
         """
         Update DNS settings for an account
 
         Args:
           account_id: Identifier.
+
+          enforce_dns_only: When enabled, forces all proxied DNS records in the account to behave as
+              DNS-only at the edge, regardless of each record's individual proxy setting. Note
+              that this account-level override does not modify the records themselves; it only
+              affects how they are served at the edge. See more on
+              [Enforce DNS-only](https://developers.cloudflare.com/dns/proxy-status/enforce-dns-only).
 
           extra_headers: Send extra headers
 
@@ -86,8 +93,14 @@ class AccountResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/dns_settings",
-            body=maybe_transform({"zone_defaults": zone_defaults}, account_edit_params.AccountEditParams),
+            path_template("/accounts/{account_id}/dns_settings", account_id=account_id),
+            body=maybe_transform(
+                {
+                    "enforce_dns_only": enforce_dns_only,
+                    "zone_defaults": zone_defaults,
+                },
+                account_edit_params.AccountEditParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -107,7 +120,7 @@ class AccountResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AccountGetResponse]:
         """
         Show DNS settings for an account
@@ -126,7 +139,7 @@ class AccountResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/dns_settings",
+            path_template("/accounts/{account_id}/dns_settings", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -166,19 +179,26 @@ class AsyncAccountResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        zone_defaults: account_edit_params.ZoneDefaults | NotGiven = NOT_GIVEN,
+        enforce_dns_only: bool | Omit = omit,
+        zone_defaults: account_edit_params.ZoneDefaults | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AccountEditResponse]:
         """
         Update DNS settings for an account
 
         Args:
           account_id: Identifier.
+
+          enforce_dns_only: When enabled, forces all proxied DNS records in the account to behave as
+              DNS-only at the edge, regardless of each record's individual proxy setting. Note
+              that this account-level override does not modify the records themselves; it only
+              affects how they are served at the edge. See more on
+              [Enforce DNS-only](https://developers.cloudflare.com/dns/proxy-status/enforce-dns-only).
 
           extra_headers: Send extra headers
 
@@ -191,8 +211,14 @@ class AsyncAccountResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/dns_settings",
-            body=await async_maybe_transform({"zone_defaults": zone_defaults}, account_edit_params.AccountEditParams),
+            path_template("/accounts/{account_id}/dns_settings", account_id=account_id),
+            body=await async_maybe_transform(
+                {
+                    "enforce_dns_only": enforce_dns_only,
+                    "zone_defaults": zone_defaults,
+                },
+                account_edit_params.AccountEditParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -212,7 +238,7 @@ class AsyncAccountResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AccountGetResponse]:
         """
         Show DNS settings for an account
@@ -231,7 +257,7 @@ class AsyncAccountResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/dns_settings",
+            path_template("/accounts/{account_id}/dns_settings", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

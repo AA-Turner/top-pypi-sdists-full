@@ -171,6 +171,36 @@ class ModelTest(FixtureComponentTestCase):
         self.user.groups.set(DjangoGroup.objects.filter(name="Second"))
         self.assertEqual(self.user.groups.count(), 1)
 
+    def test_store_and_log_audit_state(self) -> None:
+        actor = User.objects.create_user("auditor", "auditor@example.com", "x")
+        audit_group = Group.objects.create(
+            name="Audit group",
+            defining_project=self.project,
+            language_selection=SELECTION_ALL,
+        )
+
+        self.user.store_audit_state()
+        self.user.is_superuser = True
+        self.user.save(update_fields=["is_superuser"])
+        self.user.groups.add(audit_group)
+        self.user.log_audit_state(None, actor=actor)
+
+        self.user.auditlog_set.get(
+            activity="superuser-granted", params__username=actor.username
+        )
+        self.user.auditlog_set.get(
+            activity="team-add",
+            params__team=audit_group.name,
+            params__username=actor.username,
+        )
+        self.user.store_audit_state()
+
+    def test_store_audit_state_requires_consumption(self) -> None:
+        self.user.store_audit_state()
+
+        with self.assertRaisesMessage(ValueError, "Audit state is already stored!"):
+            self.user.store_audit_state()
+
     def test_user(self) -> None:
         # Create user with Django User fields
         user = User.objects.create(
@@ -224,3 +254,38 @@ class ModelTest(FixtureComponentTestCase):
             set(self.user.allowed_projects.values_list("slug", flat=True)),
             {public_project.slug, protected_project.slug, self.project.slug},
         )
+
+    def test_needs_project_filter(self) -> None:
+        Project.objects.create(
+            slug="public", name="Public", access_control=Project.ACCESS_PUBLIC
+        )
+
+        self.user.clear_cache()
+        self.assertTrue(self.user.needs_project_filter)
+
+        group = Group.objects.create(
+            name="All projects", project_selection=SELECTION_ALL
+        )
+        self.user.groups.add(group)
+        self.user.clear_cache()
+
+        self.assertFalse(self.user.needs_project_filter)
+
+    def test_needs_project_filter_all_projects_query(self) -> None:
+        group = Group.objects.create(
+            name="All projects", project_selection=SELECTION_ALL
+        )
+        self.user.groups.add(group)
+        self.user.clear_cache()
+
+        self.assertIn(-SELECTION_ALL, self.user.project_permissions)
+        with self.assertNumQueries(0):
+            self.assertFalse(self.user.needs_project_filter)
+
+    def test_needs_project_filter_avoids_count_query(self) -> None:
+        self.assertNotIn(-SELECTION_ALL, self.user.project_permissions)
+
+        with self.assertNumQueries(1) as context:
+            self.assertTrue(self.user.needs_project_filter)
+
+        self.assertNotIn("COUNT(", context.captured_queries[0]["sql"].upper())

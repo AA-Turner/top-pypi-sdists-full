@@ -11,13 +11,16 @@ __all__ = ["SRVRecord", "Data", "Settings"]
 
 
 class Data(BaseModel):
+    """Components of a SRV record."""
+
     port: Optional[float] = None
     """The port of the service."""
 
     priority: Optional[float] = None
-    """Required for MX, SRV and URI records; unused by other record types.
-
-    Records with lower priorities are preferred.
+    """
+    Required for MX and URI records; ignored for other record types (but may still
+    be returned by the API). Records with lower priorities are preferred. This field
+    is to be deprecated in favor of the priority field within the data map.
     """
 
     target: Optional[str] = None
@@ -28,6 +31,8 @@ class Data(BaseModel):
 
 
 class Settings(BaseModel):
+    """Settings for the DNS record."""
+
     ipv4_only: Optional[bool] = None
     """
     When enabled, only A records will be generated, and AAAA records will not be
@@ -47,7 +52,14 @@ class Settings(BaseModel):
 
 class SRVRecord(BaseModel):
     name: str
-    """DNS record name (or @ for the zone apex) in Punycode."""
+    """Complete DNS record name, including the zone name, in Punycode."""
+
+    ttl: TTL
+    """Time To Live (TTL) of the DNS record in seconds.
+
+    Setting to 1 means 'automatic'. Value must be between 60 and 86400, with the
+    minimum reduced to 30 for Enterprise zones.
+    """
 
     type: Literal["SRV"]
     """Record type."""
@@ -78,10 +90,3 @@ class SRVRecord(BaseModel):
 
     tags: Optional[List[RecordTags]] = None
     """Custom tags for the DNS record. This field has no effect on DNS responses."""
-
-    ttl: Optional[TTL] = None
-    """Time To Live (TTL) of the DNS record in seconds.
-
-    Setting to 1 means 'automatic'. Value must be between 60 and 86400, with the
-    minimum reduced to 30 for Enterprise zones.
-    """

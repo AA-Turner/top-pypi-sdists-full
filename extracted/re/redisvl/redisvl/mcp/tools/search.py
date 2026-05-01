@@ -6,8 +6,10 @@ from redisvl.mcp.config import reserved_score_metadata_field_names
 from redisvl.mcp.errors import MCPErrorCode, RedisVLMCPError, map_exception
 from redisvl.mcp.filters import parse_filter
 from redisvl.query import AggregateHybridQuery, HybridQuery, TextQuery, VectorQuery
+from redisvl.schema import IndexSchema
 
 DEFAULT_SEARCH_DESCRIPTION = "Search records in the configured Redis index."
+_DSL_FILTER_FIELD_TYPES = frozenset({"tag", "text", "numeric"})
 
 _NATIVE_HYBRID_DEFAULTS = {
     "combination_method": "LINEAR",
@@ -23,6 +25,51 @@ _FALLBACK_HYBRID_UNSUPPORTED_PARAMS = frozenset(
         "rrf_constant",
     }
 )
+
+
+def _build_filter_hint(schema: IndexSchema) -> str:
+    """Describe fields with typed operator support in the JSON filter DSL."""
+    filter_fields = [
+        f"{field.name}({getattr(field.type, 'value', field.type)})"
+        for field in schema.fields.values()
+        if field.type in _DSL_FILTER_FIELD_TYPES
+    ]
+    if not filter_fields:
+        return "Object filter fields: none."
+    return "Object filter fields: " + ", ".join(filter_fields) + "."
+
+
+def _build_return_fields_hint(schema: IndexSchema) -> str:
+    """Describe all fields that callers can request in `return_fields`."""
+    returnable_fields = [
+        field.name for field in schema.fields.values() if field.type != "vector"
+    ]
+    if not returnable_fields:
+        return "Allowed return_fields: none."
+    return "Allowed return_fields: " + ", ".join(returnable_fields) + "."
+
+
+def _build_search_tool_description(
+    schema: IndexSchema, base_description: str | None = None
+) -> str:
+    """Build the `search-records` description from static text plus schema hints."""
+    description = (base_description or DEFAULT_SEARCH_DESCRIPTION).strip()
+
+    # `exists` is currently accepted for any schema field in the MCP object filter.
+    exists_fields = [field.name for field in schema.fields.values()]
+    if exists_fields:
+        exists_hint = "Object filter exists support: " + ", ".join(exists_fields) + "."
+    else:
+        exists_hint = "Object filter exists support: none."
+
+    return " ".join(
+        [
+            description,
+            _build_filter_hint(schema),
+            exists_hint,
+            _build_return_fields_hint(schema),
+        ]
+    )
 
 
 def _validate_request(
@@ -78,13 +125,17 @@ def _validate_request(
         )
 
     schema_fields = set(index.schema.field_names)
-    vector_field_name = runtime.vector_field_name
+    vector_field_names = {
+        field_name
+        for field_name, field in index.schema.fields.items()
+        if field.type == "vector"
+    }
 
     if return_fields is None:
         fields = [
             field_name
             for field_name in index.schema.field_names
-            if field_name != vector_field_name
+            if field_name not in vector_field_names
         ]
     else:
         if not isinstance(return_fields, list):
@@ -107,9 +158,9 @@ def _validate_request(
                     code=MCPErrorCode.INVALID_REQUEST,
                     retryable=False,
                 )
-            if field_name == vector_field_name:
+            if field_name in vector_field_names:
                 raise RedisVLMCPError(
-                    f"Vector field '{vector_field_name}' cannot be returned",
+                    f"Vector field '{field_name}' cannot be returned",
                     code=MCPErrorCode.INVALID_REQUEST,
                     retryable=False,
                 )
@@ -189,6 +240,9 @@ def _build_native_hybrid_kwargs(
     search_params: dict[str, Any],
 ) -> dict[str, Any]:
     """Build native `HybridQuery` kwargs from MCP config-owned hybrid params."""
+    if runtime.text_field_name is None or runtime.vector_field_name is None:
+        raise RuntimeError("Hybrid search requires configured text and vector fields")
+
     params = dict(search_params)
     combination_method = params.setdefault(
         "combination_method",
@@ -229,6 +283,9 @@ def _build_fallback_hybrid_kwargs(
     search_params: dict[str, Any],
 ) -> dict[str, Any]:
     """Build aggregate fallback kwargs while preserving MCP fusion semantics."""
+    if runtime.text_field_name is None or runtime.vector_field_name is None:
+        raise RuntimeError("Hybrid search requires configured text and vector fields")
+
     params = dict(search_params)
     linear_text_weight = params.pop(
         "linear_text_weight",
@@ -272,6 +329,8 @@ async def _build_query(
     filter_expression = parse_filter(filter_value, index.schema)
 
     if search_type == "vector":
+        if runtime.vector_field_name is None:
+            raise RuntimeError("Vector search requires a configured vector field")
         vectorizer = await server.get_vectorizer()
         embedding = await _embed_query(vectorizer, query)
         vector_kwargs = {
@@ -297,6 +356,8 @@ async def _build_query(
         )
 
     if search_type == "fulltext":
+        if runtime.text_field_name is None:
+            raise RuntimeError("Full-text search requires a configured text field")
         return (
             TextQuery(
                 text=query,
@@ -405,10 +466,11 @@ async def search_records(
         raise map_exception(exc) from exc
 
 
-def register_search_tool(server: Any) -> None:
+def register_search_tool(server: Any, schema: IndexSchema) -> None:
     """Register the MCP `search-records` tool with its config-owned contract."""
-    description = (
-        server.mcp_settings.tool_search_description or DEFAULT_SEARCH_DESCRIPTION
+    description = _build_search_tool_description(
+        schema=schema,
+        base_description=server.mcp_settings.tool_search_description,
     )
 
     async def search_records_tool(

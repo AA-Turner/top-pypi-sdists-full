@@ -26,7 +26,7 @@ from icalendar.timezone import tzp
 from icalendar.tools import is_date
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
     from icalendar.cal import Component
 
@@ -616,27 +616,36 @@ categories_property = property(
     _del_categories,
     """This property defines the categories for a component.
 
-Property Parameters:
-    IANA, non-standard, and language property parameters can be specified on this
-    property.
+The categories property is used to specify categories or subtypes of the
+calendar component. The categories are useful to search for a calendar
+component of a particular type and category.
 
-Conformance:
-    The property can be specified within "VEVENT", "VTODO", or "VJOURNAL" calendar
-    components.
-    Since :rfc:`7986` it can also be defined on a "VCALENDAR" component.
+Within the calendar components, specify categories as a list of strings.
+You can get, set, and delete categories for a component.
 
-Description:
-    This property is used to specify categories or subtypes
-    of the calendar component.  The categories are useful in searching
-    for a calendar component of a particular type and category.
-    Within the "VEVENT", "VTODO", or "VJOURNAL" calendar components,
-    more than one category can be specified as a COMMA-separated list
-    of categories.
+This property can be used in icalendar through its Python attributes of:
+
+-   :attr:`Calendar.categories <icalendar.cal.calendar.Calendar.categories>`
+-   :attr:`Event.categories <icalendar.cal.event.Event.categories>`
+-   :attr:`Journal.categories <icalendar.cal.journal.Journal.categories>`
+-   :attr:`Todo.categories <icalendar.cal.todo.Todo.categories>`
+
+The categories property for ``Event``, ``Journal``, and ``Todo`` complies
+with :rfc:`5545#section-3.8.1.2`, and for ``Calendar`` with :rfc:`7986#section-5.6`.
+
+Note:
+    At present, icalendar doesn't take the LANGUAGE parameter as defined
+    in :rfc:`5545#section-3.2.10` into account.
+
+Parameters:
+    categories(list[str]): A list of categories as strings.
 
 Example:
-    Below, we add the categories to an event:
+    Create an event, add categories to it, print its ical representation,
+    append another category, and finally compare the result
+    against its expected value.
 
-    .. code-block:: pycon
+    ..  code-block:: pycon
 
         >>> from icalendar import Event
         >>> event = Event()
@@ -649,13 +658,8 @@ Example:
         >>> event.categories == ["Work", "Meeting", "Lecture"]
         True
 
-.. note::
-
-    At present, we do not take the LANGUAGE parameter into account.
-
-.. seealso::
-
-    :attr:`Component.concepts`
+See also:
+    :attr:`Component.concepts <icalendar.cal.component.Component.concepts>`
 """,
 )
 
@@ -900,15 +904,17 @@ def create_single_property(
     type_def: type,
     doc: str,
     vProp: type = vDDDTypes,  # noqa: N803
+    convert: Callable[[object], object] | None = None,
 ):
     """Create a single property getter and setter.
 
-    :param prop: The name of the property.
-    :param value_attr: The name of the attribute to get the value from.
-    :param value_type: The type of the value.
-    :param type_def: The type of the property.
-    :param doc: The docstring of the property.
-    :param vProp: The type of the property from :mod:`icalendar.prop`.
+    Parameters:
+        prop: The name of the property.
+        value_attr: The name of the attribute to get the value from.
+        value_type: The type of the value.
+        type_def: The type of the property.
+        doc: The docstring of the property.
+        vProp: The type of the property from :mod:`icalendar.prop`.
     """
 
     def p_get(self: Component):
@@ -919,6 +925,7 @@ def create_single_property(
         if isinstance(result, list):
             raise InvalidCalendar(f"Multiple {prop} defined.")
         value = result if value_attr is None else getattr(result, value_attr, result)
+        value = value if convert is None else convert(value)
         if not isinstance(value, value_type):
             raise InvalidCalendar(
                 f"{prop} must be either a "
@@ -931,6 +938,7 @@ def create_single_property(
         if value is None:
             p_del(self)
             return
+        value = convert(value) if convert is not None else value
         if not isinstance(value, value_type):
             raise TypeError(
                 f"Use {' or '.join(t.__name__ for t in value_type)}, "
@@ -971,15 +979,14 @@ def property_get_duration(self: Component) -> timedelta | None:
     """Getter for property DURATION."""
     default = object()
     duration = self.get("duration", default)
-    if isinstance(duration, vDDDTypes):
-        return duration.dt
-    if isinstance(duration, vDuration):
-        return duration.td
-    if duration is not default and not isinstance(duration, timedelta):
+    if duration is default:
+        return None
+    result = getattr(duration, "td", None)
+    if result is None:
         raise InvalidCalendar(
             f"DURATION must be a timedelta, not {type(duration).__name__}."
         )
-    return None
+    return result
 
 
 def property_set_duration(self: Component, value: timedelta | None):
@@ -1703,6 +1710,8 @@ def get_end_property(component: Component, end_property: str) -> date | datetime
 
     if duration is not None:
         if start is not None:
+            if component.name == "VEVENT" and duration.total_seconds() <= 0:
+                return start
             return start + duration
         end_name = "DTEND" if end_property == "DTEND" else "DUE"
         msg = f"No {end_name} or DURATION+DTSTART given."
@@ -2090,7 +2099,7 @@ def _get_links(self: Component) -> list[vUri | vUid | vXmlReference]:
              #xpointer(descendant::CostStruc/range-to(
              following::CostStrucEND[1]))
 
-        Set a link :class:`icalendar.vUri` to the event page:
+        Set a link :class:`icalendar.prop.uri.vUri` to the event page:
 
         .. code-block:: pycon
 
@@ -2273,7 +2282,7 @@ def _get_related_to(self: Component) -> list[vText | vUri | vUid]:
              https://example.com/caldav/user/jb/cal/
              19960401-080045-4000F192713.ics
 
-    See also :class:`icalendar.enum.RELTYPE`.
+    See also :class:`icalendar.enums.RELTYPE`.
 
     """
     result = self.get("RELATED-TO", [])
@@ -2337,7 +2346,7 @@ def _get_concepts(self: Component) -> list[vUri]:
 
     .. seealso::
 
-        :attr:`Component.categories`
+        :attr:`icalendar.prop.categories.vCategory`
     """
     concepts = self.get("CONCEPT", [])
     if not isinstance(concepts, list):

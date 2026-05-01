@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use super::flavor::{MarkdownFlavor, normalize_key};
@@ -89,6 +89,35 @@ pub struct Config {
     #[serde(skip)]
     #[schemars(skip)]
     pub(super) per_file_flavor_cache: Arc<OnceLock<PerFileFlavorCache>>,
+
+    /// Lazily-computed canonical form of `project_root`.
+    ///
+    /// `normalize_match_path` needs the canonical project root to strip
+    /// prefixes from absolute file paths. Without this cache, every per-file
+    /// lookup would re-canonicalize the project root (one syscall per file).
+    ///
+    /// ## Invariants
+    ///
+    /// - **Single-shot**: computed once on first use of [`Config::canonical_project_root`].
+    /// - **Never invalidated**: callers must not mutate `project_root` after
+    ///   the first call. `Config` is treated as immutable post-construction
+    ///   (the same assumption as `per_file_ignores_cache` and `per_file_flavor_cache`).
+    /// - **Construction-time existence**: the cache stores `None` if
+    ///   `project_root` is unset, missing on disk, or otherwise can't be
+    ///   canonicalized. In practice `project_root` is set after walking up to
+    ///   `.git`, so the directory always exists at the time the cache is first
+    ///   read; if a caller sets `project_root` to a not-yet-existing path,
+    ///   the cache will permanently store `None`.
+    /// - **`Arc` wrapping**: `Config` derives `Clone`, and clones share the
+    ///   same `OnceLock` so a value computed by one clone is observable to all.
+    ///
+    /// `cwd` deliberately is NOT cached symmetrically: callers read it fresh
+    /// from `std::env::current_dir()` per call because tests (and embedding
+    /// hosts like LSP servers) may legitimately mutate the process cwd
+    /// between lookups.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(super) canonical_project_root_cache: Arc<OnceLock<Option<PathBuf>>>,
 }
 
 impl PartialEq for Config {
@@ -180,6 +209,18 @@ impl Config {
         self.rules.get(rule_name).and_then(|r| r.severity)
     }
 
+    /// Return the canonical form of `project_root`, computed once and cached.
+    ///
+    /// Returns `None` if `project_root` is unset, doesn't exist on disk, or
+    /// otherwise cannot be canonicalized. Subsequent calls reuse the cached
+    /// value, eliminating the per-file `canonicalize()` syscall that
+    /// `normalize_match_path` would otherwise perform.
+    pub(super) fn canonical_project_root(&self) -> Option<&Path> {
+        self.canonical_project_root_cache
+            .get_or_init(|| self.project_root.as_deref().and_then(|p| p.canonicalize().ok()))
+            .as_deref()
+    }
+
     /// Get the set of rules that should be ignored for a specific file based on per-file-ignores configuration
     /// Returns a HashSet of rule names (uppercase, e.g., "MD033") that match the given file path
     pub fn get_ignored_rules_for_file(&self, file_path: &Path) -> HashSet<String> {
@@ -189,25 +230,8 @@ impl Config {
             return ignored_rules;
         }
 
-        // Normalize the file path to be relative to project_root for pattern matching
-        // This ensures patterns like ".github/file.md" work with absolute paths
-        let path_for_matching: std::borrow::Cow<'_, Path> = if let Some(ref root) = self.project_root {
-            if let Ok(canonical_path) = file_path.canonicalize() {
-                if let Ok(canonical_root) = root.canonicalize() {
-                    if let Ok(relative) = canonical_path.strip_prefix(&canonical_root) {
-                        std::borrow::Cow::Owned(relative.to_path_buf())
-                    } else {
-                        std::borrow::Cow::Borrowed(file_path)
-                    }
-                } else {
-                    std::borrow::Cow::Borrowed(file_path)
-                }
-            } else {
-                std::borrow::Cow::Borrowed(file_path)
-            }
-        } else {
-            std::borrow::Cow::Borrowed(file_path)
-        };
+        let cwd = std::env::current_dir().ok();
+        let path_for_matching = normalize_match_path(file_path, self.canonical_project_root(), cwd.as_deref());
 
         let cache = self
             .per_file_ignores_cache
@@ -235,24 +259,8 @@ impl Config {
             return self.resolve_flavor_fallback(file_path);
         }
 
-        // Normalize path for matching (same logic as get_ignored_rules_for_file)
-        let path_for_matching: std::borrow::Cow<'_, Path> = if let Some(ref root) = self.project_root {
-            if let Ok(canonical_path) = file_path.canonicalize() {
-                if let Ok(canonical_root) = root.canonicalize() {
-                    if let Ok(relative) = canonical_path.strip_prefix(&canonical_root) {
-                        std::borrow::Cow::Owned(relative.to_path_buf())
-                    } else {
-                        std::borrow::Cow::Borrowed(file_path)
-                    }
-                } else {
-                    std::borrow::Cow::Borrowed(file_path)
-                }
-            } else {
-                std::borrow::Cow::Borrowed(file_path)
-            }
-        } else {
-            std::borrow::Cow::Borrowed(file_path)
-        };
+        let cwd = std::env::current_dir().ok();
+        let path_for_matching = normalize_match_path(file_path, self.canonical_project_root(), cwd.as_deref());
 
         let cache = self
             .per_file_flavor_cache
@@ -336,6 +344,121 @@ impl Config {
         }
 
         merged
+    }
+}
+
+/// Normalize a file path for matching against a glob pattern from configuration.
+///
+/// Glob patterns in `per-file-ignores` and `per-file-flavor` are written relative
+/// to the project root (e.g. `docs/**/*.md`), and the underlying matcher uses
+/// `literal_separator(true)` so an absolute path like `/home/user/proj/docs/x.md`
+/// will not match `docs/**/*.md`. This helper produces the form the glob expects:
+///
+/// 1. **Relative path** → return as-is.
+/// 2. **Absolute path under `project_root`** → return path relative to `project_root`.
+/// 3. **Absolute path under `cwd`** → return path relative to `cwd`. This is the
+///    safety net for invocations where `project_root` could not be discovered
+///    (no `.git` upward, LSP/CLI calls outside a project) but the file still
+///    lives somewhere under the working directory.
+/// 4. **Anywhere else** → return the raw path. A relative glob simply won't
+///    match it, which is the desired outcome for files outside any known root.
+///
+/// All canonicalization failures degrade gracefully to step 4 so editor buffers
+/// and pre-creation paths still flow through without panicking.
+///
+/// `canonical_project_root` is expected to already be canonical (via
+/// `Config::canonical_project_root`). `cwd` is canonicalized internally on each
+/// call since it is read fresh from the environment per invocation.
+pub(super) fn normalize_match_path<'a>(
+    file_path: &'a Path,
+    canonical_project_root: Option<&Path>,
+    cwd: Option<&Path>,
+) -> std::borrow::Cow<'a, Path> {
+    use std::borrow::Cow;
+
+    if file_path.is_relative() {
+        return Cow::Borrowed(file_path);
+    }
+
+    let Ok(canonical_file) = file_path.canonicalize() else {
+        log::debug!(
+            "normalize_match_path: canonicalize failed for {}; returning raw path. \
+             Per-file glob patterns may not match (file may not yet exist on disk).",
+            file_path.display()
+        );
+        return Cow::Borrowed(file_path);
+    };
+
+    if let Some(root) = canonical_project_root
+        && let Ok(rel) = canonical_file.strip_prefix(root)
+    {
+        return Cow::Owned(rel.to_path_buf());
+    }
+
+    if let Some(working_dir) = cwd
+        && let Ok(canonical_cwd) = working_dir.canonicalize()
+        && let Ok(rel) = canonical_file.strip_prefix(&canonical_cwd)
+    {
+        return Cow::Owned(rel.to_path_buf());
+    }
+
+    // Surface the silent fallback once per process at warn level so users with
+    // per-file glob configs notice when their patterns can't match a file.
+    // Subsequent occurrences stay at debug to avoid log spam.
+    static SILENT_FALLBACK_WARNED: OnceLock<()> = OnceLock::new();
+    log::log!(
+        first_call_warn_else_debug(&SILENT_FALLBACK_WARNED),
+        "{}",
+        format_silent_fallback_message(file_path, canonical_project_root, cwd),
+    );
+    Cow::Borrowed(file_path)
+}
+
+/// Returns [`log::Level::Warn`] the first time it is called with a given
+/// `latch`, and [`log::Level::Debug`] on every subsequent call. The latch
+/// is consumed by the first caller via `OnceLock::set`; later callers
+/// observe the latch as already set and downgrade.
+///
+/// Used to flag a fallback condition once per process without flooding
+/// logs when the same condition recurs (e.g. once per linted file).
+pub(super) fn first_call_warn_else_debug(latch: &OnceLock<()>) -> log::Level {
+    if latch.set(()).is_ok() {
+        log::Level::Warn
+    } else {
+        log::Level::Debug
+    }
+}
+
+/// Format the diagnostic emitted when [`normalize_match_path`] cannot
+/// relativise `file_path` against either the project root or the current
+/// working directory. Extracted so the exact wording can be asserted in
+/// tests without capturing log output.
+pub(super) fn format_silent_fallback_message(
+    file_path: &Path,
+    canonical_project_root: Option<&Path>,
+    cwd: Option<&Path>,
+) -> String {
+    format!(
+        "Per-file glob patterns will not match {}: file is outside project_root ({}) and cwd ({})",
+        file_path.display(),
+        DisplayPathOrUnset(canonical_project_root),
+        DisplayPathOrUnset(cwd),
+    )
+}
+
+/// Display adapter for `Option<&Path>` that renders the path via
+/// [`Path::display`] when present, or the literal `<unset>` when absent.
+/// Angle brackets follow Rust's diagnostic convention (e.g. `<unknown>`)
+/// and avoid double-paren rendering when the surrounding format string
+/// already wraps the value in `(…)`.
+struct DisplayPathOrUnset<'a>(Option<&'a Path>);
+
+impl std::fmt::Display for DisplayPathOrUnset<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Some(path) => std::fmt::Display::fmt(&path.display(), f),
+            None => f.write_str("<unset>"),
+        }
     }
 }
 

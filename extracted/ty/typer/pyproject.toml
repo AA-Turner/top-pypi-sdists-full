@@ -43,7 +43,7 @@ dependencies = [
     "annotated-doc >=0.0.2",
 ]
 readme = "README.md"
-version = "0.25.0"
+version = "0.25.1"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/typer"

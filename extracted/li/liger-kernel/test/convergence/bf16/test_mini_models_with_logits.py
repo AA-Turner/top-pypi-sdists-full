@@ -29,6 +29,7 @@ from liger_kernel.transformers import apply_liger_kernel_to_falcon_h1
 from liger_kernel.transformers import apply_liger_kernel_to_gemma
 from liger_kernel.transformers import apply_liger_kernel_to_gemma2
 from liger_kernel.transformers import apply_liger_kernel_to_gemma3_text
+from liger_kernel.transformers import apply_liger_kernel_to_gemma4_text
 from liger_kernel.transformers import apply_liger_kernel_to_glm4
 from liger_kernel.transformers import apply_liger_kernel_to_glm4v
 from liger_kernel.transformers import apply_liger_kernel_to_glm4v_moe
@@ -39,9 +40,11 @@ from liger_kernel.transformers import apply_liger_kernel_to_internvl
 from liger_kernel.transformers import apply_liger_kernel_to_llama
 from liger_kernel.transformers import apply_liger_kernel_to_llama4
 from liger_kernel.transformers import apply_liger_kernel_to_llava
+from liger_kernel.transformers import apply_liger_kernel_to_ministral
 from liger_kernel.transformers import apply_liger_kernel_to_mistral
 from liger_kernel.transformers import apply_liger_kernel_to_mixtral
 from liger_kernel.transformers import apply_liger_kernel_to_mllama
+from liger_kernel.transformers import apply_liger_kernel_to_nemotron
 from liger_kernel.transformers import apply_liger_kernel_to_olmo2
 from liger_kernel.transformers import apply_liger_kernel_to_olmo3
 from liger_kernel.transformers import apply_liger_kernel_to_phi3
@@ -49,6 +52,7 @@ from liger_kernel.transformers import apply_liger_kernel_to_qwen2
 from liger_kernel.transformers import apply_liger_kernel_to_qwen2_5_vl
 from liger_kernel.transformers import apply_liger_kernel_to_qwen2_vl
 from liger_kernel.transformers import apply_liger_kernel_to_qwen3
+from liger_kernel.transformers import apply_liger_kernel_to_qwen3_5
 from liger_kernel.transformers import apply_liger_kernel_to_qwen3_moe
 from liger_kernel.transformers import apply_liger_kernel_to_qwen3_next
 from liger_kernel.transformers import apply_liger_kernel_to_qwen3_vl
@@ -66,6 +70,7 @@ from test.utils import revert_liger_kernel_to_falcon_h1
 from test.utils import revert_liger_kernel_to_gemma
 from test.utils import revert_liger_kernel_to_gemma2
 from test.utils import revert_liger_kernel_to_gemma3_text
+from test.utils import revert_liger_kernel_to_gemma4_text
 from test.utils import revert_liger_kernel_to_glm4
 from test.utils import revert_liger_kernel_to_glm4v
 from test.utils import revert_liger_kernel_to_glm4v_moe
@@ -76,9 +81,11 @@ from test.utils import revert_liger_kernel_to_internvl
 from test.utils import revert_liger_kernel_to_llama
 from test.utils import revert_liger_kernel_to_llama4
 from test.utils import revert_liger_kernel_to_llava
+from test.utils import revert_liger_kernel_to_ministral
 from test.utils import revert_liger_kernel_to_mistral
 from test.utils import revert_liger_kernel_to_mixtral
 from test.utils import revert_liger_kernel_to_mllama
+from test.utils import revert_liger_kernel_to_nemotron
 from test.utils import revert_liger_kernel_to_olmo2
 from test.utils import revert_liger_kernel_to_olmo3
 from test.utils import revert_liger_kernel_to_phi3
@@ -86,6 +93,7 @@ from test.utils import revert_liger_kernel_to_qwen2
 from test.utils import revert_liger_kernel_to_qwen2_5_vl
 from test.utils import revert_liger_kernel_to_qwen2_vl
 from test.utils import revert_liger_kernel_to_qwen3
+from test.utils import revert_liger_kernel_to_qwen3_5
 from test.utils import revert_liger_kernel_to_qwen3_moe
 from test.utils import revert_liger_kernel_to_qwen3_next
 from test.utils import revert_liger_kernel_to_qwen3_vl
@@ -96,6 +104,14 @@ from test.utils import simple_collate_fn
 from test.utils import supports_bfloat16
 
 IS_TRANSFORMERS_V5_OR_LATER = version.parse(transformers.__version__) >= version.parse("5.0.0")
+
+try:
+    from transformers.models.ministral.configuration_ministral import MinistralConfig
+    from transformers.models.ministral.modeling_ministral import MinistralForCausalLM
+
+    MINISTRAL_AVAILABLE = True
+except ImportError:
+    MINISTRAL_AVAILABLE = False
 
 try:
     from transformers.models.llama4.configuration_llama4 import Llama4TextConfig
@@ -240,6 +256,15 @@ except ImportError:
     GEMMA3_AVAILABLE = False
 
 try:
+    # Gemma4 is only available in transformers>=5.5.0
+    from transformers.models.gemma4.configuration_gemma4 import Gemma4TextConfig
+    from transformers.models.gemma4.modeling_gemma4 import Gemma4ForCausalLM
+
+    GEMMA4_AVAILABLE = True
+except ImportError:
+    GEMMA4_AVAILABLE = False
+
+try:
     # Smollm3 is only available in transformers>=4.53.0
     from transformers.models.smollm3.configuration_smollm3 import SmolLM3Config
     from transformers.models.smollm3.modeling_smollm3 import SmolLM3ForCausalLM
@@ -276,6 +301,14 @@ except ImportError:
     QWEN3NEXT_AVAILABLE = False
 
 try:
+    from transformers.models.qwen3_5.configuration_qwen3_5 import Qwen3_5TextConfig
+    from transformers.models.qwen3_5.modeling_qwen3_5 import Qwen3_5ForCausalLM
+
+    QWEN3_5_AVAILABLE = True
+except ImportError:
+    QWEN3_5_AVAILABLE = False
+
+try:
     from transformers.models.hunyuan_v1_dense.configuration_hunyuan_v1_dense import HunYuanDenseV1Config
     from transformers.models.hunyuan_v1_dense.modeling_hunyuan_v1_dense import HunYuanDenseV1ForCausalLM
     from transformers.models.hunyuan_v1_moe.configuration_hunyuan_v1_moe import HunYuanMoEV1Config
@@ -292,6 +325,14 @@ try:
     EXAONE4_AVAILABLE = True
 except ImportError:
     EXAONE4_AVAILABLE = False
+
+try:
+    from transformers.models.nemotron.configuration_nemotron import NemotronConfig
+    from transformers.models.nemotron.modeling_nemotron import NemotronForCausalLM
+
+    NEMOTRON_AVAILABLE = True
+except ImportError:
+    NEMOTRON_AVAILABLE = False
 
 
 device = infer_device()
@@ -404,22 +445,26 @@ MINI_MODEL_SETUPS = {
             attn_implementation="sdpa",
         ),
     ),
-    "mini_mixtral": MiniModelConfig(
-        liger_kernel_patch_func=apply_liger_kernel_to_mixtral,
-        liger_kernel_patch_revert_func=revert_liger_kernel_to_mixtral,
-        model_class=MixtralForCausalLM,
-        mini_model_config=MixtralConfig(
+}
+
+if MINISTRAL_AVAILABLE:
+    MINI_MODEL_SETUPS["mini_ministral"] = MiniModelConfig(
+        liger_kernel_patch_func=apply_liger_kernel_to_ministral,
+        liger_kernel_patch_revert_func=revert_liger_kernel_to_ministral,
+        model_class=MinistralForCausalLM,
+        mini_model_config=MinistralConfig(
             attention_dropout=0.0,
             bos_token_id=1,
             eos_token_id=2,
+            head_dim=128,
             hidden_act="silu",
-            hidden_size=512,  # 4096
+            hidden_size=1024,
             initializer_range=0.02,
-            intermediate_size=2048,  # 14336
-            max_position_embeddings=32768,  # 32768
-            num_attention_heads=8,  # 32
-            num_hidden_layers=4,  # 32
-            num_key_value_heads=2,  # 8
+            intermediate_size=2048,
+            max_position_embeddings=32768,
+            num_attention_heads=8,
+            num_hidden_layers=4,
+            num_key_value_heads=2,
             rms_norm_eps=1e-5,
             sliding_window=4096,
             tie_word_embeddings=False,
@@ -427,94 +472,122 @@ MINI_MODEL_SETUPS = {
             vocab_size=32000,
             attn_implementation="sdpa",
         ),
-    ),
-    "mini_gemma1": MiniModelConfig(
-        liger_kernel_patch_func=apply_liger_kernel_to_gemma,
-        liger_kernel_patch_revert_func=revert_liger_kernel_to_gemma,
-        model_class=GemmaForCausalLM,
-        mini_model_config=GemmaConfig(
-            vocab_size=32000,  # 256000
-            hidden_size=1024,  # 3072
-            intermediate_size=2048,  # 24576
-            num_hidden_layers=4,  # 28
-            num_attention_heads=4,  # 16
-            num_key_value_heads=4,  # 16
-            head_dim=256,
-            # gemma1 model config uses `hidden_act` and point it to gelu,
-            # https://huggingface.co/google/gemma-7b/blob/main/config.json#L10
-            # but in reality it's ignored and HuggingFace will use tanh approximation:
-            # https://github.com/huggingface/transformers/blob/v4.40.1/src/transformers/models/gemma/modeling_gemma.py#L175
-            hidden_act="gelu",
-            max_position_embeddings=8192,
-            initializer_range=0.02,
-            rms_norm_eps=1e-06,
-            use_cache=True,
-            pad_token_id=0,
-            # Special token ids/vocab size to match Mistral-7B tokenizer used to create the tokenized dataset
-            # https://huggingface.co/mistralai/Mistral-7B-v0.1/blob/main/config.json
-            bos_token_id=1,  # 128000
-            eos_token_id=2,  # 128001
-            tie_word_embeddings=True,
-            attention_bias=False,
-            attention_dropout=0.0,
+    )
+
+MINI_MODEL_SETUPS.update(
+    {
+        "mini_mixtral": MiniModelConfig(
+            liger_kernel_patch_func=apply_liger_kernel_to_mixtral,
+            liger_kernel_patch_revert_func=revert_liger_kernel_to_mixtral,
+            model_class=MixtralForCausalLM,
+            mini_model_config=MixtralConfig(
+                attention_dropout=0.0,
+                bos_token_id=1,
+                eos_token_id=2,
+                hidden_act="silu",
+                hidden_size=512,  # 4096
+                initializer_range=0.02,
+                intermediate_size=2048,  # 14336
+                max_position_embeddings=32768,  # 32768
+                num_attention_heads=8,  # 32
+                num_hidden_layers=4,  # 32
+                num_key_value_heads=2,  # 8
+                rms_norm_eps=1e-5,
+                sliding_window=4096,
+                tie_word_embeddings=False,
+                use_cache=True,
+                vocab_size=32000,
+                attn_implementation="sdpa",
+            ),
         ),
-    ),
-    "mini_gemma1.1": MiniModelConfig(
-        liger_kernel_patch_func=apply_liger_kernel_to_gemma,
-        liger_kernel_patch_revert_func=revert_liger_kernel_to_gemma,
-        model_class=GemmaForCausalLM,
-        mini_model_config=GemmaConfig(
-            vocab_size=32000,  # 256000
-            hidden_size=1024,  # 3072
-            intermediate_size=2048,  # 24576
-            num_hidden_layers=4,  # 28
-            num_attention_heads=4,  # 16
-            num_key_value_heads=4,  # 16
-            head_dim=256,
-            hidden_activation="gelu_pytorch_tanh",
-            max_position_embeddings=8192,
-            initializer_range=0.02,
-            rms_norm_eps=1e-06,
-            use_cache=True,
-            pad_token_id=0,
-            # Special token ids/vocab size to match Mistral-7B tokenizer used to create the tokenized dataset
-            # https://huggingface.co/mistralai/Mistral-7B-v0.1/blob/main/config.json
-            bos_token_id=1,  # 128000
-            eos_token_id=2,  # 128001
-            tie_word_embeddings=True,
-            attention_bias=False,
-            attention_dropout=0.0,
+        "mini_gemma1": MiniModelConfig(
+            liger_kernel_patch_func=apply_liger_kernel_to_gemma,
+            liger_kernel_patch_revert_func=revert_liger_kernel_to_gemma,
+            model_class=GemmaForCausalLM,
+            mini_model_config=GemmaConfig(
+                vocab_size=32000,  # 256000
+                hidden_size=1024,  # 3072
+                intermediate_size=2048,  # 24576
+                num_hidden_layers=4,  # 28
+                num_attention_heads=4,  # 16
+                num_key_value_heads=4,  # 16
+                head_dim=256,
+                # gemma1 model config uses `hidden_act` and point it to gelu,
+                # https://huggingface.co/google/gemma-7b/blob/main/config.json#L10
+                # but in reality it's ignored and HuggingFace will use tanh approximation:
+                # https://github.com/huggingface/transformers/blob/v4.40.1/src/transformers/models/gemma/modeling_gemma.py#L175
+                hidden_act="gelu",
+                max_position_embeddings=8192,
+                initializer_range=0.02,
+                rms_norm_eps=1e-06,
+                use_cache=True,
+                pad_token_id=0,
+                # Special token ids/vocab size to match Mistral-7B tokenizer used to create the tokenized dataset
+                # https://huggingface.co/mistralai/Mistral-7B-v0.1/blob/main/config.json
+                bos_token_id=1,  # 128000
+                eos_token_id=2,  # 128001
+                tie_word_embeddings=True,
+                attention_bias=False,
+                attention_dropout=0.0,
+            ),
         ),
-    ),
-    "mini_gemma2": MiniModelConfig(
-        liger_kernel_patch_func=apply_liger_kernel_to_gemma2,
-        liger_kernel_patch_revert_func=revert_liger_kernel_to_gemma2,
-        model_class=Gemma2ForCausalLM,
-        mini_model_config=Gemma2Config(
-            vocab_size=32000,  # 256000
-            hidden_size=1024,  # 3072
-            intermediate_size=2048,  # 24576
-            num_hidden_layers=4,  # 28
-            num_attention_heads=4,  # 16
-            num_key_value_heads=4,  # 16
-            head_dim=256,
-            hidden_activation="gelu_pytorch_tanh",
-            max_position_embeddings=8192,
-            initializer_range=0.02,
-            rms_norm_eps=1e-06,
-            use_cache=True,
-            pad_token_id=0,
-            # Special token ids/vocab size to match Mistral-7B tokenizer used to create the tokenized dataset
-            # https://huggingface.co/mistralai/Mistral-7B-v0.1/blob/main/config.json
-            bos_token_id=1,  # 128000
-            eos_token_id=2,  # 128001
-            tie_word_embeddings=True,
-            attention_bias=False,
-            attention_dropout=0.0,
-            attn_implementation="eager",
+        "mini_gemma1.1": MiniModelConfig(
+            liger_kernel_patch_func=apply_liger_kernel_to_gemma,
+            liger_kernel_patch_revert_func=revert_liger_kernel_to_gemma,
+            model_class=GemmaForCausalLM,
+            mini_model_config=GemmaConfig(
+                vocab_size=32000,  # 256000
+                hidden_size=1024,  # 3072
+                intermediate_size=2048,  # 24576
+                num_hidden_layers=4,  # 28
+                num_attention_heads=4,  # 16
+                num_key_value_heads=4,  # 16
+                head_dim=256,
+                hidden_activation="gelu_pytorch_tanh",
+                max_position_embeddings=8192,
+                initializer_range=0.02,
+                rms_norm_eps=1e-06,
+                use_cache=True,
+                pad_token_id=0,
+                # Special token ids/vocab size to match Mistral-7B tokenizer used to create the tokenized dataset
+                # https://huggingface.co/mistralai/Mistral-7B-v0.1/blob/main/config.json
+                bos_token_id=1,  # 128000
+                eos_token_id=2,  # 128001
+                tie_word_embeddings=True,
+                attention_bias=False,
+                attention_dropout=0.0,
+            ),
         ),
-    ),
-}
+        "mini_gemma2": MiniModelConfig(
+            liger_kernel_patch_func=apply_liger_kernel_to_gemma2,
+            liger_kernel_patch_revert_func=revert_liger_kernel_to_gemma2,
+            model_class=Gemma2ForCausalLM,
+            mini_model_config=Gemma2Config(
+                vocab_size=32000,  # 256000
+                hidden_size=1024,  # 3072
+                intermediate_size=2048,  # 24576
+                num_hidden_layers=4,  # 28
+                num_attention_heads=4,  # 16
+                num_key_value_heads=4,  # 16
+                head_dim=256,
+                hidden_activation="gelu_pytorch_tanh",
+                max_position_embeddings=8192,
+                initializer_range=0.02,
+                rms_norm_eps=1e-06,
+                use_cache=True,
+                pad_token_id=0,
+                # Special token ids/vocab size to match Mistral-7B tokenizer used to create the tokenized dataset
+                # https://huggingface.co/mistralai/Mistral-7B-v0.1/blob/main/config.json
+                bos_token_id=1,  # 128000
+                eos_token_id=2,  # 128001
+                tie_word_embeddings=True,
+                attention_bias=False,
+                attention_dropout=0.0,
+                attn_implementation="eager",
+            ),
+        ),
+    }
+)
 
 if LLAMA4_AVAILABLE:
     MINI_MODEL_SETUPS["mini_llama4"] = MiniModelConfig(
@@ -739,6 +812,53 @@ if GEMMA3_AVAILABLE:
             attention_bias=False,
             attention_dropout=0.0,
             attn_implementation="eager",
+        ),
+    )
+
+if GEMMA4_AVAILABLE:
+    MINI_MODEL_SETUPS["mini_gemma4_text"] = MiniModelConfig(
+        liger_kernel_patch_func=apply_liger_kernel_to_gemma4_text,
+        liger_kernel_patch_revert_func=revert_liger_kernel_to_gemma4_text,
+        model_class=Gemma4ForCausalLM,
+        mini_model_config=Gemma4TextConfig(
+            # Shrunk from Gemma 4 31B (num_hidden_layers=60, hidden_size=5376).
+            # Layer types mirror the 31B pattern (5 sliding, 1 full, repeat).
+            vocab_size=32000,
+            hidden_size=1024,
+            intermediate_size=2048,
+            num_hidden_layers=6,
+            num_attention_heads=4,
+            num_key_value_heads=1,
+            head_dim=256,
+            hidden_activation="gelu_pytorch_tanh",
+            max_position_embeddings=8192,
+            initializer_range=0.02,
+            rms_norm_eps=1e-06,
+            use_cache=True,
+            pad_token_id=0,
+            bos_token_id=2,
+            eos_token_id=1,
+            tie_word_embeddings=True,
+            attention_bias=False,
+            attention_dropout=0.0,
+            attn_implementation="eager",
+            final_logit_softcapping=30.0,
+            sliding_window=1024,
+            # Match 31B: every Nth layer is full_attention.
+            layer_types=[
+                "sliding_attention",
+                "sliding_attention",
+                "sliding_attention",
+                "sliding_attention",
+                "sliding_attention",
+                "full_attention",
+            ],
+            # Explicitly disable v1-unsupported flags (these are also defaults on 31B):
+            num_kv_shared_layers=0,
+            use_double_wide_mlp=False,
+            enable_moe_block=False,
+            hidden_size_per_layer_input=0,
+            vocab_size_per_layer_input=32000,
         ),
     )
 
@@ -1330,6 +1450,37 @@ if QWEN3NEXT_AVAILABLE:
         ),
     )
 
+if QWEN3_5_AVAILABLE:
+    MINI_MODEL_SETUPS["mini_qwen3_5"] = MiniModelConfig(
+        liger_kernel_patch_func=apply_liger_kernel_to_qwen3_5,
+        liger_kernel_patch_revert_func=revert_liger_kernel_to_qwen3_5,
+        model_class=Qwen3_5ForCausalLM,
+        mini_model_config=Qwen3_5TextConfig(
+            vocab_size=32000,
+            hidden_size=896,
+            intermediate_size=4864,
+            num_hidden_layers=4,
+            num_attention_heads=8,
+            num_key_value_heads=2,
+            hidden_act="silu",
+            max_position_embeddings=32768,
+            initializer_range=0.02,
+            rms_norm_eps=1e-6,
+            use_cache=True,
+            tie_word_embeddings=False,
+            attention_bias=False,
+            attention_dropout=0.0,
+            head_dim=128,
+            linear_conv_kernel_dim=4,
+            linear_key_head_dim=64,
+            linear_value_head_dim=64,
+            linear_num_key_heads=8,
+            linear_num_value_heads=8,
+            layer_types=["linear_attention", "linear_attention", "linear_attention", "full_attention"],
+            dtype=torch.bfloat16,
+        ),
+    )
+
 
 if HUNYUAN_V1_AVAILABLE:
     MINI_MODEL_SETUPS["mini_hunyuan_v1"] = MiniModelConfig(
@@ -1416,6 +1567,29 @@ if EXAONE4_AVAILABLE:
         ),
     )
 
+if NEMOTRON_AVAILABLE:
+    MINI_MODEL_SETUPS["mini_nemotron"] = MiniModelConfig(
+        liger_kernel_patch_func=apply_liger_kernel_to_nemotron,
+        liger_kernel_patch_revert_func=revert_liger_kernel_to_nemotron,
+        model_class=NemotronForCausalLM,
+        mini_model_config=NemotronConfig(
+            attention_bias=False,
+            attention_dropout=0.0,
+            bos_token_id=1,
+            eos_token_id=2,
+            hidden_act="relu2",
+            hidden_size=1024,
+            initializer_range=0.02,
+            intermediate_size=2048,
+            max_position_embeddings=8192,
+            num_attention_heads=8,
+            num_hidden_layers=4,
+            num_key_value_heads=2,
+            norm_eps=1e-5,
+            vocab_size=32000,
+        ),
+    )
+
 
 def create_model(model_name="mini_llama3"):
     """
@@ -1452,7 +1626,7 @@ def run_mini_model(
             "rms_norm": True,
         }
 
-        if "glm4" in model_name or "llama4" in model_name or "qwen3_next" in model_name:
+        if "glm4" in model_name or "llama4" in model_name or "qwen3_next" in model_name or "qwen3_5" in model_name:
             kwargs["rope"] = False
 
         model_supports_layer_norm = "qwen2_vl" in model_name
@@ -1672,7 +1846,7 @@ def run_mini_model(
             1e-2,
             5e-2,
             1e-1,
-            1e-2,
+            5e-2,  # LigerExperts fused MoE kernel needs higher logprobs rtol in bf16
             1e-2,
             1e-2,
             marks=[
@@ -1681,7 +1855,6 @@ def run_mini_model(
                     not QWEN3_VL_MOE_AVAILABLE,
                     reason="Qwen3-VL-MoE not available in this version of transformers",
                 ),
-                pytest.mark.skipif(True, reason="Flaky test"),
             ],
         ),
         pytest.param(
@@ -1747,6 +1920,24 @@ def run_mini_model(
             1e-2,
             1e-2,
             marks=pytest.mark.skipif(not supports_bfloat16(), reason="bfloat16 not supported on this GPU"),
+        ),
+        pytest.param(
+            "mini_ministral",
+            32,
+            1e-5,
+            torch.bfloat16,
+            1e-2,
+            5e-2,
+            1e-1,
+            1e-2,
+            1e-2,
+            1e-2,
+            marks=[
+                pytest.mark.skipif(not supports_bfloat16(), reason="bfloat16 not supported on this GPU"),
+                pytest.mark.skipif(
+                    not MINISTRAL_AVAILABLE, reason="Ministral not available in this version of transformers"
+                ),
+            ],
         ),
         # TODO: mixtral is flaky so disable the test for now
         # pytest.param(
@@ -1922,6 +2113,25 @@ def run_mini_model(
             ],
         ),
         pytest.param(
+            "mini_gemma4_text",
+            32,
+            1e-5,
+            torch.bfloat16,
+            5e-2,  # loss_atol — see test_mini_models.py, same bf16 drift
+            5e-2,
+            5e-1,  # logprobs_atol — 3 of ~20k top-k logprob slots flip by ~0.5 due to bf16 near-ties
+            1e-2,
+            1e-2,
+            1e-2,
+            marks=[
+                pytest.mark.skipif(not supports_bfloat16(), reason="bfloat16 not supported on this GPU"),
+                pytest.mark.skipif(
+                    not GEMMA4_AVAILABLE,
+                    reason="Gemma4 not available in this version of transformers",
+                ),
+            ],
+        ),
+        pytest.param(
             "mini_smollm3",
             32,
             1e-4,
@@ -1998,6 +2208,25 @@ def run_mini_model(
             ],
         ),
         pytest.param(
+            "mini_qwen3_5",
+            32,
+            1e-5,
+            torch.bfloat16,
+            5e-2,
+            2e-1,
+            1e-1,
+            1e-1,
+            1e-2,
+            1e-2,
+            marks=[
+                pytest.mark.skipif(not supports_bfloat16(), reason="bfloat16 not supported on this GPU"),
+                pytest.mark.skipif(
+                    not QWEN3_5_AVAILABLE,
+                    reason="Qwen3_5 not available in this version of transformers",
+                ),
+            ],
+        ),
+        pytest.param(
             "mini_hunyuan_v1",
             32,
             1e-5,
@@ -2052,6 +2281,22 @@ def run_mini_model(
                     not EXAONE4_AVAILABLE,
                     reason="EXAONE4 not available in this version of transformers",
                 ),
+            ],
+        ),
+        pytest.param(
+            "mini_nemotron",
+            32,
+            1e-5,
+            torch.bfloat16,
+            1e-2,
+            5e-2,
+            1e-1,
+            1e-2,
+            1e-2,
+            1e-2,
+            marks=[
+                pytest.mark.skipif(not supports_bfloat16(), reason="bfloat16 not supported on this GPU"),
+                pytest.mark.skipif(not NEMOTRON_AVAILABLE, reason="Nemotron not available"),
             ],
         ),
     ],

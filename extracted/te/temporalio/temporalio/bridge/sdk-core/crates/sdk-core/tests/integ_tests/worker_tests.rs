@@ -414,12 +414,20 @@ async fn activity_tasks_from_completion_reserve_slots() {
     impl ActivityTasksCompletionWf {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-            ctx.start_activity(FakeAct::act1, (), ActivityOptions::default())
-                .await
-                .map_err(|e| WorkflowTermination::from(anyhow::Error::from(e)))?;
-            ctx.start_activity(FakeAct::act2, (), ActivityOptions::default())
-                .await
-                .map_err(|e| WorkflowTermination::from(anyhow::Error::from(e)))?;
+            ctx.start_activity(
+                FakeAct::act1,
+                (),
+                ActivityOptions::start_to_close_timeout(Duration::from_secs(5)),
+            )
+            .await
+            .map_err(|e| WorkflowTermination::from(anyhow::Error::from(e)))?;
+            ctx.start_activity(
+                FakeAct::act2,
+                (),
+                ActivityOptions::start_to_close_timeout(Duration::from_secs(5)),
+            )
+            .await
+            .map_err(|e| WorkflowTermination::from(anyhow::Error::from(e)))?;
             ctx.state(|wf| wf.complete_token.cancel());
             Ok(())
         }
@@ -782,10 +790,7 @@ async fn test_custom_slot_supplier_simple() {
                 .start_activity(
                     StdActivities::no_op,
                     (),
-                    ActivityOptions {
-                        start_to_close_timeout: Some(Duration::from_secs(10)),
-                        ..Default::default()
-                    },
+                    ActivityOptions::start_to_close_timeout(Duration::from_secs(10)),
                 )
                 .await;
             let _result = ctx
@@ -982,4 +987,9 @@ fn test_default_build_id() {
     let o = WorkerOptions::new("task_queue").build();
     assert!(!o.deployment_options.version.build_id.is_empty());
     assert_ne!(o.deployment_options.version.build_id, "undetermined");
+}
+
+#[tokio::test]
+async fn shutdown_during_active_timer_activity_workflows() {
+    shared_tests::shutdown_during_active_timer_activity_workflows().await
 }

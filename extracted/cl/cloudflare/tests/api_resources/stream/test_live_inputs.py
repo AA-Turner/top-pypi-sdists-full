@@ -33,6 +33,7 @@ class TestLiveInputs:
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             default_creator="defaultCreator",
             delete_recording_after_days=45,
+            enabled=True,
             meta={"name": "test stream 1"},
             recording={
                 "allowed_origins": ["example.com"],
@@ -90,6 +91,7 @@ class TestLiveInputs:
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             default_creator="defaultCreator",
             delete_recording_after_days=45,
+            enabled=True,
             meta={"name": "test stream 1"},
             recording={
                 "allowed_origins": ["example.com"],
@@ -285,7 +287,9 @@ class TestLiveInputs:
 
 
 class TestAsyncLiveInputs:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
@@ -300,6 +304,7 @@ class TestAsyncLiveInputs:
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             default_creator="defaultCreator",
             delete_recording_after_days=45,
+            enabled=True,
             meta={"name": "test stream 1"},
             recording={
                 "allowed_origins": ["example.com"],
@@ -357,6 +362,7 @@ class TestAsyncLiveInputs:
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             default_creator="defaultCreator",
             delete_recording_after_days=45,
+            enabled=True,
             meta={"name": "test stream 1"},
             recording={
                 "allowed_origins": ["example.com"],

@@ -7,6 +7,7 @@ from emmet.core.thermo import ThermoDoc
 from emmet.core.types.enums import ThermoType
 from pymatgen.analysis.phase_diagram import PhaseDiagram
 from pymatgen.core import Element
+from pymatgen.core import __version__ as __pmg_version__
 
 from mp_api.client.core import BaseRester
 from mp_api.client.core.utils import load_json, validate_ids
@@ -133,7 +134,7 @@ class ThermoRester(BaseRester):
             if query_params[entry] is not None
         }
 
-        return super()._search(
+        return super()._search(  # type: ignore[return-value]
             num_chunks=num_chunks,
             chunk_size=chunk_size,
             all_fields=all_fields,
@@ -166,11 +167,20 @@ class ThermoRester(BaseRester):
         phdiag_id = f"thermo_type={t_type}/chemsys={sorted_chemsys}"
         version = self.db_version.replace(".", "-")
         obj_key = f"objects/{version}/phase-diagrams/{phdiag_id}.jsonl.gz"
-        pd = self._query_open_data(
+        pd_dct = self._query_open_data(  # type: ignore[union-attr]
             bucket="materialsproject-build",
             key=obj_key,
-            decoder=lambda x: load_json(x, deser=True),
+            decoder=lambda x: load_json(x, deser=False),
         )[0][0].get("phase_diagram")
+
+        pd = PhaseDiagram.from_dict(
+            {  # type: ignore[arg-type]
+                k: v if k != "elements" else [e.get("element", e) for e in v]
+                for k, v in pd_dct.items()  # type: ignore[union-attr]
+            }  # post pymatgen/-core split, different serialization behavior
+            if int(__pmg_version__.split(".", 1)[0]) >= 2026
+            else pd_dct  # pymatgen<=2025.10.7
+        )
 
         # Ensure el_ref keys are Element objects for PDPlotter.
         # Ensure qhull_data is a numpy array

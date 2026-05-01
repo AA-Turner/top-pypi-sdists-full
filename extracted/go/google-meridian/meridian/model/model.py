@@ -25,6 +25,7 @@ import arviz as az
 import joblib
 from meridian import backend
 from meridian import constants
+from meridian.common import errors
 from meridian.data import input_data as data
 from meridian.data import time_coordinates as tc
 from meridian.model import adstock_hill
@@ -47,6 +48,7 @@ __all__ = [
     "MCMCOOMError",
     "Meridian",
     "ModelFittingError",
+    # TODO: Migrate to a direct call to common/errors.py.
     "NotFittedModelError",
     "save_mmm",
     "load_mmm",
@@ -57,12 +59,9 @@ class ModelFittingError(Exception):
   """Model has critical issues preventing fitting."""
 
 
-class NotFittedModelError(Exception):
-  """Model has not been fitted."""
-
-
 MCMCSamplingError = posterior_sampler.MCMCSamplingError
 MCMCOOMError = posterior_sampler.MCMCOOMError
+NotFittedModelError = errors.NotFittedModelError
 
 
 def _warn_setting_national_args(**kwargs):
@@ -167,6 +166,7 @@ class Meridian:
     )
     self._model_equations = equations.ModelEquations(self._model_context)
     self._computation_backend = backend.computation_backend().name
+    self._computation_precision = backend.computation_precision().name
     self._eda_spec = eda_spec
 
     self._validate_injected_inference_data()
@@ -355,6 +355,11 @@ class Meridian:
   def computation_backend(self) -> str:
     """The name of the computational backend used to initialize this model."""
     return self._computation_backend
+
+  @property
+  def computation_precision(self) -> str:
+    """The computation precision used to train the model."""
+    return self._computation_precision
 
   @property
   def adstock_decay_spec(self) -> adstock_hill.AdstockDecaySpec:

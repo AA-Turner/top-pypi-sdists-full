@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -50,18 +50,18 @@ class WatermarksResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        file: str,
-        name: str | NotGiven = NOT_GIVEN,
-        opacity: float | NotGiven = NOT_GIVEN,
-        padding: float | NotGiven = NOT_GIVEN,
-        position: str | NotGiven = NOT_GIVEN,
-        scale: float | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        opacity: float | Omit = omit,
+        padding: float | Omit = omit,
+        position: str | Omit = omit,
+        scale: float | Omit = omit,
+        url: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Watermark]:
         """
         Creates watermark profiles using a single `HTTP POST multipart/form-data`
@@ -69,8 +69,6 @@ class WatermarksResource(SyncAPIResource):
 
         Args:
           account_id: The account identifier tag.
-
-          file: The image file to upload.
 
           name: A short description of the watermark profile.
 
@@ -91,6 +89,8 @@ class WatermarksResource(SyncAPIResource):
               will adapt to horizontal and vertical videos automatically. `0.0` indicates no
               scaling (use the size of the image as-is), and `1.0 `fills the entire video.
 
+          url: URL of the watermark image to copy.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -101,20 +101,16 @@ class WatermarksResource(SyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        # It should be noted that the actual Content-Type header that will be
-        # sent to the server will contain a `boundary` parameter, e.g.
-        # multipart/form-data; boundary=---abc--
-        extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._post(
-            f"/accounts/{account_id}/stream/watermarks",
+            path_template("/accounts/{account_id}/stream/watermarks", account_id=account_id),
             body=maybe_transform(
                 {
-                    "file": file,
                     "name": name,
                     "opacity": opacity,
                     "padding": padding,
                     "position": position,
                     "scale": scale,
+                    "url": url,
                 },
                 watermark_create_params.WatermarkCreateParams,
             ),
@@ -137,7 +133,7 @@ class WatermarksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Watermark]:
         """
         Lists all watermark profiles for an account.
@@ -156,7 +152,7 @@ class WatermarksResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/stream/watermarks",
+            path_template("/accounts/{account_id}/stream/watermarks", account_id=account_id),
             page=SyncSinglePage[Watermark],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -174,7 +170,7 @@ class WatermarksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
         Deletes a watermark profile.
@@ -197,7 +193,9 @@ class WatermarksResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._delete(
-            f"/accounts/{account_id}/stream/watermarks/{identifier}",
+            path_template(
+                "/accounts/{account_id}/stream/watermarks/{identifier}", account_id=account_id, identifier=identifier
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -218,7 +216,7 @@ class WatermarksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Watermark]:
         """
         Retrieves details for a single watermark profile.
@@ -241,7 +239,9 @@ class WatermarksResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._get(
-            f"/accounts/{account_id}/stream/watermarks/{identifier}",
+            path_template(
+                "/accounts/{account_id}/stream/watermarks/{identifier}", account_id=account_id, identifier=identifier
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -277,18 +277,18 @@ class AsyncWatermarksResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        file: str,
-        name: str | NotGiven = NOT_GIVEN,
-        opacity: float | NotGiven = NOT_GIVEN,
-        padding: float | NotGiven = NOT_GIVEN,
-        position: str | NotGiven = NOT_GIVEN,
-        scale: float | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        opacity: float | Omit = omit,
+        padding: float | Omit = omit,
+        position: str | Omit = omit,
+        scale: float | Omit = omit,
+        url: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Watermark]:
         """
         Creates watermark profiles using a single `HTTP POST multipart/form-data`
@@ -296,8 +296,6 @@ class AsyncWatermarksResource(AsyncAPIResource):
 
         Args:
           account_id: The account identifier tag.
-
-          file: The image file to upload.
 
           name: A short description of the watermark profile.
 
@@ -318,6 +316,8 @@ class AsyncWatermarksResource(AsyncAPIResource):
               will adapt to horizontal and vertical videos automatically. `0.0` indicates no
               scaling (use the size of the image as-is), and `1.0 `fills the entire video.
 
+          url: URL of the watermark image to copy.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -328,20 +328,16 @@ class AsyncWatermarksResource(AsyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
-        # It should be noted that the actual Content-Type header that will be
-        # sent to the server will contain a `boundary` parameter, e.g.
-        # multipart/form-data; boundary=---abc--
-        extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._post(
-            f"/accounts/{account_id}/stream/watermarks",
+            path_template("/accounts/{account_id}/stream/watermarks", account_id=account_id),
             body=await async_maybe_transform(
                 {
-                    "file": file,
                     "name": name,
                     "opacity": opacity,
                     "padding": padding,
                     "position": position,
                     "scale": scale,
+                    "url": url,
                 },
                 watermark_create_params.WatermarkCreateParams,
             ),
@@ -364,7 +360,7 @@ class AsyncWatermarksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Watermark, AsyncSinglePage[Watermark]]:
         """
         Lists all watermark profiles for an account.
@@ -383,7 +379,7 @@ class AsyncWatermarksResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/stream/watermarks",
+            path_template("/accounts/{account_id}/stream/watermarks", account_id=account_id),
             page=AsyncSinglePage[Watermark],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -401,7 +397,7 @@ class AsyncWatermarksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
         Deletes a watermark profile.
@@ -424,7 +420,9 @@ class AsyncWatermarksResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._delete(
-            f"/accounts/{account_id}/stream/watermarks/{identifier}",
+            path_template(
+                "/accounts/{account_id}/stream/watermarks/{identifier}", account_id=account_id, identifier=identifier
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -445,7 +443,7 @@ class AsyncWatermarksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Watermark]:
         """
         Retrieves details for a single watermark profile.
@@ -468,7 +466,9 @@ class AsyncWatermarksResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._get(
-            f"/accounts/{account_id}/stream/watermarks/{identifier}",
+            path_template(
+                "/accounts/{account_id}/stream/watermarks/{identifier}", account_id=account_id, identifier=identifier
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

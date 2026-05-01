@@ -19,7 +19,7 @@ from quack.reduce import row_reduce, online_softmax_reduce
 from quack.reduction_base import ReductionBase
 from quack.cache_utils import jit_cache
 from quack.cute_dsl_utils import torch2cute_dtype_map
-from cutlass.base_dsl import Arch
+from cutlass.base_dsl.arch import Arch
 
 
 class Softmax(ReductionBase):
@@ -225,7 +225,8 @@ def _softmax_fwd_fake(x: torch.Tensor, out: torch.Tensor) -> None:
 
 def softmax_fwd(x: torch.Tensor) -> torch.Tensor:
     out = torch.empty_like(x)
-    _softmax_fwd(x, out)
+    if x.numel() > 0:
+        _softmax_fwd(x, out)
     return out
 
 
@@ -420,7 +421,8 @@ def _softmax_backward_fake(dy: torch.Tensor, y: torch.Tensor, dx: torch.Tensor) 
 
 def softmax_bwd(dy: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     dx = torch.empty_like(dy)
-    _softmax_backward(dy, y, dx)
+    if dy.numel() > 0:
+        _softmax_backward(dy, y, dx)
     return dx
 
 

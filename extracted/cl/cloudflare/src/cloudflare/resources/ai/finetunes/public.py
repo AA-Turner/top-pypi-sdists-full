@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -46,18 +46,18 @@ class PublicResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        limit: float | NotGiven = NOT_GIVEN,
-        offset: float | NotGiven = NOT_GIVEN,
-        order_by: str | NotGiven = NOT_GIVEN,
+        limit: float | Omit = omit,
+        offset: float | Omit = omit,
+        order_by: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[PublicListResponse]:
         """
-        List Public Finetunes
+        Lists publicly available fine-tuned models that can be used with Workers AI.
 
         Args:
           limit: Pagination Limit
@@ -77,7 +77,7 @@ class PublicResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/ai/finetunes/public",
+            path_template("/accounts/{account_id}/ai/finetunes/public", account_id=account_id),
             page=SyncSinglePage[PublicListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -121,18 +121,18 @@ class AsyncPublicResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        limit: float | NotGiven = NOT_GIVEN,
-        offset: float | NotGiven = NOT_GIVEN,
-        order_by: str | NotGiven = NOT_GIVEN,
+        limit: float | Omit = omit,
+        offset: float | Omit = omit,
+        order_by: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[PublicListResponse, AsyncSinglePage[PublicListResponse]]:
         """
-        List Public Finetunes
+        Lists publicly available fine-tuned models that can be used with Workers AI.
 
         Args:
           limit: Pagination Limit
@@ -152,7 +152,7 @@ class AsyncPublicResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/ai/finetunes/public",
+            path_template("/accounts/{account_id}/ai/finetunes/public", account_id=account_id),
             page=AsyncSinglePage[PublicListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,

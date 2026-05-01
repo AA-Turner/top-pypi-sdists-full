@@ -1,4 +1,5 @@
 """Configure the Materials Project MCP server."""
+
 from __future__ import annotations
 
 from argparse import ArgumentParser
@@ -16,9 +17,8 @@ if TYPE_CHECKING:
 
 MCP_SERVER_INSTRUCTIONS = """
 This MCP server defines search and document retrieval capabilities
-for data in the Materials Project.
-Use the search tool to find relevant documents based on materials
-keywords.
+for data in the Materials Project (https://next-gen.materialsproject.org/).
+Use the search tool to find relevant documents based on materials keywords.
 Then use the fetch tool to retrieve complete materials summary information.
 """
 
@@ -30,7 +30,13 @@ def get_core_mcp() -> FastMCP:
         instructions=MCP_SERVER_INSTRUCTIONS,
     )
     core_tools = MPCoreMCP()
-    for k in {"search", "fetch"}:
+    for k in {
+        "search",
+        "fetch",
+        "fetch_many",
+        "fetch_all",
+        "get_phase_diagram_from_elements",
+    }:
         mp_mcp.tool(getattr(core_tools, k), name=k)
     return mp_mcp
 
@@ -71,5 +77,10 @@ def parse_server_args(args: Sequence[str] | None = None) -> dict[str, Any]:
 
 mcp = get_core_mcp()
 
-if __name__ == "__main__":
+
+def _run_mp_mcp_server() -> None:
     mcp.run(**parse_server_args())
+
+
+if __name__ == "__main__":  # pragma: no cover
+    _run_mp_mcp_server()

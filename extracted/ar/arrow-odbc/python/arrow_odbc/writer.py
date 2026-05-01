@@ -1,9 +1,9 @@
-from typing import Any
-
+from cffi import FFI
+from pyarrow import RecordBatch
 from pyarrow.cffi import ffi as arrow_ffi
 
-from .arrow_odbc import ffi, lib  # type: ignore
-from .connection_raii import ConnectionRaii
+from .arrow_odbc import ffi, lib
+from .batch_reader_protocol import BatchReaderProtocol
 from .error import raise_on_error
 
 
@@ -14,24 +14,30 @@ class BatchWriter:
 
     def __init__(
         self,
-        handle,
+        handle: "FFI.CData",
     ):
         # We take ownership of the corresponding writer written in Rust and keep it alive until
         # `self` is deleted
-        self.handle = handle
+        self.handle: "FFI.CData" = handle
 
     def __del__(self):
         # Free the resources associated with this handle.
         lib.arrow_odbc_writer_free(self.handle)
 
     @classmethod
-    def _from_connection(
+    def from_connection(
         cls,
-        connection: ConnectionRaii,
-        reader: Any,
+        connection_handle: "FFI.CData",
+        reader: BatchReaderProtocol,
         chunk_size: int,
         table: str,
     ):
+        """
+        Create a ``BatchWriter`` from a connection handle and a ``RecordBatchReader`` or
+        ``BatchReader``.
+
+        This is a low-level constructor. Use :meth:``Connection.insert_into_table`` instead.
+        """
         table_bytes = table.encode("utf-8")
 
         # Allocate structures where we will export the Array data and the Array schema. They will be
@@ -45,7 +51,7 @@ class BatchWriter:
 
             writer_out = ffi.new("ArrowOdbcWriter **")
             error = lib.arrow_odbc_writer_make(
-                connection.arrow_odbc_connection(),
+                connection_handle,
                 table_bytes,
                 len(table_bytes),
                 chunk_size,
@@ -56,7 +62,7 @@ class BatchWriter:
 
         return BatchWriter(handle=writer_out[0])
 
-    def write_batch(self, batch):
+    def write_batch(self, batch: RecordBatch):
         """
         Fills the internal buffers of the writer with data from the batch. Every
         time they are full, the data is send to the database. To make sure all

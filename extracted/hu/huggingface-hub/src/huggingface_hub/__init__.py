@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.12.2"
+__version__ = "1.13.0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -294,6 +294,7 @@ _SUBMOD_ATTRS = {
         "list_repo_refs",
         "list_repo_tree",
         "list_spaces",
+        "list_spaces_hardware",
         "list_user_followers",
         "list_user_following",
         "list_webhooks",
@@ -582,6 +583,7 @@ _SUBMOD_ATTRS = {
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",
+        "HfUri",
         "cached_assets_path",
         "close_session",
         "dump_environment_info",
@@ -590,6 +592,7 @@ _SUBMOD_ATTRS = {
         "get_token",
         "hf_raise_for_status",
         "logging",
+        "parse_hf_uri",
         "scan_cache_dir",
         "set_async_client_factory",
         "set_client_factory",
@@ -720,6 +723,7 @@ __all__ = [
     "HfFileSystemFile",
     "HfFileSystemResolvedPath",
     "HfFileSystemStreamFile",
+    "HfUri",
     "ImageClassificationInput",
     "ImageClassificationOutputElement",
     "ImageClassificationOutputTransform",
@@ -1017,6 +1021,7 @@ __all__ = [
     "list_repo_refs",
     "list_repo_tree",
     "list_spaces",
+    "list_spaces_hardware",
     "list_user_followers",
     "list_user_following",
     "list_webhooks",
@@ -1036,6 +1041,7 @@ __all__ = [
     "notebook_login",
     "paper_info",
     "parse_eval_result_entries",
+    "parse_hf_uri",
     "parse_huggingface_oauth",
     "parse_local_safetensors_file_metadata",
     "parse_safetensors_file_metadata",
@@ -1430,6 +1436,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
         list_spaces,  # noqa: F401
+        list_spaces_hardware,  # noqa: F401
         list_user_followers,  # noqa: F401
         list_user_following,  # noqa: F401
         list_webhooks,  # noqa: F401
@@ -1712,6 +1719,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CorruptedCacheException,  # noqa: F401
         DeleteCacheStrategy,  # noqa: F401
         HFCacheInfo,  # noqa: F401
+        HfUri,  # noqa: F401
         cached_assets_path,  # noqa: F401
         close_session,  # noqa: F401
         dump_environment_info,  # noqa: F401
@@ -1720,6 +1728,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_token,  # noqa: F401
         hf_raise_for_status,  # noqa: F401
         logging,  # noqa: F401
+        parse_hf_uri,  # noqa: F401
         scan_cache_dir,  # noqa: F401
         set_async_client_factory,  # noqa: F401
         set_client_factory,  # noqa: F401

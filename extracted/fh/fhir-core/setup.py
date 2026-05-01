@@ -18,7 +18,8 @@ with open("README.rst") as readme_file:
 with open("HISTORY.rst") as history_file:
     history = history_file.read()
 
-requirements = ["pydantic>=2.7.4,<3.0"]
+requirements = ["pydantic>=2.7.4,<3.0",
+                ]
 if PY_VERSION_9_OR_EARLIER:
     requirements.append("eval-type-backport")
 
@@ -101,7 +102,7 @@ setup(
         "dev": (test_requirements + development_requirements),
     },
     url="https://github.com/nazrulworld/fhir-core",
-    version="1.1.7",
+    version="1.1.8",
     zip_safe=False,
     python_requires=">=3.8",
     project_urls={

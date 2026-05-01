@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from typing import Type, Optional, cast
+from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -49,18 +50,42 @@ class PayloadLogsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        public_key: Optional[str] | NotGiven = NOT_GIVEN,
+        masking_level: Literal["full", "partial", "clear", "default"] | Omit = omit,
+        public_key: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PayloadLogUpdateResponse]:
-        """
-        Set payload log settings
+        """Enables or disables payload logging for DLP matches.
+
+        When enabled, matched
+        content is stored for review.
 
         Args:
+          masking_level: Masking level for payload logs.
+
+              - `full`: The entire payload is masked.
+              - `partial`: Only partial payload content is masked.
+              - `clear`: No masking is applied to the payload content.
+              - `default`: DLP uses its default masking behavior.
+
+          public_key: Base64-encoded public key for encrypting payload logs.
+
+              - Set to null or empty string to disable payload logging.
+              - Set to a non-empty base64 string to enable payload logging with the given key.
+
+              For customers with configurable payload masking feature rolled out:
+
+              - If the field is missing, the existing setting will be kept. Note that this is
+                different from setting to null or empty string.
+
+              For all other customers:
+
+              - If the field is missing, the existing setting will be cleared.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -72,8 +97,14 @@ class PayloadLogsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._put(
-            f"/accounts/{account_id}/dlp/payload_log",
-            body=maybe_transform({"public_key": public_key}, payload_log_update_params.PayloadLogUpdateParams),
+            path_template("/accounts/{account_id}/dlp/payload_log", account_id=account_id),
+            body=maybe_transform(
+                {
+                    "masking_level": masking_level,
+                    "public_key": public_key,
+                },
+                payload_log_update_params.PayloadLogUpdateParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -93,10 +124,11 @@ class PayloadLogsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PayloadLogGetResponse]:
         """
-        Get payload log settings
+        Gets the current payload logging configuration for DLP, showing whether matched
+        content is being logged.
 
         Args:
           extra_headers: Send extra headers
@@ -110,7 +142,7 @@ class PayloadLogsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/dlp/payload_log",
+            path_template("/accounts/{account_id}/dlp/payload_log", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -146,18 +178,42 @@ class AsyncPayloadLogsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        public_key: Optional[str] | NotGiven = NOT_GIVEN,
+        masking_level: Literal["full", "partial", "clear", "default"] | Omit = omit,
+        public_key: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PayloadLogUpdateResponse]:
-        """
-        Set payload log settings
+        """Enables or disables payload logging for DLP matches.
+
+        When enabled, matched
+        content is stored for review.
 
         Args:
+          masking_level: Masking level for payload logs.
+
+              - `full`: The entire payload is masked.
+              - `partial`: Only partial payload content is masked.
+              - `clear`: No masking is applied to the payload content.
+              - `default`: DLP uses its default masking behavior.
+
+          public_key: Base64-encoded public key for encrypting payload logs.
+
+              - Set to null or empty string to disable payload logging.
+              - Set to a non-empty base64 string to enable payload logging with the given key.
+
+              For customers with configurable payload masking feature rolled out:
+
+              - If the field is missing, the existing setting will be kept. Note that this is
+                different from setting to null or empty string.
+
+              For all other customers:
+
+              - If the field is missing, the existing setting will be cleared.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -169,9 +225,13 @@ class AsyncPayloadLogsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/dlp/payload_log",
+            path_template("/accounts/{account_id}/dlp/payload_log", account_id=account_id),
             body=await async_maybe_transform(
-                {"public_key": public_key}, payload_log_update_params.PayloadLogUpdateParams
+                {
+                    "masking_level": masking_level,
+                    "public_key": public_key,
+                },
+                payload_log_update_params.PayloadLogUpdateParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -192,10 +252,11 @@ class AsyncPayloadLogsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PayloadLogGetResponse]:
         """
-        Get payload log settings
+        Gets the current payload logging configuration for DLP, showing whether matched
+        content is being logged.
 
         Args:
           extra_headers: Send extra headers
@@ -209,7 +270,7 @@ class AsyncPayloadLogsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/dlp/payload_log",
+            path_template("/accounts/{account_id}/dlp/payload_log", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

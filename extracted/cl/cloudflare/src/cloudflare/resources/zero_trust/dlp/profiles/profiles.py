@@ -14,8 +14,8 @@ from .custom import (
     CustomResourceWithStreamingResponse,
     AsyncCustomResourceWithStreamingResponse,
 )
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform
 from .predefined import (
     PredefinedResource,
     AsyncPredefinedResource,
@@ -73,13 +73,13 @@ class ProfilesResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        all: bool | NotGiven = NOT_GIVEN,
+        all: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Profile]:
         """
         Lists all DLP profiles in an account.
@@ -99,7 +99,7 @@ class ProfilesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dlp/profiles",
+            path_template("/accounts/{account_id}/dlp/profiles", account_id=account_id),
             page=SyncSinglePage[Profile],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -121,7 +121,7 @@ class ProfilesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Profile]:
         """
         Fetches a DLP profile by ID.
@@ -142,7 +142,9 @@ class ProfilesResource(SyncAPIResource):
         return cast(
             Optional[Profile],
             self._get(
-                f"/accounts/{account_id}/dlp/profiles/{profile_id}",
+                path_template(
+                    "/accounts/{account_id}/dlp/profiles/{profile_id}", account_id=account_id, profile_id=profile_id
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -189,13 +191,13 @@ class AsyncProfilesResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        all: bool | NotGiven = NOT_GIVEN,
+        all: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Profile, AsyncSinglePage[Profile]]:
         """
         Lists all DLP profiles in an account.
@@ -215,7 +217,7 @@ class AsyncProfilesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dlp/profiles",
+            path_template("/accounts/{account_id}/dlp/profiles", account_id=account_id),
             page=AsyncSinglePage[Profile],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -237,7 +239,7 @@ class AsyncProfilesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Profile]:
         """
         Fetches a DLP profile by ID.
@@ -258,7 +260,9 @@ class AsyncProfilesResource(AsyncAPIResource):
         return cast(
             Optional[Profile],
             await self._get(
-                f"/accounts/{account_id}/dlp/profiles/{profile_id}",
+                path_template(
+                    "/accounts/{account_id}/dlp/profiles/{profile_id}", account_id=account_id, profile_id=profile_id
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,

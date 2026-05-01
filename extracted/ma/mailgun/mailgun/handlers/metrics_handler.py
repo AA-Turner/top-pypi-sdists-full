@@ -5,8 +5,9 @@ Doc: https://documentation.mailgun.com/docs/mailgun/api-reference/openapi-final/
 
 from __future__ import annotations
 
-from os import path
 from typing import Any
+
+from mailgun.handlers.utils import build_path_from_keys, sanitize_path_segment
 
 
 def handle_metrics(
@@ -14,24 +15,27 @@ def handle_metrics(
     _domain: str | None,
     _method: str | None,
     **kwargs: Any,
-) -> Any:
-    """Handle Metrics and Tags New.
+) -> str:
+    """Handle Metrics and Tags New URL construction.
 
-    :param url: Incoming URL dictionary
-    :type url: dict
-    :param _domain: Incoming domain (it's not being used for this handler)
-    :type _domain: str
-    :param _method: Incoming request method (it's not being used for this handler)
-    :type _method: str
-    :param kwargs: kwargs
-    :return: final url for Metrics and Tags New endpoints
+    Args:
+        url: Incoming URL configuration dictionary.
+        _domain: Incoming domain (unused in this handler).
+        _method: Incoming request method (unused in this handler).
+        **kwargs: Additional keyword arguments (e.g., 'usage', 'limits', 'tags').
+
+    Returns:
+        The final URL for the Metrics and Tags New endpoints.
     """
-    final_keys = path.join("/", *url["keys"]) if url["keys"] else ""
-    if "usage" in kwargs:
-        url = url["base"][:-1] + "/" + kwargs["usage"] + final_keys
-    elif "limits" in kwargs and "tags" in kwargs:
-        url = url["base"][:-1] + "/" + final_keys + kwargs["limits"]
-    else:
-        url = url["base"][:-1] + final_keys
+    final_keys = build_path_from_keys(url.get("keys", []))
+    base = str(url["base"]).rstrip("/")
 
-    return url
+    if "usage" in kwargs:
+        safe_usage = sanitize_path_segment(kwargs["usage"])
+        return f"{base}/{safe_usage}{final_keys}"
+
+    if "limits" in kwargs and "tags" in kwargs:
+        safe_limits = sanitize_path_segment(kwargs["limits"])
+        return f"{base}{final_keys}/{safe_limits}"
+
+    return f"{base}{final_keys}"

@@ -39,6 +39,8 @@ class TestOrganizations:
             account_id="account_id",
             allow_authenticate_via_warp=True,
             auto_redirect_to_identity=True,
+            deny_unmatched_requests=True,
+            deny_unmatched_requests_exempted_zone_names=["example.com"],
             is_ui_read_only=True,
             login_design={
                 "background_color": "#c5ed1b",
@@ -46,6 +48,20 @@ class TestOrganizations:
                 "header_text": "This is an example description.",
                 "logo_path": "https://example.com/logo.png",
                 "text_color": "#c5ed1b",
+            },
+            mfa_config={
+                "allowed_authenticators": ["totp", "biometrics", "security_key"],
+                "amr_matching_session_duration": "12h",
+                "required_aaguids": "2fc0579f-8113-47ea-b116-bb5a8db9202a",
+                "session_duration": "24h",
+            },
+            mfa_required_for_all_apps=False,
+            mfa_ssh_piv_key_requirements={
+                "pin_policy": "always",
+                "require_fips_device": True,
+                "ssh_key_size": [256, 2048],
+                "ssh_key_type": ["ecdsa", "rsa"],
+                "touch_policy": "always",
             },
             session_duration="24h",
             ui_read_only_toggle_reason="Temporarily turn off the UI read only lock to make a change via the UI",
@@ -121,6 +137,8 @@ class TestOrganizations:
                 "forbidden": "699d98642c564d2e855e9661899b7252",
                 "identity_denied": "699d98642c564d2e855e9661899b7252",
             },
+            deny_unmatched_requests=True,
+            deny_unmatched_requests_exempted_zone_names=["example.com"],
             is_ui_read_only=True,
             login_design={
                 "background_color": "#c5ed1b",
@@ -128,6 +146,20 @@ class TestOrganizations:
                 "header_text": "This is an example description.",
                 "logo_path": "https://example.com/logo.png",
                 "text_color": "#c5ed1b",
+            },
+            mfa_config={
+                "allowed_authenticators": ["totp", "biometrics", "security_key"],
+                "amr_matching_session_duration": "12h",
+                "required_aaguids": "2fc0579f-8113-47ea-b116-bb5a8db9202a",
+                "session_duration": "24h",
+            },
+            mfa_required_for_all_apps=False,
+            mfa_ssh_piv_key_requirements={
+                "pin_policy": "always",
+                "require_fips_device": True,
+                "ssh_key_size": [256, 2048],
+                "ssh_key_type": ["ecdsa", "rsa"],
+                "touch_policy": "always",
             },
             name="Widget Corps Internal Applications",
             session_duration="24h",
@@ -298,7 +330,9 @@ class TestOrganizations:
 
 
 class TestAsyncOrganizations:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -319,6 +353,8 @@ class TestAsyncOrganizations:
             account_id="account_id",
             allow_authenticate_via_warp=True,
             auto_redirect_to_identity=True,
+            deny_unmatched_requests=True,
+            deny_unmatched_requests_exempted_zone_names=["example.com"],
             is_ui_read_only=True,
             login_design={
                 "background_color": "#c5ed1b",
@@ -326,6 +362,20 @@ class TestAsyncOrganizations:
                 "header_text": "This is an example description.",
                 "logo_path": "https://example.com/logo.png",
                 "text_color": "#c5ed1b",
+            },
+            mfa_config={
+                "allowed_authenticators": ["totp", "biometrics", "security_key"],
+                "amr_matching_session_duration": "12h",
+                "required_aaguids": "2fc0579f-8113-47ea-b116-bb5a8db9202a",
+                "session_duration": "24h",
+            },
+            mfa_required_for_all_apps=False,
+            mfa_ssh_piv_key_requirements={
+                "pin_policy": "always",
+                "require_fips_device": True,
+                "ssh_key_size": [256, 2048],
+                "ssh_key_type": ["ecdsa", "rsa"],
+                "touch_policy": "always",
             },
             session_duration="24h",
             ui_read_only_toggle_reason="Temporarily turn off the UI read only lock to make a change via the UI",
@@ -401,6 +451,8 @@ class TestAsyncOrganizations:
                 "forbidden": "699d98642c564d2e855e9661899b7252",
                 "identity_denied": "699d98642c564d2e855e9661899b7252",
             },
+            deny_unmatched_requests=True,
+            deny_unmatched_requests_exempted_zone_names=["example.com"],
             is_ui_read_only=True,
             login_design={
                 "background_color": "#c5ed1b",
@@ -408,6 +460,20 @@ class TestAsyncOrganizations:
                 "header_text": "This is an example description.",
                 "logo_path": "https://example.com/logo.png",
                 "text_color": "#c5ed1b",
+            },
+            mfa_config={
+                "allowed_authenticators": ["totp", "biometrics", "security_key"],
+                "amr_matching_session_duration": "12h",
+                "required_aaguids": "2fc0579f-8113-47ea-b116-bb5a8db9202a",
+                "session_duration": "24h",
+            },
+            mfa_required_for_all_apps=False,
+            mfa_ssh_piv_key_requirements={
+                "pin_policy": "always",
+                "require_fips_device": True,
+                "ssh_key_size": [256, 2048],
+                "ssh_key_type": ["ecdsa", "rsa"],
+                "touch_policy": "always",
             },
             name="Widget Corps Internal Applications",
             session_duration="24h",

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import List
 from typing_extensions import Literal, Required, TypedDict
 
+from ..._types import SequenceNotStr
 from .widget_domain import WidgetDomain
 
 __all__ = ["WidgetCreateParams"]
@@ -14,7 +14,7 @@ class WidgetCreateParams(TypedDict, total=False):
     account_id: Required[str]
     """Identifier"""
 
-    domains: Required[List[WidgetDomain]]
+    domains: Required[SequenceNotStr[WidgetDomain]]
 
     mode: Required[Literal["non-interactive", "invisible", "managed"]]
     """Widget Mode"""
@@ -28,6 +28,20 @@ class WidgetCreateParams(TypedDict, total=False):
 
     direction: Literal["asc", "desc"]
     """Direction to order widgets."""
+
+    filter: str
+    """
+    Filter widgets by field using case-insensitive substring matching. Format:
+    `field:value`
+
+    Supported fields:
+
+    - `name` - Filter by widget name (e.g., `filter=name:login-form`)
+    - `sitekey` - Filter by sitekey (e.g., `filter=sitekey:0x4AAA`)
+
+    Returns 400 Bad Request if the field is unsupported or format is invalid. An
+    empty filter value returns all results.
+    """
 
     order: Literal["id", "sitekey", "name", "created_on", "modified_on"]
     """Field to order widgets by."""

@@ -6,8 +6,8 @@ from typing import Type, Iterable, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -50,15 +50,16 @@ class SettingsResource(SyncAPIResource):
         script_name: str,
         *,
         account_id: str,
-        logpush: bool | NotGiven = NOT_GIVEN,
-        observability: Optional[setting_edit_params.Observability] | NotGiven = NOT_GIVEN,
-        tail_consumers: Optional[Iterable[ConsumerScriptParam]] | NotGiven = NOT_GIVEN,
+        logpush: bool | Omit = omit,
+        observability: Optional[setting_edit_params.Observability] | Omit = omit,
+        tags: Optional[SequenceNotStr[str]] | Omit = omit,
+        tail_consumers: Optional[Iterable[ConsumerScriptParam]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptSetting:
         """
         Patch script-level settings when using
@@ -73,6 +74,8 @@ class SettingsResource(SyncAPIResource):
           logpush: Whether Logpush is turned on for the Worker.
 
           observability: Observability settings for the Worker.
+
+          tags: Tags associated with the Worker.
 
           tail_consumers: List of Workers that will consume logs from the attached Worker.
 
@@ -89,11 +92,16 @@ class SettingsResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._patch(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/script-settings",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/script-settings",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             body=maybe_transform(
                 {
                     "logpush": logpush,
                     "observability": observability,
+                    "tags": tags,
                     "tail_consumers": tail_consumers,
                 },
                 setting_edit_params.SettingEditParams,
@@ -118,7 +126,7 @@ class SettingsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptSetting:
         """
         Get script-level settings when using
@@ -143,7 +151,11 @@ class SettingsResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._get(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/script-settings",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/script-settings",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -180,15 +192,16 @@ class AsyncSettingsResource(AsyncAPIResource):
         script_name: str,
         *,
         account_id: str,
-        logpush: bool | NotGiven = NOT_GIVEN,
-        observability: Optional[setting_edit_params.Observability] | NotGiven = NOT_GIVEN,
-        tail_consumers: Optional[Iterable[ConsumerScriptParam]] | NotGiven = NOT_GIVEN,
+        logpush: bool | Omit = omit,
+        observability: Optional[setting_edit_params.Observability] | Omit = omit,
+        tags: Optional[SequenceNotStr[str]] | Omit = omit,
+        tail_consumers: Optional[Iterable[ConsumerScriptParam]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptSetting:
         """
         Patch script-level settings when using
@@ -203,6 +216,8 @@ class AsyncSettingsResource(AsyncAPIResource):
           logpush: Whether Logpush is turned on for the Worker.
 
           observability: Observability settings for the Worker.
+
+          tags: Tags associated with the Worker.
 
           tail_consumers: List of Workers that will consume logs from the attached Worker.
 
@@ -219,11 +234,16 @@ class AsyncSettingsResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._patch(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/script-settings",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/script-settings",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             body=await async_maybe_transform(
                 {
                     "logpush": logpush,
                     "observability": observability,
+                    "tags": tags,
                     "tail_consumers": tail_consumers,
                 },
                 setting_edit_params.SettingEditParams,
@@ -248,7 +268,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptSetting:
         """
         Get script-level settings when using
@@ -273,7 +293,11 @@ class AsyncSettingsResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._get(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/script-settings",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/script-settings",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

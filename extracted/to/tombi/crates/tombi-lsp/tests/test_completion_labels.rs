@@ -662,6 +662,7 @@ mod completion_labels {
                 "include",
                 "path",
                 "root",
+                "exclude",
                 "format",
                 "lint",
                 "overrides",
@@ -775,6 +776,66 @@ mod completion_labels {
 
         test_completion_labels! {
             #[tokio::test]
+            async fn tombi_schemas_include_file_completion(
+                r#"
+                [[schemas]]
+                include = ["sch█"]
+                "#,
+                SourcePath(project_root_path().join("tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "schemas/",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_schemas_exclude_file_completion(
+                r#"
+                [[schemas]]
+                include = ["schemas/*"]
+                exclude = ["sch█"]
+                "#,
+                SourcePath(project_root_path().join("tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "schemas/",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_schemas_include_file_completion_from_dot_config_project_root(
+                r#"
+                [[schemas]]
+                include = ["█"]
+                "#,
+                SourcePath(dot_config_project_root_fixture_path().join(".config/tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "product.toml",
+                "schemas/",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_schemas_exclude_file_completion_from_dot_config_project_root(
+                r#"
+                [[schemas]]
+                include = ["schemas/*"]
+                exclude = ["█"]
+                "#,
+                SourcePath(dot_config_project_root_fixture_path().join(".config/tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "product.toml",
+                "schemas/",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
             async fn tombi_schema_catalog_paths_file_completion(
                 r#"
                 [schema.catalog]
@@ -797,6 +858,64 @@ mod completion_labels {
                 SourcePath(dot_config_project_root_fixture_path().join(".config/tombi.toml")),
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "schemas/",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_files_include_file_completion(
+                r#"
+                [files]
+                include = ["sch█"]
+                "#,
+                SourcePath(project_root_path().join("tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "schemas/",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_files_exclude_file_completion(
+                r#"
+                [files]
+                exclude = ["sch█"]
+                "#,
+                SourcePath(project_root_path().join("tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "schemas/",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_files_include_file_completion_from_dot_config_project_root(
+                r#"
+                [files]
+                include = ["█"]
+                "#,
+                SourcePath(dot_config_project_root_fixture_path().join(".config/tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "product.toml",
+                "schemas/",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_files_exclude_file_completion_from_dot_config_project_root(
+                r#"
+                [files]
+                exclude = ["█"]
+                "#,
+                SourcePath(dot_config_project_root_fixture_path().join(".config/tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "product.toml",
                 "schemas/",
             ]);
         }
@@ -2712,7 +2831,8 @@ mod completion_labels {
                     schema_items.push(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
                         toml_version: None,
                         path: schema_uri.to_string(),
-                        include: vec!["*.toml".to_string()],
+                        include: vec!["*.toml".into()],
+                        exclude: None,
                         lint: None,
                         format: None,
                         overrides: None,
@@ -2731,7 +2851,8 @@ mod completion_labels {
 
                     schema_items.push(tombi_config::SchemaItem::Sub(tombi_config::SubSchema {
                         path: subschema_uri.to_string(),
-                        include: vec!["*.toml".to_string()],
+                        include: vec!["*.toml".into()],
+                        exclude: None,
                         root: subschema.root.to_string(),
                         lint: None,
                         format: None,

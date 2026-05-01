@@ -34,6 +34,17 @@ class TestWorkflows:
         assert_matches_type(WorkflowUpdateResponse, workflow, path=["response"])
 
     @parametrize
+    def test_method_update_with_all_params(self, client: Cloudflare) -> None:
+        workflow = client.workflows.update(
+            workflow_name="x",
+            account_id="account_id",
+            class_name="x",
+            script_name="x",
+            limits={"steps": 1},
+        )
+        assert_matches_type(WorkflowUpdateResponse, workflow, path=["response"])
+
+    @parametrize
     def test_raw_response_update(self, client: Cloudflare) -> None:
         response = client.workflows.with_raw_response.update(
             workflow_name="x",
@@ -227,7 +238,9 @@ class TestWorkflows:
 
 
 class TestAsyncWorkflows:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_update(self, async_client: AsyncCloudflare) -> None:
@@ -236,6 +249,17 @@ class TestAsyncWorkflows:
             account_id="account_id",
             class_name="x",
             script_name="x",
+        )
+        assert_matches_type(WorkflowUpdateResponse, workflow, path=["response"])
+
+    @parametrize
+    async def test_method_update_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        workflow = await async_client.workflows.update(
+            workflow_name="x",
+            account_id="account_id",
+            class_name="x",
+            script_name="x",
+            limits={"steps": 1},
         )
         assert_matches_type(WorkflowUpdateResponse, workflow, path=["response"])
 

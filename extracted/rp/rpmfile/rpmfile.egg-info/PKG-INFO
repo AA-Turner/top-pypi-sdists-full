@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: rpmfile
-Version: 2.1.0
+Version: 2.2.0
 Summary: Read rpm archive files
 Home-page: https://github.com/srossross/rpmfile
 Author: Sean Ross-Ross
@@ -21,11 +21,11 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: zstd
 Requires-Dist: zstandard>=0.13.0; extra == "zstd"
+Dynamic: license-file
 
 # rpmfile
 
-[![Build Status](https://travis-ci.org/srossross/rpmfile.svg?branch=master)](https://travis-ci.org/srossross/rpmfile)
-[![Actions Status](https://github.com/srossross/rpmfile/workflows/Tests/badge.svg?branch=master&event=push)](https://github.com/srossross/rpmfile/actions)
+[![Tests](https://github.com/srossross/rpmfile/actions/workflows/tests.yml/badge.svg?event=push)](https://github.com/srossross/rpmfile/actions/workflows/tests.yml)
 [![PyPI version](https://img.shields.io/pypi/v/rpmfile.svg)](https://pypi.org/project/rpmfile)
 
 Tools for inspecting RPM files in python. This module is modeled after the
@@ -128,7 +128,7 @@ The [black](https://github.com/psf/black) formater should be used on all files
 before submitting a contribution. Version 19.10b0.
 
 ```console
-$ pip install black==19.10b0
+$ pip install black==26.3.1
 $ black .
 ```
 

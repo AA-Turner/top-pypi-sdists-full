@@ -1,5 +1,8 @@
+import tempfile
+
 import pytest
 import torch
+import torch.multiprocessing as mp
 import transformers
 
 from packaging import version
@@ -10,12 +13,14 @@ from transformers.models.mixtral.configuration_mixtral import MixtralConfig
 from transformers.models.phi3.configuration_phi3 import Phi3Config
 from transformers.models.phi3.modeling_phi3 import Phi3MLP
 
-from liger_kernel.ops.swiglu import LigerSiLUMulFunction
+from liger_kernel.ops import LigerSiLUMulFunction
 from liger_kernel.transformers.functional import liger_swiglu
 from liger_kernel.transformers.swiglu import LigerBlockSparseTop2MLP
 from liger_kernel.transformers.swiglu import LigerExperts
+from liger_kernel.transformers.swiglu import LigerFalconH1SwiGLUMLP
 from liger_kernel.transformers.swiglu import LigerPhi3SwiGLUMLP
 from liger_kernel.transformers.swiglu import LigerSwiGLUMLP
+from liger_kernel.utils import infer_comm_backend
 from liger_kernel.utils import infer_device
 
 IS_TRANSFORMERS_V5_OR_LATER = version.parse(transformers.__version__) >= version.parse("5.0.0")
@@ -211,14 +216,17 @@ def test_correctness_mixtralblocksparsetop2mlp(bsz, seq_len, hidden_size, interm
 @pytest.mark.parametrize(
     "dtype, atol, rtol",
     [
-        # atol is for small values: they have more difference, so set atol higher
-        # rtol is for larger values: they are very close, so set rtol lower
-        (torch.float32, 1e-0, 1e-5),
-        # TODO: we should find a better way to tune this. 1e4 is too large apparently
+        # TF32 accumulation order differences between Triton and cuBLAS, propagated
+        # through 2 GEMMs (error ~ sqrt(I) * gate_proj_error), cause ~3-5% relative
+        # error on small-valued outputs and ~5 absolute error near zero.
+        (torch.float32, 30, 5e-2),
+        # bf16: same Triton-vs-cuBLAS divergence plus bf16 quantization of intermediate
+        # activations. Near-zero outputs can differ by ~8-16 absolute due to cancellation
+        # at 7-bit mantissa precision.
         pytest.param(
             torch.bfloat16,
-            1e4,
-            1e-2,
+            100.0,
+            5e-2,
             marks=pytest.mark.skipif(not supports_bfloat16(), reason="bfloat16 not supported on this GPU"),
         ),
     ],
@@ -274,27 +282,29 @@ def test_correctness_mixtralexperts(bsz, seq_len, hidden_size, intermediate_size
     y1 = mixtral_experts(x1, top_k_index, top_k_weights)
     y2 = liger_experts(x2, top_k_index, top_k_weights)
 
-    assert torch.allclose(y1, y2, atol=atol, rtol=rtol)
+    def _assert_close(a, b, label):
+        af, bf = a.float(), b.float()
+        diff = (af - bf).abs()
+        rel = diff / (bf.abs() + 1e-9)
+        abs_idx = diff.argmax()
+        rel_idx = rel.argmax()
+        print(
+            f"\n  [{label}]"
+            f"\n    max_abs={diff.max():.4g}  ref={af.flatten()[abs_idx]:.4g}  liger={bf.flatten()[abs_idx]:.4g}"
+            f"\n    max_rel={rel.max():.4g}   ref={af.flatten()[rel_idx]:.4g}  liger={bf.flatten()[rel_idx]:.4g}"
+        )
+        torch.testing.assert_close(a, b, atol=float(atol), rtol=float(rtol))
+
+    _assert_close(y1, y2, "forward output")
 
     dy = torch.randn_like(y1)
 
     y1.backward(dy.clone(), retain_graph=True)
     y2.backward(dy.clone(), retain_graph=True)
 
-    assert torch.allclose(
-        mixtral_experts.gate_up_proj.grad,
-        liger_experts.gate_up_proj.grad,
-        atol=atol,
-        rtol=rtol,
-    )
-    assert torch.allclose(
-        mixtral_experts.down_proj.grad,
-        liger_experts.down_proj.grad,
-        atol=atol,
-        rtol=rtol,
-    )
-
-    assert torch.allclose(x1.grad, x2.grad, atol=atol, rtol=rtol)
+    _assert_close(mixtral_experts.gate_up_proj.grad, liger_experts.gate_up_proj.grad, "gate_up_proj.grad")
+    _assert_close(mixtral_experts.down_proj.grad, liger_experts.down_proj.grad, "down_proj.grad")
+    _assert_close(x1.grad, x2.grad, "x.grad")
 
 
 @pytest.mark.parametrize(
@@ -405,3 +415,258 @@ def test_correctness_functional(bsz, seq_len, size, dtype, atol, rtol):
     # Check if gradients are close for x
     assert torch.allclose(x1.grad, x2.grad, atol=atol, rtol=rtol)
     assert torch.allclose(b1.grad, b2.grad, atol=atol, rtol=rtol)
+
+
+def _torch_silu_mul_ref(a, b, gate_multiplier, down_multiplier):
+    """Pure-PyTorch reference for silu(a * gate_mult) * b * down_mult."""
+    scaled = a * gate_multiplier
+    return torch.nn.functional.silu(scaled) * b * down_multiplier
+
+
+@pytest.mark.parametrize(
+    "bsz, seq_len, size",
+    [
+        (2, 8, 8),
+        (9, 7, 41),
+    ],
+)
+@pytest.mark.parametrize(
+    "gate_multiplier, down_multiplier",
+    [
+        (0.7, 1.3),
+        (1.5, 0.5),
+        (1.0, 1.0),  # degenerate case — must match the no-multiplier path
+    ],
+)
+@pytest.mark.parametrize(
+    "dtype, atol, rtol",
+    [
+        (torch.float32, 1e-3, 1e-5),
+        pytest.param(
+            torch.bfloat16,
+            1e-1,
+            1e-2,
+            marks=pytest.mark.skipif(not supports_bfloat16(), reason="bfloat16 not supported on this GPU"),
+        ),
+    ],
+)
+def test_correctness_silumul_with_multipliers(bsz, seq_len, size, gate_multiplier, down_multiplier, dtype, atol, rtol):
+    _a = torch.randn(bsz, seq_len, size, device=device, dtype=dtype)
+    _b = torch.randn(bsz, seq_len, size, device=device, dtype=dtype)
+
+    a1 = _a.clone().detach().requires_grad_(True)
+    b1 = _b.clone().detach().requires_grad_(True)
+    a2 = _a.clone().detach().requires_grad_(True)
+    b2 = _b.clone().detach().requires_grad_(True)
+
+    y_ref = _torch_silu_mul_ref(a1, b1, gate_multiplier, down_multiplier)
+    y_liger = LigerSiLUMulFunction.apply(a2, b2, gate_multiplier, down_multiplier)
+
+    torch.testing.assert_close(y_ref, y_liger, atol=atol, rtol=rtol)
+
+    grad = torch.randn_like(y_ref)
+    y_ref.backward(grad.clone())
+    y_liger.backward(grad.clone())
+
+    torch.testing.assert_close(a1.grad, a2.grad, atol=atol, rtol=rtol)
+    torch.testing.assert_close(b1.grad, b2.grad, atol=atol, rtol=rtol)
+
+
+def test_silumul_default_multipliers_backward_compat():
+    """Calling LigerSiLUMulFunction.apply(a, b) without multipliers must behave exactly as before."""
+    _a = torch.randn(4, 16, 32, device=device, dtype=torch.float32)
+    _b = torch.randn(4, 16, 32, device=device, dtype=torch.float32)
+
+    a1 = _a.clone().detach().requires_grad_(True)
+    b1 = _b.clone().detach().requires_grad_(True)
+    a2 = _a.clone().detach().requires_grad_(True)
+    b2 = _b.clone().detach().requires_grad_(True)
+
+    y_default = LigerSiLUMulFunction.apply(a1, b1)
+    y_explicit = LigerSiLUMulFunction.apply(a2, b2, 1.0, 1.0)
+
+    torch.testing.assert_close(y_default, y_explicit)
+
+    grad = torch.randn_like(y_default)
+    y_default.backward(grad.clone())
+    y_explicit.backward(grad.clone())
+
+    torch.testing.assert_close(a1.grad, a2.grad)
+    torch.testing.assert_close(b1.grad, b2.grad)
+
+
+class _FalconH1MLPRef(torch.nn.Module):
+    """Pure-PyTorch reference matching Falcon H1's MLP forward from issue #936."""
+
+    def __init__(self, hidden_size, intermediate_size, gate_multiplier, down_multiplier):
+        super().__init__()
+        self.gate_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
+        self.up_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
+        self.down_proj = torch.nn.Linear(intermediate_size, hidden_size, bias=False)
+        self.gate_multiplier = gate_multiplier
+        self.down_multiplier = down_multiplier
+
+    def forward(self, x):
+        gate = self.gate_proj(x)
+        up = self.up_proj(x)
+        activated = torch.nn.functional.silu(gate * self.gate_multiplier) * up
+        return self.down_proj(activated) * self.down_multiplier
+
+
+@pytest.mark.parametrize(
+    "bsz, seq_len, hidden_size, intermediate_size",
+    [
+        (2, 256, 256, 512),
+        (6, 42, 123, 431),
+    ],
+)
+@pytest.mark.parametrize(
+    "gate_multiplier, down_multiplier",
+    [
+        (0.7, 1.3),
+        (1.5, 0.5),
+    ],
+)
+@pytest.mark.parametrize(
+    "dtype, atol, rtol",
+    [
+        (torch.float32, 1e-0, 1e-5),
+        pytest.param(
+            torch.bfloat16,
+            1e4,
+            1e-2,
+            marks=pytest.mark.skipif(not supports_bfloat16(), reason="bfloat16 not supported on this GPU"),
+        ),
+    ],
+)
+def test_correctness_falcon_h1_mlp(
+    bsz, seq_len, hidden_size, intermediate_size, gate_multiplier, down_multiplier, dtype, atol, rtol
+):
+    """Parity test for LigerFalconH1SwiGLUMLP against a pure-PyTorch reference.
+
+    A pure-PyTorch reference is used rather than HF's FalconH1MLP so the test
+    doesn't depend on transformers exposing FalconH1MLP at module scope.
+    """
+
+    class _FakeConfig:
+        def __init__(self):
+            self.hidden_size = hidden_size
+            self.intermediate_size = intermediate_size
+            self.hidden_act = "silu"
+            self.mlp_bias = False
+            self.mlp_multipliers = (gate_multiplier, down_multiplier)
+
+    config = _FakeConfig()
+
+    _input = torch.randn(bsz, seq_len, hidden_size, device=device, dtype=dtype)
+    x1 = _input.clone().requires_grad_(True)
+    x2 = _input.clone().requires_grad_(True)
+
+    G = torch.randn(hidden_size, intermediate_size, device=device, dtype=dtype)
+    U = torch.randn(hidden_size, intermediate_size, device=device, dtype=dtype)
+    D = torch.randn(intermediate_size, hidden_size, device=device, dtype=dtype)
+
+    ref_mlp = _FalconH1MLPRef(hidden_size, intermediate_size, gate_multiplier, down_multiplier).to(device).to(dtype)
+    ref_mlp.gate_proj.weight.data = G.T.contiguous()
+    ref_mlp.up_proj.weight.data = U.T.contiguous()
+    ref_mlp.down_proj.weight.data = D.T.contiguous()
+
+    liger_mlp = LigerFalconH1SwiGLUMLP(config=config).to(device).to(dtype)
+    liger_mlp.gate_proj.weight.data = G.T.contiguous()
+    liger_mlp.up_proj.weight.data = U.T.contiguous()
+    liger_mlp.down_proj.weight.data = D.T.contiguous()
+
+    y1 = ref_mlp(x1)
+    y2 = liger_mlp(x2)
+
+    torch.testing.assert_close(y1, y2, atol=atol, rtol=rtol)
+
+    dy = torch.randn_like(y1)
+    y1.backward(dy.clone(), retain_graph=True)
+    y2.backward(dy.clone(), retain_graph=True)
+
+    torch.testing.assert_close(ref_mlp.gate_proj.weight.grad, liger_mlp.gate_proj.weight.grad, atol=atol, rtol=rtol)
+    torch.testing.assert_close(ref_mlp.up_proj.weight.grad, liger_mlp.up_proj.weight.grad, atol=atol, rtol=rtol)
+    torch.testing.assert_close(ref_mlp.down_proj.weight.grad, liger_mlp.down_proj.weight.grad, atol=atol, rtol=rtol)
+    torch.testing.assert_close(x1.grad, x2.grad, atol=atol, rtol=rtol)
+
+
+def _test_dtensor_liger_silumul(rank, world_size, bsz, seq_len, hidden_size, dtype, atol, rtol, file_name):
+    torch.distributed.init_process_group(
+        backend=infer_comm_backend(),
+        init_method=f"file://{file_name}",
+        rank=rank,
+        world_size=world_size,
+    )
+    device = f"{infer_device()}:{rank}" if infer_device() != "cpu" else "cpu"
+    device_mesh = torch.distributed.device_mesh.init_device_mesh(
+        infer_device(), mesh_shape=(world_size,), mesh_dim_names=("tp",)
+    )
+
+    _a = torch.randn(bsz, seq_len, hidden_size, device=device, dtype=dtype)
+    _b = torch.randn(bsz, seq_len, hidden_size, device=device, dtype=dtype)
+
+    # Broadcast from rank 0 so all ranks operate on identical tensors
+    torch.distributed.broadcast(_a, src=0)
+    torch.distributed.broadcast(_b, src=0)
+
+    assert hidden_size % world_size == 0, f"hidden_size ({hidden_size}) must be divisible by world_size ({world_size})"
+
+    # DTensor path: shard inputs along the hidden dim
+    a1 = _a.clone().detach().requires_grad_(True)
+    b1 = _b.clone().detach().requires_grad_(True)
+    da = torch.distributed.tensor.distribute_tensor(
+        a1, device_mesh=device_mesh, placements=[torch.distributed.tensor.Shard(2)]
+    )
+    db = torch.distributed.tensor.distribute_tensor(
+        b1, device_mesh=device_mesh, placements=[torch.distributed.tensor.Shard(2)]
+    )
+
+    # Regular tensor path
+    a2 = _a.clone().detach().requires_grad_(True)
+    b2 = _b.clone().detach().requires_grad_(True)
+
+    c1 = LigerSiLUMulFunction.apply(da, db)
+    c2 = LigerSiLUMulFunction.apply(a2, b2)
+
+    torch.testing.assert_close(c1.full_tensor(), c2, atol=atol, rtol=rtol)
+
+    grad = torch.randn_like(c2)
+    torch.distributed.broadcast(grad, src=0)
+    dgrad = torch.distributed.tensor.distribute_tensor(
+        grad, device_mesh=device_mesh, placements=[torch.distributed.tensor.Shard(2)]
+    )
+
+    c1.backward(dgrad)
+    c2.backward(grad)
+
+    torch.testing.assert_close(da.grad.full_tensor(), a2.grad, atol=atol, rtol=rtol)
+    torch.testing.assert_close(db.grad.full_tensor(), b2.grad, atol=atol, rtol=rtol)
+
+
+@pytest.mark.xfail(
+    torch.cuda.device_count() < 8,
+    reason="Pending multi-GPU host support. This test is expected to pass when run with multi-GPU host.",
+)
+@pytest.mark.parametrize(
+    "world_size, bsz, seq_len, hidden_size",
+    [
+        (4, 2, 2, 8),
+        (8, 9, 7, 64),
+    ],
+)
+@pytest.mark.parametrize(
+    "dtype, atol, rtol",
+    [
+        (torch.float32, 1e-4, 1e-6),
+        (torch.bfloat16, 2e-1, 2e-2),
+    ],
+)
+def test_dtensor_liger_silumul(world_size, bsz, seq_len, hidden_size, dtype, atol, rtol):
+    with tempfile.NamedTemporaryFile() as f:
+        mp.spawn(
+            _test_dtensor_liger_silumul,
+            args=(world_size, bsz, seq_len, hidden_size, dtype, atol, rtol, f.name),
+            nprocs=world_size,
+            join=True,
+        )

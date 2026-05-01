@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -51,20 +51,34 @@ class ConfigsResource(SyncAPIResource):
         account_id: str,
         name: str,
         origin: config_create_params.Origin,
-        caching: config_create_params.Caching | NotGiven = NOT_GIVEN,
-        mtls: config_create_params.MTLS | NotGiven = NOT_GIVEN,
+        caching: config_create_params.Caching | Omit = omit,
+        mtls: config_create_params.MTLS | Omit = omit,
+        origin_connection_limit: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hyperdrive:
         """
         Creates and returns a new Hyperdrive configuration.
 
         Args:
           account_id: Define configurations using a unique string identifier.
+
+          name: The name of the Hyperdrive configuration. Used to identify the configuration in
+              the Cloudflare dashboard and API.
+
+          mtls: mTLS configuration for the origin connection. Cannot be used with VPC Service
+              origins; TLS must be managed on the VPC Service.
+
+          origin_connection_limit: The (soft) maximum number of connections the Hyperdrive is allowed to make to
+              the origin database.
+
+              Maximum allowed: 20 for free tier accounts, 100 for paid tier accounts. If not
+              specified, defaults to 20 for free tier and 60 for paid tier. Contact Cloudflare
+              if you need a higher limit.
 
           extra_headers: Send extra headers
 
@@ -77,13 +91,14 @@ class ConfigsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/hyperdrive/configs",
+            path_template("/accounts/{account_id}/hyperdrive/configs", account_id=account_id),
             body=maybe_transform(
                 {
                     "name": name,
                     "origin": origin,
                     "caching": caching,
                     "mtls": mtls,
+                    "origin_connection_limit": origin_connection_limit,
                 },
                 config_create_params.ConfigCreateParams,
             ),
@@ -104,14 +119,15 @@ class ConfigsResource(SyncAPIResource):
         account_id: str,
         name: str,
         origin: config_update_params.Origin,
-        caching: config_update_params.Caching | NotGiven = NOT_GIVEN,
-        mtls: config_update_params.MTLS | NotGiven = NOT_GIVEN,
+        caching: config_update_params.Caching | Omit = omit,
+        mtls: config_update_params.MTLS | Omit = omit,
+        origin_connection_limit: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hyperdrive:
         """
         Updates and returns the specified Hyperdrive configuration.
@@ -120,6 +136,19 @@ class ConfigsResource(SyncAPIResource):
           account_id: Define configurations using a unique string identifier.
 
           hyperdrive_id: Define configurations using a unique string identifier.
+
+          name: The name of the Hyperdrive configuration. Used to identify the configuration in
+              the Cloudflare dashboard and API.
+
+          mtls: mTLS configuration for the origin connection. Cannot be used with VPC Service
+              origins; TLS must be managed on the VPC Service.
+
+          origin_connection_limit: The (soft) maximum number of connections the Hyperdrive is allowed to make to
+              the origin database.
+
+              Maximum allowed: 20 for free tier accounts, 100 for paid tier accounts. If not
+              specified, defaults to 20 for free tier and 60 for paid tier. Contact Cloudflare
+              if you need a higher limit.
 
           extra_headers: Send extra headers
 
@@ -134,13 +163,18 @@ class ConfigsResource(SyncAPIResource):
         if not hyperdrive_id:
             raise ValueError(f"Expected a non-empty value for `hyperdrive_id` but received {hyperdrive_id!r}")
         return self._put(
-            f"/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+            path_template(
+                "/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+                account_id=account_id,
+                hyperdrive_id=hyperdrive_id,
+            ),
             body=maybe_transform(
                 {
                     "name": name,
                     "origin": origin,
                     "caching": caching,
                     "mtls": mtls,
+                    "origin_connection_limit": origin_connection_limit,
                 },
                 config_update_params.ConfigUpdateParams,
             ),
@@ -163,7 +197,7 @@ class ConfigsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Hyperdrive]:
         """
         Returns a list of Hyperdrives.
@@ -182,7 +216,7 @@ class ConfigsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/hyperdrive/configs",
+            path_template("/accounts/{account_id}/hyperdrive/configs", account_id=account_id),
             page=SyncSinglePage[Hyperdrive],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -200,7 +234,7 @@ class ConfigsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Deletes the specified Hyperdrive.
@@ -223,7 +257,11 @@ class ConfigsResource(SyncAPIResource):
         if not hyperdrive_id:
             raise ValueError(f"Expected a non-empty value for `hyperdrive_id` but received {hyperdrive_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+            path_template(
+                "/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+                account_id=account_id,
+                hyperdrive_id=hyperdrive_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -239,16 +277,17 @@ class ConfigsResource(SyncAPIResource):
         hyperdrive_id: str,
         *,
         account_id: str,
-        caching: config_edit_params.Caching | NotGiven = NOT_GIVEN,
-        mtls: config_edit_params.MTLS | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        origin: config_edit_params.Origin | NotGiven = NOT_GIVEN,
+        caching: config_edit_params.Caching | Omit = omit,
+        mtls: config_edit_params.MTLS | Omit = omit,
+        name: str | Omit = omit,
+        origin: config_edit_params.Origin | Omit = omit,
+        origin_connection_limit: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hyperdrive:
         """Patches and returns the specified Hyperdrive configuration.
 
@@ -259,6 +298,23 @@ class ConfigsResource(SyncAPIResource):
           account_id: Define configurations using a unique string identifier.
 
           hyperdrive_id: Define configurations using a unique string identifier.
+
+          mtls: mTLS configuration for the origin connection. Cannot be used with VPC Service
+              origins; TLS must be managed on the VPC Service.
+
+          name: The name of the Hyperdrive configuration. Used to identify the configuration in
+              the Cloudflare dashboard and API.
+
+          origin: Connect to a database through a Workers VPC Service. TLS settings (mTLS,
+              sslmode) cannot be configured on the Hyperdrive when using a VPC Service origin;
+              TLS must be managed on the VPC Service itself.
+
+          origin_connection_limit: The (soft) maximum number of connections the Hyperdrive is allowed to make to
+              the origin database.
+
+              Maximum allowed: 20 for free tier accounts, 100 for paid tier accounts. If not
+              specified, defaults to 20 for free tier and 60 for paid tier. Contact Cloudflare
+              if you need a higher limit.
 
           extra_headers: Send extra headers
 
@@ -273,13 +329,18 @@ class ConfigsResource(SyncAPIResource):
         if not hyperdrive_id:
             raise ValueError(f"Expected a non-empty value for `hyperdrive_id` but received {hyperdrive_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+            path_template(
+                "/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+                account_id=account_id,
+                hyperdrive_id=hyperdrive_id,
+            ),
             body=maybe_transform(
                 {
                     "caching": caching,
                     "mtls": mtls,
                     "name": name,
                     "origin": origin,
+                    "origin_connection_limit": origin_connection_limit,
                 },
                 config_edit_params.ConfigEditParams,
             ),
@@ -303,7 +364,7 @@ class ConfigsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hyperdrive:
         """
         Returns the specified Hyperdrive configuration.
@@ -326,7 +387,11 @@ class ConfigsResource(SyncAPIResource):
         if not hyperdrive_id:
             raise ValueError(f"Expected a non-empty value for `hyperdrive_id` but received {hyperdrive_id!r}")
         return self._get(
-            f"/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+            path_template(
+                "/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+                account_id=account_id,
+                hyperdrive_id=hyperdrive_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -364,20 +429,34 @@ class AsyncConfigsResource(AsyncAPIResource):
         account_id: str,
         name: str,
         origin: config_create_params.Origin,
-        caching: config_create_params.Caching | NotGiven = NOT_GIVEN,
-        mtls: config_create_params.MTLS | NotGiven = NOT_GIVEN,
+        caching: config_create_params.Caching | Omit = omit,
+        mtls: config_create_params.MTLS | Omit = omit,
+        origin_connection_limit: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hyperdrive:
         """
         Creates and returns a new Hyperdrive configuration.
 
         Args:
           account_id: Define configurations using a unique string identifier.
+
+          name: The name of the Hyperdrive configuration. Used to identify the configuration in
+              the Cloudflare dashboard and API.
+
+          mtls: mTLS configuration for the origin connection. Cannot be used with VPC Service
+              origins; TLS must be managed on the VPC Service.
+
+          origin_connection_limit: The (soft) maximum number of connections the Hyperdrive is allowed to make to
+              the origin database.
+
+              Maximum allowed: 20 for free tier accounts, 100 for paid tier accounts. If not
+              specified, defaults to 20 for free tier and 60 for paid tier. Contact Cloudflare
+              if you need a higher limit.
 
           extra_headers: Send extra headers
 
@@ -390,13 +469,14 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/hyperdrive/configs",
+            path_template("/accounts/{account_id}/hyperdrive/configs", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
                     "origin": origin,
                     "caching": caching,
                     "mtls": mtls,
+                    "origin_connection_limit": origin_connection_limit,
                 },
                 config_create_params.ConfigCreateParams,
             ),
@@ -417,14 +497,15 @@ class AsyncConfigsResource(AsyncAPIResource):
         account_id: str,
         name: str,
         origin: config_update_params.Origin,
-        caching: config_update_params.Caching | NotGiven = NOT_GIVEN,
-        mtls: config_update_params.MTLS | NotGiven = NOT_GIVEN,
+        caching: config_update_params.Caching | Omit = omit,
+        mtls: config_update_params.MTLS | Omit = omit,
+        origin_connection_limit: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hyperdrive:
         """
         Updates and returns the specified Hyperdrive configuration.
@@ -433,6 +514,19 @@ class AsyncConfigsResource(AsyncAPIResource):
           account_id: Define configurations using a unique string identifier.
 
           hyperdrive_id: Define configurations using a unique string identifier.
+
+          name: The name of the Hyperdrive configuration. Used to identify the configuration in
+              the Cloudflare dashboard and API.
+
+          mtls: mTLS configuration for the origin connection. Cannot be used with VPC Service
+              origins; TLS must be managed on the VPC Service.
+
+          origin_connection_limit: The (soft) maximum number of connections the Hyperdrive is allowed to make to
+              the origin database.
+
+              Maximum allowed: 20 for free tier accounts, 100 for paid tier accounts. If not
+              specified, defaults to 20 for free tier and 60 for paid tier. Contact Cloudflare
+              if you need a higher limit.
 
           extra_headers: Send extra headers
 
@@ -447,13 +541,18 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not hyperdrive_id:
             raise ValueError(f"Expected a non-empty value for `hyperdrive_id` but received {hyperdrive_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+            path_template(
+                "/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+                account_id=account_id,
+                hyperdrive_id=hyperdrive_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "name": name,
                     "origin": origin,
                     "caching": caching,
                     "mtls": mtls,
+                    "origin_connection_limit": origin_connection_limit,
                 },
                 config_update_params.ConfigUpdateParams,
             ),
@@ -476,7 +575,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Hyperdrive, AsyncSinglePage[Hyperdrive]]:
         """
         Returns a list of Hyperdrives.
@@ -495,7 +594,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/hyperdrive/configs",
+            path_template("/accounts/{account_id}/hyperdrive/configs", account_id=account_id),
             page=AsyncSinglePage[Hyperdrive],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -513,7 +612,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Deletes the specified Hyperdrive.
@@ -536,7 +635,11 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not hyperdrive_id:
             raise ValueError(f"Expected a non-empty value for `hyperdrive_id` but received {hyperdrive_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+            path_template(
+                "/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+                account_id=account_id,
+                hyperdrive_id=hyperdrive_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -552,16 +655,17 @@ class AsyncConfigsResource(AsyncAPIResource):
         hyperdrive_id: str,
         *,
         account_id: str,
-        caching: config_edit_params.Caching | NotGiven = NOT_GIVEN,
-        mtls: config_edit_params.MTLS | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        origin: config_edit_params.Origin | NotGiven = NOT_GIVEN,
+        caching: config_edit_params.Caching | Omit = omit,
+        mtls: config_edit_params.MTLS | Omit = omit,
+        name: str | Omit = omit,
+        origin: config_edit_params.Origin | Omit = omit,
+        origin_connection_limit: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hyperdrive:
         """Patches and returns the specified Hyperdrive configuration.
 
@@ -572,6 +676,23 @@ class AsyncConfigsResource(AsyncAPIResource):
           account_id: Define configurations using a unique string identifier.
 
           hyperdrive_id: Define configurations using a unique string identifier.
+
+          mtls: mTLS configuration for the origin connection. Cannot be used with VPC Service
+              origins; TLS must be managed on the VPC Service.
+
+          name: The name of the Hyperdrive configuration. Used to identify the configuration in
+              the Cloudflare dashboard and API.
+
+          origin: Connect to a database through a Workers VPC Service. TLS settings (mTLS,
+              sslmode) cannot be configured on the Hyperdrive when using a VPC Service origin;
+              TLS must be managed on the VPC Service itself.
+
+          origin_connection_limit: The (soft) maximum number of connections the Hyperdrive is allowed to make to
+              the origin database.
+
+              Maximum allowed: 20 for free tier accounts, 100 for paid tier accounts. If not
+              specified, defaults to 20 for free tier and 60 for paid tier. Contact Cloudflare
+              if you need a higher limit.
 
           extra_headers: Send extra headers
 
@@ -586,13 +707,18 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not hyperdrive_id:
             raise ValueError(f"Expected a non-empty value for `hyperdrive_id` but received {hyperdrive_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+            path_template(
+                "/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+                account_id=account_id,
+                hyperdrive_id=hyperdrive_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "caching": caching,
                     "mtls": mtls,
                     "name": name,
                     "origin": origin,
+                    "origin_connection_limit": origin_connection_limit,
                 },
                 config_edit_params.ConfigEditParams,
             ),
@@ -616,7 +742,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Hyperdrive:
         """
         Returns the specified Hyperdrive configuration.
@@ -639,7 +765,11 @@ class AsyncConfigsResource(AsyncAPIResource):
         if not hyperdrive_id:
             raise ValueError(f"Expected a non-empty value for `hyperdrive_id` but received {hyperdrive_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+            path_template(
+                "/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}",
+                account_id=account_id,
+                hyperdrive_id=hyperdrive_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

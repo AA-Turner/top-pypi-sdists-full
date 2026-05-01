@@ -4,6 +4,7 @@ import abc
 import inspect
 import sys
 import uuid
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, cast
 
@@ -24,6 +25,11 @@ from chalk.utils.source_parsing import should_skip_source_code_parsing
 
 SUPPORTED_UNDERSCORE_OPS_BINARY = set("+ - * / // % ** < <= > >= == != & | ^ << >>".split())
 SUPPORTED_UNDERSCORE_OPS_UNARY = set("- + ~".split())
+
+_DISABLE_UNDERSCORE_ORIGIN_TRACKING: ContextVar[bool] = ContextVar(
+    "_DISABLE_UNDERSCORE_ORIGIN_TRACKING",
+    default=False,
+)
 
 if sys.version_info < (3, 11):
     # On python < 3.11, this can cause a significant perf regression, so we always skip parsing
@@ -66,27 +72,29 @@ class Underscore:
 
     def __init__(self, expr_id: Optional[str] = None):
         super().__init__()
-        current_frame = inspect.currentframe()
-        while current_frame is not None and current_frame.f_code.co_filename.endswith("/chalk/features/underscore.py"):
-            current_frame = current_frame.f_back
-        if current_frame is not None:
-            definition_location = UnderscoreDefinitionLocation(
-                file=current_frame.f_code.co_filename,
-                line=current_frame.f_lineno,
-                column=1,
-                # Currently, this is just a guess, due to lack of reliable column info directly on Python frame
-            )
-            if not should_skip_source_code_parsing() and not CHALK_SKIP_PRECISE_UNDERSCORE_SOURCE_COLUMN:
-                # Attempt to get the exact AST node to get a more-precise caller location
-                # for error reporting purposes:
-                source_node = executing.Source.executing(current_frame).node
-                if hasattr(source_node, "lineno") and source_node.lineno is not None:  # pyright: ignore
-                    definition_location.line = source_node.lineno  # pyright: ignore
-                if hasattr(source_node, "col_offset") and source_node.col_offset is not None:  # pyright: ignore
-                    definition_location.column = source_node.col_offset  # pyright: ignore
-            del current_frame
-        else:
-            definition_location = None
+        definition_location = None
+        if not _DISABLE_UNDERSCORE_ORIGIN_TRACKING.get():
+            current_frame = inspect.currentframe()
+            while current_frame is not None and current_frame.f_code.co_filename.endswith(
+                "/chalk/features/underscore.py"
+            ):
+                current_frame = current_frame.f_back
+            if current_frame is not None:
+                definition_location = UnderscoreDefinitionLocation(
+                    file=current_frame.f_code.co_filename,
+                    line=current_frame.f_lineno,
+                    column=1,
+                    # Currently, this is just a guess, due to lack of reliable column info directly on Python frame
+                )
+                if not should_skip_source_code_parsing() and not CHALK_SKIP_PRECISE_UNDERSCORE_SOURCE_COLUMN:
+                    # Attempt to get the exact AST node to get a more-precise caller location
+                    # for error reporting purposes:
+                    source_node = executing.Source.executing(current_frame).node
+                    if hasattr(source_node, "lineno") and source_node.lineno is not None:  # pyright: ignore
+                        definition_location.line = source_node.lineno  # pyright: ignore
+                    if hasattr(source_node, "col_offset") and source_node.col_offset is not None:  # pyright: ignore
+                        definition_location.column = source_node.col_offset  # pyright: ignore
+                del current_frame
 
         self._chalk_definition_location: Optional[UnderscoreDefinitionLocation] = definition_location
         self._chalk__expr_id = expr_id if expr_id is not None else str(uuid.uuid4())
@@ -221,7 +229,11 @@ class Underscore:
 
     @classmethod
     def _from_proto(cls, node: expr_pb2.LogicalExprNode) -> Underscore | TPrimitive | pa.Scalar:
-        value = cls._from_proto_dispatch(node)
+        token = _DISABLE_UNDERSCORE_ORIGIN_TRACKING.set(True)
+        try:
+            value = cls._from_proto_dispatch(node)
+        finally:
+            _DISABLE_UNDERSCORE_ORIGIN_TRACKING.reset(token)
         if isinstance(value, Underscore):
             if node.expr_id:
                 value._chalk__expr_id = node.expr_id
@@ -801,6 +813,12 @@ class UnderscoreCast(Underscore):
 _ = underscore = UnderscoreRoot()
 __ = DoubleUnderscore()
 
+
+def select(expr: Underscore | Any):
+    """Mark an expression as a selected column in contexts that distinguish columns from filters."""
+    return UnderscoreFunction("select", expr, _chalk__repr_override=f"select({expr})")
+
+
 # NEED `__all__` because `_` is private and can't be auto-imported by i.e. IntelliJ.
 __all__ = (
     "SUPPORTED_UNDERSCORE_OPS_BINARY",
@@ -814,5 +832,6 @@ __all__ = (
     "UnderscoreRoot",
     "_",
     "__",
+    "select",
     "underscore",
 )

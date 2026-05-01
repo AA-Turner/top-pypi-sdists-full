@@ -247,24 +247,6 @@ _mssp_endpoints = [
     ]
   ],
   [
-    "updateCIDGroups",
-    "PATCH",
-    "/mssp/entities/cid-groups/v1",
-    "Update existing CID groups. CID group ID is expected for each CID group definition provided in request "
-    "body. Name is a required field but description is an optional field. Empty description will override existing "
-    "value. CID group member(s) remain unaffected.",
-    "mssp",
-    [
-      {
-        "description": "'cid_group_id' field is required to identify the CID group to update along with 'name' "
-        "and/or 'description' fields to be updated.",
-        "name": "body",
-        "in": "body",
-        "required": True
-      }
-    ]
-  ],
-  [
     "getCIDGroupById",
     "GET",
     "/mssp/entities/cid-groups/v2",
@@ -280,6 +262,24 @@ _mssp_endpoints = [
         "description": "CID group IDs to search for",
         "name": "ids",
         "in": "query",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "updateCIDGroups",
+    "PATCH",
+    "/mssp/entities/cid-groups/v1",
+    "Update existing CID groups. CID group ID is expected for each CID group definition provided in request "
+    "body. Name is a required field but description is an optional field. Empty description will override existing "
+    "value. CID group member(s) remain unaffected.",
+    "mssp",
+    [
+      {
+        "description": "'cid_group_id' field is required to identify the CID group to update along with 'name' "
+        "and/or 'description' fields to be updated.",
+        "name": "body",
+        "in": "body",
         "required": True
       }
     ]
@@ -507,24 +507,6 @@ _mssp_endpoints = [
     ]
   ],
   [
-    "updateUserGroups",
-    "PATCH",
-    "/mssp/entities/user-groups/v1",
-    "Update existing user group(s). User group ID is expected for each user group definition provided in "
-    "request body. Name is a required field but description is an optional field. Empty description will override "
-    "existing value. User group member(s) remain unaffected.",
-    "mssp",
-    [
-      {
-        "description": "'user_group_id' field is required to identify the user group to update along with "
-        "'name' and/or 'description' fields to be updated.",
-        "name": "body",
-        "in": "body",
-        "required": True
-      }
-    ]
-  ],
-  [
     "getUserGroupsByID",
     "GET",
     "/mssp/entities/user-groups/v2",
@@ -540,6 +522,24 @@ _mssp_endpoints = [
         "description": "User group IDs to search for",
         "name": "ids",
         "in": "query",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "updateUserGroups",
+    "PATCH",
+    "/mssp/entities/user-groups/v1",
+    "Update existing user group(s). User group ID is expected for each user group definition provided in "
+    "request body. Name is a required field but description is an optional field. Empty description will override "
+    "existing value. User group member(s) remain unaffected.",
+    "mssp",
+    [
+      {
+        "description": "'user_group_id' field is required to identify the user group to update along with "
+        "'name' and/or 'description' fields to be updated.",
+        "name": "body",
+        "in": "body",
         "required": True
       }
     ]
@@ -578,12 +578,12 @@ _mssp_endpoints = [
         "in": "query"
       },
       {
+        "type": "string",
+        "default": "last_modified_timestamp|desc",
         "enum": [
           "last_modified_timestamp|asc",
           "last_modified_timestamp|desc"
         ],
-        "type": "string",
-        "default": "last_modified_timestamp|desc",
         "description": "The sort expression used to sort the results",
         "name": "sort",
         "in": "query"
@@ -619,12 +619,12 @@ _mssp_endpoints = [
         "required": True
       },
       {
+        "type": "string",
+        "default": "last_modified_timestamp|desc",
         "enum": [
           "last_modified_timestamp|asc",
           "last_modified_timestamp|desc"
         ],
-        "type": "string",
-        "default": "last_modified_timestamp|desc",
         "description": "The sort expression used to sort the results",
         "name": "sort",
         "in": "query"
@@ -659,14 +659,14 @@ _mssp_endpoints = [
         "in": "query"
       },
       {
+        "type": "string",
+        "default": "name|asc",
         "enum": [
           "last_modified_timestamp|asc",
           "last_modified_timestamp|desc",
           "name|asc",
           "name|desc"
         ],
-        "type": "string",
-        "default": "name|asc",
         "description": "The sort expression used to sort the results",
         "name": "sort",
         "in": "query"
@@ -714,12 +714,12 @@ _mssp_endpoints = [
         "in": "query"
       },
       {
+        "type": "string",
+        "default": "last_modified_timestamp|desc",
         "enum": [
           "last_modified_timestamp|asc",
           "last_modified_timestamp|desc"
         ],
-        "type": "string",
-        "default": "last_modified_timestamp|desc",
         "description": "The sort expression used to sort the results",
         "name": "sort",
         "in": "query"
@@ -755,12 +755,12 @@ _mssp_endpoints = [
         "required": True
       },
       {
+        "type": "string",
+        "default": "last_modified_timestamp|desc",
         "enum": [
           "last_modified_timestamp|asc",
           "last_modified_timestamp|desc"
         ],
-        "type": "string",
-        "default": "last_modified_timestamp|desc",
         "description": "The sort expression used to sort the results",
         "name": "sort",
         "in": "query"
@@ -795,14 +795,14 @@ _mssp_endpoints = [
         "in": "query"
       },
       {
+        "type": "string",
+        "default": "name|asc",
         "enum": [
           "last_modified_timestamp|asc",
           "last_modified_timestamp|desc",
           "name|asc",
           "name|desc"
         ],
-        "type": "string",
-        "default": "name|asc",
         "description": "The sort expression used to sort the results",
         "name": "sort",
         "in": "query"

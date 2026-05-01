@@ -70,6 +70,46 @@ IN_APPIMAGE = LazyBool(
     "IN_APPIMAGE",
 )
 """``True`` if in AppImage, else ``False``."""
+ON_ANDROID = LazyBool(
+    lambda: (
+        sys.platform == "android"
+        or platform.system() == "Android"
+        or "ANDROID_ROOT" in os.environ
+        or os.path.isfile("/system/build.prop")
+    ),
+    globals(),
+    "ON_ANDROID",
+)
+"""``True`` on any Android userland — Termux, UserLAnd, proot-distro,
+Linux Deploy chroot, etc.
+
+Detection is layered: PEP 738 sets ``sys.platform == "android"`` and
+``platform.system() == "Android"`` on Python 3.13+; for older Python
+versions and proot/chroot setups where those checks miss, we fall back
+to the presence of the ``ANDROID_ROOT`` environment variable (always
+exported by the Android init) and finally to ``/system/build.prop``.
+
+Implies the Android app sandbox: ``/`` is typically unlistable,
+``os.tcsetpgrp`` and ``os.link`` are restricted, the filesystem is
+non-FHS. Code that needs Android-wide behaviour (e.g. ``skipif`` on
+tests that walk the FS root) should key off this flag rather than
+``ON_TERMUX`` so non-Termux Android shells (UserLAnd, …) are covered.
+"""
+ON_TERMUX = LazyBool(
+    lambda: "TERMUX_VERSION" in os.environ,
+    globals(),
+    "ON_TERMUX",
+)
+"""``True`` specifically inside the Termux app (and forks that keep its
+``TERMUX_VERSION`` env var).
+
+Detected via ``TERMUX_VERSION`` which Termux exports in every shell it
+spawns. Implies :data:`ON_ANDROID`, plus the Termux userland layout
+under ``$PREFIX = /data/data/com.termux/files/usr``. Use this flag for
+Termux-specific path defaults (``$PREFIX/bin``, completion script
+locations, etc.); use :data:`ON_ANDROID` for sandbox/bionic concerns
+that apply to any Android userland.
+"""
 IN_FLATPAK = LazyBool(
     lambda: "FLATPAK_ID" in os.environ,
     globals(),
@@ -501,7 +541,7 @@ def BASH_COMPLETIONS_DEFAULT():
     extend ``$BASH_COMPLETIONS`` manually after installing
     bash-completion via Homebrew, MacPorts, Linuxbrew, Nix, etc.
     """
-    if ON_LINUX or ON_CYGWIN or ON_MSYS:
+    if ON_LINUX or ON_CYGWIN or ON_MSYS or ON_TERMUX:
         bcd = (
             "/usr/share/bash-completion/bash_completion",  # FHS, all major distros
             "/home/linuxbrew/.linuxbrew/share/bash-completion/bash_completion",  # Linuxbrew
@@ -510,6 +550,15 @@ def BASH_COMPLETIONS_DEFAULT():
                 "~/.nix-profile/share/bash-completion/bash_completion"
             ),
         )
+        # Non-FHS userland prefix: Termux on Android sets $PREFIX to its
+        # sandboxed /usr-equivalent (/data/data/com.termux/files/usr);
+        # custom ./configure --prefix builds may also set it. Pick up
+        # bash-completion under that prefix when present.
+        _prefix = os.environ.get("PREFIX")
+        if _prefix:
+            bcd = bcd + (
+                os.path.join(_prefix, "share/bash-completion/bash_completion"),
+            )
     elif ON_DARWIN:
         bcd = (
             # Homebrew, Intel
@@ -535,6 +584,22 @@ def BASH_COMPLETIONS_DEFAULT():
                 "mingw64\\share\\git\\completion\\git-completion.bash",
             ),
         )
+    elif ON_BSD:
+        # FreeBSD/DragonFly install bash-completion via ports/pkg under
+        # /usr/local; NetBSD/OpenBSD use the same prefix via pkgsrc, plus
+        # NetBSD's /usr/pkg fallback.
+        # Note: bash-completion 2.17 (FreeBSD 16+) also ships a
+        # ``bash_completion.sh`` wrapper next to the library. We do not
+        # list it because it bails out in non-interactive bash
+        # (``[[ "$-" =~ i ]] || return 0``) — and xonsh's bridge runs
+        # bash with ``-c``, i.e. non-interactively. The wrapper would
+        # silently no-op and produce empty completions; the library
+        # file below works in either mode.
+        bcd = (
+            "/usr/local/share/bash-completion/bash_completion",  # v2.x library
+            "/usr/local/etc/bash_completion",  # v1.x
+            "/usr/pkg/share/bash-completion/bash_completion",  # pkgsrc
+        )
     else:
         bcd = ()
     return bcd
@@ -542,6 +607,19 @@ def BASH_COMPLETIONS_DEFAULT():
 
 @lazyobject
 def PATH_DEFAULT():
+    if ON_TERMUX:
+        # Android sandbox: there is no /usr; everything userland-installed
+        # lives under $PREFIX (= /data/data/com.termux/files/usr by default).
+        # Without this branch ON_LINUX is False on Termux (Python 3.13+ has
+        # ``platform.system() == "Android"`` per PEP 738) so the generic
+        # else-branch returns an empty tuple, leaving completers and the
+        # syntax highlighter unable to recognize any external command.
+        prefix = os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
+        return (
+            os.path.expanduser("~/bin"),
+            os.path.join(prefix, "bin"),
+            os.path.join(prefix, "sbin"),
+        )
     if ON_LINUX or ON_CYGWIN or ON_MSYS:
         if linux_distro() == "arch":
             pd = (
@@ -579,6 +657,19 @@ def PATH_DEFAULT():
 
     elif ON_DARWIN:
         pd = ("/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin")
+    elif ON_BSD:
+        # FreeBSD's /etc/login.conf default; also matches the layout NetBSD,
+        # OpenBSD and DragonFly use, with /usr/local/{s,}bin coming from
+        # ports / pkgsrc.
+        pd = (
+            "/sbin",
+            "/bin",
+            "/usr/sbin",
+            "/usr/bin",
+            "/usr/local/sbin",
+            "/usr/local/bin",
+            os.path.expanduser("~/bin"),
+        )
     elif ON_WINDOWS:
         import winreg
 

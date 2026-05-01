@@ -8,8 +8,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -54,40 +54,40 @@ class LogsResource(SyncAPIResource):
         gateway_id: str,
         *,
         account_id: str,
-        cached: bool | NotGiven = NOT_GIVEN,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        end_date: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        feedback: Literal[0, 1] | NotGiven = NOT_GIVEN,
-        filters: Iterable[log_list_params.Filter] | NotGiven = NOT_GIVEN,
-        max_cost: float | NotGiven = NOT_GIVEN,
-        max_duration: float | NotGiven = NOT_GIVEN,
-        max_tokens_in: float | NotGiven = NOT_GIVEN,
-        max_tokens_out: float | NotGiven = NOT_GIVEN,
-        max_total_tokens: float | NotGiven = NOT_GIVEN,
-        meta_info: bool | NotGiven = NOT_GIVEN,
-        min_cost: float | NotGiven = NOT_GIVEN,
-        min_duration: float | NotGiven = NOT_GIVEN,
-        min_tokens_in: float | NotGiven = NOT_GIVEN,
-        min_tokens_out: float | NotGiven = NOT_GIVEN,
-        min_total_tokens: float | NotGiven = NOT_GIVEN,
-        model: str | NotGiven = NOT_GIVEN,
-        model_type: str | NotGiven = NOT_GIVEN,
-        order_by: Literal["created_at", "provider", "model", "model_type", "success", "cached"] | NotGiven = NOT_GIVEN,
-        order_by_direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        provider: str | NotGiven = NOT_GIVEN,
-        request_content_type: str | NotGiven = NOT_GIVEN,
-        response_content_type: str | NotGiven = NOT_GIVEN,
-        search: str | NotGiven = NOT_GIVEN,
-        start_date: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        success: bool | NotGiven = NOT_GIVEN,
+        cached: bool | Omit = omit,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        end_date: Union[str, datetime] | Omit = omit,
+        feedback: Literal[0, 1] | Omit = omit,
+        filters: Iterable[log_list_params.Filter] | Omit = omit,
+        max_cost: float | Omit = omit,
+        max_duration: float | Omit = omit,
+        max_tokens_in: float | Omit = omit,
+        max_tokens_out: float | Omit = omit,
+        max_total_tokens: float | Omit = omit,
+        meta_info: bool | Omit = omit,
+        min_cost: float | Omit = omit,
+        min_duration: float | Omit = omit,
+        min_tokens_in: float | Omit = omit,
+        min_tokens_out: float | Omit = omit,
+        min_total_tokens: float | Omit = omit,
+        model: str | Omit = omit,
+        model_type: str | Omit = omit,
+        order_by: Literal["created_at", "provider", "model", "model_type", "success", "cached"] | Omit = omit,
+        order_by_direction: Literal["asc", "desc"] | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        provider: str | Omit = omit,
+        request_content_type: str | Omit = omit,
+        response_content_type: str | Omit = omit,
+        search: str | Omit = omit,
+        start_date: Union[str, datetime] | Omit = omit,
+        success: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[LogListResponse]:
         """
         List Gateway Logs
@@ -108,7 +108,11 @@ class LogsResource(SyncAPIResource):
         if not gateway_id:
             raise ValueError(f"Expected a non-empty value for `gateway_id` but received {gateway_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs",
+                account_id=account_id,
+                gateway_id=gateway_id,
+            ),
             page=SyncV4PagePaginationArray[LogListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -157,8 +161,8 @@ class LogsResource(SyncAPIResource):
         gateway_id: str,
         *,
         account_id: str,
-        filters: Iterable[log_delete_params.Filter] | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
+        filters: Iterable[log_delete_params.Filter] | Omit = omit,
+        limit: int | Omit = omit,
         order_by: Literal[
             "created_at",
             "provider",
@@ -172,14 +176,14 @@ class LogsResource(SyncAPIResource):
             "duration",
             "feedback",
         ]
-        | NotGiven = NOT_GIVEN,
-        order_by_direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        order_by_direction: Literal["asc", "desc"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LogDeleteResponse:
         """
         Delete Gateway Logs
@@ -200,7 +204,11 @@ class LogsResource(SyncAPIResource):
         if not gateway_id:
             raise ValueError(f"Expected a non-empty value for `gateway_id` but received {gateway_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs",
+                account_id=account_id,
+                gateway_id=gateway_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -225,18 +233,18 @@ class LogsResource(SyncAPIResource):
         *,
         account_id: str,
         gateway_id: str,
-        feedback: Optional[float] | NotGiven = NOT_GIVEN,
-        metadata: Optional[Dict[str, Union[str, float, bool]]] | NotGiven = NOT_GIVEN,
-        score: Optional[float] | NotGiven = NOT_GIVEN,
+        feedback: Optional[float] | Omit = omit,
+        metadata: Optional[Dict[str, Union[str, float, bool]]] | Omit = omit,
+        score: Optional[float] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Patch Gateway Log
+        Updates metadata for an AI Gateway log entry.
 
         Args:
           gateway_id: gateway id
@@ -256,7 +264,12 @@ class LogsResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._patch(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             body=maybe_transform(
                 {
                     "feedback": feedback,
@@ -286,10 +299,10 @@ class LogsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LogGetResponse:
         """
-        Get Gateway Log Detail
+        Retrieves detailed information for a specific AI Gateway log entry.
 
         Args:
           gateway_id: gateway id
@@ -309,7 +322,12 @@ class LogsResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._get(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -331,10 +349,10 @@ class LogsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Get Gateway Log Request
+        Retrieves the original request payload for an AI Gateway log entry.
 
         Args:
           gateway_id: gateway id
@@ -354,7 +372,12 @@ class LogsResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._get(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}/request",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}/request",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -372,10 +395,10 @@ class LogsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Get Gateway Log Response
+        Retrieves the response payload for an AI Gateway log entry.
 
         Args:
           gateway_id: gateway id
@@ -395,7 +418,12 @@ class LogsResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._get(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}/response",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}/response",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -428,40 +456,40 @@ class AsyncLogsResource(AsyncAPIResource):
         gateway_id: str,
         *,
         account_id: str,
-        cached: bool | NotGiven = NOT_GIVEN,
-        direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        end_date: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        feedback: Literal[0, 1] | NotGiven = NOT_GIVEN,
-        filters: Iterable[log_list_params.Filter] | NotGiven = NOT_GIVEN,
-        max_cost: float | NotGiven = NOT_GIVEN,
-        max_duration: float | NotGiven = NOT_GIVEN,
-        max_tokens_in: float | NotGiven = NOT_GIVEN,
-        max_tokens_out: float | NotGiven = NOT_GIVEN,
-        max_total_tokens: float | NotGiven = NOT_GIVEN,
-        meta_info: bool | NotGiven = NOT_GIVEN,
-        min_cost: float | NotGiven = NOT_GIVEN,
-        min_duration: float | NotGiven = NOT_GIVEN,
-        min_tokens_in: float | NotGiven = NOT_GIVEN,
-        min_tokens_out: float | NotGiven = NOT_GIVEN,
-        min_total_tokens: float | NotGiven = NOT_GIVEN,
-        model: str | NotGiven = NOT_GIVEN,
-        model_type: str | NotGiven = NOT_GIVEN,
-        order_by: Literal["created_at", "provider", "model", "model_type", "success", "cached"] | NotGiven = NOT_GIVEN,
-        order_by_direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        provider: str | NotGiven = NOT_GIVEN,
-        request_content_type: str | NotGiven = NOT_GIVEN,
-        response_content_type: str | NotGiven = NOT_GIVEN,
-        search: str | NotGiven = NOT_GIVEN,
-        start_date: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        success: bool | NotGiven = NOT_GIVEN,
+        cached: bool | Omit = omit,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        end_date: Union[str, datetime] | Omit = omit,
+        feedback: Literal[0, 1] | Omit = omit,
+        filters: Iterable[log_list_params.Filter] | Omit = omit,
+        max_cost: float | Omit = omit,
+        max_duration: float | Omit = omit,
+        max_tokens_in: float | Omit = omit,
+        max_tokens_out: float | Omit = omit,
+        max_total_tokens: float | Omit = omit,
+        meta_info: bool | Omit = omit,
+        min_cost: float | Omit = omit,
+        min_duration: float | Omit = omit,
+        min_tokens_in: float | Omit = omit,
+        min_tokens_out: float | Omit = omit,
+        min_total_tokens: float | Omit = omit,
+        model: str | Omit = omit,
+        model_type: str | Omit = omit,
+        order_by: Literal["created_at", "provider", "model", "model_type", "success", "cached"] | Omit = omit,
+        order_by_direction: Literal["asc", "desc"] | Omit = omit,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
+        provider: str | Omit = omit,
+        request_content_type: str | Omit = omit,
+        response_content_type: str | Omit = omit,
+        search: str | Omit = omit,
+        start_date: Union[str, datetime] | Omit = omit,
+        success: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[LogListResponse, AsyncV4PagePaginationArray[LogListResponse]]:
         """
         List Gateway Logs
@@ -482,7 +510,11 @@ class AsyncLogsResource(AsyncAPIResource):
         if not gateway_id:
             raise ValueError(f"Expected a non-empty value for `gateway_id` but received {gateway_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs",
+                account_id=account_id,
+                gateway_id=gateway_id,
+            ),
             page=AsyncV4PagePaginationArray[LogListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -531,8 +563,8 @@ class AsyncLogsResource(AsyncAPIResource):
         gateway_id: str,
         *,
         account_id: str,
-        filters: Iterable[log_delete_params.Filter] | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
+        filters: Iterable[log_delete_params.Filter] | Omit = omit,
+        limit: int | Omit = omit,
         order_by: Literal[
             "created_at",
             "provider",
@@ -546,14 +578,14 @@ class AsyncLogsResource(AsyncAPIResource):
             "duration",
             "feedback",
         ]
-        | NotGiven = NOT_GIVEN,
-        order_by_direction: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        order_by_direction: Literal["asc", "desc"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LogDeleteResponse:
         """
         Delete Gateway Logs
@@ -574,7 +606,11 @@ class AsyncLogsResource(AsyncAPIResource):
         if not gateway_id:
             raise ValueError(f"Expected a non-empty value for `gateway_id` but received {gateway_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs",
+                account_id=account_id,
+                gateway_id=gateway_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -599,18 +635,18 @@ class AsyncLogsResource(AsyncAPIResource):
         *,
         account_id: str,
         gateway_id: str,
-        feedback: Optional[float] | NotGiven = NOT_GIVEN,
-        metadata: Optional[Dict[str, Union[str, float, bool]]] | NotGiven = NOT_GIVEN,
-        score: Optional[float] | NotGiven = NOT_GIVEN,
+        feedback: Optional[float] | Omit = omit,
+        metadata: Optional[Dict[str, Union[str, float, bool]]] | Omit = omit,
+        score: Optional[float] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Patch Gateway Log
+        Updates metadata for an AI Gateway log entry.
 
         Args:
           gateway_id: gateway id
@@ -630,7 +666,12 @@ class AsyncLogsResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             body=await async_maybe_transform(
                 {
                     "feedback": feedback,
@@ -660,10 +701,10 @@ class AsyncLogsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LogGetResponse:
         """
-        Get Gateway Log Detail
+        Retrieves detailed information for a specific AI Gateway log entry.
 
         Args:
           gateway_id: gateway id
@@ -683,7 +724,12 @@ class AsyncLogsResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return await self._get(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -705,10 +751,10 @@ class AsyncLogsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Get Gateway Log Request
+        Retrieves the original request payload for an AI Gateway log entry.
 
         Args:
           gateway_id: gateway id
@@ -728,7 +774,12 @@ class AsyncLogsResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return await self._get(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}/request",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}/request",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -746,10 +797,10 @@ class AsyncLogsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Get Gateway Log Response
+        Retrieves the response payload for an AI Gateway log entry.
 
         Args:
           gateway_id: gateway id
@@ -769,7 +820,12 @@ class AsyncLogsResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return await self._get(
-            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}/response",
+            path_template(
+                "/accounts/{account_id}/ai-gateway/gateways/{gateway_id}/logs/{id}/response",
+                account_id=account_id,
+                gateway_id=gateway_id,
+                id=id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

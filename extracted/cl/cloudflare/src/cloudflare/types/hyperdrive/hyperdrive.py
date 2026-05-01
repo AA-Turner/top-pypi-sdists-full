@@ -11,6 +11,7 @@ __all__ = [
     "Origin",
     "OriginPublicDatabase",
     "OriginAccessProtectedDatabaseBehindCloudflareTunnel",
+    "OriginDatabaseReachableThroughAWorkersVPC",
     "Caching",
     "CachingHyperdriveHyperdriveCachingCommon",
     "CachingHyperdriveHyperdriveCachingEnabled",
@@ -26,7 +27,10 @@ class OriginPublicDatabase(BaseModel):
     """Defines the host (hostname or IP) of your origin database."""
 
     port: int
-    """Defines the port (default: 5432 for Postgres) of your origin database."""
+    """Defines the port of your origin database.
+
+    Defaults to 5432 for PostgreSQL or 3306 for MySQL if not specified.
+    """
 
     scheme: Literal["postgres", "postgresql", "mysql"]
     """Specifies the URL scheme used to connect to your origin database."""
@@ -55,7 +59,27 @@ class OriginAccessProtectedDatabaseBehindCloudflareTunnel(BaseModel):
     """Set the user of your origin database."""
 
 
-Origin: TypeAlias = Union[OriginPublicDatabase, OriginAccessProtectedDatabaseBehindCloudflareTunnel]
+class OriginDatabaseReachableThroughAWorkersVPC(BaseModel):
+    database: str
+    """Set the name of your origin database."""
+
+    scheme: Literal["postgres", "postgresql", "mysql"]
+    """Specifies the URL scheme used to connect to your origin database."""
+
+    service_id: str
+    """The identifier of the Workers VPC Service to connect through.
+
+    Hyperdrive will egress through the specified VPC Service to reach the origin
+    database.
+    """
+
+    user: str
+    """Set the user of your origin database."""
+
+
+Origin: TypeAlias = Union[
+    OriginPublicDatabase, OriginAccessProtectedDatabaseBehindCloudflareTunnel, OriginDatabaseReachableThroughAWorkersVPC
+]
 
 
 class CachingHyperdriveHyperdriveCachingCommon(BaseModel):
@@ -68,15 +92,15 @@ class CachingHyperdriveHyperdriveCachingEnabled(BaseModel):
     """Set to true to disable caching of SQL responses. Default is false."""
 
     max_age: Optional[int] = None
-    """Specify the maximum duration items should persist in the cache.
+    """Specify the maximum duration (in seconds) items should persist in the cache.
 
-    Not returned if set to the default (60).
+    Defaults to 60 seconds if not specified.
     """
 
     stale_while_revalidate: Optional[int] = None
     """Specify the number of seconds the cache may serve a stale response.
 
-    Omitted if set to the default (15).
+    Defaults to 15 seconds if not specified.
     """
 
 
@@ -84,6 +108,11 @@ Caching: TypeAlias = Union[CachingHyperdriveHyperdriveCachingCommon, CachingHype
 
 
 class MTLS(BaseModel):
+    """mTLS configuration for the origin connection.
+
+    Cannot be used with VPC Service origins; TLS must be managed on the VPC Service.
+    """
+
     ca_certificate_id: Optional[str] = None
     """Define CA certificate ID obtained after uploading CA cert."""
 
@@ -99,6 +128,10 @@ class Hyperdrive(BaseModel):
     """Define configurations using a unique string identifier."""
 
     name: str
+    """The name of the Hyperdrive configuration.
+
+    Used to identify the configuration in the Cloudflare dashboard and API.
+    """
 
     origin: Origin
 
@@ -111,3 +144,17 @@ class Hyperdrive(BaseModel):
     """Defines the last modified time of the Hyperdrive configuration."""
 
     mtls: Optional[MTLS] = None
+    """mTLS configuration for the origin connection.
+
+    Cannot be used with VPC Service origins; TLS must be managed on the VPC Service.
+    """
+
+    origin_connection_limit: Optional[int] = None
+    """
+    The (soft) maximum number of connections the Hyperdrive is allowed to make to
+    the origin database.
+
+    Maximum allowed: 20 for free tier accounts, 100 for paid tier accounts. If not
+    specified, defaults to 20 for free tier and 60 for paid tier. Contact Cloudflare
+    if you need a higher limit.
+    """

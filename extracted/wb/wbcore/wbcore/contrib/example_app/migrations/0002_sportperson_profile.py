@@ -4,19 +4,6 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
-def add_missing_persons(apps, schema_editor):
-    Person = apps.get_model("directory", "Person")
-    SportPerson = apps.get_model("example_app", "SportPerson")
-
-    for sport_person in SportPerson.objects.filter(profile__isnull=True):
-        person = Person.objects.create(
-            first_name=sport_person.first_name,
-            last_name=sport_person.last_name,
-        )
-        sport_person.profile = person
-        sport_person.save()
-
-
 class Migration(migrations.Migration):
     dependencies = [
         ("directory", "0007_alter_bankingcontact_options"),
@@ -36,9 +23,6 @@ class Migration(migrations.Migration):
                 to="directory.person",
             ),
         ),
-        migrations.RunSQL(sql="SET CONSTRAINTS ALL IMMEDIATE;"),
-        migrations.RunPython(add_missing_persons),
-        migrations.RunSQL(sql="SET CONSTRAINTS ALL DEFERRED;"),
         migrations.AlterField(
             model_name="sportperson",
             name="profile",

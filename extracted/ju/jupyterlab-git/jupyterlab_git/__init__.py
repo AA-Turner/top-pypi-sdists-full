@@ -3,21 +3,8 @@
 from traitlets import CFloat, List, Dict, Unicode, default
 from traitlets.config import Configurable
 
-try:
-    from ._version import __version__
-except:
-    import warnings
-
-    warnings.warn(
-        "Did you forget to install the extension in editable mode `pip install -e .`?"
-    )
-    __version__ = "dev"
-from .handlers import setup_handlers
-from .git import Git
-
-
-def _jupyter_labextension_paths():
-    return [{"src": "labextension", "dest": "@jupyterlab/git"}]
+from jupyterlab_git_core import __version__  # noqa: F401
+from jupyterlab_git_core.git import Git
 
 
 class JupyterLabGit(Configurable):
@@ -85,6 +72,8 @@ def _load_jupyter_server_extension(server_app):
     server_app: jupyterlab.labapp.LabApp
         JupyterLab application instance
     """
+    from .handlers import setup_handlers
+
     config = JupyterLabGit(config=server_app.config)
     server_app.web_app.settings["git"] = Git(config)
     setup_handlers(server_app.web_app)

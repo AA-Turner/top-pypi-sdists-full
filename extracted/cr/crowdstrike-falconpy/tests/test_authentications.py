@@ -5,6 +5,8 @@ import os
 import sys
 import pytest
 import warnings
+import importlib
+import unittest.mock as mock
 # Authentication via the test_authorization.py
 from tests import test_authorization as Authorization
 # Import our sibling src folder into the path
@@ -451,6 +453,33 @@ class TestUtilFunctionsCoverage:
             assert len(w) == 1
             assert issubclass(w[0].category, FutureWarning)
 
+    def test_url_encoded_warning_with_logger(self):
+        """Cover args_to_params URL-encoded warning with logger, non-pythonic (line 638)."""
+        test_object = Hosts(
+            client_id=auth.config["falcon_client_id"],
+            client_secret=auth.config["falcon_client_secret"],
+            debug=True
+        )
+        result = test_object.query_devices_by_filter_scroll(
+            limit=1,
+            filter="platform_name%3A'Windows'"
+        )
+        assert result["status_code"] in [200, 400, 401, 403, 429]
+
+    def test_simplejson_fallback_functions(self):
+        """Cover the simplejson import fallback in _functions.py."""
+        with mock.patch.dict(sys.modules, {"simplejson": None}):
+            mod = importlib.import_module("falconpy._util._functions")
+            importlib.reload(mod)
+            assert mod.SimplejsonJSONDecodeError is None
+
+    def test_simplejson_fallback_auth(self):
+        """Cover the simplejson import fallback in _auth.py."""
+        with mock.patch.dict(sys.modules, {"simplejson": None}):
+            mod = importlib.import_module("falconpy._util._auth")
+            importlib.reload(mod)
+            assert mod.SimplejsonJSONDecodeError is None
+
 
 class TestOAuth2LogoutCoverage:
     """Cover oauth2.py logout with logging."""
@@ -578,6 +607,31 @@ class TestFalconInterfaceCoverage:
     def test_logout_handler_invalid_creds_with_logging(self):
         """Cover InvalidCredentials caught in _logout_handler with debug."""
         oauth = OAuth2(debug=True)
+        result = oauth.logout()
+        assert isinstance(result, dict)
+        assert result.get("status_code") is not None
+
+    def test_no_auth_mechanism_with_logging(self):
+        """Cover NoAuthenticationMechanism warning with debug logging (line 246)."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            oauth = OAuth2(debug=True, environment={"prefix": "ZCOV_NOEXIST_"})
+            assert not oauth.cred_format_valid
+
+    def test_login_handler_invalid_creds_with_logging(self):
+        """Cover InvalidCredentials caught in _login_handler with debug (line 341)."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            oauth = OAuth2(debug=True, environment={"prefix": "ZCOV_NOEXIST_"})
+        result = oauth.login()
+        assert isinstance(result, dict)
+        assert result.get("status_code") is not None
+
+    def test_logout_handler_invalid_creds_no_env_with_logging(self):
+        """Cover InvalidCredentials caught in _logout_handler with debug (line 376)."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            oauth = OAuth2(debug=True, environment={"prefix": "ZCOV_NOEXIST_"})
         result = oauth.logout()
         assert isinstance(result, dict)
         assert result.get("status_code") is not None

@@ -47,7 +47,10 @@ class TestSettings:
                 ],
                 "compatibility_date": "2021-01-01",
                 "compatibility_flags": ["nodejs_compat"],
-                "limits": {"cpu_ms": 50},
+                "limits": {
+                    "cpu_ms": 50,
+                    "subrequests": 1000,
+                },
                 "logpush": False,
                 "migrations": {
                     "deleted_classes": ["string"],
@@ -75,11 +78,19 @@ class TestSettings:
                     "logs": {
                         "enabled": True,
                         "invocation_logs": True,
+                        "destinations": ["cloudflare"],
                         "head_sampling_rate": 0.1,
+                        "persist": True,
+                    },
+                    "traces": {
+                        "destinations": ["cloudflare"],
+                        "enabled": True,
+                        "head_sampling_rate": 0.1,
+                        "persist": True,
                     },
                 },
                 "placement": {"mode": "smart"},
-                "tags": ["my-tag"],
+                "tags": ["my-team", "my-public-api"],
                 "tail_consumers": [
                     {
                         "service": "my-log-consumer",
@@ -208,7 +219,9 @@ class TestSettings:
 
 
 class TestAsyncSettings:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -237,7 +250,10 @@ class TestAsyncSettings:
                 ],
                 "compatibility_date": "2021-01-01",
                 "compatibility_flags": ["nodejs_compat"],
-                "limits": {"cpu_ms": 50},
+                "limits": {
+                    "cpu_ms": 50,
+                    "subrequests": 1000,
+                },
                 "logpush": False,
                 "migrations": {
                     "deleted_classes": ["string"],
@@ -265,11 +281,19 @@ class TestAsyncSettings:
                     "logs": {
                         "enabled": True,
                         "invocation_logs": True,
+                        "destinations": ["cloudflare"],
                         "head_sampling_rate": 0.1,
+                        "persist": True,
+                    },
+                    "traces": {
+                        "destinations": ["cloudflare"],
+                        "enabled": True,
+                        "head_sampling_rate": 0.1,
+                        "persist": True,
                     },
                 },
                 "placement": {"mode": "smart"},
-                "tags": ["my-tag"],
+                "tags": ["my-team", "my-public-api"],
                 "tail_consumers": [
                     {
                         "service": "my-log-consumer",

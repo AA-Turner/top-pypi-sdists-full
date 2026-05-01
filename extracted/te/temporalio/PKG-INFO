@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.26.0
+Version: 1.27.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -21,6 +21,7 @@ Requires-Dist: opentelemetry-sdk>=1.11.1,<2 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.11.1,<2 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-semantic-conventions>=0.40b0,<1 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-sdk-extension-aws>=2.0.0,<3 ; extra == 'lambda-worker-otel'
+Requires-Dist: langgraph>=1.1.0 ; extra == 'langgraph'
 Requires-Dist: langsmith>=0.7.0,<0.8 ; extra == 'langsmith'
 Requires-Dist: openai-agents>=0.14.0 ; extra == 'openai-agents'
 Requires-Dist: mcp>=1.9.4,<2 ; extra == 'openai-agents'
@@ -31,6 +32,7 @@ Provides-Extra: aioboto3
 Provides-Extra: google-adk
 Provides-Extra: grpc
 Provides-Extra: lambda-worker-otel
+Provides-Extra: langgraph
 Provides-Extra: langsmith
 Provides-Extra: openai-agents
 Provides-Extra: opentelemetry
@@ -1986,7 +1988,7 @@ users are encouraged to not use gevent in asyncio applications (including Tempor
 # Development
 
 The Python SDK is built to work with Python 3.9 and newer. It is built using
-[SDK Core](https://github.com/temporalio/sdk-core/) which is written in Rust.
+[SDK Core](https://github.com/temporalio/sdk-rust/) which is written in Rust.
 
 ### Building
 
@@ -2108,27 +2110,32 @@ The environment is now ready to develop in.
 
 #### Testing
 
-To execute tests:
+To execute tests (in parallel if possible):
 
 ```bash
 poe test
 ```
 
-`poe test` spreads tests across multiple worker processes by default. If you
-need a serial run for debugging, invoke pytest directly:
+To execute tests serially:
 
 ```bash
 uv run pytest
 ```
 
-This runs against [Temporalite](https://github.com/temporalio/temporalite). To run against the time-skipping test
-server, pass `--workflow-environment time-skipping`. To run against the `default` namespace of an already-running
-server, pass the `host:port` to `--workflow-environment`. Can also use regular pytest arguments. For example, here's how
-to run a single test with debug logs on the console:
+To execute a single test:
 
 ```bash
 poe test -s --log-cli-level=DEBUG -k test_sync_activity_thread_cancel_caught
 ```
+
+**Temporal Server**
+
+- Tests that use the workflow test environment run against the [Temporal CLI dev server](https://docs.temporal.io/cli#start-dev-server).
+- By default, workflow-environment tests automatically start a local dev server.
+- On first run, the dev server binary may be downloaded so network access is required if no server is currently running.
+- To run workflow-environment tests against the time-skipping test server, pass `--workflow-environment time-skipping`. 
+- To run workflow-environment tests against the `default` namespace of an already-running server, pass the `host:port` to `--workflow-environment`.
+- Unit tests that do not use the workflow environment do not start a dev server.
 
 #### Proto Generation and Testing
 

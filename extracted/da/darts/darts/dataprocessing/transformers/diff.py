@@ -65,8 +65,8 @@ class Diff(FittableDataTransformer, InvertibleDataTransformer):
             `series.diff(n=1, periods=2).diff(n=1, periods=3)`.
         dropna
             Optionally, specifies if values which can't be differenced (i.e. at the start of the series) should be
-            dropped. Note that if `dropna = True`, then a `component_mask` cannot be specified, since the undifferenced
-            components will be of a different length to the differenced ones.
+            dropped. This applies to all time series columns, also the ones potentially ignored via the `columns`
+            parameter or any ``component_mask`` passed to downstream methods.
         n_jobs
             The number of jobs to run in parallel. Parallel jobs are created only when a ``Sequence[TimeSeries]`` is
             passed as input, parallelising operations regarding different ``TimeSeries``. Defaults to `1`
@@ -76,10 +76,10 @@ class Diff(FittableDataTransformer, InvertibleDataTransformer):
         verbose
             Whether to print operations progress
         columns
-            Optionally, a string or list of strings specifying the names of the components (columns)
-            to transform. If specified, only these components will be transformed, and the remaining
-            components will be kept untouched. For more information refer to the `BaseDataTransformer`
-            documentation.
+            Optionally, a string or list of strings specifying the names of the components (columns) to transform.
+            If specified, only these components will be transformed, and the remaining components will be kept
+            untouched. For more information refer to the `BaseDataTransformer` documentation. In case the transformer
+            is applied on multiple TimeSeries, it is expected that all series have the same column order.
 
         Examples
         --------
@@ -114,14 +114,16 @@ class Diff(FittableDataTransformer, InvertibleDataTransformer):
         # Define fixed params (i.e. attributes defined before calling `super().__init__`):
         self._lags = lags
         self._dropna = dropna
-        # Don't automatically apply `component_mask` - need to throw error when `dropna = True`
-        # and `component_mask` is specified:
+        # Don't let the base transformer apply ``component_mask`` automatically — ``ts_transform``
+        # handles masking explicitly so it can preserve the non-differenced components when
+        # ``dropna=True`` is combined with `columns` or `component_mask`.
         super().__init__(
             name=name,
             n_jobs=n_jobs,
             verbose=verbose,
             mask_components=False,
             columns=columns,
+            uses_insample=True,
         )
 
     @staticmethod
@@ -173,6 +175,7 @@ class Diff(FittableDataTransformer, InvertibleDataTransformer):
     def ts_inverse_transform(
         series: TimeSeries,
         params: Mapping[str, Any],
+        insample: TimeSeries | None = None,
         **kwargs,
     ) -> TimeSeries:
         lags, dropna = params["fixed"]["_lags"], params["fixed"]["_dropna"]
@@ -185,13 +188,20 @@ class Diff(FittableDataTransformer, InvertibleDataTransformer):
                 ),
                 logger,
             )
+
+        # if given, add the historic part of `insample` to the `series`
+        series, n_forecast_output = InvertibleDataTransformer._maybe_prepend_insample(
+            series=series,
+            insample=insample,
+        )
+
         # Start dates 'missing' from differenced series if dropna = True, so need to shift forward:
         expected_start = start_time + sum(lags) * series.freq if dropna else start_time
         if series.start_time() != expected_start:
             raise_log(
                 ValueError(
-                    f"Expected series to begin at time {expected_start}; "
-                    f"instead, it begins at time {series.start_time()}."
+                    f"Expected the {'`insample` series' if n_forecast_output else '`series`'} "
+                    f"to begin at time {expected_start}; instead, it begins at time {series.start_time()}."
                 ),
                 logger,
             )
@@ -245,10 +255,13 @@ class Diff(FittableDataTransformer, InvertibleDataTransformer):
                 to_undiff[i::lag, :, :] = np.cumsum(to_undiff[i::lag, :, :], axis=0)
             vals[cutoff:, :, :] = to_undiff
         vals = Diff.unapply_component_mask(series, vals, component_mask)
-        return TimeSeries(
+        result = TimeSeries(
             times=series.time_index,
             values=vals,
             components=series.components,
             copy=False,
             **series._attrs,
         )
+        if n_forecast_output is not None:
+            result = result[-n_forecast_output:]
+        return result

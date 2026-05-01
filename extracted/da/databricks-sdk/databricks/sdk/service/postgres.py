@@ -123,7 +123,8 @@ class BranchOperationMetadata:
 @dataclass
 class BranchSpec:
     expire_time: Optional[Timestamp] = None
-    """Absolute expiration timestamp. When set, the branch will expire at this time."""
+    """Absolute expiration timestamp. When set, the branch will expire at this time. Mutually exclusive
+    with `ttl` and `no_expiry`. When updating, use `spec.expiration` in the update_mask."""
 
     is_protected: Optional[bool] = None
     """When set to true, protects the branch from deletion and reset. Associated compute endpoints and
@@ -131,7 +132,8 @@ class BranchSpec:
 
     no_expiry: Optional[bool] = None
     """Explicitly disable expiration. When set to true, the branch will not expire. If set to false,
-    the request is invalid; provide either ttl or expire_time instead."""
+    the request is invalid; provide either ttl or expire_time instead. Mutually exclusive with
+    `expire_time` and `ttl`. When updating, use `spec.expiration` in the update_mask."""
 
     source_branch: Optional[str] = None
     """The name of the source branch from which this branch was created (data lineage for point-in-time
@@ -145,7 +147,9 @@ class BranchSpec:
     """The point in time on the source branch from which this branch was created."""
 
     ttl: Optional[Duration] = None
-    """Relative time-to-live duration. When set, the branch will expire at creation_time + ttl."""
+    """Relative time-to-live duration. When set, the branch will expire at creation_time + ttl.
+    Mutually exclusive with `expire_time` and `no_expiry`. When updating, use `spec.expiration` in
+    the update_mask."""
 
     def as_dict(self) -> dict:
         """Serializes the BranchSpec into a dictionary suitable for use as a JSON request body."""
@@ -1096,7 +1100,8 @@ class EndpointSpec:
     """The endpoint type. A branch can only have one READ_WRITE endpoint."""
 
     autoscaling_limit_max_cu: Optional[float] = None
-    """The maximum number of Compute Units. Minimum value is 0.5."""
+    """The maximum number of Compute Units. The maximum value is 64. The difference between the minimum
+    and maximum Compute Units (max - min) must not exceed 16."""
 
     autoscaling_limit_min_cu: Optional[float] = None
     """The minimum number of Compute Units. Minimum value is 0.5."""
@@ -1113,13 +1118,15 @@ class EndpointSpec:
 
     no_suspension: Optional[bool] = None
     """When set to true, explicitly disables automatic suspension (never suspend). Should be set to
-    true when provided."""
+    true when provided. Mutually exclusive with `suspend_timeout_duration`. When updating, use
+    `spec.suspension` in the update_mask."""
 
     settings: Optional[EndpointSettings] = None
 
     suspend_timeout_duration: Optional[Duration] = None
     """Duration of inactivity after which the compute endpoint is automatically suspended. If specified
-    should be between 60s and 604800s (1 minute to 1 week)."""
+    should be between 60s and 604800s (1 minute to 1 week). Mutually exclusive with `no_suspension`.
+    When updating, use `spec.suspension` in the update_mask."""
 
     def as_dict(self) -> dict:
         """Serializes the EndpointSpec into a dictionary suitable for use as a JSON request body."""
@@ -1181,7 +1188,8 @@ class EndpointSpec:
 @dataclass
 class EndpointStatus:
     autoscaling_limit_max_cu: Optional[float] = None
-    """The maximum number of Compute Units."""
+    """The maximum number of Compute Units. The maximum value is 64. The difference between the minimum
+    and maximum Compute Units (max - min) must not exceed 16."""
 
     autoscaling_limit_min_cu: Optional[float] = None
     """The minimum number of Compute Units."""
@@ -1395,8 +1403,10 @@ class ErrorCode(Enum):
 
 @dataclass
 class InitialEndpointSpec:
+    """Configuration for the initial Read/Write endpoint created during project creation."""
+
     group: Optional[EndpointGroupSpec] = None
-    """Settings for HA configuration of the endpoint"""
+    """Settings for HA configuration of the endpoint."""
 
     def as_dict(self) -> dict:
         """Serializes the InitialEndpointSpec into a dictionary suitable for use as a JSON request body."""
@@ -1694,8 +1704,12 @@ class Project:
     create_time: Optional[Timestamp] = None
     """A timestamp indicating when the project was created."""
 
+    delete_time: Optional[Timestamp] = None
+    """A timestamp indicating when the project was soft-deleted. Empty if the project is not deleted,
+    otherwise set to a timestamp in the past."""
+
     initial_endpoint_spec: Optional[InitialEndpointSpec] = None
-    """Configuration settings for the initial Read/Write endpoint created inside the default branch for
+    """Configuration settings for the initial Read/Write endpoint created inside the initial branch for
     a newly created project. If omitted, the initial endpoint created will have default settings,
     without high availability configured. This field does not apply to any endpoints created after
     project creation. Use spec.default_endpoint_settings to configure default settings for endpoints
@@ -1703,6 +1717,10 @@ class Project:
 
     name: Optional[str] = None
     """Output only. The full resource path of the project. Format: projects/{project_id}"""
+
+    purge_time: Optional[Timestamp] = None
+    """A timestamp indicating when the project is scheduled for permanent deletion. Empty if the
+    project is not deleted, otherwise set to a timestamp in the future."""
 
     spec: Optional[ProjectSpec] = None
     """The spec contains the project configuration, including display_name, pg_version (Postgres
@@ -1722,10 +1740,14 @@ class Project:
         body = {}
         if self.create_time is not None:
             body["create_time"] = self.create_time.ToJsonString()
+        if self.delete_time is not None:
+            body["delete_time"] = self.delete_time.ToJsonString()
         if self.initial_endpoint_spec:
             body["initial_endpoint_spec"] = self.initial_endpoint_spec.as_dict()
         if self.name is not None:
             body["name"] = self.name
+        if self.purge_time is not None:
+            body["purge_time"] = self.purge_time.ToJsonString()
         if self.spec:
             body["spec"] = self.spec.as_dict()
         if self.status:
@@ -1741,10 +1763,14 @@ class Project:
         body = {}
         if self.create_time is not None:
             body["create_time"] = self.create_time
+        if self.delete_time is not None:
+            body["delete_time"] = self.delete_time
         if self.initial_endpoint_spec:
             body["initial_endpoint_spec"] = self.initial_endpoint_spec
         if self.name is not None:
             body["name"] = self.name
+        if self.purge_time is not None:
+            body["purge_time"] = self.purge_time
         if self.spec:
             body["spec"] = self.spec
         if self.status:
@@ -1760,8 +1786,10 @@ class Project:
         """Deserializes the Project from a dictionary."""
         return cls(
             create_time=_timestamp(d, "create_time"),
+            delete_time=_timestamp(d, "delete_time"),
             initial_endpoint_spec=_from_dict(d, "initial_endpoint_spec", InitialEndpointSpec),
             name=d.get("name", None),
+            purge_time=_timestamp(d, "purge_time"),
             spec=_from_dict(d, "spec", ProjectSpec),
             status=_from_dict(d, "status", ProjectStatus),
             uid=d.get("uid", None),
@@ -1813,14 +1841,16 @@ class ProjectDefaultEndpointSettings:
 
     no_suspension: Optional[bool] = None
     """When set to true, explicitly disables automatic suspension (never suspend). Should be set to
-    true when provided."""
+    true when provided. Mutually exclusive with `suspend_timeout_duration`. When updating, use
+    `spec.project_default_settings.suspension` in the update_mask."""
 
     pg_settings: Optional[Dict[str, str]] = None
     """A raw representation of Postgres settings."""
 
     suspend_timeout_duration: Optional[Duration] = None
     """Duration of inactivity after which the compute endpoint is automatically suspended. If specified
-    should be between 60s and 604800s (1 minute to 1 week)."""
+    should be between 60s and 604800s (1 minute to 1 week). Mutually exclusive with `no_suspension`.
+    When updating, use `spec.project_default_settings.suspension` in the update_mask."""
 
     def as_dict(self) -> dict:
         """Serializes the ProjectDefaultEndpointSettings into a dictionary suitable for use as a JSON request body."""
@@ -1909,7 +1939,7 @@ class ProjectSpec:
 
     history_retention_duration: Optional[Duration] = None
     """The number of seconds to retain the shared history for point in time recovery for all branches
-    in this project. Value should be between 172800s (2 days) and 2592000s (30 days)."""
+    in this project. Value should be between 172800s (2 days) and 3024000s (35 days)."""
 
     pg_version: Optional[int] = None
     """The major Postgres version number. Supported versions are 16 and 17."""
@@ -2102,7 +2132,7 @@ class ProvisioningInfoState(Enum):
 
 
 class ProvisioningPhase(Enum):
-    """Copied from database_table_statuses.proto to decouple SDK packages."""
+    """The current phase of the data synchronization pipeline."""
 
     PROVISIONING_PHASE_INDEX_SCAN = "PROVISIONING_PHASE_INDEX_SCAN"
     PROVISIONING_PHASE_INDEX_SORT = "PROVISIONING_PHASE_INDEX_SORT"
@@ -2150,6 +2180,7 @@ class RequestedClaimsPermissionSet(Enum):
 @dataclass
 class RequestedResource:
     table_name: Optional[str] = None
+    """The full Unity Catalog table name."""
 
     unspecified_resource_name: Optional[str] = None
 
@@ -2339,7 +2370,18 @@ class RoleRoleSpec:
     """The desired API-exposed Postgres role attribute to associate with the role. Optional."""
 
     auth_method: Optional[RoleAuthMethod] = None
-    """If auth_method is left unspecified, a meaningful authentication method is derived from the
+    """Controls how the Postgres role authenticates when a client opens a database connection.
+    Supported values:
+    
+    * LAKEBASE_OAUTH_V1: the role authenticates by presenting a Databricks OAuth access token
+    derived from the backing managed identity (the Databricks user, service principal, or group
+    named by the role's `postgres_role`). No static password exists for roles using this method. *
+    PG_PASSWORD_SCRAM_SHA_256: the role authenticates with a Postgres password verified server-side
+    using the SCRAM-SHA-256 mechanism. Lakebase generates a password for the role. * NO_LOGIN: the
+    role cannot open a Postgres session at all. Useful for roles that exist only to own objects or
+    to aggregate privileges that are then granted to other, loginable roles.
+    
+    If auth_method is left unspecified, a meaningful authentication method is derived from the
     identity_type: * For the managed identities, OAUTH is used. * For the regular postgres roles,
     authentication based on postgres passwords is used.
     
@@ -2676,7 +2718,7 @@ class SyncedTablePosition:
 
 
 class SyncedTableState(Enum):
-    """The state of a synced table. Copied from database_table_statuses.proto to decouple SDK packages."""
+    """The state of a synced table."""
 
     SYNCED_TABLE_OFFLINE = "SYNCED_TABLE_OFFLINE"
     SYNCED_TABLE_OFFLINE_FAILED = "SYNCED_TABLE_OFFLINE_FAILED"
@@ -2931,7 +2973,9 @@ class PostgresAPI:
     def __init__(self, api_client):
         self._api = api_client
 
-    def create_branch(self, parent: str, branch: Branch, branch_id: str) -> CreateBranchOperation:
+    def create_branch(
+        self, parent: str, branch: Branch, branch_id: str, *, replace_existing: Optional[bool] = None
+    ) -> CreateBranchOperation:
         """Creates a new database branch in the project.
 
         :param parent: str
@@ -2943,6 +2987,8 @@ class PostgresAPI:
           is required and must be 1-63 characters long, start with a lowercase letter, and contain only
           lowercase letters, numbers, and hyphens. For example, `development` becomes
           `projects/my-app/branches/development`.
+        :param replace_existing: bool (optional)
+          If true, update the branch if it already exists instead of returning an error.
 
         :returns: :class:`Operation`
         """
@@ -2951,6 +2997,8 @@ class PostgresAPI:
         query = {}
         if branch_id is not None:
             query["branch_id"] = branch_id
+        if replace_existing is not None:
+            query["replace_existing"] = replace_existing
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -3032,7 +3080,9 @@ class PostgresAPI:
         operation = Operation.from_dict(res)
         return CreateDatabaseOperation(self, operation)
 
-    def create_endpoint(self, parent: str, endpoint: Endpoint, endpoint_id: str) -> CreateEndpointOperation:
+    def create_endpoint(
+        self, parent: str, endpoint: Endpoint, endpoint_id: str, *, replace_existing: Optional[bool] = None
+    ) -> CreateEndpointOperation:
         """Creates a new compute endpoint in the branch.
 
         :param parent: str
@@ -3044,6 +3094,8 @@ class PostgresAPI:
           The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only
           lowercase letters, numbers, and hyphens. For example, `primary` becomes
           `projects/my-app/branches/development/endpoints/primary`.
+        :param replace_existing: bool (optional)
+          If true, update the endpoint if it already exists instead of returning an error.
 
         :returns: :class:`Operation`
         """
@@ -3052,6 +3104,8 @@ class PostgresAPI:
         query = {}
         if endpoint_id is not None:
             query["endpoint_id"] = endpoint_id
+        if replace_existing is not None:
+            query["replace_existing"] = replace_existing
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -3256,15 +3310,20 @@ class PostgresAPI:
         operation = Operation.from_dict(res)
         return DeleteEndpointOperation(self, operation)
 
-    def delete_project(self, name: str) -> DeleteProjectOperation:
+    def delete_project(self, name: str, *, purge: Optional[bool] = None) -> DeleteProjectOperation:
         """Deletes the specified database project.
 
         :param name: str
           The full resource path of the project to delete. Format: projects/{project_id}
+        :param purge: bool (optional)
+          If true, permanently deletes the project (hard delete). If false or unset, performs a soft delete.
 
         :returns: :class:`Operation`
         """
 
+        query = {}
+        if purge is not None:
+            query["purge"] = purge
         headers = {
             "Accept": "application/json",
         }
@@ -3273,7 +3332,7 @@ class PostgresAPI:
         if cfg.workspace_id:
             headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
-        res = self._api.do("DELETE", f"/api/2.0/postgres/{name}", headers=headers)
+        res = self._api.do("DELETE", f"/api/2.0/postgres/{name}", query=query, headers=headers)
         operation = Operation.from_dict(res)
         return DeleteProjectOperation(self, operation)
 
@@ -3511,8 +3570,8 @@ class PostgresAPI:
         """Get a Synced Table.
 
         :param name: str
-          Format: "synced_tables/{catalog}.{schema}.{table}", where (catalog, schema, table) are the entity
-          names in the Unity Catalog.
+          The Full resource name of the synced table. Format: "synced_tables/{catalog}.{schema}.{table}",
+          where (catalog, schema, table) are the entity names in the Unity Catalog.
 
         :returns: :class:`SyncedTable`
         """
@@ -3641,13 +3700,18 @@ class PostgresAPI:
                 return
             query["page_token"] = json["next_page_token"]
 
-    def list_projects(self, *, page_size: Optional[int] = None, page_token: Optional[str] = None) -> Iterator[Project]:
+    def list_projects(
+        self, *, page_size: Optional[int] = None, page_token: Optional[str] = None, show_deleted: Optional[bool] = None
+    ) -> Iterator[Project]:
         """Returns a paginated list of database projects in the workspace that the user has permission to access.
 
         :param page_size: int (optional)
           Upper bound for items returned. Cannot be negative. The maximum value is 100.
         :param page_token: str (optional)
           Page token from a previous response. If not provided, returns the first page.
+        :param show_deleted: bool (optional)
+          Whether to include soft-deleted projects in the response. When true, soft-deleted projects are
+          included alongside active projects. Hard-deleted and already-purged projects are never returned.
 
         :returns: Iterator over :class:`Project`
         """
@@ -3657,6 +3721,8 @@ class PostgresAPI:
             query["page_size"] = page_size
         if page_token is not None:
             query["page_token"] = page_token
+        if show_deleted is not None:
+            query["show_deleted"] = show_deleted
         headers = {
             "Accept": "application/json",
         }
@@ -3710,6 +3776,28 @@ class PostgresAPI:
             if "next_page_token" not in json or not json["next_page_token"]:
                 return
             query["page_token"] = json["next_page_token"]
+
+    def undelete_project(self, name: str) -> UndeleteProjectOperation:
+        """Undeletes a soft-deleted project.
+
+        :param name: str
+          The full resource path of the project to undelete. Format: projects/{project_id}
+
+        :returns: :class:`Operation`
+        """
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        cfg = self._api._cfg
+        if cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
+        res = self._api.do("POST", f"/api/2.0/postgres/{name}/undelete", headers=headers)
+        operation = Operation.from_dict(res)
+        return UndeleteProjectOperation(self, operation)
 
     def update_branch(self, name: str, branch: Branch, update_mask: FieldMask) -> UpdateBranchOperation:
         """Updates the specified database branch. You can set this branch as the project's default branch, or
@@ -4932,6 +5020,81 @@ class DeleteSyncedTableOperation:
             return None
 
         return SyncedTableOperationMetadata.from_dict(self._operation.metadata)
+
+    def done(self) -> bool:
+        """Done reports whether the long-running operation has completed.
+
+        :returns: bool
+        """
+        # Refresh the operation state first
+        operation = self._impl.get_operation(name=self._operation.name)
+
+        # Update local operation state
+        self._operation = operation
+
+        return operation.done
+
+
+class UndeleteProjectOperation:
+    """Long-running operation for undelete_project"""
+
+    def __init__(self, impl: PostgresAPI, operation: Operation):
+        self._impl = impl
+        self._operation = operation
+
+    def wait(self, opts: Optional[lro.LroOptions] = None):
+        """Wait blocks until the long-running operation is completed. If no timeout is
+        specified, this will poll indefinitely. If a timeout is provided and the operation
+        didn't finish within the timeout, this function will raise an error of type
+        TimeoutError, otherwise returns successful response and any errors encountered.
+
+        :param opts: :class:`LroOptions`
+          Timeout options (default: polls indefinitely)
+
+        :returns: :class:`Any /* MISSING TYPE */`
+        """
+
+        def poll_operation():
+            operation = self._impl.get_operation(name=self._operation.name)
+
+            # Update local operation state
+            self._operation = operation
+
+            if not operation.done:
+                return None, RetryError.continues("operation still in progress")
+
+            if operation.error:
+                error_msg = operation.error.message if operation.error.message else "unknown error"
+                if operation.error.error_code:
+                    error_msg = f"[{operation.error.error_code}] {error_msg}"
+                return None, RetryError.halt(Exception(f"operation failed: {error_msg}"))
+
+            # Operation completed successfully, unmarshal response.
+            if operation.response is None:
+                return None, RetryError.halt(Exception("operation completed but no response available"))
+
+            return {}, None
+
+        poll(poll_operation, timeout=opts.timeout if opts is not None else None)
+
+    def name(self) -> str:
+        """Name returns the name of the long-running operation. The name is assigned
+        by the server and is unique within the service from which the operation is created.
+
+        :returns: str
+        """
+        return self._operation.name
+
+    def metadata(self) -> ProjectOperationMetadata:
+        """Metadata returns metadata associated with the long-running operation.
+        If the metadata is not available, the returned metadata is None.
+
+        :returns: :class:`ProjectOperationMetadata` or None
+        """
+        if self._operation.metadata is None:
+            return None
+
+        return ProjectOperationMetadata.from_dict(self._operation.metadata)
 
     def done(self) -> bool:
         """Done reports whether the long-running operation has completed.

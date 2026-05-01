@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import itertools
+import os
 import warnings
 from collections import defaultdict
 from functools import cache, lru_cache
 from typing import TYPE_CHECKING
 
-from emmet.core.electronic_structure import BSPathType
+from emmet.core.band_theory import BSPathType
 from emmet.core.mpid import MPID, AlphaID
 from emmet.core.types.enums import ThermoType
 from emmet.core.vasp.calc_types import CalcType
@@ -20,13 +21,18 @@ from pymatgen.io.vasp import Chgcar
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from requests import Session, get
 
-from mp_api.client.core import BaseRester, MPRestError, MPRestWarning
+from mp_api.client._server_utils import get_consumer, get_user_api_key, is_dev_env
+from mp_api.client.core import BaseRester
 from mp_api.client.core._oxygen_evolution import OxygenEvolution
+from mp_api.client.core.exceptions import (
+    MPRestError,
+    MPRestWarning,
+    _emit_status_warning,
+)
 from mp_api.client.core.settings import MAPI_CLIENT_SETTINGS
 from mp_api.client.core.utils import (
     LazyImport,
     load_json,
-    validate_api_key,
     validate_endpoint,
     validate_ids,
 )
@@ -35,14 +41,24 @@ from mp_api.client.routes.materials import MATERIALS_RESTERS
 from mp_api.client.routes.molecules import MOLECULES_RESTERS
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from typing import Any, Literal
 
+    import numpy as np
     from emmet.core.tasks import CoreTaskDoc
+    from packaging.version import Version
     from pymatgen.analysis.phase_diagram import PDEntry
-    from pymatgen.entries.computed_entries import ComputedEntry
+    from pymatgen.analysis.pourbaix_diagram import PourbaixEntry
+    from pymatgen.entries.compatibility import Compatibility
+    from pymatgen.entries.computed_entries import (
+        ComputedEntry,
+        GibbsComputedStructureEntry,
+    )
+    from pymatgen.util.typing import SpeciesLike
 
+    from mp_api.client.core.client import _DictLikeAccess
 
-DEFAULT_THERMOTYPE_CRITERIA = {"thermo_types": ["GGA_GGA+U"]}
+DEFAULT_THERMOTYPE_CRITERIA = {"thermo_types": ["GGA_GGA+U_R2SCAN"]}
 
 RESTER_LAYOUT = {
     "molecules/core": LazyImport(
@@ -82,6 +98,10 @@ class MPRester:
         session: Session | None = None,
         headers: dict | None = None,
         mute_progress_bars: bool = MAPI_CLIENT_SETTINGS.MUTE_PROGRESS_BARS,
+        local_dataset_cache: (
+            str | os.PathLike
+        ) = MAPI_CLIENT_SETTINGS.LOCAL_DATASET_CACHE,
+        force_renew: bool = False,
         **kwargs,
     ):
         """Initialize the MPRester.
@@ -116,21 +136,28 @@ class MPRester:
             session: Session object to use. By default (None), the client will create one.
             headers: Custom headers for localhost connections.
             mute_progress_bars:  Whether to mute progress bars.
+            local_dataset_cache: Target directory for downloading full datasets. Defaults
+                to "mp_datasets" in the user's home directory
+            force_renew: Option to overwrite existing local dataset
             **kwargs: access to legacy kwargs that may be in the process of being deprecated
         """
-        self.api_key = validate_api_key(api_key)
+        self.api_key = get_user_api_key(api_key=api_key)
 
         self.endpoint = validate_endpoint(endpoint)
 
-        self.headers = headers or {}
+        self.headers = headers or get_consumer()
         self.session = session or BaseRester._create_session(
             api_key=self.api_key,
             include_user_agent=include_user_agent,
             headers=self.headers,
         )
+        if is_dev_env():
+            self.session.headers["x-api-key"] = self.api_key or ""
         self._include_user_agent = include_user_agent
         self.use_document_model = use_document_model
         self.mute_progress_bars = mute_progress_bars
+        self.local_dataset_cache = local_dataset_cache
+        self.force_renew = force_renew
         self._contribs = None
 
         self._deprecated_attributes = [
@@ -172,18 +199,19 @@ class MPRester:
             )
 
         # Check if emmet version of server is compatible
-        emmet_version = MPRester.get_emmet_version(self.endpoint)
-
-        if version.parse(emmet_version.base_version) < version.parse(
-            MAPI_CLIENT_SETTINGS.MIN_EMMET_VERSION
+        if (emmet_version := MPRester.get_emmet_version(self.endpoint)) and (
+            version.parse(emmet_version.base_version)
+            < version.parse(MAPI_CLIENT_SETTINGS.MIN_EMMET_VERSION)
         ):
             warnings.warn(
                 "The installed version of the mp-api client may not be compatible with the API server. "
-                "Please install a previous version if any problems occur."
+                "Please install a previous version if any problems occur.",
+                category=MPRestWarning,
+                stacklevel=2,
             )
 
         if notify_db_version:
-            raise NotImplementedError("This has not yet been implemented.")
+            self._db_version_check()
 
         # Dynamically set rester attributes.
         # First, materials and molecules top level resters are set.
@@ -205,6 +233,8 @@ class MPRester:
                         use_document_model=self.use_document_model,
                         headers=self.headers,
                         mute_progress_bars=self.mute_progress_bars,
+                        local_dataset_cache=self.local_dataset_cache,
+                        force_renew=self.force_renew,
                     ),
                 )
 
@@ -225,11 +255,17 @@ class MPRester:
                 warnings.warn(
                     "mpcontribs-client not installed. "
                     "Install the package to query MPContribs data, construct pourbaix diagrams, "
-                    "or to compute cohesive energies: 'pip install mpcontribs-client'"
+                    "or to compute cohesive energies: 'pip install mpcontribs-client'",
+                    category=MPRestWarning,
+                    stacklevel=2,
                 )
             except Exception as error:
                 self._contribs = None
-                warnings.warn(f"Problem loading MPContribs client: {error}")
+                warnings.warn(
+                    f"Problem loading MPContribs client: {error}",
+                    category=MPRestWarning,
+                    stacklevel=2,
+                )
 
         return self._contribs
 
@@ -261,6 +297,10 @@ class MPRester:
             + self._deprecated_attributes
             + [r.split("/", 1)[0] for r in TOP_LEVEL_RESTERS if not r.startswith("_")]
         )
+
+    def __repr__(self) -> str:
+        db_version = self.get_database_version()
+        return f"MPRester({'v' + db_version if db_version else 'unknown version'})"
 
     def get_task_ids_associated_with_material_id(
         self, material_id: str, calc_types: list[CalcType] | None = None
@@ -322,7 +362,7 @@ class MPRester:
 
         return structure_data
 
-    def get_database_version(self):
+    def get_database_version(self) -> str | None:
         """The Materials Project database is periodically updated and has a
         database version associated with it. When the database is updated,
         consolidated data (information about "a material") may and does
@@ -333,22 +373,29 @@ class MPRester:
         where "_DD" may be optional. An additional numerical suffix
         might be added if multiple releases happen on the same day.
 
-        Returns: database version as a string
+        Returns: database version as a string if accessible, None otherwise
         """
-        return get(url=self.endpoint + "heartbeat").json()["db_version"]
+        if (get_resp := get(url=self.endpoint + "heartbeat")).status_code == 403:
+            _emit_status_warning()
+            return None
+        return get_resp.json()["db_version"]
 
     @staticmethod
     @cache
-    def get_emmet_version(endpoint):
+    def get_emmet_version(endpoint) -> Version | None:
         """Get the latest version emmet-core and emmet-api used in the
         current API service.
 
         Returns: version as a string
         """
-        response = get(url=endpoint + "heartbeat").json()
+        get_resp = get(url=endpoint + "heartbeat")
 
-        error = response.get("error", None)
-        if error:
+        if get_resp.status_code == 403:
+            _emit_status_warning()
+            return None
+
+        response = get_resp.json()
+        if error := response.get("error", None):
             raise MPRestError(error)
 
         return version.parse(response["version"])
@@ -373,11 +420,13 @@ class MPRester:
             raise ValueError(
                 f"Multiple documents return for {task_id}, this should not happen, please report it!"
             )
-        else:  # pragma: no cover
-            warnings.warn(
-                f"No material found containing task {task_id}. Please report it if you suspect a task has gone missing."
-            )
-            return None
+        warnings.warn(
+            f"No material found containing task {task_id}. "
+            "Please report it if you suspect a task has gone missing.",
+            category=MPRestWarning,
+            stacklevel=2,
+        )
+        return None
 
     def get_material_id_references(self, material_id: str) -> list[str]:
         """Returns all references for a material id.
@@ -507,7 +556,7 @@ class MPRester:
     ) -> list[ComputedStructureEntry]:
         """Get a list of ComputedStructureEntry from a chemical system, or formula, or MPID.
 
-        This returns ComputedStructureEntries with final structures for all thermo types
+        This returns a list of ComputedStructureEntry with final structures for all thermo types
         represented in the database. Each type corresponds to a different mixing scheme
         (i.e. GGA/GGA+U, GGA/GGA+U/R2SCAN, R2SCAN). By default the thermo_type of the
         entry is also returned.
@@ -540,7 +589,9 @@ class MPRester:
         if kwargs.pop("inc_structure", None) is not None:
             warnings.warn(
                 "The `inc_structure` argument is deprecated as final structures "
-                "are always included in all returned ComputedStructureEntry objects."
+                "are always included in all returned ComputedStructureEntry objects.",
+                category=DeprecationWarning,
+                stacklevel=2,
             )
 
         if isinstance(chemsys_formula_mpids, str):
@@ -611,9 +662,15 @@ class MPRester:
     def get_pourbaix_entries(
         self,
         chemsys: str | list[str] | list[ComputedEntry | ComputedStructureEntry],
-        solid_compat="MaterialsProject2020Compatibility",
+        solid_compat: (
+            Literal[
+                "MaterialsProjectCompatibility", "MaterialsProject2020Compatibility"
+            ]
+            | Compatibility
+            | None
+        ) = "MaterialsProject2020Compatibility",
         use_gibbs: Literal[300] | None = None,
-    ):
+    ) -> list[PourbaixEntry]:
         """A helper function to get all entries necessary to generate
         a Pourbaix diagram from the rest interface.
 
@@ -627,16 +684,21 @@ class MPRester:
                 for adding extra calculation data to the Pourbaix Diagram.
                 If this is set, the chemsys will be inferred from the entries.
             solid_compat: Compatibility scheme used to pre-process solid DFT energies prior
-                to applying aqueous energy adjustments. May be passed as a class (e.g.
-                MaterialsProject2020Compatibility) or an instance
-                (e.g., MaterialsProject2020Compatibility()). If None, solid DFT energies
-                are used as-is. Default: MaterialsProject2020Compatibility
+                to applying aqueous energy adjustments.
+                May be passed as a string (either "MaterialsProjectCompatibility"
+                or "MaterialsProject2020Compatibility"), or as a class instance
+                (e.g., MaterialsProject2020Compatibility()).
+                If None, solid DFT energies are used as-is.
+                Default: MaterialsProject2020Compatibility
             use_gibbs: Set to 300 (for 300 Kelvin) to use a machine learning model to
                 estimate solid free energy from DFT energy (see GibbsComputedStructureEntry).
                 This can slightly improve the accuracy of the Pourbaix diagram in some
                 cases. Default: None. Note that temperatures other than 300K are not
                 permitted here, because MaterialsProjectAqueousCompatibility corrections,
                 used in Pourbaix diagram construction, are calculated based on 300 K data.
+
+        Returns:
+            list of PourbaixEntry
         """
         # imports are not top-level due to expense
         from pymatgen.analysis.pourbaix_diagram import PourbaixEntry
@@ -653,19 +715,20 @@ class MPRester:
         if isinstance(chemsys, list) and all(
             isinstance(v, ComputedEntry | ComputedStructureEntry) for v in chemsys
         ):
-            user_entries = [ce.copy() for ce in chemsys]
+            user_entries = [ce.copy() for ce in chemsys]  # type: ignore[union-attr]
 
-            elements = set()
-            for entry in user_entries:
-                elements.update(entry.elements)
-            chemsys = [ele.name for ele in elements]
-
-            user_run_types = set(
-                [
-                    entry.parameters.get("run_type", "unknown").lower()
+            chemsys = sorted(
+                {
+                    ele.name  # type: ignore[misc]
                     for entry in user_entries
-                ]
+                    for ele in entry.elements
+                }
             )
+
+            user_run_types = {
+                entry.parameters.get("run_type", "unknown").lower()
+                for entry in user_entries
+            }
             if any("r2scan" in rt for rt in user_run_types):
                 thermo_types = ["GGA_GGA+U_R2SCAN"]
 
@@ -673,12 +736,12 @@ class MPRester:
             solid_compat = MaterialsProjectCompatibility()
         elif solid_compat == "MaterialsProject2020Compatibility":
             solid_compat = MaterialsProject2020Compatibility()
-        elif isinstance(solid_compat, Compatibility):
+        elif isinstance(solid_compat, Compatibility) or solid_compat is None:
             pass
         else:
             raise ValueError(
                 "Solid compatibility can only be 'MaterialsProjectCompatibility', "
-                "'MaterialsProject2020Compatibility', or an instance of a Compatibility class"
+                "'MaterialsProject2020Compatibility', None, or an instance of a Compatibility class"
             )
 
         pbx_entries = []
@@ -686,13 +749,13 @@ class MPRester:
         if isinstance(chemsys, str):
             chemsys = chemsys.split("-")
         # capitalize and sort the elements
-        chemsys = sorted(e.capitalize() for e in chemsys)
+        sorted_chemsys: list[str] = sorted(e.capitalize() for e in chemsys)  # type: ignore[union-attr]
 
         # Get ion entries first, because certain ions have reference
         # solids that aren't necessarily in the chemsys (Na2SO4)
 
         # download the ion reference data from MPContribs
-        ion_data = self.get_ion_reference_data_for_chemsys(chemsys)
+        ion_data = self.get_ion_reference_data_for_chemsys(sorted_chemsys)
 
         # build the PhaseDiagram for get_ion_entries
         ion_ref_comps = [
@@ -704,7 +767,9 @@ class MPRester:
         # TODO - would be great if the commented line below would work
         # However for some reason you cannot process GibbsComputedStructureEntry with
         # MaterialsProjectAqueousCompatibility
-        ion_ref_entries = (
+        ion_ref_entries: Sequence[
+            ComputedEntry | ComputedStructureEntry | GibbsComputedStructureEntry
+        ] = (
             self.get_entries_in_chemsys(
                 list([str(e) for e in ion_ref_elts] + ["O", "H"]),
                 additional_criteria={"thermo_types": thermo_types},
@@ -739,12 +804,15 @@ class MPRester:
         ion_ref_pd = PhaseDiagram(ion_ref_entries)  # type: ignore
 
         ion_entries = self.get_ion_entries(ion_ref_pd, ion_ref_data=ion_data)
-        pbx_entries = [PourbaixEntry(e, f"ion-{n}") for n, e in enumerate(ion_entries)]
+        pbx_entries = [
+            PourbaixEntry(e, f"ion-{n}")  # type: ignore[arg-type]
+            for n, e in enumerate(ion_entries)
+        ]
 
         # Construct the solid pourbaix entries from filtered ion_ref entries
         extra_elts = (
             set(ion_ref_elts)
-            - {Element(s) for s in chemsys}
+            - {Element(s) for s in sorted_chemsys}
             - {Element("H"), Element("O")}
         )
         for entry in ion_ref_entries:
@@ -875,10 +943,7 @@ class MPRester:
                 f" diagram chemical system is {chemsys}."
             )
 
-        if not ion_ref_data:
-            ion_data = self.get_ion_reference_data_for_chemsys(chemsys)
-        else:
-            ion_data = ion_ref_data
+        ion_data = ion_ref_data or self.get_ion_reference_data_for_chemsys(chemsys)
 
         # position the ion energies relative to most stable reference state
         ion_entries = []
@@ -969,9 +1034,9 @@ class MPRester:
         compatible_only: bool = True,
         property_data: list[str] | None = None,
         conventional_unit_cell: bool = False,
-        additional_criteria: dict = DEFAULT_THERMOTYPE_CRITERIA,
+        additional_criteria: dict | None = None,
         **kwargs,
-    ):
+    ) -> list[ComputedStructureEntry] | list[GibbsComputedStructureEntry]:
         """Helper method to get a list of ComputedEntries in a chemical system.
         For example, elements = ["Li", "Fe", "O"] will return a list of all
         entries in the parent Li-Fe-O chemical system, as well as all subsystems
@@ -1008,12 +1073,19 @@ class MPRester:
                 in entry data
             kwargs : Other kwargs to pass to `get_entries`
         Returns:
-            List of ComputedStructureEntries.
+            List of ComputedStructureEntry.
         """
         if isinstance(elements, str):
             elements = elements.split("-")
 
-        elements_set = set(elements)  # remove duplicate elements
+        # 9 elements would be sum_{i=1}^{9} (9 choose i) = 511
+        # From testing, this is the highest number of chemsys
+        # we can query before URI lengths are exceeded
+        if len(elements_set := set(elements)) > 9:  # remove duplicate elements
+            raise MPRestError(
+                "Please specify fewer elements to query by, "
+                "or identify a subset of relevant chemical systems to query first."
+            )
 
         all_chemsyses = [
             "-".join(sorted(els))
@@ -1021,24 +1093,31 @@ class MPRester:
             for els in itertools.combinations(elements_set, i + 1)
         ]
 
-        entries = []
-
-        entries.extend(
-            self.get_entries(
-                all_chemsyses,
-                compatible_only=compatible_only,
-                property_data=property_data,
-                conventional_unit_cell=conventional_unit_cell,
-                additional_criteria=additional_criteria or DEFAULT_THERMOTYPE_CRITERIA,
-                **kwargs,
+        if additional_criteria is None:
+            warnings.warn(
+                "The default thermo type when retrieving entries has been changed from "
+                "the mixed/corrected PBE GGA and GGA+U hull (`thermo_type = GGA_GGA+U`) "
+                "to the joint PBE GGA / GGA+U / r2SCAN hull (`thermo_type = GGA_GGA+U_R2SCAN`). "
+                "To use the older behavior, call `get_entries_in_chemsys` with "
+                '`additional_criteria = {"thermo_types": ["GGA_GGA+U"]}`',
+                category=MPRestWarning,
+                stacklevel=2,
             )
+
+        entries = self.get_entries(
+            all_chemsyses,
+            compatible_only=compatible_only,
+            property_data=property_data,
+            conventional_unit_cell=conventional_unit_cell,
+            additional_criteria=additional_criteria or DEFAULT_THERMOTYPE_CRITERIA,
+            **kwargs,
         )
 
         if use_gibbs:
             # replace the entries with GibbsComputedStructureEntry
             from pymatgen.entries.computed_entries import GibbsComputedStructureEntry
 
-            entries = GibbsComputedStructureEntry.from_entries(entries, temp=use_gibbs)
+            return GibbsComputedStructureEntry.from_entries(entries, temp=use_gibbs)
 
         return entries
 
@@ -1115,7 +1194,14 @@ class MPRester:
         from pymatgen.analysis.wulff import WulffShape
         from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
-        structure = self.get_structure_by_material_id(material_id)
+        if isinstance(
+            _structure := self.get_structure_by_material_id(material_id, final=True),
+            list,
+        ):
+            structure: Structure = _structure[0]
+        else:
+            structure = _structure
+
         doc = self.materials.surface_properties.search(material_ids=material_id)
 
         if not doc:
@@ -1147,9 +1233,11 @@ class MPRester:
         Returns:
             (Chgcar, (Chgcar, CoreTaskDoc | dict), None): Pymatgen Chgcar object, or tuple with object and CoreTaskDoc
         """
+        # TODO: change when `validate_ids` is updated to return AlphaID
+        validated_id = AlphaID(validate_ids([task_id])[0].split("-")[-1], prefix="mp")
         chgcar = self.materials.tasks._query_open_data(
             bucket="materialsproject-parsed",
-            key=f"chgcars/{validate_ids([task_id])[0]}.json.gz",
+            key=f"chgcars/{validated_id.string}.json.gz",
             decoder=lambda x: load_json(x, deser=True),
         )[0][0]["data"]
 
@@ -1180,7 +1268,7 @@ class MPRester:
         if not task_ids:
             return None
 
-        results: list[CoreTaskDoc] = self.materials.tasks.search(
+        results: list[_DictLikeAccess] = self.materials.tasks.search(
             task_ids=task_ids, fields=["last_updated", "task_id"]
         )  # type: ignore
 
@@ -1191,11 +1279,16 @@ class MPRester:
         task_id = latest_doc["task_id"]
         return self.get_charge_density_from_task_id(task_id, inc_task_doc)
 
-    def get_download_info(self, material_ids, calc_types=None, file_patterns=None):
+    def get_download_info(
+        self,
+        material_ids: str | MPID | list[str | MPID],
+        calc_types: list[str | CalcType] | None = None,
+        file_patterns: list[str] | None = None,
+    ):
         """Get a list of URLs to retrieve raw VASP output files from the NoMaD repository
         Args:
-            material_ids (list): list of material identifiers (mp-id's)
-            task_types (list): list of task types to include in download (see CalcType Enum class)
+            material_ids (str or MPID, or list thereof): list of material identifiers (mp-id's)
+            calc_types (list of str or CalcType): list of calc types to include in download (see CalcType Enum class)
             file_patterns (list): list of wildcard file names to include for each task
         Returns:
             a tuple of 1) a dictionary mapping material_ids to task_ids and
@@ -1203,9 +1296,24 @@ class MPRester:
             NoMaD repository. Each zip archive will contain a manifest.json with
             metadata info, e.g. the task/external_ids that belong to a directory.
         """
+        warnings.warn(
+            "Full downloads of raw data are being transitioned to "
+            "Materials Project's AWS S3 OpenData buckets. "
+            "These features for accessing legacy raw data via NOMAD "
+            "are maintained but may not be supported in the future.",
+            category=MPRestWarning,
+            stacklevel=2,
+        )
+
         # task_id's correspond to NoMaD external_id's
+        if isinstance(material_ids, str | MPID):
+            material_ids = [material_ids]
+
         calc_types = (
-            [t.value for t in calc_types if isinstance(t, CalcType)]
+            [
+                t.value if isinstance(t, CalcType) else CalcType(t).value
+                for t in calc_types
+            ]
             if calc_types
             else []
         )
@@ -1255,23 +1363,17 @@ class MPRester:
         return meta, urls
 
     def _check_get_download_info_url_by_task_id(self, prefix, task_ids) -> list[str]:
-        nomad_exist_task_ids: list[str] = []
         prefix = prefix.replace("/raw/query", "/repo/")
-        for task_id in task_ids:
-            url = prefix + task_id
-            if self._check_nomad_exist(url):
-                nomad_exist_task_ids.append(task_id)
-        return nomad_exist_task_ids
+        return [
+            task_id for task_id in task_ids if self._check_nomad_exist(prefix + task_id)
+        ]
 
     @staticmethod
     def _check_nomad_exist(url) -> bool:
         response = get(url=url)
         if response.status_code != 200:
             return False
-        content = load_json(response.text)
-        if content["pagination"]["total"] == 0:
-            return False
-        return True
+        return load_json(response.text)["pagination"]["total"] != 0
 
     @staticmethod
     def _print_help_message(nomad_exist_task_ids, task_ids, file_patterns, calc_types):
@@ -1279,7 +1381,9 @@ class MPRester:
         warnings.warn(
             f"For file patterns [{file_patterns}] and calc_types [{calc_types}], \n"
             f"the following ids are not found on NOMAD [{list(non_exist_ids)}]. \n"
-            f"If you need to upload them, please contact Patrick Huck at phuck@lbl.gov"
+            f"If you need to upload them, please contact Patrick Huck at phuck@lbl.gov",
+            category=MPRestWarning,
+            stacklevel=2,
         )
 
     def query(*args, **kwargs):
@@ -1287,19 +1391,17 @@ class MPRester:
         Note this method also no longer supports direct MongoDB-type queries. For more information,
         please see the new documentation.
         """
-        raise NotImplementedError(
-            """
+        raise NotImplementedError("""
             The MPRester().query method has been replaced with the MPRester().summary.search method.
             Note this method also no longer supports direct MongoDB-type queries. For more information,
             please see the new documentation.
-            """
-        )
+            """)
 
     def get_cohesive_energy(
         self,
         material_ids: list[MPID | str],
         normalization: Literal["atom", "formula_unit"] = "atom",
-    ) -> float | dict[str, float]:
+    ) -> dict[str, float | None]:
         """Obtain the cohesive energy of the structure(s) corresponding to multiple MPIDs.
 
         Args:
@@ -1313,23 +1415,32 @@ class MPRester:
             (dict[str,float]) : The cohesive energies (in eV/atom or eV/formula unit) for
             each material, indexed by MPID.
         """
+        # Prevent user error
+        if isinstance(material_ids, str | MPID):
+            raise MPRestError(
+                "Input material IDs (even a single ID) as a list: "
+                f"`[{material_ids}]`"
+            )
+
         entry_preference = {
             k: i for i, k in enumerate(["GGA", "GGA_U", "SCAN", "R2SCAN"])
         }
         run_type_to_dfa = {"GGA": "PBE", "GGA_U": "PBE", "R2SCAN": "r2SCAN"}
 
-        energies = {mp_id: {} for mp_id in material_ids}
+        energies: dict[MPID | str, dict[str, dict[str, Any]]] = {
+            mp_id: {} for mp_id in material_ids
+        }
         entries = self.get_entries(
             material_ids,
             compatible_only=False,
             property_data=None,
             conventional_unit_cell=False,
         )
-        for entry in entries:
-            entry = {
-                "data": entry.data,
-                "uncorrected_energy_per_atom": entry.uncorrected_energy_per_atom,
-                "composition": entry.composition,
+        for cse in entries:
+            entry: dict[str, Any] = {
+                "data": cse.data,
+                "uncorrected_energy_per_atom": cse.uncorrected_energy_per_atom,
+                "composition": cse.composition,
             }
 
             mp_id = entry["data"]["material_id"]
@@ -1351,16 +1462,18 @@ class MPRester:
 
         atomic_energies = self.get_atom_reference_data()
 
-        e_coh_per_atom = {}
-        for mp_id, entries in energies.items():
-            if not entries:
+        e_coh_per_atom: dict[str, float | None] = {}
+        for mp_id, energy_entries in energies.items():
+            if not energy_entries:
                 e_coh_per_atom[str(mp_id)] = None
                 continue
             # take entry from most reliable and available functional
-            prefered_func = sorted(list(entries), key=lambda k: entry_preference[k])[-1]
+            prefered_func = sorted(
+                list(energy_entries), key=lambda k: entry_preference[k]
+            )[-1]
             e_coh_per_atom[str(mp_id)] = self._get_cohesive_energy(
-                entries[prefered_func]["composition"],
-                entries[prefered_func]["total_energy_per_atom"],
+                energy_entries[prefered_func]["composition"],
+                energy_entries[prefered_func]["total_energy_per_atom"],
                 atomic_energies[run_type_to_dfa.get(prefered_func, prefered_func)],
                 normalization=normalization,
             )
@@ -1369,7 +1482,7 @@ class MPRester:
     @lru_cache
     def get_atom_reference_data(
         self,
-        funcs: tuple[str] = (
+        funcs: tuple[str, ...] = (
             "PBE",
             "SCAN",
             "r2SCAN",
@@ -1434,19 +1547,19 @@ class MPRester:
 
     def get_stability(
         self,
-        entries: ComputedEntry | ComputedStructureEntry | PDEntry,
+        entries: list[ComputedEntry | ComputedStructureEntry | PDEntry],
         thermo_type: str | ThermoType = ThermoType.GGA_GGA_U,
     ) -> list[dict[str, Any]] | None:
-        chemsys = set()
-        for entry in entries:
-            chemsys.update(entry.composition.elements)
+        chemsys: set[SpeciesLike] = {
+            ele for entry in entries for ele in entry.composition.elements
+        }
         chemsys_str = "-".join(sorted(str(ele) for ele in chemsys))
 
         thermo_type = (
             ThermoType(thermo_type) if isinstance(thermo_type, str) else thermo_type
         )
 
-        corrector = None
+        corrector: Compatibility | None = None
         if thermo_type == ThermoType.GGA_GGA_U:
             from pymatgen.entries.compatibility import MaterialsProject2020Compatibility
 
@@ -1467,20 +1580,26 @@ class MPRester:
         if not pd:
             warnings.warn(
                 f"No phase diagram data available for chemical system {chemsys_str} "
-                f"and thermo type {thermo_type}."
+                f"and thermo type {thermo_type}.",
+                category=MPRestWarning,
+                stacklevel=2,
             )
-            return
+            return None
 
-        if corrector:
-            corrected_entries = corrector.process_entries(entries + pd.all_entries)
-        else:
-            corrected_entries = [*entries, *pd.all_entries]
+        joint_entries: Sequence[ComputedEntry | ComputedStructureEntry | PDEntry] = [
+            *entries,
+            *pd.all_entries,
+        ]
 
-        new_pd = PhaseDiagram(corrected_entries)
+        new_pd = PhaseDiagram(
+            corrector.process_entries(joint_entries)  # type: ignore[arg-type]
+            if corrector
+            else joint_entries  # type: ignore[list-item]
+        )
 
         return [
             {
-                "e_above_hull": new_pd.get_e_above_hull(entry),
+                "e_above_hull": new_pd.get_e_above_hull(entry),  # type: ignore[arg-type]
                 "composition": entry.composition.as_dict(),
                 "energy": entry.energy,
                 "entry_id": getattr(entry, "entry_id", f"user-entry-{idx}"),
@@ -1493,8 +1612,10 @@ class MPRester:
         material_id: str | MPID | AlphaID,
         working_ion: str | Element,
         thermo_type: str | ThermoType = ThermoType.GGA_GGA_U,
-    ):
-        working_ion = Element(working_ion)
+    ) -> dict[str, np.ndarray]:
+        working_ion = (
+            Element[working_ion] if isinstance(working_ion, str) else working_ion
+        )
         formatted_mpid = AlphaID(material_id).string
         electrode_docs = self.materials.insertion_electrodes.search(
             battery_ids=[f"{formatted_mpid}_{working_ion.value}"],
@@ -1528,3 +1649,31 @@ class MPRester:
             phase_diagram,
             unique_composition,
         )
+
+    def _db_version_check(self) -> None:
+        """Check if the database version has drifted."""
+        import yaml  # type: ignore[import-untyped]
+
+        db_version = self.get_database_version()
+        old_db_version = None
+        if MAPI_CLIENT_SETTINGS.LOG_FILE.exists():
+            old_db_version = (
+                yaml.safe_load(MAPI_CLIENT_SETTINGS.LOG_FILE.read_text()) or {}
+            ).get("MAPI_DB_VERSION", None)
+
+            # Handle legacy pymatgen behavior
+            if not isinstance(old_db_version, str):
+                old_db_version = None
+
+        if old_db_version != db_version:
+            MAPI_CLIENT_SETTINGS.LOG_FILE.write_text(
+                yaml.safe_dump({"MAPI_DB_VERSION": db_version})
+            )
+
+            if old_db_version:
+                warnings.warn(
+                    "Materials Project database version has changed "
+                    f"from v{old_db_version} to v{db_version}.",
+                    category=MPRestWarning,
+                    stacklevel=2,
+                )

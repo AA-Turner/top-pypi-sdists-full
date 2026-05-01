@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm-proxy-extras
-Version: 0.4.69
+Version: 0.4.70
 Summary: Additional files for the LiteLLM Proxy. Reduces the size of the main litellm package.
 Author: BerriAI
 License-Expression: MIT

@@ -113,17 +113,21 @@ class LineItemUsageSummary(google.protobuf.message.Message):
 
     LINE_ITEM_UID_FIELD_NUMBER: builtins.int
     PAYG_SPEND_CENTS_FIELD_NUMBER: builtins.int
+    QUANTITY_FIELD_NUMBER: builtins.int
     line_item_uid: builtins.str
     """Refers to uid in sentry_protos.billing.v1.common.v1.LineItemDetails"""
     payg_spend_cents: builtins.int
     """Net cents consumed by this line item in the billing period (after credits/trials applied)."""
+    quantity: builtins.int
+    """How much of the line item was consumed (in the line item's units)"""
     def __init__(
         self,
         *,
         line_item_uid: builtins.str = ...,
         payg_spend_cents: builtins.int = ...,
+        quantity: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["line_item_uid", b"line_item_uid", "payg_spend_cents", b"payg_spend_cents"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["line_item_uid", b"line_item_uid", "payg_spend_cents", b"payg_spend_cents", "quantity", b"quantity"]) -> None: ...
 
 global___LineItemUsageSummary = LineItemUsageSummary
 

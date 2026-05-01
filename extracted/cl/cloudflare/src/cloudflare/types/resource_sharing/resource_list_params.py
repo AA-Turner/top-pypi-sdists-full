@@ -17,7 +17,13 @@ class ResourceListParams(TypedDict, total=False):
     per_page: int
     """Number of objects to return per page."""
 
-    resource_type: Literal["custom-ruleset", "widget"]
+    resource_type: Literal[
+        "custom-ruleset",
+        "gateway-policy",
+        "gateway-destination-ip",
+        "gateway-block-page-settings",
+        "gateway-extended-email-matching",
+    ]
     """Filter share resources by resource_type."""
 
     status: Literal["active", "deleting", "deleted"]

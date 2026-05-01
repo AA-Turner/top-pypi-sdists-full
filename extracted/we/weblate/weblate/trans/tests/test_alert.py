@@ -8,6 +8,7 @@ import os
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
@@ -22,6 +23,9 @@ from weblate.trans.models import Component, Project, Unit
 from weblate.trans.models.alert import UpdateFailure, update_alerts
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.vcs.models import VCS_REGISTRY
+
+if TYPE_CHECKING:
+    from weblate.trans.models.alert import Alert
 
 
 class WebsiteAlertSettingTest(ViewTestCase):
@@ -94,6 +98,27 @@ class WebsiteAlertSettingTest(ViewTestCase):
             "https://public.example/project", allow_private_targets=False
         )
         mocked_get_uri_error.assert_not_called()
+
+    @override_settings(
+        WEBSITE_ALERTS_ENABLED=True,
+        PROJECT_WEB_RESTRICT_ALLOWLIST={"test"},
+    )
+    @patch("weblate.trans.models.alert.get_uri_error", return_value=None)
+    @patch("weblate.trans.models.alert.validate_request_url")
+    def test_website_alert_respects_project_allowlist(
+        self, mocked_validate_request_url, mocked_get_uri_error
+    ) -> None:
+        self.project.web = "https://localhost/project"
+
+        update_alerts(self.component, {"BrokenProjectURL"})
+
+        self.assertFalse(
+            self.component.alert_set.filter(name="BrokenProjectURL").exists()
+        )
+        mocked_validate_request_url.assert_called_once_with(
+            "https://localhost/project", allow_private_targets=True
+        )
+        mocked_get_uri_error.assert_called_once_with("https://localhost/project")
 
 
 class AlertTest(ViewTestCase):
@@ -248,6 +273,28 @@ class AlertTest(ViewTestCase):
         self.assertEqual(alert.details["files"], ["alert-base.pot"])
 
 
+class NoMaskMatchesAlertTest(ViewTestCase):
+    def create_component(self):
+        return self.create_po_new_base(new_lang="add")
+
+    def test_rescan_adds_alert_when_mask_and_new_base_missing(self) -> None:
+        self.assertFalse(self.component.alert_set.filter(name="NoMaskMatches").exists())
+
+        for filename in Path(self.component.full_path, "po").glob("*.po"):
+            filename.unlink(missing_ok=True)
+        Path(cast("str", self.component.get_new_base_filename())).unlink(
+            missing_ok=True
+        )
+
+        self.component.create_translations_immediate(force=True)
+
+        translations = list(
+            self.component.translation_set.values_list("language_code", "filename")
+        )
+        self.assertEqual(translations, [("en", "po/hello.pot")])
+        self.assertTrue(self.component.alert_set.filter(name="NoMaskMatches").exists())
+
+
 class AlertQueryPrefetchTest(ViewTestCase):
     def test_project_repo_components_prefetch_all_alerts(self) -> None:
         self._create_component(
@@ -331,6 +378,92 @@ class ConflictingRepositorySetupAlertTest(ViewTestCase):
         defaults.update(kwargs)
         Component.objects.filter(pk=component.pk).update(**defaults)
         component.refresh_from_db()
+
+    def test_conflicting_repository_setup_for_git_push_branch(self) -> None:
+        other = self._create_component(
+            "po",
+            "po/*.po",
+            project=self.project,
+            name="Test2",
+        )
+        Component.objects.filter(pk__in=(self.component.pk, other.pk)).update(
+            push_branch="weblate-test"
+        )
+        self.component.refresh_from_db()
+        other.refresh_from_db()
+
+        update_alerts(self.component, {"ConflictingRepositorySetup"})
+        update_alerts(other, {"ConflictingRepositorySetup"})
+
+        alert = self.component.alert_set.get(name="ConflictingRepositorySetup")
+        self.assertEqual(alert.details["component_ids"], [other.pk])
+        self.assertTrue(
+            other.alert_set.filter(name="ConflictingRepositorySetup").exists()
+        )
+
+    def test_conflicting_repository_setup_for_git_default_push_branch(self) -> None:
+        other = self._create_component(
+            "po",
+            "po/*.po",
+            project=self.project,
+            name="Test2",
+        )
+
+        update_alerts(self.component, {"ConflictingRepositorySetup"})
+        update_alerts(other, {"ConflictingRepositorySetup"})
+
+        alert = self.component.alert_set.get(name="ConflictingRepositorySetup")
+        self.assertEqual(alert.details["component_ids"], [other.pk])
+        self.assertTrue(
+            other.alert_set.filter(name="ConflictingRepositorySetup").exists()
+        )
+
+    def test_conflicting_repository_setup_ignored_for_different_git_branch(
+        self,
+    ) -> None:
+        other = self._create_component(
+            "po",
+            "po/*.po",
+            project=self.project,
+            name="Test2",
+        )
+        Component.objects.filter(pk=other.pk).update(branch="weblate-test-2")
+        other.refresh_from_db()
+
+        update_alerts(self.component, {"ConflictingRepositorySetup"})
+        update_alerts(other, {"ConflictingRepositorySetup"})
+
+        self.assertFalse(
+            self.component.alert_set.filter(name="ConflictingRepositorySetup").exists()
+        )
+        self.assertFalse(
+            other.alert_set.filter(name="ConflictingRepositorySetup").exists()
+        )
+
+    def test_conflicting_repository_setup_removed_from_peer_on_git_branch_save(
+        self,
+    ) -> None:
+        other = self._create_component(
+            "po",
+            "po/*.po",
+            project=self.project,
+            name="Test2",
+        )
+
+        update_alerts(self.component, {"ConflictingRepositorySetup"})
+        update_alerts(other, {"ConflictingRepositorySetup"})
+        self.assertTrue(
+            self.component.alert_set.filter(name="ConflictingRepositorySetup").exists()
+        )
+
+        other.branch = "translations"
+        other.filemask = "translations/*.po"
+        with patch.object(Component, "queue_background_task", return_value=None):
+            other.save()
+
+        self.assertFalse(
+            self.component.alert_set.filter(name="ConflictingRepositorySetup").exists()
+        )
 
     def test_conflicting_repository_setup(self) -> None:
         self.configure_merge_request_component(self.component)
@@ -579,6 +712,58 @@ class MonolingualAlertTest(ViewTestCase):
 
 
 class RepositoryAlertTemplateTest(SimpleTestCase):
+    def test_broken_project_url_renders_validation_error_as_main_message(
+        self,
+    ) -> None:
+        rendered = render_to_string(
+            "trans/alert/brokenprojecturl.html",
+            {
+                "component": SimpleNamespace(
+                    project=SimpleNamespace(web="https://weblate.contact.de")
+                ),
+                "error": (
+                    "This URL is prohibited because it points to an internal or "
+                    "non-public address."
+                ),
+            },
+        )
+
+        self.assertIn(
+            "Weblate could not validate the project website URL:",
+            rendered,
+        )
+        self.assertIn(
+            "This URL is prohibited because it points to an internal or non-public "
+            "address.",
+            rendered,
+        )
+        self.assertNotIn("non-existing location", rendered)
+
+    def test_broken_browser_url_renders_validation_error_as_main_message(
+        self,
+    ) -> None:
+        rendered = render_to_string(
+            "trans/alert/brokenbrowserurl.html",
+            {
+                "link": "https://weblate.contact.de/source/file.po",
+                "error": (
+                    "This URL is prohibited because it points to an internal or "
+                    "non-public address."
+                ),
+            },
+        )
+
+        self.assertIn(
+            "Weblate could not validate the repository browser URL:",
+            rendered,
+        )
+        self.assertIn(
+            "This URL is prohibited because it points to an internal or non-public "
+            "address.",
+            rendered,
+        )
+        self.assertNotIn("non-existing location", rendered)
+
     def test_update_failure_analysis_uses_component_host_key_message(self) -> None:
         component = SimpleNamespace(
             get_ssh_host_key_mismatch_error_message=lambda: "host key changed",
@@ -590,7 +775,7 @@ class RepositoryAlertTemplateTest(SimpleTestCase):
             push_branch="",
         )
         alert = UpdateFailure(
-            SimpleNamespace(component=component),
+            cast("Alert", SimpleNamespace(component=component)),
             "REMOTE HOST IDENTIFICATION HAS CHANGED!\nHost key verification failed.\n",
         )
 
@@ -606,8 +791,8 @@ class RepositoryAlertTemplateTest(SimpleTestCase):
                     "gerrit": False,
                     "host_key_message": (
                         "The SSH host key for the repository has changed. "
-                        "Verify the new fingerprint and replace the stored host key "
-                        "on the SSH page in the admin interface."
+                        "Verify the new fingerprint, remove the stored host key, "
+                        "and add the new one on the SSH page in the admin interface."
                     ),
                     "not_found": False,
                     "permission": False,

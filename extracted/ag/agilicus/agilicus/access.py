@@ -171,8 +171,8 @@ def _need_new_token(ctx, token):
     try:
         current_scopes = _get_agilicus_scopes(token.scopes())
     except Exception as exc:
-        print(f"failed to retreive scopes {exc}. Using existing set")
-        return False
+        print(f"failed to retreive scopes {exc}")
+        return True
 
     new_scopes = _get_agilicus_scopes(context.get_scopes(ctx))
     diff = new_scopes.symmetric_difference(current_scopes)

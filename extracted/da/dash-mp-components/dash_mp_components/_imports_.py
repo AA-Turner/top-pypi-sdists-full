@@ -1,9 +1,11 @@
 from .JsonView import JsonView
 from .MatSidebar import MatSidebar
 from .CameraContextProvider import CameraContextProvider
+from .CrystalToolkitAnimationScene import CrystalToolkitAnimationScene
 from .CrystalToolkitScene import CrystalToolkitScene
 from .Download import Download
 from .GraphComponent import GraphComponent
+from .PhononAnimationScene import PhononAnimationScene
 from .DataBlock import DataBlock
 from .DataTable import DataTable
 from .DownloadButton import DownloadButton
@@ -56,9 +58,11 @@ __all__ = [
     "JsonView",
     "MatSidebar",
     "CameraContextProvider",
+    "CrystalToolkitAnimationScene",
     "CrystalToolkitScene",
     "Download",
     "GraphComponent",
+    "PhononAnimationScene",
     "DataBlock",
     "DataTable",
     "DownloadButton",

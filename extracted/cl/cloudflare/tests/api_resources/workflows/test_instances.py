@@ -38,6 +38,10 @@ class TestInstances:
             workflow_name="x",
             account_id="account_id",
             instance_id="instance_id",
+            instance_retention={
+                "error_retention": "5 minutes",
+                "success_retention": "5 minutes",
+            },
             params={},
         )
         assert_matches_type(InstanceCreateResponse, instance, path=["response"])
@@ -95,8 +99,10 @@ class TestInstances:
         instance = client.workflows.instances.list(
             workflow_name="x",
             account_id="account_id",
+            cursor="cursor",
             date_end=parse_datetime("2019-12-27T18:11:19.117Z"),
             date_start=parse_datetime("2019-12-27T18:11:19.117Z"),
+            direction="asc",
             page=1,
             per_page=1,
             status="queued",
@@ -159,6 +165,10 @@ class TestInstances:
             body=[
                 {
                     "instance_id": "instance_id",
+                    "instance_retention": {
+                        "error_retention": "5 minutes",
+                        "success_retention": "5 minutes",
+                    },
                     "params": {},
                 }
             ],
@@ -215,6 +225,17 @@ class TestInstances:
         assert_matches_type(InstanceGetResponse, instance, path=["response"])
 
     @parametrize
+    def test_method_get_with_all_params(self, client: Cloudflare) -> None:
+        instance = client.workflows.instances.get(
+            instance_id="x",
+            account_id="account_id",
+            workflow_name="x",
+            order="asc",
+            simple="true",
+        )
+        assert_matches_type(InstanceGetResponse, instance, path=["response"])
+
+    @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
         response = client.workflows.instances.with_raw_response.get(
             instance_id="x",
@@ -267,7 +288,9 @@ class TestInstances:
 
 
 class TestAsyncInstances:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
@@ -283,6 +306,10 @@ class TestAsyncInstances:
             workflow_name="x",
             account_id="account_id",
             instance_id="instance_id",
+            instance_retention={
+                "error_retention": "5 minutes",
+                "success_retention": "5 minutes",
+            },
             params={},
         )
         assert_matches_type(InstanceCreateResponse, instance, path=["response"])
@@ -340,8 +367,10 @@ class TestAsyncInstances:
         instance = await async_client.workflows.instances.list(
             workflow_name="x",
             account_id="account_id",
+            cursor="cursor",
             date_end=parse_datetime("2019-12-27T18:11:19.117Z"),
             date_start=parse_datetime("2019-12-27T18:11:19.117Z"),
+            direction="asc",
             page=1,
             per_page=1,
             status="queued",
@@ -404,6 +433,10 @@ class TestAsyncInstances:
             body=[
                 {
                     "instance_id": "instance_id",
+                    "instance_retention": {
+                        "error_retention": "5 minutes",
+                        "success_retention": "5 minutes",
+                    },
                     "params": {},
                 }
             ],
@@ -456,6 +489,17 @@ class TestAsyncInstances:
             instance_id="x",
             account_id="account_id",
             workflow_name="x",
+        )
+        assert_matches_type(InstanceGetResponse, instance, path=["response"])
+
+    @parametrize
+    async def test_method_get_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        instance = await async_client.workflows.instances.get(
+            instance_id="x",
+            account_id="account_id",
+            workflow_name="x",
+            order="asc",
+            simple="true",
         )
         assert_matches_type(InstanceGetResponse, instance, path=["response"])
 

@@ -294,6 +294,7 @@ class TestOperations:
             operation_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             feature=["thresholds"],
+            with_schemas=True,
         )
         assert_matches_type(OperationGetResponse, operation, path=["response"])
 
@@ -339,7 +340,9 @@ class TestOperations:
 
 
 class TestAsyncOperations:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
@@ -610,6 +613,7 @@ class TestAsyncOperations:
             operation_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             feature=["thresholds"],
+            with_schemas=True,
         )
         assert_matches_type(OperationGetResponse, operation, path=["response"])
 

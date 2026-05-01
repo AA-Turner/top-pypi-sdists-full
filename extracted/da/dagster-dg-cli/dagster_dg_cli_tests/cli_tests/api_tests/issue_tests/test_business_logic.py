@@ -5,23 +5,14 @@ GraphQL client mocking or external dependencies.
 """
 
 import json
-from typing import Any
-from unittest.mock import MagicMock
 
-import click
-import pytest
 from dagster_dg_cli.cli.api.formatters import format_issue, format_issues
-from dagster_rest_resources.graphql_adapter.issue import (
-    add_link_to_issue_via_graphql,
-    list_issues_via_graphql,
-    remove_link_from_issue_via_graphql,
-)
+from dagster_rest_resources.schemas.enums import DgApiIssueStatus
 from dagster_rest_resources.schemas.issue import (
     DgApiIssue,
     DgApiIssueLinkedAsset,
     DgApiIssueLinkedRun,
     DgApiIssueList,
-    DgApiIssueStatus,
 )
 
 
@@ -36,7 +27,7 @@ class TestFormatIssues:
                 title="Asset materialization failed",
                 description="The asset failed to materialize due to a connection error.",
                 status=DgApiIssueStatus.OPEN,
-                created_by_email="alice@example.com",
+                created_by_name="Alice Apple",
                 linked_objects=[
                     DgApiIssueLinkedRun(run_id="run-abc-123"),
                     DgApiIssueLinkedAsset(asset_key="my_asset"),
@@ -47,7 +38,7 @@ class TestFormatIssues:
                 title="Schedule missed execution",
                 description="The daily schedule did not execute as expected.",
                 status=DgApiIssueStatus.CLOSED,
-                created_by_email="bob@example.com",
+                created_by_name="Bob Brown",
                 linked_objects=[],
             ),
             DgApiIssue(
@@ -55,7 +46,7 @@ class TestFormatIssues:
                 title="Sensor error",
                 description="Sensor encountered an unhandled exception.",
                 status=DgApiIssueStatus.OPEN,
-                created_by_email="carol@example.com",
+                created_by_name="Carol Cherry",
                 context="Stack trace: ...",
                 linked_objects=[],
             ),
@@ -74,7 +65,7 @@ class TestFormatIssues:
                 title="First paginated issue",
                 description="Description for first paginated issue.",
                 status=DgApiIssueStatus.OPEN,
-                created_by_email="dave@example.com",
+                created_by_name="Dave Day",
                 linked_objects=[],
             ),
         ]
@@ -87,7 +78,7 @@ class TestFormatIssues:
             title="Critical pipeline failure",
             description="The pipeline failed with a critical error during execution.",
             status=DgApiIssueStatus.OPEN,
-            created_by_email="engineer@example.com",
+            created_by_name="Engineer Engine",
             linked_objects=[
                 DgApiIssueLinkedRun(run_id="run-xyz-789"),
                 DgApiIssueLinkedAsset(asset_key="namespace/my_critical_asset"),
@@ -154,7 +145,7 @@ class TestFormatIssues:
             title="Minimal issue",
             description="Only required fields.",
             status=DgApiIssueStatus.CLOSED,
-            created_by_email="user@example.com",
+            created_by_name="User D'User",
             linked_objects=[],
         )
         result = format_issue(issue, as_json=False)
@@ -167,7 +158,7 @@ class TestFormatIssues:
             title="Run failure issue",
             description="This issue is linked to a specific run.",
             status=DgApiIssueStatus.OPEN,
-            created_by_email="ops@example.com",
+            created_by_name="Ops Service Account",
             linked_objects=[DgApiIssueLinkedRun(run_id="run-failing-456")],
         )
         result = format_issue(issue, as_json=False)
@@ -180,7 +171,7 @@ class TestFormatIssues:
             title="New pipeline issue",
             description="Pipeline failed unexpectedly.",
             status=DgApiIssueStatus.OPEN,
-            created_by_email="creator@example.com",
+            created_by_name="Creator Clark",
             linked_objects=[],
         )
         result = format_issue(issue, as_json=False)
@@ -193,7 +184,7 @@ class TestFormatIssues:
             title="New pipeline issue",
             description="Pipeline failed unexpectedly.",
             status=DgApiIssueStatus.OPEN,
-            created_by_email="creator@example.com",
+            created_by_name="Creator Clark",
             linked_objects=[],
         )
         result = format_issue(issue, as_json=True)
@@ -207,7 +198,7 @@ class TestFormatIssues:
             title="Updated issue title",
             description="Updated description after investigation.",
             status=DgApiIssueStatus.CLOSED,
-            created_by_email="owner@example.com",
+            created_by_name="Owner O'Owner",
             linked_objects=[],
         )
         result = format_issue(issue, as_json=False)
@@ -220,7 +211,7 @@ class TestFormatIssues:
             title="Updated issue title",
             description="Updated description after investigation.",
             status=DgApiIssueStatus.CLOSED,
-            created_by_email="owner@example.com",
+            created_by_name="Owner O'Owner",
             linked_objects=[],
         )
         result = format_issue(issue, as_json=True)
@@ -234,7 +225,7 @@ class TestFormatIssues:
             title="Updated issue title",
             description="Updated description after investigation.",
             status=DgApiIssueStatus.OPEN,
-            created_by_email="owner@example.com",
+            created_by_name="Owner O'Owner",
             context="New context added during update.",
             linked_objects=[],
         )
@@ -248,7 +239,7 @@ class TestFormatIssues:
             title="Updated issue title",
             description="Updated description after investigation.",
             status=DgApiIssueStatus.OPEN,
-            created_by_email="owner@example.com",
+            created_by_name="Owner O'Owner",
             context="New context added during update.",
             linked_objects=[],
         )
@@ -268,7 +259,7 @@ class TestIssueDataProcessing:
                 title=f"Issue with status {status.value}",
                 description=f"Test issue for status {status.value}.",
                 status=status,
-                created_by_email="test@example.com",
+                created_by_name="Test Tester",
                 linked_objects=[],
             )
             for i, status in enumerate(DgApiIssueStatus)
@@ -286,7 +277,7 @@ class TestIssueDataProcessing:
             title="Test",
             description="Test description.",
             status=DgApiIssueStatus.OPEN,
-            created_by_email="test@example.com",
+            created_by_name="Test Tester",
             linked_objects=[],
         )
         issue_list = DgApiIssueList(items=[issue], cursor="1", has_more=True)
@@ -302,216 +293,9 @@ class TestIssueDataProcessing:
             title="Test",
             description="Test.",
             status=DgApiIssueStatus.OPEN,
-            created_by_email="test@example.com",
+            created_by_name="Test Tester",
             linked_objects=[],
         )
 
         assert issue.linked_objects == []
         assert issue.context is None
-
-
-def _make_mock_client(issues: list[dict[str, Any]] | None = None) -> MagicMock:
-    """Build a mock GraphQL client that returns a minimal IssueConnection response."""
-    client = MagicMock()
-    client.execute.return_value = {
-        "issues": {
-            "__typename": "IssueConnection",
-            "issues": issues or [],
-            "cursor": None,
-            "hasMore": False,
-        }
-    }
-    return client
-
-
-class TestListIssuesCommandOptions:
-    """Test that CLI option definitions stay in sync with schema enums."""
-
-    def test_status_filter_choices_match_enum(self):
-        """--status choices must exactly match DgApiIssueStatus values."""
-        from dagster_dg_cli.cli.api.issues import list_issues_command
-
-        status_param = next(p for p in list_issues_command.params if p.name == "statuses")
-        assert isinstance(status_param.type, click.Choice)
-        assert set(status_param.type.choices) == {s.value for s in DgApiIssueStatus}
-
-
-class TestListIssuesGraphQLVariables:
-    """Test that list_issues_via_graphql sends the correct GraphQL variables."""
-
-    def test_no_filters(self, snapshot):
-        """No filters: only limit variable is sent."""
-        client = _make_mock_client()
-        list_issues_via_graphql(client, limit=5)
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_status_filter_single(self, snapshot):
-        """Single status filter is included in variables."""
-        client = _make_mock_client()
-        list_issues_via_graphql(client, statuses=["OPEN"])
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_status_filter_multiple(self, snapshot):
-        """Multiple status filters are included in variables."""
-        client = _make_mock_client()
-        list_issues_via_graphql(client, statuses=["OPEN", "TRIAGE"])
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_created_after_filter(self, snapshot):
-        """created_after timestamp is included in variables."""
-        client = _make_mock_client()
-        list_issues_via_graphql(client, created_after=1700000000.0)
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_created_before_filter(self, snapshot):
-        """created_before timestamp is included in variables."""
-        client = _make_mock_client()
-        list_issues_via_graphql(client, created_before=1710000000.0)
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_combined_filters(self, snapshot):
-        """All filters combined are included in variables."""
-        client = _make_mock_client()
-        list_issues_via_graphql(
-            client,
-            limit=20,
-            cursor="3",
-            statuses=["CLOSED"],
-            created_after=1700000000.0,
-            created_before=1710000000.0,
-        )
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_empty_statuses_omitted(self, snapshot):
-        """Empty statuses list does not add filters to variables."""
-        client = _make_mock_client()
-        list_issues_via_graphql(client, statuses=None)
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-
-def _make_mock_link_client(mutation_key: str) -> MagicMock:
-    """Build a mock GraphQL client for add/remove link mutations."""
-    client = MagicMock()
-    client.execute.return_value = {
-        mutation_key: {
-            "__typename": "UpdateIssueSuccess",
-            "issue": {
-                "id": "issue-uuid-123",
-                "publicId": "1",
-                "title": "Test Issue",
-                "description": "Test description.",
-                "status": "OPEN",
-                "context": None,
-                "origin": None,
-                "createdBy": {"email": "user@example.com"},
-            },
-        }
-    }
-    return client
-
-
-class TestAddLinkToIssueGraphQLVariables:
-    """Test that add_link_to_issue_via_graphql sends the correct GraphQL variables."""
-
-    def test_with_run_id(self, snapshot):
-        """Adding a run link sends runId in linkedObject."""
-        client = _make_mock_link_client("addLinkToIssue")
-        add_link_to_issue_via_graphql(client, issue_id="1", run_id="run-abc-456")
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_with_asset_key(self, snapshot):
-        """Adding an asset link sends assetKey path in linkedObject."""
-        client = _make_mock_link_client("addLinkToIssue")
-        add_link_to_issue_via_graphql(client, issue_id="1", asset_key=["my", "asset"])
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_with_both(self, snapshot):
-        """Adding both run and asset links sends both in linkedObject."""
-        client = _make_mock_link_client("addLinkToIssue")
-        add_link_to_issue_via_graphql(
-            client,
-            issue_id="1",
-            run_id="run-abc-456",
-            asset_key=["my", "asset"],
-        )
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_returns_parsed_issue(self):
-        """add_link_to_issue_via_graphql returns a populated DgApiIssue."""
-        client = _make_mock_link_client("addLinkToIssue")
-        result = add_link_to_issue_via_graphql(client, issue_id="1", run_id="run-abc-456")
-        assert isinstance(result, DgApiIssue)
-        assert result.id == "1"
-        assert result.title == "Test Issue"
-
-    def test_raises_on_unauthorized(self):
-        """UnauthorizedError response raises an exception."""
-        client = MagicMock()
-        client.execute.return_value = {
-            "addLinkToIssue": {
-                "__typename": "UnauthorizedError",
-                "message": "Not authorized",
-            }
-        }
-        with pytest.raises(Exception, match="Not authorized"):
-            add_link_to_issue_via_graphql(client, issue_id="1", run_id="run-abc-456")
-
-
-class TestRemoveLinkFromIssueGraphQLVariables:
-    """Test that remove_link_from_issue_via_graphql sends the correct GraphQL variables."""
-
-    def test_with_run_id(self, snapshot):
-        """Removing a run link sends runId in linkedObject."""
-        client = _make_mock_link_client("removeLinkFromIssue")
-        remove_link_from_issue_via_graphql(client, issue_id="1", run_id="run-abc-456")
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_with_asset_key(self, snapshot):
-        """Removing an asset link sends assetKey path in linkedObject."""
-        client = _make_mock_link_client("removeLinkFromIssue")
-        remove_link_from_issue_via_graphql(client, issue_id="1", asset_key=["my", "asset"])
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_with_both(self, snapshot):
-        """Removing both run and asset links sends both in linkedObject."""
-        client = _make_mock_link_client("removeLinkFromIssue")
-        remove_link_from_issue_via_graphql(
-            client,
-            issue_id="1",
-            run_id="run-abc-456",
-            asset_key=["my", "asset"],
-        )
-        _, kwargs = client.execute.call_args
-        snapshot.assert_match(kwargs["variables"])
-
-    def test_returns_parsed_issue(self):
-        """remove_link_from_issue_via_graphql returns a populated DgApiIssue."""
-        client = _make_mock_link_client("removeLinkFromIssue")
-        result = remove_link_from_issue_via_graphql(client, issue_id="1", run_id="run-abc-456")
-        assert isinstance(result, DgApiIssue)
-        assert result.id == "1"
-        assert result.title == "Test Issue"
-
-    def test_raises_on_unauthorized(self):
-        """UnauthorizedError response raises an exception."""
-        client = MagicMock()
-        client.execute.return_value = {
-            "removeLinkFromIssue": {
-                "__typename": "UnauthorizedError",
-                "message": "Not authorized",
-            }
-        }
-        with pytest.raises(Exception, match="Not authorized"):
-            remove_link_from_issue_via_graphql(client, issue_id="1", run_id="run-abc-456")

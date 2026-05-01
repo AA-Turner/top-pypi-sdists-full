@@ -27,7 +27,13 @@ class ResourceDeleteResponse(BaseModel):
     resource_id: str
     """Share Resource identifier."""
 
-    resource_type: Literal["custom-ruleset", "widget"]
+    resource_type: Literal[
+        "custom-ruleset",
+        "gateway-policy",
+        "gateway-destination-ip",
+        "gateway-block-page-settings",
+        "gateway-extended-email-matching",
+    ]
     """Resource Type."""
 
     resource_version: int

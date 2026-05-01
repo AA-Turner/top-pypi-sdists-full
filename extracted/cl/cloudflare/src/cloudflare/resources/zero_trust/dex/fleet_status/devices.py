@@ -6,8 +6,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -52,21 +52,20 @@ class DevicesResource(SyncAPIResource):
         page: float,
         per_page: float,
         to: str,
-        colo: str | NotGiven = NOT_GIVEN,
-        device_id: str | NotGiven = NOT_GIVEN,
-        mode: str | NotGiven = NOT_GIVEN,
-        platform: str | NotGiven = NOT_GIVEN,
-        sort_by: Literal["colo", "device_id", "mode", "platform", "status", "timestamp", "version"]
-        | NotGiven = NOT_GIVEN,
-        source: Literal["last_seen", "hourly", "raw"] | NotGiven = NOT_GIVEN,
-        status: str | NotGiven = NOT_GIVEN,
-        version: str | NotGiven = NOT_GIVEN,
+        colo: str | Omit = omit,
+        device_id: str | Omit = omit,
+        mode: str | Omit = omit,
+        platform: str | Omit = omit,
+        sort_by: Literal["colo", "device_id", "mode", "platform", "status", "timestamp", "version"] | Omit = omit,
+        source: Literal["last_seen", "hourly", "raw"] | Omit = omit,
+        status: str | Omit = omit,
+        version: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[DeviceListResponse]:
         """
         List details for devices using WARP
@@ -94,7 +93,9 @@ class DevicesResource(SyncAPIResource):
               Source:
 
               - `hourly` - device details aggregated hourly, up to 7 days prior
-              - `last_seen` - device details, up to 24 hours prior
+              - `last_seen` - device details, up to 60 minutes prior. Time windows exceeding
+                60 minutes will be rejected from June 1st, 2026. Please use 'hourly' or 'raw'
+                instead for longer time ranges.
               - `raw` - device details, up to 7 days prior
 
           status: Network status
@@ -112,7 +113,7 @@ class DevicesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dex/fleet-status/devices",
+            path_template("/accounts/{account_id}/dex/fleet-status/devices", account_id=account_id),
             page=SyncV4PagePaginationArray[DeviceListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -169,21 +170,20 @@ class AsyncDevicesResource(AsyncAPIResource):
         page: float,
         per_page: float,
         to: str,
-        colo: str | NotGiven = NOT_GIVEN,
-        device_id: str | NotGiven = NOT_GIVEN,
-        mode: str | NotGiven = NOT_GIVEN,
-        platform: str | NotGiven = NOT_GIVEN,
-        sort_by: Literal["colo", "device_id", "mode", "platform", "status", "timestamp", "version"]
-        | NotGiven = NOT_GIVEN,
-        source: Literal["last_seen", "hourly", "raw"] | NotGiven = NOT_GIVEN,
-        status: str | NotGiven = NOT_GIVEN,
-        version: str | NotGiven = NOT_GIVEN,
+        colo: str | Omit = omit,
+        device_id: str | Omit = omit,
+        mode: str | Omit = omit,
+        platform: str | Omit = omit,
+        sort_by: Literal["colo", "device_id", "mode", "platform", "status", "timestamp", "version"] | Omit = omit,
+        source: Literal["last_seen", "hourly", "raw"] | Omit = omit,
+        status: str | Omit = omit,
+        version: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DeviceListResponse, AsyncV4PagePaginationArray[DeviceListResponse]]:
         """
         List details for devices using WARP
@@ -211,7 +211,9 @@ class AsyncDevicesResource(AsyncAPIResource):
               Source:
 
               - `hourly` - device details aggregated hourly, up to 7 days prior
-              - `last_seen` - device details, up to 24 hours prior
+              - `last_seen` - device details, up to 60 minutes prior. Time windows exceeding
+                60 minutes will be rejected from June 1st, 2026. Please use 'hourly' or 'raw'
+                instead for longer time ranges.
               - `raw` - device details, up to 7 days prior
 
           status: Network status
@@ -229,7 +231,7 @@ class AsyncDevicesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dex/fleet-status/devices",
+            path_template("/accounts/{account_id}/dex/fleet-status/devices", account_id=account_id),
             page=AsyncV4PagePaginationArray[DeviceListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,

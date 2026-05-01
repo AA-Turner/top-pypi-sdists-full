@@ -6,11 +6,12 @@ use std::{
 };
 
 use arrow_odbc::odbc_api::{
-    self, Connection, ConnectionOptions, SharedConnection, environment, escape_attribute_value,
+    self, Connection, ConnectionOptions, ConnectionTransitions, CursorImpl, ParameterCollectionRef,
+    SharedConnection, environment, escape_attribute_value, handles::StatementConnection,
 };
 use log::debug;
 
-use crate::{ArrowOdbcError, try_};
+use crate::{ArrowOdbcError, ArrowOdbcReader, parameter::ArrowOdbcParameter, try_};
 
 /// Opaque type to transport connection to an ODBC Datasource over language boundry
 pub struct ArrowOdbcConnection(SharedConnection<'static>);
@@ -25,11 +26,6 @@ impl ArrowOdbcConnection {
         self.0.clone()
     }
 
-    pub fn set_autocommit(&self, enabled: bool) -> Result<(), odbc_api::Error> {
-        let connection = self.0.lock().unwrap();
-        connection.set_autocommit(enabled)
-    }
-
     pub fn commit(&self) -> Result<(), odbc_api::Error> {
         let connection = self.0.lock().unwrap();
         connection.commit()
@@ -38,6 +34,26 @@ impl ArrowOdbcConnection {
     pub fn rollback(&self) -> Result<(), odbc_api::Error> {
         let connection = self.0.lock().unwrap();
         connection.rollback()
+    }
+
+    /// Execute the SQL statement and return the cursor (if the statement produced a result set).
+    /// Cursor creation is owned here so the reader does not need to know about connections.
+    pub fn execute(
+        &self,
+        query: &str,
+        params: impl ParameterCollectionRef,
+        query_timeout_sec: Option<usize>,
+    ) -> Result<Option<CursorImpl<StatementConnection<SharedConnection<'static>>>>, ArrowOdbcError>
+    {
+        match self.inner().into_cursor(query, params, query_timeout_sec) {
+            Ok(cursor) => Ok(cursor),
+            Err(failed) => Err(failed.error.into()),
+        }
+    }
+
+    pub fn database_management_system_name(&self) -> Result<String, odbc_api::Error> {
+        let connection = self.0.lock().unwrap();
+        connection.database_management_system_name()
     }
 }
 
@@ -69,6 +85,7 @@ pub unsafe extern "C" fn arrow_odbc_connection_make(
     password_len: usize,
     login_timeout_sec_ptr: *const u32,
     packet_size_ptr: *const u32,
+    autocommit: bool,
     connection_out: *mut *mut ArrowOdbcConnection,
 ) -> *mut ArrowOdbcError {
     let env = try_!(environment());
@@ -99,6 +116,11 @@ pub unsafe extern "C" fn arrow_odbc_connection_make(
             packet_size
         }
     ));
+
+    // Default is autocommit=true. We only need the function call in cas it is false.
+    if !autocommit {
+        try_!(connection.set_autocommit(autocommit));
+    }
 
     // Log dbms name to ease debugging of issues. Since ODBC calls are expensive, only query name
     // if we are actually logging the message.
@@ -131,21 +153,6 @@ unsafe fn append_attribute(
     *connection_string = format!("{connection_string}{attribute_name}={escaped};").into()
 }
 
-/// Set autocommit mode. Default is `true`.
-///
-/// # Safety
-///
-/// `connection` must point to a valid ArrowOdbcConnection.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn arrow_odbc_connection_set_autocommit(
-    connection: NonNull<ArrowOdbcConnection>,
-    enabled: bool,
-) -> *mut ArrowOdbcError {
-    let connection = unsafe { connection.as_ref() };
-    try_!(connection.set_autocommit(enabled));
-    null_mut()
-}
-
 /// Commit the current transaction. This is only meaningful if autocommit mode is disabled.
 ///
 /// # Safety
@@ -172,4 +179,74 @@ pub unsafe extern "C" fn arrow_odbc_connection_rollback(
     let connection = unsafe { connection.as_ref() };
     try_!(connection.rollback());
     null_mut()
+}
+
+/// Creates an Arrow ODBC reader instance.
+///
+/// Executes the SQL Query and optionally moves the reader into cursor state.
+///
+/// # Safety
+///
+/// * `connection` must point to a valid OdbcConnection. This function takes ownership of the
+///   connection, even in case of an error. So The connection must not be freed explicitly
+///   afterwards.
+/// * `reader` must either be NULL or point to a valid reader.
+/// * `query_buf` must point to a valid utf-8 string
+/// * `query_len` describes the len of `query_buf` in bytes.
+/// * `parameters` must contain only valid pointers. This function takes ownership of all of them
+///   independent if the function succeeds or not. Yet it does not take ownership of the array
+///   itself.
+/// * `parameters_len` number of elements in parameters.
+/// * `max_text_size` optional upper bound for the size of text columns. Use `0` to indicate that no
+///   uppper bound applies.
+/// * `max_binary_size` optional upper bound for the size of binary columns. Use `0` to indicate
+///   that no uppper bound applies.
+/// * `fallibale_allocations`: `TRUE` if allocations should return an error, `FALSE` if it is fine
+///   to abort the process. Enabling might have a performance overhead, so it might be desirable to
+///   disable it, if you know there is enough memory available.
+/// * `schema`: Optional input arrow schema. NULL means no input schema is supplied. Should a
+///   schema be supplied `schema` Rust will take ownership of it an the `schema` will be
+///   overwritten with an empty one. This means the Python code, must only deallocate the memory
+///   directly pointed to by `schema`, but not freeing the resources of the passed schema.
+/// * `query_timout_sec`: Optional query timeout in seconds. If `NULL` no timeout is applied.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn arrow_odbc_connection_execute(
+    connection: NonNull<ArrowOdbcConnection>,
+    reader: *mut ArrowOdbcReader,
+    query_buf: *const u8,
+    query_len: usize,
+    parameters: *const *mut ArrowOdbcParameter,
+    parameters_len: usize,
+    query_timeout_sec: *const usize,
+) -> *mut ArrowOdbcError {
+    let connection = unsafe { connection.as_ref() };
+    // Transtlate C Args into more idiomatic rust representations
+    let query = unsafe { slice::from_raw_parts(query_buf, query_len) };
+    let query = str::from_utf8(query).unwrap();
+
+    let parameters = if parameters.is_null() {
+        Vec::new()
+    } else {
+        unsafe { slice::from_raw_parts(parameters, parameters_len) }
+            .iter()
+            .map(|&p| unsafe { Box::from_raw(p) }.unwrap())
+            .collect()
+    };
+
+    let query_timeout_sec = if query_timeout_sec.is_null() {
+        None
+    } else {
+        Some(unsafe { *query_timeout_sec })
+    };
+
+    let cursor = try_!(connection.execute(query, &parameters[..], query_timeout_sec));
+
+    if let Some(cursor) = cursor
+        && !reader.is_null()
+    {
+        let dbms_name = try_!(connection.database_management_system_name());
+        unsafe { &mut *reader }.promote_to_cursor(cursor, dbms_name);
+    }
+
+    null_mut() // Ok(())
 }

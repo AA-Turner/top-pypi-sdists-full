@@ -12,9 +12,9 @@ import sentry_sdk
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.messages import get_messages
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Count, Q, Value
+from django.db.models import Case, IntegerField, Q, Value, When
 from django.db.models.functions import MD5, Lower
 from django.http import (
     HttpResponse,
@@ -62,7 +62,7 @@ from weblate.trans.templatetags.translations import (
     unit_state_class,
     unit_state_title,
 )
-from weblate.trans.util import redirect_next, render, split_plural
+from weblate.trans.util import redirect_next, render
 from weblate.utils import messages
 from weblate.utils.antispam import is_spam
 from weblate.utils.hash import hash_to_checksum
@@ -72,7 +72,6 @@ from weblate.utils.messages import get_message_kind
 from weblate.utils.ratelimit import revert_rate_limit, session_ratelimit_post
 from weblate.utils.state import (
     STATE_APPROVED,
-    STATE_NEEDS_REWRITING,
     STATE_TRANSLATED,
 )
 from weblate.utils.stats import CategoryLanguage, ProjectLanguage
@@ -158,7 +157,13 @@ def get_other_units(unit):
                 translation__component__project=component.project,
                 translation__language=translation.language,
             )
-            .annotate(matches_current=Count("id", filter=match))
+            .alias(
+                matches_current=Case(
+                    When(match, then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                )
+            )
             .prefetch()
             .prefetch_source()
             .order_by("-matches_current")
@@ -515,18 +520,11 @@ def handle_revert(unit, request: AuthenticatedHttpRequest, next_unit_url):
         )
         return None
 
-    if not change.can_revert():
-        messages.error(request, gettext("Can not revert to empty translation!"))
+    if not change.revert(
+        request.user, change_action=ActionEvents.REVERT, request=request
+    ):
+        messages.error(request, gettext("Could not revert the selected change."))
         return None
-    # Store unit
-    unit.translate(
-        request.user,
-        split_plural(change.old),
-        STATE_NEEDS_REWRITING
-        if change.action == ActionEvents.MARKED_EDIT
-        else unit.state,
-        change_action=ActionEvents.REVERT,
-    )
     # Redirect to next entry
     return HttpResponseRedirect(next_unit_url)
 
@@ -1113,7 +1111,6 @@ def save_zen(request: AuthenticatedHttpRequest, path):
 
 @require_POST
 @login_required
-@transaction.atomic
 def new_unit(request: AuthenticatedHttpRequest, path):
     translation = parse_path(request, path, (Translation,))
     if not request.user.has_perm("unit.add", translation):
@@ -1123,7 +1120,21 @@ def new_unit(request: AuthenticatedHttpRequest, path):
     if not form.is_valid():
         show_form_errors(request, form)
     else:
-        created_unit = translation.add_unit(request, **form.as_kwargs())
+        try:
+            created_unit = translation.add_unit(request, **form.as_kwargs())
+        except WeblateLockTimeoutError:
+            messages.error(
+                request,
+                gettext(
+                    "Could not add the string because another background operation is "
+                    "in progress. Please try again later."
+                ),
+            )
+            return redirect(translation)
+        except ValidationError as error:
+            for message in error.messages:
+                messages.error(request, message)
+            return redirect(translation)
         messages.success(request, gettext("New string has been added."))
         return redirect(created_unit)
 

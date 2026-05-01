@@ -7559,6 +7559,11 @@ class CfnCapacityProvider(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
@@ -10465,6 +10470,11 @@ class CfnCluster(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="clusterRef")
     def cluster_ref(self) -> "_ClusterReference_91201a3a":
         '''A reference to a Cluster resource.'''
@@ -11391,6 +11401,11 @@ class CfnClusterCapacityProviderAssociations(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="clusterCapacityProviderAssociationsRef")
     def cluster_capacity_provider_associations_ref(
         self,
@@ -12100,6 +12115,11 @@ class CfnDaemon(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="daemonRef")
@@ -12878,6 +12898,11 @@ class CfnDaemonTaskDefinition(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="daemonTaskDefinitionRef")
@@ -16069,6 +16094,11 @@ class CfnExpressGatewayService(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="expressGatewayServiceRef")
     def express_gateway_service_ref(self) -> "_ExpressGatewayServiceReference_e96d24a4":
         '''A reference to a ExpressGatewayService resource.'''
@@ -18015,6 +18045,11 @@ class CfnPrimaryTaskSet(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="primaryTaskSetRef")
     def primary_task_set_ref(self) -> "_PrimaryTaskSetReference_47d93f49":
         '''A reference to a PrimaryTaskSet resource.'''
@@ -18391,6 +18426,11 @@ class CfnService(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="serviceRef")
@@ -23748,6 +23788,11 @@ class CfnTaskDefinition(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -29448,6 +29493,11 @@ class CfnTaskSet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="taskSetRef")
@@ -54755,17 +54805,17 @@ class BaseService(
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancers")
-    def _load_balancers(self) -> typing.List["CfnService.LoadBalancerProperty"]:
+    def load_balancers(self) -> typing.List["CfnService.LoadBalancerProperty"]:
         '''A list of Elastic Load Balancing load balancer objects, containing the load balancer name, the container name (as it appears in a container definition), and the container port to access from the load balancer.'''
         return typing.cast(typing.List["CfnService.LoadBalancerProperty"], jsii.get(self, "loadBalancers"))
 
-    @_load_balancers.setter
-    def _load_balancers(
+    @load_balancers.setter
+    def load_balancers(
         self,
         value: typing.List["CfnService.LoadBalancerProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f1c36fc59aabff1bf7c7dc3528c7ca379a2768eb924ecfeb8f007ff7d5b4ff9)
+            type_hints = typing.get_type_hints(_typecheckingstub__6df82885f1eee71e73876ac756dd9474dfb8db2b6e333ebcacf8d1675351fa7a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loadBalancers", value) # pyright: ignore[reportArgumentType]
 
@@ -61794,7 +61844,7 @@ def _typecheckingstub__a836ecbb8569a7a675d1164267589b4f787c21ff66ded7a07cb719760
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__8f1c36fc59aabff1bf7c7dc3528c7ca379a2768eb924ecfeb8f007ff7d5b4ff9(
+def _typecheckingstub__6df82885f1eee71e73876ac756dd9474dfb8db2b6e333ebcacf8d1675351fa7a(
     value: typing.List[CfnService.LoadBalancerProperty],
 ) -> None:
     """Type checking stubs"""

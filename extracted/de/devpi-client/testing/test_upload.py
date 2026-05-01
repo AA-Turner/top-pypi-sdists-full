@@ -762,7 +762,8 @@ class TestUploadFunctional:
             """.format(projname_version=projname_version_norm_fnmatch))
 
     def test_upload_to_mirror(
-            self, initproj, out_devpi, projname_version):
+        self, initproj, out_devpi, projname_version, remote_index_info
+    ):
         initproj(projname_version.rsplit("-", 1), {"doc": {
             "conf.py": "#nothing",
             "contents.rst": "",
@@ -770,8 +771,9 @@ class TestUploadFunctional:
         assert Path("setup.py").is_file()
 
         # use mirror
-        out = out_devpi("use", "root/pypi")
-        out.stdout.fnmatch_lines_random("current devpi index*/root/pypi*")
+        out = out_devpi("index", "-c", "mirror", f"type={remote_index_info.type}")
+        out = out_devpi("use", "mirror")
+        out.stdout.fnmatch_lines_random("current devpi index*/*/mirror*")
         out = out_devpi("upload", "--no-isolation", "--dry-run")
         out.stdout.fnmatch_lines_random("*does not support upload.")
         out.stdout.fnmatch_lines_random("*it is a mirror.")

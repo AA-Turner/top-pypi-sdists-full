@@ -28546,6 +28546,7 @@ components:
       - part_link
       - translation_link
       - aa_part_link
+      - base_molecule_link
       - blob_link
       - text
       - long_text

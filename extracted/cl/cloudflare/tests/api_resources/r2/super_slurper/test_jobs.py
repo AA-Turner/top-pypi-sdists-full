@@ -37,21 +37,24 @@ class TestJobs:
             overwrite=True,
             source={
                 "bucket": "bucket",
-                "endpoint": "endpoint",
                 "secret": {
                     "access_key_id": "accessKeyId",
                     "secret_access_key": "secretAccessKey",
                 },
                 "vendor": "s3",
+                "endpoint": "endpoint",
+                "keys": ["string"],
+                "path_prefix": "pathPrefix",
+                "region": "region",
             },
             target={
                 "bucket": "bucket",
-                "jurisdiction": "default",
                 "secret": {
                     "access_key_id": "accessKeyId",
                     "secret_access_key": "secretAccessKey",
                 },
                 "vendor": "r2",
+                "jurisdiction": "default",
             },
         )
         assert_matches_type(Optional[JobCreateResponse], job, path=["response"])
@@ -414,7 +417,9 @@ class TestJobs:
 
 
 class TestAsyncJobs:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
@@ -430,21 +435,24 @@ class TestAsyncJobs:
             overwrite=True,
             source={
                 "bucket": "bucket",
-                "endpoint": "endpoint",
                 "secret": {
                     "access_key_id": "accessKeyId",
                     "secret_access_key": "secretAccessKey",
                 },
                 "vendor": "s3",
+                "endpoint": "endpoint",
+                "keys": ["string"],
+                "path_prefix": "pathPrefix",
+                "region": "region",
             },
             target={
                 "bucket": "bucket",
-                "jurisdiction": "default",
                 "secret": {
                     "access_key_id": "accessKeyId",
                     "secret_access_key": "secretAccessKey",
                 },
                 "vendor": "r2",
+                "jurisdiction": "default",
             },
         )
         assert_matches_type(Optional[JobCreateResponse], job, path=["response"])

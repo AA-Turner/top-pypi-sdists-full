@@ -12,6 +12,7 @@ from dagster._core.remote_origin import GrpcServerCodeLocationOrigin
 from dagster._core.remote_representation.code_location import GrpcServerCodeLocation
 from dagster._core.remote_representation.external_data import PartitionSetExecutionParamSnap
 from dagster._grpc.client import DagsterGrpcClient
+from dagster._serdes import serialize_value
 from dagster._utils import find_free_port
 from dagster_cloud.pex.grpc import MultiPexGrpcClient, wait_for_grpc_server
 from dagster_cloud.pex.grpc.types import (
@@ -41,6 +42,7 @@ from dagster_cloud_test_infra.pex.fixtures import (
 from dagster_cloud_test_infra.secrets.fixtures import (
     elementl_account_secret_store,  # noqa: F401 (fixture)
 )
+from dagster_shared.serdes.objects.models.defs_state_info import DefsStateInfo
 
 
 @mock.patch.dict(
@@ -51,6 +53,10 @@ from dagster_cloud_test_infra.secrets.fixtures import (
         ),
     },
 )
+# Setup typically takes ~170s and the test body ~55s (~225s total), but under CI
+# resource pressure the setup can exceed the default 300s timeout. Use 600s to
+# provide adequate headroom.
+@pytest.mark.timeout(600)
 def test_load_pex_server(
     pex_files_tempdir,  # noqa: F811 (fixture)
     repo1_pex_tag,  # noqa: F811 (fixture)
@@ -565,6 +571,100 @@ def test_pex_server_watchdog(
 
             time.sleep(1)
 
+    finally:
+        shutil.rmtree(tmpdir)
+        process.terminate()
+        process.wait()
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        "S3_PEX_DISABLED": (
+            "1"  # make the registry not reach out to s3, just use locally seeded files
+        ),
+    },
+)
+@pytest.mark.timeout(600)
+def test_defs_state_info_forwarded_to_pex_subprocess(
+    pex_files_tempdir,  # noqa: F811 (fixture)
+    repo1_pex_tag,  # noqa: F811 (fixture)
+    agent_instance,
+):
+    """Regression: CodeLocationDeployData.defs_state_info must be forwarded to
+    each spawned `dagster api grpc` subprocess as `--defs-state-info <serialized>`.
+    Before MultiPexManager.create_pex_server was updated to read this field, the
+    flag was silently dropped and defs state never reached the code server.
+    """
+    port = find_free_port()
+    tmpdir = pex_files_tempdir
+    subprocess_args = [
+        sys.executable,
+        "-m",
+        "dagster_cloud_cli.entrypoint",
+        "pex",
+        "grpc",
+        "--port",
+        str(port),
+        "--local-pex-files-dir",
+        tmpdir,
+        "--watchdog-run-interval",
+        "0",
+    ]
+    process = subprocess.Popen(
+        subprocess_args,
+        cwd=os.path.dirname(__file__),
+        env={**os.environ, **{"DAGSTER_CURRENT_IMAGE": "foobar"}},
+    )
+    try:
+        client = MultiPexGrpcClient(port=port, host="localhost")
+        wait_for_grpc_server(client, timeout=10)
+
+        defs_state_info = DefsStateInfo.add_version(
+            None, "some_defs_key", "v1", create_timestamp=1234.0
+        )
+        serialized_defs_state_info = serialize_value(defs_state_info)
+
+        server_handle = PexServerHandle(
+            deployment_name="sandbox",
+            location_name="mars",
+            metadata_update_timestamp=1,
+        )
+        assert (
+            client.create_pex_server(
+                CreatePexServerArgs(
+                    server_handle=server_handle,
+                    code_location_deploy_data=CodeLocationDeployData(
+                        package_name="repo1",
+                        pex_metadata=PexMetadata(pex_tag=repo1_pex_tag),
+                        defs_state_info=defs_state_info,
+                    ),
+                    instance_ref=agent_instance.ref_for_deployment("sandbox"),
+                )
+            )
+            == CreatePexServerResponse()
+        )
+
+        grpc_metadata = [
+            ("deployment", "sandbox"),
+            ("location", "mars"),
+            ("timestamp", "1"),
+        ]
+        dagster_client = DagsterGrpcClient(port=port, host="localhost", metadata=grpc_metadata)
+        wait_for_grpc_server(dagster_client)
+
+        children_cmdlines = [
+            child.cmdline() for child in psutil.Process(process.pid).children(recursive=True)
+        ]
+        match = [
+            cmdline
+            for cmdline in children_cmdlines
+            if "--defs-state-info" in cmdline and serialized_defs_state_info in cmdline
+        ]
+        assert match, (
+            "Expected --defs-state-info to be forwarded to the dagster api grpc subprocess. "
+            f"Child cmdlines: {children_cmdlines}"
+        )
     finally:
         shutil.rmtree(tmpdir)
         process.terminate()

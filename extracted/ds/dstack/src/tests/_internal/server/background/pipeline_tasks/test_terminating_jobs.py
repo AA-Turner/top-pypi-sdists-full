@@ -129,6 +129,14 @@ class TestJobTerminatingFetcher:
             submitted_at=stale - timedelta(minutes=2),
             last_processed_at=now,
         )
+        recent_skip = await create_job(
+            session=session,
+            run=run,
+            status=JobStatus.TERMINATING,
+            submitted_at=stale - timedelta(minutes=2),
+            last_processed_at=now,
+        )
+        recent_skip.skip_min_processing_interval = True
 
         locked = await create_job(
             session=session,
@@ -159,11 +167,13 @@ class TestJobTerminatingFetcher:
             terminating.id,
             past_remove_at.id,
             expired_same_owner.id,
+            recent_skip.id,
         ]
         assert {(item.id, item.volumes_detached_at) for item in items} == {
             (terminating.id, None),
             (past_remove_at.id, past_remove_at.volumes_detached_at),
             (expired_same_owner.id, None),
+            (recent_skip.id, None),
         }
 
         for job in [
@@ -172,15 +182,17 @@ class TestJobTerminatingFetcher:
             future_remove_at,
             non_terminating,
             recent,
+            recent_skip,
             locked,
             expired_same_owner,
         ]:
             await session.refresh(job)
 
-        fetched_jobs = [terminating, past_remove_at, expired_same_owner]
+        fetched_jobs = [terminating, past_remove_at, expired_same_owner, recent_skip]
         assert all(job.lock_owner == JobTerminatingPipeline.__name__ for job in fetched_jobs)
         assert all(job.lock_expires_at is not None for job in fetched_jobs)
         assert all(job.lock_token is not None for job in fetched_jobs)
+        assert all(not job.skip_min_processing_interval for job in fetched_jobs)
         assert len({job.lock_token for job in fetched_jobs}) == 1
 
         assert future_remove_at.lock_owner is None
@@ -288,6 +300,9 @@ class TestJobTerminatingWorker:
         assert instance.lock_token is None
         assert instance.lock_expires_at is None
         assert instance.lock_owner is None
+
+        events = await list_events(session)
+        assert any(event.message == "Graceful job stop requested" for event in events)
 
     async def test_terminates_gracefully_stopped_job_after_remove_at(
         self, test_db, session: AsyncSession, worker: JobTerminatingWorker
@@ -757,6 +772,40 @@ class TestJobTerminatingWorker:
         assert job.status == JobStatus.TERMINATED
         assert job.lock_token is None
         assert job.lock_expires_at is None
+
+    async def test_terminates_job_with_placeholder_instance(
+        self, test_db, session: AsyncSession, worker: JobTerminatingWorker
+    ):
+        project = await create_project(session=session)
+        user = await create_user(session=session)
+        repo = await create_repo(session=session, project_id=project.id)
+        run = await create_run(session=session, project=project, repo=repo, user=user)
+        placeholder = await create_instance(
+            session=session,
+            project=project,
+            status=InstanceStatus.PENDING,
+            provisioning_job_id=uuid.uuid4(),
+            offer=None,
+            job_provisioning_data=None,
+        )
+        job = await create_job(
+            session=session,
+            run=run,
+            status=JobStatus.TERMINATING,
+            termination_reason=JobTerminationReason.TERMINATED_BY_USER,
+            instance=placeholder,
+        )
+        _lock_job(job)
+        await session.commit()
+
+        # No mocks needed — placeholder has no VM, no SSH, no container
+        await worker.process(_job_to_pipeline_item(job))
+
+        await session.refresh(job)
+        await session.refresh(placeholder)
+        assert job.status == JobStatus.TERMINATED
+        assert job.instance_id is None
+        assert placeholder.status == InstanceStatus.TERMINATING
 
     async def test_retries_detaching_when_used_instance_is_missing(
         self, test_db, session: AsyncSession, worker: JobTerminatingWorker

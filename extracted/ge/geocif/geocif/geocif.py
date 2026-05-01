@@ -698,13 +698,12 @@ class Geocif:
         For ``"latest"`` or ``"current"``, the original single-pass flow
         is used (all stages become feature columns in one model).
         """
-        if self.is_pre_season:
-            self._execute_pre_season()
-        elif self._is_forecast_only():
-            # Forecast-only CIDs (FLDAS/S2S): use pre-season-style
-            # extraction for ALL months (pre-season + in-season) since
-            # cumulative stage windows don't produce distinct FLDAS features.
-            self._execute_pre_season(include_in_season=True)
+        if self.is_pre_season or self._is_forecast_only():
+            # Forecast-only CIDs (FLDAS/S2S) iterate init months across both
+            # pre-season and in-season, since cumulative stage windows don't
+            # produce distinct FLDAS features. Mixed/observational pre-season
+            # runs stop at planting-1.
+            self._execute_pre_season(include_in_season=self._is_forecast_only())
         elif self.run_time_steps in ("latest", "current"):
             self._execute_single_pass()
         else:

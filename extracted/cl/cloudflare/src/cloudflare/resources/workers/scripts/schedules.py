@@ -6,8 +6,8 @@ from typing import Type, Iterable, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -56,7 +56,7 @@ class SchedulesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScheduleUpdateResponse:
         """
         Updates Cron Triggers for a Worker.
@@ -79,7 +79,11 @@ class SchedulesResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._put(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/schedules",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/schedules",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             body=maybe_transform(body, Iterable[schedule_update_params.Body]),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -101,7 +105,7 @@ class SchedulesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScheduleGetResponse:
         """
         Fetches Cron Triggers for a Worker.
@@ -124,7 +128,11 @@ class SchedulesResource(SyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return self._get(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/schedules",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/schedules",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -167,7 +175,7 @@ class AsyncSchedulesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScheduleUpdateResponse:
         """
         Updates Cron Triggers for a Worker.
@@ -190,7 +198,11 @@ class AsyncSchedulesResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._put(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/schedules",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/schedules",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             body=await async_maybe_transform(body, Iterable[schedule_update_params.Body]),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -212,7 +224,7 @@ class AsyncSchedulesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScheduleGetResponse:
         """
         Fetches Cron Triggers for a Worker.
@@ -235,7 +247,11 @@ class AsyncSchedulesResource(AsyncAPIResource):
         if not script_name:
             raise ValueError(f"Expected a non-empty value for `script_name` but received {script_name!r}")
         return await self._get(
-            f"/accounts/{account_id}/workers/scripts/{script_name}/schedules",
+            path_template(
+                "/accounts/{account_id}/workers/scripts/{script_name}/schedules",
+                account_id=account_id,
+                script_name=script_name,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

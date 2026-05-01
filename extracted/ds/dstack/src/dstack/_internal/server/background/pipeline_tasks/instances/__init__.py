@@ -179,6 +179,13 @@ class InstanceFetcher(Fetcher[InstancePipelineItem]):
                                 InstanceModel.compute_group_id.is_not(None),
                             )
                         ),
+                        # Skip placeholder instances managed by JobSubmittedPipeline.
+                        not_(
+                            and_(
+                                InstanceModel.status == InstanceStatus.PENDING,
+                                InstanceModel.provisioning_job_id.is_not(None),
+                            )
+                        ),
                         InstanceModel.deleted == False,
                         or_(
                             # Process fast-moving instances (pending, provisioning, terminating)
@@ -200,6 +207,7 @@ class InstanceFetcher(Fetcher[InstancePipelineItem]):
                                 <= now - self._min_processing_interval * 2,
                             ),
                             InstanceModel.last_processed_at == InstanceModel.created_at,
+                            InstanceModel.skip_min_processing_interval == True,
                         ),
                         or_(
                             and_(
@@ -228,6 +236,7 @@ class InstanceFetcher(Fetcher[InstancePipelineItem]):
                             InstanceModel.lock_token,
                             InstanceModel.lock_expires_at,
                             InstanceModel.status,
+                            InstanceModel.skip_min_processing_interval,
                         )
                     )
                 )
@@ -240,6 +249,7 @@ class InstanceFetcher(Fetcher[InstancePipelineItem]):
                     instance_model.lock_expires_at = lock_expires_at
                     instance_model.lock_token = lock_token
                     instance_model.lock_owner = InstancePipeline.__name__
+                    instance_model.skip_min_processing_interval = False
                     items.append(
                         InstancePipelineItem(
                             __tablename__=InstanceModel.__tablename__,

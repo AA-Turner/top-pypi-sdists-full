@@ -14,7 +14,8 @@ from .summary import (
     SummaryResourceWithStreamingResponse,
     AsyncSummaryResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template
 from ...._compat import cached_property
 from .behaviours import (
     BehavioursResource,
@@ -88,10 +89,11 @@ class RiskScoringResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RiskScoringGetResponse]:
         """
-        Get risk event/score information for a specific user
+        Retrieves the detailed risk score breakdown for a specific user, including
+        contributing factors.
 
         Args:
           extra_headers: Send extra headers
@@ -107,7 +109,7 @@ class RiskScoringResource(SyncAPIResource):
         if not user_id:
             raise ValueError(f"Expected a non-empty value for `user_id` but received {user_id!r}")
         return self._get(
-            f"/accounts/{account_id}/zt_risk_scoring/{user_id}",
+            path_template("/accounts/{account_id}/zt_risk_scoring/{user_id}", account_id=account_id, user_id=user_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -128,10 +130,10 @@ class RiskScoringResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Clear the risk score for a particular user
+        Resets risk scores for specified users, clearing their accumulated risk history.
 
         Args:
           extra_headers: Send extra headers
@@ -147,7 +149,9 @@ class RiskScoringResource(SyncAPIResource):
         if not user_id:
             raise ValueError(f"Expected a non-empty value for `user_id` but received {user_id!r}")
         return self._post(
-            f"/accounts/{account_id}/zt_risk_scoring/{user_id}/reset",
+            path_template(
+                "/accounts/{account_id}/zt_risk_scoring/{user_id}/reset", account_id=account_id, user_id=user_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -201,10 +205,11 @@ class AsyncRiskScoringResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RiskScoringGetResponse]:
         """
-        Get risk event/score information for a specific user
+        Retrieves the detailed risk score breakdown for a specific user, including
+        contributing factors.
 
         Args:
           extra_headers: Send extra headers
@@ -220,7 +225,7 @@ class AsyncRiskScoringResource(AsyncAPIResource):
         if not user_id:
             raise ValueError(f"Expected a non-empty value for `user_id` but received {user_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/zt_risk_scoring/{user_id}",
+            path_template("/accounts/{account_id}/zt_risk_scoring/{user_id}", account_id=account_id, user_id=user_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -241,10 +246,10 @@ class AsyncRiskScoringResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Clear the risk score for a particular user
+        Resets risk scores for specified users, clearing their accumulated risk history.
 
         Args:
           extra_headers: Send extra headers
@@ -260,7 +265,9 @@ class AsyncRiskScoringResource(AsyncAPIResource):
         if not user_id:
             raise ValueError(f"Expected a non-empty value for `user_id` but received {user_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/zt_risk_scoring/{user_id}/reset",
+            path_template(
+                "/accounts/{account_id}/zt_risk_scoring/{user_id}/reset", account_id=account_id, user_id=user_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -14,8 +14,8 @@ from .rules import (
     RulesResourceWithStreamingResponse,
     AsyncRulesResourceWithStreamingResponse,
 )
-from ..._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from .versions import (
     VersionsResource,
     AsyncVersionsResource,
@@ -92,16 +92,16 @@ class RulesetsResource(SyncAPIResource):
         kind: Kind,
         name: str,
         phase: Phase,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        rules: Iterable[ruleset_create_params.Rule] | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        description: str | Omit = omit,
+        rules: Iterable[ruleset_create_params.Rule] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RulesetCreateResponse:
         """
         Creates a ruleset.
@@ -142,7 +142,11 @@ class RulesetsResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._post(
-            f"/{account_or_zone}/{account_or_zone_id}/rulesets",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/rulesets",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=maybe_transform(
                 {
                     "kind": kind,
@@ -167,19 +171,19 @@ class RulesetsResource(SyncAPIResource):
         self,
         ruleset_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        kind: Kind | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        phase: Phase | NotGiven = NOT_GIVEN,
-        rules: Iterable[ruleset_update_params.Rule] | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        description: str | Omit = omit,
+        kind: Kind | Omit = omit,
+        name: str | Omit = omit,
+        phase: Phase | Omit = omit,
+        rules: Iterable[ruleset_update_params.Rule] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RulesetUpdateResponse:
         """
         Updates an account or zone ruleset, creating a new version.
@@ -224,7 +228,12 @@ class RulesetsResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._put(
-            f"/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+                ruleset_id=ruleset_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=maybe_transform(
                 {
                     "description": description,
@@ -248,16 +257,16 @@ class RulesetsResource(SyncAPIResource):
     def list(
         self,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        cursor: str | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        cursor: str | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPagination[RulesetListResponse]:
         """
         Fetches all rulesets.
@@ -267,9 +276,9 @@ class RulesetsResource(SyncAPIResource):
 
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
 
-          cursor: Cursor to use for the next page.
+          cursor: The cursor to use for the next page.
 
-          per_page: Number of rulesets to return per page.
+          per_page: The number of rulesets to return per page.
 
           extra_headers: Send extra headers
 
@@ -292,7 +301,11 @@ class RulesetsResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._get_api_list(
-            f"/{account_or_zone}/{account_or_zone_id}/rulesets",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/rulesets",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             page=SyncCursorPagination[RulesetListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -314,14 +327,14 @@ class RulesetsResource(SyncAPIResource):
         self,
         ruleset_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Deletes all versions of an existing account or zone ruleset.
@@ -357,7 +370,12 @@ class RulesetsResource(SyncAPIResource):
             account_or_zone_id = zone_id
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+                ruleset_id=ruleset_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -368,14 +386,14 @@ class RulesetsResource(SyncAPIResource):
         self,
         ruleset_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RulesetGetResponse:
         """
         Fetches the latest version of an account or zone ruleset.
@@ -410,7 +428,12 @@ class RulesetsResource(SyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._get(
-            f"/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+                ruleset_id=ruleset_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -460,16 +483,16 @@ class AsyncRulesetsResource(AsyncAPIResource):
         kind: Kind,
         name: str,
         phase: Phase,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        rules: Iterable[ruleset_create_params.Rule] | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        description: str | Omit = omit,
+        rules: Iterable[ruleset_create_params.Rule] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RulesetCreateResponse:
         """
         Creates a ruleset.
@@ -510,7 +533,11 @@ class AsyncRulesetsResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._post(
-            f"/{account_or_zone}/{account_or_zone_id}/rulesets",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/rulesets",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "kind": kind,
@@ -535,19 +562,19 @@ class AsyncRulesetsResource(AsyncAPIResource):
         self,
         ruleset_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        kind: Kind | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        phase: Phase | NotGiven = NOT_GIVEN,
-        rules: Iterable[ruleset_update_params.Rule] | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        description: str | Omit = omit,
+        kind: Kind | Omit = omit,
+        name: str | Omit = omit,
+        phase: Phase | Omit = omit,
+        rules: Iterable[ruleset_update_params.Rule] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RulesetUpdateResponse:
         """
         Updates an account or zone ruleset, creating a new version.
@@ -592,7 +619,12 @@ class AsyncRulesetsResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._put(
-            f"/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+                ruleset_id=ruleset_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "description": description,
@@ -616,16 +648,16 @@ class AsyncRulesetsResource(AsyncAPIResource):
     def list(
         self,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
-        cursor: str | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
+        cursor: str | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[RulesetListResponse, AsyncCursorPagination[RulesetListResponse]]:
         """
         Fetches all rulesets.
@@ -635,9 +667,9 @@ class AsyncRulesetsResource(AsyncAPIResource):
 
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
 
-          cursor: Cursor to use for the next page.
+          cursor: The cursor to use for the next page.
 
-          per_page: Number of rulesets to return per page.
+          per_page: The number of rulesets to return per page.
 
           extra_headers: Send extra headers
 
@@ -660,7 +692,11 @@ class AsyncRulesetsResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return self._get_api_list(
-            f"/{account_or_zone}/{account_or_zone_id}/rulesets",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/rulesets",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             page=AsyncCursorPagination[RulesetListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -682,14 +718,14 @@ class AsyncRulesetsResource(AsyncAPIResource):
         self,
         ruleset_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Deletes all versions of an existing account or zone ruleset.
@@ -725,7 +761,12 @@ class AsyncRulesetsResource(AsyncAPIResource):
             account_or_zone_id = zone_id
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+                ruleset_id=ruleset_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -736,14 +777,14 @@ class AsyncRulesetsResource(AsyncAPIResource):
         self,
         ruleset_id: str,
         *,
-        account_id: str | NotGiven = NOT_GIVEN,
-        zone_id: str | NotGiven = NOT_GIVEN,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RulesetGetResponse:
         """
         Fetches the latest version of an account or zone ruleset.
@@ -778,7 +819,12 @@ class AsyncRulesetsResource(AsyncAPIResource):
             account_or_zone = "zones"
             account_or_zone_id = zone_id
         return await self._get(
-            f"/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/rulesets/{ruleset_id}",
+                ruleset_id=ruleset_id,
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

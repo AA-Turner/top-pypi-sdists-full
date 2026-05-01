@@ -598,14 +598,51 @@ def _aggregate_national_yields(df):
 
 
 def _compute_national_metric(df, stages_sorted, metric_col, has_area):
-    """Compute area-weighted (or simple mean) national metric per stage."""
+    """Compute true national-scale metric per stage.
+
+    When the dataframe carries raw yield columns we aggregate per-region yield
+    × area into a national time series per year (so regional over/under-
+    prediction can cancel in aggregation, the standard meaning of
+    "national-scale error") and then evaluate the metric on that series.
+
+    Without raw yields we fall back to area-weighted regional means using the
+    multi-year average area as the weight (``first`` would pick an arbitrary
+    year's area).
+    """
+    obs_col = "Observed Yield (tn per ha)"
+    pred_col = "Predicted Yield (tn per ha)"
+    has_yields = obs_col in df.columns and pred_col in df.columns
+
     rows = []
     for stage in stages_sorted:
         ds = df[df["Stage Name"] == stage]
-        if has_area:
+        if has_yields:
+            if has_area:
+                nat = _aggregate_national_yields(ds)
+            else:
+                nat = (
+                    ds.groupby("Harvest Year")
+                    .agg({obs_col: "mean", pred_col: "mean"})
+                    .reset_index()
+                )
+            nat = nat[nat[obs_col] != 0]
+            if nat.empty or (metric_col == "R2" and len(nat) < 2):
+                rows.append({"Stage Name": stage, "National": np.nan})
+                continue
+            if metric_col == "MAPE":
+                val = ((nat[pred_col] - nat[obs_col]).abs() / nat[obs_col] * 100).mean()
+            elif metric_col == "RMSE":
+                val = float(np.sqrt(((nat[pred_col] - nat[obs_col]) ** 2).mean()))
+            elif metric_col == "R2":
+                from sklearn.metrics import r2_score
+                val = r2_score(nat[obs_col], nat[pred_col])
+            else:
+                val = ds[metric_col].mean() if metric_col in ds.columns else np.nan
+            rows.append({"Stage Name": stage, "National": val})
+        elif has_area:
             stats = ds.groupby("Region").agg(
                 val=(metric_col, "mean"),
-                area=("Area (ha)", "first"),
+                area=("Area (ha)", "mean"),
             ).dropna()
             if stats.empty or stats["area"].sum() == 0:
                 rows.append({"Stage Name": stage, "National": ds[metric_col].mean()})
@@ -619,25 +656,35 @@ def _compute_national_metric(df, stages_sorted, metric_col, has_area):
 
 def _plot_metric_progression(df, stages_sorted, metric_col, ylabel, title,
                              country, crop, model, dir_out, fname,
-                             prod_pct, has_area):
-    """Generic progression plot for any per-region metric across time steps."""
+                             prod_pct, has_area, df_for_national=None):
+    """Generic progression plot for any per-region metric across time steps.
+
+    ``df_for_national`` lets callers supply a raw-yield dataframe even when
+    ``df`` is a pre-aggregated metric frame (RMSE, R²) — so the National line
+    is computed on production-aggregated yields rather than on the area-
+    weighted average of per-region scores.
+    """
     import matplotlib.pyplot as plt
     import scienceplots  # noqa: F401
 
     region_vals = _compute_region_metric(df, stages_sorted, metric_col)
-    df_national = _compute_national_metric(df, stages_sorted, metric_col, has_area)
 
-    # Exclude regions with median metric > 100 (e.g., outlier MAPE regions)
+    excluded = set()
     if metric_col == "MAPE":
         median_by_region = region_vals.groupby("Region")[metric_col].median()
-        keep_regions = median_by_region[median_by_region <= 100].index
-        excluded = set(region_vals["Region"].unique()) - set(keep_regions)
+        keep_regions = set(median_by_region[median_by_region <= 100].index)
+        excluded = set(region_vals["Region"].unique()) - keep_regions
         if excluded:
             logger.info(
                 f"Progression: excluding {len(excluded)} regions with median "
                 f"{metric_col} > 100%: {sorted(excluded)}"
             )
         region_vals = region_vals[region_vals["Region"].isin(keep_regions)]
+
+    df_nat_src = df_for_national if df_for_national is not None else df
+    if excluded and "Region" in df_nat_src.columns:
+        df_nat_src = df_nat_src[~df_nat_src["Region"].isin(excluded)]
+    df_national = _compute_national_metric(df_nat_src, stages_sorted, metric_col, has_area)
 
     with plt.style.context(["science", "no-latex"]):
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -665,6 +712,8 @@ def _plot_metric_progression(df, stages_sorted, metric_col, ylabel, title,
 
         df_national = df_national.set_index("Stage Name").reindex(stages_sorted)
         nat_label = "National (area-weighted)" if has_area else "National (mean)"
+        if excluded:
+            nat_label = f"{nat_label}, excl. {len(excluded)} outlier region(s)"
         ax.plot(stages_sorted, df_national["National"].values,
                 color="black", linewidth=3, marker="o", markersize=7,
                 label=nat_label, zorder=10)
@@ -742,9 +791,11 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
                 rmse_data.append({"Stage Name": stage, "Region": region, "RMSE": rmse})
     if rmse_data:
         df_rmse = pd.DataFrame(rmse_data)
-        # Merge area for national weighting
+        # Merge multi-year-average area onto df_rmse for downstream consumers
+        # of the saved CSV. National line itself is computed via df_for_national
+        # below, not from this column.
         if has_area:
-            area_map = df.groupby("Region")["Area (ha)"].first()
+            area_map = df.groupby("Region")["Area (ha)"].mean()
             df_rmse = df_rmse.merge(area_map, on="Region", how="left")
         df["RMSE"] = np.sqrt(df["RMSE_sq"])
         _plot_metric_progression(
@@ -753,6 +804,7 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
             country, crop, model, dir_progression,
             f"rmse_progression_{country}_{crop}_{model}.png",
             prod_pct, has_area,
+            df_for_national=df,
         )
         df_rmse.to_csv(dir_csvs_prog / f"rmse_progression_{country}_{crop}_{model}.csv", index=False)
 
@@ -778,6 +830,7 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
             country, crop, model, dir_progression,
             f"r2_progression_{country}_{crop}_{model}.png",
             prod_pct, has_area,
+            df_for_national=df,
         )
         df_r2.to_csv(dir_csvs_prog / f"r2_progression_{country}_{crop}_{model}.csv", index=False)
 
@@ -1269,27 +1322,32 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
         first_df = next(iter(model_dfs.values()))
         prod_pct = diag.compute_production_pct(first_df, country)
 
-        # National area-weighted metric per model (for legend labels)
+        # National-scale metric per model (for legend labels). Computed on
+        # production-aggregated national yields per year — i.e. the metric a
+        # stakeholder would observe by summing predicted production into a
+        # national total.  Distinct from the area-weighted average of per-
+        # region scores, which cannot capture cross-region error cancellation.
         national_metrics = {}
         for model, df in model_dfs.items():
             df = df.dropna(subset=[obs_col, pred_col])
             if df.empty:
                 continue
             df = df[df[obs_col] != 0].copy()
-            df["MAPE"] = (df[pred_col] - df[obs_col]).abs() / df[obs_col] * 100
-            df["SE"] = (df[pred_col] - df[obs_col]) ** 2
             has_area = "Area (ha)" in df.columns and df["Area (ha)"].notna().any()
-            stats = df.groupby("Region").agg(
-                mape=("MAPE", "mean"),
-                rmse_sq=("SE", "mean"),
-                area=("Area (ha)", "first") if has_area else ("MAPE", "count"),
-            ).dropna()
-            if has_area and stats["area"].sum() > 0:
-                w_mape = (stats["mape"] * stats["area"]).sum() / stats["area"].sum()
-                w_rmse = np.sqrt((stats["rmse_sq"] * stats["area"]).sum() / stats["area"].sum())
+            if has_area:
+                nat = _aggregate_national_yields(df)
             else:
-                w_mape = stats["mape"].mean()
-                w_rmse = np.sqrt(stats["rmse_sq"].mean())
+                nat = (
+                    df.groupby("Harvest Year")
+                    .agg({obs_col: "mean", pred_col: "mean"})
+                    .reset_index()
+                )
+            nat = nat[nat[obs_col] != 0]
+            if nat.empty:
+                continue
+            err = nat[pred_col] - nat[obs_col]
+            w_mape = (err.abs() / nat[obs_col] * 100).mean()
+            w_rmse = float(np.sqrt((err ** 2).mean()))
             national_metrics[model] = {"MAPE": w_mape, "RMSE": w_rmse}
 
         def _model_legend(model, metric):

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import List, Type, cast
+from typing import Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, SequenceNotStr, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -50,13 +50,13 @@ class EventTagsResource(SyncAPIResource):
         event_id: str,
         *,
         account_id: str,
-        tags: List[str],
+        tags: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EventTagCreateResponse:
         """
         Adds a tag to an event
@@ -79,7 +79,11 @@ class EventTagsResource(SyncAPIResource):
         if not event_id:
             raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
         return self._post(
-            f"/accounts/{account_id}/cloudforce-one/events/event_tag/{event_id}/create",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/event_tag/{event_id}/create",
+                account_id=account_id,
+                event_id=event_id,
+            ),
             body=maybe_transform({"tags": tags}, event_tag_create_params.EventTagCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -101,7 +105,7 @@ class EventTagsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EventTagDeleteResponse:
         """
         Removes a tag from an event
@@ -124,7 +128,11 @@ class EventTagsResource(SyncAPIResource):
         if not event_id:
             raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/cloudforce-one/events/event_tag/{event_id}",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/event_tag/{event_id}",
+                account_id=account_id,
+                event_id=event_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -161,13 +169,13 @@ class AsyncEventTagsResource(AsyncAPIResource):
         event_id: str,
         *,
         account_id: str,
-        tags: List[str],
+        tags: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EventTagCreateResponse:
         """
         Adds a tag to an event
@@ -190,7 +198,11 @@ class AsyncEventTagsResource(AsyncAPIResource):
         if not event_id:
             raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/cloudforce-one/events/event_tag/{event_id}/create",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/event_tag/{event_id}/create",
+                account_id=account_id,
+                event_id=event_id,
+            ),
             body=await async_maybe_transform({"tags": tags}, event_tag_create_params.EventTagCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -212,7 +224,7 @@ class AsyncEventTagsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EventTagDeleteResponse:
         """
         Removes a tag from an event
@@ -235,7 +247,11 @@ class AsyncEventTagsResource(AsyncAPIResource):
         if not event_id:
             raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/cloudforce-one/events/event_tag/{event_id}",
+            path_template(
+                "/accounts/{account_id}/cloudforce-one/events/event_tag/{event_id}",
+                account_id=account_id,
+                event_id=event_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -6,8 +6,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -19,6 +19,7 @@ from ...._response import (
 from ....pagination import SyncSinglePage, AsyncSinglePage
 from ...._base_client import AsyncPaginator, make_request_options
 from ....types.zero_trust.dex import colo_list_params
+from ....types.zero_trust.dex.colo_list_response import ColoListResponse
 
 __all__ = ["ColosResource", "AsyncColosResource"]
 
@@ -49,14 +50,14 @@ class ColosResource(SyncAPIResource):
         account_id: str,
         from_: str,
         to: str,
-        sort_by: Literal["fleet-status-usage", "application-tests-usage"] | NotGiven = NOT_GIVEN,
+        sort_by: Literal["fleet-status-usage", "application-tests-usage"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncSinglePage[object]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncSinglePage[ColoListResponse]:
         """
         List Cloudflare colos that account's devices were connected to during a time
         period, sorted by usage starting from the most used colo. Colos without traffic
@@ -81,8 +82,8 @@ class ColosResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dex/colos",
-            page=SyncSinglePage[object],
+            path_template("/accounts/{account_id}/dex/colos", account_id=account_id),
+            page=SyncSinglePage[ColoListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -97,7 +98,7 @@ class ColosResource(SyncAPIResource):
                     colo_list_params.ColoListParams,
                 ),
             ),
-            model=object,
+            model=ColoListResponse,
         )
 
 
@@ -127,14 +128,14 @@ class AsyncColosResource(AsyncAPIResource):
         account_id: str,
         from_: str,
         to: str,
-        sort_by: Literal["fleet-status-usage", "application-tests-usage"] | NotGiven = NOT_GIVEN,
+        sort_by: Literal["fleet-status-usage", "application-tests-usage"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[object, AsyncSinglePage[object]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[ColoListResponse, AsyncSinglePage[ColoListResponse]]:
         """
         List Cloudflare colos that account's devices were connected to during a time
         period, sorted by usage starting from the most used colo. Colos without traffic
@@ -159,8 +160,8 @@ class AsyncColosResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dex/colos",
-            page=AsyncSinglePage[object],
+            path_template("/accounts/{account_id}/dex/colos", account_id=account_id),
+            page=AsyncSinglePage[ColoListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -175,7 +176,7 @@ class AsyncColosResource(AsyncAPIResource):
                     colo_list_params.ColoListParams,
                 ),
             ),
-            model=object,
+            model=ColoListResponse,
         )
 
 

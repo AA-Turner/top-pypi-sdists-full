@@ -6,7 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -53,7 +54,7 @@ class DetailsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DetailGetResponse:
         """Previews an event's configuration as if it was active.
 
@@ -78,7 +79,12 @@ class DetailsResource(SyncAPIResource):
         if not event_id:
             raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
         return self._get(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/events/{event_id}/details",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/events/{event_id}/details",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+                event_id=event_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -121,7 +127,7 @@ class AsyncDetailsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DetailGetResponse:
         """Previews an event's configuration as if it was active.
 
@@ -146,7 +152,12 @@ class AsyncDetailsResource(AsyncAPIResource):
         if not event_id:
             raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/waiting_rooms/{waiting_room_id}/events/{event_id}/details",
+            path_template(
+                "/zones/{zone_id}/waiting_rooms/{waiting_room_id}/events/{event_id}/details",
+                zone_id=zone_id,
+                waiting_room_id=waiting_room_id,
+                event_id=event_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

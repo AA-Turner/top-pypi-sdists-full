@@ -11,6 +11,8 @@ __all__ = ["URIRecord", "Data", "Settings"]
 
 
 class Data(BaseModel):
+    """Components of a URI record."""
+
     target: Optional[str] = None
     """The record content."""
 
@@ -19,6 +21,8 @@ class Data(BaseModel):
 
 
 class Settings(BaseModel):
+    """Settings for the DNS record."""
+
     ipv4_only: Optional[bool] = None
     """
     When enabled, only A records will be generated, and AAAA records will not be
@@ -38,7 +42,14 @@ class Settings(BaseModel):
 
 class URIRecord(BaseModel):
     name: str
-    """DNS record name (or @ for the zone apex) in Punycode."""
+    """Complete DNS record name, including the zone name, in Punycode."""
+
+    ttl: TTL
+    """Time To Live (TTL) of the DNS record in seconds.
+
+    Setting to 1 means 'automatic'. Value must be between 60 and 86400, with the
+    minimum reduced to 30 for Enterprise zones.
+    """
 
     type: Literal["URI"]
     """Record type."""
@@ -56,9 +67,10 @@ class URIRecord(BaseModel):
     """Components of a URI record."""
 
     priority: Optional[float] = None
-    """Required for MX, SRV and URI records; unused by other record types.
-
-    Records with lower priorities are preferred.
+    """
+    Required for MX and URI records; ignored for other record types (but may still
+    be returned by the API). Records with lower priorities are preferred. This field
+    is to be deprecated in favor of the priority field within the data map.
     """
 
     proxied: Optional[bool] = None
@@ -72,10 +84,3 @@ class URIRecord(BaseModel):
 
     tags: Optional[List[RecordTags]] = None
     """Custom tags for the DNS record. This field has no effect on DNS responses."""
-
-    ttl: Optional[TTL] = None
-    """Time To Live (TTL) of the DNS record in seconds.
-
-    Setting to 1 means 'automatic'. Value must be between 60 and 86400, with the
-    minimum reduced to 30 for Enterprise zones.
-    """

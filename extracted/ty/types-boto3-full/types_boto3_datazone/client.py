@@ -48,6 +48,7 @@ from .paginator import (
     ListLineageEventsPaginator,
     ListLineageNodeHistoryPaginator,
     ListMetadataGenerationRunsPaginator,
+    ListNotebookRunsPaginator,
     ListNotificationsPaginator,
     ListPolicyGrantsPaginator,
     ListProjectMembershipsPaginator,
@@ -226,6 +227,8 @@ from .type_defs import (
     GetListingOutputTypeDef,
     GetMetadataGenerationRunInputTypeDef,
     GetMetadataGenerationRunOutputTypeDef,
+    GetNotebookRunInputTypeDef,
+    GetNotebookRunOutputTypeDef,
     GetProjectInputTypeDef,
     GetProjectOutputTypeDef,
     GetProjectProfileInputTypeDef,
@@ -286,6 +289,8 @@ from .type_defs import (
     ListLineageNodeHistoryOutputTypeDef,
     ListMetadataGenerationRunsInputTypeDef,
     ListMetadataGenerationRunsOutputTypeDef,
+    ListNotebookRunsInputTypeDef,
+    ListNotebookRunsOutputTypeDef,
     ListNotificationsInputTypeDef,
     ListNotificationsOutputTypeDef,
     ListPolicyGrantsInputTypeDef,
@@ -341,6 +346,10 @@ from .type_defs import (
     StartDataSourceRunOutputTypeDef,
     StartMetadataGenerationRunInputTypeDef,
     StartMetadataGenerationRunOutputTypeDef,
+    StartNotebookRunInputTypeDef,
+    StartNotebookRunOutputTypeDef,
+    StopNotebookRunInputTypeDef,
+    StopNotebookRunOutputTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateAccountPoolInputTypeDef,
@@ -1353,6 +1362,16 @@ class DataZoneClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_metadata_generation_run)
         """
 
+    def get_notebook_run(
+        self, **kwargs: Unpack[GetNotebookRunInputTypeDef]
+    ) -> GetNotebookRunOutputTypeDef:
+        """
+        Gets the details of a notebook run in an Amazon DataZone domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_notebook_run.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_notebook_run)
+        """
+
     def get_project(self, **kwargs: Unpack[GetProjectInputTypeDef]) -> GetProjectOutputTypeDef:
         """
         Gets a project in Amazon DataZone.
@@ -1645,6 +1664,16 @@ class DataZoneClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#list_metadata_generation_runs)
         """
 
+    def list_notebook_runs(
+        self, **kwargs: Unpack[ListNotebookRunsInputTypeDef]
+    ) -> ListNotebookRunsOutputTypeDef:
+        """
+        Lists notebook runs in an Amazon DataZone domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/list_notebook_runs.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#list_notebook_runs)
+        """
+
     def list_notifications(
         self, **kwargs: Unpack[ListNotificationsInputTypeDef]
     ) -> ListNotificationsOutputTypeDef:
@@ -1927,6 +1956,26 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/start_metadata_generation_run.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#start_metadata_generation_run)
+        """
+
+    def start_notebook_run(
+        self, **kwargs: Unpack[StartNotebookRunInputTypeDef]
+    ) -> StartNotebookRunOutputTypeDef:
+        """
+        Starts a notebook run in an Amazon DataZone domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/start_notebook_run.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#start_notebook_run)
+        """
+
+    def stop_notebook_run(
+        self, **kwargs: Unpack[StopNotebookRunInputTypeDef]
+    ) -> StopNotebookRunOutputTypeDef:
+        """
+        Stops a running notebook run in an Amazon DataZone domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/stop_notebook_run.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#stop_notebook_run)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
@@ -2378,6 +2427,17 @@ class DataZoneClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_metadata_generation_runs"]
     ) -> ListMetadataGenerationRunsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_notebook_runs"]
+    ) -> ListNotebookRunsPaginator:
         """
         Create a paginator for an operation.
 

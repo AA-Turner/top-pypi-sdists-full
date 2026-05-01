@@ -32,8 +32,16 @@ from .top.top import (
     TopResourceWithStreamingResponse,
     AsyncTopResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ...._utils import maybe_transform, async_maybe_transform
+from .rpki.rpki import (
+    RPKIResource,
+    AsyncRPKIResource,
+    RPKIResourceWithRawResponse,
+    AsyncRPKIResourceWithRawResponse,
+    RPKIResourceWithStreamingResponse,
+    AsyncRPKIResourceWithStreamingResponse,
+)
 from ...._compat import cached_property
 from .leaks.leaks import (
     LeaksResource,
@@ -88,6 +96,10 @@ class BGPResource(SyncAPIResource):
         return IPsResource(self._client)
 
     @cached_property
+    def rpki(self) -> RPKIResource:
+        return RPKIResource(self._client)
+
+    @cached_property
     def with_raw_response(self) -> BGPResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -109,21 +121,21 @@ class BGPResource(SyncAPIResource):
     def timeseries(
         self,
         *,
-        agg_interval: Literal["15m", "1h", "1d", "1w"] | NotGiven = NOT_GIVEN,
-        asn: List[str] | NotGiven = NOT_GIVEN,
-        date_end: List[Union[str, datetime]] | NotGiven = NOT_GIVEN,
-        date_range: List[str] | NotGiven = NOT_GIVEN,
-        date_start: List[Union[str, datetime]] | NotGiven = NOT_GIVEN,
-        format: Literal["JSON", "CSV"] | NotGiven = NOT_GIVEN,
-        name: List[str] | NotGiven = NOT_GIVEN,
-        prefix: List[str] | NotGiven = NOT_GIVEN,
-        update_type: List[Literal["ANNOUNCEMENT", "WITHDRAWAL"]] | NotGiven = NOT_GIVEN,
+        agg_interval: Literal["15m", "1h", "1d", "1w"] | Omit = omit,
+        asn: SequenceNotStr[str] | Omit = omit,
+        date_end: SequenceNotStr[Union[str, datetime]] | Omit = omit,
+        date_range: SequenceNotStr[str] | Omit = omit,
+        date_start: SequenceNotStr[Union[str, datetime]] | Omit = omit,
+        format: Literal["JSON", "CSV"] | Omit = omit,
+        name: SequenceNotStr[str] | Omit = omit,
+        prefix: SequenceNotStr[str] | Omit = omit,
+        update_type: List[Literal["ANNOUNCEMENT", "WITHDRAWAL"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BGPTimeseriesResponse:
         """Retrieves BGP updates over time.
 
@@ -213,6 +225,10 @@ class AsyncBGPResource(AsyncAPIResource):
         return AsyncIPsResource(self._client)
 
     @cached_property
+    def rpki(self) -> AsyncRPKIResource:
+        return AsyncRPKIResource(self._client)
+
+    @cached_property
     def with_raw_response(self) -> AsyncBGPResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -234,21 +250,21 @@ class AsyncBGPResource(AsyncAPIResource):
     async def timeseries(
         self,
         *,
-        agg_interval: Literal["15m", "1h", "1d", "1w"] | NotGiven = NOT_GIVEN,
-        asn: List[str] | NotGiven = NOT_GIVEN,
-        date_end: List[Union[str, datetime]] | NotGiven = NOT_GIVEN,
-        date_range: List[str] | NotGiven = NOT_GIVEN,
-        date_start: List[Union[str, datetime]] | NotGiven = NOT_GIVEN,
-        format: Literal["JSON", "CSV"] | NotGiven = NOT_GIVEN,
-        name: List[str] | NotGiven = NOT_GIVEN,
-        prefix: List[str] | NotGiven = NOT_GIVEN,
-        update_type: List[Literal["ANNOUNCEMENT", "WITHDRAWAL"]] | NotGiven = NOT_GIVEN,
+        agg_interval: Literal["15m", "1h", "1d", "1w"] | Omit = omit,
+        asn: SequenceNotStr[str] | Omit = omit,
+        date_end: SequenceNotStr[Union[str, datetime]] | Omit = omit,
+        date_range: SequenceNotStr[str] | Omit = omit,
+        date_start: SequenceNotStr[Union[str, datetime]] | Omit = omit,
+        format: Literal["JSON", "CSV"] | Omit = omit,
+        name: SequenceNotStr[str] | Omit = omit,
+        prefix: SequenceNotStr[str] | Omit = omit,
+        update_type: List[Literal["ANNOUNCEMENT", "WITHDRAWAL"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BGPTimeseriesResponse:
         """Retrieves BGP updates over time.
 
@@ -344,6 +360,10 @@ class BGPResourceWithRawResponse:
     def ips(self) -> IPsResourceWithRawResponse:
         return IPsResourceWithRawResponse(self._bgp.ips)
 
+    @cached_property
+    def rpki(self) -> RPKIResourceWithRawResponse:
+        return RPKIResourceWithRawResponse(self._bgp.rpki)
+
 
 class AsyncBGPResourceWithRawResponse:
     def __init__(self, bgp: AsyncBGPResource) -> None:
@@ -372,6 +392,10 @@ class AsyncBGPResourceWithRawResponse:
     @cached_property
     def ips(self) -> AsyncIPsResourceWithRawResponse:
         return AsyncIPsResourceWithRawResponse(self._bgp.ips)
+
+    @cached_property
+    def rpki(self) -> AsyncRPKIResourceWithRawResponse:
+        return AsyncRPKIResourceWithRawResponse(self._bgp.rpki)
 
 
 class BGPResourceWithStreamingResponse:
@@ -402,6 +426,10 @@ class BGPResourceWithStreamingResponse:
     def ips(self) -> IPsResourceWithStreamingResponse:
         return IPsResourceWithStreamingResponse(self._bgp.ips)
 
+    @cached_property
+    def rpki(self) -> RPKIResourceWithStreamingResponse:
+        return RPKIResourceWithStreamingResponse(self._bgp.rpki)
+
 
 class AsyncBGPResourceWithStreamingResponse:
     def __init__(self, bgp: AsyncBGPResource) -> None:
@@ -430,3 +458,7 @@ class AsyncBGPResourceWithStreamingResponse:
     @cached_property
     def ips(self) -> AsyncIPsResourceWithStreamingResponse:
         return AsyncIPsResourceWithStreamingResponse(self._bgp.ips)
+
+    @cached_property
+    def rpki(self) -> AsyncRPKIResourceWithStreamingResponse:
+        return AsyncRPKIResourceWithStreamingResponse(self._bgp.rpki)

@@ -6,8 +6,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -48,22 +48,22 @@ class SearchesResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        query: str | NotGiven = NOT_GIVEN,
-        references: Literal["", "*", "referral", "referrer"] | NotGiven = NOT_GIVEN,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        query: str | Omit = omit,
+        references: Literal["", "*", "referral", "referrer"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePagination[SearchListResponse]:
         """
         Search for Load Balancing resources.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           query: Search query term.
 
@@ -81,7 +81,7 @@ class SearchesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/load_balancers/search",
+            path_template("/accounts/{account_id}/load_balancers/search", account_id=account_id),
             page=SyncV4PagePagination[SearchListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -126,22 +126,22 @@ class AsyncSearchesResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        query: str | NotGiven = NOT_GIVEN,
-        references: Literal["", "*", "referral", "referrer"] | NotGiven = NOT_GIVEN,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        query: str | Omit = omit,
+        references: Literal["", "*", "referral", "referrer"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SearchListResponse, AsyncV4PagePagination[SearchListResponse]]:
         """
         Search for Load Balancing resources.
 
         Args:
-          account_id: Identifier
+          account_id: Identifier.
 
           query: Search query term.
 
@@ -159,7 +159,7 @@ class AsyncSearchesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/load_balancers/search",
+            path_template("/accounts/{account_id}/load_balancers/search", account_id=account_id),
             page=AsyncV4PagePagination[SearchListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,

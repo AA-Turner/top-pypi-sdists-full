@@ -5,8 +5,9 @@ Doc: https://documentation.mailgun.com/en/latest/api-email-validation.html#email
 
 from __future__ import annotations
 
-from os import path
 from typing import Any
+
+from mailgun.handlers.utils import build_path_from_keys, sanitize_path_segment
 
 
 def handle_address_validate(
@@ -14,22 +15,22 @@ def handle_address_validate(
     _domain: str | None,
     _method: str | None,
     **kwargs: Any,
-) -> Any:
-    """Handle email validation.
+) -> str:
+    """Handle email validation URL construction.
 
-    :param url: Incoming URL dictionary
-    :type url: dict
-    :param _domain: Incoming domain (it's not being used for this handler)
-    :type _domain: str
-    :param _method: Incoming request method (it's not being used for this handler)
-    :type _method: str
-    :param kwargs: kwargs
-    :return: final url for email validation endpoint
+    Args:
+        url: Incoming URL configuration dictionary.
+        _domain: Target domain name (unused in this handler).
+        _method: Incoming request method (unused in this handler).
+        **kwargs: Additional parameters, such as 'list_name'.
+
+    Returns:
+        The final URL for the email validation endpoint.
     """
-    final_keys = path.join("/", *url["keys"][1:]) if url["keys"][1:] else ""
-    if "list_name" in kwargs:
-        url = url["base"] + final_keys + "/" + kwargs["list_name"]
-    else:
-        url = url["base"] + final_keys
+    final_keys = build_path_from_keys(url.get("keys", [])[1:])
+    base_url = str(url["base"]).rstrip("/")
 
-    return url
+    if "list_name" in kwargs:
+        safe_list = sanitize_path_segment(kwargs["list_name"])
+        return f"{base_url}{final_keys}/{safe_list}"
+    return f"{base_url}{final_keys}"

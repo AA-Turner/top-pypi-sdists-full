@@ -25,10 +25,10 @@ import warnings
 import arviz as az
 from meridian import backend
 from meridian import constants
+from meridian.common import errors
 from meridian.model import adstock_hill
 from meridian.model import context
 from meridian.model import equations
-from meridian.model import model
 from meridian.model import transformers
 import numpy as np
 import pandas as pd
@@ -59,7 +59,7 @@ def _validate_non_media_baseline_values_numbers(
 
 # TODO: Remove this method.
 def _get_model_context(
-    meridian: model.Meridian | None,
+    meridian: Any | None,
     model_context: context.ModelContext | None,
 ) -> context.ModelContext:
   """Gets `model_context`, handling the deprecated `meridian` argument."""
@@ -145,58 +145,58 @@ class DataTensors(backend.ExtensionType):
       time: Optional[Sequence[str] | backend.Tensor] = None,
   ):
     self.media = (
-        backend.cast(media, backend.float32) if media is not None else None
+        backend.cast(media, backend.float_dtype) if media is not None else None
     )
     self.media_spend = (
-        backend.cast(media_spend, backend.float32)
+        backend.cast(media_spend, backend.float_dtype)
         if media_spend is not None
         else None
     )
     self.reach = (
-        backend.cast(reach, backend.float32) if reach is not None else None
+        backend.cast(reach, backend.float_dtype) if reach is not None else None
     )
     self.frequency = (
-        backend.cast(frequency, backend.float32)
+        backend.cast(frequency, backend.float_dtype)
         if frequency is not None
         else None
     )
     self.rf_impressions = (
-        backend.cast(rf_impressions, backend.float32)
+        backend.cast(rf_impressions, backend.float_dtype)
         if rf_impressions is not None
         else None
     )
     self.rf_spend = (
-        backend.cast(rf_spend, backend.float32)
+        backend.cast(rf_spend, backend.float_dtype)
         if rf_spend is not None
         else None
     )
     self.organic_media = (
-        backend.cast(organic_media, backend.float32)
+        backend.cast(organic_media, backend.float_dtype)
         if organic_media is not None
         else None
     )
     self.organic_reach = (
-        backend.cast(organic_reach, backend.float32)
+        backend.cast(organic_reach, backend.float_dtype)
         if organic_reach is not None
         else None
     )
     self.organic_frequency = (
-        backend.cast(organic_frequency, backend.float32)
+        backend.cast(organic_frequency, backend.float_dtype)
         if organic_frequency is not None
         else None
     )
     self.non_media_treatments = (
-        backend.cast(non_media_treatments, backend.float32)
+        backend.cast(non_media_treatments, backend.float_dtype)
         if non_media_treatments is not None
         else None
     )
     self.controls = (
-        backend.cast(controls, backend.float32)
+        backend.cast(controls, backend.float_dtype)
         if controls is not None
         else None
     )
     self.revenue_per_kpi = (
-        backend.cast(revenue_per_kpi, backend.float32)
+        backend.cast(revenue_per_kpi, backend.float_dtype)
         if revenue_per_kpi is not None
         else None
     )
@@ -245,7 +245,8 @@ class DataTensors(backend.ExtensionType):
 
   def get_modified_times(
       self,
-      meridian: model.Meridian | None = None,
+      # TODO: Remove this argument.
+      meridian: Any | None = None,
       model_context: context.ModelContext | None = None,
   ) -> int | None:
     """Returns `n_times` of any tensor where `n_times` has been modified.
@@ -297,7 +298,8 @@ class DataTensors(backend.ExtensionType):
   def validate_and_fill_missing_data(
       self,
       required_tensors_names: Sequence[str],
-      meridian: model.Meridian | None = None,
+      # TODO: Remove this argument.
+      meridian: Any | None = None,
       model_context: context.ModelContext | None = None,
       allow_modified_times: bool = True,
   ) -> Self:
@@ -925,7 +927,7 @@ class Analyzer:
   def __init__(
       self,
       # TODO: Remove this argument.
-      meridian: model.Meridian | None = None,
+      meridian: Any | None = None,
       *,
       model_context: context.ModelContext | None = None,
       inference_data: az.InferenceData | None = None,
@@ -1104,18 +1106,18 @@ class Analyzer:
 
     decayed_effect_prior = adstock_hill.compute_decay_weights(
         alpha=backend.to_tensor(
-            prior[backend.newaxis, ...], dtype=backend.float32
+            prior[backend.newaxis, ...], dtype=backend.float_dtype
         ),
-        l_range=backend.to_tensor(l_range, dtype=backend.float32),
+        l_range=backend.to_tensor(l_range, dtype=backend.float_dtype),
         window_size=window_size,
         decay_functions=decay_functions,
         normalize=False,
     )
     decayed_effect_posterior = adstock_hill.compute_decay_weights(
         alpha=backend.to_tensor(
-            posterior[backend.newaxis, ...], dtype=backend.float32
+            posterior[backend.newaxis, ...], dtype=backend.float_dtype
         ),
-        l_range=backend.to_tensor(l_range, dtype=backend.float32),
+        l_range=backend.to_tensor(l_range, dtype=backend.float_dtype),
         window_size=window_size,
         decay_functions=decay_functions,
         normalize=False,
@@ -1664,7 +1666,7 @@ class Analyzer:
       )
     dist_type = constants.POSTERIOR if use_posterior else constants.PRIOR
     if dist_type not in self._inference_data.groups():
-      raise model.NotFittedModelError(
+      raise errors.NotFittedModelError(
           f"sample_{dist_type}() must be called prior to calling"
           " `expected_outcome()`."
       )
@@ -1695,7 +1697,8 @@ class Analyzer:
     n_draws = params.draw.size
     n_chains = params.chain.size
     outcome_means = backend.zeros(
-        (n_chains, 0, self.model_context.n_geos, self.model_context.n_times)
+        (n_chains, 0, self.model_context.n_geos, self.model_context.n_times),
+        dtype=backend.float_dtype,
     )
     batch_starting_indices = np.arange(n_draws, step=batch_size)
     param_list = (
@@ -2161,7 +2164,7 @@ class Analyzer:
     dist_type = constants.POSTERIOR if use_posterior else constants.PRIOR
 
     if dist_type not in self.inference_data.groups():
-      raise model.NotFittedModelError(
+      raise errors.NotFittedModelError(
           f"sample_{dist_type}() must be called prior to calling this method."
       )
 
@@ -2241,7 +2244,8 @@ class Analyzer:
       )
       non_media_treatments0 = backend.broadcast_to(
           backend.to_tensor(
-              non_media_treatments_baseline_normalized, dtype=backend.float32
+              non_media_treatments_baseline_normalized,
+              dtype=backend.float_dtype,
           )[backend.newaxis, backend.newaxis, :],
           data_tensors.non_media_treatments.shape,  # pytype: disable=attribute-error
       )
@@ -2967,7 +2971,7 @@ class Analyzer:
           non_media_baseline_values=non_media_baseline_values,
       )
       new_non_media_treatments_population_scaled = backend.broadcast_to(
-          backend.to_tensor(baseline, dtype=backend.float32)[
+          backend.to_tensor(baseline, dtype=backend.float_dtype)[
               backend.newaxis, backend.newaxis, :
           ],
           ctx.non_media_treatments.shape,
@@ -3818,7 +3822,7 @@ class Analyzer:
           "Must have at least one channel with reach and frequency data."
       )
     if dist_type not in self.inference_data.groups():
-      raise model.NotFittedModelError(
+      raise errors.NotFittedModelError(
           f"sample_{dist_type}() must be called prior to calling this method."
       )
 
@@ -3842,16 +3846,22 @@ class Analyzer:
         filled_data.get_modified_times(model_context=self.model_context)
         or self.model_context.n_times
     )
-    dummy_media = backend.ones((
-        self.model_context.n_geos,
-        n_media_times,
-        self.model_context.n_media_channels,
-    ))
-    dummy_media_spend = backend.ones((
-        self.model_context.n_geos,
-        n_times,
-        self.model_context.n_media_channels,
-    ))
+    dummy_media = backend.ones(
+        (
+            self.model_context.n_geos,
+            n_media_times,
+            self.model_context.n_media_channels,
+        ),
+        dtype=backend.float_dtype,
+    )
+    dummy_media_spend = backend.ones(
+        (
+            self.model_context.n_geos,
+            n_times,
+            self.model_context.n_media_channels,
+        ),
+        dtype=backend.float_dtype,
+    )
 
     max_freq = max_frequency or np.max(
         np.array(self.model_context.rf_tensors.frequency)
@@ -3898,7 +3908,7 @@ class Analyzer:
 
     optimal_frequency = [freq_grid[i] for i in optimal_freq_idx]
     optimal_frequency_values = backend.to_tensor(
-        optimal_frequency, dtype=backend.float32
+        optimal_frequency, dtype=backend.float_dtype
     )
     optimal_frequency_tensor = (
         backend.ones_like(filled_data.rf_impressions) * optimal_frequency_values
@@ -4193,7 +4203,7 @@ class Analyzer:
         calling this method.
     """
     if constants.POSTERIOR not in self._inference_data.groups():
-      raise model.NotFittedModelError(
+      raise errors.NotFittedModelError(
           "sample_posterior() must be called prior to calling this method."
       )
 
@@ -4415,7 +4425,7 @@ class Analyzer:
               selected_times=selected_times,
               use_kpi=use_kpi,
           ).optimal_frequency,
-          dtype=backend.float32,
+          dtype=backend.float_dtype,
       )
       reach = backend.divide(
           filled_data.reach * filled_data.frequency,
@@ -4434,7 +4444,8 @@ class Analyzer:
     for i, multiplier in enumerate(spend_multipliers):
       if multiplier == 0:
         incremental_outcome[i, :, :] = backend.zeros(
-            (len(self.model_context.input_data.get_all_paid_channels()), 3)
+            (len(self.model_context.input_data.get_all_paid_channels()), 3),
+            dtype=backend.float_dtype,
         )  # Last dimension = 3 for the mean, ci_lo and ci_hi.
         continue
       scaled_data = _scale_tensors_by_multiplier(
@@ -4509,7 +4520,7 @@ class Analyzer:
         constants.PRIOR not in self._inference_data.groups()
         or constants.POSTERIOR not in self._inference_data.groups()
     ):
-      raise model.NotFittedModelError(
+      raise errors.NotFittedModelError(
           "sample_prior() and sample_posterior() must be called prior to"
           " calling this method."
       )
@@ -4974,7 +4985,7 @@ class Analyzer:
         constants.PRIOR not in self._inference_data.groups()
         or constants.POSTERIOR not in self._inference_data.groups()
     ):
-      raise model.NotFittedModelError(
+      raise errors.NotFittedModelError(
           "sample_prior() and sample_posterior() must be called prior to"
           " calling this method."
       )

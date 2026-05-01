@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-authz
-Version: 1.14.0
+Version: 1.15.0
 Summary: Open edX AuthZ provides the architecture and foundations of the authorization framework.
 Home-page: https://github.com/openedx/openedx-authz
 Author: Open edX Project
@@ -197,6 +197,14 @@ Change Log
 
 Unreleased
 **********
+
+1.15.0 - 2026-04-30
+*******************
+
+Added
+=====
+
+* Add support for course permission in Authz REST APIs (#274)
 
 1.14.0 - 2026-04-22
 *******************

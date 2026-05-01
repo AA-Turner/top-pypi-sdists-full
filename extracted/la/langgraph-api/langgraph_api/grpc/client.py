@@ -19,8 +19,69 @@ from langgraph_grpc_common.proto.core_api_pb2_grpc import (
 )
 
 from langgraph_api import config
+from langgraph_api.logging import worker_config
 
 logger = structlog.stdlib.get_logger(__name__)
+
+_REQUEST_ID_METADATA_KEY = "x-request-id"
+
+
+class _RequestIdCallDetails:
+    """Duck-typed ClientCallDetails with overridden metadata.
+
+    Does not subclass aio.ClientCallDetails because its shape varies across
+    grpcio versions (namedtuple vs. regular class), causing __new__ errors.
+    gRPC reads call details by attribute access, so duck typing is sufficient.
+    """
+
+    __slots__ = (
+        "compression",
+        "credentials",
+        "metadata",
+        "method",
+        "timeout",
+        "wait_for_ready",
+    )
+
+    def __init__(
+        self, original: aio.ClientCallDetails, metadata: list[tuple[str, str]]
+    ) -> None:
+        self.method = original.method
+        self.timeout = original.timeout
+        self.metadata = metadata
+        self.credentials = original.credentials
+        self.wait_for_ready = original.wait_for_ready
+        self.compression = getattr(original, "compression", None)
+
+
+class _RequestIdInterceptor(
+    aio.UnaryUnaryClientInterceptor,
+    aio.UnaryStreamClientInterceptor,
+    aio.StreamStreamClientInterceptor,
+):
+    """Injects x-request-id from the current logging context into outgoing gRPC metadata."""
+
+    def _inject(
+        self, client_call_details: aio.ClientCallDetails
+    ) -> aio.ClientCallDetails:
+        ctx = worker_config.get()
+        request_id: str | None = ctx.get("request_id") if ctx else None
+        if not request_id:
+            return client_call_details
+        metadata = list(client_call_details.metadata or [])
+        metadata.append((_REQUEST_ID_METADATA_KEY, request_id))
+        return _RequestIdCallDetails(client_call_details, metadata)
+
+    async def intercept_unary_unary(self, continuation, client_call_details, request):
+        return await continuation(self._inject(client_call_details), request)
+
+    async def intercept_unary_stream(self, continuation, client_call_details, request):
+        return await continuation(self._inject(client_call_details), request)
+
+    async def intercept_stream_stream(
+        self, continuation, client_call_details, request_iterator
+    ):
+        return await continuation(self._inject(client_call_details), request_iterator)
 
 
 # Shared gRPC client pools (main thread + thread-local for isolated loops).
@@ -79,7 +140,11 @@ class GrpcClient:
             ),
         ]
 
-        self._channel = aio.insecure_channel(self.server_address, options=options)
+        self._channel = aio.insecure_channel(
+            self.server_address,
+            options=options,
+            interceptors=[_RequestIdInterceptor()],
+        )
 
         self._assistants_stub = AssistantsStub(self._channel)
         self._runs_stub = RunsStub(self._channel)

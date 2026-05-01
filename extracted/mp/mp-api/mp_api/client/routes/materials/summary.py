@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import warnings
 from collections import defaultdict
+from itertools import chain, product
 
 from emmet.core.summary import HasProps, SummaryDoc
 from emmet.core.symmetry import CrystalSystem
@@ -73,6 +74,8 @@ class SummaryRester(BaseRester):
         chunk_size: int = 1000,
         all_fields: bool = True,
         fields: list[str] | None = None,
+        _page: int | None = None,
+        _sort_fields: str | None = None,
         **kwargs,
     ) -> list[SummaryDoc] | list[dict]:
         """Query core data using a variety of search criteria.
@@ -150,6 +153,8 @@ class SummaryRester(BaseRester):
             all_fields (bool): Whether to return all fields in the document. Defaults to True.
             fields (List[str]): List of fields in SummaryDoc to return data for.
                 Default is material_id if all_fields is False.
+            _page (int or None) : Page of the results to skip to.
+            _sort_fields (str or None) : Field to sort on. Including a leading "-" sign will reverse sort order.
 
         Returns:
             ([SummaryDoc], [dict]) List of SummaryDoc documents or dictionaries.
@@ -181,6 +186,8 @@ class SummaryRester(BaseRester):
             "weighted_surface_energy",
             "weighted_work_function",
             "shape_factor",
+            "_page",
+            "_sort_fields",
         ]
 
         min_max_name_dict = {
@@ -200,13 +207,16 @@ class SummaryRester(BaseRester):
         mmnd_inv = {v: k for k, v in min_max_name_dict.items() if k != v}
 
         # Set user query params from `locals`
+        _locals = locals()
         user_settings = {
-            k: v for k, v in locals().items() if k in min_max_name_dict and v
+            k: v for k, v in _locals.items() if k in min_max_name_dict and v is not None
         }
 
         # Check to see if user specified _search fields using **kwargs,
         # or if any of the **kwargs are unparsable
-        db_keys = {k: [] for k in ("duplicate", "warn", "unknown")}
+        db_keys: dict[str, list[str]] = {
+            k: [] for k in ("duplicate", "warn", "unknown")
+        }
         for k, v in kwargs.items():
             category = "unknown"
             if non_db_k := mmnd_inv.get(k):
@@ -276,18 +286,23 @@ class SummaryRester(BaseRester):
                 raise MPRestError("\n".join([*warning_strs, *exc_strs, *warn_ref_strs]))
             if warn_ref_strs:
                 warnings.warn(
-                    "\n".join([*warning_strs, *warn_ref_strs]), category=MPRestWarning
+                    "\n".join([*warning_strs, *warn_ref_strs]),
+                    category=MPRestWarning,
+                    stacklevel=2,
                 )
 
         for param, value in user_settings.items():
-            if isinstance(value, (int, float)):
-                value = (value, value)
-            query_params.update(
-                {
-                    f"{min_max_name_dict[param]}_min": value[0],
-                    f"{min_max_name_dict[param]}_max": value[1],
-                }
-            )
+            if param in {"_page", "_sort_fields"}:
+                query_params[param] = value
+            else:
+                if isinstance(value, (int, float)):
+                    value = (value, value)
+                query_params.update(
+                    {
+                        f"{min_max_name_dict[param]}_min": value[0],
+                        f"{min_max_name_dict[param]}_max": value[1],
+                    }
+                )
 
         if material_ids:
             if isinstance(material_ids, str):
@@ -295,43 +310,28 @@ class SummaryRester(BaseRester):
 
             query_params.update({"material_ids": ",".join(validate_ids(material_ids))})
 
-        if deprecated is not None:
-            query_params.update({"deprecated": deprecated})
-
-        if formula:
-            if isinstance(formula, str):
-                formula = [formula]
-
-            query_params.update({"formula": ",".join(formula)})
-
-        if chemsys:
-            if isinstance(chemsys, str):
-                chemsys = [chemsys]
-
-            query_params.update({"chemsys": ",".join(chemsys)})
-
-        if elements:
-            query_params.update({"elements": ",".join(elements)})
-
-        if exclude_elements is not None:
-            query_params.update({"exclude_elements": ",".join(exclude_elements)})
-
-        if possible_species is not None:
-            query_params.update({"possible_species": ",".join(possible_species)})
+        for k in (
+            "formula",
+            "chemsys",
+            "elements",
+            "exclude_elements",
+            "possible_species",
+        ):
+            if (v := _locals.get(k)) is not None:
+                query_params[k] = ",".join([v] if isinstance(v, str) else v)
 
         symm_cardinality = {
             "crystal_system": 7,
             "spacegroup_number": 230,
             "spacegroup_symbol": 230,
         }
+        batched_symm_query = {}
         for k, cardinality in symm_cardinality.items():
-            if hasattr(symm_vals := locals().get(k), "__len__") and not isinstance(
-                symm_vals, str
-            ):
+            if isinstance(symm_vals := _locals.get(k), list | tuple | set):
                 if len(symm_vals) < cardinality // 2:
-                    query_params.update({k: ",".join(str(v) for v in symm_vals)})
+                    batched_symm_query[k] = symm_vals
                 else:
-                    raise ValueError(
+                    raise MPRestError(
                         f"Querying `{k}` by a list of values is only "
                         f"supported for up to {cardinality//2 - 1} values. "
                         f"For your query, retrieve all data first and then filter on `{k}`."
@@ -339,20 +339,19 @@ class SummaryRester(BaseRester):
             else:
                 query_params.update({k: symm_vals})
 
-        if is_stable is not None:
-            query_params.update({"is_stable": is_stable})
-
-        if is_gap_direct is not None:
-            query_params.update({"is_gap_direct": is_gap_direct})
-
-        if is_metal is not None:
-            query_params.update({"is_metal": is_metal})
+        for k in (
+            "deprecated",
+            "is_stable",
+            "is_gap_direct",
+            "is_metal",
+            "has_reconstructed",
+            "theoretical",
+        ):
+            if (v := _locals.get(k)) is not None:
+                query_params[k] = v
 
         if magnetic_ordering:
             query_params.update({"ordering": magnetic_ordering.value})
-
-        if has_reconstructed is not None:
-            query_params.update({"has_reconstructed": has_reconstructed})
 
         if has_props:
             has_props_clean = []
@@ -364,9 +363,6 @@ class SummaryRester(BaseRester):
 
             query_params.update({"has_props": ",".join(has_props_clean)})
 
-        if theoretical is not None:
-            query_params.update({"theoretical": theoretical})
-
         if not include_gnome:
             query_params.update({"batch_id_not_eq": "gnome_r2scan_statics"})
 
@@ -376,7 +372,25 @@ class SummaryRester(BaseRester):
             if query_params[entry] is not None
         }
 
-        return super()._search(
+        if batched_symm_query:
+            ordered_symm_key = sorted(batched_symm_query)
+            return list(
+                chain.from_iterable(
+                    self._search(  # type: ignore[return-value]
+                        num_chunks=num_chunks,
+                        chunk_size=chunk_size,
+                        all_fields=all_fields,
+                        fields=fields,
+                        **query_params,
+                        **{sk: symm_params[i] for i, sk in enumerate(ordered_symm_key)},
+                    )
+                    for symm_params in product(
+                        *[batched_symm_query[k] for k in ordered_symm_key]
+                    )
+                )
+            )
+
+        return super()._search(  # type: ignore[return-value]
             num_chunks=num_chunks,
             chunk_size=chunk_size,
             all_fields=all_fields,

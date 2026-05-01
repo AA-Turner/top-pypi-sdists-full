@@ -6,8 +6,8 @@ from typing import Type, Iterable, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -49,18 +49,19 @@ class TokenResource(SyncAPIResource):
         identifier: str,
         *,
         account_id: str,
-        id: str | NotGiven = NOT_GIVEN,
-        access_rules: Iterable[token_create_params.AccessRule] | NotGiven = NOT_GIVEN,
-        downloadable: bool | NotGiven = NOT_GIVEN,
-        exp: int | NotGiven = NOT_GIVEN,
-        nbf: int | NotGiven = NOT_GIVEN,
-        pem: str | NotGiven = NOT_GIVEN,
+        id: str | Omit = omit,
+        access_rules: Iterable[token_create_params.AccessRule] | Omit = omit,
+        downloadable: bool | Omit = omit,
+        exp: int | Omit = omit,
+        flags: token_create_params.Flags | Omit = omit,
+        nbf: int | Omit = omit,
+        pem: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TokenCreateResponse]:
         """Creates a signed URL token for a video.
 
@@ -87,6 +88,8 @@ class TokenResource(SyncAPIResource):
               accepted. The maximum time specification is 24 hours from issuing time. If this
               field is not set, the default is one hour after issuing.
 
+          flags: Optional flags for the signed token.
+
           nbf: The optional unix epoch timestamp that specifies the time before a the token is
               not accepted. If this field is not set, the default is one hour before issuing.
 
@@ -106,13 +109,16 @@ class TokenResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._post(
-            f"/accounts/{account_id}/stream/{identifier}/token",
+            path_template(
+                "/accounts/{account_id}/stream/{identifier}/token", account_id=account_id, identifier=identifier
+            ),
             body=maybe_transform(
                 {
                     "id": id,
                     "access_rules": access_rules,
                     "downloadable": downloadable,
                     "exp": exp,
+                    "flags": flags,
                     "nbf": nbf,
                     "pem": pem,
                 },
@@ -154,18 +160,19 @@ class AsyncTokenResource(AsyncAPIResource):
         identifier: str,
         *,
         account_id: str,
-        id: str | NotGiven = NOT_GIVEN,
-        access_rules: Iterable[token_create_params.AccessRule] | NotGiven = NOT_GIVEN,
-        downloadable: bool | NotGiven = NOT_GIVEN,
-        exp: int | NotGiven = NOT_GIVEN,
-        nbf: int | NotGiven = NOT_GIVEN,
-        pem: str | NotGiven = NOT_GIVEN,
+        id: str | Omit = omit,
+        access_rules: Iterable[token_create_params.AccessRule] | Omit = omit,
+        downloadable: bool | Omit = omit,
+        exp: int | Omit = omit,
+        flags: token_create_params.Flags | Omit = omit,
+        nbf: int | Omit = omit,
+        pem: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TokenCreateResponse]:
         """Creates a signed URL token for a video.
 
@@ -192,6 +199,8 @@ class AsyncTokenResource(AsyncAPIResource):
               accepted. The maximum time specification is 24 hours from issuing time. If this
               field is not set, the default is one hour after issuing.
 
+          flags: Optional flags for the signed token.
+
           nbf: The optional unix epoch timestamp that specifies the time before a the token is
               not accepted. If this field is not set, the default is one hour before issuing.
 
@@ -211,13 +220,16 @@ class AsyncTokenResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._post(
-            f"/accounts/{account_id}/stream/{identifier}/token",
+            path_template(
+                "/accounts/{account_id}/stream/{identifier}/token", account_id=account_id, identifier=identifier
+            ),
             body=await async_maybe_transform(
                 {
                     "id": id,
                     "access_rules": access_rules,
                     "downloadable": downloadable,
                     "exp": exp,
+                    "flags": flags,
                     "nbf": nbf,
                     "pem": pem,
                 },

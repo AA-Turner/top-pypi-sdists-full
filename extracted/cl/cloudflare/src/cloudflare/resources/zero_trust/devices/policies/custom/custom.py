@@ -22,8 +22,8 @@ from .includes import (
     IncludesResourceWithStreamingResponse,
     AsyncIncludesResourceWithStreamingResponse,
 )
-from ......_types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ......_utils import maybe_transform, async_maybe_transform
+from ......_types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ......_utils import path_template, maybe_transform, async_maybe_transform
 from ......_compat import cached_property
 from ......_resource import SyncAPIResource, AsyncAPIResource
 from ......_response import (
@@ -90,31 +90,32 @@ class CustomResource(SyncAPIResource):
         match: str,
         name: str,
         precedence: float,
-        allow_mode_switch: bool | NotGiven = NOT_GIVEN,
-        allow_updates: bool | NotGiven = NOT_GIVEN,
-        allowed_to_leave: bool | NotGiven = NOT_GIVEN,
-        auto_connect: float | NotGiven = NOT_GIVEN,
-        captive_portal: float | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        disable_auto_fallback: bool | NotGiven = NOT_GIVEN,
-        enabled: bool | NotGiven = NOT_GIVEN,
-        exclude: Iterable[SplitTunnelExcludeParam] | NotGiven = NOT_GIVEN,
-        exclude_office_ips: bool | NotGiven = NOT_GIVEN,
-        include: Iterable[SplitTunnelIncludeParam] | NotGiven = NOT_GIVEN,
-        lan_allow_minutes: float | NotGiven = NOT_GIVEN,
-        lan_allow_subnet_size: float | NotGiven = NOT_GIVEN,
-        register_interface_ip_with_dns: bool | NotGiven = NOT_GIVEN,
-        sccm_vpn_boundary_support: bool | NotGiven = NOT_GIVEN,
-        service_mode_v2: custom_create_params.ServiceModeV2 | NotGiven = NOT_GIVEN,
-        support_url: str | NotGiven = NOT_GIVEN,
-        switch_locked: bool | NotGiven = NOT_GIVEN,
-        tunnel_protocol: str | NotGiven = NOT_GIVEN,
+        allow_mode_switch: bool | Omit = omit,
+        allow_updates: bool | Omit = omit,
+        allowed_to_leave: bool | Omit = omit,
+        auto_connect: float | Omit = omit,
+        captive_portal: float | Omit = omit,
+        description: str | Omit = omit,
+        disable_auto_fallback: bool | Omit = omit,
+        enabled: bool | Omit = omit,
+        exclude: Iterable[SplitTunnelExcludeParam] | Omit = omit,
+        exclude_office_ips: bool | Omit = omit,
+        include: Iterable[SplitTunnelIncludeParam] | Omit = omit,
+        lan_allow_minutes: float | Omit = omit,
+        lan_allow_subnet_size: float | Omit = omit,
+        register_interface_ip_with_dns: bool | Omit = omit,
+        sccm_vpn_boundary_support: bool | Omit = omit,
+        service_mode_v2: custom_create_params.ServiceModeV2 | Omit = omit,
+        support_url: str | Omit = omit,
+        switch_locked: bool | Omit = omit,
+        tunnel_protocol: str | Omit = omit,
+        virtual_networks: Optional[custom_create_params.VirtualNetworks] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SettingsPolicy]:
         """
         Creates a device settings profile to be applied to certain devices matching the
@@ -178,6 +179,8 @@ class CustomResource(SyncAPIResource):
 
           tunnel_protocol: Determines which tunnel protocol to use.
 
+          virtual_networks: Virtual network access settings for the device.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -189,7 +192,7 @@ class CustomResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/devices/policy",
+            path_template("/accounts/{account_id}/devices/policy", account_id=account_id),
             body=maybe_transform(
                 {
                     "match": match,
@@ -214,6 +217,7 @@ class CustomResource(SyncAPIResource):
                     "support_url": support_url,
                     "switch_locked": switch_locked,
                     "tunnel_protocol": tunnel_protocol,
+                    "virtual_networks": virtual_networks,
                 },
                 custom_create_params.CustomCreateParams,
             ),
@@ -236,7 +240,7 @@ class CustomResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[SettingsPolicy]:
         """
         Fetches a list of the device settings profiles for an account.
@@ -253,7 +257,7 @@ class CustomResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices/policies",
+            path_template("/accounts/{account_id}/devices/policies", account_id=account_id),
             page=SyncSinglePage[SettingsPolicy],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -271,7 +275,7 @@ class CustomResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[SettingsPolicy]:
         """
         Deletes a device settings profile and fetches a list of the remaining profiles
@@ -291,7 +295,9 @@ class CustomResource(SyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices/policy/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/devices/policy/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             page=SyncSinglePage[SettingsPolicy],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -305,34 +311,35 @@ class CustomResource(SyncAPIResource):
         policy_id: str,
         *,
         account_id: str,
-        allow_mode_switch: bool | NotGiven = NOT_GIVEN,
-        allow_updates: bool | NotGiven = NOT_GIVEN,
-        allowed_to_leave: bool | NotGiven = NOT_GIVEN,
-        auto_connect: float | NotGiven = NOT_GIVEN,
-        captive_portal: float | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        disable_auto_fallback: bool | NotGiven = NOT_GIVEN,
-        enabled: bool | NotGiven = NOT_GIVEN,
-        exclude: Iterable[SplitTunnelExcludeParam] | NotGiven = NOT_GIVEN,
-        exclude_office_ips: bool | NotGiven = NOT_GIVEN,
-        include: Iterable[SplitTunnelIncludeParam] | NotGiven = NOT_GIVEN,
-        lan_allow_minutes: float | NotGiven = NOT_GIVEN,
-        lan_allow_subnet_size: float | NotGiven = NOT_GIVEN,
-        match: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        precedence: float | NotGiven = NOT_GIVEN,
-        register_interface_ip_with_dns: bool | NotGiven = NOT_GIVEN,
-        sccm_vpn_boundary_support: bool | NotGiven = NOT_GIVEN,
-        service_mode_v2: custom_edit_params.ServiceModeV2 | NotGiven = NOT_GIVEN,
-        support_url: str | NotGiven = NOT_GIVEN,
-        switch_locked: bool | NotGiven = NOT_GIVEN,
-        tunnel_protocol: str | NotGiven = NOT_GIVEN,
+        allow_mode_switch: bool | Omit = omit,
+        allow_updates: bool | Omit = omit,
+        allowed_to_leave: bool | Omit = omit,
+        auto_connect: float | Omit = omit,
+        captive_portal: float | Omit = omit,
+        description: str | Omit = omit,
+        disable_auto_fallback: bool | Omit = omit,
+        enabled: bool | Omit = omit,
+        exclude: Iterable[SplitTunnelExcludeParam] | Omit = omit,
+        exclude_office_ips: bool | Omit = omit,
+        include: Iterable[SplitTunnelIncludeParam] | Omit = omit,
+        lan_allow_minutes: float | Omit = omit,
+        lan_allow_subnet_size: float | Omit = omit,
+        match: str | Omit = omit,
+        name: str | Omit = omit,
+        precedence: float | Omit = omit,
+        register_interface_ip_with_dns: bool | Omit = omit,
+        sccm_vpn_boundary_support: bool | Omit = omit,
+        service_mode_v2: custom_edit_params.ServiceModeV2 | Omit = omit,
+        support_url: str | Omit = omit,
+        switch_locked: bool | Omit = omit,
+        tunnel_protocol: str | Omit = omit,
+        virtual_networks: Optional[custom_edit_params.VirtualNetworks] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SettingsPolicy]:
         """
         Updates a configured device settings profile.
@@ -395,6 +402,8 @@ class CustomResource(SyncAPIResource):
 
           tunnel_protocol: Determines which tunnel protocol to use.
 
+          virtual_networks: Virtual network access settings for the device.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -408,7 +417,9 @@ class CustomResource(SyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/devices/policy/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/devices/policy/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             body=maybe_transform(
                 {
                     "allow_mode_switch": allow_mode_switch,
@@ -433,6 +444,7 @@ class CustomResource(SyncAPIResource):
                     "support_url": support_url,
                     "switch_locked": switch_locked,
                     "tunnel_protocol": tunnel_protocol,
+                    "virtual_networks": virtual_networks,
                 },
                 custom_edit_params.CustomEditParams,
             ),
@@ -456,7 +468,7 @@ class CustomResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SettingsPolicy]:
         """
         Fetches a device settings profile by ID.
@@ -475,7 +487,9 @@ class CustomResource(SyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return self._get(
-            f"/accounts/{account_id}/devices/policy/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/devices/policy/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -526,31 +540,32 @@ class AsyncCustomResource(AsyncAPIResource):
         match: str,
         name: str,
         precedence: float,
-        allow_mode_switch: bool | NotGiven = NOT_GIVEN,
-        allow_updates: bool | NotGiven = NOT_GIVEN,
-        allowed_to_leave: bool | NotGiven = NOT_GIVEN,
-        auto_connect: float | NotGiven = NOT_GIVEN,
-        captive_portal: float | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        disable_auto_fallback: bool | NotGiven = NOT_GIVEN,
-        enabled: bool | NotGiven = NOT_GIVEN,
-        exclude: Iterable[SplitTunnelExcludeParam] | NotGiven = NOT_GIVEN,
-        exclude_office_ips: bool | NotGiven = NOT_GIVEN,
-        include: Iterable[SplitTunnelIncludeParam] | NotGiven = NOT_GIVEN,
-        lan_allow_minutes: float | NotGiven = NOT_GIVEN,
-        lan_allow_subnet_size: float | NotGiven = NOT_GIVEN,
-        register_interface_ip_with_dns: bool | NotGiven = NOT_GIVEN,
-        sccm_vpn_boundary_support: bool | NotGiven = NOT_GIVEN,
-        service_mode_v2: custom_create_params.ServiceModeV2 | NotGiven = NOT_GIVEN,
-        support_url: str | NotGiven = NOT_GIVEN,
-        switch_locked: bool | NotGiven = NOT_GIVEN,
-        tunnel_protocol: str | NotGiven = NOT_GIVEN,
+        allow_mode_switch: bool | Omit = omit,
+        allow_updates: bool | Omit = omit,
+        allowed_to_leave: bool | Omit = omit,
+        auto_connect: float | Omit = omit,
+        captive_portal: float | Omit = omit,
+        description: str | Omit = omit,
+        disable_auto_fallback: bool | Omit = omit,
+        enabled: bool | Omit = omit,
+        exclude: Iterable[SplitTunnelExcludeParam] | Omit = omit,
+        exclude_office_ips: bool | Omit = omit,
+        include: Iterable[SplitTunnelIncludeParam] | Omit = omit,
+        lan_allow_minutes: float | Omit = omit,
+        lan_allow_subnet_size: float | Omit = omit,
+        register_interface_ip_with_dns: bool | Omit = omit,
+        sccm_vpn_boundary_support: bool | Omit = omit,
+        service_mode_v2: custom_create_params.ServiceModeV2 | Omit = omit,
+        support_url: str | Omit = omit,
+        switch_locked: bool | Omit = omit,
+        tunnel_protocol: str | Omit = omit,
+        virtual_networks: Optional[custom_create_params.VirtualNetworks] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SettingsPolicy]:
         """
         Creates a device settings profile to be applied to certain devices matching the
@@ -614,6 +629,8 @@ class AsyncCustomResource(AsyncAPIResource):
 
           tunnel_protocol: Determines which tunnel protocol to use.
 
+          virtual_networks: Virtual network access settings for the device.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -625,7 +642,7 @@ class AsyncCustomResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/devices/policy",
+            path_template("/accounts/{account_id}/devices/policy", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "match": match,
@@ -650,6 +667,7 @@ class AsyncCustomResource(AsyncAPIResource):
                     "support_url": support_url,
                     "switch_locked": switch_locked,
                     "tunnel_protocol": tunnel_protocol,
+                    "virtual_networks": virtual_networks,
                 },
                 custom_create_params.CustomCreateParams,
             ),
@@ -672,7 +690,7 @@ class AsyncCustomResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SettingsPolicy, AsyncSinglePage[SettingsPolicy]]:
         """
         Fetches a list of the device settings profiles for an account.
@@ -689,7 +707,7 @@ class AsyncCustomResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices/policies",
+            path_template("/accounts/{account_id}/devices/policies", account_id=account_id),
             page=AsyncSinglePage[SettingsPolicy],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -707,7 +725,7 @@ class AsyncCustomResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SettingsPolicy, AsyncSinglePage[SettingsPolicy]]:
         """
         Deletes a device settings profile and fetches a list of the remaining profiles
@@ -727,7 +745,9 @@ class AsyncCustomResource(AsyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices/policy/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/devices/policy/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             page=AsyncSinglePage[SettingsPolicy],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -741,34 +761,35 @@ class AsyncCustomResource(AsyncAPIResource):
         policy_id: str,
         *,
         account_id: str,
-        allow_mode_switch: bool | NotGiven = NOT_GIVEN,
-        allow_updates: bool | NotGiven = NOT_GIVEN,
-        allowed_to_leave: bool | NotGiven = NOT_GIVEN,
-        auto_connect: float | NotGiven = NOT_GIVEN,
-        captive_portal: float | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        disable_auto_fallback: bool | NotGiven = NOT_GIVEN,
-        enabled: bool | NotGiven = NOT_GIVEN,
-        exclude: Iterable[SplitTunnelExcludeParam] | NotGiven = NOT_GIVEN,
-        exclude_office_ips: bool | NotGiven = NOT_GIVEN,
-        include: Iterable[SplitTunnelIncludeParam] | NotGiven = NOT_GIVEN,
-        lan_allow_minutes: float | NotGiven = NOT_GIVEN,
-        lan_allow_subnet_size: float | NotGiven = NOT_GIVEN,
-        match: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        precedence: float | NotGiven = NOT_GIVEN,
-        register_interface_ip_with_dns: bool | NotGiven = NOT_GIVEN,
-        sccm_vpn_boundary_support: bool | NotGiven = NOT_GIVEN,
-        service_mode_v2: custom_edit_params.ServiceModeV2 | NotGiven = NOT_GIVEN,
-        support_url: str | NotGiven = NOT_GIVEN,
-        switch_locked: bool | NotGiven = NOT_GIVEN,
-        tunnel_protocol: str | NotGiven = NOT_GIVEN,
+        allow_mode_switch: bool | Omit = omit,
+        allow_updates: bool | Omit = omit,
+        allowed_to_leave: bool | Omit = omit,
+        auto_connect: float | Omit = omit,
+        captive_portal: float | Omit = omit,
+        description: str | Omit = omit,
+        disable_auto_fallback: bool | Omit = omit,
+        enabled: bool | Omit = omit,
+        exclude: Iterable[SplitTunnelExcludeParam] | Omit = omit,
+        exclude_office_ips: bool | Omit = omit,
+        include: Iterable[SplitTunnelIncludeParam] | Omit = omit,
+        lan_allow_minutes: float | Omit = omit,
+        lan_allow_subnet_size: float | Omit = omit,
+        match: str | Omit = omit,
+        name: str | Omit = omit,
+        precedence: float | Omit = omit,
+        register_interface_ip_with_dns: bool | Omit = omit,
+        sccm_vpn_boundary_support: bool | Omit = omit,
+        service_mode_v2: custom_edit_params.ServiceModeV2 | Omit = omit,
+        support_url: str | Omit = omit,
+        switch_locked: bool | Omit = omit,
+        tunnel_protocol: str | Omit = omit,
+        virtual_networks: Optional[custom_edit_params.VirtualNetworks] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SettingsPolicy]:
         """
         Updates a configured device settings profile.
@@ -831,6 +852,8 @@ class AsyncCustomResource(AsyncAPIResource):
 
           tunnel_protocol: Determines which tunnel protocol to use.
 
+          virtual_networks: Virtual network access settings for the device.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -844,7 +867,9 @@ class AsyncCustomResource(AsyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/devices/policy/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/devices/policy/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             body=await async_maybe_transform(
                 {
                     "allow_mode_switch": allow_mode_switch,
@@ -869,6 +894,7 @@ class AsyncCustomResource(AsyncAPIResource):
                     "support_url": support_url,
                     "switch_locked": switch_locked,
                     "tunnel_protocol": tunnel_protocol,
+                    "virtual_networks": virtual_networks,
                 },
                 custom_edit_params.CustomEditParams,
             ),
@@ -892,7 +918,7 @@ class AsyncCustomResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SettingsPolicy]:
         """
         Fetches a device settings profile by ID.
@@ -911,7 +937,9 @@ class AsyncCustomResource(AsyncAPIResource):
         if not policy_id:
             raise ValueError(f"Expected a non-empty value for `policy_id` but received {policy_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/devices/policy/{policy_id}",
+            path_template(
+                "/accounts/{account_id}/devices/policy/{policy_id}", account_id=account_id, policy_id=policy_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

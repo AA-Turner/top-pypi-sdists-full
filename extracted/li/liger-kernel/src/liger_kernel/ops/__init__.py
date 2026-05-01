@@ -30,6 +30,9 @@ Note: Direct imports from submodules (e.g., from liger_kernel.ops.geglu import .
 # All of these can be replaced by vendor-specific implementations.
 # =============================================================================
 
+from liger_kernel.ops.attn_res import LigerAttnResFunction  # noqa: F401
+from liger_kernel.ops.attn_res import attn_res_backward  # noqa: F401
+from liger_kernel.ops.attn_res import attn_res_forward  # noqa: F401
 from liger_kernel.ops.cross_entropy import LigerCrossEntropyFunction  # noqa: F401
 from liger_kernel.ops.cross_entropy import cross_entropy_backward  # noqa: F401
 from liger_kernel.ops.cross_entropy import cross_entropy_forward  # noqa: F401
@@ -44,6 +47,7 @@ from liger_kernel.ops.fused_linear_cross_entropy import fused_linear_cross_entro
 from liger_kernel.ops.fused_linear_jsd import LigerFusedLinearJSDFunction  # noqa: F401
 from liger_kernel.ops.fused_linear_jsd import fused_linear_jsd_backward  # noqa: F401
 from liger_kernel.ops.fused_linear_jsd import fused_linear_jsd_forward  # noqa: F401
+from liger_kernel.ops.fused_moe import LigerFusedMoEFunction  # noqa: F401
 from liger_kernel.ops.fused_neighborhood_attention import LigerFusedNeighborhoodAttentionFunction  # noqa: F401
 from liger_kernel.ops.geglu import LigerGELUMulFunction  # noqa: F401
 from liger_kernel.ops.geglu import geglu_backward  # noqa: F401
@@ -60,11 +64,17 @@ from liger_kernel.ops.layer_norm import LigerLayerNormFunction  # noqa: F401
 from liger_kernel.ops.layer_norm import layer_norm_backward  # noqa: F401
 from liger_kernel.ops.layer_norm import layer_norm_forward  # noqa: F401
 from liger_kernel.ops.llama4_rope import LigerLlama4RopeFunction  # noqa: F401
+from liger_kernel.ops.mhc import LigerMHCCoeffsFunction  # noqa: F401
+from liger_kernel.ops.mhc import LigerMHCPostResFunction  # noqa: F401
+from liger_kernel.ops.mhc import LigerMHCPreFunction  # noqa: F401
 from liger_kernel.ops.multi_token_attention import LigerMultiTokenAttentionFunction  # noqa: F401
 from liger_kernel.ops.poly_norm import LigerPolyNormFunction  # noqa: F401
 from liger_kernel.ops.poly_norm import poly_norm_backward  # noqa: F401
 from liger_kernel.ops.poly_norm import poly_norm_forward  # noqa: F401
 from liger_kernel.ops.qwen2vl_mrope import LigerQwen2VLMRopeFunction  # noqa: F401
+from liger_kernel.ops.relu_squared import LigerReLUSquaredFunction  # noqa: F401
+from liger_kernel.ops.relu_squared import relu_squared_backward  # noqa: F401
+from liger_kernel.ops.relu_squared import relu_squared_forward  # noqa: F401
 from liger_kernel.ops.rms_norm import LigerRMSNormFunction  # noqa: F401
 from liger_kernel.ops.rms_norm import rms_norm_backward  # noqa: F401
 from liger_kernel.ops.rms_norm import rms_norm_forward  # noqa: F401

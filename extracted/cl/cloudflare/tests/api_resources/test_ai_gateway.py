@@ -34,7 +34,6 @@ class TestAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         )
         assert_matches_type(AIGatewayCreateResponse, ai_gateway, path=["response"])
 
@@ -48,12 +47,17 @@ class TestAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
             authentication=True,
             log_management=10000,
             log_management_strategy="STOP_INSERTING",
             logpush=True,
             logpush_public_key="xxxxxxxxxxxxxxxx",
+            rate_limiting_technique="fixed",
+            retry_backoff="constant",
+            retry_delay=0,
+            retry_max_attempts=1,
+            workers_ai_billing_mode="postpaid",
+            zdr=True,
         )
         assert_matches_type(AIGatewayCreateResponse, ai_gateway, path=["response"])
 
@@ -67,7 +71,6 @@ class TestAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         )
 
         assert response.is_closed is True
@@ -85,7 +88,6 @@ class TestAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -106,7 +108,6 @@ class TestAIGateway:
                 collect_logs=True,
                 rate_limiting_interval=0,
                 rate_limiting_limit=0,
-                rate_limiting_technique="fixed",
             )
 
     @parametrize
@@ -119,7 +120,6 @@ class TestAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         )
         assert_matches_type(AIGatewayUpdateResponse, ai_gateway, path=["response"])
 
@@ -133,12 +133,35 @@ class TestAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
             authentication=True,
+            dlp={
+                "action": "BLOCK",
+                "enabled": True,
+                "profiles": ["string"],
+            },
             log_management=10000,
             log_management_strategy="STOP_INSERTING",
             logpush=True,
             logpush_public_key="xxxxxxxxxxxxxxxx",
+            otel=[
+                {
+                    "authorization": "authorization",
+                    "headers": {"foo": "string"},
+                    "url": "url",
+                    "content_type": "json",
+                }
+            ],
+            rate_limiting_technique="fixed",
+            retry_backoff="constant",
+            retry_delay=0,
+            retry_max_attempts=1,
+            store_id="store_id",
+            stripe={
+                "authorization": "authorization",
+                "usage_events": [{"payload": "payload"}],
+            },
+            workers_ai_billing_mode="postpaid",
+            zdr=True,
         )
         assert_matches_type(AIGatewayUpdateResponse, ai_gateway, path=["response"])
 
@@ -152,7 +175,6 @@ class TestAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         )
 
         assert response.is_closed is True
@@ -170,7 +192,6 @@ class TestAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -191,7 +212,6 @@ class TestAIGateway:
                 collect_logs=True,
                 rate_limiting_interval=0,
                 rate_limiting_limit=0,
-                rate_limiting_technique="fixed",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
@@ -203,7 +223,6 @@ class TestAIGateway:
                 collect_logs=True,
                 rate_limiting_interval=0,
                 rate_limiting_limit=0,
-                rate_limiting_technique="fixed",
             )
 
     @parametrize
@@ -352,7 +371,9 @@ class TestAIGateway:
 
 
 class TestAsyncAIGateway:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
@@ -364,7 +385,6 @@ class TestAsyncAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         )
         assert_matches_type(AIGatewayCreateResponse, ai_gateway, path=["response"])
 
@@ -378,12 +398,17 @@ class TestAsyncAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
             authentication=True,
             log_management=10000,
             log_management_strategy="STOP_INSERTING",
             logpush=True,
             logpush_public_key="xxxxxxxxxxxxxxxx",
+            rate_limiting_technique="fixed",
+            retry_backoff="constant",
+            retry_delay=0,
+            retry_max_attempts=1,
+            workers_ai_billing_mode="postpaid",
+            zdr=True,
         )
         assert_matches_type(AIGatewayCreateResponse, ai_gateway, path=["response"])
 
@@ -397,7 +422,6 @@ class TestAsyncAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         )
 
         assert response.is_closed is True
@@ -415,7 +439,6 @@ class TestAsyncAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -436,7 +459,6 @@ class TestAsyncAIGateway:
                 collect_logs=True,
                 rate_limiting_interval=0,
                 rate_limiting_limit=0,
-                rate_limiting_technique="fixed",
             )
 
     @parametrize
@@ -449,7 +471,6 @@ class TestAsyncAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         )
         assert_matches_type(AIGatewayUpdateResponse, ai_gateway, path=["response"])
 
@@ -463,12 +484,35 @@ class TestAsyncAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
             authentication=True,
+            dlp={
+                "action": "BLOCK",
+                "enabled": True,
+                "profiles": ["string"],
+            },
             log_management=10000,
             log_management_strategy="STOP_INSERTING",
             logpush=True,
             logpush_public_key="xxxxxxxxxxxxxxxx",
+            otel=[
+                {
+                    "authorization": "authorization",
+                    "headers": {"foo": "string"},
+                    "url": "url",
+                    "content_type": "json",
+                }
+            ],
+            rate_limiting_technique="fixed",
+            retry_backoff="constant",
+            retry_delay=0,
+            retry_max_attempts=1,
+            store_id="store_id",
+            stripe={
+                "authorization": "authorization",
+                "usage_events": [{"payload": "payload"}],
+            },
+            workers_ai_billing_mode="postpaid",
+            zdr=True,
         )
         assert_matches_type(AIGatewayUpdateResponse, ai_gateway, path=["response"])
 
@@ -482,7 +526,6 @@ class TestAsyncAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         )
 
         assert response.is_closed is True
@@ -500,7 +543,6 @@ class TestAsyncAIGateway:
             collect_logs=True,
             rate_limiting_interval=0,
             rate_limiting_limit=0,
-            rate_limiting_technique="fixed",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -521,7 +563,6 @@ class TestAsyncAIGateway:
                 collect_logs=True,
                 rate_limiting_interval=0,
                 rate_limiting_limit=0,
-                rate_limiting_technique="fixed",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
@@ -533,7 +574,6 @@ class TestAsyncAIGateway:
                 collect_logs=True,
                 rate_limiting_interval=0,
                 rate_limiting_limit=0,
-                rate_limiting_technique="fixed",
             )
 
     @parametrize

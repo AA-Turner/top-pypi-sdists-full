@@ -21,7 +21,7 @@ from quack.reduce import row_reduce, online_softmax_reduce
 from quack.reduction_base import ReductionBase
 from quack.cache_utils import jit_cache
 from quack.cute_dsl_utils import torch2cute_dtype_map
-from cutlass.base_dsl import Arch
+from cutlass.base_dsl.arch import Arch
 
 
 class CrossEntropy(ReductionBase):
@@ -386,7 +386,8 @@ def cross_entropy_fwd(
     loss = torch.empty(M, device=device, dtype=torch.float32)
     lse = torch.empty(M, device=device, dtype=torch.float32) if return_lse else None
     dx = (torch.empty_like(x) if not inplace_backward else x) if return_dx else None
-    cross_entropy_fwd_out(x, target, target_logit, loss, lse, dx, ignore_index)
+    if x.numel() > 0:
+        cross_entropy_fwd_out(x, target, target_logit, loss, lse, dx, ignore_index)
     if return_lse and return_dx:
         return loss, lse, dx
     elif return_lse:
@@ -639,14 +640,16 @@ def cross_entropy_bwd(
 ) -> None:
     if inplace_backward and not torch.compiler.is_compiling():
         dx = x
-        _cross_entropy_backward(
-            x=x, target=target, dloss=dloss, lse=lse, dx=x, ignore_index=ignore_index
-        )
+        if x.numel() > 0:
+            _cross_entropy_backward(
+                x=x, target=target, dloss=dloss, lse=lse, dx=x, ignore_index=ignore_index
+            )
     else:
         dx = torch.empty_like(x)
-        cross_entropy_bwd_out(
-            x=x, target=target, dloss=dloss, lse=lse, dx=dx, ignore_index=ignore_index
-        )
+        if x.numel() > 0:
+            cross_entropy_bwd_out(
+                x=x, target=target, dloss=dloss, lse=lse, dx=dx, ignore_index=ignore_index
+            )
     return dx
 
 

@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class PeriodicContextTable(Component):
@@ -33,12 +45,25 @@ Keyword arguments:
 
 - state (dict; optional):
     The state of the table, as exposed in the dash callback."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'PeriodicContextTable'
-    @_explicitize_args
-    def __init__(self, children=None, id=Component.UNDEFINED, disabledElements=Component.UNDEFINED, enabledElements=Component.UNDEFINED, hiddenElements=Component.UNDEFINED, forwardOuterChange=Component.UNDEFINED, forceTableLayout=Component.UNDEFINED, maxElementSelectable=Component.UNDEFINED, state=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        children: typing.Optional[ComponentType] = None,
+        id: typing.Optional[typing.Union[str, dict]] = None,
+        disabledElements: typing.Optional[typing.Sequence] = None,
+        enabledElements: typing.Optional[typing.Sequence] = None,
+        hiddenElements: typing.Optional[typing.Sequence] = None,
+        forwardOuterChange: typing.Optional[bool] = None,
+        forceTableLayout: typing.Optional[str] = None,
+        maxElementSelectable: typing.Optional[NumberType] = None,
+        state: typing.Optional[dict] = None,
+        **kwargs
+    ):
         self._prop_names = ['children', 'id', 'disabledElements', 'enabledElements', 'forceTableLayout', 'forwardOuterChange', 'hiddenElements', 'maxElementSelectable', 'state']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['children', 'id', 'disabledElements', 'enabledElements', 'forceTableLayout', 'forwardOuterChange', 'hiddenElements', 'maxElementSelectable', 'state']
@@ -49,3 +74,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args if k != 'children'}
 
         super(PeriodicContextTable, self).__init__(children=children, **args)
+
+setattr(PeriodicContextTable, "__init__", _explicitize_args(PeriodicContextTable.__init__))

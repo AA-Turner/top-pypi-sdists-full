@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, strip_not_given, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, strip_not_given, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -69,14 +69,14 @@ class CloudIntegrationsResource(SyncAPIResource):
         account_id: str,
         cloud_type: Literal["AWS", "AZURE", "GOOGLE", "CLOUDFLARE"],
         friendly_name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        forwarded: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        forwarded: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationCreateResponse:
         """
         Create a new Cloud Integration (Closed Beta).
@@ -94,7 +94,7 @@ class CloudIntegrationsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {**strip_not_given({"forwarded": forwarded}), **(extra_headers or {})}
         return self._post(
-            f"/accounts/{account_id}/magic/cloud/providers",
+            path_template("/accounts/{account_id}/magic/cloud/providers", account_id=account_id),
             body=maybe_transform(
                 {
                     "cloud_type": cloud_type,
@@ -118,19 +118,19 @@ class CloudIntegrationsResource(SyncAPIResource):
         provider_id: str,
         *,
         account_id: str,
-        aws_arn: str | NotGiven = NOT_GIVEN,
-        azure_subscription_id: str | NotGiven = NOT_GIVEN,
-        azure_tenant_id: str | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        friendly_name: str | NotGiven = NOT_GIVEN,
-        gcp_project_id: str | NotGiven = NOT_GIVEN,
-        gcp_service_account_email: str | NotGiven = NOT_GIVEN,
+        aws_arn: str | Omit = omit,
+        azure_subscription_id: str | Omit = omit,
+        azure_tenant_id: str | Omit = omit,
+        description: str | Omit = omit,
+        friendly_name: str | Omit = omit,
+        gcp_project_id: str | Omit = omit,
+        gcp_service_account_email: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationUpdateResponse:
         """
         Update a Cloud Integration (Closed Beta).
@@ -149,7 +149,11 @@ class CloudIntegrationsResource(SyncAPIResource):
         if not provider_id:
             raise ValueError(f"Expected a non-empty value for `provider_id` but received {provider_id!r}")
         return self._put(
-            f"/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+                account_id=account_id,
+                provider_id=provider_id,
+            ),
             body=maybe_transform(
                 {
                     "aws_arn": aws_arn,
@@ -176,16 +180,16 @@ class CloudIntegrationsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        cloudflare: bool | NotGiven = NOT_GIVEN,
-        desc: bool | NotGiven = NOT_GIVEN,
-        order_by: str | NotGiven = NOT_GIVEN,
-        status: bool | NotGiven = NOT_GIVEN,
+        cloudflare: bool | Omit = omit,
+        desc: bool | Omit = omit,
+        order_by: str | Omit = omit,
+        status: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[CloudIntegrationListResponse]:
         """
         List Cloud Integrations (Closed Beta).
@@ -204,7 +208,7 @@ class CloudIntegrationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/cloud/providers",
+            path_template("/accounts/{account_id}/magic/cloud/providers", account_id=account_id),
             page=SyncSinglePage[CloudIntegrationListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -234,7 +238,7 @@ class CloudIntegrationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationDeleteResponse:
         """
         Delete a Cloud Integration (Closed Beta).
@@ -253,7 +257,11 @@ class CloudIntegrationsResource(SyncAPIResource):
         if not provider_id:
             raise ValueError(f"Expected a non-empty value for `provider_id` but received {provider_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+                account_id=account_id,
+                provider_id=provider_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -269,13 +277,13 @@ class CloudIntegrationsResource(SyncAPIResource):
         provider_id: str,
         *,
         account_id: str,
-        v2: bool | NotGiven = NOT_GIVEN,
+        v2: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationDiscoverResponse:
         """
         Run discovery for a Cloud Integration (Closed Beta).
@@ -294,7 +302,11 @@ class CloudIntegrationsResource(SyncAPIResource):
         if not provider_id:
             raise ValueError(f"Expected a non-empty value for `provider_id` but received {provider_id!r}")
         return self._post(
-            f"/accounts/{account_id}/magic/cloud/providers/{provider_id}/discover",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/providers/{provider_id}/discover",
+                account_id=account_id,
+                provider_id=provider_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -314,7 +326,7 @@ class CloudIntegrationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationDiscoverAllResponse:
         """
         Run discovery for all Cloud Integrations in an account (Closed Beta).
@@ -331,7 +343,7 @@ class CloudIntegrationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/magic/cloud/providers/discover",
+            path_template("/accounts/{account_id}/magic/cloud/providers/discover", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -343,19 +355,19 @@ class CloudIntegrationsResource(SyncAPIResource):
         provider_id: str,
         *,
         account_id: str,
-        aws_arn: str | NotGiven = NOT_GIVEN,
-        azure_subscription_id: str | NotGiven = NOT_GIVEN,
-        azure_tenant_id: str | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        friendly_name: str | NotGiven = NOT_GIVEN,
-        gcp_project_id: str | NotGiven = NOT_GIVEN,
-        gcp_service_account_email: str | NotGiven = NOT_GIVEN,
+        aws_arn: str | Omit = omit,
+        azure_subscription_id: str | Omit = omit,
+        azure_tenant_id: str | Omit = omit,
+        description: str | Omit = omit,
+        friendly_name: str | Omit = omit,
+        gcp_project_id: str | Omit = omit,
+        gcp_service_account_email: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationEditResponse:
         """
         Update a Cloud Integration (Closed Beta).
@@ -374,7 +386,11 @@ class CloudIntegrationsResource(SyncAPIResource):
         if not provider_id:
             raise ValueError(f"Expected a non-empty value for `provider_id` but received {provider_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+                account_id=account_id,
+                provider_id=provider_id,
+            ),
             body=maybe_transform(
                 {
                     "aws_arn": aws_arn,
@@ -402,13 +418,13 @@ class CloudIntegrationsResource(SyncAPIResource):
         provider_id: str,
         *,
         account_id: str,
-        status: bool | NotGiven = NOT_GIVEN,
+        status: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationGetResponse:
         """
         Read a Cloud Integration (Closed Beta).
@@ -427,7 +443,11 @@ class CloudIntegrationsResource(SyncAPIResource):
         if not provider_id:
             raise ValueError(f"Expected a non-empty value for `provider_id` but received {provider_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+                account_id=account_id,
+                provider_id=provider_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -449,7 +469,7 @@ class CloudIntegrationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationInitialSetupResponse:
         """
         Get initial configuration to complete Cloud Integration setup (Closed Beta).
@@ -470,7 +490,11 @@ class CloudIntegrationsResource(SyncAPIResource):
         return cast(
             CloudIntegrationInitialSetupResponse,
             self._get(
-                f"/accounts/{account_id}/magic/cloud/providers/{provider_id}/initial_setup",
+                path_template(
+                    "/accounts/{account_id}/magic/cloud/providers/{provider_id}/initial_setup",
+                    account_id=account_id,
+                    provider_id=provider_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -511,14 +535,14 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         account_id: str,
         cloud_type: Literal["AWS", "AZURE", "GOOGLE", "CLOUDFLARE"],
         friendly_name: str,
-        description: str | NotGiven = NOT_GIVEN,
-        forwarded: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        forwarded: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationCreateResponse:
         """
         Create a new Cloud Integration (Closed Beta).
@@ -536,7 +560,7 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {**strip_not_given({"forwarded": forwarded}), **(extra_headers or {})}
         return await self._post(
-            f"/accounts/{account_id}/magic/cloud/providers",
+            path_template("/accounts/{account_id}/magic/cloud/providers", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "cloud_type": cloud_type,
@@ -560,19 +584,19 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         provider_id: str,
         *,
         account_id: str,
-        aws_arn: str | NotGiven = NOT_GIVEN,
-        azure_subscription_id: str | NotGiven = NOT_GIVEN,
-        azure_tenant_id: str | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        friendly_name: str | NotGiven = NOT_GIVEN,
-        gcp_project_id: str | NotGiven = NOT_GIVEN,
-        gcp_service_account_email: str | NotGiven = NOT_GIVEN,
+        aws_arn: str | Omit = omit,
+        azure_subscription_id: str | Omit = omit,
+        azure_tenant_id: str | Omit = omit,
+        description: str | Omit = omit,
+        friendly_name: str | Omit = omit,
+        gcp_project_id: str | Omit = omit,
+        gcp_service_account_email: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationUpdateResponse:
         """
         Update a Cloud Integration (Closed Beta).
@@ -591,7 +615,11 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         if not provider_id:
             raise ValueError(f"Expected a non-empty value for `provider_id` but received {provider_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+                account_id=account_id,
+                provider_id=provider_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "aws_arn": aws_arn,
@@ -618,16 +646,16 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        cloudflare: bool | NotGiven = NOT_GIVEN,
-        desc: bool | NotGiven = NOT_GIVEN,
-        order_by: str | NotGiven = NOT_GIVEN,
-        status: bool | NotGiven = NOT_GIVEN,
+        cloudflare: bool | Omit = omit,
+        desc: bool | Omit = omit,
+        order_by: str | Omit = omit,
+        status: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[CloudIntegrationListResponse, AsyncSinglePage[CloudIntegrationListResponse]]:
         """
         List Cloud Integrations (Closed Beta).
@@ -646,7 +674,7 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/cloud/providers",
+            path_template("/accounts/{account_id}/magic/cloud/providers", account_id=account_id),
             page=AsyncSinglePage[CloudIntegrationListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -676,7 +704,7 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationDeleteResponse:
         """
         Delete a Cloud Integration (Closed Beta).
@@ -695,7 +723,11 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         if not provider_id:
             raise ValueError(f"Expected a non-empty value for `provider_id` but received {provider_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+                account_id=account_id,
+                provider_id=provider_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -711,13 +743,13 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         provider_id: str,
         *,
         account_id: str,
-        v2: bool | NotGiven = NOT_GIVEN,
+        v2: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationDiscoverResponse:
         """
         Run discovery for a Cloud Integration (Closed Beta).
@@ -736,7 +768,11 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         if not provider_id:
             raise ValueError(f"Expected a non-empty value for `provider_id` but received {provider_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/magic/cloud/providers/{provider_id}/discover",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/providers/{provider_id}/discover",
+                account_id=account_id,
+                provider_id=provider_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -758,7 +794,7 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationDiscoverAllResponse:
         """
         Run discovery for all Cloud Integrations in an account (Closed Beta).
@@ -775,7 +811,7 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/magic/cloud/providers/discover",
+            path_template("/accounts/{account_id}/magic/cloud/providers/discover", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -787,19 +823,19 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         provider_id: str,
         *,
         account_id: str,
-        aws_arn: str | NotGiven = NOT_GIVEN,
-        azure_subscription_id: str | NotGiven = NOT_GIVEN,
-        azure_tenant_id: str | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        friendly_name: str | NotGiven = NOT_GIVEN,
-        gcp_project_id: str | NotGiven = NOT_GIVEN,
-        gcp_service_account_email: str | NotGiven = NOT_GIVEN,
+        aws_arn: str | Omit = omit,
+        azure_subscription_id: str | Omit = omit,
+        azure_tenant_id: str | Omit = omit,
+        description: str | Omit = omit,
+        friendly_name: str | Omit = omit,
+        gcp_project_id: str | Omit = omit,
+        gcp_service_account_email: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationEditResponse:
         """
         Update a Cloud Integration (Closed Beta).
@@ -818,7 +854,11 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         if not provider_id:
             raise ValueError(f"Expected a non-empty value for `provider_id` but received {provider_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+                account_id=account_id,
+                provider_id=provider_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "aws_arn": aws_arn,
@@ -846,13 +886,13 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         provider_id: str,
         *,
         account_id: str,
-        status: bool | NotGiven = NOT_GIVEN,
+        status: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationGetResponse:
         """
         Read a Cloud Integration (Closed Beta).
@@ -871,7 +911,11 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         if not provider_id:
             raise ValueError(f"Expected a non-empty value for `provider_id` but received {provider_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+            path_template(
+                "/accounts/{account_id}/magic/cloud/providers/{provider_id}",
+                account_id=account_id,
+                provider_id=provider_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -895,7 +939,7 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CloudIntegrationInitialSetupResponse:
         """
         Get initial configuration to complete Cloud Integration setup (Closed Beta).
@@ -916,7 +960,11 @@ class AsyncCloudIntegrationsResource(AsyncAPIResource):
         return cast(
             CloudIntegrationInitialSetupResponse,
             await self._get(
-                f"/accounts/{account_id}/magic/cloud/providers/{provider_id}/initial_setup",
+                path_template(
+                    "/accounts/{account_id}/magic/cloud/providers/{provider_id}/initial_setup",
+                    account_id=account_id,
+                    provider_id=provider_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,

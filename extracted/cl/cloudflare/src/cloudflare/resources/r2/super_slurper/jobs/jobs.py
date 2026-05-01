@@ -14,8 +14,8 @@ from .logs import (
     LogsResourceWithStreamingResponse,
     AsyncLogsResourceWithStreamingResponse,
 )
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -68,18 +68,19 @@ class JobsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        overwrite: bool | NotGiven = NOT_GIVEN,
-        source: job_create_params.Source | NotGiven = NOT_GIVEN,
-        target: job_create_params.Target | NotGiven = NOT_GIVEN,
+        overwrite: bool | Omit = omit,
+        source: job_create_params.Source | Omit = omit,
+        target: job_create_params.Target | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[JobCreateResponse]:
         """
-        Create a job
+        Creates a new R2 Super Slurper migration job to transfer objects from a source
+        bucket (e.g. S3, GCS, R2) to R2.
 
         Args:
           extra_headers: Send extra headers
@@ -93,7 +94,7 @@ class JobsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/slurper/jobs",
+            path_template("/accounts/{account_id}/slurper/jobs", account_id=account_id),
             body=maybe_transform(
                 {
                     "overwrite": overwrite,
@@ -116,17 +117,17 @@ class JobsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        limit: int | NotGiven = NOT_GIVEN,
-        offset: int | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        offset: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[JobListResponse]:
         """
-        List jobs
+        Lists all R2 Super Slurper migration jobs for the account with their status.
 
         Args:
           extra_headers: Send extra headers
@@ -140,7 +141,7 @@ class JobsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/slurper/jobs",
+            path_template("/accounts/{account_id}/slurper/jobs", account_id=account_id),
             page=SyncSinglePage[JobListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -168,10 +169,12 @@ class JobsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
-        """
-        Abort a job
+        """Cancels a specific R2 Super Slurper migration job.
+
+        Any objects in the middle of
+        a transfer will finish, but no new objects will start transferring.
 
         Args:
           extra_headers: Send extra headers
@@ -187,7 +190,7 @@ class JobsResource(SyncAPIResource):
         if not job_id:
             raise ValueError(f"Expected a non-empty value for `job_id` but received {job_id!r}")
         return self._put(
-            f"/accounts/{account_id}/slurper/jobs/{job_id}/abort",
+            path_template("/accounts/{account_id}/slurper/jobs/{job_id}/abort", account_id=account_id, job_id=job_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -207,10 +210,13 @@ class JobsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
-        """
-        Abort all jobs
+        """Cancels all running R2 Super Slurper migration jobs for the account.
+
+        Any objects
+        in the middle of a transfer will finish, but no new objects will start
+        transferring.
 
         Args:
           extra_headers: Send extra headers
@@ -224,7 +230,7 @@ class JobsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._put(
-            f"/accounts/{account_id}/slurper/jobs/abortAll",
+            path_template("/accounts/{account_id}/slurper/jobs/abortAll", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -245,10 +251,11 @@ class JobsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[JobGetResponse]:
         """
-        Get job details
+        Retrieves detailed status and configuration for a specific R2 Super Slurper
+        migration job.
 
         Args:
           extra_headers: Send extra headers
@@ -264,7 +271,7 @@ class JobsResource(SyncAPIResource):
         if not job_id:
             raise ValueError(f"Expected a non-empty value for `job_id` but received {job_id!r}")
         return self._get(
-            f"/accounts/{account_id}/slurper/jobs/{job_id}",
+            path_template("/accounts/{account_id}/slurper/jobs/{job_id}", account_id=account_id, job_id=job_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -285,10 +292,12 @@ class JobsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
-        """
-        Pause a job
+        """Pauses a running R2 Super Slurper migration job.
+
+        The job can be resumed later to
+        continue transferring.
 
         Args:
           extra_headers: Send extra headers
@@ -304,7 +313,7 @@ class JobsResource(SyncAPIResource):
         if not job_id:
             raise ValueError(f"Expected a non-empty value for `job_id` but received {job_id!r}")
         return self._put(
-            f"/accounts/{account_id}/slurper/jobs/{job_id}/pause",
+            path_template("/accounts/{account_id}/slurper/jobs/{job_id}/pause", account_id=account_id, job_id=job_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -325,10 +334,10 @@ class JobsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[JobProgressResponse]:
         """
-        Get job progress
+        Retrieves current progress metrics for an R2 Super Slurper migration job
 
         Args:
           extra_headers: Send extra headers
@@ -344,7 +353,9 @@ class JobsResource(SyncAPIResource):
         if not job_id:
             raise ValueError(f"Expected a non-empty value for `job_id` but received {job_id!r}")
         return self._get(
-            f"/accounts/{account_id}/slurper/jobs/{job_id}/progress",
+            path_template(
+                "/accounts/{account_id}/slurper/jobs/{job_id}/progress", account_id=account_id, job_id=job_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -365,10 +376,11 @@ class JobsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
-        Resume a job
+        Resumes a paused R2 Super Slurper migration job, continuing the transfer from
+        where it stopped.
 
         Args:
           extra_headers: Send extra headers
@@ -384,7 +396,7 @@ class JobsResource(SyncAPIResource):
         if not job_id:
             raise ValueError(f"Expected a non-empty value for `job_id` but received {job_id!r}")
         return self._put(
-            f"/accounts/{account_id}/slurper/jobs/{job_id}/resume",
+            path_template("/accounts/{account_id}/slurper/jobs/{job_id}/resume", account_id=account_id, job_id=job_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -424,18 +436,19 @@ class AsyncJobsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        overwrite: bool | NotGiven = NOT_GIVEN,
-        source: job_create_params.Source | NotGiven = NOT_GIVEN,
-        target: job_create_params.Target | NotGiven = NOT_GIVEN,
+        overwrite: bool | Omit = omit,
+        source: job_create_params.Source | Omit = omit,
+        target: job_create_params.Target | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[JobCreateResponse]:
         """
-        Create a job
+        Creates a new R2 Super Slurper migration job to transfer objects from a source
+        bucket (e.g. S3, GCS, R2) to R2.
 
         Args:
           extra_headers: Send extra headers
@@ -449,7 +462,7 @@ class AsyncJobsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/slurper/jobs",
+            path_template("/accounts/{account_id}/slurper/jobs", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "overwrite": overwrite,
@@ -472,17 +485,17 @@ class AsyncJobsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        limit: int | NotGiven = NOT_GIVEN,
-        offset: int | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        offset: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[JobListResponse, AsyncSinglePage[JobListResponse]]:
         """
-        List jobs
+        Lists all R2 Super Slurper migration jobs for the account with their status.
 
         Args:
           extra_headers: Send extra headers
@@ -496,7 +509,7 @@ class AsyncJobsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/slurper/jobs",
+            path_template("/accounts/{account_id}/slurper/jobs", account_id=account_id),
             page=AsyncSinglePage[JobListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -524,10 +537,12 @@ class AsyncJobsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
-        """
-        Abort a job
+        """Cancels a specific R2 Super Slurper migration job.
+
+        Any objects in the middle of
+        a transfer will finish, but no new objects will start transferring.
 
         Args:
           extra_headers: Send extra headers
@@ -543,7 +558,7 @@ class AsyncJobsResource(AsyncAPIResource):
         if not job_id:
             raise ValueError(f"Expected a non-empty value for `job_id` but received {job_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/slurper/jobs/{job_id}/abort",
+            path_template("/accounts/{account_id}/slurper/jobs/{job_id}/abort", account_id=account_id, job_id=job_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -563,10 +578,13 @@ class AsyncJobsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
-        """
-        Abort all jobs
+        """Cancels all running R2 Super Slurper migration jobs for the account.
+
+        Any objects
+        in the middle of a transfer will finish, but no new objects will start
+        transferring.
 
         Args:
           extra_headers: Send extra headers
@@ -580,7 +598,7 @@ class AsyncJobsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/slurper/jobs/abortAll",
+            path_template("/accounts/{account_id}/slurper/jobs/abortAll", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -601,10 +619,11 @@ class AsyncJobsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[JobGetResponse]:
         """
-        Get job details
+        Retrieves detailed status and configuration for a specific R2 Super Slurper
+        migration job.
 
         Args:
           extra_headers: Send extra headers
@@ -620,7 +639,7 @@ class AsyncJobsResource(AsyncAPIResource):
         if not job_id:
             raise ValueError(f"Expected a non-empty value for `job_id` but received {job_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/slurper/jobs/{job_id}",
+            path_template("/accounts/{account_id}/slurper/jobs/{job_id}", account_id=account_id, job_id=job_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -641,10 +660,12 @@ class AsyncJobsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
-        """
-        Pause a job
+        """Pauses a running R2 Super Slurper migration job.
+
+        The job can be resumed later to
+        continue transferring.
 
         Args:
           extra_headers: Send extra headers
@@ -660,7 +681,7 @@ class AsyncJobsResource(AsyncAPIResource):
         if not job_id:
             raise ValueError(f"Expected a non-empty value for `job_id` but received {job_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/slurper/jobs/{job_id}/pause",
+            path_template("/accounts/{account_id}/slurper/jobs/{job_id}/pause", account_id=account_id, job_id=job_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -681,10 +702,10 @@ class AsyncJobsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[JobProgressResponse]:
         """
-        Get job progress
+        Retrieves current progress metrics for an R2 Super Slurper migration job
 
         Args:
           extra_headers: Send extra headers
@@ -700,7 +721,9 @@ class AsyncJobsResource(AsyncAPIResource):
         if not job_id:
             raise ValueError(f"Expected a non-empty value for `job_id` but received {job_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/slurper/jobs/{job_id}/progress",
+            path_template(
+                "/accounts/{account_id}/slurper/jobs/{job_id}/progress", account_id=account_id, job_id=job_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -721,10 +744,11 @@ class AsyncJobsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
-        Resume a job
+        Resumes a paused R2 Super Slurper migration job, continuing the transfer from
+        where it stopped.
 
         Args:
           extra_headers: Send extra headers
@@ -740,7 +764,7 @@ class AsyncJobsResource(AsyncAPIResource):
         if not job_id:
             raise ValueError(f"Expected a non-empty value for `job_id` but received {job_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/slurper/jobs/{job_id}/resume",
+            path_template("/accounts/{account_id}/slurper/jobs/{job_id}/resume", account_id=account_id, job_id=job_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

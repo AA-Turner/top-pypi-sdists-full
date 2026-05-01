@@ -52,6 +52,7 @@ __all__ = (
     "ListMemoryRecordsPaginatorName",
     "ListRecommendationsPaginatorName",
     "ListSessionsPaginatorName",
+    "MemoryRecordOperatorTypeType",
     "MemoryRecordStatusType",
     "MouseButtonType",
     "OAuthGrantTypeType",
@@ -151,10 +152,22 @@ ListMemoryExtractionJobsPaginatorName = Literal["list_memory_extraction_jobs"]
 ListMemoryRecordsPaginatorName = Literal["list_memory_records"]
 ListRecommendationsPaginatorName = Literal["list_recommendations"]
 ListSessionsPaginatorName = Literal["list_sessions"]
+MemoryRecordOperatorTypeType = Literal[
+    "AFTER",
+    "BEFORE",
+    "CONTAINS",
+    "EQUALS_TO",
+    "EXISTS",
+    "GREATER_THAN",
+    "GREATER_THAN_OR_EQUALS",
+    "LESS_THAN",
+    "LESS_THAN_OR_EQUALS",
+    "NOT_EXISTS",
+]
 MemoryRecordStatusType = Literal["FAILED", "SUCCEEDED"]
 MouseButtonType = Literal["LEFT", "MIDDLE", "RIGHT"]
 OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS"]
-Oauth2FlowTypeType = Literal["M2M", "USER_FEDERATION"]
+Oauth2FlowTypeType = Literal["M2M", "ON_BEHALF_OF_TOKEN_EXCHANGE", "USER_FEDERATION"]
 OperatorTypeType = Literal["EQUALS_TO", "EXISTS", "NOT_EXISTS"]
 ProgrammingLanguageType = Literal["javascript", "python", "typescript"]
 RecommendationStatusType = Literal["COMPLETED", "DELETING", "FAILED", "IN_PROGRESS", "PENDING"]

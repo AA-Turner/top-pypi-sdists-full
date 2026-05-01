@@ -27,17 +27,19 @@ from ..types.content import ContentBlock, Messages, SystemContentBlock
 from ..types.exceptions import (
     ContextWindowOverflowException,
     ModelThrottledException,
+    ProviderTokenCountError,
 )
 from ..types.streaming import CitationsDelta, StreamEvent
 from ..types.tools import ToolChoice, ToolSpec
+from ._strict_schema import ensure_strict_json_schema
 from ._validation import validate_config_keys
 from .model import BaseModelConfig, CacheConfig, Model
 
 logger = logging.getLogger(__name__)
 
 # See: `BedrockModel._get_default_model_with_warning` for why we need both
-DEFAULT_BEDROCK_MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
-_DEFAULT_BEDROCK_MODEL_ID = "{}.anthropic.claude-sonnet-4-20250514-v1:0"
+DEFAULT_BEDROCK_MODEL_ID = "global.anthropic.claude-sonnet-4-6"
+_DEFAULT_BEDROCK_MODEL_ID = "{}.anthropic.claude-sonnet-4-6"
 DEFAULT_BEDROCK_REGION = "us-west-2"
 
 BEDROCK_CONTEXT_WINDOW_OVERFLOW_MESSAGES = [
@@ -90,7 +92,7 @@ class BedrockModel(Model):
             guardrail_latest_message: Flag to send only the lastest user message to guardrails.
                 Defaults to False.
             max_tokens: Maximum number of tokens to generate in the response
-            model_id: The Bedrock model ID (e.g., "us.anthropic.claude-sonnet-4-20250514-v1:0")
+            model_id: The Bedrock model ID (e.g., "global.anthropic.claude-sonnet-4-6")
             include_tool_result_status: Flag to include status field in tool results.
                 True includes status, False removes status, "auto" determines based on model_id. Defaults to "auto".
             service_tier: Service tier for the request, controlling the trade-off between latency and cost.
@@ -99,6 +101,10 @@ class BedrockModel(Model):
                 supported service tiers, models, and regions
             stop_sequences: List of sequences that will stop generation when encountered
             streaming: Flag to enable/disable streaming. Defaults to True.
+            strict_tools: Flag to enable structured output enforcement on tool definitions.
+                When True, adds strict: true to each tool spec and automatically injects
+                "additionalProperties": false into all object types in tool input schemas.
+                See https://docs.aws.amazon.com/bedrock/latest/userguide/structured-output.html
             temperature: Controls randomness in generation (higher = more random)
             top_p: Controls diversity via nucleus sampling (alternative to temperature)
         """
@@ -124,6 +130,7 @@ class BedrockModel(Model):
         service_tier: str | None
         stop_sequences: list[str] | None
         streaming: bool | None
+        strict_tools: bool | None
         temperature: float | None
         top_p: float | None
 
@@ -239,6 +246,7 @@ class BedrockModel(Model):
 
         # Use system_prompt_content directly (copy for mutability)
         system_blocks: list[SystemContentBlock] = system_prompt_content.copy() if system_prompt_content else []
+
         # Add cache point if configured (backwards compatibility)
         if cache_prompt := self.config.get("cache_prompt"):
             warnings.warn(
@@ -260,7 +268,12 @@ class BedrockModel(Model):
                                     "toolSpec": {
                                         "name": tool_spec["name"],
                                         "description": tool_spec["description"],
-                                        "inputSchema": tool_spec["inputSchema"],
+                                        "inputSchema": (
+                                            {"json": ensure_strict_json_schema(tool_spec["inputSchema"]["json"])}
+                                            if self.config.get("strict_tools")
+                                            else tool_spec["inputSchema"]
+                                        ),
+                                        **({"strict": True} if self.config.get("strict_tools") else {}),
                                     }
                                 }
                                 for tool_spec in tool_specs
@@ -521,12 +534,16 @@ class BedrockModel(Model):
         """
         # https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_CachePointBlock.html
         if "cachePoint" in content:
-            return {"cachePoint": {"type": content["cachePoint"]["type"]}}
+            cache_point = content["cachePoint"]
+            result: dict[str, Any] = {"type": cache_point["type"]}
+            if "ttl" in cache_point:
+                result["ttl"] = cache_point["ttl"]
+            return {"cachePoint": result}
 
         # https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_DocumentBlock.html
         if "document" in content:
             document = content["document"]
-            result: dict[str, Any] = {}
+            result = {}
 
             # Handle required fields (all optional due to total=False)
             if "name" in document:
@@ -744,6 +761,61 @@ class BedrockModel(Model):
             )
 
         return events
+
+    @override
+    async def count_tokens(
+        self,
+        messages: Messages,
+        tool_specs: list[ToolSpec] | None = None,
+        system_prompt: str | None = None,
+        system_prompt_content: list[SystemContentBlock] | None = None,
+    ) -> int:
+        """Count tokens using Bedrock's native CountTokens API.
+
+        Uses the same message format as the Converse API to get accurate token counts
+        directly from the Bedrock service.
+
+        Args:
+            messages: List of message objects to count tokens for.
+            tool_specs: List of tool specifications to include in the count.
+            system_prompt: Plain string system prompt. Ignored if system_prompt_content is provided.
+            system_prompt_content: Structured system prompt content blocks.
+
+        Returns:
+            Total input token count.
+        """
+        try:
+            if system_prompt and system_prompt_content is None:
+                system_prompt_content = [{"text": system_prompt}]
+
+            request = self._format_request(messages, tool_specs, system_prompt_content)
+            converse_input: dict[str, Any] = {}
+            if "messages" in request:
+                converse_input["messages"] = request["messages"]
+            if "system" in request:
+                converse_input["system"] = request["system"]
+            if "toolConfig" in request:
+                converse_input["toolConfig"] = request["toolConfig"]
+
+            response = await asyncio.to_thread(
+                self.client.count_tokens,
+                modelId=self.config["model_id"],
+                input={"converse": converse_input},
+            )
+            input_tokens = response.get("inputTokens")
+            if input_tokens is None:
+                raise ProviderTokenCountError("Bedrock count_tokens returned None for inputTokens")
+            total_tokens: int = input_tokens
+
+            logger.debug("model_id=<%s>, total_tokens=<%d> | native token count", self.config["model_id"], total_tokens)
+            return total_tokens
+        except Exception as e:
+            logger.debug(
+                "model_id=<%s>, error=<%s> | native token counting failed, falling back to estimation",
+                self.config["model_id"],
+                e,
+            )
+            return await super().count_tokens(messages, tool_specs, system_prompt, system_prompt_content)
 
     @override
     async def stream(
@@ -1095,12 +1167,12 @@ class BedrockModel(Model):
             region_name (str): region for bedrock model
             model_config (Optional[dict[str, Any]]): Model Config that caller passes in on init
         """
-        if DEFAULT_BEDROCK_MODEL_ID != _DEFAULT_BEDROCK_MODEL_ID.format("us"):
-            return DEFAULT_BEDROCK_MODEL_ID
-
         model_config = model_config or {}
         if model_config.get("model_id"):
             return model_config["model_id"]
+
+        if DEFAULT_BEDROCK_MODEL_ID != _DEFAULT_BEDROCK_MODEL_ID.format("us"):
+            return DEFAULT_BEDROCK_MODEL_ID
 
         prefix_inference_map = {"ap": "apac"}  # some inference endpoints can be a bit different than the region prefix
 
@@ -1123,4 +1195,10 @@ class BedrockModel(Model):
                 stacklevel=2,
             )
 
-        return _DEFAULT_BEDROCK_MODEL_ID.format(prefix_inference_map.get(prefix, prefix))
+        default_model_id = _DEFAULT_BEDROCK_MODEL_ID.format(prefix_inference_map.get(prefix, prefix))
+        warnings.warn(
+            f"You're using default model '{default_model_id}', which is subject to change. "
+            "Specify a model explicitly to pin the model target.",
+            stacklevel=2,
+        )
+        return default_model_id

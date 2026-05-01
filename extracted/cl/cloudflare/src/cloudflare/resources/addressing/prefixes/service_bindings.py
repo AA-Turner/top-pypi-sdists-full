@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -51,21 +51,22 @@ class ServiceBindingsResource(SyncAPIResource):
         prefix_id: str,
         *,
         account_id: str,
-        cidr: str | NotGiven = NOT_GIVEN,
-        service_id: str | NotGiven = NOT_GIVEN,
+        cidr: str,
+        service_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceBinding]:
         """
         Creates a new Service Binding, routing traffic to IPs within the given CIDR to a
-        service running on Cloudflare's network. **Note:** This API may only be used on
-        prefixes currently configured with a Magic Transit/Cloudflare CDN/Cloudflare
-        Spectrum service binding, and only allows creating upgrade service bindings for
-        the Cloudflare CDN or Cloudflare Spectrum.
+        service running on Cloudflare's network. **NOTE:** The first Service Binding
+        created for an IP Prefix must exactly match the IP Prefix's CIDR. Subsequent
+        Service Bindings may be created with a more-specific CIDR. Refer to the
+        [Service Bindings Documentation](https://developers.cloudflare.com/byoip/service-bindings/)
+        for compatibility details.
 
         Args:
           account_id: Identifier of a Cloudflare account.
@@ -90,7 +91,11 @@ class ServiceBindingsResource(SyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return self._post(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             body=maybe_transform(
                 {
                     "cidr": cidr,
@@ -118,7 +123,7 @@ class ServiceBindingsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[ServiceBinding]:
         """List the Cloudflare services this prefix is currently bound to.
 
@@ -147,7 +152,11 @@ class ServiceBindingsResource(SyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             page=SyncSinglePage[ServiceBinding],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -166,7 +175,7 @@ class ServiceBindingsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ServiceBindingDeleteResponse:
         """
         Delete a Service Binding
@@ -193,7 +202,12 @@ class ServiceBindingsResource(SyncAPIResource):
         if not binding_id:
             raise ValueError(f"Expected a non-empty value for `binding_id` but received {binding_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings/{binding_id}",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings/{binding_id}",
+                account_id=account_id,
+                prefix_id=prefix_id,
+                binding_id=binding_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -211,7 +225,7 @@ class ServiceBindingsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceBinding]:
         """
         Fetch a single Service Binding
@@ -238,7 +252,12 @@ class ServiceBindingsResource(SyncAPIResource):
         if not binding_id:
             raise ValueError(f"Expected a non-empty value for `binding_id` but received {binding_id!r}")
         return self._get(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings/{binding_id}",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings/{binding_id}",
+                account_id=account_id,
+                prefix_id=prefix_id,
+                binding_id=binding_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -275,21 +294,22 @@ class AsyncServiceBindingsResource(AsyncAPIResource):
         prefix_id: str,
         *,
         account_id: str,
-        cidr: str | NotGiven = NOT_GIVEN,
-        service_id: str | NotGiven = NOT_GIVEN,
+        cidr: str,
+        service_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceBinding]:
         """
         Creates a new Service Binding, routing traffic to IPs within the given CIDR to a
-        service running on Cloudflare's network. **Note:** This API may only be used on
-        prefixes currently configured with a Magic Transit/Cloudflare CDN/Cloudflare
-        Spectrum service binding, and only allows creating upgrade service bindings for
-        the Cloudflare CDN or Cloudflare Spectrum.
+        service running on Cloudflare's network. **NOTE:** The first Service Binding
+        created for an IP Prefix must exactly match the IP Prefix's CIDR. Subsequent
+        Service Bindings may be created with a more-specific CIDR. Refer to the
+        [Service Bindings Documentation](https://developers.cloudflare.com/byoip/service-bindings/)
+        for compatibility details.
 
         Args:
           account_id: Identifier of a Cloudflare account.
@@ -314,7 +334,11 @@ class AsyncServiceBindingsResource(AsyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "cidr": cidr,
@@ -342,7 +366,7 @@ class AsyncServiceBindingsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ServiceBinding, AsyncSinglePage[ServiceBinding]]:
         """List the Cloudflare services this prefix is currently bound to.
 
@@ -371,7 +395,11 @@ class AsyncServiceBindingsResource(AsyncAPIResource):
         if not prefix_id:
             raise ValueError(f"Expected a non-empty value for `prefix_id` but received {prefix_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings",
+                account_id=account_id,
+                prefix_id=prefix_id,
+            ),
             page=AsyncSinglePage[ServiceBinding],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -390,7 +418,7 @@ class AsyncServiceBindingsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ServiceBindingDeleteResponse:
         """
         Delete a Service Binding
@@ -417,7 +445,12 @@ class AsyncServiceBindingsResource(AsyncAPIResource):
         if not binding_id:
             raise ValueError(f"Expected a non-empty value for `binding_id` but received {binding_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings/{binding_id}",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings/{binding_id}",
+                account_id=account_id,
+                prefix_id=prefix_id,
+                binding_id=binding_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -435,7 +468,7 @@ class AsyncServiceBindingsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[ServiceBinding]:
         """
         Fetch a single Service Binding
@@ -462,7 +495,12 @@ class AsyncServiceBindingsResource(AsyncAPIResource):
         if not binding_id:
             raise ValueError(f"Expected a non-empty value for `binding_id` but received {binding_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings/{binding_id}",
+            path_template(
+                "/accounts/{account_id}/addressing/prefixes/{prefix_id}/bindings/{binding_id}",
+                account_id=account_id,
+                prefix_id=prefix_id,
+                binding_id=binding_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -16,12 +16,23 @@ class SessionExecuteParams(TypedDict, total=False):
     """
 
     account: str
-    """Account identifier to specify which connected account to use.
-
-    Use the account ID (e.g. "coup_hurricane_dal_analytical") or an alias. When
-    omitted with a single account, the default is used. When omitted with multiple
-    accounts, an error lists available accounts.
+    """
+    Account identifier to specify which connected account to use for direct tool
+    execution. Use the account ID (e.g. "coup_hurricane_dal_analytical") or an
+    alias. When omitted with a single account, the default is used. When omitted
+    with multiple accounts, an error lists available accounts. Meta/helper tools
+    either ignore this top-level field or define their own account-selection fields,
+    for example COMPOSIO_MULTI_EXECUTE_TOOL.tools[].account.
     """
 
     arguments: Dict[str, Optional[object]]
     """The arguments required by the tool"""
+
+    enable_auto_workbench_offload: bool
+    """
+    When true, direct non-meta tool execution may return a workbench offload preview
+    if the response exceeds the configured threshold and the session workbench is
+    enabled. When omitted or false, direct tool execution returns the normal inline
+    response. Meta/helper tools are unaffected, and COMPOSIO_MULTI_EXECUTE_TOOL uses
+    session.workbench configuration for its own batch-level offload behavior.
+    """

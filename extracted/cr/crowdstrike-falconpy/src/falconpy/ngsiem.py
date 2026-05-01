@@ -51,7 +51,8 @@ from ._payload import (
     ngsiem_install_parser_payload,
     ngsiem_bulk_install_parsers_payload,
     ngsiem_data_connection_payload,
-    ngsiem_connector_config_payload
+    ngsiem_connector_config_payload,
+    ngsiem_clone_parser_payload
 )
 from ._result import Result
 from ._service_class import ServiceClass
@@ -91,7 +92,10 @@ class NGSIEM(ServiceClass):
         Swagger URL
         https://assets.falcon.crowdstrike.com/support/api/swagger.html#/ngsiem/UploadLookupV1
         """
-        lookup_file = kwargs.get("lookup_file", None)
+        if kwargs.get("lookup_file", None):
+            lookup_file = kwargs.get("lookup_file", None)
+        else:
+            lookup_file = kwargs.get("file", None)
         repository = kwargs.get("repository", None)
         if repository and lookup_file:
             # Pop the path variables from the keywords dictionary
@@ -101,14 +105,32 @@ class NGSIEM(ServiceClass):
                 with open(lookup_file, "rb") as upload_file:
                     # Create a multipart form payload for our upload file
                     file_extended = {"file": upload_file}
-                    returned = process_service_request(calling_object=self,
-                                                       endpoints=Endpoints,
-                                                       operation_id="UploadLookupV1",
-                                                       keywords=kwargs,
-                                                       params=parameters,
-                                                       repository=repository,
-                                                       files=file_extended
-                                                       )
+                    raw = process_service_request(calling_object=self,
+                                                  endpoints=Endpoints,
+                                                  operation_id="UploadLookupV1",
+                                                  keywords=kwargs,
+                                                  params=parameters,
+                                                  repository=repository,
+                                                  files=file_extended,
+                                                  stream=True
+                                                  )
+                    # The humio upload API returns a plain text file ID
+                    # instead of standard JSON. Parse the raw response
+                    # and wrap it in the standard FalconPy result format.
+                    if isinstance(raw, Response):
+                        content_type = raw.headers.get("Content-Type", "")
+                        if content_type.startswith("text/plain"):
+                            returned = Result(status_code=raw.status_code,
+                                              headers=raw.headers,
+                                              body={"resources": [raw.content.decode("utf-8")]}
+                                              ).full_return
+                        else:
+                            returned = Result(status_code=raw.status_code,
+                                              headers=raw.headers,
+                                              body=raw.json()
+                                              ).full_return
+                    else:
+                        returned = raw
             except FileNotFoundError:
                 returned = generate_error_result("Invalid upload file specified.")
         else:
@@ -767,6 +789,74 @@ class NGSIEM(ServiceClass):
             keywords=kwargs,
             params=parameters
             )
+
+    @force_default(defaults=["body"], default_types=["dict"])
+    def clone_parser(self: object, body: dict = None, **kwargs) -> Union[Dict[str, Union[int, dict]], Result]:
+        """Clone an existing parser with a new name.
+
+        Keyword arguments:
+        body -- Full body payload as a JSON formatted dictionary. Not required if using other keywords.
+                {
+                    "new_name": "string",
+                    "source_id": "string"
+                }
+        new_name -- The name for the cloned parser. String. Required.
+        source_id -- The ID of the source parser to clone. String. Required.
+
+        This method only supports keywords for providing arguments.
+
+        Returns: dict object containing API response.
+
+        HTTP Method: POST
+
+        Swagger URL
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/ngsiem/CloneParser
+        """
+        if not body:
+            body = ngsiem_clone_parser_payload(passed_keywords=kwargs)
+
+        return process_service_request(
+            calling_object=self,
+            endpoints=Endpoints,
+            operation_id="CloneParser",
+            body=body
+            )
+
+    @force_default(defaults=["parameters"], default_types=["dict"])
+    def test_parser_from_template(self: object,
+                                  parameters: dict = None,
+                                  **kwargs
+                                  ) -> Union[Dict[str, Union[int, dict]], Result]:
+        """Test Parser from LogScale YAML Template in NGSIEM.
+
+        Keyword arguments:
+        yaml_template -- LogScale Parser YAML template content, see schema at https://schemas.humio.com/. Binary data.
+        parameters -- Full parameters payload dictionary. Not required if using other keywords.
+
+        This method only supports keywords for providing arguments.
+
+        Returns: dict object containing API response.
+
+        HTTP Method: POST
+
+        Swagger URL
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/ngsiem/TestParserFromTemplate
+        """
+        yaml_data = kwargs.get("yaml_template", None)
+        if yaml_data:
+            kwargs.pop("yaml_template", None)
+            returned = process_service_request(
+                calling_object=self,
+                endpoints=Endpoints,
+                operation_id="TestParserFromTemplate",
+                files=[("yaml_template", (None, yaml_data))],
+                params=parameters,
+                keywords=kwargs
+                )
+        else:
+            returned = generate_error_result("You must provide a YAML template to test.", code=400)
+
+        return returned
 
     @force_default(defaults=["parameters"], default_types=["dict"])
     def get_parser_template(self: object, parameters: dict = None, **kwargs) -> Union[Dict[str, Union[int, dict]], Result]:
@@ -2033,6 +2123,8 @@ class NGSIEM(ServiceClass):
     CreateLookupFile = create_lookup_file
     UpdateLookupFile = update_lookup_file
     DeleteLookupFile = delete_lookup_file
+    CloneParser = clone_parser
+    TestParserFromTemplate = test_parser_from_template
     GetParserTemplate = get_parser_template
     CreateParserFromTemplate = create_parser_from_template
     GetParser = get_parser

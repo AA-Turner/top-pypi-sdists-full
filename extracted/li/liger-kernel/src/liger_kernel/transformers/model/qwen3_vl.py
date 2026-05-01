@@ -30,8 +30,10 @@ def lce_forward(
     image_grid_thw: Optional[torch.LongTensor] = None,
     video_grid_thw: Optional[torch.LongTensor] = None,
     rope_deltas: Optional[torch.LongTensor] = None,
+    mm_token_type_ids: Optional[torch.IntTensor] = None,
     cache_position: Optional[torch.LongTensor] = None,
     second_per_grid_ts: Optional[torch.Tensor] = None,
+    logits_to_keep: Union[int, torch.Tensor] = 0,
     skip_logits: Optional[bool] = None,
     **kwargs,
 ) -> Union[Tuple, LigerQwen3VLCausalLMOutputWithPast]:
@@ -52,6 +54,9 @@ def lce_forward(
         The rope index difference between sequence length and multimodal rope.
     second_per_grid_ts (`torch.Tensor` of shape `(num_videos)`, *optional*):
         The time interval (in seconds) for each grid along the temporal dimension in the 3D position IDs.
+    logits_to_keep (`int` or `torch.Tensor`, *optional*):
+        If an `int`, compute logits for the last `logits_to_keep` tokens. If `0`, calculate logits for all
+        input tokens. If a `torch.Tensor`, it must contain the sequence indices to keep.
     Example:
     ```python
     >>> from PIL import Image
@@ -99,16 +104,20 @@ def lce_forward(
         output_attentions=output_attentions,
         output_hidden_states=output_hidden_states,
         return_dict=return_dict,
+        mm_token_type_ids=mm_token_type_ids,
         cache_position=cache_position,
         **kwargs,
     )
 
     hidden_states = outputs[0]
+    slice_indices = slice(-logits_to_keep, None) if isinstance(logits_to_keep, int) else logits_to_keep
+    kept_hidden_states = hidden_states[:, slice_indices, :]
 
     shift_labels = kwargs.pop("shift_labels", None)
     loss = None
     logits = None
     token_accuracy = None
+    predicted_tokens = None
 
     if skip_logits and labels is None and shift_labels is None:
         raise ValueError("skip_logits is True, but labels and shift_labels are None")
@@ -118,25 +127,32 @@ def lce_forward(
 
     if skip_logits:
         result = LigerForCausalLMLoss(
-            hidden_states=hidden_states,
+            hidden_states=kept_hidden_states,
             lm_head_weight=self.lm_head.weight,
             labels=labels,
             shift_labels=shift_labels,
             hidden_size=self.config.text_config.hidden_size,
             **kwargs,
         )
-        loss, _, token_accuracy = unpack_cross_entropy_result(result)
+        loss, _, token_accuracy, predicted_tokens = unpack_cross_entropy_result(result)
     else:
-        logits = self.lm_head(hidden_states)
+        logits = self.lm_head(kept_hidden_states)
 
         loss = None
-        if labels is not None:
-            loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.text_config.vocab_size)
+        if labels is not None or shift_labels is not None:
+            loss = self.loss_function(
+                logits=logits,
+                labels=labels,
+                shift_labels=shift_labels,
+                vocab_size=self.config.text_config.vocab_size,
+                **kwargs,
+            )
 
     if not return_dict:
         output = (logits,) + outputs[1:]
         output = (loss,) + output if loss is not None else output
         output = output + (token_accuracy,) if token_accuracy is not None else output
+        output = output + (predicted_tokens,) if predicted_tokens is not None else output
         return output
 
     return LigerQwen3VLCausalLMOutputWithPast(
@@ -147,4 +163,5 @@ def lce_forward(
         attentions=outputs.attentions,
         rope_deltas=outputs.rope_deltas,
         token_accuracy=token_accuracy,
+        predicted_tokens=predicted_tokens,
     )

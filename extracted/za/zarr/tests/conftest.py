@@ -22,10 +22,10 @@ from zarr.core.array import (
     _parse_chunk_encoding_v3,
     _parse_chunk_key_encoding,
 )
-from zarr.core.chunk_grids import RegularChunkGrid, _auto_partition
+from zarr.core.chunk_grids import _auto_partition
 from zarr.core.common import (
     JSON,
-    DimensionNames,
+    DimensionNamesLike,
     MemoryOrder,
     ShapeLike,
     ZarrFormat,
@@ -37,7 +37,7 @@ from zarr.core.dtype import (
 )
 from zarr.core.dtype.common import HasItemSize
 from zarr.core.metadata.v2 import ArrayV2Metadata
-from zarr.core.metadata.v3 import ArrayV3Metadata
+from zarr.core.metadata.v3 import ArrayV3Metadata, RegularChunkGridMetadata
 from zarr.core.sync import sync
 from zarr.storage import FsspecStore, LocalStore, MemoryStore, StorePath, ZipStore
 from zarr.testing.store import LatencyStore
@@ -58,6 +58,25 @@ if TYPE_CHECKING:
     from zarr.core.dtype.wrapper import ZDType
 
 
+@dataclass
+class Expect[TIn, TOut]:
+    """A test case with explicit input, expected output, and a human-readable id."""
+
+    input: TIn
+    output: TOut
+    id: str
+
+
+@dataclass
+class ExpectFail[TIn]:
+    """A test case that should raise an exception."""
+
+    input: TIn
+    exception: type[Exception]
+    id: str
+    msg: str
+
+
 async def parse_store(
     store: Literal["local", "memory", "fsspec", "zip", "memory_get_latency"], path: str
 ) -> LocalStore | MemoryStore | FsspecStore | ZipStore | LatencyStore:
@@ -68,7 +87,7 @@ async def parse_store(
     if store == "fsspec":
         return await FsspecStore.open(url=path)
     if store == "zip":
-        return await ZipStore.open(path + "/zarr.zip", mode="w")
+        return await ZipStore.open(f"{path}/zarr.zip", mode="w")
     if store == "memory_get_latency":
         return LatencyStore(MemoryStore(), get_latency=0.0001, set_latency=0)
     raise AssertionError
@@ -124,7 +143,7 @@ async def store2(request: pytest.FixtureRequest, tmpdir: LEGACY_PATH) -> Store:
 def sync_store(request: pytest.FixtureRequest, tmp_path: LEGACY_PATH) -> Store:
     result = sync(parse_store(request.param, str(tmp_path)))
     if not isinstance(result, Store):
-        raise TypeError("Wrong store class returned by test fixture! got " + result + " instead")
+        raise TypeError(f"Wrong store class returned by test fixture! got {result} instead")
     return result
 
 
@@ -313,7 +332,7 @@ def create_array_metadata(
     zarr_format: ZarrFormat,
     attributes: dict[str, JSON] | None = None,
     chunk_key_encoding: ChunkKeyEncoding | ChunkKeyEncodingLike | None = None,
-    dimension_names: DimensionNames = None,
+    dimension_names: DimensionNamesLike = None,
 ) -> ArrayV2Metadata | ArrayV3Metadata:
     """
     Create array metadata
@@ -379,7 +398,7 @@ def create_array_metadata(
             sharding_codec.validate(
                 shape=chunk_shape_parsed,
                 dtype=dtype_parsed,
-                chunk_grid=RegularChunkGrid(chunk_shape=shard_shape_parsed),
+                chunk_grid=RegularChunkGridMetadata(chunk_shape=shard_shape_parsed),
             )
             codecs_out = (sharding_codec,)
             chunks_out = shard_shape_parsed
@@ -390,7 +409,7 @@ def create_array_metadata(
         return ArrayV3Metadata(
             shape=shape_parsed,
             data_type=dtype_parsed,
-            chunk_grid=RegularChunkGrid(chunk_shape=chunks_out),
+            chunk_grid={"name": "regular", "configuration": {"chunk_shape": chunks_out}},
             chunk_key_encoding=chunk_key_encoding_parsed,
             fill_value=fill_value,
             codecs=codecs_out,
@@ -452,7 +471,7 @@ def meta_from_array(
     zarr_format: ZarrFormat = 3,
     attributes: dict[str, JSON] | None = None,
     chunk_key_encoding: ChunkKeyEncoding | ChunkKeyEncodingLike | None = None,
-    dimension_names: DimensionNames = None,
+    dimension_names: DimensionNamesLike = None,
 ) -> ArrayV3Metadata | ArrayV2Metadata:
     """
     Create array metadata from an array

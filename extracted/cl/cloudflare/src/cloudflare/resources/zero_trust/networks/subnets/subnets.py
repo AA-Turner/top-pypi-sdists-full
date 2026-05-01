@@ -6,8 +6,16 @@ from typing_extensions import Literal
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform
+from .warp import (
+    WARPResource,
+    AsyncWARPResource,
+    WARPResourceWithRawResponse,
+    AsyncWARPResourceWithRawResponse,
+    WARPResourceWithStreamingResponse,
+    AsyncWARPResourceWithStreamingResponse,
+)
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -27,12 +35,16 @@ from .cloudflare_source import (
     AsyncCloudflareSourceResourceWithStreamingResponse,
 )
 from .....types.zero_trust.networks import subnet_list_params
-from .....types.zero_trust.networks.subnet_list_response import SubnetListResponse
+from .....types.zero_trust.networks.subnets.subnet import Subnet
 
 __all__ = ["SubnetsResource", "AsyncSubnetsResource"]
 
 
 class SubnetsResource(SyncAPIResource):
+    @cached_property
+    def warp(self) -> WARPResource:
+        return WARPResource(self._client)
+
     @cached_property
     def cloudflare_source(self) -> CloudflareSourceResource:
         return CloudflareSourceResource(self._client)
@@ -60,24 +72,24 @@ class SubnetsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        address_family: Literal["v4", "v6"] | NotGiven = NOT_GIVEN,
-        comment: str | NotGiven = NOT_GIVEN,
-        existed_at: str | NotGiven = NOT_GIVEN,
-        is_default_network: bool | NotGiven = NOT_GIVEN,
-        is_deleted: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        network: str | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        sort_order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        subnet_types: Literal["cloudflare_source", "warp"] | NotGiven = NOT_GIVEN,
+        address_family: Literal["v4", "v6"] | Omit = omit,
+        comment: str | Omit = omit,
+        existed_at: str | Omit = omit,
+        is_default_network: bool | Omit = omit,
+        is_deleted: bool | Omit = omit,
+        name: str | Omit = omit,
+        network: str | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        sort_order: Literal["asc", "desc"] | Omit = omit,
+        subnet_types: Literal["cloudflare_source", "warp"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncV4PagePaginationArray[SubnetListResponse]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncV4PagePaginationArray[Subnet]:
         """
         Lists and filters subnets in an account.
 
@@ -121,8 +133,8 @@ class SubnetsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/zerotrust/subnets",
-            page=SyncV4PagePaginationArray[SubnetListResponse],
+            path_template("/accounts/{account_id}/zerotrust/subnets", account_id=account_id),
+            page=SyncV4PagePaginationArray[Subnet],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -145,11 +157,15 @@ class SubnetsResource(SyncAPIResource):
                     subnet_list_params.SubnetListParams,
                 ),
             ),
-            model=SubnetListResponse,
+            model=Subnet,
         )
 
 
 class AsyncSubnetsResource(AsyncAPIResource):
+    @cached_property
+    def warp(self) -> AsyncWARPResource:
+        return AsyncWARPResource(self._client)
+
     @cached_property
     def cloudflare_source(self) -> AsyncCloudflareSourceResource:
         return AsyncCloudflareSourceResource(self._client)
@@ -177,24 +193,24 @@ class AsyncSubnetsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        address_family: Literal["v4", "v6"] | NotGiven = NOT_GIVEN,
-        comment: str | NotGiven = NOT_GIVEN,
-        existed_at: str | NotGiven = NOT_GIVEN,
-        is_default_network: bool | NotGiven = NOT_GIVEN,
-        is_deleted: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        network: str | NotGiven = NOT_GIVEN,
-        page: float | NotGiven = NOT_GIVEN,
-        per_page: float | NotGiven = NOT_GIVEN,
-        sort_order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        subnet_types: Literal["cloudflare_source", "warp"] | NotGiven = NOT_GIVEN,
+        address_family: Literal["v4", "v6"] | Omit = omit,
+        comment: str | Omit = omit,
+        existed_at: str | Omit = omit,
+        is_default_network: bool | Omit = omit,
+        is_deleted: bool | Omit = omit,
+        name: str | Omit = omit,
+        network: str | Omit = omit,
+        page: float | Omit = omit,
+        per_page: float | Omit = omit,
+        sort_order: Literal["asc", "desc"] | Omit = omit,
+        subnet_types: Literal["cloudflare_source", "warp"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[SubnetListResponse, AsyncV4PagePaginationArray[SubnetListResponse]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[Subnet, AsyncV4PagePaginationArray[Subnet]]:
         """
         Lists and filters subnets in an account.
 
@@ -238,8 +254,8 @@ class AsyncSubnetsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/zerotrust/subnets",
-            page=AsyncV4PagePaginationArray[SubnetListResponse],
+            path_template("/accounts/{account_id}/zerotrust/subnets", account_id=account_id),
+            page=AsyncV4PagePaginationArray[Subnet],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -262,7 +278,7 @@ class AsyncSubnetsResource(AsyncAPIResource):
                     subnet_list_params.SubnetListParams,
                 ),
             ),
-            model=SubnetListResponse,
+            model=Subnet,
         )
 
 
@@ -273,6 +289,10 @@ class SubnetsResourceWithRawResponse:
         self.list = to_raw_response_wrapper(
             subnets.list,
         )
+
+    @cached_property
+    def warp(self) -> WARPResourceWithRawResponse:
+        return WARPResourceWithRawResponse(self._subnets.warp)
 
     @cached_property
     def cloudflare_source(self) -> CloudflareSourceResourceWithRawResponse:
@@ -288,6 +308,10 @@ class AsyncSubnetsResourceWithRawResponse:
         )
 
     @cached_property
+    def warp(self) -> AsyncWARPResourceWithRawResponse:
+        return AsyncWARPResourceWithRawResponse(self._subnets.warp)
+
+    @cached_property
     def cloudflare_source(self) -> AsyncCloudflareSourceResourceWithRawResponse:
         return AsyncCloudflareSourceResourceWithRawResponse(self._subnets.cloudflare_source)
 
@@ -301,6 +325,10 @@ class SubnetsResourceWithStreamingResponse:
         )
 
     @cached_property
+    def warp(self) -> WARPResourceWithStreamingResponse:
+        return WARPResourceWithStreamingResponse(self._subnets.warp)
+
+    @cached_property
     def cloudflare_source(self) -> CloudflareSourceResourceWithStreamingResponse:
         return CloudflareSourceResourceWithStreamingResponse(self._subnets.cloudflare_source)
 
@@ -312,6 +340,10 @@ class AsyncSubnetsResourceWithStreamingResponse:
         self.list = async_to_streamed_response_wrapper(
             subnets.list,
         )
+
+    @cached_property
+    def warp(self) -> AsyncWARPResourceWithStreamingResponse:
+        return AsyncWARPResourceWithStreamingResponse(self._subnets.warp)
 
     @cached_property
     def cloudflare_source(self) -> AsyncCloudflareSourceResourceWithStreamingResponse:

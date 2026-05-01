@@ -9,6 +9,7 @@ import builtins
 import importlib
 import importlib.util
 import sys
+import threading
 import traceback
 import warnings
 
@@ -63,7 +64,7 @@ class XonshDebug:
 
     AUTO_ENGINES = ("pdbp", "ipdb", "pdb")
 
-    def breakpoint(self, engine: str = "auto") -> None:
+    def breakpoint(self, engine: str = "auto", *, frame=None) -> None:
         """Drop into a debugger at the caller's frame.
 
         Parameters
@@ -90,15 +91,25 @@ class XonshDebug:
             In both REPLs, type ``c``/``cont``/``continue`` (or hit
             EOF/Ctrl-C) to resume execution, or ``exit``/``quit``/``q``
             to abort — the latter raises :class:`XonshDebugQuit`.
+        frame : types.FrameType, optional
+            Frame at which the debugger should stop. Mirrors
+            ``pdbp.set_trace(frame=...)``. When ``None`` (the default),
+            the immediate caller's frame is used. Pass an explicit
+            frame from a wrapper helper to relocate the stop site to
+            the helper's caller (or any other frame on the stack)::
+
+                def my_dev_helper():
+                    @.debug.breakpoint(frame=sys._getframe().f_back)
         """
         __tracebackhide__: bool = True  # hidden from pdbp/pytest frame walks
-        caller = sys._getframe(1)
+        if frame is None:
+            frame = sys._getframe(1)
         try:
-            self._break_at(caller, engine)
+            self._break_at(frame, engine)
         finally:
-            # Break the reference to the caller frame so locals are
-            # not pinned any longer than necessary.
-            del caller
+            # Break the reference to the frame so locals are not
+            # pinned any longer than necessary.
+            del frame
 
     _HINTS = {
         "pdb": "[xonsh-debug] pdb: 'c' continue | 'q' quit",
@@ -143,18 +154,23 @@ class XonshDebug:
             sys.__breakpointhook__`` to restore the default.
         """
 
-        def hook(*_args, **_kwargs):
+        def hook(*_args, frame=None, **_kwargs):
             __tracebackhide__: bool = True
             # Python's breakpoint() builtin is a C function, so
             # sys._getframe(1) from inside this hook is the user's
-            # Python frame that invoked breakpoint().
-            caller = sys._getframe(1)
+            # Python frame that invoked breakpoint(). If the caller
+            # forwarded an explicit ``frame=`` (PEP 553 forwards all
+            # kwargs to sys.breakpointhook), honour it.
+            if frame is None:
+                frame = sys._getframe(1)
             try:
-                self._break_at(caller, engine)
+                self._break_at(frame, engine)
             finally:
-                del caller
+                del frame
 
         sys.breakpointhook = hook
+
+    READLINE_ENGINES = ("pdbp", "ipdb", "pdb")
 
     def _resolve_engine(self, engine: str) -> str:
         if engine not in CANONIC_BREAKPOINT_ENGINES:
@@ -167,7 +183,22 @@ class XonshDebug:
             if env_engine != "auto":
                 engine = env_engine
         if engine != "auto":
+            if engine in self.READLINE_ENGINES and not self._is_main_thread():
+                warnings.warn(
+                    f"Debug breakpoint (engine={engine!r}) was invoked from "
+                    "a non-main thread (e.g. inside a callable alias). "
+                    "External debuggers cannot tab-complete in this context "
+                    "due to a CPython readline limitation. Use "
+                    "engine='execer' or engine='eval' for a working REPL.",
+                    UserWarning,
+                    stacklevel=2,
+                )
             return engine
+        # Auto-walk: in worker threads readline-based engines lose tab
+        # completion (CPython only wires readline into the main thread),
+        # so skip straight to a session-aware REPL.
+        if not self._is_main_thread():
+            return "execer" if self._has_execer() else "eval"
         for name in self.AUTO_ENGINES:
             if importlib.util.find_spec(name) is not None:
                 return name
@@ -176,6 +207,10 @@ class XonshDebug:
         if self._has_execer():
             return "execer"
         return "eval"
+
+    @staticmethod
+    def _is_main_thread() -> bool:
+        return threading.current_thread() is threading.main_thread()
 
     @staticmethod
     def _has_execer() -> bool:

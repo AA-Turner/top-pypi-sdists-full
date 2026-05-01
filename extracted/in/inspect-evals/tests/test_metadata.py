@@ -6,7 +6,13 @@ from pydantic import ValidationError
 
 from inspect_evals.metadata import (
     EvalListing,
+    EvalRuntimeMetadata,
+    EvaluationReport,
+    EvaluationReportMetric,
+    EvaluationReportResult,
+    ExternalEvalMetadata,
     InternalEvalMetadata,
+    SandboxEnvironment,
     TaskMetadata,
     TaskVersion,
     load_eval_metadata,
@@ -69,7 +75,11 @@ def test_eval_metadata_parsing(listing, raw_listing_data):
         else:
             assert model_eval.arxiv is None, f"Unexpected arxiv for {eval_id}"
 
-        assert model_eval.group == raw_eval["group"], f"Group mismatch for {eval_id}"
+        # Registry entries don't declare 'group' in yaml; group is derived from tags.
+        if "group" in raw_eval:
+            assert model_eval.group == raw_eval["group"], (
+                f"Group mismatch for {eval_id}"
+            )
         assert isinstance(model_eval.contributors, list), (
             f"Contributors not a list for {eval_id}"
         )
@@ -91,9 +101,14 @@ def test_eval_metadata_parsing(listing, raw_listing_data):
             assert task_model.name == task_raw["name"], (
                 f"Task name mismatch for {eval_id}/{task_name}"
             )
-            assert task_model.dataset_samples == task_raw["dataset_samples"], (
-                f"Dataset samples mismatch for {eval_id}/{task_name}"
-            )
+            if "dataset_samples" in task_raw:
+                assert task_model.dataset_samples == task_raw["dataset_samples"], (
+                    f"Dataset samples mismatch for {eval_id}/{task_name}"
+                )
+            else:
+                assert task_model.dataset_samples is None, (
+                    f"Unexpected dataset_samples for {eval_id}/{task_name}"
+                )
 
             # Check human_baseline with handling for optional field
             if "human_baseline" in task_raw:
@@ -122,7 +137,9 @@ def test_eval_metadata_parsing(listing, raw_listing_data):
 
         if "tags" in raw_eval:
             assert hasattr(model_eval, "tags"), f"Missing tags attribute for {eval_id}"
-            assert set(model_eval.tags) == set(raw_eval["tags"]), (
+            # Registry entries auto-append the upstream repo name as a tag,
+            # so the model's tag set is a superset of what's written in eval.yaml.
+            assert set(raw_eval["tags"]).issubset(set(model_eval.tags)), (
                 f"Tags mismatch for {eval_id}"
             )
 
@@ -161,11 +178,19 @@ def test_find_task(listing, raw_listing_data):
 
 def test_get_evals_in_group(listing, raw_listing_data):
     """Test that get_evals_in_group method works correctly."""
-    # Find all coding evals in raw data
-    coding_evals_raw = [item for item in raw_listing_data if item["group"] == "Coding"]
+    # Registry entries don't declare 'group' in yaml (it's derived from tags),
+    # so we only compare against raw rows that explicitly set it.
+    coding_evals_raw = [
+        item for item in raw_listing_data if item.get("group") == "Coding"
+    ]
 
-    # Get all evals in the Coding group through the model
-    coding_evals = listing.get_evals_in_group("Coding")
+    # Get all Coding-group evals through the model, restricted to internals
+    # (the set whose 'group' is authoritative from yaml).
+    coding_evals = [
+        e
+        for e in listing.get_evals_in_group("Coding")
+        if isinstance(e, InternalEvalMetadata)
+    ]
 
     # Check counts match
     assert len(coding_evals) == len(coding_evals_raw)
@@ -177,15 +202,16 @@ def test_get_evals_in_group(listing, raw_listing_data):
 
 def test_groups_property(listing, raw_listing_data):
     """Test that groups property returns all unique groups."""
-    # Get unique groups from raw data
-    raw_groups = sorted(list(set(item["group"] for item in raw_listing_data)))
+    # Registry entries derive group from tags, so only compare against raw
+    # rows that explicitly set 'group'.
+    raw_groups = sorted({item["group"] for item in raw_listing_data if "group" in item})
 
-    # Get groups through the model
-    groups = listing.groups
+    # Get groups through the model, restricted to authoritative (internal) values
+    model_groups = sorted(
+        {e.group for e in listing.evals if isinstance(e, InternalEvalMetadata)}
+    )
 
-    # Check groups match
-    assert isinstance(groups, list)
-    assert groups == raw_groups
+    assert model_groups == raw_groups
 
 
 def test_valid_versions():
@@ -217,6 +243,30 @@ def test_invalid_versions():
 def test_type_check():
     with pytest.raises(TypeError):
         TaskVersion(123)  # must be a string
+
+
+def test_sandbox_and_sandbox_environment_consistent(listing):
+    """An eval declares either both sandbox-related fields or neither."""
+    mismatched = []
+    for ev in listing.evals:
+        rm = ev.runtime_metadata
+        if rm is None:
+            continue
+        if bool(rm.sandbox) != bool(rm.sandbox_environment):
+            mismatched.append((ev.id, rm.sandbox, rm.sandbox_environment))
+    assert not mismatched, (
+        f"sandbox and sandbox_environment must be set together: {mismatched}"
+    )
+
+
+def test_sandbox_environment_rejects_unknown_value():
+    with pytest.raises(ValidationError):
+        EvalRuntimeMetadata.model_validate({"sandbox_environment": ["podman"]})
+
+
+def test_sandbox_environment_coerces_strings_to_enum():
+    rm = EvalRuntimeMetadata.model_validate({"sandbox_environment": ["docker", "k8s"]})
+    assert rm.sandbox_environment == [SandboxEnvironment.DOCKER, SandboxEnvironment.K8S]
 
 
 @pytest.mark.xfail(
@@ -348,3 +398,249 @@ def test_optional_deps_have_eval_yaml_dependency(listing, pyproject_data):
             )
 
     assert not errors, "Missing dependency declarations:\n" + "\n".join(errors)
+
+
+def _external_eval_kwargs(**overrides):
+    """Minimal valid kwargs for constructing an ExternalEvalMetadata."""
+    base = dict(
+        id="my_eval",
+        title="My Eval",
+        description="Test",
+        contributors=["someone"],
+        tasks=[TaskMetadata(name="my_task", task_path="src/my_eval/task.py")],
+        source={
+            "repository_url": "https://github.com/owner/repo",
+            "repository_commit": "a" * 40,
+        },
+    )
+    base.update(overrides)
+    return base
+
+
+def test_external_eval_evaluation_report_optional():
+    """An ExternalEvalMetadata without `evaluation_report` parses cleanly."""
+    eval_meta = ExternalEvalMetadata(**_external_eval_kwargs())
+    assert eval_meta.evaluation_report is None
+
+
+def test_external_eval_evaluation_report_minimal():
+    """A minimal report (one row, one metric, plus `commit`) parses."""
+    eval_meta = ExternalEvalMetadata(
+        **_external_eval_kwargs(
+            evaluation_report={
+                "commit": "b" * 40,
+                "results": [
+                    {
+                        "model": "openai/gpt-4o-mini",
+                        "metrics": [{"key": "accuracy", "value": 0.5}],
+                    }
+                ],
+            }
+        )
+    )
+    report = eval_meta.evaluation_report
+    assert report is not None
+    assert report.commit == "b" * 40
+    assert report.command is None
+    assert report.version is None
+    assert len(report.results) == 1
+    row = report.results[0]
+    assert row.model == "openai/gpt-4o-mini"
+    assert len(row.metrics) == 1
+    assert row.metrics[0].key == "accuracy"
+    assert row.metrics[0].value == 0.5
+    assert row.provider is None
+    assert row.task is None
+
+
+def test_external_eval_evaluation_report_full():
+    """A report with all standard fields parses and exposes the expected values."""
+    eval_meta = ExternalEvalMetadata(
+        **_external_eval_kwargs(
+            evaluation_report={
+                "timestamp": "July 2025",
+                "commit": "b" * 40,
+                "version": "1.2.0",
+                "command": "uv run inspect eval src/my_eval/task.py@my_task --limit 100",
+                "results": [
+                    {
+                        "model": "openai/gpt-4o-mini",
+                        "provider": "OpenAI",
+                        "metrics": [
+                            {"key": "accuracy", "value": 0.766},
+                            {"key": "stderr", "value": 0.007},
+                        ],
+                        "time": "18s",
+                        "date": "2025-07-15",
+                    }
+                ],
+                "notes": ["Run on the full dataset (3,680 samples)."],
+            }
+        )
+    )
+    report = eval_meta.evaluation_report
+    assert report is not None
+    assert report.timestamp == "July 2025"
+    assert report.commit == "b" * 40
+    assert report.version == "1.2.0"
+    assert (
+        report.command == "uv run inspect eval src/my_eval/task.py@my_task --limit 100"
+    )
+    assert report.notes == ["Run on the full dataset (3,680 samples)."]
+    row = report.results[0]
+    assert row.provider == "OpenAI"
+    assert {(m.key, m.value) for m in row.metrics} == {
+        ("accuracy", 0.766),
+        ("stderr", 0.007),
+    }
+    assert row.time == "18s"
+    assert row.date == "2025-07-15"
+
+
+def test_external_eval_evaluation_report_extras_allowed():
+    """Extra fields are allowed on the report, each row, and each metric."""
+    eval_meta = ExternalEvalMetadata(
+        **_external_eval_kwargs(
+            evaluation_report={
+                "commit": "b" * 40,
+                "results": [
+                    {
+                        "model": "anthropic/claude-3-7-sonnet-20250219",
+                        "metrics": [
+                            {
+                                "key": "benign_utility",
+                                "value": 0.833,
+                                "ci": "83.3%±3.8%",
+                            },
+                            {"key": "targeted_asr", "value": 0.085},
+                        ],
+                        "comment": "rerun on full dataset",
+                    }
+                ],
+                "leaderboard_url": "https://example.com/leaderboard",
+            }
+        )
+    )
+    report = eval_meta.evaluation_report
+    assert report is not None
+    assert (report.model_extra or {}).get("leaderboard_url") == (
+        "https://example.com/leaderboard"
+    )
+    row = report.results[0]
+    assert (row.model_extra or {}).get("comment") == "rerun on full dataset"
+    metric_extras = (row.metrics[0].model_extra or {}).get("ci")
+    assert metric_extras == "83.3%±3.8%"
+
+
+def test_external_eval_evaluation_report_requires_results():
+    """An empty or missing ``results`` list raises ValidationError."""
+    with pytest.raises(ValidationError):
+        ExternalEvalMetadata(
+            **_external_eval_kwargs(
+                evaluation_report={"timestamp": "July 2025", "commit": "b" * 40}
+            )
+        )
+    with pytest.raises(ValidationError):
+        ExternalEvalMetadata(
+            **_external_eval_kwargs(
+                evaluation_report={"commit": "b" * 40, "results": []}
+            )
+        )
+
+
+def test_external_eval_evaluation_report_requires_commit():
+    """Omitting `commit` from an evaluation_report raises ValidationError."""
+    with pytest.raises(ValidationError):
+        ExternalEvalMetadata(
+            **_external_eval_kwargs(
+                evaluation_report={
+                    "results": [
+                        {
+                            "model": "m",
+                            "metrics": [{"key": "accuracy", "value": 0.5}],
+                        }
+                    ],
+                }
+            )
+        )
+
+
+def test_external_eval_evaluation_report_task_must_match_declared():
+    """A `task` value on a result row must reference a declared task."""
+    with pytest.raises(ValidationError, match="unknown task"):
+        ExternalEvalMetadata(
+            **_external_eval_kwargs(
+                evaluation_report={
+                    "commit": "b" * 40,
+                    "results": [
+                        {
+                            "task": "not_declared",
+                            "model": "m",
+                            "metrics": [{"key": "accuracy", "value": 0.5}],
+                        }
+                    ],
+                }
+            )
+        )
+
+
+def test_external_eval_evaluation_report_task_aggregate_allowed():
+    """`task` may be omitted on a row to represent an aggregate result."""
+    eval_meta = ExternalEvalMetadata(
+        **_external_eval_kwargs(
+            evaluation_report={
+                "commit": "b" * 40,
+                "results": [
+                    {
+                        "task": "my_task",
+                        "model": "m",
+                        "metrics": [{"key": "accuracy", "value": 0.5}],
+                    },
+                    {
+                        "model": "m",
+                        "metrics": [{"key": "accuracy", "value": 0.55}],
+                    },
+                ],
+            }
+        )
+    )
+    report = eval_meta.evaluation_report
+    assert report is not None
+    assert report.results[0].task == "my_task"
+    assert report.results[1].task is None
+
+
+def test_evaluation_report_result_requires_at_least_one_metric():
+    """A result row's ``metrics`` list must contain at least one entry."""
+    with pytest.raises(ValidationError):
+        EvaluationReportResult(model="openai/gpt-4o-mini", metrics=[])
+    with pytest.raises(ValidationError):
+        # ``metrics`` is required (no default).
+        EvaluationReportResult(model="openai/gpt-4o-mini")
+
+
+def test_evaluation_report_metric_requires_key_and_value():
+    """A metric must have both ``key`` and ``value``."""
+    with pytest.raises(ValidationError):
+        EvaluationReportMetric(key="accuracy")
+    with pytest.raises(ValidationError):
+        EvaluationReportMetric(value=0.5)
+
+
+def test_evaluation_report_construct_directly():
+    """The EvaluationReport model can also be built directly."""
+    report = EvaluationReport(
+        commit="b" * 40,
+        results=[
+            EvaluationReportResult(
+                model="m",
+                metrics=[EvaluationReportMetric(key="accuracy", value=0.5)],
+            )
+        ],
+    )
+    assert report.commit == "b" * 40
+    assert report.command is None
+    assert report.version is None
+    assert report.timestamp is None
+    assert report.notes is None
+    assert report.results[0].metrics[0].key == "accuracy"

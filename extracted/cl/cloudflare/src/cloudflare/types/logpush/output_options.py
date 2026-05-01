@@ -11,6 +11,11 @@ __all__ = ["OutputOptions"]
 
 
 class OutputOptions(BaseModel):
+    """The structured replacement for `logpull_options`.
+
+    When including this field, the `logpull_option` field will be ignored.
+    """
+
     batch_prefix: Optional[str] = None
     """String to be prepended before each batch."""
 
@@ -31,6 +36,12 @@ class OutputOptions(BaseModel):
 
     For the moment, there is no option to add all fields at once, so you must
     specify all the fields names you are interested in.
+    """
+
+    merge_subrequests: Optional[bool] = None
+    """If set to true, subrequests will be merged into the parent request.
+
+    Only supported for the `http_requests` dataset.
     """
 
     output_type: Optional[Literal["ndjson", "csv"]] = None
@@ -65,8 +76,8 @@ class OutputOptions(BaseModel):
     `sample_interval` of the data.
     """
 
-    timestamp_format: Optional[Literal["unixnano", "unix", "rfc3339"]] = None
+    timestamp_format: Optional[Literal["unixnano", "unix", "rfc3339", "rfc3339ms", "rfc3339ns"]] = None
     """
-    String to specify the format for timestamps, such as `unixnano`, `unix`, or
-    `rfc3339`.
+    String to specify the format for timestamps, such as `unixnano`, `unix`,
+    `rfc3339`, `rfc3339ms` or `rfc3339ns`.
     """

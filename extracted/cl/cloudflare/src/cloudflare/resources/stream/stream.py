@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Type, Union, Optional, cast
+from typing import Type, Union, Optional, cast
 from datetime import datetime
 from typing_extensions import Literal
 
@@ -56,8 +56,8 @@ from .videos import (
     VideosResourceWithStreamingResponse,
     AsyncVideosResourceWithStreamingResponse,
 )
-from ..._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
-from ..._utils import maybe_transform, strip_not_given, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NoneType, NotGiven, SequenceNotStr, omit, not_given
+from ..._utils import path_template, maybe_transform, strip_not_given, async_maybe_transform
 from .webhooks import (
     WebhooksResource,
     AsyncWebhooksResource,
@@ -208,18 +208,17 @@ class StreamResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        body: object,
         tus_resumable: Literal["1.0.0"],
         upload_length: int,
-        direct_user: bool | NotGiven = NOT_GIVEN,
-        upload_creator: str | NotGiven = NOT_GIVEN,
-        upload_metadata: str | NotGiven = NOT_GIVEN,
+        direct_user: bool | Omit = omit,
+        upload_creator: str | Omit = omit,
+        upload_metadata: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """Initiates a video upload using the TUS protocol.
 
@@ -270,8 +269,7 @@ class StreamResource(SyncAPIResource):
             **(extra_headers or {}),
         }
         return self._post(
-            f"/accounts/{account_id}/stream",
-            body=maybe_transform(body, stream_create_params.StreamCreateParams),
+            path_template("/accounts/{account_id}/stream", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -286,21 +284,28 @@ class StreamResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        asc: bool | NotGiven = NOT_GIVEN,
-        creator: str | NotGiven = NOT_GIVEN,
-        end: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        include_counts: bool | NotGiven = NOT_GIVEN,
-        search: str | NotGiven = NOT_GIVEN,
-        start: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        status: Literal["pendingupload", "downloading", "queued", "inprogress", "ready", "error"]
-        | NotGiven = NOT_GIVEN,
-        type: str | NotGiven = NOT_GIVEN,
+        id: str | Omit = omit,
+        after: Union[str, datetime] | Omit = omit,
+        asc: bool | Omit = omit,
+        before: Union[str, datetime] | Omit = omit,
+        creator: str | Omit = omit,
+        end: Union[str, datetime] | Omit = omit,
+        include_counts: bool | Omit = omit,
+        limit: int | Omit = omit,
+        live_input_id: str | Omit = omit,
+        name: str | Omit = omit,
+        search: str | Omit = omit,
+        start: Union[str, datetime] | Omit = omit,
+        status: Literal["pendingupload", "downloading", "queued", "inprogress", "ready", "error", "live-inprogress"]
+        | Omit = omit,
+        type: str | Omit = omit,
+        video_name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Video]:
         """Lists up to 1000 videos from a single request.
 
@@ -310,7 +315,14 @@ class StreamResource(SyncAPIResource):
         Args:
           account_id: The account identifier tag.
 
+          id: Filter by video ID(s). Can be a single ID or a comma-separated list of IDs.
+
+          after: Alias for 'start'. Returns videos created after this date/time (RFC 3339
+              format).
+
           asc: Lists videos in ascending order of creation.
+
+          before: Alias for 'end'. Returns videos created before this date/time (RFC 3339 format).
 
           creator: A user-defined identifier for the media creator.
 
@@ -319,14 +331,22 @@ class StreamResource(SyncAPIResource):
           include_counts: Includes the total number of videos associated with the submitted query
               parameters.
 
-          search: Searches over the `name` key in the `meta` field. This field can be set with or
-              after the upload request.
+          limit: Maximum number of videos to return (default 1000, max 1000).
+
+          live_input_id: Filter by live input ID to find videos associated with a specific live stream.
+
+          name: Filter by video name/UID(s). Can be a single name or a comma-separated list.
+
+          search: Provides a partial word match of the `name` key in the `meta` field. Slow for
+              medium to large video libraries. May be unavailable for very large libraries.
 
           start: Lists videos created after the specified date.
 
           status: Specifies the processing status for all quality levels for a video.
 
           type: Specifies whether the video is `vod` or `live`.
+
+          video_name: Provides a fast, exact string match on the `name` key in the `meta` field.
 
           extra_headers: Send extra headers
 
@@ -339,7 +359,7 @@ class StreamResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/stream",
+            path_template("/accounts/{account_id}/stream", account_id=account_id),
             page=SyncSinglePage[Video],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -348,14 +368,21 @@ class StreamResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "id": id,
+                        "after": after,
                         "asc": asc,
+                        "before": before,
                         "creator": creator,
                         "end": end,
                         "include_counts": include_counts,
+                        "limit": limit,
+                        "live_input_id": live_input_id,
+                        "name": name,
                         "search": search,
                         "start": start,
                         "status": status,
                         "type": type,
+                        "video_name": video_name,
                     },
                     stream_list_params.StreamListParams,
                 ),
@@ -373,7 +400,7 @@ class StreamResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Deletes a video and its copies from Cloudflare Stream.
@@ -397,7 +424,7 @@ class StreamResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/accounts/{account_id}/stream/{identifier}",
+            path_template("/accounts/{account_id}/stream/{identifier}", account_id=account_id, identifier=identifier),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -409,20 +436,22 @@ class StreamResource(SyncAPIResource):
         identifier: str,
         *,
         account_id: str,
-        allowed_origins: List[AllowedOrigins] | NotGiven = NOT_GIVEN,
-        creator: str | NotGiven = NOT_GIVEN,
-        max_duration_seconds: int | NotGiven = NOT_GIVEN,
-        meta: object | NotGiven = NOT_GIVEN,
-        require_signed_urls: bool | NotGiven = NOT_GIVEN,
-        scheduled_deletion: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        thumbnail_timestamp_pct: float | NotGiven = NOT_GIVEN,
-        upload_expiry: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        allowed_origins: SequenceNotStr[AllowedOrigins] | Omit = omit,
+        creator: str | Omit = omit,
+        max_duration_seconds: int | Omit = omit,
+        meta: object | Omit = omit,
+        public_details: stream_edit_params.PublicDetails | Omit = omit,
+        require_signed_urls: bool | Omit = omit,
+        scheduled_deletion: Union[str, datetime] | Omit = omit,
+        thumbnail_timestamp_pct: float | Omit = omit,
+        uid: str | Omit = omit,
+        upload_expiry: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Video]:
         """
         Edit details for a single video.
@@ -446,6 +475,9 @@ class StreamResource(SyncAPIResource):
           meta: A user modifiable key-value store used to reference other systems of record for
               managing videos.
 
+          public_details: Public details for the video including title, share link, channel link, and
+              logo.
+
           require_signed_urls: Indicates whether the video can be a accessed using the UID. When set to `true`,
               a signed token must be generated with a signing key to view the video.
 
@@ -457,6 +489,9 @@ class StreamResource(SyncAPIResource):
               video's duration. To convert from a second-wise timestamp to a percentage,
               divide the desired timestamp by the total duration of the video. If this value
               is not set, the default thumbnail image is taken from 0s of the video.
+
+          uid: The unique identifier for the video. Can be used to verify the video being
+              updated.
 
           upload_expiry: The date and time when the video upload URL is no longer valid for direct user
               uploads.
@@ -474,16 +509,18 @@ class StreamResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._post(
-            f"/accounts/{account_id}/stream/{identifier}",
+            path_template("/accounts/{account_id}/stream/{identifier}", account_id=account_id, identifier=identifier),
             body=maybe_transform(
                 {
                     "allowed_origins": allowed_origins,
                     "creator": creator,
                     "max_duration_seconds": max_duration_seconds,
                     "meta": meta,
+                    "public_details": public_details,
                     "require_signed_urls": require_signed_urls,
                     "scheduled_deletion": scheduled_deletion,
                     "thumbnail_timestamp_pct": thumbnail_timestamp_pct,
+                    "uid": uid,
                     "upload_expiry": upload_expiry,
                 },
                 stream_edit_params.StreamEditParams,
@@ -508,7 +545,7 @@ class StreamResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Video]:
         """
         Fetches details for a single video.
@@ -531,7 +568,7 @@ class StreamResource(SyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return self._get(
-            f"/accounts/{account_id}/stream/{identifier}",
+            path_template("/accounts/{account_id}/stream/{identifier}", account_id=account_id, identifier=identifier),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -619,18 +656,17 @@ class AsyncStreamResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        body: object,
         tus_resumable: Literal["1.0.0"],
         upload_length: int,
-        direct_user: bool | NotGiven = NOT_GIVEN,
-        upload_creator: str | NotGiven = NOT_GIVEN,
-        upload_metadata: str | NotGiven = NOT_GIVEN,
+        direct_user: bool | Omit = omit,
+        upload_creator: str | Omit = omit,
+        upload_metadata: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """Initiates a video upload using the TUS protocol.
 
@@ -681,8 +717,7 @@ class AsyncStreamResource(AsyncAPIResource):
             **(extra_headers or {}),
         }
         return await self._post(
-            f"/accounts/{account_id}/stream",
-            body=await async_maybe_transform(body, stream_create_params.StreamCreateParams),
+            path_template("/accounts/{account_id}/stream", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -699,21 +734,28 @@ class AsyncStreamResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        asc: bool | NotGiven = NOT_GIVEN,
-        creator: str | NotGiven = NOT_GIVEN,
-        end: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        include_counts: bool | NotGiven = NOT_GIVEN,
-        search: str | NotGiven = NOT_GIVEN,
-        start: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        status: Literal["pendingupload", "downloading", "queued", "inprogress", "ready", "error"]
-        | NotGiven = NOT_GIVEN,
-        type: str | NotGiven = NOT_GIVEN,
+        id: str | Omit = omit,
+        after: Union[str, datetime] | Omit = omit,
+        asc: bool | Omit = omit,
+        before: Union[str, datetime] | Omit = omit,
+        creator: str | Omit = omit,
+        end: Union[str, datetime] | Omit = omit,
+        include_counts: bool | Omit = omit,
+        limit: int | Omit = omit,
+        live_input_id: str | Omit = omit,
+        name: str | Omit = omit,
+        search: str | Omit = omit,
+        start: Union[str, datetime] | Omit = omit,
+        status: Literal["pendingupload", "downloading", "queued", "inprogress", "ready", "error", "live-inprogress"]
+        | Omit = omit,
+        type: str | Omit = omit,
+        video_name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Video, AsyncSinglePage[Video]]:
         """Lists up to 1000 videos from a single request.
 
@@ -723,7 +765,14 @@ class AsyncStreamResource(AsyncAPIResource):
         Args:
           account_id: The account identifier tag.
 
+          id: Filter by video ID(s). Can be a single ID or a comma-separated list of IDs.
+
+          after: Alias for 'start'. Returns videos created after this date/time (RFC 3339
+              format).
+
           asc: Lists videos in ascending order of creation.
+
+          before: Alias for 'end'. Returns videos created before this date/time (RFC 3339 format).
 
           creator: A user-defined identifier for the media creator.
 
@@ -732,14 +781,22 @@ class AsyncStreamResource(AsyncAPIResource):
           include_counts: Includes the total number of videos associated with the submitted query
               parameters.
 
-          search: Searches over the `name` key in the `meta` field. This field can be set with or
-              after the upload request.
+          limit: Maximum number of videos to return (default 1000, max 1000).
+
+          live_input_id: Filter by live input ID to find videos associated with a specific live stream.
+
+          name: Filter by video name/UID(s). Can be a single name or a comma-separated list.
+
+          search: Provides a partial word match of the `name` key in the `meta` field. Slow for
+              medium to large video libraries. May be unavailable for very large libraries.
 
           start: Lists videos created after the specified date.
 
           status: Specifies the processing status for all quality levels for a video.
 
           type: Specifies whether the video is `vod` or `live`.
+
+          video_name: Provides a fast, exact string match on the `name` key in the `meta` field.
 
           extra_headers: Send extra headers
 
@@ -752,7 +809,7 @@ class AsyncStreamResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/stream",
+            path_template("/accounts/{account_id}/stream", account_id=account_id),
             page=AsyncSinglePage[Video],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -761,14 +818,21 @@ class AsyncStreamResource(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "id": id,
+                        "after": after,
                         "asc": asc,
+                        "before": before,
                         "creator": creator,
                         "end": end,
                         "include_counts": include_counts,
+                        "limit": limit,
+                        "live_input_id": live_input_id,
+                        "name": name,
                         "search": search,
                         "start": start,
                         "status": status,
                         "type": type,
+                        "video_name": video_name,
                     },
                     stream_list_params.StreamListParams,
                 ),
@@ -786,7 +850,7 @@ class AsyncStreamResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Deletes a video and its copies from Cloudflare Stream.
@@ -810,7 +874,7 @@ class AsyncStreamResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/accounts/{account_id}/stream/{identifier}",
+            path_template("/accounts/{account_id}/stream/{identifier}", account_id=account_id, identifier=identifier),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -822,20 +886,22 @@ class AsyncStreamResource(AsyncAPIResource):
         identifier: str,
         *,
         account_id: str,
-        allowed_origins: List[AllowedOrigins] | NotGiven = NOT_GIVEN,
-        creator: str | NotGiven = NOT_GIVEN,
-        max_duration_seconds: int | NotGiven = NOT_GIVEN,
-        meta: object | NotGiven = NOT_GIVEN,
-        require_signed_urls: bool | NotGiven = NOT_GIVEN,
-        scheduled_deletion: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        thumbnail_timestamp_pct: float | NotGiven = NOT_GIVEN,
-        upload_expiry: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        allowed_origins: SequenceNotStr[AllowedOrigins] | Omit = omit,
+        creator: str | Omit = omit,
+        max_duration_seconds: int | Omit = omit,
+        meta: object | Omit = omit,
+        public_details: stream_edit_params.PublicDetails | Omit = omit,
+        require_signed_urls: bool | Omit = omit,
+        scheduled_deletion: Union[str, datetime] | Omit = omit,
+        thumbnail_timestamp_pct: float | Omit = omit,
+        uid: str | Omit = omit,
+        upload_expiry: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Video]:
         """
         Edit details for a single video.
@@ -859,6 +925,9 @@ class AsyncStreamResource(AsyncAPIResource):
           meta: A user modifiable key-value store used to reference other systems of record for
               managing videos.
 
+          public_details: Public details for the video including title, share link, channel link, and
+              logo.
+
           require_signed_urls: Indicates whether the video can be a accessed using the UID. When set to `true`,
               a signed token must be generated with a signing key to view the video.
 
@@ -870,6 +939,9 @@ class AsyncStreamResource(AsyncAPIResource):
               video's duration. To convert from a second-wise timestamp to a percentage,
               divide the desired timestamp by the total duration of the video. If this value
               is not set, the default thumbnail image is taken from 0s of the video.
+
+          uid: The unique identifier for the video. Can be used to verify the video being
+              updated.
 
           upload_expiry: The date and time when the video upload URL is no longer valid for direct user
               uploads.
@@ -887,16 +959,18 @@ class AsyncStreamResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._post(
-            f"/accounts/{account_id}/stream/{identifier}",
+            path_template("/accounts/{account_id}/stream/{identifier}", account_id=account_id, identifier=identifier),
             body=await async_maybe_transform(
                 {
                     "allowed_origins": allowed_origins,
                     "creator": creator,
                     "max_duration_seconds": max_duration_seconds,
                     "meta": meta,
+                    "public_details": public_details,
                     "require_signed_urls": require_signed_urls,
                     "scheduled_deletion": scheduled_deletion,
                     "thumbnail_timestamp_pct": thumbnail_timestamp_pct,
+                    "uid": uid,
                     "upload_expiry": upload_expiry,
                 },
                 stream_edit_params.StreamEditParams,
@@ -921,7 +995,7 @@ class AsyncStreamResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Video]:
         """
         Fetches details for a single video.
@@ -944,7 +1018,7 @@ class AsyncStreamResource(AsyncAPIResource):
         if not identifier:
             raise ValueError(f"Expected a non-empty value for `identifier` but received {identifier!r}")
         return await self._get(
-            f"/accounts/{account_id}/stream/{identifier}",
+            path_template("/accounts/{account_id}/stream/{identifier}", account_id=account_id, identifier=identifier),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

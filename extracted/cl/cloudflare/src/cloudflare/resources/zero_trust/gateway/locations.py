@@ -6,8 +6,8 @@ from typing import Type, Iterable, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -51,41 +51,39 @@ class LocationsResource(SyncAPIResource):
         *,
         account_id: str,
         name: str,
-        client_default: bool | NotGiven = NOT_GIVEN,
-        dns_destination_ips_id: str | NotGiven = NOT_GIVEN,
-        ecs_support: bool | NotGiven = NOT_GIVEN,
-        endpoints: EndpointParam | NotGiven = NOT_GIVEN,
-        networks: Iterable[location_create_params.Network] | NotGiven = NOT_GIVEN,
+        client_default: bool | Omit = omit,
+        dns_destination_ips_id: str | Omit = omit,
+        ecs_support: bool | Omit = omit,
+        endpoints: Optional[EndpointParam] | Omit = omit,
+        networks: Optional[Iterable[location_create_params.Network]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Location]:
         """
-        Creates a new Zero Trust Gateway location.
+        Create a new Zero Trust Gateway location.
 
         Args:
-          name: The name of the location.
+          name: Specify the location name.
 
-          client_default: True if the location is the default location.
+          client_default: Indicate whether this location is the default location.
 
-          dns_destination_ips_id: The identifier of the pair of IPv4 addresses assigned to this location. When
-              creating a location, if this field is absent or set with null, the pair of
+          dns_destination_ips_id: Specify the identifier of the pair of IPv4 addresses assigned to this location.
+              When creating a location, if this field is absent or set to null, the pair of
               shared IPv4 addresses (0e4a32c6-6fb8-4858-9296-98f51631e8e6) is auto-assigned.
-              When updating a location, if the field is absent or set with null, the
+              When updating a location, if this field is absent or set to null, the
               pre-assigned pair remains unchanged.
 
-          ecs_support: True if the location needs to resolve EDNS queries.
+          ecs_support: Indicate whether the location must resolve EDNS queries.
 
-          endpoints: The destination endpoints configured for this location. When updating a
-              location, if this field is absent or set with null, the endpoints configuration
-              remains unchanged.
+          endpoints: Configure the destination endpoints for this location.
 
-          networks: A list of network ranges that requests from this location would originate from.
-              A non-empty list is only effective if the ipv4 endpoint is enabled for this
-              location.
+          networks: Specify the list of network ranges from which requests at this location
+              originate. The list takes effect only if it is non-empty and the IPv4 endpoint
+              is enabled for this location.
 
           extra_headers: Send extra headers
 
@@ -98,7 +96,7 @@ class LocationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/gateway/locations",
+            path_template("/accounts/{account_id}/gateway/locations", account_id=account_id),
             body=maybe_transform(
                 {
                     "name": name,
@@ -126,41 +124,39 @@ class LocationsResource(SyncAPIResource):
         *,
         account_id: str,
         name: str,
-        client_default: bool | NotGiven = NOT_GIVEN,
-        dns_destination_ips_id: str | NotGiven = NOT_GIVEN,
-        ecs_support: bool | NotGiven = NOT_GIVEN,
-        endpoints: EndpointParam | NotGiven = NOT_GIVEN,
-        networks: Iterable[location_update_params.Network] | NotGiven = NOT_GIVEN,
+        client_default: bool | Omit = omit,
+        dns_destination_ips_id: str | Omit = omit,
+        ecs_support: bool | Omit = omit,
+        endpoints: Optional[EndpointParam] | Omit = omit,
+        networks: Optional[Iterable[location_update_params.Network]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Location]:
         """
-        Updates a configured Zero Trust Gateway location.
+        Update a configured Zero Trust Gateway location.
 
         Args:
-          name: The name of the location.
+          name: Specify the location name.
 
-          client_default: True if the location is the default location.
+          client_default: Indicate whether this location is the default location.
 
-          dns_destination_ips_id: The identifier of the pair of IPv4 addresses assigned to this location. When
-              creating a location, if this field is absent or set with null, the pair of
+          dns_destination_ips_id: Specify the identifier of the pair of IPv4 addresses assigned to this location.
+              When creating a location, if this field is absent or set to null, the pair of
               shared IPv4 addresses (0e4a32c6-6fb8-4858-9296-98f51631e8e6) is auto-assigned.
-              When updating a location, if the field is absent or set with null, the
+              When updating a location, if this field is absent or set to null, the
               pre-assigned pair remains unchanged.
 
-          ecs_support: True if the location needs to resolve EDNS queries.
+          ecs_support: Indicate whether the location must resolve EDNS queries.
 
-          endpoints: The destination endpoints configured for this location. When updating a
-              location, if this field is absent or set with null, the endpoints configuration
-              remains unchanged.
+          endpoints: Configure the destination endpoints for this location.
 
-          networks: A list of network ranges that requests from this location would originate from.
-              A non-empty list is only effective if the ipv4 endpoint is enabled for this
-              location.
+          networks: Specify the list of network ranges from which requests at this location
+              originate. The list takes effect only if it is non-empty and the IPv4 endpoint
+              is enabled for this location.
 
           extra_headers: Send extra headers
 
@@ -175,7 +171,9 @@ class LocationsResource(SyncAPIResource):
         if not location_id:
             raise ValueError(f"Expected a non-empty value for `location_id` but received {location_id!r}")
         return self._put(
-            f"/accounts/{account_id}/gateway/locations/{location_id}",
+            path_template(
+                "/accounts/{account_id}/gateway/locations/{location_id}", account_id=account_id, location_id=location_id
+            ),
             body=maybe_transform(
                 {
                     "name": name,
@@ -206,10 +204,10 @@ class LocationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Location]:
         """
-        Fetches Zero Trust Gateway locations for an account.
+        List Zero Trust Gateway locations for an account.
 
         Args:
           extra_headers: Send extra headers
@@ -223,7 +221,7 @@ class LocationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/gateway/locations",
+            path_template("/accounts/{account_id}/gateway/locations", account_id=account_id),
             page=SyncSinglePage[Location],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -241,10 +239,10 @@ class LocationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Deletes a configured Zero Trust Gateway location.
+        Delete a configured Zero Trust Gateway location.
 
         Args:
           extra_headers: Send extra headers
@@ -260,7 +258,9 @@ class LocationsResource(SyncAPIResource):
         if not location_id:
             raise ValueError(f"Expected a non-empty value for `location_id` but received {location_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/gateway/locations/{location_id}",
+            path_template(
+                "/accounts/{account_id}/gateway/locations/{location_id}", account_id=account_id, location_id=location_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -281,10 +281,10 @@ class LocationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Location]:
         """
-        Fetches a single Zero Trust Gateway location.
+        Get a single Zero Trust Gateway location.
 
         Args:
           extra_headers: Send extra headers
@@ -300,7 +300,9 @@ class LocationsResource(SyncAPIResource):
         if not location_id:
             raise ValueError(f"Expected a non-empty value for `location_id` but received {location_id!r}")
         return self._get(
-            f"/accounts/{account_id}/gateway/locations/{location_id}",
+            path_template(
+                "/accounts/{account_id}/gateway/locations/{location_id}", account_id=account_id, location_id=location_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -337,41 +339,39 @@ class AsyncLocationsResource(AsyncAPIResource):
         *,
         account_id: str,
         name: str,
-        client_default: bool | NotGiven = NOT_GIVEN,
-        dns_destination_ips_id: str | NotGiven = NOT_GIVEN,
-        ecs_support: bool | NotGiven = NOT_GIVEN,
-        endpoints: EndpointParam | NotGiven = NOT_GIVEN,
-        networks: Iterable[location_create_params.Network] | NotGiven = NOT_GIVEN,
+        client_default: bool | Omit = omit,
+        dns_destination_ips_id: str | Omit = omit,
+        ecs_support: bool | Omit = omit,
+        endpoints: Optional[EndpointParam] | Omit = omit,
+        networks: Optional[Iterable[location_create_params.Network]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Location]:
         """
-        Creates a new Zero Trust Gateway location.
+        Create a new Zero Trust Gateway location.
 
         Args:
-          name: The name of the location.
+          name: Specify the location name.
 
-          client_default: True if the location is the default location.
+          client_default: Indicate whether this location is the default location.
 
-          dns_destination_ips_id: The identifier of the pair of IPv4 addresses assigned to this location. When
-              creating a location, if this field is absent or set with null, the pair of
+          dns_destination_ips_id: Specify the identifier of the pair of IPv4 addresses assigned to this location.
+              When creating a location, if this field is absent or set to null, the pair of
               shared IPv4 addresses (0e4a32c6-6fb8-4858-9296-98f51631e8e6) is auto-assigned.
-              When updating a location, if the field is absent or set with null, the
+              When updating a location, if this field is absent or set to null, the
               pre-assigned pair remains unchanged.
 
-          ecs_support: True if the location needs to resolve EDNS queries.
+          ecs_support: Indicate whether the location must resolve EDNS queries.
 
-          endpoints: The destination endpoints configured for this location. When updating a
-              location, if this field is absent or set with null, the endpoints configuration
-              remains unchanged.
+          endpoints: Configure the destination endpoints for this location.
 
-          networks: A list of network ranges that requests from this location would originate from.
-              A non-empty list is only effective if the ipv4 endpoint is enabled for this
-              location.
+          networks: Specify the list of network ranges from which requests at this location
+              originate. The list takes effect only if it is non-empty and the IPv4 endpoint
+              is enabled for this location.
 
           extra_headers: Send extra headers
 
@@ -384,7 +384,7 @@ class AsyncLocationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/gateway/locations",
+            path_template("/accounts/{account_id}/gateway/locations", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -412,41 +412,39 @@ class AsyncLocationsResource(AsyncAPIResource):
         *,
         account_id: str,
         name: str,
-        client_default: bool | NotGiven = NOT_GIVEN,
-        dns_destination_ips_id: str | NotGiven = NOT_GIVEN,
-        ecs_support: bool | NotGiven = NOT_GIVEN,
-        endpoints: EndpointParam | NotGiven = NOT_GIVEN,
-        networks: Iterable[location_update_params.Network] | NotGiven = NOT_GIVEN,
+        client_default: bool | Omit = omit,
+        dns_destination_ips_id: str | Omit = omit,
+        ecs_support: bool | Omit = omit,
+        endpoints: Optional[EndpointParam] | Omit = omit,
+        networks: Optional[Iterable[location_update_params.Network]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Location]:
         """
-        Updates a configured Zero Trust Gateway location.
+        Update a configured Zero Trust Gateway location.
 
         Args:
-          name: The name of the location.
+          name: Specify the location name.
 
-          client_default: True if the location is the default location.
+          client_default: Indicate whether this location is the default location.
 
-          dns_destination_ips_id: The identifier of the pair of IPv4 addresses assigned to this location. When
-              creating a location, if this field is absent or set with null, the pair of
+          dns_destination_ips_id: Specify the identifier of the pair of IPv4 addresses assigned to this location.
+              When creating a location, if this field is absent or set to null, the pair of
               shared IPv4 addresses (0e4a32c6-6fb8-4858-9296-98f51631e8e6) is auto-assigned.
-              When updating a location, if the field is absent or set with null, the
+              When updating a location, if this field is absent or set to null, the
               pre-assigned pair remains unchanged.
 
-          ecs_support: True if the location needs to resolve EDNS queries.
+          ecs_support: Indicate whether the location must resolve EDNS queries.
 
-          endpoints: The destination endpoints configured for this location. When updating a
-              location, if this field is absent or set with null, the endpoints configuration
-              remains unchanged.
+          endpoints: Configure the destination endpoints for this location.
 
-          networks: A list of network ranges that requests from this location would originate from.
-              A non-empty list is only effective if the ipv4 endpoint is enabled for this
-              location.
+          networks: Specify the list of network ranges from which requests at this location
+              originate. The list takes effect only if it is non-empty and the IPv4 endpoint
+              is enabled for this location.
 
           extra_headers: Send extra headers
 
@@ -461,7 +459,9 @@ class AsyncLocationsResource(AsyncAPIResource):
         if not location_id:
             raise ValueError(f"Expected a non-empty value for `location_id` but received {location_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/gateway/locations/{location_id}",
+            path_template(
+                "/accounts/{account_id}/gateway/locations/{location_id}", account_id=account_id, location_id=location_id
+            ),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -492,10 +492,10 @@ class AsyncLocationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Location, AsyncSinglePage[Location]]:
         """
-        Fetches Zero Trust Gateway locations for an account.
+        List Zero Trust Gateway locations for an account.
 
         Args:
           extra_headers: Send extra headers
@@ -509,7 +509,7 @@ class AsyncLocationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/gateway/locations",
+            path_template("/accounts/{account_id}/gateway/locations", account_id=account_id),
             page=AsyncSinglePage[Location],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -527,10 +527,10 @@ class AsyncLocationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Deletes a configured Zero Trust Gateway location.
+        Delete a configured Zero Trust Gateway location.
 
         Args:
           extra_headers: Send extra headers
@@ -546,7 +546,9 @@ class AsyncLocationsResource(AsyncAPIResource):
         if not location_id:
             raise ValueError(f"Expected a non-empty value for `location_id` but received {location_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/gateway/locations/{location_id}",
+            path_template(
+                "/accounts/{account_id}/gateway/locations/{location_id}", account_id=account_id, location_id=location_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -567,10 +569,10 @@ class AsyncLocationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Location]:
         """
-        Fetches a single Zero Trust Gateway location.
+        Get a single Zero Trust Gateway location.
 
         Args:
           extra_headers: Send extra headers
@@ -586,7 +588,9 @@ class AsyncLocationsResource(AsyncAPIResource):
         if not location_id:
             raise ValueError(f"Expected a non-empty value for `location_id` but received {location_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/gateway/locations/{location_id}",
+            path_template(
+                "/accounts/{account_id}/gateway/locations/{location_id}", account_id=account_id, location_id=location_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

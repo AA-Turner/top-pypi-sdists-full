@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from .operations import (
     OperationsResource,
@@ -64,16 +64,17 @@ class SettingsResource(SyncAPIResource):
         *,
         zone_id: str,
         validation_default_mitigation_action: Literal["none", "log", "block"],
-        validation_override_mitigation_action: Optional[Literal["none"]] | NotGiven = NOT_GIVEN,
+        validation_override_mitigation_action: Optional[Literal["none"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SettingUpdateResponse:
         """
-        Update global schema validation settings
+        Fully updates global schema validation settings for a zone, replacing existing
+        configuration.
 
         Args:
           zone_id: Identifier.
@@ -101,7 +102,7 @@ class SettingsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._put(
-            f"/zones/{zone_id}/schema_validation/settings",
+            path_template("/zones/{zone_id}/schema_validation/settings", zone_id=zone_id),
             body=maybe_transform(
                 {
                     "validation_default_mitigation_action": validation_default_mitigation_action,
@@ -123,17 +124,18 @@ class SettingsResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        validation_default_mitigation_action: Literal["none", "log", "block"] | NotGiven = NOT_GIVEN,
-        validation_override_mitigation_action: Optional[Literal["none"]] | NotGiven = NOT_GIVEN,
+        validation_default_mitigation_action: Literal["none", "log", "block"] | Omit = omit,
+        validation_override_mitigation_action: Optional[Literal["none"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SettingEditResponse:
         """
-        Edit global schema validation settings
+        Partially updates global schema validation settings for a zone using PATCH
+        semantics.
 
         Args:
           zone_id: Identifier.
@@ -161,7 +163,7 @@ class SettingsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._patch(
-            f"/zones/{zone_id}/schema_validation/settings",
+            path_template("/zones/{zone_id}/schema_validation/settings", zone_id=zone_id),
             body=maybe_transform(
                 {
                     "validation_default_mitigation_action": validation_default_mitigation_action,
@@ -188,10 +190,10 @@ class SettingsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SettingGetResponse:
         """
-        Get global schema validation settings
+        Retrieves the current global schema validation settings for a zone.
 
         Args:
           zone_id: Identifier.
@@ -207,7 +209,7 @@ class SettingsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/schema_validation/settings",
+            path_template("/zones/{zone_id}/schema_validation/settings", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -248,16 +250,17 @@ class AsyncSettingsResource(AsyncAPIResource):
         *,
         zone_id: str,
         validation_default_mitigation_action: Literal["none", "log", "block"],
-        validation_override_mitigation_action: Optional[Literal["none"]] | NotGiven = NOT_GIVEN,
+        validation_override_mitigation_action: Optional[Literal["none"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SettingUpdateResponse:
         """
-        Update global schema validation settings
+        Fully updates global schema validation settings for a zone, replacing existing
+        configuration.
 
         Args:
           zone_id: Identifier.
@@ -285,7 +288,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._put(
-            f"/zones/{zone_id}/schema_validation/settings",
+            path_template("/zones/{zone_id}/schema_validation/settings", zone_id=zone_id),
             body=await async_maybe_transform(
                 {
                     "validation_default_mitigation_action": validation_default_mitigation_action,
@@ -307,17 +310,18 @@ class AsyncSettingsResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        validation_default_mitigation_action: Literal["none", "log", "block"] | NotGiven = NOT_GIVEN,
-        validation_override_mitigation_action: Optional[Literal["none"]] | NotGiven = NOT_GIVEN,
+        validation_default_mitigation_action: Literal["none", "log", "block"] | Omit = omit,
+        validation_override_mitigation_action: Optional[Literal["none"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SettingEditResponse:
         """
-        Edit global schema validation settings
+        Partially updates global schema validation settings for a zone using PATCH
+        semantics.
 
         Args:
           zone_id: Identifier.
@@ -345,7 +349,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._patch(
-            f"/zones/{zone_id}/schema_validation/settings",
+            path_template("/zones/{zone_id}/schema_validation/settings", zone_id=zone_id),
             body=await async_maybe_transform(
                 {
                     "validation_default_mitigation_action": validation_default_mitigation_action,
@@ -372,10 +376,10 @@ class AsyncSettingsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SettingGetResponse:
         """
-        Get global schema validation settings
+        Retrieves the current global schema validation settings for a zone.
 
         Args:
           zone_id: Identifier.
@@ -391,7 +395,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/schema_validation/settings",
+            path_template("/zones/{zone_id}/schema_validation/settings", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class BibjsonCard(Component):
@@ -37,12 +49,20 @@ Keyword arguments:
     entry). NOTE: the open access URL can also be included in a bib
     entry in the \"openAccessUrl\" property. If set, the URL will not
     be fetched. @default False."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'BibjsonCard'
-    @_explicitize_args
-    def __init__(self, id=Component.UNDEFINED, className=Component.UNDEFINED, bibjsonEntry=Component.UNDEFINED, preventOpenAccessFetch=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        id: typing.Optional[typing.Union[str, dict]] = None,
+        className: typing.Optional[str] = None,
+        bibjsonEntry: typing.Optional[typing.Any] = None,
+        preventOpenAccessFetch: typing.Optional[bool] = None,
+        **kwargs
+    ):
         self._prop_names = ['id', 'bibjsonEntry', 'className', 'preventOpenAccessFetch']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['id', 'bibjsonEntry', 'className', 'preventOpenAccessFetch']
@@ -53,3 +73,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args}
 
         super(BibjsonCard, self).__init__(**args)
+
+setattr(BibjsonCard, "__init__", _explicitize_args(BibjsonCard.__init__))

@@ -32,7 +32,7 @@ from chalk.features.resolver import (
     sink,
 )
 from chalk.features.tag import Environments, Tags
-from chalk.features.underscore import Underscore, _, __, underscore
+from chalk.features.underscore import Underscore, _, __, select, underscore
 from chalk.queries.scheduled_query import ScheduledQuery  # import to maintain backwards compatibility
 from chalk.utils import MachineType
 
@@ -249,6 +249,7 @@ __all__ = (
     "op",
     "owner",
     "serialize_dtype",
+    "select",
     "sink",
     "tags",
     "underscore",

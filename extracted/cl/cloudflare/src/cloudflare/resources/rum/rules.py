@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import List, Type, Iterable, Optional, cast
+from typing import Type, Iterable, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -52,16 +52,16 @@ class RulesResource(SyncAPIResource):
         ruleset_id: str,
         *,
         account_id: str,
-        host: str | NotGiven = NOT_GIVEN,
-        inclusive: bool | NotGiven = NOT_GIVEN,
-        is_paused: bool | NotGiven = NOT_GIVEN,
-        paths: List[str] | NotGiven = NOT_GIVEN,
+        host: str | Omit = omit,
+        inclusive: bool | Omit = omit,
+        is_paused: bool | Omit = omit,
+        paths: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RUMRule]:
         """
         Creates a new rule in a Web Analytics ruleset.
@@ -88,7 +88,9 @@ class RulesResource(SyncAPIResource):
         if not ruleset_id:
             raise ValueError(f"Expected a non-empty value for `ruleset_id` but received {ruleset_id!r}")
         return self._post(
-            f"/accounts/{account_id}/rum/v2/{ruleset_id}/rule",
+            path_template(
+                "/accounts/{account_id}/rum/v2/{ruleset_id}/rule", account_id=account_id, ruleset_id=ruleset_id
+            ),
             body=maybe_transform(
                 {
                     "host": host,
@@ -114,16 +116,16 @@ class RulesResource(SyncAPIResource):
         *,
         account_id: str,
         ruleset_id: str,
-        host: str | NotGiven = NOT_GIVEN,
-        inclusive: bool | NotGiven = NOT_GIVEN,
-        is_paused: bool | NotGiven = NOT_GIVEN,
-        paths: List[str] | NotGiven = NOT_GIVEN,
+        host: str | Omit = omit,
+        inclusive: bool | Omit = omit,
+        is_paused: bool | Omit = omit,
+        paths: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RUMRule]:
         """
         Updates a rule in a Web Analytics ruleset.
@@ -154,7 +156,12 @@ class RulesResource(SyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return self._put(
-            f"/accounts/{account_id}/rum/v2/{ruleset_id}/rule/{rule_id}",
+            path_template(
+                "/accounts/{account_id}/rum/v2/{ruleset_id}/rule/{rule_id}",
+                account_id=account_id,
+                ruleset_id=ruleset_id,
+                rule_id=rule_id,
+            ),
             body=maybe_transform(
                 {
                     "host": host,
@@ -184,7 +191,7 @@ class RulesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RuleListResponse]:
         """
         Lists all the rules in a Web Analytics ruleset.
@@ -207,7 +214,9 @@ class RulesResource(SyncAPIResource):
         if not ruleset_id:
             raise ValueError(f"Expected a non-empty value for `ruleset_id` but received {ruleset_id!r}")
         return self._get(
-            f"/accounts/{account_id}/rum/v2/{ruleset_id}/rules",
+            path_template(
+                "/accounts/{account_id}/rum/v2/{ruleset_id}/rules", account_id=account_id, ruleset_id=ruleset_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -229,7 +238,7 @@ class RulesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RuleDeleteResponse]:
         """
         Deletes an existing rule from a Web Analytics ruleset.
@@ -256,7 +265,12 @@ class RulesResource(SyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/rum/v2/{ruleset_id}/rule/{rule_id}",
+            path_template(
+                "/accounts/{account_id}/rum/v2/{ruleset_id}/rule/{rule_id}",
+                account_id=account_id,
+                ruleset_id=ruleset_id,
+                rule_id=rule_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -272,14 +286,14 @@ class RulesResource(SyncAPIResource):
         ruleset_id: str,
         *,
         account_id: str,
-        delete_rules: List[str] | NotGiven = NOT_GIVEN,
-        rules: Iterable[rule_bulk_create_params.Rule] | NotGiven = NOT_GIVEN,
+        delete_rules: SequenceNotStr[str] | Omit = omit,
+        rules: Iterable[rule_bulk_create_params.Rule] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RuleBulkCreateResponse]:
         """
         Modifies one or more rules in a Web Analytics ruleset with a single request.
@@ -306,7 +320,9 @@ class RulesResource(SyncAPIResource):
         if not ruleset_id:
             raise ValueError(f"Expected a non-empty value for `ruleset_id` but received {ruleset_id!r}")
         return self._post(
-            f"/accounts/{account_id}/rum/v2/{ruleset_id}/rules",
+            path_template(
+                "/accounts/{account_id}/rum/v2/{ruleset_id}/rules", account_id=account_id, ruleset_id=ruleset_id
+            ),
             body=maybe_transform(
                 {
                     "delete_rules": delete_rules,
@@ -350,16 +366,16 @@ class AsyncRulesResource(AsyncAPIResource):
         ruleset_id: str,
         *,
         account_id: str,
-        host: str | NotGiven = NOT_GIVEN,
-        inclusive: bool | NotGiven = NOT_GIVEN,
-        is_paused: bool | NotGiven = NOT_GIVEN,
-        paths: List[str] | NotGiven = NOT_GIVEN,
+        host: str | Omit = omit,
+        inclusive: bool | Omit = omit,
+        is_paused: bool | Omit = omit,
+        paths: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RUMRule]:
         """
         Creates a new rule in a Web Analytics ruleset.
@@ -386,7 +402,9 @@ class AsyncRulesResource(AsyncAPIResource):
         if not ruleset_id:
             raise ValueError(f"Expected a non-empty value for `ruleset_id` but received {ruleset_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/rum/v2/{ruleset_id}/rule",
+            path_template(
+                "/accounts/{account_id}/rum/v2/{ruleset_id}/rule", account_id=account_id, ruleset_id=ruleset_id
+            ),
             body=await async_maybe_transform(
                 {
                     "host": host,
@@ -412,16 +430,16 @@ class AsyncRulesResource(AsyncAPIResource):
         *,
         account_id: str,
         ruleset_id: str,
-        host: str | NotGiven = NOT_GIVEN,
-        inclusive: bool | NotGiven = NOT_GIVEN,
-        is_paused: bool | NotGiven = NOT_GIVEN,
-        paths: List[str] | NotGiven = NOT_GIVEN,
+        host: str | Omit = omit,
+        inclusive: bool | Omit = omit,
+        is_paused: bool | Omit = omit,
+        paths: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RUMRule]:
         """
         Updates a rule in a Web Analytics ruleset.
@@ -452,7 +470,12 @@ class AsyncRulesResource(AsyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/rum/v2/{ruleset_id}/rule/{rule_id}",
+            path_template(
+                "/accounts/{account_id}/rum/v2/{ruleset_id}/rule/{rule_id}",
+                account_id=account_id,
+                ruleset_id=ruleset_id,
+                rule_id=rule_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "host": host,
@@ -482,7 +505,7 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RuleListResponse]:
         """
         Lists all the rules in a Web Analytics ruleset.
@@ -505,7 +528,9 @@ class AsyncRulesResource(AsyncAPIResource):
         if not ruleset_id:
             raise ValueError(f"Expected a non-empty value for `ruleset_id` but received {ruleset_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/rum/v2/{ruleset_id}/rules",
+            path_template(
+                "/accounts/{account_id}/rum/v2/{ruleset_id}/rules", account_id=account_id, ruleset_id=ruleset_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -527,7 +552,7 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RuleDeleteResponse]:
         """
         Deletes an existing rule from a Web Analytics ruleset.
@@ -554,7 +579,12 @@ class AsyncRulesResource(AsyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/rum/v2/{ruleset_id}/rule/{rule_id}",
+            path_template(
+                "/accounts/{account_id}/rum/v2/{ruleset_id}/rule/{rule_id}",
+                account_id=account_id,
+                ruleset_id=ruleset_id,
+                rule_id=rule_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -570,14 +600,14 @@ class AsyncRulesResource(AsyncAPIResource):
         ruleset_id: str,
         *,
         account_id: str,
-        delete_rules: List[str] | NotGiven = NOT_GIVEN,
-        rules: Iterable[rule_bulk_create_params.Rule] | NotGiven = NOT_GIVEN,
+        delete_rules: SequenceNotStr[str] | Omit = omit,
+        rules: Iterable[rule_bulk_create_params.Rule] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[RuleBulkCreateResponse]:
         """
         Modifies one or more rules in a Web Analytics ruleset with a single request.
@@ -604,7 +634,9 @@ class AsyncRulesResource(AsyncAPIResource):
         if not ruleset_id:
             raise ValueError(f"Expected a non-empty value for `ruleset_id` but received {ruleset_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/rum/v2/{ruleset_id}/rules",
+            path_template(
+                "/accounts/{account_id}/rum/v2/{ruleset_id}/rules", account_id=account_id, ruleset_id=ruleset_id
+            ),
             body=await async_maybe_transform(
                 {
                     "delete_rules": delete_rules,

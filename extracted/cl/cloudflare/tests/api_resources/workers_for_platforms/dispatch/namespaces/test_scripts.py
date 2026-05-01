@@ -45,7 +45,8 @@ class TestScripts:
                         "_redirects": "/foo /bar 301\n/news/* /blog/:splat",
                         "html_handling": "auto-trailing-slash",
                         "not_found_handling": "404-page",
-                        "run_worker_first": ["string"],
+                        "run_worker_first": True,
+                        "serve_directly": True,
                     },
                     "jwt": "jwt",
                 },
@@ -61,6 +62,10 @@ class TestScripts:
                 "compatibility_flags": ["nodejs_compat"],
                 "keep_assets": False,
                 "keep_bindings": ["string"],
+                "limits": {
+                    "cpu_ms": 50,
+                    "subrequests": 1000,
+                },
                 "logpush": False,
                 "main_module": "worker.js",
                 "migrations": {
@@ -89,7 +94,15 @@ class TestScripts:
                     "logs": {
                         "enabled": True,
                         "invocation_logs": True,
+                        "destinations": ["cloudflare"],
                         "head_sampling_rate": 0.1,
+                        "persist": True,
+                    },
+                    "traces": {
+                        "destinations": ["cloudflare"],
+                        "enabled": True,
+                        "head_sampling_rate": 0.1,
+                        "persist": True,
                     },
                 },
                 "placement": {"mode": "smart"},
@@ -103,6 +116,8 @@ class TestScripts:
                 ],
                 "usage_model": "standard",
             },
+            bindings_inherit="strict",
+            files=[b"Example data"],
         )
         assert_matches_type(ScriptUpdateResponse, script, path=["response"])
 
@@ -297,7 +312,9 @@ class TestScripts:
 
 
 class TestAsyncScripts:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -324,7 +341,8 @@ class TestAsyncScripts:
                         "_redirects": "/foo /bar 301\n/news/* /blog/:splat",
                         "html_handling": "auto-trailing-slash",
                         "not_found_handling": "404-page",
-                        "run_worker_first": ["string"],
+                        "run_worker_first": True,
+                        "serve_directly": True,
                     },
                     "jwt": "jwt",
                 },
@@ -340,6 +358,10 @@ class TestAsyncScripts:
                 "compatibility_flags": ["nodejs_compat"],
                 "keep_assets": False,
                 "keep_bindings": ["string"],
+                "limits": {
+                    "cpu_ms": 50,
+                    "subrequests": 1000,
+                },
                 "logpush": False,
                 "main_module": "worker.js",
                 "migrations": {
@@ -368,7 +390,15 @@ class TestAsyncScripts:
                     "logs": {
                         "enabled": True,
                         "invocation_logs": True,
+                        "destinations": ["cloudflare"],
                         "head_sampling_rate": 0.1,
+                        "persist": True,
+                    },
+                    "traces": {
+                        "destinations": ["cloudflare"],
+                        "enabled": True,
+                        "head_sampling_rate": 0.1,
+                        "persist": True,
                     },
                 },
                 "placement": {"mode": "smart"},
@@ -382,6 +412,8 @@ class TestAsyncScripts:
                 ],
                 "usage_model": "standard",
             },
+            bindings_inherit="strict",
+            files=[b"Example data"],
         )
         assert_matches_type(ScriptUpdateResponse, script, path=["response"])
 

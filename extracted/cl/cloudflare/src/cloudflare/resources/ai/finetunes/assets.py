@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Type, Mapping, cast
+from typing import Mapping, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven, FileTypes
-from ...._utils import extract_files, maybe_transform, deepcopy_minimal, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, FileTypes, not_given
+from ...._utils import extract_files, path_template, maybe_transform, deepcopy_minimal, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -16,7 +16,6 @@ from ...._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ...._wrappers import ResultWrapper
 from ...._base_client import make_request_options
 from ....types.ai.finetunes import asset_create_params
 from ....types.ai.finetunes.asset_create_response import AssetCreateResponse
@@ -49,19 +48,23 @@ class AssetsResource(SyncAPIResource):
         finetune_id: str,
         *,
         account_id: str,
-        file: FileTypes | NotGiven = NOT_GIVEN,
-        file_name: str | NotGiven = NOT_GIVEN,
+        file: FileTypes,
+        file_name: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AssetCreateResponse:
         """
-        Upload a Finetune Asset
+        Uploads training data assets for a Workers AI fine-tuning job.
 
         Args:
+          file: File to upload
+
+          file_name: Name of the file (adapter_config.json or adapter_model.safetensors)
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -86,17 +89,17 @@ class AssetsResource(SyncAPIResource):
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._post(
-            f"/accounts/{account_id}/ai/finetunes/{finetune_id}/finetune-assets",
+            path_template(
+                "/accounts/{account_id}/ai/finetunes/{finetune_id}/finetune-assets",
+                account_id=account_id,
+                finetune_id=finetune_id,
+            ),
             body=maybe_transform(body, asset_create_params.AssetCreateParams),
             files=files,
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[AssetCreateResponse]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[AssetCreateResponse], ResultWrapper[AssetCreateResponse]),
+            cast_to=AssetCreateResponse,
         )
 
 
@@ -125,19 +128,23 @@ class AsyncAssetsResource(AsyncAPIResource):
         finetune_id: str,
         *,
         account_id: str,
-        file: FileTypes | NotGiven = NOT_GIVEN,
-        file_name: str | NotGiven = NOT_GIVEN,
+        file: FileTypes,
+        file_name: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AssetCreateResponse:
         """
-        Upload a Finetune Asset
+        Uploads training data assets for a Workers AI fine-tuning job.
 
         Args:
+          file: File to upload
+
+          file_name: Name of the file (adapter_config.json or adapter_model.safetensors)
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -162,17 +169,17 @@ class AsyncAssetsResource(AsyncAPIResource):
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._post(
-            f"/accounts/{account_id}/ai/finetunes/{finetune_id}/finetune-assets",
+            path_template(
+                "/accounts/{account_id}/ai/finetunes/{finetune_id}/finetune-assets",
+                account_id=account_id,
+                finetune_id=finetune_id,
+            ),
             body=await async_maybe_transform(body, asset_create_params.AssetCreateParams),
             files=files,
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[AssetCreateResponse]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[AssetCreateResponse], ResultWrapper[AssetCreateResponse]),
+            cast_to=AssetCreateResponse,
         )
 
 

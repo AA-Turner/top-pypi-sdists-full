@@ -6,8 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from .detections import (
     DetectionsResource,
@@ -63,13 +63,13 @@ class LeakedCredentialChecksResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        enabled: bool | NotGiven = NOT_GIVEN,
+        enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LeakedCredentialCheckCreateResponse:
         """
         Updates the current status of Leaked Credential Checks.
@@ -90,7 +90,7 @@ class LeakedCredentialChecksResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
-            f"/zones/{zone_id}/leaked-credential-checks",
+            path_template("/zones/{zone_id}/leaked-credential-checks", zone_id=zone_id),
             body=maybe_transform(
                 {"enabled": enabled}, leaked_credential_check_create_params.LeakedCredentialCheckCreateParams
             ),
@@ -113,7 +113,7 @@ class LeakedCredentialChecksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LeakedCredentialCheckGetResponse:
         """
         Retrieves the current status of Leaked Credential Checks.
@@ -132,7 +132,7 @@ class LeakedCredentialChecksResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get(
-            f"/zones/{zone_id}/leaked-credential-checks",
+            path_template("/zones/{zone_id}/leaked-credential-checks", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -172,13 +172,13 @@ class AsyncLeakedCredentialChecksResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        enabled: bool | NotGiven = NOT_GIVEN,
+        enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LeakedCredentialCheckCreateResponse:
         """
         Updates the current status of Leaked Credential Checks.
@@ -199,7 +199,7 @@ class AsyncLeakedCredentialChecksResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
-            f"/zones/{zone_id}/leaked-credential-checks",
+            path_template("/zones/{zone_id}/leaked-credential-checks", zone_id=zone_id),
             body=await async_maybe_transform(
                 {"enabled": enabled}, leaked_credential_check_create_params.LeakedCredentialCheckCreateParams
             ),
@@ -222,7 +222,7 @@ class AsyncLeakedCredentialChecksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LeakedCredentialCheckGetResponse:
         """
         Retrieves the current status of Leaked Credential Checks.
@@ -241,7 +241,7 @@ class AsyncLeakedCredentialChecksResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._get(
-            f"/zones/{zone_id}/leaked-credential-checks",
+            path_template("/zones/{zone_id}/leaked-credential-checks", zone_id=zone_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from .references import (
     ReferencesResource,
     AsyncReferencesResource,
@@ -67,16 +67,17 @@ class IntegrationsResource(SyncAPIResource):
         account_id: str,
         integration_type: Literal["Okta"],
         tenant_url: str,
-        reference_id: Optional[str] | NotGiven = NOT_GIVEN,
+        reference_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IntegrationCreateResponse]:
         """
-        Create new risk score integration.
+        Creates a new Zero Trust risk score integration, connecting external risk
+        signals to Cloudflare's risk scoring system.
 
         Args:
           tenant_url: The base url of the tenant, e.g. "https://tenant.okta.com".
@@ -96,7 +97,7 @@ class IntegrationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/zt_risk_scoring/integrations",
+            path_template("/accounts/{account_id}/zt_risk_scoring/integrations", account_id=account_id),
             body=maybe_transform(
                 {
                     "integration_type": integration_type,
@@ -122,13 +123,13 @@ class IntegrationsResource(SyncAPIResource):
         account_id: str,
         active: bool,
         tenant_url: str,
-        reference_id: Optional[str] | NotGiven = NOT_GIVEN,
+        reference_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IntegrationUpdateResponse]:
         """
         Overwrite the reference_id, tenant_url, and active values with the ones
@@ -157,7 +158,11 @@ class IntegrationsResource(SyncAPIResource):
         if not integration_id:
             raise ValueError(f"Expected a non-empty value for `integration_id` but received {integration_id!r}")
         return self._put(
-            f"/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+            path_template(
+                "/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+                account_id=account_id,
+                integration_id=integration_id,
+            ),
             body=maybe_transform(
                 {
                     "active": active,
@@ -185,10 +190,10 @@ class IntegrationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[IntegrationListResponse]:
         """
-        List all risk score integrations for the account.
+        Lists all configured Zero Trust risk score integrations for the account.
 
         Args:
           extra_headers: Send extra headers
@@ -202,7 +207,7 @@ class IntegrationsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/zt_risk_scoring/integrations",
+            path_template("/accounts/{account_id}/zt_risk_scoring/integrations", account_id=account_id),
             page=SyncSinglePage[IntegrationListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -220,10 +225,11 @@ class IntegrationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Delete a risk score integration.
+        Removes a Zero Trust risk score integration, disconnecting the external risk
+        signal source.
 
         Args:
           extra_headers: Send extra headers
@@ -239,7 +245,11 @@ class IntegrationsResource(SyncAPIResource):
         if not integration_id:
             raise ValueError(f"Expected a non-empty value for `integration_id` but received {integration_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+            path_template(
+                "/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+                account_id=account_id,
+                integration_id=integration_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -260,7 +270,7 @@ class IntegrationsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IntegrationGetResponse]:
         """
         Get risk score integration by id.
@@ -279,7 +289,11 @@ class IntegrationsResource(SyncAPIResource):
         if not integration_id:
             raise ValueError(f"Expected a non-empty value for `integration_id` but received {integration_id!r}")
         return self._get(
-            f"/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+            path_template(
+                "/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+                account_id=account_id,
+                integration_id=integration_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -321,16 +335,17 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         account_id: str,
         integration_type: Literal["Okta"],
         tenant_url: str,
-        reference_id: Optional[str] | NotGiven = NOT_GIVEN,
+        reference_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IntegrationCreateResponse]:
         """
-        Create new risk score integration.
+        Creates a new Zero Trust risk score integration, connecting external risk
+        signals to Cloudflare's risk scoring system.
 
         Args:
           tenant_url: The base url of the tenant, e.g. "https://tenant.okta.com".
@@ -350,7 +365,7 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/zt_risk_scoring/integrations",
+            path_template("/accounts/{account_id}/zt_risk_scoring/integrations", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "integration_type": integration_type,
@@ -376,13 +391,13 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         account_id: str,
         active: bool,
         tenant_url: str,
-        reference_id: Optional[str] | NotGiven = NOT_GIVEN,
+        reference_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IntegrationUpdateResponse]:
         """
         Overwrite the reference_id, tenant_url, and active values with the ones
@@ -411,7 +426,11 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         if not integration_id:
             raise ValueError(f"Expected a non-empty value for `integration_id` but received {integration_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+            path_template(
+                "/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+                account_id=account_id,
+                integration_id=integration_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "active": active,
@@ -439,10 +458,10 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[IntegrationListResponse, AsyncSinglePage[IntegrationListResponse]]:
         """
-        List all risk score integrations for the account.
+        Lists all configured Zero Trust risk score integrations for the account.
 
         Args:
           extra_headers: Send extra headers
@@ -456,7 +475,7 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/zt_risk_scoring/integrations",
+            path_template("/accounts/{account_id}/zt_risk_scoring/integrations", account_id=account_id),
             page=AsyncSinglePage[IntegrationListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -474,10 +493,11 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Delete a risk score integration.
+        Removes a Zero Trust risk score integration, disconnecting the external risk
+        signal source.
 
         Args:
           extra_headers: Send extra headers
@@ -493,7 +513,11 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         if not integration_id:
             raise ValueError(f"Expected a non-empty value for `integration_id` but received {integration_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+            path_template(
+                "/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+                account_id=account_id,
+                integration_id=integration_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -514,7 +538,7 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IntegrationGetResponse]:
         """
         Get risk score integration by id.
@@ -533,7 +557,11 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         if not integration_id:
             raise ValueError(f"Expected a non-empty value for `integration_id` but received {integration_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+            path_template(
+                "/accounts/{account_id}/zt_risk_scoring/integrations/{integration_id}",
+                account_id=account_id,
+                integration_id=integration_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

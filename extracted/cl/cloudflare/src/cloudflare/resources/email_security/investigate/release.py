@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List
-
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, SequenceNotStr, not_given
+from ...._utils import path_template, maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -47,21 +45,21 @@ class ReleaseResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        body: List[str],
+        body: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[ReleaseBulkResponse]:
         """
-        Release messages from quarantine
+        Releases one or more quarantined messages, delivering them to the intended
+        recipients. Use when a message was incorrectly quarantined. Returns delivery
+        status for each recipient.
 
         Args:
-          account_id: Account Identifier
-
-          body: A list of messages identfied by their `postfix_id`s that should be released.
+          account_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -74,9 +72,9 @@ class ReleaseResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email-security/investigate/release",
+            path_template("/accounts/{account_id}/email-security/investigate/release", account_id=account_id),
             page=SyncSinglePage[ReleaseBulkResponse],
-            body=maybe_transform(body, List[str]),
+            body=maybe_transform(body, SequenceNotStr[str]),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -109,21 +107,21 @@ class AsyncReleaseResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        body: List[str],
+        body: SequenceNotStr[str],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ReleaseBulkResponse, AsyncSinglePage[ReleaseBulkResponse]]:
         """
-        Release messages from quarantine
+        Releases one or more quarantined messages, delivering them to the intended
+        recipients. Use when a message was incorrectly quarantined. Returns delivery
+        status for each recipient.
 
         Args:
-          account_id: Account Identifier
-
-          body: A list of messages identfied by their `postfix_id`s that should be released.
+          account_id: Identifier.
 
           extra_headers: Send extra headers
 
@@ -136,9 +134,9 @@ class AsyncReleaseResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/email-security/investigate/release",
+            path_template("/accounts/{account_id}/email-security/investigate/release", account_id=account_id),
             page=AsyncSinglePage[ReleaseBulkResponse],
-            body=maybe_transform(body, List[str]),
+            body=maybe_transform(body, SequenceNotStr[str]),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

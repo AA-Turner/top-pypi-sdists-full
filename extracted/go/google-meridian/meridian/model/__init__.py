@@ -20,7 +20,6 @@ from meridian.model import eda
 from meridian.model import equations
 from meridian.model import knots
 from meridian.model import media
-from meridian.model import model
 from meridian.model import posterior_sampler
 from meridian.model import prior_distribution
 from meridian.model import prior_sampler

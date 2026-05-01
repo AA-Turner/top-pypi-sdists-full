@@ -210,6 +210,101 @@ class SubsetTest(CliTestCase):
 
     @responses.activate
     @mock.patch.dict(os.environ, {"LAUNCHABLE_TOKEN": CliTestCase.launchable_token})
+    def test_confidence_subset_with_empty_valid_subset_when_pts_v2_enabled(self):
+        pipe = "test_aaa.py\ntest_bbb.py\ntest_ccc.py"
+        responses.replace(
+            responses.GET,
+            "{}/intake/organizations/{}/workspaces/{}/state".format(
+                get_base_url(),
+                self.organization,
+                self.workspace),
+            json={"isFailFastMode": False, "isPtsV2Enabled": True},
+            status=200)
+        responses.replace(
+            responses.POST,
+            "{}/intake/organizations/{}/workspaces/{}/subset".format(
+                get_base_url(),
+                self.organization,
+                self.workspace),
+            json={
+                "testPaths": [],
+                "testRunner": "file",
+                "rest": [
+                    [{"type": "file", "name": "test_aaa.py"}],
+                    [{"type": "file", "name": "test_bbb.py"}],
+                    [{"type": "file", "name": "test_ccc.py"}],
+                ],
+                "subsettingId": 123,
+                "summary": {
+                    "subset": {"duration": 0, "candidates": 99, "rate": 0},
+                    "rest": {"duration": 30, "candidates": 0, "rate": 100}
+                },
+                "isObservation": False,
+            },
+            status=200)
+
+        result = self.cli(
+            "subset",
+            "--confidence",
+            "90%",
+            "--session",
+            self.session,
+            "file",
+            input=pipe,
+            mix_stderr=False)
+        self.assert_success(result)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("No tests were selected for this code change.", result.stderr)
+        self.assertIn("Launchable created subset 123", result.stderr)
+        self.assertNotIn("Error: no tests found matching the path.", result.stderr)
+
+    @responses.activate
+    @mock.patch.dict(os.environ, {"LAUNCHABLE_TOKEN": CliTestCase.launchable_token})
+    def test_confidence_subset_with_empty_subset_and_rest_is_error_even_if_summary_has_candidates(self):
+        pipe = "test_aaa.py\ntest_bbb.py\ntest_ccc.py"
+        responses.replace(
+            responses.GET,
+            "{}/intake/organizations/{}/workspaces/{}/state".format(
+                get_base_url(),
+                self.organization,
+                self.workspace),
+            json={"isFailFastMode": False, "isPtsV2Enabled": True},
+            status=200)
+        responses.replace(
+            responses.POST,
+            "{}/intake/organizations/{}/workspaces/{}/subset".format(
+                get_base_url(),
+                self.organization,
+                self.workspace),
+            json={
+                "testPaths": [],
+                "testRunner": "file",
+                "rest": [],
+                "subsettingId": 123,
+                "summary": {
+                    "subset": {"duration": 0, "candidates": 99, "rate": 0},
+                    "rest": {"duration": 30, "candidates": 99, "rate": 100}
+                },
+                "isObservation": False,
+            },
+            status=200)
+
+        result = self.cli(
+            "subset",
+            "--confidence",
+            "90%",
+            "--session",
+            self.session,
+            "file",
+            input=pipe,
+            mix_stderr=False)
+        self.assert_success(result)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("Error: no tests found matching the path.", result.stderr)
+        self.assertNotIn("No tests were selected for this code change.", result.stderr)
+
+    @responses.activate
+    @mock.patch.dict(os.environ, {"LAUNCHABLE_TOKEN": CliTestCase.launchable_token})
     def test_subset_goalspec(self):
         # make sure --goal-spec gets translated properly to a JSON request payload
         responses.replace(

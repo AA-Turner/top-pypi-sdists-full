@@ -2340,6 +2340,66 @@ class AWSEventMetadataProps:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.Acknowledgment",
+    jsii_struct_bases=[],
+    name_mapping={"id": "id", "reason": "reason"},
+)
+class Acknowledgment:
+    def __init__(self, *, id: builtins.str, reason: builtins.str) -> None:
+        '''An acknowledgment of a validation rule, used to suppress it from output.
+
+        :param id: The rule ID to acknowledge.
+        :param reason: The reason for acknowledging this rule.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            acknowledgment = cdk.Acknowledgment(
+                id="id",
+                reason="reason"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e05a7aa8f549a5dc72e7e836d28527330120e3572857eb69990b9f068f4f5b84)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "id": id,
+            "reason": reason,
+        }
+
+    @builtins.property
+    def id(self) -> builtins.str:
+        '''The rule ID to acknowledge.'''
+        result = self._values.get("id")
+        assert result is not None, "Required property 'id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def reason(self) -> builtins.str:
+        '''The reason for acknowledging this rule.'''
+        result = self._values.get("reason")
+        assert result is not None, "Required property 'reason' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "Acknowledgment(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.AddDockerImageAssetOptions",
     jsii_struct_bases=[],
     name_mapping={"display_name": "displayName"},
@@ -2560,6 +2620,7 @@ class Annotations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Annotations"):
         '''Adds an { "error":  } metadata entry to this construct.
 
         The toolkit will fail deployment of any stack that has errors reported against it.
+        Prefer using ``Validations.of(scope).addError()`` instead.
 
         :param message: The error message.
         '''
@@ -2606,7 +2667,7 @@ class Annotations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Annotations"):
 
     @jsii.member(jsii_name="addWarning")
     def add_warning(self, message: builtins.str) -> None:
-        '''Adds a warning metadata entry to this construct. Prefer using ``addWarningV2``.
+        '''Adds a warning metadata entry to this construct. Prefer using ``Validations.of(scope).addWarning()``.
 
         The CLI will display the warning when an app is synthesized, or fail if run
         in ``--strict`` mode.
@@ -2631,6 +2692,8 @@ class Annotations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Annotations"):
 
         If the warning is acknowledged using ``acknowledgeWarning()``, it will not be shown by
         the CLI, and will not cause ``--strict`` mode to fail synthesis.
+
+        Prefer using ``Validations.of(scope).addWarning()`` instead.
 
         :param id: the unique identifier for the warning. This can be used to acknowledge the warning
         :param message: The warning message.
@@ -9092,6 +9155,19 @@ class CfnResource(
 
         return typing.cast(None, jsii.invoke(self, "applyRemovalPolicy", [policy, options]))
 
+    @jsii.member(jsii_name="cfnPropertyName")
+    def cfn_property_name(
+        self,
+        cdk_property_name: builtins.str,
+    ) -> typing.Optional[builtins.str]:
+        '''
+        :param cdk_property_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__570c6378854c21253d4c7084b98744a148bb916e30b852263bfddde8066ef778)
+            check_type(argname="argument cdk_property_name", value=cdk_property_name, expected_type=type_hints["cdk_property_name"])
+        return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "cfnPropertyName", [cdk_property_name]))
+
     @jsii.member(jsii_name="getAtt")
     def get_att(
         self,
@@ -9228,6 +9304,11 @@ class CfnResource(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnResourceType")
@@ -31046,6 +31127,45 @@ class Validations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Validations"):
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("Validations", jsii.sinvoke(cls, "of", [scope]))
 
+    @jsii.member(jsii_name="acknowledge")
+    def acknowledge(self, *rules: "Acknowledgment") -> None:
+        '''Acknowledge one or more rules, suppressing them from validation output.
+
+        Acknowledgments are recorded to construct metadata so that downstream
+        plugins (e.g. CDK Nag) can read them for audit trails.
+
+        Currently only annotation warnings can be suppressed. Annotation errors
+        are not yet acknowledgeable.
+
+        If an ID has no well-known prefix, it is assumed to be an annotation rule
+        for backwards compatibility.
+
+        :param rules: the rules to acknowledge.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f9bb907b572627c2a60dca826c5e7589338357e9ceabf6f12ab00c126fabc67)
+            check_type(argname="argument rules", value=rules, expected_type=typing.Tuple[type_hints["rules"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "acknowledge", [*rules]))
+
+    @jsii.member(jsii_name="addError")
+    def add_error(self, id: builtins.str, message: builtins.str) -> None:
+        '''Adds an error metadata entry to this construct.
+
+        Synthesis will be interrupted when errors are reported.
+
+        Note: Annotation errors are not currently acknowledgeable. The ID is
+        recorded for identification purposes but ``acknowledge()`` will not
+        suppress errors added via this method.
+
+        :param id: unique identifier for the error.
+        :param message: the error message.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b82fd6ad4e79dbbe181b5a38d0b695f2c647f40c6cde8d857ab496ef6c5b532)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+        return typing.cast(None, jsii.invoke(self, "addError", [id, message]))
+
     @jsii.member(jsii_name="addPlugins")
     def add_plugins(self, *plugins: "IPolicyValidationPlugin") -> None:
         '''Register one or more validation plugins that will be executed during synthesis.
@@ -31060,6 +31180,35 @@ class Validations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Validations"):
             type_hints = typing.get_type_hints(_typecheckingstub__8a49ad616c6be0e08de769e51e25757202dbb461c8f88e7522a8e10ce42a788f)
             check_type(argname="argument plugins", value=plugins, expected_type=typing.Tuple[type_hints["plugins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPlugins", [*plugins]))
+
+    @jsii.member(jsii_name="addWarning")
+    def add_warning(self, id: builtins.str, message: builtins.str) -> None:
+        '''Adds a warning metadata entry to this construct that can be acknowledged.
+
+        The CLI will display the warning when an app is synthesized, or fail if run
+        in ``--strict`` mode.
+
+        The ID will be stored with the ``annotation`` prefix (e.g. ``annotation::MyWarning``).
+        Use this prefixed ID when calling ``acknowledge()`` to suppress the warning.
+
+        :param id: unique identifier for the warning, used for acknowledgement.
+        :param message: the warning message.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e0de264d3673a9e5be4ea8aab5628722846a5d2c190d1f8d9eec8a69a92d45d)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+        return typing.cast(None, jsii.invoke(self, "addWarning", [id, message]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACKNOWLEDGED_RULES_METADATA_KEY")
+    def ACKNOWLEDGED_RULES_METADATA_KEY(cls) -> builtins.str:
+        '''Metadata key used to store acknowledged rules on construct nodes.
+
+        Plugin authors can read this metadata to build audit trails from
+        acknowledgments recorded via ``acknowledge()``.
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACKNOWLEDGED_RULES_METADATA_KEY"))
 
 
 class App(Stage, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.App"):
@@ -31684,6 +31833,11 @@ class CfnCustomResource(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="customResourceRef")
     def custom_resource_ref(self) -> "_CustomResourceReference_d8e366c9":
         '''A reference to a CustomResource resource.'''
@@ -31928,6 +32082,11 @@ class CfnGuardHook(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="guardHookRef")
@@ -32832,6 +32991,11 @@ class CfnHookDefaultVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="hookDefaultVersionRef")
     def hook_default_version_ref(self) -> "_HookDefaultVersionReference_11df53e8":
         '''A reference to a HookDefaultVersion resource.'''
@@ -32994,6 +33158,11 @@ class CfnHookTypeConfig(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="hookTypeConfigRef")
@@ -33229,6 +33398,11 @@ class CfnHookVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="hookVersionRef")
@@ -33616,6 +33790,11 @@ class CfnLambdaHook(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="lambdaHookRef")
@@ -34334,6 +34513,11 @@ class CfnMacro(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnM
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="macroRef")
     def macro_ref(self) -> "_MacroReference_2603df14":
         '''A reference to a Macro resource.'''
@@ -34603,6 +34787,11 @@ class CfnModuleDefaultVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="moduleDefaultVersionRef")
     def module_default_version_ref(self) -> "_ModuleDefaultVersionReference_6e4498de":
         '''A reference to a ModuleDefaultVersion resource.'''
@@ -34842,6 +35031,11 @@ class CfnModuleVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="moduleVersionRef")
     def module_version_ref(self) -> "_ModuleVersionReference_16e9080f":
         '''A reference to a ModuleVersion resource.'''
@@ -35024,6 +35218,11 @@ class CfnPublicTypeVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="publicTypeVersionRef")
@@ -35239,6 +35438,11 @@ class CfnPublisher(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="publisherRef")
     def publisher_ref(self) -> "_PublisherReference_2058d21f":
         '''A reference to a Publisher resource.'''
@@ -35401,6 +35605,11 @@ class CfnResourceDefaultVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceDefaultVersionRef")
@@ -35655,6 +35864,11 @@ class CfnResourceVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceVersionRef")
@@ -36020,6 +36234,11 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="stackRef")
@@ -36410,6 +36629,11 @@ class CfnStackSet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="stackSetRef")
@@ -37455,6 +37679,11 @@ class CfnTypeActivation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="typeActivationRef")
     def type_activation_ref(self) -> "_TypeActivationReference_03c77595":
         '''A reference to a TypeActivation resource.'''
@@ -37791,6 +38020,11 @@ class CfnWaitCondition(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
     @jsii.member(jsii_name="waitConditionRef")
     def wait_condition_ref(self) -> "_WaitConditionReference_e2d94a43":
         '''A reference to a WaitCondition resource.'''
@@ -37938,6 +38172,11 @@ class CfnWaitConditionHandle(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
     @jsii.member(jsii_name="waitConditionHandleRef")
@@ -40399,6 +40638,7 @@ class BootstraplessSynthesizer(
 
 __all__ = [
     "AWSEventMetadataProps",
+    "Acknowledgment",
     "AddDockerImageAssetOptions",
     "AddFileAssetOptions",
     "Annotations",
@@ -41328,6 +41568,14 @@ def _typecheckingstub__61ff01594fca944c5be657263f73148214d4e08f5f84d8fbb9ad71c63
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e05a7aa8f549a5dc72e7e836d28527330120e3572857eb69990b9f068f4f5b84(
+    *,
+    id: builtins.str,
+    reason: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5a1ac212aad6af3e005718717aa2d00b8a797e24b74644f38d11d9f5ced18b43(
     *,
     display_name: typing.Optional[builtins.str] = None,
@@ -42161,6 +42409,12 @@ def _typecheckingstub__8570110d1ab37276230f4f064e5cb13f761914d97258121c4873f4b0f
     *,
     apply_to_update_replace_policy: typing.Optional[builtins.bool] = None,
     default: typing.Optional[RemovalPolicy] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__570c6378854c21253d4c7084b98744a148bb916e30b852263bfddde8066ef778(
+    cdk_property_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44752,8 +45006,28 @@ def _typecheckingstub__802f737e59a21c849962707a334260d55243ac47ff11ec47851a5d92f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3f9bb907b572627c2a60dca826c5e7589338357e9ceabf6f12ab00c126fabc67(
+    *rules: Acknowledgment,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b82fd6ad4e79dbbe181b5a38d0b695f2c647f40c6cde8d857ab496ef6c5b532(
+    id: builtins.str,
+    message: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8a49ad616c6be0e08de769e51e25757202dbb461c8f88e7522a8e10ce42a788f(
     *plugins: IPolicyValidationPlugin,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e0de264d3673a9e5be4ea8aab5628722846a5d2c190d1f8d9eec8a69a92d45d(
+    id: builtins.str,
+    message: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -10,19 +10,19 @@ from .deployment import Deployment
 
 __all__ = [
     "Project",
-    "BuildConfig",
     "DeploymentConfigs",
     "DeploymentConfigsPreview",
+    "DeploymentConfigsPreviewEnvVars",
+    "DeploymentConfigsPreviewEnvVarsPagesPlainTextEnvVar",
+    "DeploymentConfigsPreviewEnvVarsPagesSecretTextEnvVar",
     "DeploymentConfigsPreviewAIBindings",
     "DeploymentConfigsPreviewAnalyticsEngineDatasets",
     "DeploymentConfigsPreviewBrowsers",
     "DeploymentConfigsPreviewD1Databases",
     "DeploymentConfigsPreviewDurableObjectNamespaces",
-    "DeploymentConfigsPreviewEnvVars",
-    "DeploymentConfigsPreviewEnvVarsPagesPlainTextEnvVar",
-    "DeploymentConfigsPreviewEnvVarsPagesSecretTextEnvVar",
     "DeploymentConfigsPreviewHyperdriveBindings",
     "DeploymentConfigsPreviewKVNamespaces",
+    "DeploymentConfigsPreviewLimits",
     "DeploymentConfigsPreviewMTLSCertificates",
     "DeploymentConfigsPreviewPlacement",
     "DeploymentConfigsPreviewQueueProducers",
@@ -30,71 +30,32 @@ __all__ = [
     "DeploymentConfigsPreviewServices",
     "DeploymentConfigsPreviewVectorizeBindings",
     "DeploymentConfigsProduction",
+    "DeploymentConfigsProductionEnvVars",
+    "DeploymentConfigsProductionEnvVarsPagesPlainTextEnvVar",
+    "DeploymentConfigsProductionEnvVarsPagesSecretTextEnvVar",
     "DeploymentConfigsProductionAIBindings",
     "DeploymentConfigsProductionAnalyticsEngineDatasets",
     "DeploymentConfigsProductionBrowsers",
     "DeploymentConfigsProductionD1Databases",
     "DeploymentConfigsProductionDurableObjectNamespaces",
-    "DeploymentConfigsProductionEnvVars",
-    "DeploymentConfigsProductionEnvVarsPagesPlainTextEnvVar",
-    "DeploymentConfigsProductionEnvVarsPagesSecretTextEnvVar",
     "DeploymentConfigsProductionHyperdriveBindings",
     "DeploymentConfigsProductionKVNamespaces",
+    "DeploymentConfigsProductionLimits",
     "DeploymentConfigsProductionMTLSCertificates",
     "DeploymentConfigsProductionPlacement",
     "DeploymentConfigsProductionQueueProducers",
     "DeploymentConfigsProductionR2Buckets",
     "DeploymentConfigsProductionServices",
     "DeploymentConfigsProductionVectorizeBindings",
+    "BuildConfig",
     "Source",
     "SourceConfig",
 ]
 
 
-class BuildConfig(BaseModel):
-    build_caching: Optional[bool] = None
-    """Enable build caching for the project."""
-
-    build_command: Optional[str] = None
-    """Command used to build project."""
-
-    destination_dir: Optional[str] = None
-    """Output directory of the build."""
-
-    root_dir: Optional[str] = None
-    """Directory to run the command."""
-
-    web_analytics_tag: Optional[str] = None
-    """The classifying tag for analytics."""
-
-    web_analytics_token: Optional[str] = None
-    """The auth token for analytics."""
-
-
-class DeploymentConfigsPreviewAIBindings(BaseModel):
-    project_id: Optional[str] = None
-
-
-class DeploymentConfigsPreviewAnalyticsEngineDatasets(BaseModel):
-    dataset: Optional[str] = None
-    """Name of the dataset."""
-
-
-class DeploymentConfigsPreviewBrowsers(BaseModel):
-    pass
-
-
-class DeploymentConfigsPreviewD1Databases(BaseModel):
-    id: Optional[str] = None
-    """UUID of the D1 database."""
-
-
-class DeploymentConfigsPreviewDurableObjectNamespaces(BaseModel):
-    namespace_id: Optional[str] = None
-    """ID of the Durable Object namespace."""
-
-
 class DeploymentConfigsPreviewEnvVarsPagesPlainTextEnvVar(BaseModel):
+    """A plaintext environment variable."""
+
     type: Literal["plain_text"]
 
     value: str
@@ -102,6 +63,8 @@ class DeploymentConfigsPreviewEnvVarsPagesPlainTextEnvVar(BaseModel):
 
 
 class DeploymentConfigsPreviewEnvVarsPagesSecretTextEnvVar(BaseModel):
+    """An encrypted environment variable."""
+
     type: Literal["secret_text"]
 
     value: str
@@ -112,131 +75,187 @@ DeploymentConfigsPreviewEnvVars: TypeAlias = Annotated[
     Union[
         Optional[DeploymentConfigsPreviewEnvVarsPagesPlainTextEnvVar],
         Optional[DeploymentConfigsPreviewEnvVarsPagesSecretTextEnvVar],
+        None,
     ],
     PropertyInfo(discriminator="type"),
 ]
 
 
+class DeploymentConfigsPreviewAIBindings(BaseModel):
+    """AI binding."""
+
+    project_id: str
+
+
+class DeploymentConfigsPreviewAnalyticsEngineDatasets(BaseModel):
+    """Analytics Engine binding."""
+
+    dataset: str
+    """Name of the dataset."""
+
+
+class DeploymentConfigsPreviewBrowsers(BaseModel):
+    """Browser binding."""
+
+    pass
+
+
+class DeploymentConfigsPreviewD1Databases(BaseModel):
+    """D1 binding."""
+
+    id: str
+    """UUID of the D1 database."""
+
+
+class DeploymentConfigsPreviewDurableObjectNamespaces(BaseModel):
+    """Durable Object binding."""
+
+    namespace_id: str
+    """ID of the Durable Object namespace."""
+
+
 class DeploymentConfigsPreviewHyperdriveBindings(BaseModel):
-    id: Optional[str] = None
+    """Hyperdrive binding."""
+
+    id: str
 
 
 class DeploymentConfigsPreviewKVNamespaces(BaseModel):
-    namespace_id: Optional[str] = None
+    """KV namespace binding."""
+
+    namespace_id: str
     """ID of the KV namespace."""
 
 
+class DeploymentConfigsPreviewLimits(BaseModel):
+    """Limits for Pages Functions."""
+
+    cpu_ms: int
+    """CPU time limit in milliseconds."""
+
+
 class DeploymentConfigsPreviewMTLSCertificates(BaseModel):
-    certificate_id: Optional[str] = None
+    """mTLS binding."""
+
+    certificate_id: str
 
 
 class DeploymentConfigsPreviewPlacement(BaseModel):
-    mode: Optional[str] = None
+    """Placement setting used for Pages Functions."""
+
+    mode: str
     """Placement mode."""
 
 
 class DeploymentConfigsPreviewQueueProducers(BaseModel):
-    name: Optional[str] = None
+    """Queue Producer binding."""
+
+    name: str
     """Name of the Queue."""
 
 
 class DeploymentConfigsPreviewR2Buckets(BaseModel):
+    """R2 binding."""
+
+    name: str
+    """Name of the R2 bucket."""
+
     jurisdiction: Optional[str] = None
     """Jurisdiction of the R2 bucket."""
 
-    name: Optional[str] = None
-    """Name of the R2 bucket."""
-
 
 class DeploymentConfigsPreviewServices(BaseModel):
+    """Service binding."""
+
+    environment: str
+    """The Service environment."""
+
+    service: str
+    """The Service name."""
+
     entrypoint: Optional[str] = None
     """The entrypoint to bind to."""
 
-    environment: Optional[str] = None
-    """The Service environment."""
-
-    service: Optional[str] = None
-    """The Service name."""
-
 
 class DeploymentConfigsPreviewVectorizeBindings(BaseModel):
-    index_name: Optional[str] = None
+    """Vectorize binding."""
+
+    index_name: str
 
 
 class DeploymentConfigsPreview(BaseModel):
-    ai_bindings: Optional[Dict[str, Optional[DeploymentConfigsPreviewAIBindings]]] = None
+    """Configs for preview deploys."""
+
+    always_use_latest_compatibility_date: bool
+    """Whether to always use the latest compatibility date for Pages Functions."""
+
+    build_image_major_version: int
+    """The major version of the build image to use for Pages Functions."""
+
+    compatibility_date: str
+    """Compatibility date used for Pages Functions."""
+
+    compatibility_flags: List[str]
+    """Compatibility flags used for Pages Functions."""
+
+    env_vars: Optional[Dict[str, Optional[DeploymentConfigsPreviewEnvVars]]] = None
+    """Environment variables used for builds and Pages Functions."""
+
+    fail_open: bool
+    """Whether to fail open when the deployment config cannot be applied."""
+
+    usage_model: Literal["standard", "bundled", "unbound"]
+    """The usage model for Pages Functions."""
+
+    ai_bindings: Optional[Dict[str, DeploymentConfigsPreviewAIBindings]] = None
     """Constellation bindings used for Pages Functions."""
 
-    analytics_engine_datasets: Optional[Dict[str, Optional[DeploymentConfigsPreviewAnalyticsEngineDatasets]]] = None
+    analytics_engine_datasets: Optional[Dict[str, DeploymentConfigsPreviewAnalyticsEngineDatasets]] = None
     """Analytics Engine bindings used for Pages Functions."""
 
     browsers: Optional[Dict[str, Optional[DeploymentConfigsPreviewBrowsers]]] = None
     """Browser bindings used for Pages Functions."""
 
-    compatibility_date: Optional[str] = None
-    """Compatibility date used for Pages Functions."""
-
-    compatibility_flags: Optional[List[str]] = None
-    """Compatibility flags used for Pages Functions."""
-
-    d1_databases: Optional[Dict[str, Optional[DeploymentConfigsPreviewD1Databases]]] = None
+    d1_databases: Optional[Dict[str, DeploymentConfigsPreviewD1Databases]] = None
     """D1 databases used for Pages Functions."""
 
-    durable_object_namespaces: Optional[Dict[str, Optional[DeploymentConfigsPreviewDurableObjectNamespaces]]] = None
+    durable_object_namespaces: Optional[Dict[str, DeploymentConfigsPreviewDurableObjectNamespaces]] = None
     """Durable Object namespaces used for Pages Functions."""
 
-    env_vars: Optional[Dict[str, DeploymentConfigsPreviewEnvVars]] = None
-    """Environment variables used for builds and Pages Functions."""
-
-    hyperdrive_bindings: Optional[Dict[str, Optional[DeploymentConfigsPreviewHyperdriveBindings]]] = None
+    hyperdrive_bindings: Optional[Dict[str, DeploymentConfigsPreviewHyperdriveBindings]] = None
     """Hyperdrive bindings used for Pages Functions."""
 
-    kv_namespaces: Optional[Dict[str, Optional[DeploymentConfigsPreviewKVNamespaces]]] = None
+    kv_namespaces: Optional[Dict[str, DeploymentConfigsPreviewKVNamespaces]] = None
     """KV namespaces used for Pages Functions."""
 
-    mtls_certificates: Optional[Dict[str, Optional[DeploymentConfigsPreviewMTLSCertificates]]] = None
+    limits: Optional[DeploymentConfigsPreviewLimits] = None
+    """Limits for Pages Functions."""
+
+    mtls_certificates: Optional[Dict[str, DeploymentConfigsPreviewMTLSCertificates]] = None
     """mTLS bindings used for Pages Functions."""
 
     placement: Optional[DeploymentConfigsPreviewPlacement] = None
     """Placement setting used for Pages Functions."""
 
-    queue_producers: Optional[Dict[str, Optional[DeploymentConfigsPreviewQueueProducers]]] = None
+    queue_producers: Optional[Dict[str, DeploymentConfigsPreviewQueueProducers]] = None
     """Queue Producer bindings used for Pages Functions."""
 
-    r2_buckets: Optional[Dict[str, Optional[DeploymentConfigsPreviewR2Buckets]]] = None
+    r2_buckets: Optional[Dict[str, DeploymentConfigsPreviewR2Buckets]] = None
     """R2 buckets used for Pages Functions."""
 
-    services: Optional[Dict[str, Optional[DeploymentConfigsPreviewServices]]] = None
+    services: Optional[Dict[str, DeploymentConfigsPreviewServices]] = None
     """Services used for Pages Functions."""
 
-    vectorize_bindings: Optional[Dict[str, Optional[DeploymentConfigsPreviewVectorizeBindings]]] = None
+    vectorize_bindings: Optional[Dict[str, DeploymentConfigsPreviewVectorizeBindings]] = None
     """Vectorize bindings used for Pages Functions."""
 
-
-class DeploymentConfigsProductionAIBindings(BaseModel):
-    project_id: Optional[str] = None
-
-
-class DeploymentConfigsProductionAnalyticsEngineDatasets(BaseModel):
-    dataset: Optional[str] = None
-    """Name of the dataset."""
-
-
-class DeploymentConfigsProductionBrowsers(BaseModel):
-    pass
-
-
-class DeploymentConfigsProductionD1Databases(BaseModel):
-    id: Optional[str] = None
-    """UUID of the D1 database."""
-
-
-class DeploymentConfigsProductionDurableObjectNamespaces(BaseModel):
-    namespace_id: Optional[str] = None
-    """ID of the Durable Object namespace."""
+    wrangler_config_hash: Optional[str] = None
+    """Hash of the Wrangler configuration used for the deployment."""
 
 
 class DeploymentConfigsProductionEnvVarsPagesPlainTextEnvVar(BaseModel):
+    """A plaintext environment variable."""
+
     type: Literal["plain_text"]
 
     value: str
@@ -244,6 +263,8 @@ class DeploymentConfigsProductionEnvVarsPagesPlainTextEnvVar(BaseModel):
 
 
 class DeploymentConfigsProductionEnvVarsPagesSecretTextEnvVar(BaseModel):
+    """An encrypted environment variable."""
+
     type: Literal["secret_text"]
 
     value: str
@@ -254,174 +275,329 @@ DeploymentConfigsProductionEnvVars: TypeAlias = Annotated[
     Union[
         Optional[DeploymentConfigsProductionEnvVarsPagesPlainTextEnvVar],
         Optional[DeploymentConfigsProductionEnvVarsPagesSecretTextEnvVar],
+        None,
     ],
     PropertyInfo(discriminator="type"),
 ]
 
 
+class DeploymentConfigsProductionAIBindings(BaseModel):
+    """AI binding."""
+
+    project_id: str
+
+
+class DeploymentConfigsProductionAnalyticsEngineDatasets(BaseModel):
+    """Analytics Engine binding."""
+
+    dataset: str
+    """Name of the dataset."""
+
+
+class DeploymentConfigsProductionBrowsers(BaseModel):
+    """Browser binding."""
+
+    pass
+
+
+class DeploymentConfigsProductionD1Databases(BaseModel):
+    """D1 binding."""
+
+    id: str
+    """UUID of the D1 database."""
+
+
+class DeploymentConfigsProductionDurableObjectNamespaces(BaseModel):
+    """Durable Object binding."""
+
+    namespace_id: str
+    """ID of the Durable Object namespace."""
+
+
 class DeploymentConfigsProductionHyperdriveBindings(BaseModel):
-    id: Optional[str] = None
+    """Hyperdrive binding."""
+
+    id: str
 
 
 class DeploymentConfigsProductionKVNamespaces(BaseModel):
-    namespace_id: Optional[str] = None
+    """KV namespace binding."""
+
+    namespace_id: str
     """ID of the KV namespace."""
 
 
+class DeploymentConfigsProductionLimits(BaseModel):
+    """Limits for Pages Functions."""
+
+    cpu_ms: int
+    """CPU time limit in milliseconds."""
+
+
 class DeploymentConfigsProductionMTLSCertificates(BaseModel):
-    certificate_id: Optional[str] = None
+    """mTLS binding."""
+
+    certificate_id: str
 
 
 class DeploymentConfigsProductionPlacement(BaseModel):
-    mode: Optional[str] = None
+    """Placement setting used for Pages Functions."""
+
+    mode: str
     """Placement mode."""
 
 
 class DeploymentConfigsProductionQueueProducers(BaseModel):
-    name: Optional[str] = None
+    """Queue Producer binding."""
+
+    name: str
     """Name of the Queue."""
 
 
 class DeploymentConfigsProductionR2Buckets(BaseModel):
+    """R2 binding."""
+
+    name: str
+    """Name of the R2 bucket."""
+
     jurisdiction: Optional[str] = None
     """Jurisdiction of the R2 bucket."""
 
-    name: Optional[str] = None
-    """Name of the R2 bucket."""
-
 
 class DeploymentConfigsProductionServices(BaseModel):
+    """Service binding."""
+
+    environment: str
+    """The Service environment."""
+
+    service: str
+    """The Service name."""
+
     entrypoint: Optional[str] = None
     """The entrypoint to bind to."""
 
-    environment: Optional[str] = None
-    """The Service environment."""
-
-    service: Optional[str] = None
-    """The Service name."""
-
 
 class DeploymentConfigsProductionVectorizeBindings(BaseModel):
-    index_name: Optional[str] = None
+    """Vectorize binding."""
+
+    index_name: str
 
 
 class DeploymentConfigsProduction(BaseModel):
-    ai_bindings: Optional[Dict[str, Optional[DeploymentConfigsProductionAIBindings]]] = None
+    """Configs for production deploys."""
+
+    always_use_latest_compatibility_date: bool
+    """Whether to always use the latest compatibility date for Pages Functions."""
+
+    build_image_major_version: int
+    """The major version of the build image to use for Pages Functions."""
+
+    compatibility_date: str
+    """Compatibility date used for Pages Functions."""
+
+    compatibility_flags: List[str]
+    """Compatibility flags used for Pages Functions."""
+
+    env_vars: Optional[Dict[str, Optional[DeploymentConfigsProductionEnvVars]]] = None
+    """Environment variables used for builds and Pages Functions."""
+
+    fail_open: bool
+    """Whether to fail open when the deployment config cannot be applied."""
+
+    usage_model: Literal["standard", "bundled", "unbound"]
+    """The usage model for Pages Functions."""
+
+    ai_bindings: Optional[Dict[str, DeploymentConfigsProductionAIBindings]] = None
     """Constellation bindings used for Pages Functions."""
 
-    analytics_engine_datasets: Optional[Dict[str, Optional[DeploymentConfigsProductionAnalyticsEngineDatasets]]] = None
+    analytics_engine_datasets: Optional[Dict[str, DeploymentConfigsProductionAnalyticsEngineDatasets]] = None
     """Analytics Engine bindings used for Pages Functions."""
 
     browsers: Optional[Dict[str, Optional[DeploymentConfigsProductionBrowsers]]] = None
     """Browser bindings used for Pages Functions."""
 
-    compatibility_date: Optional[str] = None
-    """Compatibility date used for Pages Functions."""
-
-    compatibility_flags: Optional[List[str]] = None
-    """Compatibility flags used for Pages Functions."""
-
-    d1_databases: Optional[Dict[str, Optional[DeploymentConfigsProductionD1Databases]]] = None
+    d1_databases: Optional[Dict[str, DeploymentConfigsProductionD1Databases]] = None
     """D1 databases used for Pages Functions."""
 
-    durable_object_namespaces: Optional[Dict[str, Optional[DeploymentConfigsProductionDurableObjectNamespaces]]] = None
+    durable_object_namespaces: Optional[Dict[str, DeploymentConfigsProductionDurableObjectNamespaces]] = None
     """Durable Object namespaces used for Pages Functions."""
 
-    env_vars: Optional[Dict[str, DeploymentConfigsProductionEnvVars]] = None
-    """Environment variables used for builds and Pages Functions."""
-
-    hyperdrive_bindings: Optional[Dict[str, Optional[DeploymentConfigsProductionHyperdriveBindings]]] = None
+    hyperdrive_bindings: Optional[Dict[str, DeploymentConfigsProductionHyperdriveBindings]] = None
     """Hyperdrive bindings used for Pages Functions."""
 
-    kv_namespaces: Optional[Dict[str, Optional[DeploymentConfigsProductionKVNamespaces]]] = None
+    kv_namespaces: Optional[Dict[str, DeploymentConfigsProductionKVNamespaces]] = None
     """KV namespaces used for Pages Functions."""
 
-    mtls_certificates: Optional[Dict[str, Optional[DeploymentConfigsProductionMTLSCertificates]]] = None
+    limits: Optional[DeploymentConfigsProductionLimits] = None
+    """Limits for Pages Functions."""
+
+    mtls_certificates: Optional[Dict[str, DeploymentConfigsProductionMTLSCertificates]] = None
     """mTLS bindings used for Pages Functions."""
 
     placement: Optional[DeploymentConfigsProductionPlacement] = None
     """Placement setting used for Pages Functions."""
 
-    queue_producers: Optional[Dict[str, Optional[DeploymentConfigsProductionQueueProducers]]] = None
+    queue_producers: Optional[Dict[str, DeploymentConfigsProductionQueueProducers]] = None
     """Queue Producer bindings used for Pages Functions."""
 
-    r2_buckets: Optional[Dict[str, Optional[DeploymentConfigsProductionR2Buckets]]] = None
+    r2_buckets: Optional[Dict[str, DeploymentConfigsProductionR2Buckets]] = None
     """R2 buckets used for Pages Functions."""
 
-    services: Optional[Dict[str, Optional[DeploymentConfigsProductionServices]]] = None
+    services: Optional[Dict[str, DeploymentConfigsProductionServices]] = None
     """Services used for Pages Functions."""
 
-    vectorize_bindings: Optional[Dict[str, Optional[DeploymentConfigsProductionVectorizeBindings]]] = None
+    vectorize_bindings: Optional[Dict[str, DeploymentConfigsProductionVectorizeBindings]] = None
     """Vectorize bindings used for Pages Functions."""
+
+    wrangler_config_hash: Optional[str] = None
+    """Hash of the Wrangler configuration used for the deployment."""
 
 
 class DeploymentConfigs(BaseModel):
-    preview: Optional[DeploymentConfigsPreview] = None
+    """Configs for deployments in a project."""
+
+    preview: DeploymentConfigsPreview
     """Configs for preview deploys."""
 
-    production: Optional[DeploymentConfigsProduction] = None
+    production: DeploymentConfigsProduction
     """Configs for production deploys."""
 
 
+class BuildConfig(BaseModel):
+    """Configs for the project build process."""
+
+    web_analytics_tag: Optional[str] = None
+    """The classifying tag for analytics."""
+
+    web_analytics_token: Optional[str] = None
+    """The auth token for analytics."""
+
+    build_caching: Optional[bool] = None
+    """Enable build caching for the project."""
+
+    build_command: Optional[str] = None
+    """Command used to build project."""
+
+    destination_dir: Optional[str] = None
+    """Assets output directory of the build."""
+
+    root_dir: Optional[str] = None
+    """Directory to run the command."""
+
+
 class SourceConfig(BaseModel):
-    deployments_enabled: Optional[bool] = None
+    deployments_enabled: bool
+    """
+    Whether to enable automatic deployments when pushing to the source repository.
+    When disabled, no deployments (production or preview) will be triggered
+    automatically.
+    """
 
-    owner: Optional[str] = None
+    owner: str
+    """The owner of the repository."""
 
-    path_excludes: Optional[List[str]] = None
+    owner_id: str
+    """The owner ID of the repository."""
 
-    path_includes: Optional[List[str]] = None
+    path_excludes: List[str]
+    """A list of paths that should be excluded from triggering a preview deployment.
 
-    pr_comments_enabled: Optional[bool] = None
+    Wildcard syntax (`*`) is supported.
+    """
 
-    preview_branch_excludes: Optional[List[str]] = None
+    path_includes: List[str]
+    """A list of paths that should be watched to trigger a preview deployment.
 
-    preview_branch_includes: Optional[List[str]] = None
+    Wildcard syntax (`*`) is supported.
+    """
 
-    preview_deployment_setting: Optional[Literal["all", "none", "custom"]] = None
+    pr_comments_enabled: bool
+    """Whether to enable PR comments."""
 
-    production_branch: Optional[str] = None
+    preview_branch_excludes: List[str]
+    """A list of branches that should not trigger a preview deployment.
 
-    production_deployments_enabled: Optional[bool] = None
+    Wildcard syntax (`*`) is supported. Must be used with
+    `preview_deployment_setting` set to `custom`.
+    """
 
-    repo_name: Optional[str] = None
+    preview_branch_includes: List[str]
+    """A list of branches that should trigger a preview deployment.
+
+    Wildcard syntax (`*`) is supported. Must be used with
+    `preview_deployment_setting` set to `custom`.
+    """
+
+    preview_deployment_setting: Literal["all", "none", "custom"]
+    """Controls whether commits to preview branches trigger a preview deployment."""
+
+    production_branch: str
+    """The production branch of the repository."""
+
+    production_deployments_enabled: bool
+    """Whether to trigger a production deployment on commits to the production branch."""
+
+    repo_id: str
+    """The ID of the repository."""
+
+    repo_name: str
+    """The name of the repository."""
 
 
 class Source(BaseModel):
-    config: Optional[SourceConfig] = None
+    """Configs for the project source control."""
 
-    type: Optional[str] = None
+    config: SourceConfig
+
+    type: Literal["github", "gitlab"]
+    """The source control management provider."""
 
 
 class Project(BaseModel):
-    id: Optional[str] = None
-    """Id of the project."""
+    id: str
+    """ID of the project."""
+
+    canonical_deployment: Optional[Deployment] = None
+    """Most recent production deployment of the project."""
+
+    created_on: datetime
+    """When the project was created."""
+
+    deployment_configs: DeploymentConfigs
+    """Configs for deployments in a project."""
+
+    framework: str
+    """Framework the project is using."""
+
+    framework_version: str
+    """Version of the framework the project is using."""
+
+    latest_deployment: Optional[Deployment] = None
+    """Most recent deployment of the project."""
+
+    name: str
+    """Name of the project."""
+
+    preview_script_name: str
+    """Name of the preview script."""
+
+    production_branch: str
+    """Production branch of the project. Used to identify production deployments."""
+
+    production_script_name: str
+    """Name of the production script."""
+
+    uses_functions: Optional[bool] = None
+    """Whether the project uses functions."""
 
     build_config: Optional[BuildConfig] = None
     """Configs for the project build process."""
 
-    canonical_deployment: Optional[Deployment] = None
-    """Most recent deployment to the repo."""
-
-    created_on: Optional[datetime] = None
-    """When the project was created."""
-
-    deployment_configs: Optional[DeploymentConfigs] = None
-    """Configs for deployments in a project."""
-
     domains: Optional[List[str]] = None
     """A list of associated custom domains for the project."""
 
-    latest_deployment: Optional[Deployment] = None
-    """Most recent deployment to the repo."""
-
-    name: Optional[str] = None
-    """Name of the project."""
-
-    production_branch: Optional[str] = None
-    """Production branch of the project. Used to identify production deployments."""
-
     source: Optional[Source] = None
+    """Configs for the project source control."""
 
     subdomain: Optional[str] = None
     """The Cloudflare subdomain associated with the project."""

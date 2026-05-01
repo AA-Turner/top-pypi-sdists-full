@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import typing_extensions
+
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -42,21 +44,26 @@ class HostsResource(SyncAPIResource):
         """
         return HostsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated(
+        "Use [Schema Validation API](https://developers.cloudflare.com/api/resources/schema_validation/) instead."
+    )
     def list(
         self,
         *,
         zone_id: str,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[HostListResponse]:
-        """
-        Retrieve schema hosts in a zone
+        """Lists all unique hosts found in uploaded OpenAPI schemas for the zone.
+
+        Useful
+        for understanding which domains have schema coverage.
 
         Args:
           zone_id: Identifier.
@@ -76,7 +83,7 @@ class HostsResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/api_gateway/user_schemas/hosts",
+            path_template("/zones/{zone_id}/api_gateway/user_schemas/hosts", zone_id=zone_id),
             page=SyncV4PagePaginationArray[HostListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -115,21 +122,26 @@ class AsyncHostsResource(AsyncAPIResource):
         """
         return AsyncHostsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated(
+        "Use [Schema Validation API](https://developers.cloudflare.com/api/resources/schema_validation/) instead."
+    )
     def list(
         self,
         *,
         zone_id: str,
-        page: int | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[HostListResponse, AsyncV4PagePaginationArray[HostListResponse]]:
-        """
-        Retrieve schema hosts in a zone
+        """Lists all unique hosts found in uploaded OpenAPI schemas for the zone.
+
+        Useful
+        for understanding which domains have schema coverage.
 
         Args:
           zone_id: Identifier.
@@ -149,7 +161,7 @@ class AsyncHostsResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/api_gateway/user_schemas/hosts",
+            path_template("/zones/{zone_id}/api_gateway/user_schemas/hosts", zone_id=zone_id),
             page=AsyncV4PagePaginationArray[HostListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -172,8 +184,10 @@ class HostsResourceWithRawResponse:
     def __init__(self, hosts: HostsResource) -> None:
         self._hosts = hosts
 
-        self.list = to_raw_response_wrapper(
-            hosts.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                hosts.list,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -181,8 +195,10 @@ class AsyncHostsResourceWithRawResponse:
     def __init__(self, hosts: AsyncHostsResource) -> None:
         self._hosts = hosts
 
-        self.list = async_to_raw_response_wrapper(
-            hosts.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                hosts.list,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -190,8 +206,10 @@ class HostsResourceWithStreamingResponse:
     def __init__(self, hosts: HostsResource) -> None:
         self._hosts = hosts
 
-        self.list = to_streamed_response_wrapper(
-            hosts.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                hosts.list,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -199,6 +217,8 @@ class AsyncHostsResourceWithStreamingResponse:
     def __init__(self, hosts: AsyncHostsResource) -> None:
         self._hosts = hosts
 
-        self.list = async_to_streamed_response_wrapper(
-            hosts.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                hosts.list,  # pyright: ignore[reportDeprecated],
+            )
         )

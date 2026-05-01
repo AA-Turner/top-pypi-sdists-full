@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openfeature-provider-flagd
-Version: 0.4.0
+Version: 0.4.1
 Summary: OpenFeature provider for the flagd flag evaluation engine
 Project-URL: Homepage, https://github.com/open-feature/python-sdk-contrib
 Author-email: OpenFeature <openfeature-core@groups.io>
@@ -11,12 +11,10 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Requires-Dist: cachebox<6.0.0,>=5.1.0
 Requires-Dist: grpcio>=1.80.0
-Requires-Dist: mmh3<6.0.0,>=5.0.0
+Requires-Dist: openfeature-flagd-core<2,>=1.0.0
 Requires-Dist: openfeature-sdk>=0.8.2
-Requires-Dist: panzi-json-logic>=1.0.1
 Requires-Dist: protobuf<7.0.0,>=6.30.0
 Requires-Dist: pyyaml>=6.0.1
-Requires-Dist: semver<4,>=3
 Description-Content-Type: text/markdown
 
 # flagd Provider for OpenFeature

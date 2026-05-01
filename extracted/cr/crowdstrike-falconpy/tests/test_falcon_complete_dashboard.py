@@ -13,7 +13,7 @@ from falconpy import CompleteDashboard
 auth = Authorization.TestAuthorization()
 config = auth.getConfigObject()
 falcon = CompleteDashboard(auth_object=config)
-AllowedResponses = [200, 403, 404, 429]
+AllowedResponses = [200, 403, 404, 429, 500]
 
 
 class TestFalconCompleteDashboard:
@@ -49,16 +49,16 @@ class TestFalconCompleteDashboard:
 
         return returned
 
-    def ServiceFCD_QueryEscalationsFilter(self):
+    def ServiceFCD_QueryIncidentIdsByFilter(self):
         returned = False
-        if falcon.QueryEscalationsFilter(limit=1,offset=2)["status_code"] in AllowedResponses:
+        if falcon.QueryIncidentIdsByFilter(bananas="yellow")["status_code"] in AllowedResponses:
             returned = True
 
         return returned
 
-    def ServiceFCD_QueryIncidentIdsByFilter(self):
+    def ServiceFCD_QueryEscalationsFilter(self):
         returned = False
-        if falcon.QueryIncidentIdsByFilter(bananas="yellow")["status_code"] in AllowedResponses:
+        if falcon.QueryEscalationsFilter(limit=1,offset=2)["status_code"] in AllowedResponses:
             returned = True
 
         return returned

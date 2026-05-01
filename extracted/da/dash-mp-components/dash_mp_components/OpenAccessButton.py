@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class OpenAccessButton(Component):
@@ -47,12 +59,23 @@ Keyword arguments:
     Directly supply the URL to the publication. If a doi.org url is
     supplied, this component will automatically parse the url for the
     doi and use that to fetch an open access link."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'OpenAccessButton'
-    @_explicitize_args
-    def __init__(self, id=Component.UNDEFINED, doi=Component.UNDEFINED, className=Component.UNDEFINED, url=Component.UNDEFINED, target=Component.UNDEFINED, compact=Component.UNDEFINED, showTooltip=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        id: typing.Optional[typing.Union[str, dict]] = None,
+        doi: typing.Optional[str] = None,
+        className: typing.Optional[str] = None,
+        url: typing.Optional[str] = None,
+        target: typing.Optional[str] = None,
+        compact: typing.Optional[bool] = None,
+        showTooltip: typing.Optional[bool] = None,
+        **kwargs
+    ):
         self._prop_names = ['id', 'className', 'compact', 'doi', 'showTooltip', 'target', 'url']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['id', 'className', 'compact', 'doi', 'showTooltip', 'target', 'url']
@@ -63,3 +86,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args}
 
         super(OpenAccessButton, self).__init__(**args)
+
+setattr(OpenAccessButton, "__init__", _explicitize_args(OpenAccessButton.__init__))

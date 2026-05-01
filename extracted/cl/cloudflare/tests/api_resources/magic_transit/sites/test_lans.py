@@ -25,7 +25,6 @@ class TestLANs:
         lan = client.magic_transit.sites.lans.create(
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            physport=1,
         )
         assert_matches_type(SyncSinglePage[LAN], lan, path=["response"])
 
@@ -34,10 +33,13 @@ class TestLANs:
         lan = client.magic_transit.sites.lans.create(
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            physport=1,
+            bond_id=2,
             ha_link=True,
+            is_breakout=True,
+            is_prioritized=True,
             name="name",
             nat={"static_prefix": "192.0.2.0/24"},
+            physport=1,
             routed_subnets=[
                 {
                     "next_hop": "192.0.2.1",
@@ -49,6 +51,13 @@ class TestLANs:
                 "address": "192.0.2.0/24",
                 "dhcp_relay": {"server_addresses": ["192.0.2.1"]},
                 "dhcp_server": {
+                    "dhcp_options": [
+                        {
+                            "code": 66,
+                            "type": "ip",
+                            "value": "10.20.30.40",
+                        }
+                    ],
                     "dhcp_pool_end": "192.0.2.1",
                     "dhcp_pool_start": "192.0.2.1",
                     "dns_server": "192.0.2.1",
@@ -70,7 +79,6 @@ class TestLANs:
         response = client.magic_transit.sites.lans.with_raw_response.create(
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            physport=1,
         )
 
         assert response.is_closed is True
@@ -83,7 +91,6 @@ class TestLANs:
         with client.magic_transit.sites.lans.with_streaming_response.create(
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            physport=1,
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -99,14 +106,12 @@ class TestLANs:
             client.magic_transit.sites.lans.with_raw_response.create(
                 site_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="",
-                physport=1,
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `site_id` but received ''"):
             client.magic_transit.sites.lans.with_raw_response.create(
                 site_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                physport=1,
             )
 
     @parametrize
@@ -124,6 +129,9 @@ class TestLANs:
             lan_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
+            bond_id=2,
+            is_breakout=True,
+            is_prioritized=True,
             name="name",
             nat={"static_prefix": "192.0.2.0/24"},
             physport=1,
@@ -138,6 +146,13 @@ class TestLANs:
                 "address": "192.0.2.0/24",
                 "dhcp_relay": {"server_addresses": ["192.0.2.1"]},
                 "dhcp_server": {
+                    "dhcp_options": [
+                        {
+                            "code": 66,
+                            "type": "ip",
+                            "value": "10.20.30.40",
+                        }
+                    ],
                     "dhcp_pool_end": "192.0.2.1",
                     "dhcp_pool_start": "192.0.2.1",
                     "dns_server": "192.0.2.1",
@@ -328,6 +343,9 @@ class TestLANs:
             lan_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
+            bond_id=2,
+            is_breakout=True,
+            is_prioritized=True,
             name="name",
             nat={"static_prefix": "192.0.2.0/24"},
             physport=1,
@@ -342,6 +360,13 @@ class TestLANs:
                 "address": "192.0.2.0/24",
                 "dhcp_relay": {"server_addresses": ["192.0.2.1"]},
                 "dhcp_server": {
+                    "dhcp_options": [
+                        {
+                            "code": 66,
+                            "type": "ip",
+                            "value": "10.20.30.40",
+                        }
+                    ],
                     "dhcp_pool_end": "192.0.2.1",
                     "dhcp_pool_start": "192.0.2.1",
                     "dns_server": "192.0.2.1",
@@ -471,14 +496,15 @@ class TestLANs:
 
 
 class TestAsyncLANs:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
         lan = await async_client.magic_transit.sites.lans.create(
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            physport=1,
         )
         assert_matches_type(AsyncSinglePage[LAN], lan, path=["response"])
 
@@ -487,10 +513,13 @@ class TestAsyncLANs:
         lan = await async_client.magic_transit.sites.lans.create(
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            physport=1,
+            bond_id=2,
             ha_link=True,
+            is_breakout=True,
+            is_prioritized=True,
             name="name",
             nat={"static_prefix": "192.0.2.0/24"},
+            physport=1,
             routed_subnets=[
                 {
                     "next_hop": "192.0.2.1",
@@ -502,6 +531,13 @@ class TestAsyncLANs:
                 "address": "192.0.2.0/24",
                 "dhcp_relay": {"server_addresses": ["192.0.2.1"]},
                 "dhcp_server": {
+                    "dhcp_options": [
+                        {
+                            "code": 66,
+                            "type": "ip",
+                            "value": "10.20.30.40",
+                        }
+                    ],
                     "dhcp_pool_end": "192.0.2.1",
                     "dhcp_pool_start": "192.0.2.1",
                     "dns_server": "192.0.2.1",
@@ -523,7 +559,6 @@ class TestAsyncLANs:
         response = await async_client.magic_transit.sites.lans.with_raw_response.create(
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            physport=1,
         )
 
         assert response.is_closed is True
@@ -536,7 +571,6 @@ class TestAsyncLANs:
         async with async_client.magic_transit.sites.lans.with_streaming_response.create(
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            physport=1,
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -552,14 +586,12 @@ class TestAsyncLANs:
             await async_client.magic_transit.sites.lans.with_raw_response.create(
                 site_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="",
-                physport=1,
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `site_id` but received ''"):
             await async_client.magic_transit.sites.lans.with_raw_response.create(
                 site_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                physport=1,
             )
 
     @parametrize
@@ -577,6 +609,9 @@ class TestAsyncLANs:
             lan_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
+            bond_id=2,
+            is_breakout=True,
+            is_prioritized=True,
             name="name",
             nat={"static_prefix": "192.0.2.0/24"},
             physport=1,
@@ -591,6 +626,13 @@ class TestAsyncLANs:
                 "address": "192.0.2.0/24",
                 "dhcp_relay": {"server_addresses": ["192.0.2.1"]},
                 "dhcp_server": {
+                    "dhcp_options": [
+                        {
+                            "code": 66,
+                            "type": "ip",
+                            "value": "10.20.30.40",
+                        }
+                    ],
                     "dhcp_pool_end": "192.0.2.1",
                     "dhcp_pool_start": "192.0.2.1",
                     "dns_server": "192.0.2.1",
@@ -781,6 +823,9 @@ class TestAsyncLANs:
             lan_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             site_id="023e105f4ecef8ad9ca31a8372d0c353",
+            bond_id=2,
+            is_breakout=True,
+            is_prioritized=True,
             name="name",
             nat={"static_prefix": "192.0.2.0/24"},
             physport=1,
@@ -795,6 +840,13 @@ class TestAsyncLANs:
                 "address": "192.0.2.0/24",
                 "dhcp_relay": {"server_addresses": ["192.0.2.1"]},
                 "dhcp_server": {
+                    "dhcp_options": [
+                        {
+                            "code": 66,
+                            "type": "ip",
+                            "value": "10.20.30.40",
+                        }
+                    ],
                     "dhcp_pool_end": "192.0.2.1",
                     "dhcp_pool_start": "192.0.2.1",
                     "dns_server": "192.0.2.1",

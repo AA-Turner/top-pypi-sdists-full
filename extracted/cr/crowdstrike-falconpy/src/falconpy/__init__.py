@@ -180,6 +180,15 @@ from .message_center import MessageCenter
 from .ml_exclusions import MLExclusions
 from .mobile_enrollment import MobileEnrollment
 from .mssp import FlightControl
+from .network_scan_global_configs import NetworkScanGlobalConfigs
+from .network_scan_networks import NetworkScanNetworks
+from .network_scan_scan_run_reports import NetworkScanScanRunReports
+from .network_scan_scan_runs import NetworkScanScanRuns
+from .network_scan_scanners import NetworkScanScanners
+from .network_scan_scans import NetworkScanScans
+from .network_scan_templates import NetworkScanTemplates
+from .network_scan_zones import NetworkScanZones
+from .network_scan import NetworkScan
 from .ngsiem import NGSIEM
 from .oauth2 import OAuth2
 from .ods import ODS
@@ -264,7 +273,10 @@ __all__ = [
     "CloudSecurityCompliance", "CaseManagement", "SaasSecurity", "DataProtectionConfiguration",
     "CorrelationRulesAdmin", "CloudSecurityDetections", "CloudPolicies", "CloudGoogleCloudRegistration",
     "CloudSecurity", "AdmissionControlPolicies",
-    "SpotlightVulnerabilityMetadata", "ServerlessExports", "ServerlessVulnerabilities"
+    "SpotlightVulnerabilityMetadata", "ServerlessExports", "ServerlessVulnerabilities",
+    "NetworkScanGlobalConfigs", "NetworkScanNetworks", "NetworkScanScanRunReports",
+    "NetworkScanScanRuns", "NetworkScanScanners", "NetworkScanScans",
+    "NetworkScanTemplates", "NetworkScanZones", "NetworkScan"
     ]
 """
 This is free and unencumbered software released into the public domain.

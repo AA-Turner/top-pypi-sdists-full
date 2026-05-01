@@ -7,30 +7,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import migrations
 
 
-def migrate_content_type(apps, schema_editor):
-    DocumentModelRelationship = apps.get_model("documents", "DocumentModelRelationship")
-
-    for model_name in [
-        "Classification",
-        "Instrument",
-        "ClassificationGroup",
-        "Deal",
-        "Exchange",
-        "InstrumentClassificationRelatedInstrument",
-        "InstrumentClassificationThroughModel",
-        "InstrumentFavoriteGroup",
-        "InstrumentList",
-        "InstrumentListThroughModel",
-        "InstrumentRequest",
-        "RelatedInstrumentThroughModel",
-        "InstrumentPrice",
-    ]:
-        with suppress(ContentType.DoesNotExist):
-            old_ct = ContentType.objects.get(app_label="wbportfolio", model=model_name.lower())
-            new_ct = ContentType.objects.get(app_label="wbfdm", model=model_name.lower())
-            DocumentModelRelationship.objects.filter(content_type_id=old_ct.id).update(content_type_id=new_ct.id)
-
-
 class Migration(migrations.Migration):
     dependencies = (
         [
@@ -41,4 +17,4 @@ class Migration(migrations.Migration):
         else [("documents", "0003_alter_documentmodelrelationship_unique_together_and_more")]
     )
 
-    operations = [migrations.RunPython(migrate_content_type)]
+    operations = []

@@ -12,6 +12,8 @@ __all__ = ["AuditListResponse", "Account", "Action", "Actor", "Raw", "Resource",
 
 
 class Account(BaseModel):
+    """Contains account related information."""
+
     id: Optional[str] = None
     """A unique identifier for the account."""
 
@@ -20,6 +22,8 @@ class Account(BaseModel):
 
 
 class Action(BaseModel):
+    """Provides information about the action performed."""
+
     description: Optional[str] = None
     """A short description of the action performed."""
 
@@ -34,6 +38,8 @@ class Action(BaseModel):
 
 
 class Actor(BaseModel):
+    """Provides details about the actor who performed the action."""
+
     id: Optional[str] = None
     """The ID of the actor who performed the action.
 
@@ -49,16 +55,18 @@ class Actor(BaseModel):
     """The IP address of the request that performed the action."""
 
     token_id: Optional[str] = None
-    """Filters by the API token ID when the actor context is an api_token."""
+    """The API token ID when the actor context is an api_token or oauth."""
 
     token_name: Optional[str] = None
-    """Filters by the API token name when the actor context is an api_token."""
+    """The API token name when the actor context is an api_token or oauth."""
 
     type: Optional[Literal["account", "cloudflare_admin", "system", "user"]] = None
     """The type of actor."""
 
 
 class Raw(BaseModel):
+    """Provides raw information about the request and response."""
+
     cf_rayid: Optional[str] = FieldInfo(alias="cf_ray_id", default=None)
     """The Cloudflare Ray ID for the request."""
 
@@ -76,6 +84,8 @@ class Raw(BaseModel):
 
 
 class Resource(BaseModel):
+    """Provides details about the affected resource."""
+
     id: Optional[str] = None
     """The unique identifier for the affected resource."""
 
@@ -94,6 +104,8 @@ class Resource(BaseModel):
 
 
 class Zone(BaseModel):
+    """Provides details about the zone affected by the action."""
+
     id: Optional[str] = None
     """A string that identifies the zone id."""
 

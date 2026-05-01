@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List, Union, Iterable, Optional
-from typing_extensions import Literal, Required, TypeAlias, TypedDict
+from typing import Union, Iterable, Optional
+from typing_extensions import Required, TypeAlias, TypedDict
 
+from ....._types import SequenceNotStr
 from .pattern_param import PatternParam
 from ..context_awareness_param import ContextAwarenessParam
 
@@ -13,18 +14,13 @@ __all__ = [
     "Entry",
     "EntryDLPNewCustomEntry",
     "EntryDLPNewWordListEntry",
+    "SensitivityLevel",
     "SharedEntry",
-    "SharedEntryCustom",
-    "SharedEntryPredefined",
-    "SharedEntryIntegration",
-    "SharedEntryExactData",
 ]
 
 
 class CustomCreateParams(TypedDict, total=False):
     account_id: Required[str]
-
-    entries: Required[Iterable[Entry]]
 
     name: Required[str]
 
@@ -41,10 +37,21 @@ class CustomCreateParams(TypedDict, total=False):
     keywords.
     """
 
+    data_classes: SequenceNotStr[str]
+    """Data class IDs to associate with the profile."""
+
+    data_tags: SequenceNotStr[str]
+    """Data tag IDs to associate with the profile."""
+
     description: Optional[str]
     """The description of the profile."""
 
+    entries: Iterable[Entry]
+
     ocr_enabled: bool
+
+    sensitivity_levels: Iterable[SensitivityLevel]
+    """Sensitivity levels to associate with the profile."""
 
     shared_entries: Iterable[SharedEntry]
     """Entries from other profiles (e.g.
@@ -61,48 +68,31 @@ class EntryDLPNewCustomEntry(TypedDict, total=False):
 
     pattern: Required[PatternParam]
 
+    description: Optional[str]
+
 
 class EntryDLPNewWordListEntry(TypedDict, total=False):
     enabled: Required[bool]
 
     name: Required[str]
 
-    words: Required[List[str]]
+    words: Required[SequenceNotStr[str]]
 
 
 Entry: TypeAlias = Union[EntryDLPNewCustomEntry, EntryDLPNewWordListEntry]
 
 
-class SharedEntryCustom(TypedDict, total=False):
+class SensitivityLevel(TypedDict, total=False):
+    """
+    A reference pairing a sensitivity group with a specific level within that group.
+    """
+
+    group_id: Required[str]
+
+    level_id: Required[str]
+
+
+class SharedEntry(TypedDict, total=False):
     enabled: Required[bool]
 
     entry_id: Required[str]
-
-    entry_type: Required[Literal["custom"]]
-
-
-class SharedEntryPredefined(TypedDict, total=False):
-    enabled: Required[bool]
-
-    entry_id: Required[str]
-
-    entry_type: Required[Literal["predefined"]]
-
-
-class SharedEntryIntegration(TypedDict, total=False):
-    enabled: Required[bool]
-
-    entry_id: Required[str]
-
-    entry_type: Required[Literal["integration"]]
-
-
-class SharedEntryExactData(TypedDict, total=False):
-    enabled: Required[bool]
-
-    entry_id: Required[str]
-
-    entry_type: Required[Literal["exact_data"]]
-
-
-SharedEntry: TypeAlias = Union[SharedEntryCustom, SharedEntryPredefined, SharedEntryIntegration, SharedEntryExactData]

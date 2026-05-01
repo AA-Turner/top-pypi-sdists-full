@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class ModalContextProvider(Component):
@@ -29,12 +41,21 @@ Keyword arguments:
     callback on the active prop.
 
 - isDrawer (boolean; optional)"""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'ModalContextProvider'
-    @_explicitize_args
-    def __init__(self, children=None, id=Component.UNDEFINED, active=Component.UNDEFINED, forceAction=Component.UNDEFINED, isDrawer=Component.UNDEFINED, **kwargs):
+
+
+    def __init__(
+        self,
+        children: typing.Optional[ComponentType] = None,
+        id: typing.Optional[typing.Union[str, dict]] = None,
+        active: typing.Optional[bool] = None,
+        forceAction: typing.Optional[bool] = None,
+        isDrawer: typing.Optional[bool] = None,
+        **kwargs
+    ):
         self._prop_names = ['children', 'id', 'active', 'forceAction', 'isDrawer']
         self._valid_wildcard_attributes =            []
         self.available_properties = ['children', 'id', 'active', 'forceAction', 'isDrawer']
@@ -45,3 +66,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args if k != 'children'}
 
         super(ModalContextProvider, self).__init__(children=children, **args)
+
+setattr(ModalContextProvider, "__init__", _explicitize_args(ModalContextProvider.__init__))

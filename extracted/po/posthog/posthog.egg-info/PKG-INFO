@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthog
-Version: 7.13.1
+Version: 7.13.2
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -24,7 +24,6 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests<3.0,>=2.7
-Requires-Dist: python-dateutil>=2.2
 Requires-Dist: backoff>=1.10.0
 Requires-Dist: distro>=1.5.0
 Requires-Dist: typing-extensions>=4.2.0
@@ -38,7 +37,6 @@ Requires-Dist: django-stubs; extra == "dev"
 Requires-Dist: lxml; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: mypy-baseline; extra == "dev"
-Requires-Dist: types-python-dateutil; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
 Requires-Dist: types-setuptools; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
@@ -52,6 +50,8 @@ Requires-Dist: tomli; extra == "dev"
 Requires-Dist: tomli_w; extra == "dev"
 Provides-Extra: test
 Requires-Dist: freezegun==1.5.1; extra == "test"
+Requires-Dist: python-dateutil>=2.9.0.post0; extra == "test"
+Requires-Dist: tzdata; extra == "test"
 Requires-Dist: coverage; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"

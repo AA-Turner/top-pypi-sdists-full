@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -54,15 +54,15 @@ class AuditSSHSettingsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewaySettings]:
         """
-        Updates Zero Trust Audit SSH and SSH with Access for Infrastructure settings for
+        Update Zero Trust Audit SSH and SSH with Access for Infrastructure settings for
         an account.
 
         Args:
-          public_key: Base64 encoded HPKE public key used to encrypt all your ssh session logs.
-              https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/use-cases/ssh/ssh-infrastructure-access/#enable-ssh-command-logging
+          public_key: Provide the Base64-encoded HPKE public key that encrypts SSH session logs. See
+              https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/use-cases/ssh/ssh-infrastructure-access/#enable-ssh-command-logging.
 
           extra_headers: Send extra headers
 
@@ -75,7 +75,7 @@ class AuditSSHSettingsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._put(
-            f"/accounts/{account_id}/gateway/audit_ssh_settings",
+            path_template("/accounts/{account_id}/gateway/audit_ssh_settings", account_id=account_id),
             body=maybe_transform(
                 {"public_key": public_key}, audit_ssh_setting_update_params.AuditSSHSettingUpdateParams
             ),
@@ -98,11 +98,11 @@ class AuditSSHSettingsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewaySettings]:
         """
-        Gets all Zero Trust Audit SSH and SSH with Access for Infrastructure settings
-        for an account.
+        Retrieve all Zero Trust Audit SSH and SSH with Access for Infrastructure
+        settings for an account.
 
         Args:
           extra_headers: Send extra headers
@@ -116,7 +116,7 @@ class AuditSSHSettingsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/gateway/audit_ssh_settings",
+            path_template("/accounts/{account_id}/gateway/audit_ssh_settings", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -136,11 +136,11 @@ class AuditSSHSettingsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewaySettings]:
         """
-        Rotates the SSH account seed that is used for generating the host key identity
-        when connecting through the Cloudflare SSH Proxy.
+        Rotate the SSH account seed that generates the host key identity when connecting
+        through the Cloudflare SSH Proxy.
 
         Args:
           extra_headers: Send extra headers
@@ -154,7 +154,7 @@ class AuditSSHSettingsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/gateway/audit_ssh_settings/rotate_seed",
+            path_template("/accounts/{account_id}/gateway/audit_ssh_settings/rotate_seed", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -196,15 +196,15 @@ class AsyncAuditSSHSettingsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewaySettings]:
         """
-        Updates Zero Trust Audit SSH and SSH with Access for Infrastructure settings for
+        Update Zero Trust Audit SSH and SSH with Access for Infrastructure settings for
         an account.
 
         Args:
-          public_key: Base64 encoded HPKE public key used to encrypt all your ssh session logs.
-              https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/use-cases/ssh/ssh-infrastructure-access/#enable-ssh-command-logging
+          public_key: Provide the Base64-encoded HPKE public key that encrypts SSH session logs. See
+              https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/use-cases/ssh/ssh-infrastructure-access/#enable-ssh-command-logging.
 
           extra_headers: Send extra headers
 
@@ -217,7 +217,7 @@ class AsyncAuditSSHSettingsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/gateway/audit_ssh_settings",
+            path_template("/accounts/{account_id}/gateway/audit_ssh_settings", account_id=account_id),
             body=await async_maybe_transform(
                 {"public_key": public_key}, audit_ssh_setting_update_params.AuditSSHSettingUpdateParams
             ),
@@ -240,11 +240,11 @@ class AsyncAuditSSHSettingsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewaySettings]:
         """
-        Gets all Zero Trust Audit SSH and SSH with Access for Infrastructure settings
-        for an account.
+        Retrieve all Zero Trust Audit SSH and SSH with Access for Infrastructure
+        settings for an account.
 
         Args:
           extra_headers: Send extra headers
@@ -258,7 +258,7 @@ class AsyncAuditSSHSettingsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/gateway/audit_ssh_settings",
+            path_template("/accounts/{account_id}/gateway/audit_ssh_settings", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -278,11 +278,11 @@ class AsyncAuditSSHSettingsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GatewaySettings]:
         """
-        Rotates the SSH account seed that is used for generating the host key identity
-        when connecting through the Cloudflare SSH Proxy.
+        Rotate the SSH account seed that generates the host key identity when connecting
+        through the Cloudflare SSH Proxy.
 
         Args:
           extra_headers: Send extra headers
@@ -296,7 +296,7 @@ class AsyncAuditSSHSettingsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/gateway/audit_ssh_settings/rotate_seed",
+            path_template("/accounts/{account_id}/gateway/audit_ssh_settings/rotate_seed", account_id=account_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

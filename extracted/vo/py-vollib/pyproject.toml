@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "py_vollib"
+version = "1.0.7"
+description = "Deprecated transition package; install vollib instead."
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+license = "MIT"
+authors = [
+    {name = "vollib", email = "vollib@gammoncap.com"},
+]
+dependencies = [
+    "vollib==1.0.7",
+]
+classifiers = [
+    "Development Status :: 7 - Inactive",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial",
+]
+
+[project.urls]
+Homepage = "http://vollib.org"
+Repository = "https://github.com/vollib/py_vollib"
+
+[tool.setuptools]
+packages = []

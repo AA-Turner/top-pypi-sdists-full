@@ -19,7 +19,6 @@ ryo3-globset.workspace = true
 ryo3-std = { workspace = true, features = ["fs"] }
 walkdir = { workspace = true }
 
-
 [features]
 default = []
 ry = []

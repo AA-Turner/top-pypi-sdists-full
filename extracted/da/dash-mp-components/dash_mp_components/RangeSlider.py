@@ -1,6 +1,18 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentSingleType = typing.Union[str, int, float, Component, None]
+ComponentType = typing.Union[
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class RangeSlider(Component):
@@ -23,18 +35,37 @@ Keyword arguments:
 
 - step (number; optional)
 
+- styleInput (dict; optional)
+
+- styleSlider (dict; optional)
+
 - ticks (number; optional)
 
 - value (number | string; optional)"""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mp_components'
     _type = 'RangeSlider'
-    @_explicitize_args
-    def __init__(self, id=Component.UNDEFINED, className=Component.UNDEFINED, value=Component.UNDEFINED, domain=Component.UNDEFINED, isLogScale=Component.UNDEFINED, step=Component.UNDEFINED, ticks=Component.UNDEFINED, inclusiveTickBounds=Component.UNDEFINED, debounce=Component.UNDEFINED, **kwargs):
-        self._prop_names = ['id', 'className', 'debounce', 'domain', 'inclusiveTickBounds', 'isLogScale', 'step', 'ticks', 'value']
+
+
+    def __init__(
+        self,
+        id: typing.Optional[typing.Union[str, dict]] = None,
+        className: typing.Optional[str] = None,
+        value: typing.Optional[typing.Union[NumberType, str]] = None,
+        domain: typing.Optional[typing.Sequence[NumberType]] = None,
+        isLogScale: typing.Optional[bool] = None,
+        step: typing.Optional[NumberType] = None,
+        ticks: typing.Optional[NumberType] = None,
+        inclusiveTickBounds: typing.Optional[bool] = None,
+        debounce: typing.Optional[NumberType] = None,
+        styleInput: typing.Optional[dict] = None,
+        styleSlider: typing.Optional[dict] = None,
+        **kwargs
+    ):
+        self._prop_names = ['id', 'className', 'debounce', 'domain', 'inclusiveTickBounds', 'isLogScale', 'step', 'styleInput', 'styleSlider', 'ticks', 'value']
         self._valid_wildcard_attributes =            []
-        self.available_properties = ['id', 'className', 'debounce', 'domain', 'inclusiveTickBounds', 'isLogScale', 'step', 'ticks', 'value']
+        self.available_properties = ['id', 'className', 'debounce', 'domain', 'inclusiveTickBounds', 'isLogScale', 'step', 'styleInput', 'styleSlider', 'ticks', 'value']
         self.available_wildcard_properties =            []
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()
@@ -42,3 +73,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args}
 
         super(RangeSlider, self).__init__(**args)
+
+setattr(RangeSlider, "__init__", _explicitize_args(RangeSlider.__init__))

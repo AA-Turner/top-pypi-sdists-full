@@ -6,8 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -63,13 +63,13 @@ class NamespacesResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[NamespaceCreateResponse]:
         """
         Create a new Workers for Platforms namespace.
@@ -90,7 +90,7 @@ class NamespacesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/workers/dispatch/namespaces",
+            path_template("/accounts/{account_id}/workers/dispatch/namespaces", account_id=account_id),
             body=maybe_transform({"name": name}, namespace_create_params.NamespaceCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -111,7 +111,7 @@ class NamespacesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[NamespaceListResponse]:
         """
         Fetch a list of Workers for Platforms namespaces.
@@ -130,7 +130,7 @@ class NamespacesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workers/dispatch/namespaces",
+            path_template("/accounts/{account_id}/workers/dispatch/namespaces", account_id=account_id),
             page=SyncSinglePage[NamespaceListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -148,7 +148,7 @@ class NamespacesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Delete a Workers for Platforms namespace.
@@ -171,7 +171,11 @@ class NamespacesResource(SyncAPIResource):
         if not dispatch_namespace:
             raise ValueError(f"Expected a non-empty value for `dispatch_namespace` but received {dispatch_namespace!r}")
         return self._delete(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -192,7 +196,7 @@ class NamespacesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[NamespaceGetResponse]:
         """
         Get a Workers for Platforms namespace.
@@ -215,7 +219,11 @@ class NamespacesResource(SyncAPIResource):
         if not dispatch_namespace:
             raise ValueError(f"Expected a non-empty value for `dispatch_namespace` but received {dispatch_namespace!r}")
         return self._get(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -255,13 +263,13 @@ class AsyncNamespacesResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        name: str | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[NamespaceCreateResponse]:
         """
         Create a new Workers for Platforms namespace.
@@ -282,7 +290,7 @@ class AsyncNamespacesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/workers/dispatch/namespaces",
+            path_template("/accounts/{account_id}/workers/dispatch/namespaces", account_id=account_id),
             body=await async_maybe_transform({"name": name}, namespace_create_params.NamespaceCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -303,7 +311,7 @@ class AsyncNamespacesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[NamespaceListResponse, AsyncSinglePage[NamespaceListResponse]]:
         """
         Fetch a list of Workers for Platforms namespaces.
@@ -322,7 +330,7 @@ class AsyncNamespacesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/workers/dispatch/namespaces",
+            path_template("/accounts/{account_id}/workers/dispatch/namespaces", account_id=account_id),
             page=AsyncSinglePage[NamespaceListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -340,7 +348,7 @@ class AsyncNamespacesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
         Delete a Workers for Platforms namespace.
@@ -363,7 +371,11 @@ class AsyncNamespacesResource(AsyncAPIResource):
         if not dispatch_namespace:
             raise ValueError(f"Expected a non-empty value for `dispatch_namespace` but received {dispatch_namespace!r}")
         return await self._delete(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -384,7 +396,7 @@ class AsyncNamespacesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[NamespaceGetResponse]:
         """
         Get a Workers for Platforms namespace.
@@ -407,7 +419,11 @@ class AsyncNamespacesResource(AsyncAPIResource):
         if not dispatch_namespace:
             raise ValueError(f"Expected a non-empty value for `dispatch_namespace` but received {dispatch_namespace!r}")
         return await self._get(
-            f"/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}",
+            path_template(
+                "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}",
+                account_id=account_id,
+                dispatch_namespace=dispatch_namespace,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

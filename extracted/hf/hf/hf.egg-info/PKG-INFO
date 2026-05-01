@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hf
-Version: 1.12.2
+Version: 1.13.0
 Summary: CLI extracted from the huggingface_hub library to interact with the Hugging Face Hub
 Home-page: https://github.com/huggingface/huggingface_hub
 Author: Hugging Face, Inc.
@@ -8,7 +8,7 @@ Author-email: julien@huggingface.co
 License: Apache
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
-Requires-Dist: huggingface_hub==1.12.2
+Requires-Dist: huggingface_hub==1.13.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

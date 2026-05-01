@@ -21,13 +21,6 @@ class TestCustom:
     def test_method_create(self, client: Cloudflare) -> None:
         custom = client.zero_trust.dlp.profiles.custom.create(
             account_id="account_id",
-            entries=[
-                {
-                    "enabled": True,
-                    "name": "name",
-                    "pattern": {"regex": "regex"},
-                }
-            ],
             name="name",
         )
         assert_matches_type(Optional[Profile], custom, path=["response"])
@@ -36,16 +29,6 @@ class TestCustom:
     def test_method_create_with_all_params(self, client: Cloudflare) -> None:
         custom = client.zero_trust.dlp.profiles.custom.create(
             account_id="account_id",
-            entries=[
-                {
-                    "enabled": True,
-                    "name": "name",
-                    "pattern": {
-                        "regex": "regex",
-                        "validation": "luhn",
-                    },
-                }
-            ],
             name="name",
             ai_context_enabled=True,
             allowed_match_count=5,
@@ -54,13 +37,31 @@ class TestCustom:
                 "enabled": True,
                 "skip": {"files": True},
             },
+            data_classes=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            data_tags=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
             description="description",
+            entries=[
+                {
+                    "enabled": True,
+                    "name": "name",
+                    "pattern": {
+                        "regex": "regex",
+                        "validation": "luhn",
+                    },
+                    "description": "description",
+                }
+            ],
             ocr_enabled=True,
+            sensitivity_levels=[
+                {
+                    "group_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "level_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                }
+            ],
             shared_entries=[
                 {
                     "enabled": True,
                     "entry_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                    "entry_type": "custom",
                 }
             ],
         )
@@ -70,13 +71,6 @@ class TestCustom:
     def test_raw_response_create(self, client: Cloudflare) -> None:
         response = client.zero_trust.dlp.profiles.custom.with_raw_response.create(
             account_id="account_id",
-            entries=[
-                {
-                    "enabled": True,
-                    "name": "name",
-                    "pattern": {"regex": "regex"},
-                }
-            ],
             name="name",
         )
 
@@ -89,13 +83,6 @@ class TestCustom:
     def test_streaming_response_create(self, client: Cloudflare) -> None:
         with client.zero_trust.dlp.profiles.custom.with_streaming_response.create(
             account_id="account_id",
-            entries=[
-                {
-                    "enabled": True,
-                    "name": "name",
-                    "pattern": {"regex": "regex"},
-                }
-            ],
             name="name",
         ) as response:
             assert not response.is_closed
@@ -111,13 +98,6 @@ class TestCustom:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.zero_trust.dlp.profiles.custom.with_raw_response.create(
                 account_id="",
-                entries=[
-                    {
-                        "enabled": True,
-                        "name": "name",
-                        "pattern": {"regex": "regex"},
-                    }
-                ],
                 name="name",
             )
 
@@ -143,6 +123,8 @@ class TestCustom:
                 "enabled": True,
                 "skip": {"files": True},
             },
+            data_classes=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            data_tags=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
             description="description",
             entries=[
                 {
@@ -153,14 +135,20 @@ class TestCustom:
                         "regex": "regex",
                         "validation": "luhn",
                     },
+                    "description": "description",
                 }
             ],
             ocr_enabled=True,
+            sensitivity_levels=[
+                {
+                    "group_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "level_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                }
+            ],
             shared_entries=[
                 {
                     "enabled": True,
                     "entry_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                    "entry_type": "predefined",
                 }
             ],
         )
@@ -308,19 +296,14 @@ class TestCustom:
 
 
 class TestAsyncCustom:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
         custom = await async_client.zero_trust.dlp.profiles.custom.create(
             account_id="account_id",
-            entries=[
-                {
-                    "enabled": True,
-                    "name": "name",
-                    "pattern": {"regex": "regex"},
-                }
-            ],
             name="name",
         )
         assert_matches_type(Optional[Profile], custom, path=["response"])
@@ -329,16 +312,6 @@ class TestAsyncCustom:
     async def test_method_create_with_all_params(self, async_client: AsyncCloudflare) -> None:
         custom = await async_client.zero_trust.dlp.profiles.custom.create(
             account_id="account_id",
-            entries=[
-                {
-                    "enabled": True,
-                    "name": "name",
-                    "pattern": {
-                        "regex": "regex",
-                        "validation": "luhn",
-                    },
-                }
-            ],
             name="name",
             ai_context_enabled=True,
             allowed_match_count=5,
@@ -347,13 +320,31 @@ class TestAsyncCustom:
                 "enabled": True,
                 "skip": {"files": True},
             },
+            data_classes=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            data_tags=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
             description="description",
+            entries=[
+                {
+                    "enabled": True,
+                    "name": "name",
+                    "pattern": {
+                        "regex": "regex",
+                        "validation": "luhn",
+                    },
+                    "description": "description",
+                }
+            ],
             ocr_enabled=True,
+            sensitivity_levels=[
+                {
+                    "group_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "level_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                }
+            ],
             shared_entries=[
                 {
                     "enabled": True,
                     "entry_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                    "entry_type": "custom",
                 }
             ],
         )
@@ -363,13 +354,6 @@ class TestAsyncCustom:
     async def test_raw_response_create(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.zero_trust.dlp.profiles.custom.with_raw_response.create(
             account_id="account_id",
-            entries=[
-                {
-                    "enabled": True,
-                    "name": "name",
-                    "pattern": {"regex": "regex"},
-                }
-            ],
             name="name",
         )
 
@@ -382,13 +366,6 @@ class TestAsyncCustom:
     async def test_streaming_response_create(self, async_client: AsyncCloudflare) -> None:
         async with async_client.zero_trust.dlp.profiles.custom.with_streaming_response.create(
             account_id="account_id",
-            entries=[
-                {
-                    "enabled": True,
-                    "name": "name",
-                    "pattern": {"regex": "regex"},
-                }
-            ],
             name="name",
         ) as response:
             assert not response.is_closed
@@ -404,13 +381,6 @@ class TestAsyncCustom:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.zero_trust.dlp.profiles.custom.with_raw_response.create(
                 account_id="",
-                entries=[
-                    {
-                        "enabled": True,
-                        "name": "name",
-                        "pattern": {"regex": "regex"},
-                    }
-                ],
                 name="name",
             )
 
@@ -436,6 +406,8 @@ class TestAsyncCustom:
                 "enabled": True,
                 "skip": {"files": True},
             },
+            data_classes=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            data_tags=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
             description="description",
             entries=[
                 {
@@ -446,14 +418,20 @@ class TestAsyncCustom:
                         "regex": "regex",
                         "validation": "luhn",
                     },
+                    "description": "description",
                 }
             ],
             ocr_enabled=True,
+            sensitivity_levels=[
+                {
+                    "group_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "level_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                }
+            ],
             shared_entries=[
                 {
                     "enabled": True,
                     "entry_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                    "entry_type": "predefined",
                 }
             ],
         )

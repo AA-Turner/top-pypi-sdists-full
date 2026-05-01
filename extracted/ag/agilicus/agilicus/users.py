@@ -96,7 +96,6 @@ def query_raw(
     email=None,
     previous_email=None,
     limit=None,
-    page_size=None,
     **kwargs,
 ):
     apiclient = context.get_apiclient_from_ctx(ctx)
@@ -111,7 +110,6 @@ def query_raw(
     return get_many_entries(
         apiclient.user_api.list_users,
         "users",
-        page_size=page_size,
         maximum=limit,
         page_key="previous_email",
         resp_page_key="next_page_email",

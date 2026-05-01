@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.24.37
+Version: 0.24.38
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -74,7 +74,7 @@ Provides-Extra: db
 Requires-Dist: querysource>=4.1.11; extra == "db"
 Requires-Dist: psycopg-binary==3.2.6; extra == "db"
 Requires-Dist: jq==1.7.0; extra == "db"
-Requires-Dist: asyncdb[arangodb,bigquery,boto3,influxdb,mongodb]>=2.12.0; extra == "db"
+Requires-Dist: asyncdb[arangodb,bigquery,boto3,influxdb,mongodb,sqlalchemy]>=2.12.0; extra == "db"
 Provides-Extra: bigquery
 Requires-Dist: google-cloud-bigquery>=3.30.0; extra == "bigquery"
 Provides-Extra: pdf

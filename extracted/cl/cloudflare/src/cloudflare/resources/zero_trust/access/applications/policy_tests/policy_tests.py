@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Type, Optional, cast
+from typing import Type, Optional, cast
 
 import httpx
 
@@ -14,8 +14,8 @@ from .users import (
     UsersResourceWithStreamingResponse,
     AsyncUsersResourceWithStreamingResponse,
 )
-from ......_types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ......_utils import maybe_transform, async_maybe_transform
+from ......_types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ......_utils import path_template, maybe_transform, async_maybe_transform
 from ......_compat import cached_property
 from ......_resource import SyncAPIResource, AsyncAPIResource
 from ......_response import (
@@ -61,13 +61,13 @@ class PolicyTestsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        policies: List[policy_test_create_params.Policy] | NotGiven = NOT_GIVEN,
+        policies: SequenceNotStr[policy_test_create_params.Policy] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PolicyTestCreateResponse]:
         """
         Starts an Access policy test.
@@ -86,7 +86,7 @@ class PolicyTestsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/access/policy-tests",
+            path_template("/accounts/{account_id}/access/policy-tests", account_id=account_id),
             body=maybe_transform({"policies": policies}, policy_test_create_params.PolicyTestCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -108,7 +108,7 @@ class PolicyTestsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PolicyTestGetResponse]:
         """
         Fetches the current status of a given Access policy test.
@@ -131,7 +131,11 @@ class PolicyTestsResource(SyncAPIResource):
         if not policy_test_id:
             raise ValueError(f"Expected a non-empty value for `policy_test_id` but received {policy_test_id!r}")
         return self._get(
-            f"/accounts/{account_id}/access/policy-tests/{policy_test_id}",
+            path_template(
+                "/accounts/{account_id}/access/policy-tests/{policy_test_id}",
+                account_id=account_id,
+                policy_test_id=policy_test_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -171,13 +175,13 @@ class AsyncPolicyTestsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        policies: List[policy_test_create_params.Policy] | NotGiven = NOT_GIVEN,
+        policies: SequenceNotStr[policy_test_create_params.Policy] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PolicyTestCreateResponse]:
         """
         Starts an Access policy test.
@@ -196,7 +200,7 @@ class AsyncPolicyTestsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/access/policy-tests",
+            path_template("/accounts/{account_id}/access/policy-tests", account_id=account_id),
             body=await async_maybe_transform({"policies": policies}, policy_test_create_params.PolicyTestCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -218,7 +222,7 @@ class AsyncPolicyTestsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PolicyTestGetResponse]:
         """
         Fetches the current status of a given Access policy test.
@@ -241,7 +245,11 @@ class AsyncPolicyTestsResource(AsyncAPIResource):
         if not policy_test_id:
             raise ValueError(f"Expected a non-empty value for `policy_test_id` but received {policy_test_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/access/policy-tests/{policy_test_id}",
+            path_template(
+                "/accounts/{account_id}/access/policy-tests/{policy_test_id}",
+                account_id=account_id,
+                policy_test_id=policy_test_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

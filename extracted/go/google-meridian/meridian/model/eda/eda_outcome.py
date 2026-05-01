@@ -23,10 +23,10 @@ import xarray as xr
 
 __all__ = (
     "EDASeverity",
-    "EDAFinding",
+    "FindingCause",
     "AnalysisLevel",
     "AnalysisArtifact",
-    "FindingCause",
+    "EDAFinding",
     "PairwiseCorrArtifact",
     "StandardDeviationArtifact",
     "VIFArtifact",
@@ -35,8 +35,8 @@ __all__ = (
     "VariableGeoTimeCollinearityArtifact",
     "PopulationCorrelationArtifact",
     "PriorProbabilityArtifact",
+    "DataParameterRatioArtifact",
     "EDACheckType",
-    "ArtifactType",
     "EDAOutcome",
     "CriticalCheckEDAOutcomes",
 )
@@ -45,7 +45,7 @@ __all__ = (
 @enum.unique
 class EDASeverity(enum.Enum):
   """Enumeration for the severity of an EDA check's finding."""
-
+  # TODO: Change severity to INFO/REVIEW/FAIL.
   # For the non-critical findings.
   INFO = enum.auto()
   # For the non-critical findings that require user attention.
@@ -158,8 +158,12 @@ class StandardDeviationArtifact(AnalysisArtifact):
 
   Attributes:
     variable: The variable for which standard deviation is calculated.
-    std_ds: Dataset with stdev_with_outliers and stdev_without_outliers.
-    outlier_df: DataFrame with outliers.
+    std_ds: A Dataset with 'std_with_outliers' and 'std_without_outliers' data
+      variables. Depending on `variable`, it may include 'geo' and 'variable'
+      dimensions.
+    outlier_df: A DataFrame containing outlier values with a 'time' column. If
+      `std_ds` has 'geo' or 'variable' dimensions, `outlier_df` will include
+      corresponding 'geo' or 'variable' columns.
   """
 
   variable: str
@@ -215,7 +219,9 @@ class CostPerMediaUnitArtifact(AnalysisArtifact):
 
 @dataclasses.dataclass(frozen=True)
 class VariableGeoTimeCollinearityArtifact(AnalysisArtifact):
-  """Artifacts from a Geo/Time Collinearity analysis for Treatment/Control variables.
+  """Artifacts from a collinearity analysis for Treatment/Control variables.
+
+  The analysis pertains to collinearity with geo and time main effects.
 
   Attributes:
     rsquared_ds: Dataset containing adjusted R-squared values for treatments and
@@ -254,6 +260,46 @@ class PriorProbabilityArtifact(AnalysisArtifact):
   mean_prior_contribution_da: xr.DataArray
 
 
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class DataParameterRatioArtifact(AnalysisArtifact):
+  """Artifact for model complexity check.
+
+  Attributes:
+    n_geos: The number of geos.
+    n_times: The number of times.
+    n_knots: The number of knots.
+    n_controls: The number of controls.
+    n_treatments: The number of treatments.
+    n_parameters: The number of parameters in the model.
+    n_data_points: The number of data points.
+    ratio: The ratio of data points to parameters.
+  """
+
+  n_geos: int
+  n_times: int
+  n_knots: int
+  n_controls: int
+  n_treatments: int
+
+  @property
+  def n_data_points(self) -> int:
+    return self.n_geos * self.n_times
+
+  @property
+  def n_parameters(self) -> int:
+    return (
+        (self.n_geos - 1) + self.n_knots + self.n_controls + self.n_treatments
+    )
+
+  @property
+  def ratio(self) -> float:
+    return (
+        self.n_data_points / self.n_parameters
+        if self.n_parameters > 0
+        else float("inf")
+    )
+
+
 @enum.unique
 class EDACheckType(enum.Enum):
   """Enumeration for the type of an EDA check."""
@@ -266,6 +312,7 @@ class EDACheckType(enum.Enum):
   VARIABLE_GEO_TIME_COLLINEARITY = enum.auto()
   POPULATION_CORRELATION = enum.auto()
   PRIOR_PROBABILITY = enum.auto()
+  DATA_ADEQUACY = enum.auto()
 
 
 ArtifactType = typing.TypeVar("ArtifactType", bound=AnalysisArtifact)

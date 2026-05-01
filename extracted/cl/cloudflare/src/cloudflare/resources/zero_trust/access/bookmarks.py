@@ -7,8 +7,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Query, Headers, NotGiven, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -59,7 +59,7 @@ class BookmarksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Bookmark]:
         """
         Create a new Bookmark application.
@@ -80,7 +80,9 @@ class BookmarksResource(SyncAPIResource):
         if not bookmark_id:
             raise ValueError(f"Expected a non-empty value for `bookmark_id` but received {bookmark_id!r}")
         return self._post(
-            f"/accounts/{account_id}/access/bookmarks/{bookmark_id}",
+            path_template(
+                "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
+            ),
             body=maybe_transform(body, bookmark_create_params.BookmarkCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -104,7 +106,7 @@ class BookmarksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Bookmark]:
         """
         Updates a configured Bookmark application.
@@ -125,7 +127,9 @@ class BookmarksResource(SyncAPIResource):
         if not bookmark_id:
             raise ValueError(f"Expected a non-empty value for `bookmark_id` but received {bookmark_id!r}")
         return self._put(
-            f"/accounts/{account_id}/access/bookmarks/{bookmark_id}",
+            path_template(
+                "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
+            ),
             body=maybe_transform(body, bookmark_update_params.BookmarkUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -147,7 +151,7 @@ class BookmarksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Bookmark]:
         """
         Lists Bookmark applications.
@@ -164,7 +168,7 @@ class BookmarksResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/access/bookmarks",
+            path_template("/accounts/{account_id}/access/bookmarks", account_id=account_id),
             page=SyncSinglePage[Bookmark],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -183,7 +187,7 @@ class BookmarksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[BookmarkDeleteResponse]:
         """
         Deletes a Bookmark application.
@@ -204,7 +208,9 @@ class BookmarksResource(SyncAPIResource):
         if not bookmark_id:
             raise ValueError(f"Expected a non-empty value for `bookmark_id` but received {bookmark_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/access/bookmarks/{bookmark_id}",
+            path_template(
+                "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -226,7 +232,7 @@ class BookmarksResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Bookmark]:
         """
         Fetches a single Bookmark application.
@@ -247,7 +253,9 @@ class BookmarksResource(SyncAPIResource):
         if not bookmark_id:
             raise ValueError(f"Expected a non-empty value for `bookmark_id` but received {bookmark_id!r}")
         return self._get(
-            f"/accounts/{account_id}/access/bookmarks/{bookmark_id}",
+            path_template(
+                "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -291,7 +299,7 @@ class AsyncBookmarksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Bookmark]:
         """
         Create a new Bookmark application.
@@ -312,7 +320,9 @@ class AsyncBookmarksResource(AsyncAPIResource):
         if not bookmark_id:
             raise ValueError(f"Expected a non-empty value for `bookmark_id` but received {bookmark_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/access/bookmarks/{bookmark_id}",
+            path_template(
+                "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
+            ),
             body=await async_maybe_transform(body, bookmark_create_params.BookmarkCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -336,7 +346,7 @@ class AsyncBookmarksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Bookmark]:
         """
         Updates a configured Bookmark application.
@@ -357,7 +367,9 @@ class AsyncBookmarksResource(AsyncAPIResource):
         if not bookmark_id:
             raise ValueError(f"Expected a non-empty value for `bookmark_id` but received {bookmark_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/access/bookmarks/{bookmark_id}",
+            path_template(
+                "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
+            ),
             body=await async_maybe_transform(body, bookmark_update_params.BookmarkUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -379,7 +391,7 @@ class AsyncBookmarksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Bookmark, AsyncSinglePage[Bookmark]]:
         """
         Lists Bookmark applications.
@@ -396,7 +408,7 @@ class AsyncBookmarksResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/access/bookmarks",
+            path_template("/accounts/{account_id}/access/bookmarks", account_id=account_id),
             page=AsyncSinglePage[Bookmark],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -415,7 +427,7 @@ class AsyncBookmarksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[BookmarkDeleteResponse]:
         """
         Deletes a Bookmark application.
@@ -436,7 +448,9 @@ class AsyncBookmarksResource(AsyncAPIResource):
         if not bookmark_id:
             raise ValueError(f"Expected a non-empty value for `bookmark_id` but received {bookmark_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/access/bookmarks/{bookmark_id}",
+            path_template(
+                "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -458,7 +472,7 @@ class AsyncBookmarksResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Bookmark]:
         """
         Fetches a single Bookmark application.
@@ -479,7 +493,9 @@ class AsyncBookmarksResource(AsyncAPIResource):
         if not bookmark_id:
             raise ValueError(f"Expected a non-empty value for `bookmark_id` but received {bookmark_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/access/bookmarks/{bookmark_id}",
+            path_template(
+                "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -497,27 +513,27 @@ class BookmarksResourceWithRawResponse:
 
         self.create = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                bookmarks.create  # pyright: ignore[reportDeprecated],
+                bookmarks.create,  # pyright: ignore[reportDeprecated],
             )
         )
         self.update = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                bookmarks.update  # pyright: ignore[reportDeprecated],
+                bookmarks.update,  # pyright: ignore[reportDeprecated],
             )
         )
         self.list = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                bookmarks.list  # pyright: ignore[reportDeprecated],
+                bookmarks.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                bookmarks.delete  # pyright: ignore[reportDeprecated],
+                bookmarks.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             to_raw_response_wrapper(
-                bookmarks.get  # pyright: ignore[reportDeprecated],
+                bookmarks.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -528,27 +544,27 @@ class AsyncBookmarksResourceWithRawResponse:
 
         self.create = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                bookmarks.create  # pyright: ignore[reportDeprecated],
+                bookmarks.create,  # pyright: ignore[reportDeprecated],
             )
         )
         self.update = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                bookmarks.update  # pyright: ignore[reportDeprecated],
+                bookmarks.update,  # pyright: ignore[reportDeprecated],
             )
         )
         self.list = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                bookmarks.list  # pyright: ignore[reportDeprecated],
+                bookmarks.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                bookmarks.delete  # pyright: ignore[reportDeprecated],
+                bookmarks.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             async_to_raw_response_wrapper(
-                bookmarks.get  # pyright: ignore[reportDeprecated],
+                bookmarks.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -559,27 +575,27 @@ class BookmarksResourceWithStreamingResponse:
 
         self.create = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                bookmarks.create  # pyright: ignore[reportDeprecated],
+                bookmarks.create,  # pyright: ignore[reportDeprecated],
             )
         )
         self.update = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                bookmarks.update  # pyright: ignore[reportDeprecated],
+                bookmarks.update,  # pyright: ignore[reportDeprecated],
             )
         )
         self.list = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                bookmarks.list  # pyright: ignore[reportDeprecated],
+                bookmarks.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                bookmarks.delete  # pyright: ignore[reportDeprecated],
+                bookmarks.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             to_streamed_response_wrapper(
-                bookmarks.get  # pyright: ignore[reportDeprecated],
+                bookmarks.get,  # pyright: ignore[reportDeprecated],
             )
         )
 
@@ -590,26 +606,26 @@ class AsyncBookmarksResourceWithStreamingResponse:
 
         self.create = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                bookmarks.create  # pyright: ignore[reportDeprecated],
+                bookmarks.create,  # pyright: ignore[reportDeprecated],
             )
         )
         self.update = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                bookmarks.update  # pyright: ignore[reportDeprecated],
+                bookmarks.update,  # pyright: ignore[reportDeprecated],
             )
         )
         self.list = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                bookmarks.list  # pyright: ignore[reportDeprecated],
+                bookmarks.list,  # pyright: ignore[reportDeprecated],
             )
         )
         self.delete = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                bookmarks.delete  # pyright: ignore[reportDeprecated],
+                bookmarks.delete,  # pyright: ignore[reportDeprecated],
             )
         )
         self.get = (  # pyright: ignore[reportDeprecated]
             async_to_streamed_response_wrapper(
-                bookmarks.get  # pyright: ignore[reportDeprecated],
+                bookmarks.get,  # pyright: ignore[reportDeprecated],
             )
         )

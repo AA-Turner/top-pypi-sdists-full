@@ -32,8 +32,8 @@ from .downloads import (
     DownloadsResourceWithStreamingResponse,
     AsyncDownloadsResourceWithStreamingResponse,
 )
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -94,7 +94,7 @@ class CommandsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CommandCreateResponse]:
         """
         Initiate commands for up to 10 devices per account
@@ -113,7 +113,7 @@ class CommandsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/dex/commands",
+            path_template("/accounts/{account_id}/dex/commands", account_id=account_id),
             body=maybe_transform({"commands": commands}, command_create_params.CommandCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -131,18 +131,18 @@ class CommandsResource(SyncAPIResource):
         account_id: str,
         page: float,
         per_page: float,
-        command_type: str | NotGiven = NOT_GIVEN,
-        device_id: str | NotGiven = NOT_GIVEN,
-        from_: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        status: Literal["PENDING_EXEC", "PENDING_UPLOAD", "SUCCESS", "FAILED"] | NotGiven = NOT_GIVEN,
-        to: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        user_email: str | NotGiven = NOT_GIVEN,
+        command_type: str | Omit = omit,
+        device_id: str | Omit = omit,
+        from_: Union[str, datetime] | Omit = omit,
+        status: Literal["PENDING_EXEC", "PENDING_UPLOAD", "SUCCESS", "FAILED"] | Omit = omit,
+        to: Union[str, datetime] | Omit = omit,
+        user_email: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePagination[Optional[CommandListResponse]]:
         """
         Retrieves a paginated list of commands issued to devices under the specified
@@ -176,7 +176,7 @@ class CommandsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dex/commands",
+            path_template("/accounts/{account_id}/dex/commands", account_id=account_id),
             page=SyncV4PagePagination[Optional[CommandListResponse]],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -243,7 +243,7 @@ class AsyncCommandsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CommandCreateResponse]:
         """
         Initiate commands for up to 10 devices per account
@@ -262,7 +262,7 @@ class AsyncCommandsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/dex/commands",
+            path_template("/accounts/{account_id}/dex/commands", account_id=account_id),
             body=await async_maybe_transform({"commands": commands}, command_create_params.CommandCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -280,18 +280,18 @@ class AsyncCommandsResource(AsyncAPIResource):
         account_id: str,
         page: float,
         per_page: float,
-        command_type: str | NotGiven = NOT_GIVEN,
-        device_id: str | NotGiven = NOT_GIVEN,
-        from_: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        status: Literal["PENDING_EXEC", "PENDING_UPLOAD", "SUCCESS", "FAILED"] | NotGiven = NOT_GIVEN,
-        to: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        user_email: str | NotGiven = NOT_GIVEN,
+        command_type: str | Omit = omit,
+        device_id: str | Omit = omit,
+        from_: Union[str, datetime] | Omit = omit,
+        status: Literal["PENDING_EXEC", "PENDING_UPLOAD", "SUCCESS", "FAILED"] | Omit = omit,
+        to: Union[str, datetime] | Omit = omit,
+        user_email: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Optional[CommandListResponse], AsyncV4PagePagination[Optional[CommandListResponse]]]:
         """
         Retrieves a paginated list of commands issued to devices under the specified
@@ -325,7 +325,7 @@ class AsyncCommandsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/dex/commands",
+            path_template("/accounts/{account_id}/dex/commands", account_id=account_id),
             page=AsyncV4PagePagination[Optional[CommandListResponse]],
             options=make_request_options(
                 extra_headers=extra_headers,

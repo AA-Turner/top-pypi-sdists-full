@@ -6,16 +6,8 @@ from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
-from .downloads import (
-    DownloadsResource,
-    AsyncDownloadsResource,
-    DownloadsResourceWithRawResponse,
-    AsyncDownloadsResourceWithRawResponse,
-    DownloadsResourceWithStreamingResponse,
-    AsyncDownloadsResourceWithStreamingResponse,
-)
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from .snapshots import (
     SnapshotsResource,
     AsyncSnapshotsResource,
@@ -62,10 +54,6 @@ class IndicatorFeedsResource(SyncAPIResource):
         return PermissionsResource(self._client)
 
     @cached_property
-    def downloads(self) -> DownloadsResource:
-        return DownloadsResource(self._client)
-
-    @cached_property
     def with_raw_response(self) -> IndicatorFeedsResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -88,17 +76,17 @@ class IndicatorFeedsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IndicatorFeedCreateResponse]:
         """
-        Create new indicator feed
+        Creates a new custom threat indicator feed for sharing threat intelligence data.
 
         Args:
           account_id: Identifier
@@ -118,7 +106,7 @@ class IndicatorFeedsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/intel/indicator-feeds",
+            path_template("/accounts/{account_id}/intel/indicator-feeds", account_id=account_id),
             body=maybe_transform(
                 {
                     "description": description,
@@ -141,20 +129,20 @@ class IndicatorFeedsResource(SyncAPIResource):
         feed_id: int,
         *,
         account_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        is_attributable: bool | NotGiven = NOT_GIVEN,
-        is_downloadable: bool | NotGiven = NOT_GIVEN,
-        is_public: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        is_attributable: bool | Omit = omit,
+        is_downloadable: bool | Omit = omit,
+        is_public: bool | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IndicatorFeedUpdateResponse]:
         """
-        Update indicator feed metadata
+        Revises details for a specific custom threat indicator feed.
 
         Args:
           account_id: Identifier
@@ -182,7 +170,9 @@ class IndicatorFeedsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._put(
-            f"/accounts/{account_id}/intel/indicator-feeds/{feed_id}",
+            path_template(
+                "/accounts/{account_id}/intel/indicator-feeds/{feed_id}", account_id=account_id, feed_id=feed_id
+            ),
             body=maybe_transform(
                 {
                     "description": description,
@@ -212,10 +202,10 @@ class IndicatorFeedsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[IndicatorFeedListResponse]:
         """
-        Get indicator feeds owned by this account
+        Retrieves details for all accessible custom threat indicator feeds.
 
         Args:
           account_id: Identifier
@@ -231,7 +221,7 @@ class IndicatorFeedsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/intel/indicator-feeds",
+            path_template("/accounts/{account_id}/intel/indicator-feeds", account_id=account_id),
             page=SyncSinglePage[IndicatorFeedListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -249,10 +239,10 @@ class IndicatorFeedsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
-        Get indicator feed data
+        Retrieves the raw data entries in a custom threat indicator feed.
 
         Args:
           account_id: Identifier
@@ -271,7 +261,9 @@ class IndicatorFeedsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {"Accept": "text/csv", **(extra_headers or {})}
         return self._get(
-            f"/accounts/{account_id}/intel/indicator-feeds/{feed_id}/data",
+            path_template(
+                "/accounts/{account_id}/intel/indicator-feeds/{feed_id}/data", account_id=account_id, feed_id=feed_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -288,10 +280,10 @@ class IndicatorFeedsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IndicatorFeedGetResponse]:
         """
-        Get indicator feed metadata
+        Retrieves details for a specific custom threat indicator feed.
 
         Args:
           account_id: Identifier
@@ -309,7 +301,9 @@ class IndicatorFeedsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get(
-            f"/accounts/{account_id}/intel/indicator-feeds/{feed_id}",
+            path_template(
+                "/accounts/{account_id}/intel/indicator-feeds/{feed_id}", account_id=account_id, feed_id=feed_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -329,10 +323,6 @@ class AsyncIndicatorFeedsResource(AsyncAPIResource):
     @cached_property
     def permissions(self) -> AsyncPermissionsResource:
         return AsyncPermissionsResource(self._client)
-
-    @cached_property
-    def downloads(self) -> AsyncDownloadsResource:
-        return AsyncDownloadsResource(self._client)
 
     @cached_property
     def with_raw_response(self) -> AsyncIndicatorFeedsResourceWithRawResponse:
@@ -357,17 +347,17 @@ class AsyncIndicatorFeedsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IndicatorFeedCreateResponse]:
         """
-        Create new indicator feed
+        Creates a new custom threat indicator feed for sharing threat intelligence data.
 
         Args:
           account_id: Identifier
@@ -387,7 +377,7 @@ class AsyncIndicatorFeedsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/intel/indicator-feeds",
+            path_template("/accounts/{account_id}/intel/indicator-feeds", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "description": description,
@@ -410,20 +400,20 @@ class AsyncIndicatorFeedsResource(AsyncAPIResource):
         feed_id: int,
         *,
         account_id: str,
-        description: str | NotGiven = NOT_GIVEN,
-        is_attributable: bool | NotGiven = NOT_GIVEN,
-        is_downloadable: bool | NotGiven = NOT_GIVEN,
-        is_public: bool | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        is_attributable: bool | Omit = omit,
+        is_downloadable: bool | Omit = omit,
+        is_public: bool | Omit = omit,
+        name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IndicatorFeedUpdateResponse]:
         """
-        Update indicator feed metadata
+        Revises details for a specific custom threat indicator feed.
 
         Args:
           account_id: Identifier
@@ -451,7 +441,9 @@ class AsyncIndicatorFeedsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/intel/indicator-feeds/{feed_id}",
+            path_template(
+                "/accounts/{account_id}/intel/indicator-feeds/{feed_id}", account_id=account_id, feed_id=feed_id
+            ),
             body=await async_maybe_transform(
                 {
                     "description": description,
@@ -481,10 +473,10 @@ class AsyncIndicatorFeedsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[IndicatorFeedListResponse, AsyncSinglePage[IndicatorFeedListResponse]]:
         """
-        Get indicator feeds owned by this account
+        Retrieves details for all accessible custom threat indicator feeds.
 
         Args:
           account_id: Identifier
@@ -500,7 +492,7 @@ class AsyncIndicatorFeedsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/intel/indicator-feeds",
+            path_template("/accounts/{account_id}/intel/indicator-feeds", account_id=account_id),
             page=AsyncSinglePage[IndicatorFeedListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -518,10 +510,10 @@ class AsyncIndicatorFeedsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
-        Get indicator feed data
+        Retrieves the raw data entries in a custom threat indicator feed.
 
         Args:
           account_id: Identifier
@@ -540,7 +532,9 @@ class AsyncIndicatorFeedsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         extra_headers = {"Accept": "text/csv", **(extra_headers or {})}
         return await self._get(
-            f"/accounts/{account_id}/intel/indicator-feeds/{feed_id}/data",
+            path_template(
+                "/accounts/{account_id}/intel/indicator-feeds/{feed_id}/data", account_id=account_id, feed_id=feed_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -557,10 +551,10 @@ class AsyncIndicatorFeedsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[IndicatorFeedGetResponse]:
         """
-        Get indicator feed metadata
+        Retrieves details for a specific custom threat indicator feed.
 
         Args:
           account_id: Identifier
@@ -578,7 +572,9 @@ class AsyncIndicatorFeedsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/intel/indicator-feeds/{feed_id}",
+            path_template(
+                "/accounts/{account_id}/intel/indicator-feeds/{feed_id}", account_id=account_id, feed_id=feed_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -618,10 +614,6 @@ class IndicatorFeedsResourceWithRawResponse:
     def permissions(self) -> PermissionsResourceWithRawResponse:
         return PermissionsResourceWithRawResponse(self._indicator_feeds.permissions)
 
-    @cached_property
-    def downloads(self) -> DownloadsResourceWithRawResponse:
-        return DownloadsResourceWithRawResponse(self._indicator_feeds.downloads)
-
 
 class AsyncIndicatorFeedsResourceWithRawResponse:
     def __init__(self, indicator_feeds: AsyncIndicatorFeedsResource) -> None:
@@ -650,10 +642,6 @@ class AsyncIndicatorFeedsResourceWithRawResponse:
     @cached_property
     def permissions(self) -> AsyncPermissionsResourceWithRawResponse:
         return AsyncPermissionsResourceWithRawResponse(self._indicator_feeds.permissions)
-
-    @cached_property
-    def downloads(self) -> AsyncDownloadsResourceWithRawResponse:
-        return AsyncDownloadsResourceWithRawResponse(self._indicator_feeds.downloads)
 
 
 class IndicatorFeedsResourceWithStreamingResponse:
@@ -684,10 +672,6 @@ class IndicatorFeedsResourceWithStreamingResponse:
     def permissions(self) -> PermissionsResourceWithStreamingResponse:
         return PermissionsResourceWithStreamingResponse(self._indicator_feeds.permissions)
 
-    @cached_property
-    def downloads(self) -> DownloadsResourceWithStreamingResponse:
-        return DownloadsResourceWithStreamingResponse(self._indicator_feeds.downloads)
-
 
 class AsyncIndicatorFeedsResourceWithStreamingResponse:
     def __init__(self, indicator_feeds: AsyncIndicatorFeedsResource) -> None:
@@ -716,7 +700,3 @@ class AsyncIndicatorFeedsResourceWithStreamingResponse:
     @cached_property
     def permissions(self) -> AsyncPermissionsResourceWithStreamingResponse:
         return AsyncPermissionsResourceWithStreamingResponse(self._indicator_feeds.permissions)
-
-    @cached_property
-    def downloads(self) -> AsyncDownloadsResourceWithStreamingResponse:
-        return AsyncDownloadsResourceWithStreamingResponse(self._indicator_feeds.downloads)

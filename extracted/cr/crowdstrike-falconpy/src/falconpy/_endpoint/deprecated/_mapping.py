@@ -63,7 +63,15 @@ _deprecated_op_mapping = {
     "GetAggregateDetects": "",
     "UpdateDetectsByIdsV2": "",
     "GetDetectSummaries": "",
-    "QueryDetects": ""
+    "QueryDetects": "",
+    "AggregateFCIncidents": "",
+    "QueryIncidentIdsByFilter": "",
+    "CrowdScore": "",
+    "GetBehaviors": "",
+    "PerformIncidentAction": "",
+    "GetIncidents": "",
+    "QueryBehaviors": "",
+    "QueryIncidents": ""
 }
 
 _deprecated_cls_mapping = {

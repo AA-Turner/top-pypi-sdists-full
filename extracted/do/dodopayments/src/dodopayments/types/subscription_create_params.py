@@ -11,8 +11,9 @@ from .payment_method_types import PaymentMethodTypes
 from .billing_address_param import BillingAddressParam
 from .customer_request_param import CustomerRequestParam
 from .on_demand_subscription_param import OnDemandSubscriptionParam
+from .one_time_product_cart_item_param import OneTimeProductCartItemParam
 
-__all__ = ["SubscriptionCreateParams", "OneTimeProductCart"]
+__all__ = ["SubscriptionCreateParams"]
 
 
 class SubscriptionCreateParams(TypedDict, total=False):
@@ -52,12 +53,22 @@ class SubscriptionCreateParams(TypedDict, total=False):
     force_3ds: Optional[bool]
     """Override merchant default 3DS behaviour for this subscription"""
 
+    mandate_min_amount_inr_paise: Optional[int]
+    """
+    Override the merchant-level mandate floor (in INR paise) for INR e-mandates on
+    Indian-card recurring payments. The mandate amount sent to the processor is
+    `max(this_floor, actual_billing_amount)`, so this is effectively the
+    customer-facing authorization ceiling whenever billing is lower. When unset, the
+    merchant setting applies; when that's also unset, the system default of ₹15,000
+    applies.
+    """
+
     metadata: Dict[str, str]
     """Additional metadata for the subscription Defaults to empty if not specified"""
 
     on_demand: Optional[OnDemandSubscriptionParam]
 
-    one_time_product_cart: Optional[Iterable[OneTimeProductCart]]
+    one_time_product_cart: Optional[Iterable[OneTimeProductCartItemParam]]
     """
     List of one time products that will be bundled with the first payment for this
     subscription
@@ -79,6 +90,13 @@ class SubscriptionCreateParams(TypedDict, total=False):
     default
     """
 
+    require_phone_number: bool
+    """
+    If true, the customer's phone number is required to create this subscription.
+    Typically set alongside `payment_link=true` so merchants can enforce phone
+    collection on the hosted payment page. Defaults to false.
+    """
+
     return_url: Optional[str]
     """Optional URL to redirect after successful subscription creation"""
 
@@ -98,17 +116,4 @@ class SubscriptionCreateParams(TypedDict, total=False):
     """
     Optional trial period in days If specified, this value overrides the trial
     period set in the product's price Must be between 0 and 10000 days
-    """
-
-
-class OneTimeProductCart(TypedDict, total=False):
-    product_id: Required[str]
-
-    quantity: Required[int]
-
-    amount: Optional[int]
-    """Amount the customer pays if pay_what_you_want is enabled.
-
-    If disabled then amount will be ignored Represented in the lowest denomination
-    of the currency (e.g., cents for USD). For example, to charge $1.00, pass `100`.
     """

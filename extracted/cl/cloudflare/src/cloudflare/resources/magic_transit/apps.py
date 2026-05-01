@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Type, Optional, cast
+from typing import Any, Type, Optional, cast
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -55,14 +55,15 @@ class AppsResource(SyncAPIResource):
         account_id: str,
         name: str,
         type: str,
-        hostnames: List[str] | NotGiven = NOT_GIVEN,
-        ip_subnets: List[str] | NotGiven = NOT_GIVEN,
+        hostnames: SequenceNotStr[str] | Omit = omit,
+        ip_subnets: SequenceNotStr[str] | Omit = omit,
+        source_subnets: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AppCreateResponse]:
         """
         Creates a new App for an account
@@ -79,6 +80,9 @@ class AppsResource(SyncAPIResource):
           ip_subnets: IPv4 CIDRs to associate with traffic decisions. (IPv6 CIDRs are currently
               unsupported)
 
+          source_subnets: IPv4 CIDRs to associate with traffic decisions. (IPv6 CIDRs are currently
+              unsupported)
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -90,13 +94,14 @@ class AppsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/magic/apps",
+            path_template("/accounts/{account_id}/magic/apps", account_id=account_id),
             body=maybe_transform(
                 {
                     "name": name,
                     "type": type,
                     "hostnames": hostnames,
                     "ip_subnets": ip_subnets,
+                    "source_subnets": source_subnets,
                 },
                 app_create_params.AppCreateParams,
             ),
@@ -115,16 +120,17 @@ class AppsResource(SyncAPIResource):
         account_app_id: str,
         *,
         account_id: str,
-        hostnames: List[str] | NotGiven = NOT_GIVEN,
-        ip_subnets: List[str] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        type: str | NotGiven = NOT_GIVEN,
+        hostnames: SequenceNotStr[str] | Omit = omit,
+        ip_subnets: SequenceNotStr[str] | Omit = omit,
+        name: str | Omit = omit,
+        source_subnets: SequenceNotStr[str] | Omit = omit,
+        type: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AppUpdateResponse]:
         """
         Updates an Account App
@@ -141,6 +147,9 @@ class AppsResource(SyncAPIResource):
 
           name: Display name for the app.
 
+          source_subnets: IPv4 CIDRs to associate with traffic decisions. (IPv6 CIDRs are currently
+              unsupported)
+
           type: Category of the app.
 
           extra_headers: Send extra headers
@@ -156,12 +165,17 @@ class AppsResource(SyncAPIResource):
         if not account_app_id:
             raise ValueError(f"Expected a non-empty value for `account_app_id` but received {account_app_id!r}")
         return self._put(
-            f"/accounts/{account_id}/magic/apps/{account_app_id}",
+            path_template(
+                "/accounts/{account_id}/magic/apps/{account_app_id}",
+                account_id=account_id,
+                account_app_id=account_app_id,
+            ),
             body=maybe_transform(
                 {
                     "hostnames": hostnames,
                     "ip_subnets": ip_subnets,
                     "name": name,
+                    "source_subnets": source_subnets,
                     "type": type,
                 },
                 app_update_params.AppUpdateParams,
@@ -185,7 +199,7 @@ class AppsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[AppListResponse]:
         """
         Lists Apps associated with an account.
@@ -204,7 +218,7 @@ class AppsResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/apps",
+            path_template("/accounts/{account_id}/magic/apps", account_id=account_id),
             page=SyncSinglePage[AppListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -222,7 +236,7 @@ class AppsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AppDeleteResponse]:
         """
         Deletes specific Account App.
@@ -245,7 +259,11 @@ class AppsResource(SyncAPIResource):
         if not account_app_id:
             raise ValueError(f"Expected a non-empty value for `account_app_id` but received {account_app_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/magic/apps/{account_app_id}",
+            path_template(
+                "/accounts/{account_id}/magic/apps/{account_app_id}",
+                account_id=account_id,
+                account_app_id=account_app_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -261,16 +279,17 @@ class AppsResource(SyncAPIResource):
         account_app_id: str,
         *,
         account_id: str,
-        hostnames: List[str] | NotGiven = NOT_GIVEN,
-        ip_subnets: List[str] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        type: str | NotGiven = NOT_GIVEN,
+        hostnames: SequenceNotStr[str] | Omit = omit,
+        ip_subnets: SequenceNotStr[str] | Omit = omit,
+        name: str | Omit = omit,
+        source_subnets: SequenceNotStr[str] | Omit = omit,
+        type: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AppEditResponse]:
         """
         Updates an Account App
@@ -287,6 +306,9 @@ class AppsResource(SyncAPIResource):
 
           name: Display name for the app.
 
+          source_subnets: IPv4 CIDRs to associate with traffic decisions. (IPv6 CIDRs are currently
+              unsupported)
+
           type: Category of the app.
 
           extra_headers: Send extra headers
@@ -302,12 +324,17 @@ class AppsResource(SyncAPIResource):
         if not account_app_id:
             raise ValueError(f"Expected a non-empty value for `account_app_id` but received {account_app_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/magic/apps/{account_app_id}",
+            path_template(
+                "/accounts/{account_id}/magic/apps/{account_app_id}",
+                account_id=account_id,
+                account_app_id=account_app_id,
+            ),
             body=maybe_transform(
                 {
                     "hostnames": hostnames,
                     "ip_subnets": ip_subnets,
                     "name": name,
+                    "source_subnets": source_subnets,
                     "type": type,
                 },
                 app_edit_params.AppEditParams,
@@ -349,14 +376,15 @@ class AsyncAppsResource(AsyncAPIResource):
         account_id: str,
         name: str,
         type: str,
-        hostnames: List[str] | NotGiven = NOT_GIVEN,
-        ip_subnets: List[str] | NotGiven = NOT_GIVEN,
+        hostnames: SequenceNotStr[str] | Omit = omit,
+        ip_subnets: SequenceNotStr[str] | Omit = omit,
+        source_subnets: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AppCreateResponse]:
         """
         Creates a new App for an account
@@ -373,6 +401,9 @@ class AsyncAppsResource(AsyncAPIResource):
           ip_subnets: IPv4 CIDRs to associate with traffic decisions. (IPv6 CIDRs are currently
               unsupported)
 
+          source_subnets: IPv4 CIDRs to associate with traffic decisions. (IPv6 CIDRs are currently
+              unsupported)
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -384,13 +415,14 @@ class AsyncAppsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/magic/apps",
+            path_template("/accounts/{account_id}/magic/apps", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
                     "type": type,
                     "hostnames": hostnames,
                     "ip_subnets": ip_subnets,
+                    "source_subnets": source_subnets,
                 },
                 app_create_params.AppCreateParams,
             ),
@@ -409,16 +441,17 @@ class AsyncAppsResource(AsyncAPIResource):
         account_app_id: str,
         *,
         account_id: str,
-        hostnames: List[str] | NotGiven = NOT_GIVEN,
-        ip_subnets: List[str] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        type: str | NotGiven = NOT_GIVEN,
+        hostnames: SequenceNotStr[str] | Omit = omit,
+        ip_subnets: SequenceNotStr[str] | Omit = omit,
+        name: str | Omit = omit,
+        source_subnets: SequenceNotStr[str] | Omit = omit,
+        type: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AppUpdateResponse]:
         """
         Updates an Account App
@@ -435,6 +468,9 @@ class AsyncAppsResource(AsyncAPIResource):
 
           name: Display name for the app.
 
+          source_subnets: IPv4 CIDRs to associate with traffic decisions. (IPv6 CIDRs are currently
+              unsupported)
+
           type: Category of the app.
 
           extra_headers: Send extra headers
@@ -450,12 +486,17 @@ class AsyncAppsResource(AsyncAPIResource):
         if not account_app_id:
             raise ValueError(f"Expected a non-empty value for `account_app_id` but received {account_app_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/magic/apps/{account_app_id}",
+            path_template(
+                "/accounts/{account_id}/magic/apps/{account_app_id}",
+                account_id=account_id,
+                account_app_id=account_app_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "hostnames": hostnames,
                     "ip_subnets": ip_subnets,
                     "name": name,
+                    "source_subnets": source_subnets,
                     "type": type,
                 },
                 app_update_params.AppUpdateParams,
@@ -479,7 +520,7 @@ class AsyncAppsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[AppListResponse, AsyncSinglePage[AppListResponse]]:
         """
         Lists Apps associated with an account.
@@ -498,7 +539,7 @@ class AsyncAppsResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/apps",
+            path_template("/accounts/{account_id}/magic/apps", account_id=account_id),
             page=AsyncSinglePage[AppListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -516,7 +557,7 @@ class AsyncAppsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AppDeleteResponse]:
         """
         Deletes specific Account App.
@@ -539,7 +580,11 @@ class AsyncAppsResource(AsyncAPIResource):
         if not account_app_id:
             raise ValueError(f"Expected a non-empty value for `account_app_id` but received {account_app_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/magic/apps/{account_app_id}",
+            path_template(
+                "/accounts/{account_id}/magic/apps/{account_app_id}",
+                account_id=account_id,
+                account_app_id=account_app_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -555,16 +600,17 @@ class AsyncAppsResource(AsyncAPIResource):
         account_app_id: str,
         *,
         account_id: str,
-        hostnames: List[str] | NotGiven = NOT_GIVEN,
-        ip_subnets: List[str] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        type: str | NotGiven = NOT_GIVEN,
+        hostnames: SequenceNotStr[str] | Omit = omit,
+        ip_subnets: SequenceNotStr[str] | Omit = omit,
+        name: str | Omit = omit,
+        source_subnets: SequenceNotStr[str] | Omit = omit,
+        type: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AppEditResponse]:
         """
         Updates an Account App
@@ -581,6 +627,9 @@ class AsyncAppsResource(AsyncAPIResource):
 
           name: Display name for the app.
 
+          source_subnets: IPv4 CIDRs to associate with traffic decisions. (IPv6 CIDRs are currently
+              unsupported)
+
           type: Category of the app.
 
           extra_headers: Send extra headers
@@ -596,12 +645,17 @@ class AsyncAppsResource(AsyncAPIResource):
         if not account_app_id:
             raise ValueError(f"Expected a non-empty value for `account_app_id` but received {account_app_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/magic/apps/{account_app_id}",
+            path_template(
+                "/accounts/{account_id}/magic/apps/{account_app_id}",
+                account_id=account_id,
+                account_app_id=account_app_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "hostnames": hostnames,
                     "ip_subnets": ip_subnets,
                     "name": name,
+                    "source_subnets": source_subnets,
                     "type": type,
                 },
                 app_edit_params.AppEditParams,

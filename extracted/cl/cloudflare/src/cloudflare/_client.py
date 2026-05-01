@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any, Union, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
 from datetime import datetime
 from typing_extensions import Self, override
 
@@ -12,7 +12,6 @@ import httpx
 from . import _exceptions
 from ._qs import Querystring
 from ._types import (
-    NOT_GIVEN,
     Omit,
     Headers,
     Timeout,
@@ -20,6 +19,7 @@ from ._types import (
     Transport,
     ProxiesTypes,
     RequestOptions,
+    not_given,
 )
 from ._utils import is_given, get_async_library
 from ._compat import cached_property
@@ -50,6 +50,7 @@ if TYPE_CHECKING:
         web3,
         cache,
         calls,
+        fraud,
         intel,
         pages,
         radar,
@@ -65,6 +66,7 @@ if TYPE_CHECKING:
         logpush,
         workers,
         accounts,
+        aisearch,
         alerting,
         firewall,
         rulesets,
@@ -89,13 +91,17 @@ if TYPE_CHECKING:
         page_shield,
         rate_limits,
         url_scanner,
+        connectivity,
         custom_pages,
         dns_firewall,
         healthchecks,
+        realtime_kit,
         security_txt,
         abuse_reports,
         email_routing,
+        email_sending,
         magic_transit,
+        organizations,
         secrets_store,
         waiting_rooms,
         bot_management,
@@ -105,22 +111,27 @@ if TYPE_CHECKING:
         load_balancers,
         cloud_connector,
         durable_objects,
+        r2_data_catalog,
         request_tracers,
         security_center,
         brand_protection,
         content_scanning,
         custom_hostnames,
         resource_sharing,
+        resource_tagging,
+        token_validation,
         browser_rendering,
         mtls_certificates,
         schema_validation,
         url_normalization,
         custom_nameservers,
+        google_tag_gateway,
         managed_transforms,
         client_certificates,
         custom_certificates,
         keyless_certificates,
         network_interconnects,
+        vulnerability_scanner,
         workers_for_platforms,
         magic_cloud_networking,
         origin_ca_certificates,
@@ -130,103 +141,124 @@ if TYPE_CHECKING:
         magic_network_monitoring,
         origin_post_quantum_encryption,
     )
-    from .resources.ips import IPsResource, AsyncIPsResource
     from .resources.ai.ai import AIResource, AsyncAIResource
     from .resources.d1.d1 import D1Resource, AsyncD1Resource
     from .resources.kv.kv import KVResource, AsyncKVResource
     from .resources.r2.r2 import R2Resource, AsyncR2Resource
     from .resources.acm.acm import ACMResource, AsyncACMResource
     from .resources.dns.dns import DNSResource, AsyncDNSResource
-    from .resources.filters import FiltersResource, AsyncFiltersResource
     from .resources.iam.iam import IAMResource, AsyncIAMResource
+    from .resources.ips.ips import IPsResource, AsyncIPsResource
     from .resources.rum.rum import RUMResource, AsyncRUMResource
     from .resources.ssl.ssl import SSLResource, AsyncSSLResource
     from .resources.argo.argo import ArgoResource, AsyncArgoResource
     from .resources.logs.logs import LogsResource, AsyncLogsResource
-    from .resources.pipelines import PipelinesResource, AsyncPipelinesResource
     from .resources.user.user import UserResource, AsyncUserResource
     from .resources.web3.web3 import Web3Resource, AsyncWeb3Resource
-    from .resources.audit_logs import AuditLogsResource, AsyncAuditLogsResource
-    from .resources.page_rules import PageRulesResource, AsyncPageRulesResource
     from .resources.cache.cache import CacheResource, AsyncCacheResource
     from .resources.calls.calls import CallsResource, AsyncCallsResource
+    from .resources.fraud.fraud import FraudResource, AsyncFraudResource
     from .resources.intel.intel import IntelResource, AsyncIntelResource
-    from .resources.memberships import MembershipsResource, AsyncMembershipsResource
     from .resources.pages.pages import PagesResource, AsyncPagesResource
     from .resources.radar.radar import RadarResource, AsyncRadarResource
-    from .resources.rate_limits import RateLimitsResource, AsyncRateLimitsResource
     from .resources.rules.rules import RulesResource, AsyncRulesResource
     from .resources.speed.speed import SpeedResource, AsyncSpeedResource
     from .resources.zaraz.zaraz import ZarazResource, AsyncZarazResource
     from .resources.zones.zones import ZonesResource, AsyncZonesResource
-    from .resources.custom_pages import CustomPagesResource, AsyncCustomPagesResource
-    from .resources.security_txt import SecurityTXTResource, AsyncSecurityTXTResource
-    from .resources.abuse_reports import AbuseReportsResource, AsyncAbuseReportsResource
     from .resources.images.images import ImagesResource, AsyncImagesResource
     from .resources.queues.queues import QueuesResource, AsyncQueuesResource
     from .resources.stream.stream import StreamResource, AsyncStreamResource
-    from .resources.bot_management import BotManagementResource, AsyncBotManagementResource
-    from .resources.dcv_delegation import DCVDelegationResource, AsyncDCVDelegationResource
     from .resources.billing.billing import BillingResource, AsyncBillingResource
+    from .resources.filters.filters import FiltersResource, AsyncFiltersResource
     from .resources.logpush.logpush import LogpushResource, AsyncLogpushResource
     from .resources.workers.workers import WorkersResource, AsyncWorkersResource
-    from .resources.brand_protection import BrandProtectionResource, AsyncBrandProtectionResource
     from .resources.accounts.accounts import AccountsResource, AsyncAccountsResource
+    from .resources.aisearch.aisearch import AISearchResource, AsyncAISearchResource
     from .resources.alerting.alerting import AlertingResource, AsyncAlertingResource
     from .resources.firewall.firewall import FirewallResource, AsyncFirewallResource
     from .resources.rulesets.rulesets import RulesetsResource, AsyncRulesetsResource
     from .resources.snippets.snippets import SnippetsResource, AsyncSnippetsResource
     from .resources.spectrum.spectrum import SpectrumResource, AsyncSpectrumResource
-    from .resources.url_normalization import URLNormalizationResource, AsyncURLNormalizationResource
-    from .resources.custom_nameservers import CustomNameserversResource, AsyncCustomNameserversResource
-    from .resources.managed_transforms import ManagedTransformsResource, AsyncManagedTransformsResource
-    from .resources.client_certificates import ClientCertificatesResource, AsyncClientCertificatesResource
     from .resources.hostnames.hostnames import HostnamesResource, AsyncHostnamesResource
+    from .resources.pipelines.pipelines import PipelinesResource, AsyncPipelinesResource
     from .resources.registrar.registrar import RegistrarResource, AsyncRegistrarResource
     from .resources.turnstile.turnstile import TurnstileResource, AsyncTurnstileResource
     from .resources.vectorize.vectorize import VectorizeResource, AsyncVectorizeResource
     from .resources.workflows.workflows import WorkflowsResource, AsyncWorkflowsResource
-    from .resources.keyless_certificates import KeylessCertificatesResource, AsyncKeylessCertificatesResource
     from .resources.addressing.addressing import AddressingResource, AsyncAddressingResource
     from .resources.ai_gateway.ai_gateway import AIGatewayResource, AsyncAIGatewayResource
+    from .resources.audit_logs.audit_logs import AuditLogsResource, AsyncAuditLogsResource
     from .resources.hyperdrive.hyperdrive import HyperdriveResource, AsyncHyperdriveResource
+    from .resources.page_rules.page_rules import PageRulesResource, AsyncPageRulesResource
     from .resources.zero_trust.zero_trust import ZeroTrustResource, AsyncZeroTrustResource
-    from .resources.origin_ca_certificates import OriginCACertificatesResource, AsyncOriginCACertificatesResource
     from .resources.api_gateway.api_gateway import APIGatewayResource, AsyncAPIGatewayResource
     from .resources.botnet_feed.botnet_feed import BotnetFeedResource, AsyncBotnetFeedResource
     from .resources.diagnostics.diagnostics import DiagnosticsResource, AsyncDiagnosticsResource
+    from .resources.memberships.memberships import MembershipsResource, AsyncMembershipsResource
     from .resources.page_shield.page_shield import PageShieldResource, AsyncPageShieldResource
+    from .resources.rate_limits.rate_limits import RateLimitsResource, AsyncRateLimitsResource
     from .resources.url_scanner.url_scanner import URLScannerResource, AsyncURLScannerResource
+    from .resources.connectivity.connectivity import ConnectivityResource, AsyncConnectivityResource
+    from .resources.custom_pages.custom_pages import CustomPagesResource, AsyncCustomPagesResource
     from .resources.dns_firewall.dns_firewall import DNSFirewallResource, AsyncDNSFirewallResource
     from .resources.healthchecks.healthchecks import HealthchecksResource, AsyncHealthchecksResource
+    from .resources.realtime_kit.realtime_kit import RealtimeKitResource, AsyncRealtimeKitResource
+    from .resources.security_txt.security_txt import SecurityTXTResource, AsyncSecurityTXTResource
+    from .resources.abuse_reports.abuse_reports import AbuseReportsResource, AsyncAbuseReportsResource
     from .resources.email_routing.email_routing import EmailRoutingResource, AsyncEmailRoutingResource
+    from .resources.email_sending.email_sending import EmailSendingResource, AsyncEmailSendingResource
     from .resources.magic_transit.magic_transit import MagicTransitResource, AsyncMagicTransitResource
+    from .resources.organizations.organizations import OrganizationsResource, AsyncOrganizationsResource
     from .resources.secrets_store.secrets_store import SecretsStoreResource, AsyncSecretsStoreResource
     from .resources.waiting_rooms.waiting_rooms import WaitingRoomsResource, AsyncWaitingRoomsResource
+    from .resources.bot_management.bot_management import BotManagementResource, AsyncBotManagementResource
     from .resources.cloudforce_one.cloudforce_one import CloudforceOneResource, AsyncCloudforceOneResource
+    from .resources.dcv_delegation.dcv_delegation import DCVDelegationResource, AsyncDCVDelegationResource
     from .resources.email_security.email_security import EmailSecurityResource, AsyncEmailSecurityResource
     from .resources.load_balancers.load_balancers import LoadBalancersResource, AsyncLoadBalancersResource
-    from .resources.origin_post_quantum_encryption import (
-        OriginPostQuantumEncryptionResource,
-        AsyncOriginPostQuantumEncryptionResource,
-    )
     from .resources.cloud_connector.cloud_connector import CloudConnectorResource, AsyncCloudConnectorResource
     from .resources.durable_objects.durable_objects import DurableObjectsResource, AsyncDurableObjectsResource
+    from .resources.r2_data_catalog.r2_data_catalog import R2DataCatalogResource, AsyncR2DataCatalogResource
     from .resources.request_tracers.request_tracers import RequestTracersResource, AsyncRequestTracersResource
     from .resources.security_center.security_center import SecurityCenterResource, AsyncSecurityCenterResource
+    from .resources.brand_protection.brand_protection import BrandProtectionResource, AsyncBrandProtectionResource
     from .resources.content_scanning.content_scanning import ContentScanningResource, AsyncContentScanningResource
     from .resources.custom_hostnames.custom_hostnames import CustomHostnamesResource, AsyncCustomHostnamesResource
     from .resources.resource_sharing.resource_sharing import ResourceSharingResource, AsyncResourceSharingResource
+    from .resources.resource_tagging.resource_tagging import ResourceTaggingResource, AsyncResourceTaggingResource
+    from .resources.token_validation.token_validation import TokenValidationResource, AsyncTokenValidationResource
     from .resources.browser_rendering.browser_rendering import BrowserRenderingResource, AsyncBrowserRenderingResource
     from .resources.mtls_certificates.mtls_certificates import MTLSCertificatesResource, AsyncMTLSCertificatesResource
     from .resources.schema_validation.schema_validation import SchemaValidationResource, AsyncSchemaValidationResource
+    from .resources.url_normalization.url_normalization import URLNormalizationResource, AsyncURLNormalizationResource
+    from .resources.custom_nameservers.custom_nameservers import (
+        CustomNameserversResource,
+        AsyncCustomNameserversResource,
+    )
+    from .resources.google_tag_gateway.google_tag_gateway import GoogleTagGatewayResource, AsyncGoogleTagGatewayResource
+    from .resources.managed_transforms.managed_transforms import (
+        ManagedTransformsResource,
+        AsyncManagedTransformsResource,
+    )
+    from .resources.client_certificates.client_certificates import (
+        ClientCertificatesResource,
+        AsyncClientCertificatesResource,
+    )
     from .resources.custom_certificates.custom_certificates import (
         CustomCertificatesResource,
         AsyncCustomCertificatesResource,
     )
+    from .resources.keyless_certificates.keyless_certificates import (
+        KeylessCertificatesResource,
+        AsyncKeylessCertificatesResource,
+    )
     from .resources.network_interconnects.network_interconnects import (
         NetworkInterconnectsResource,
         AsyncNetworkInterconnectsResource,
+    )
+    from .resources.vulnerability_scanner.vulnerability_scanner import (
+        VulnerabilityScannerResource,
+        AsyncVulnerabilityScannerResource,
     )
     from .resources.workers_for_platforms.workers_for_platforms import (
         WorkersForPlatformsResource,
@@ -235,6 +267,10 @@ if TYPE_CHECKING:
     from .resources.magic_cloud_networking.magic_cloud_networking import (
         MagicCloudNetworkingResource,
         AsyncMagicCloudNetworkingResource,
+    )
+    from .resources.origin_ca_certificates.origin_ca_certificates import (
+        OriginCACertificatesResource,
+        AsyncOriginCACertificatesResource,
     )
     from .resources.origin_tls_client_auth.origin_tls_client_auth import (
         OriginTLSClientAuthResource,
@@ -251,6 +287,10 @@ if TYPE_CHECKING:
     from .resources.magic_network_monitoring.magic_network_monitoring import (
         MagicNetworkMonitoringResource,
         AsyncMagicNetworkMonitoringResource,
+    )
+    from .resources.origin_post_quantum_encryption.origin_post_quantum_encryption import (
+        OriginPostQuantumEncryptionResource,
+        AsyncOriginPostQuantumEncryptionResource,
     )
 
 __all__ = [
@@ -281,7 +321,7 @@ class Cloudflare(SyncAPIClient):
         user_service_key: str | None = None,
         base_url: str | httpx.URL | None = None,
         api_version: str | None = None,
-        timeout: Union[float, Timeout, None, NotGiven] = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         max_retries: int = DEFAULT_MAX_RETRIES,
         default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -348,6 +388,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.accounts import AccountsResource
 
         return AccountsResource(self)
+
+    @cached_property
+    def organizations(self) -> OrganizationsResource:
+        from .resources.organizations import OrganizationsResource
+
+        return OrganizationsResource(self)
 
     @cached_property
     def origin_ca_certificates(self) -> OriginCACertificatesResource:
@@ -462,6 +508,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.email_routing import EmailRoutingResource
 
         return EmailRoutingResource(self)
+
+    @cached_property
+    def email_sending(self) -> EmailSendingResource:
+        from .resources.email_sending import EmailSendingResource
+
+        return EmailSendingResource(self)
 
     @cached_property
     def filters(self) -> FiltersResource:
@@ -710,6 +762,12 @@ class Cloudflare(SyncAPIClient):
         return R2Resource(self)
 
     @cached_property
+    def r2_data_catalog(self) -> R2DataCatalogResource:
+        from .resources.r2_data_catalog import R2DataCatalogResource
+
+        return R2DataCatalogResource(self)
+
+    @cached_property
     def workers_for_platforms(self) -> WorkersForPlatformsResource:
         from .resources.workers_for_platforms import WorkersForPlatformsResource
 
@@ -726,6 +784,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.turnstile import TurnstileResource
 
         return TurnstileResource(self)
+
+    @cached_property
+    def connectivity(self) -> ConnectivityResource:
+        from .resources.connectivity import ConnectivityResource
+
+        return ConnectivityResource(self)
 
     @cached_property
     def hyperdrive(self) -> HyperdriveResource:
@@ -752,6 +816,12 @@ class Cloudflare(SyncAPIClient):
         return URLScannerResource(self)
 
     @cached_property
+    def vulnerability_scanner(self) -> VulnerabilityScannerResource:
+        from .resources.vulnerability_scanner import VulnerabilityScannerResource
+
+        return VulnerabilityScannerResource(self)
+
+    @cached_property
     def radar(self) -> RadarResource:
         from .resources.radar import RadarResource
 
@@ -764,10 +834,22 @@ class Cloudflare(SyncAPIClient):
         return BotManagementResource(self)
 
     @cached_property
+    def fraud(self) -> FraudResource:
+        from .resources.fraud import FraudResource
+
+        return FraudResource(self)
+
+    @cached_property
     def origin_post_quantum_encryption(self) -> OriginPostQuantumEncryptionResource:
         from .resources.origin_post_quantum_encryption import OriginPostQuantumEncryptionResource
 
         return OriginPostQuantumEncryptionResource(self)
+
+    @cached_property
+    def google_tag_gateway(self) -> GoogleTagGatewayResource:
+        from .resources.google_tag_gateway import GoogleTagGatewayResource
+
+        return GoogleTagGatewayResource(self)
 
     @cached_property
     def zaraz(self) -> ZarazResource:
@@ -798,6 +880,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.snippets import SnippetsResource
 
         return SnippetsResource(self)
+
+    @cached_property
+    def realtime_kit(self) -> RealtimeKitResource:
+        from .resources.realtime_kit import RealtimeKitResource
+
+        return RealtimeKitResource(self)
 
     @cached_property
     def calls(self) -> CallsResource:
@@ -854,6 +942,12 @@ class Cloudflare(SyncAPIClient):
         return ResourceSharingResource(self)
 
     @cached_property
+    def resource_tagging(self) -> ResourceTaggingResource:
+        from .resources.resource_tagging import ResourceTaggingResource
+
+        return ResourceTaggingResource(self)
+
+    @cached_property
     def leaked_credential_checks(self) -> LeakedCredentialChecksResource:
         from .resources.leaked_credential_checks import LeakedCredentialChecksResource
 
@@ -876,6 +970,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.ai import AIResource
 
         return AIResource(self)
+
+    @cached_property
+    def aisearch(self) -> AISearchResource:
+        from .resources.aisearch import AISearchResource
+
+        return AISearchResource(self)
 
     @cached_property
     def security_center(self) -> SecurityCenterResource:
@@ -912,6 +1012,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.schema_validation import SchemaValidationResource
 
         return SchemaValidationResource(self)
+
+    @cached_property
+    def token_validation(self) -> TokenValidationResource:
+        from .resources.token_validation import TokenValidationResource
+
+        return TokenValidationResource(self)
 
     @cached_property
     def with_raw_response(self) -> CloudflareWithRawResponse:
@@ -980,24 +1086,16 @@ class Cloudflare(SyncAPIClient):
 
     @override
     def _validate_headers(self, headers: Headers, custom_headers: Headers) -> None:
-        if self.api_email and headers.get("X-Auth-Email"):
-            return
-        if isinstance(custom_headers.get("X-Auth-Email"), Omit):
+        if headers.get("X-Auth-Email") or isinstance(custom_headers.get("X-Auth-Email"), Omit):
             return
 
-        if self.api_key and headers.get("X-Auth-Key"):
-            return
-        if isinstance(custom_headers.get("X-Auth-Key"), Omit):
+        if headers.get("X-Auth-Key") or isinstance(custom_headers.get("X-Auth-Key"), Omit):
             return
 
-        if self.api_token and headers.get("Authorization"):
-            return
-        if isinstance(custom_headers.get("Authorization"), Omit):
+        if headers.get("Authorization") or isinstance(custom_headers.get("Authorization"), Omit):
             return
 
-        if self.user_service_key and headers.get("X-Auth-User-Service-Key"):
-            return
-        if isinstance(custom_headers.get("X-Auth-User-Service-Key"), Omit):
+        if headers.get("X-Auth-User-Service-Key") or isinstance(custom_headers.get("X-Auth-User-Service-Key"), Omit):
             return
 
         raise TypeError(
@@ -1013,9 +1111,9 @@ class Cloudflare(SyncAPIClient):
         user_service_key: str | None = None,
         base_url: str | httpx.URL | None = None,
         api_version: str | None = None,
-        timeout: float | Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         http_client: httpx.Client | None = None,
-        max_retries: int | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = not_given,
         default_headers: Mapping[str, str] | None = None,
         set_default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -1113,7 +1211,7 @@ class AsyncCloudflare(AsyncAPIClient):
         user_service_key: str | None = None,
         base_url: str | httpx.URL | None = None,
         api_version: str | None = None,
-        timeout: Union[float, Timeout, None, NotGiven] = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         max_retries: int = DEFAULT_MAX_RETRIES,
         default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -1180,6 +1278,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.accounts import AsyncAccountsResource
 
         return AsyncAccountsResource(self)
+
+    @cached_property
+    def organizations(self) -> AsyncOrganizationsResource:
+        from .resources.organizations import AsyncOrganizationsResource
+
+        return AsyncOrganizationsResource(self)
 
     @cached_property
     def origin_ca_certificates(self) -> AsyncOriginCACertificatesResource:
@@ -1294,6 +1398,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.email_routing import AsyncEmailRoutingResource
 
         return AsyncEmailRoutingResource(self)
+
+    @cached_property
+    def email_sending(self) -> AsyncEmailSendingResource:
+        from .resources.email_sending import AsyncEmailSendingResource
+
+        return AsyncEmailSendingResource(self)
 
     @cached_property
     def filters(self) -> AsyncFiltersResource:
@@ -1542,6 +1652,12 @@ class AsyncCloudflare(AsyncAPIClient):
         return AsyncR2Resource(self)
 
     @cached_property
+    def r2_data_catalog(self) -> AsyncR2DataCatalogResource:
+        from .resources.r2_data_catalog import AsyncR2DataCatalogResource
+
+        return AsyncR2DataCatalogResource(self)
+
+    @cached_property
     def workers_for_platforms(self) -> AsyncWorkersForPlatformsResource:
         from .resources.workers_for_platforms import AsyncWorkersForPlatformsResource
 
@@ -1558,6 +1674,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.turnstile import AsyncTurnstileResource
 
         return AsyncTurnstileResource(self)
+
+    @cached_property
+    def connectivity(self) -> AsyncConnectivityResource:
+        from .resources.connectivity import AsyncConnectivityResource
+
+        return AsyncConnectivityResource(self)
 
     @cached_property
     def hyperdrive(self) -> AsyncHyperdriveResource:
@@ -1584,6 +1706,12 @@ class AsyncCloudflare(AsyncAPIClient):
         return AsyncURLScannerResource(self)
 
     @cached_property
+    def vulnerability_scanner(self) -> AsyncVulnerabilityScannerResource:
+        from .resources.vulnerability_scanner import AsyncVulnerabilityScannerResource
+
+        return AsyncVulnerabilityScannerResource(self)
+
+    @cached_property
     def radar(self) -> AsyncRadarResource:
         from .resources.radar import AsyncRadarResource
 
@@ -1596,10 +1724,22 @@ class AsyncCloudflare(AsyncAPIClient):
         return AsyncBotManagementResource(self)
 
     @cached_property
+    def fraud(self) -> AsyncFraudResource:
+        from .resources.fraud import AsyncFraudResource
+
+        return AsyncFraudResource(self)
+
+    @cached_property
     def origin_post_quantum_encryption(self) -> AsyncOriginPostQuantumEncryptionResource:
         from .resources.origin_post_quantum_encryption import AsyncOriginPostQuantumEncryptionResource
 
         return AsyncOriginPostQuantumEncryptionResource(self)
+
+    @cached_property
+    def google_tag_gateway(self) -> AsyncGoogleTagGatewayResource:
+        from .resources.google_tag_gateway import AsyncGoogleTagGatewayResource
+
+        return AsyncGoogleTagGatewayResource(self)
 
     @cached_property
     def zaraz(self) -> AsyncZarazResource:
@@ -1630,6 +1770,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.snippets import AsyncSnippetsResource
 
         return AsyncSnippetsResource(self)
+
+    @cached_property
+    def realtime_kit(self) -> AsyncRealtimeKitResource:
+        from .resources.realtime_kit import AsyncRealtimeKitResource
+
+        return AsyncRealtimeKitResource(self)
 
     @cached_property
     def calls(self) -> AsyncCallsResource:
@@ -1686,6 +1832,12 @@ class AsyncCloudflare(AsyncAPIClient):
         return AsyncResourceSharingResource(self)
 
     @cached_property
+    def resource_tagging(self) -> AsyncResourceTaggingResource:
+        from .resources.resource_tagging import AsyncResourceTaggingResource
+
+        return AsyncResourceTaggingResource(self)
+
+    @cached_property
     def leaked_credential_checks(self) -> AsyncLeakedCredentialChecksResource:
         from .resources.leaked_credential_checks import AsyncLeakedCredentialChecksResource
 
@@ -1708,6 +1860,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.ai import AsyncAIResource
 
         return AsyncAIResource(self)
+
+    @cached_property
+    def aisearch(self) -> AsyncAISearchResource:
+        from .resources.aisearch import AsyncAISearchResource
+
+        return AsyncAISearchResource(self)
 
     @cached_property
     def security_center(self) -> AsyncSecurityCenterResource:
@@ -1744,6 +1902,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.schema_validation import AsyncSchemaValidationResource
 
         return AsyncSchemaValidationResource(self)
+
+    @cached_property
+    def token_validation(self) -> AsyncTokenValidationResource:
+        from .resources.token_validation import AsyncTokenValidationResource
+
+        return AsyncTokenValidationResource(self)
 
     @cached_property
     def with_raw_response(self) -> AsyncCloudflareWithRawResponse:
@@ -1812,24 +1976,16 @@ class AsyncCloudflare(AsyncAPIClient):
 
     @override
     def _validate_headers(self, headers: Headers, custom_headers: Headers) -> None:
-        if self.api_email and headers.get("X-Auth-Email"):
-            return
-        if isinstance(custom_headers.get("X-Auth-Email"), Omit):
+        if headers.get("X-Auth-Email") or isinstance(custom_headers.get("X-Auth-Email"), Omit):
             return
 
-        if self.api_key and headers.get("X-Auth-Key"):
-            return
-        if isinstance(custom_headers.get("X-Auth-Key"), Omit):
+        if headers.get("X-Auth-Key") or isinstance(custom_headers.get("X-Auth-Key"), Omit):
             return
 
-        if self.api_token and headers.get("Authorization"):
-            return
-        if isinstance(custom_headers.get("Authorization"), Omit):
+        if headers.get("Authorization") or isinstance(custom_headers.get("Authorization"), Omit):
             return
 
-        if self.user_service_key and headers.get("X-Auth-User-Service-Key"):
-            return
-        if isinstance(custom_headers.get("X-Auth-User-Service-Key"), Omit):
+        if headers.get("X-Auth-User-Service-Key") or isinstance(custom_headers.get("X-Auth-User-Service-Key"), Omit):
             return
 
         raise TypeError(
@@ -1845,9 +2001,9 @@ class AsyncCloudflare(AsyncAPIClient):
         user_service_key: str | None = None,
         base_url: str | httpx.URL | None = None,
         api_version: str | None = None,
-        timeout: float | Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         http_client: httpx.AsyncClient | None = None,
-        max_retries: int | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = not_given,
         default_headers: Mapping[str, str] | None = None,
         set_default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -1940,6 +2096,12 @@ class CloudflareWithRawResponse:
         from .resources.accounts import AccountsResourceWithRawResponse
 
         return AccountsResourceWithRawResponse(self._client.accounts)
+
+    @cached_property
+    def organizations(self) -> organizations.OrganizationsResourceWithRawResponse:
+        from .resources.organizations import OrganizationsResourceWithRawResponse
+
+        return OrganizationsResourceWithRawResponse(self._client.organizations)
 
     @cached_property
     def origin_ca_certificates(self) -> origin_ca_certificates.OriginCACertificatesResourceWithRawResponse:
@@ -2054,6 +2216,12 @@ class CloudflareWithRawResponse:
         from .resources.email_routing import EmailRoutingResourceWithRawResponse
 
         return EmailRoutingResourceWithRawResponse(self._client.email_routing)
+
+    @cached_property
+    def email_sending(self) -> email_sending.EmailSendingResourceWithRawResponse:
+        from .resources.email_sending import EmailSendingResourceWithRawResponse
+
+        return EmailSendingResourceWithRawResponse(self._client.email_sending)
 
     @cached_property
     def filters(self) -> filters.FiltersResourceWithRawResponse:
@@ -2302,6 +2470,12 @@ class CloudflareWithRawResponse:
         return R2ResourceWithRawResponse(self._client.r2)
 
     @cached_property
+    def r2_data_catalog(self) -> r2_data_catalog.R2DataCatalogResourceWithRawResponse:
+        from .resources.r2_data_catalog import R2DataCatalogResourceWithRawResponse
+
+        return R2DataCatalogResourceWithRawResponse(self._client.r2_data_catalog)
+
+    @cached_property
     def workers_for_platforms(self) -> workers_for_platforms.WorkersForPlatformsResourceWithRawResponse:
         from .resources.workers_for_platforms import WorkersForPlatformsResourceWithRawResponse
 
@@ -2318,6 +2492,12 @@ class CloudflareWithRawResponse:
         from .resources.turnstile import TurnstileResourceWithRawResponse
 
         return TurnstileResourceWithRawResponse(self._client.turnstile)
+
+    @cached_property
+    def connectivity(self) -> connectivity.ConnectivityResourceWithRawResponse:
+        from .resources.connectivity import ConnectivityResourceWithRawResponse
+
+        return ConnectivityResourceWithRawResponse(self._client.connectivity)
 
     @cached_property
     def hyperdrive(self) -> hyperdrive.HyperdriveResourceWithRawResponse:
@@ -2344,6 +2524,12 @@ class CloudflareWithRawResponse:
         return URLScannerResourceWithRawResponse(self._client.url_scanner)
 
     @cached_property
+    def vulnerability_scanner(self) -> vulnerability_scanner.VulnerabilityScannerResourceWithRawResponse:
+        from .resources.vulnerability_scanner import VulnerabilityScannerResourceWithRawResponse
+
+        return VulnerabilityScannerResourceWithRawResponse(self._client.vulnerability_scanner)
+
+    @cached_property
     def radar(self) -> radar.RadarResourceWithRawResponse:
         from .resources.radar import RadarResourceWithRawResponse
 
@@ -2356,12 +2542,24 @@ class CloudflareWithRawResponse:
         return BotManagementResourceWithRawResponse(self._client.bot_management)
 
     @cached_property
+    def fraud(self) -> fraud.FraudResourceWithRawResponse:
+        from .resources.fraud import FraudResourceWithRawResponse
+
+        return FraudResourceWithRawResponse(self._client.fraud)
+
+    @cached_property
     def origin_post_quantum_encryption(
         self,
     ) -> origin_post_quantum_encryption.OriginPostQuantumEncryptionResourceWithRawResponse:
         from .resources.origin_post_quantum_encryption import OriginPostQuantumEncryptionResourceWithRawResponse
 
         return OriginPostQuantumEncryptionResourceWithRawResponse(self._client.origin_post_quantum_encryption)
+
+    @cached_property
+    def google_tag_gateway(self) -> google_tag_gateway.GoogleTagGatewayResourceWithRawResponse:
+        from .resources.google_tag_gateway import GoogleTagGatewayResourceWithRawResponse
+
+        return GoogleTagGatewayResourceWithRawResponse(self._client.google_tag_gateway)
 
     @cached_property
     def zaraz(self) -> zaraz.ZarazResourceWithRawResponse:
@@ -2392,6 +2590,12 @@ class CloudflareWithRawResponse:
         from .resources.snippets import SnippetsResourceWithRawResponse
 
         return SnippetsResourceWithRawResponse(self._client.snippets)
+
+    @cached_property
+    def realtime_kit(self) -> realtime_kit.RealtimeKitResourceWithRawResponse:
+        from .resources.realtime_kit import RealtimeKitResourceWithRawResponse
+
+        return RealtimeKitResourceWithRawResponse(self._client.realtime_kit)
 
     @cached_property
     def calls(self) -> calls.CallsResourceWithRawResponse:
@@ -2448,6 +2652,12 @@ class CloudflareWithRawResponse:
         return ResourceSharingResourceWithRawResponse(self._client.resource_sharing)
 
     @cached_property
+    def resource_tagging(self) -> resource_tagging.ResourceTaggingResourceWithRawResponse:
+        from .resources.resource_tagging import ResourceTaggingResourceWithRawResponse
+
+        return ResourceTaggingResourceWithRawResponse(self._client.resource_tagging)
+
+    @cached_property
     def leaked_credential_checks(self) -> leaked_credential_checks.LeakedCredentialChecksResourceWithRawResponse:
         from .resources.leaked_credential_checks import LeakedCredentialChecksResourceWithRawResponse
 
@@ -2470,6 +2680,12 @@ class CloudflareWithRawResponse:
         from .resources.ai import AIResourceWithRawResponse
 
         return AIResourceWithRawResponse(self._client.ai)
+
+    @cached_property
+    def aisearch(self) -> aisearch.AISearchResourceWithRawResponse:
+        from .resources.aisearch import AISearchResourceWithRawResponse
+
+        return AISearchResourceWithRawResponse(self._client.aisearch)
 
     @cached_property
     def security_center(self) -> security_center.SecurityCenterResourceWithRawResponse:
@@ -2507,6 +2723,12 @@ class CloudflareWithRawResponse:
 
         return SchemaValidationResourceWithRawResponse(self._client.schema_validation)
 
+    @cached_property
+    def token_validation(self) -> token_validation.TokenValidationResourceWithRawResponse:
+        from .resources.token_validation import TokenValidationResourceWithRawResponse
+
+        return TokenValidationResourceWithRawResponse(self._client.token_validation)
+
 
 class AsyncCloudflareWithRawResponse:
     _client: AsyncCloudflare
@@ -2519,6 +2741,12 @@ class AsyncCloudflareWithRawResponse:
         from .resources.accounts import AsyncAccountsResourceWithRawResponse
 
         return AsyncAccountsResourceWithRawResponse(self._client.accounts)
+
+    @cached_property
+    def organizations(self) -> organizations.AsyncOrganizationsResourceWithRawResponse:
+        from .resources.organizations import AsyncOrganizationsResourceWithRawResponse
+
+        return AsyncOrganizationsResourceWithRawResponse(self._client.organizations)
 
     @cached_property
     def origin_ca_certificates(self) -> origin_ca_certificates.AsyncOriginCACertificatesResourceWithRawResponse:
@@ -2633,6 +2861,12 @@ class AsyncCloudflareWithRawResponse:
         from .resources.email_routing import AsyncEmailRoutingResourceWithRawResponse
 
         return AsyncEmailRoutingResourceWithRawResponse(self._client.email_routing)
+
+    @cached_property
+    def email_sending(self) -> email_sending.AsyncEmailSendingResourceWithRawResponse:
+        from .resources.email_sending import AsyncEmailSendingResourceWithRawResponse
+
+        return AsyncEmailSendingResourceWithRawResponse(self._client.email_sending)
 
     @cached_property
     def filters(self) -> filters.AsyncFiltersResourceWithRawResponse:
@@ -2881,6 +3115,12 @@ class AsyncCloudflareWithRawResponse:
         return AsyncR2ResourceWithRawResponse(self._client.r2)
 
     @cached_property
+    def r2_data_catalog(self) -> r2_data_catalog.AsyncR2DataCatalogResourceWithRawResponse:
+        from .resources.r2_data_catalog import AsyncR2DataCatalogResourceWithRawResponse
+
+        return AsyncR2DataCatalogResourceWithRawResponse(self._client.r2_data_catalog)
+
+    @cached_property
     def workers_for_platforms(self) -> workers_for_platforms.AsyncWorkersForPlatformsResourceWithRawResponse:
         from .resources.workers_for_platforms import AsyncWorkersForPlatformsResourceWithRawResponse
 
@@ -2897,6 +3137,12 @@ class AsyncCloudflareWithRawResponse:
         from .resources.turnstile import AsyncTurnstileResourceWithRawResponse
 
         return AsyncTurnstileResourceWithRawResponse(self._client.turnstile)
+
+    @cached_property
+    def connectivity(self) -> connectivity.AsyncConnectivityResourceWithRawResponse:
+        from .resources.connectivity import AsyncConnectivityResourceWithRawResponse
+
+        return AsyncConnectivityResourceWithRawResponse(self._client.connectivity)
 
     @cached_property
     def hyperdrive(self) -> hyperdrive.AsyncHyperdriveResourceWithRawResponse:
@@ -2923,6 +3169,12 @@ class AsyncCloudflareWithRawResponse:
         return AsyncURLScannerResourceWithRawResponse(self._client.url_scanner)
 
     @cached_property
+    def vulnerability_scanner(self) -> vulnerability_scanner.AsyncVulnerabilityScannerResourceWithRawResponse:
+        from .resources.vulnerability_scanner import AsyncVulnerabilityScannerResourceWithRawResponse
+
+        return AsyncVulnerabilityScannerResourceWithRawResponse(self._client.vulnerability_scanner)
+
+    @cached_property
     def radar(self) -> radar.AsyncRadarResourceWithRawResponse:
         from .resources.radar import AsyncRadarResourceWithRawResponse
 
@@ -2935,12 +3187,24 @@ class AsyncCloudflareWithRawResponse:
         return AsyncBotManagementResourceWithRawResponse(self._client.bot_management)
 
     @cached_property
+    def fraud(self) -> fraud.AsyncFraudResourceWithRawResponse:
+        from .resources.fraud import AsyncFraudResourceWithRawResponse
+
+        return AsyncFraudResourceWithRawResponse(self._client.fraud)
+
+    @cached_property
     def origin_post_quantum_encryption(
         self,
     ) -> origin_post_quantum_encryption.AsyncOriginPostQuantumEncryptionResourceWithRawResponse:
         from .resources.origin_post_quantum_encryption import AsyncOriginPostQuantumEncryptionResourceWithRawResponse
 
         return AsyncOriginPostQuantumEncryptionResourceWithRawResponse(self._client.origin_post_quantum_encryption)
+
+    @cached_property
+    def google_tag_gateway(self) -> google_tag_gateway.AsyncGoogleTagGatewayResourceWithRawResponse:
+        from .resources.google_tag_gateway import AsyncGoogleTagGatewayResourceWithRawResponse
+
+        return AsyncGoogleTagGatewayResourceWithRawResponse(self._client.google_tag_gateway)
 
     @cached_property
     def zaraz(self) -> zaraz.AsyncZarazResourceWithRawResponse:
@@ -2971,6 +3235,12 @@ class AsyncCloudflareWithRawResponse:
         from .resources.snippets import AsyncSnippetsResourceWithRawResponse
 
         return AsyncSnippetsResourceWithRawResponse(self._client.snippets)
+
+    @cached_property
+    def realtime_kit(self) -> realtime_kit.AsyncRealtimeKitResourceWithRawResponse:
+        from .resources.realtime_kit import AsyncRealtimeKitResourceWithRawResponse
+
+        return AsyncRealtimeKitResourceWithRawResponse(self._client.realtime_kit)
 
     @cached_property
     def calls(self) -> calls.AsyncCallsResourceWithRawResponse:
@@ -3027,6 +3297,12 @@ class AsyncCloudflareWithRawResponse:
         return AsyncResourceSharingResourceWithRawResponse(self._client.resource_sharing)
 
     @cached_property
+    def resource_tagging(self) -> resource_tagging.AsyncResourceTaggingResourceWithRawResponse:
+        from .resources.resource_tagging import AsyncResourceTaggingResourceWithRawResponse
+
+        return AsyncResourceTaggingResourceWithRawResponse(self._client.resource_tagging)
+
+    @cached_property
     def leaked_credential_checks(self) -> leaked_credential_checks.AsyncLeakedCredentialChecksResourceWithRawResponse:
         from .resources.leaked_credential_checks import AsyncLeakedCredentialChecksResourceWithRawResponse
 
@@ -3049,6 +3325,12 @@ class AsyncCloudflareWithRawResponse:
         from .resources.ai import AsyncAIResourceWithRawResponse
 
         return AsyncAIResourceWithRawResponse(self._client.ai)
+
+    @cached_property
+    def aisearch(self) -> aisearch.AsyncAISearchResourceWithRawResponse:
+        from .resources.aisearch import AsyncAISearchResourceWithRawResponse
+
+        return AsyncAISearchResourceWithRawResponse(self._client.aisearch)
 
     @cached_property
     def security_center(self) -> security_center.AsyncSecurityCenterResourceWithRawResponse:
@@ -3086,6 +3368,12 @@ class AsyncCloudflareWithRawResponse:
 
         return AsyncSchemaValidationResourceWithRawResponse(self._client.schema_validation)
 
+    @cached_property
+    def token_validation(self) -> token_validation.AsyncTokenValidationResourceWithRawResponse:
+        from .resources.token_validation import AsyncTokenValidationResourceWithRawResponse
+
+        return AsyncTokenValidationResourceWithRawResponse(self._client.token_validation)
+
 
 class CloudflareWithStreamedResponse:
     _client: Cloudflare
@@ -3098,6 +3386,12 @@ class CloudflareWithStreamedResponse:
         from .resources.accounts import AccountsResourceWithStreamingResponse
 
         return AccountsResourceWithStreamingResponse(self._client.accounts)
+
+    @cached_property
+    def organizations(self) -> organizations.OrganizationsResourceWithStreamingResponse:
+        from .resources.organizations import OrganizationsResourceWithStreamingResponse
+
+        return OrganizationsResourceWithStreamingResponse(self._client.organizations)
 
     @cached_property
     def origin_ca_certificates(self) -> origin_ca_certificates.OriginCACertificatesResourceWithStreamingResponse:
@@ -3212,6 +3506,12 @@ class CloudflareWithStreamedResponse:
         from .resources.email_routing import EmailRoutingResourceWithStreamingResponse
 
         return EmailRoutingResourceWithStreamingResponse(self._client.email_routing)
+
+    @cached_property
+    def email_sending(self) -> email_sending.EmailSendingResourceWithStreamingResponse:
+        from .resources.email_sending import EmailSendingResourceWithStreamingResponse
+
+        return EmailSendingResourceWithStreamingResponse(self._client.email_sending)
 
     @cached_property
     def filters(self) -> filters.FiltersResourceWithStreamingResponse:
@@ -3460,6 +3760,12 @@ class CloudflareWithStreamedResponse:
         return R2ResourceWithStreamingResponse(self._client.r2)
 
     @cached_property
+    def r2_data_catalog(self) -> r2_data_catalog.R2DataCatalogResourceWithStreamingResponse:
+        from .resources.r2_data_catalog import R2DataCatalogResourceWithStreamingResponse
+
+        return R2DataCatalogResourceWithStreamingResponse(self._client.r2_data_catalog)
+
+    @cached_property
     def workers_for_platforms(self) -> workers_for_platforms.WorkersForPlatformsResourceWithStreamingResponse:
         from .resources.workers_for_platforms import WorkersForPlatformsResourceWithStreamingResponse
 
@@ -3476,6 +3782,12 @@ class CloudflareWithStreamedResponse:
         from .resources.turnstile import TurnstileResourceWithStreamingResponse
 
         return TurnstileResourceWithStreamingResponse(self._client.turnstile)
+
+    @cached_property
+    def connectivity(self) -> connectivity.ConnectivityResourceWithStreamingResponse:
+        from .resources.connectivity import ConnectivityResourceWithStreamingResponse
+
+        return ConnectivityResourceWithStreamingResponse(self._client.connectivity)
 
     @cached_property
     def hyperdrive(self) -> hyperdrive.HyperdriveResourceWithStreamingResponse:
@@ -3502,6 +3814,12 @@ class CloudflareWithStreamedResponse:
         return URLScannerResourceWithStreamingResponse(self._client.url_scanner)
 
     @cached_property
+    def vulnerability_scanner(self) -> vulnerability_scanner.VulnerabilityScannerResourceWithStreamingResponse:
+        from .resources.vulnerability_scanner import VulnerabilityScannerResourceWithStreamingResponse
+
+        return VulnerabilityScannerResourceWithStreamingResponse(self._client.vulnerability_scanner)
+
+    @cached_property
     def radar(self) -> radar.RadarResourceWithStreamingResponse:
         from .resources.radar import RadarResourceWithStreamingResponse
 
@@ -3514,12 +3832,24 @@ class CloudflareWithStreamedResponse:
         return BotManagementResourceWithStreamingResponse(self._client.bot_management)
 
     @cached_property
+    def fraud(self) -> fraud.FraudResourceWithStreamingResponse:
+        from .resources.fraud import FraudResourceWithStreamingResponse
+
+        return FraudResourceWithStreamingResponse(self._client.fraud)
+
+    @cached_property
     def origin_post_quantum_encryption(
         self,
     ) -> origin_post_quantum_encryption.OriginPostQuantumEncryptionResourceWithStreamingResponse:
         from .resources.origin_post_quantum_encryption import OriginPostQuantumEncryptionResourceWithStreamingResponse
 
         return OriginPostQuantumEncryptionResourceWithStreamingResponse(self._client.origin_post_quantum_encryption)
+
+    @cached_property
+    def google_tag_gateway(self) -> google_tag_gateway.GoogleTagGatewayResourceWithStreamingResponse:
+        from .resources.google_tag_gateway import GoogleTagGatewayResourceWithStreamingResponse
+
+        return GoogleTagGatewayResourceWithStreamingResponse(self._client.google_tag_gateway)
 
     @cached_property
     def zaraz(self) -> zaraz.ZarazResourceWithStreamingResponse:
@@ -3550,6 +3880,12 @@ class CloudflareWithStreamedResponse:
         from .resources.snippets import SnippetsResourceWithStreamingResponse
 
         return SnippetsResourceWithStreamingResponse(self._client.snippets)
+
+    @cached_property
+    def realtime_kit(self) -> realtime_kit.RealtimeKitResourceWithStreamingResponse:
+        from .resources.realtime_kit import RealtimeKitResourceWithStreamingResponse
+
+        return RealtimeKitResourceWithStreamingResponse(self._client.realtime_kit)
 
     @cached_property
     def calls(self) -> calls.CallsResourceWithStreamingResponse:
@@ -3606,6 +3942,12 @@ class CloudflareWithStreamedResponse:
         return ResourceSharingResourceWithStreamingResponse(self._client.resource_sharing)
 
     @cached_property
+    def resource_tagging(self) -> resource_tagging.ResourceTaggingResourceWithStreamingResponse:
+        from .resources.resource_tagging import ResourceTaggingResourceWithStreamingResponse
+
+        return ResourceTaggingResourceWithStreamingResponse(self._client.resource_tagging)
+
+    @cached_property
     def leaked_credential_checks(self) -> leaked_credential_checks.LeakedCredentialChecksResourceWithStreamingResponse:
         from .resources.leaked_credential_checks import LeakedCredentialChecksResourceWithStreamingResponse
 
@@ -3628,6 +3970,12 @@ class CloudflareWithStreamedResponse:
         from .resources.ai import AIResourceWithStreamingResponse
 
         return AIResourceWithStreamingResponse(self._client.ai)
+
+    @cached_property
+    def aisearch(self) -> aisearch.AISearchResourceWithStreamingResponse:
+        from .resources.aisearch import AISearchResourceWithStreamingResponse
+
+        return AISearchResourceWithStreamingResponse(self._client.aisearch)
 
     @cached_property
     def security_center(self) -> security_center.SecurityCenterResourceWithStreamingResponse:
@@ -3665,6 +4013,12 @@ class CloudflareWithStreamedResponse:
 
         return SchemaValidationResourceWithStreamingResponse(self._client.schema_validation)
 
+    @cached_property
+    def token_validation(self) -> token_validation.TokenValidationResourceWithStreamingResponse:
+        from .resources.token_validation import TokenValidationResourceWithStreamingResponse
+
+        return TokenValidationResourceWithStreamingResponse(self._client.token_validation)
+
 
 class AsyncCloudflareWithStreamedResponse:
     _client: AsyncCloudflare
@@ -3677,6 +4031,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.accounts import AsyncAccountsResourceWithStreamingResponse
 
         return AsyncAccountsResourceWithStreamingResponse(self._client.accounts)
+
+    @cached_property
+    def organizations(self) -> organizations.AsyncOrganizationsResourceWithStreamingResponse:
+        from .resources.organizations import AsyncOrganizationsResourceWithStreamingResponse
+
+        return AsyncOrganizationsResourceWithStreamingResponse(self._client.organizations)
 
     @cached_property
     def origin_ca_certificates(self) -> origin_ca_certificates.AsyncOriginCACertificatesResourceWithStreamingResponse:
@@ -3793,6 +4153,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.email_routing import AsyncEmailRoutingResourceWithStreamingResponse
 
         return AsyncEmailRoutingResourceWithStreamingResponse(self._client.email_routing)
+
+    @cached_property
+    def email_sending(self) -> email_sending.AsyncEmailSendingResourceWithStreamingResponse:
+        from .resources.email_sending import AsyncEmailSendingResourceWithStreamingResponse
+
+        return AsyncEmailSendingResourceWithStreamingResponse(self._client.email_sending)
 
     @cached_property
     def filters(self) -> filters.AsyncFiltersResourceWithStreamingResponse:
@@ -4043,6 +4409,12 @@ class AsyncCloudflareWithStreamedResponse:
         return AsyncR2ResourceWithStreamingResponse(self._client.r2)
 
     @cached_property
+    def r2_data_catalog(self) -> r2_data_catalog.AsyncR2DataCatalogResourceWithStreamingResponse:
+        from .resources.r2_data_catalog import AsyncR2DataCatalogResourceWithStreamingResponse
+
+        return AsyncR2DataCatalogResourceWithStreamingResponse(self._client.r2_data_catalog)
+
+    @cached_property
     def workers_for_platforms(self) -> workers_for_platforms.AsyncWorkersForPlatformsResourceWithStreamingResponse:
         from .resources.workers_for_platforms import AsyncWorkersForPlatformsResourceWithStreamingResponse
 
@@ -4059,6 +4431,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.turnstile import AsyncTurnstileResourceWithStreamingResponse
 
         return AsyncTurnstileResourceWithStreamingResponse(self._client.turnstile)
+
+    @cached_property
+    def connectivity(self) -> connectivity.AsyncConnectivityResourceWithStreamingResponse:
+        from .resources.connectivity import AsyncConnectivityResourceWithStreamingResponse
+
+        return AsyncConnectivityResourceWithStreamingResponse(self._client.connectivity)
 
     @cached_property
     def hyperdrive(self) -> hyperdrive.AsyncHyperdriveResourceWithStreamingResponse:
@@ -4085,6 +4463,12 @@ class AsyncCloudflareWithStreamedResponse:
         return AsyncURLScannerResourceWithStreamingResponse(self._client.url_scanner)
 
     @cached_property
+    def vulnerability_scanner(self) -> vulnerability_scanner.AsyncVulnerabilityScannerResourceWithStreamingResponse:
+        from .resources.vulnerability_scanner import AsyncVulnerabilityScannerResourceWithStreamingResponse
+
+        return AsyncVulnerabilityScannerResourceWithStreamingResponse(self._client.vulnerability_scanner)
+
+    @cached_property
     def radar(self) -> radar.AsyncRadarResourceWithStreamingResponse:
         from .resources.radar import AsyncRadarResourceWithStreamingResponse
 
@@ -4097,6 +4481,12 @@ class AsyncCloudflareWithStreamedResponse:
         return AsyncBotManagementResourceWithStreamingResponse(self._client.bot_management)
 
     @cached_property
+    def fraud(self) -> fraud.AsyncFraudResourceWithStreamingResponse:
+        from .resources.fraud import AsyncFraudResourceWithStreamingResponse
+
+        return AsyncFraudResourceWithStreamingResponse(self._client.fraud)
+
+    @cached_property
     def origin_post_quantum_encryption(
         self,
     ) -> origin_post_quantum_encryption.AsyncOriginPostQuantumEncryptionResourceWithStreamingResponse:
@@ -4107,6 +4497,12 @@ class AsyncCloudflareWithStreamedResponse:
         return AsyncOriginPostQuantumEncryptionResourceWithStreamingResponse(
             self._client.origin_post_quantum_encryption
         )
+
+    @cached_property
+    def google_tag_gateway(self) -> google_tag_gateway.AsyncGoogleTagGatewayResourceWithStreamingResponse:
+        from .resources.google_tag_gateway import AsyncGoogleTagGatewayResourceWithStreamingResponse
+
+        return AsyncGoogleTagGatewayResourceWithStreamingResponse(self._client.google_tag_gateway)
 
     @cached_property
     def zaraz(self) -> zaraz.AsyncZarazResourceWithStreamingResponse:
@@ -4137,6 +4533,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.snippets import AsyncSnippetsResourceWithStreamingResponse
 
         return AsyncSnippetsResourceWithStreamingResponse(self._client.snippets)
+
+    @cached_property
+    def realtime_kit(self) -> realtime_kit.AsyncRealtimeKitResourceWithStreamingResponse:
+        from .resources.realtime_kit import AsyncRealtimeKitResourceWithStreamingResponse
+
+        return AsyncRealtimeKitResourceWithStreamingResponse(self._client.realtime_kit)
 
     @cached_property
     def calls(self) -> calls.AsyncCallsResourceWithStreamingResponse:
@@ -4193,6 +4595,12 @@ class AsyncCloudflareWithStreamedResponse:
         return AsyncResourceSharingResourceWithStreamingResponse(self._client.resource_sharing)
 
     @cached_property
+    def resource_tagging(self) -> resource_tagging.AsyncResourceTaggingResourceWithStreamingResponse:
+        from .resources.resource_tagging import AsyncResourceTaggingResourceWithStreamingResponse
+
+        return AsyncResourceTaggingResourceWithStreamingResponse(self._client.resource_tagging)
+
+    @cached_property
     def leaked_credential_checks(
         self,
     ) -> leaked_credential_checks.AsyncLeakedCredentialChecksResourceWithStreamingResponse:
@@ -4217,6 +4625,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.ai import AsyncAIResourceWithStreamingResponse
 
         return AsyncAIResourceWithStreamingResponse(self._client.ai)
+
+    @cached_property
+    def aisearch(self) -> aisearch.AsyncAISearchResourceWithStreamingResponse:
+        from .resources.aisearch import AsyncAISearchResourceWithStreamingResponse
+
+        return AsyncAISearchResourceWithStreamingResponse(self._client.aisearch)
 
     @cached_property
     def security_center(self) -> security_center.AsyncSecurityCenterResourceWithStreamingResponse:
@@ -4253,6 +4667,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.schema_validation import AsyncSchemaValidationResourceWithStreamingResponse
 
         return AsyncSchemaValidationResourceWithStreamingResponse(self._client.schema_validation)
+
+    @cached_property
+    def token_validation(self) -> token_validation.AsyncTokenValidationResourceWithStreamingResponse:
+        from .resources.token_validation import AsyncTokenValidationResourceWithStreamingResponse
+
+        return AsyncTokenValidationResourceWithStreamingResponse(self._client.token_validation)
 
 
 Client = Cloudflare

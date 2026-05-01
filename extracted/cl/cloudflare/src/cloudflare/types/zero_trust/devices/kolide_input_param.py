@@ -13,8 +13,8 @@ class KolideInputParam(TypedDict, total=False):
     connection_id: Required[str]
     """Posture Integration ID."""
 
-    count_operator: Required[Annotated[Literal["<", "<=", ">", ">=", "=="], PropertyInfo(alias="countOperator")]]
+    count_operator: Annotated[Literal["<", "<=", ">", ">=", "=="], PropertyInfo(alias="countOperator")]
     """Count Operator."""
 
-    issue_count: Required[str]
+    issue_count: str
     """The Number of Issues."""

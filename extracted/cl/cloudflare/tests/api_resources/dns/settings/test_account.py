@@ -30,6 +30,7 @@ class TestAccount:
     def test_method_edit_with_all_params(self, client: Cloudflare) -> None:
         account = client.dns.settings.account.edit(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            enforce_dns_only=False,
             zone_defaults={
                 "flatten_all_cnames": False,
                 "foundation_dns": False,
@@ -130,7 +131,9 @@ class TestAccount:
 
 
 class TestAsyncAccount:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @pytest.mark.skip(reason="HTTP 422 from prism")
     @parametrize
@@ -145,6 +148,7 @@ class TestAsyncAccount:
     async def test_method_edit_with_all_params(self, async_client: AsyncCloudflare) -> None:
         account = await async_client.dns.settings.account.edit(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            enforce_dns_only=False,
             zone_defaults={
                 "flatten_all_cnames": False,
                 "foundation_dns": False,

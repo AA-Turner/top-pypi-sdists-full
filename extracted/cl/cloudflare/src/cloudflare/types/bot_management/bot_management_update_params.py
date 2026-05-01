@@ -18,8 +18,22 @@ class BotFightModeConfiguration(TypedDict, total=False):
     zone_id: Required[str]
     """Identifier."""
 
-    ai_bots_protection: Literal["block", "disabled"]
-    """Enable rule to block AI Scrapers and Crawlers."""
+    ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"]
+    """Enable rule to block AI Scrapers and Crawlers.
+
+    Please note the value `only_on_ad_pages` is currently not available for
+    Enterprise customers.
+    """
+
+    cf_robots_variant: Literal["off", "policy_only"]
+    """Specifies the Robots Access Control License variant to use."""
+
+    content_bots_protection: Literal["block", "disabled"]
+    """Enable rule to block content bots.
+
+    When enabled, blocks automated traffic with low bot scores, excluding safe
+    verified bot categories. Exceptions should be managed via skip rules.
+    """
 
     crawler_protection: Literal["enabled", "disabled"]
     """Enable rule to punish AI Scrapers and Crawlers via a link maze."""
@@ -33,13 +47,34 @@ class BotFightModeConfiguration(TypedDict, total=False):
     fight_mode: bool
     """Whether to enable Bot Fight Mode."""
 
+    is_robots_txt_managed: bool
+    """Enable cloudflare managed robots.txt.
+
+    If an existing robots.txt is detected, then managed robots.txt will be prepended
+    to the existing robots.txt.
+    """
+
 
 class SuperBotFightModeDefinitelyConfiguration(TypedDict, total=False):
     zone_id: Required[str]
     """Identifier."""
 
-    ai_bots_protection: Literal["block", "disabled"]
-    """Enable rule to block AI Scrapers and Crawlers."""
+    ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"]
+    """Enable rule to block AI Scrapers and Crawlers.
+
+    Please note the value `only_on_ad_pages` is currently not available for
+    Enterprise customers.
+    """
+
+    cf_robots_variant: Literal["off", "policy_only"]
+    """Specifies the Robots Access Control License variant to use."""
+
+    content_bots_protection: Literal["block", "disabled"]
+    """Enable rule to block content bots.
+
+    When enabled, blocks automated traffic with low bot scores, excluding safe
+    verified bot categories. Exceptions should be managed via skip rules.
+    """
 
     crawler_protection: Literal["enabled", "disabled"]
     """Enable rule to punish AI Scrapers and Crawlers via a link maze."""
@@ -48,6 +83,13 @@ class SuperBotFightModeDefinitelyConfiguration(TypedDict, total=False):
     """Use lightweight, invisible JavaScript detections to improve Bot Management.
 
     [Learn more about JavaScript Detections](https://developers.cloudflare.com/bots/reference/javascript-detections/).
+    """
+
+    is_robots_txt_managed: bool
+    """Enable cloudflare managed robots.txt.
+
+    If an existing robots.txt is detected, then managed robots.txt will be prepended
+    to the existing robots.txt.
     """
 
     optimize_wordpress: bool
@@ -71,8 +113,22 @@ class SuperBotFightModeLikelyConfiguration(TypedDict, total=False):
     zone_id: Required[str]
     """Identifier."""
 
-    ai_bots_protection: Literal["block", "disabled"]
-    """Enable rule to block AI Scrapers and Crawlers."""
+    ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"]
+    """Enable rule to block AI Scrapers and Crawlers.
+
+    Please note the value `only_on_ad_pages` is currently not available for
+    Enterprise customers.
+    """
+
+    cf_robots_variant: Literal["off", "policy_only"]
+    """Specifies the Robots Access Control License variant to use."""
+
+    content_bots_protection: Literal["block", "disabled"]
+    """Enable rule to block content bots.
+
+    When enabled, blocks automated traffic with low bot scores, excluding safe
+    verified bot categories. Exceptions should be managed via skip rules.
+    """
 
     crawler_protection: Literal["enabled", "disabled"]
     """Enable rule to punish AI Scrapers and Crawlers via a link maze."""
@@ -81,6 +137,13 @@ class SuperBotFightModeLikelyConfiguration(TypedDict, total=False):
     """Use lightweight, invisible JavaScript detections to improve Bot Management.
 
     [Learn more about JavaScript Detections](https://developers.cloudflare.com/bots/reference/javascript-detections/).
+    """
+
+    is_robots_txt_managed: bool
+    """Enable cloudflare managed robots.txt.
+
+    If an existing robots.txt is detected, then managed robots.txt will be prepended
+    to the existing robots.txt.
     """
 
     optimize_wordpress: bool
@@ -107,14 +170,34 @@ class SubscriptionConfiguration(TypedDict, total=False):
     zone_id: Required[str]
     """Identifier."""
 
-    ai_bots_protection: Literal["block", "disabled"]
-    """Enable rule to block AI Scrapers and Crawlers."""
+    ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"]
+    """Enable rule to block AI Scrapers and Crawlers.
+
+    Please note the value `only_on_ad_pages` is currently not available for
+    Enterprise customers.
+    """
 
     auto_update_model: bool
     """
     Automatically update to the newest bot detection models created by Cloudflare as
     they are released.
     [Learn more.](https://developers.cloudflare.com/bots/reference/machine-learning-models#model-versions-and-release-notes)
+    """
+
+    bm_cookie_enabled: bool
+    """
+    Indicates that the bot management cookie can be placed on end user devices
+    accessing the site. Defaults to true
+    """
+
+    cf_robots_variant: Literal["off", "policy_only"]
+    """Specifies the Robots Access Control License variant to use."""
+
+    content_bots_protection: Literal["block", "disabled"]
+    """Enable rule to block content bots.
+
+    When enabled, blocks automated traffic with low bot scores, excluding safe
+    verified bot categories. Exceptions should be managed via skip rules.
     """
 
     crawler_protection: Literal["enabled", "disabled"]
@@ -124,6 +207,13 @@ class SubscriptionConfiguration(TypedDict, total=False):
     """Use lightweight, invisible JavaScript detections to improve Bot Management.
 
     [Learn more about JavaScript Detections](https://developers.cloudflare.com/bots/reference/javascript-detections/).
+    """
+
+    is_robots_txt_managed: bool
+    """Enable cloudflare managed robots.txt.
+
+    If an existing robots.txt is detected, then managed robots.txt will be prepended
+    to the existing robots.txt.
     """
 
     suppress_session_score: bool

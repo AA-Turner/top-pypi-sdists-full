@@ -58,6 +58,10 @@ class TestDefault:
             support_url="https://1.1.1.1/help",
             switch_locked=True,
             tunnel_protocol="wireguard",
+            virtual_networks={
+                "allowed": ["f174e90a-fafe-4643-bbbc-4a0ed4fc8415"],
+                "default": "f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
+            },
         )
         assert_matches_type(Optional[DefaultEditResponse], default, path=["response"])
 
@@ -132,7 +136,9 @@ class TestDefault:
 
 
 class TestAsyncDefault:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_edit(self, async_client: AsyncCloudflare) -> None:
@@ -175,6 +181,10 @@ class TestAsyncDefault:
             support_url="https://1.1.1.1/help",
             switch_locked=True,
             tunnel_protocol="wireguard",
+            virtual_networks={
+                "allowed": ["f174e90a-fafe-4643-bbbc-4a0ed4fc8415"],
+                "default": "f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
+            },
         )
         assert_matches_type(Optional[DefaultEditResponse], default, path=["response"])
 

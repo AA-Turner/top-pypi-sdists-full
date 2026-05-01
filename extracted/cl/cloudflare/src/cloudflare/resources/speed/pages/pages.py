@@ -16,8 +16,8 @@ from .tests import (
     TestsResourceWithStreamingResponse,
     AsyncTestsResourceWithStreamingResponse,
 )
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -69,7 +69,7 @@ class PagesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[PageListResponse]:
         """
         Lists all webpages which have been tested.
@@ -88,7 +88,7 @@ class PagesResource(SyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/speed_api/pages",
+            path_template("/zones/{zone_id}/speed_api/pages", zone_id=zone_id),
             page=SyncSinglePage[PageListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -128,13 +128,13 @@ class PagesResource(SyncAPIResource):
         ],
         start: Union[str, datetime],
         tz: str,
-        end: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        end: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Trend]:
         """
         Lists the core web vital metrics trend over time for a specific page.
@@ -165,7 +165,7 @@ class PagesResource(SyncAPIResource):
         if not url:
             raise ValueError(f"Expected a non-empty value for `url` but received {url!r}")
         return self._get(
-            f"/zones/{zone_id}/speed_api/pages/{url}/trend",
+            path_template("/zones/{zone_id}/speed_api/pages/{url}/trend", zone_id=zone_id, url=url),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -221,7 +221,7 @@ class AsyncPagesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[PageListResponse, AsyncSinglePage[PageListResponse]]:
         """
         Lists all webpages which have been tested.
@@ -240,7 +240,7 @@ class AsyncPagesResource(AsyncAPIResource):
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
-            f"/zones/{zone_id}/speed_api/pages",
+            path_template("/zones/{zone_id}/speed_api/pages", zone_id=zone_id),
             page=AsyncSinglePage[PageListResponse],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -280,13 +280,13 @@ class AsyncPagesResource(AsyncAPIResource):
         ],
         start: Union[str, datetime],
         tz: str,
-        end: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        end: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Trend]:
         """
         Lists the core web vital metrics trend over time for a specific page.
@@ -317,7 +317,7 @@ class AsyncPagesResource(AsyncAPIResource):
         if not url:
             raise ValueError(f"Expected a non-empty value for `url` but received {url!r}")
         return await self._get(
-            f"/zones/{zone_id}/speed_api/pages/{url}/trend",
+            path_template("/zones/{zone_id}/speed_api/pages/{url}/trend", zone_id=zone_id, url=url),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

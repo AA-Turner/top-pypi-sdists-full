@@ -7,8 +7,8 @@ from typing_extensions import Literal
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ....._utils import maybe_transform, async_maybe_transform
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from .integrations import (
     IntegrationsResource,
@@ -81,6 +81,7 @@ class PostureResource(SyncAPIResource):
             "domain_joined",
             "client_certificate",
             "client_certificate_v2",
+            "antivirus",
             "unique_client_id",
             "kolide",
             "tanium_s2s",
@@ -90,17 +91,17 @@ class PostureResource(SyncAPIResource):
             "sentinelone_s2s",
             "custom_s2s",
         ],
-        description: str | NotGiven = NOT_GIVEN,
-        expiration: str | NotGiven = NOT_GIVEN,
-        input: DeviceInputParam | NotGiven = NOT_GIVEN,
-        match: Iterable[DeviceMatchParam] | NotGiven = NOT_GIVEN,
-        schedule: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        expiration: str | Omit = omit,
+        input: DeviceInputParam | Omit = omit,
+        match: Iterable[DeviceMatchParam] | Omit = omit,
+        schedule: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DevicePostureRule]:
         """
         Creates a new device posture rule.
@@ -133,7 +134,7 @@ class PostureResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/accounts/{account_id}/devices/posture",
+            path_template("/accounts/{account_id}/devices/posture", account_id=account_id),
             body=maybe_transform(
                 {
                     "name": name,
@@ -177,6 +178,7 @@ class PostureResource(SyncAPIResource):
             "domain_joined",
             "client_certificate",
             "client_certificate_v2",
+            "antivirus",
             "unique_client_id",
             "kolide",
             "tanium_s2s",
@@ -186,17 +188,17 @@ class PostureResource(SyncAPIResource):
             "sentinelone_s2s",
             "custom_s2s",
         ],
-        description: str | NotGiven = NOT_GIVEN,
-        expiration: str | NotGiven = NOT_GIVEN,
-        input: DeviceInputParam | NotGiven = NOT_GIVEN,
-        match: Iterable[DeviceMatchParam] | NotGiven = NOT_GIVEN,
-        schedule: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        expiration: str | Omit = omit,
+        input: DeviceInputParam | Omit = omit,
+        match: Iterable[DeviceMatchParam] | Omit = omit,
+        schedule: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DevicePostureRule]:
         """
         Updates a device posture rule.
@@ -233,7 +235,7 @@ class PostureResource(SyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return self._put(
-            f"/accounts/{account_id}/devices/posture/{rule_id}",
+            path_template("/accounts/{account_id}/devices/posture/{rule_id}", account_id=account_id, rule_id=rule_id),
             body=maybe_transform(
                 {
                     "name": name,
@@ -265,7 +267,7 @@ class PostureResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[DevicePostureRule]:
         """
         Fetches device posture rules for a Zero Trust account.
@@ -282,7 +284,7 @@ class PostureResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices/posture",
+            path_template("/accounts/{account_id}/devices/posture", account_id=account_id),
             page=SyncSinglePage[DevicePostureRule],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -300,7 +302,7 @@ class PostureResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PostureDeleteResponse]:
         """
         Deletes a device posture rule.
@@ -321,7 +323,7 @@ class PostureResource(SyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/devices/posture/{rule_id}",
+            path_template("/accounts/{account_id}/devices/posture/{rule_id}", account_id=account_id, rule_id=rule_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -342,7 +344,7 @@ class PostureResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DevicePostureRule]:
         """
         Fetches a single device posture rule.
@@ -363,7 +365,7 @@ class PostureResource(SyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return self._get(
-            f"/accounts/{account_id}/devices/posture/{rule_id}",
+            path_template("/accounts/{account_id}/devices/posture/{rule_id}", account_id=account_id, rule_id=rule_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -419,6 +421,7 @@ class AsyncPostureResource(AsyncAPIResource):
             "domain_joined",
             "client_certificate",
             "client_certificate_v2",
+            "antivirus",
             "unique_client_id",
             "kolide",
             "tanium_s2s",
@@ -428,17 +431,17 @@ class AsyncPostureResource(AsyncAPIResource):
             "sentinelone_s2s",
             "custom_s2s",
         ],
-        description: str | NotGiven = NOT_GIVEN,
-        expiration: str | NotGiven = NOT_GIVEN,
-        input: DeviceInputParam | NotGiven = NOT_GIVEN,
-        match: Iterable[DeviceMatchParam] | NotGiven = NOT_GIVEN,
-        schedule: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        expiration: str | Omit = omit,
+        input: DeviceInputParam | Omit = omit,
+        match: Iterable[DeviceMatchParam] | Omit = omit,
+        schedule: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DevicePostureRule]:
         """
         Creates a new device posture rule.
@@ -471,7 +474,7 @@ class AsyncPostureResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/accounts/{account_id}/devices/posture",
+            path_template("/accounts/{account_id}/devices/posture", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -515,6 +518,7 @@ class AsyncPostureResource(AsyncAPIResource):
             "domain_joined",
             "client_certificate",
             "client_certificate_v2",
+            "antivirus",
             "unique_client_id",
             "kolide",
             "tanium_s2s",
@@ -524,17 +528,17 @@ class AsyncPostureResource(AsyncAPIResource):
             "sentinelone_s2s",
             "custom_s2s",
         ],
-        description: str | NotGiven = NOT_GIVEN,
-        expiration: str | NotGiven = NOT_GIVEN,
-        input: DeviceInputParam | NotGiven = NOT_GIVEN,
-        match: Iterable[DeviceMatchParam] | NotGiven = NOT_GIVEN,
-        schedule: str | NotGiven = NOT_GIVEN,
+        description: str | Omit = omit,
+        expiration: str | Omit = omit,
+        input: DeviceInputParam | Omit = omit,
+        match: Iterable[DeviceMatchParam] | Omit = omit,
+        schedule: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DevicePostureRule]:
         """
         Updates a device posture rule.
@@ -571,7 +575,7 @@ class AsyncPostureResource(AsyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/devices/posture/{rule_id}",
+            path_template("/accounts/{account_id}/devices/posture/{rule_id}", account_id=account_id, rule_id=rule_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -603,7 +607,7 @@ class AsyncPostureResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DevicePostureRule, AsyncSinglePage[DevicePostureRule]]:
         """
         Fetches device posture rules for a Zero Trust account.
@@ -620,7 +624,7 @@ class AsyncPostureResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/devices/posture",
+            path_template("/accounts/{account_id}/devices/posture", account_id=account_id),
             page=AsyncSinglePage[DevicePostureRule],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -638,7 +642,7 @@ class AsyncPostureResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PostureDeleteResponse]:
         """
         Deletes a device posture rule.
@@ -659,7 +663,7 @@ class AsyncPostureResource(AsyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/devices/posture/{rule_id}",
+            path_template("/accounts/{account_id}/devices/posture/{rule_id}", account_id=account_id, rule_id=rule_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -680,7 +684,7 @@ class AsyncPostureResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DevicePostureRule]:
         """
         Fetches a single device posture rule.
@@ -701,7 +705,7 @@ class AsyncPostureResource(AsyncAPIResource):
         if not rule_id:
             raise ValueError(f"Expected a non-empty value for `rule_id` but received {rule_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/devices/posture/{rule_id}",
+            path_template("/accounts/{account_id}/devices/posture/{rule_id}", account_id=account_id, rule_id=rule_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

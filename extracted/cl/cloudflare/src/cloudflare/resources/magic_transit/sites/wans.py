@@ -6,8 +6,8 @@ from typing import Type, cast
 
 import httpx
 
-from ...._types import NOT_GIVEN, Body, Query, Headers, NotGiven
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -52,16 +52,16 @@ class WANsResource(SyncAPIResource):
         *,
         account_id: str,
         physport: int,
-        name: str | NotGiven = NOT_GIVEN,
-        priority: int | NotGiven = NOT_GIVEN,
-        static_addressing: WANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        priority: int | Omit = omit,
+        static_addressing: WANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[WAN]:
         """
         Creates a new Site WAN.
@@ -89,7 +89,7 @@ class WANsResource(SyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/wans", account_id=account_id, site_id=site_id),
             page=SyncSinglePage[WAN],
             body=maybe_transform(
                 {
@@ -114,17 +114,17 @@ class WANsResource(SyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        physport: int | NotGiven = NOT_GIVEN,
-        priority: int | NotGiven = NOT_GIVEN,
-        static_addressing: WANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        physport: int | Omit = omit,
+        priority: int | Omit = omit,
+        static_addressing: WANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> WAN:
         """
         Update a specific Site WAN.
@@ -156,7 +156,12 @@ class WANsResource(SyncAPIResource):
         if not wan_id:
             raise ValueError(f"Expected a non-empty value for `wan_id` but received {wan_id!r}")
         return self._put(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                wan_id=wan_id,
+            ),
             body=maybe_transform(
                 {
                     "name": name,
@@ -187,7 +192,7 @@ class WANsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[WAN]:
         """
         Lists Site WANs associated with an account.
@@ -210,7 +215,7 @@ class WANsResource(SyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/wans", account_id=account_id, site_id=site_id),
             page=SyncSinglePage[WAN],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -229,7 +234,7 @@ class WANsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> WAN:
         """
         Remove a specific Site WAN.
@@ -256,7 +261,12 @@ class WANsResource(SyncAPIResource):
         if not wan_id:
             raise ValueError(f"Expected a non-empty value for `wan_id` but received {wan_id!r}")
         return self._delete(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                wan_id=wan_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -273,17 +283,17 @@ class WANsResource(SyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        physport: int | NotGiven = NOT_GIVEN,
-        priority: int | NotGiven = NOT_GIVEN,
-        static_addressing: WANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        physport: int | Omit = omit,
+        priority: int | Omit = omit,
+        static_addressing: WANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> WAN:
         """
         Patch a specific Site WAN.
@@ -315,7 +325,12 @@ class WANsResource(SyncAPIResource):
         if not wan_id:
             raise ValueError(f"Expected a non-empty value for `wan_id` but received {wan_id!r}")
         return self._patch(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                wan_id=wan_id,
+            ),
             body=maybe_transform(
                 {
                     "name": name,
@@ -347,7 +362,7 @@ class WANsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> WAN:
         """
         Get a specific Site WAN.
@@ -374,7 +389,12 @@ class WANsResource(SyncAPIResource):
         if not wan_id:
             raise ValueError(f"Expected a non-empty value for `wan_id` but received {wan_id!r}")
         return self._get(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                wan_id=wan_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -412,16 +432,16 @@ class AsyncWANsResource(AsyncAPIResource):
         *,
         account_id: str,
         physport: int,
-        name: str | NotGiven = NOT_GIVEN,
-        priority: int | NotGiven = NOT_GIVEN,
-        static_addressing: WANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        priority: int | Omit = omit,
+        static_addressing: WANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[WAN, AsyncSinglePage[WAN]]:
         """
         Creates a new Site WAN.
@@ -449,7 +469,7 @@ class AsyncWANsResource(AsyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/wans", account_id=account_id, site_id=site_id),
             page=AsyncSinglePage[WAN],
             body=maybe_transform(
                 {
@@ -474,17 +494,17 @@ class AsyncWANsResource(AsyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        physport: int | NotGiven = NOT_GIVEN,
-        priority: int | NotGiven = NOT_GIVEN,
-        static_addressing: WANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        physport: int | Omit = omit,
+        priority: int | Omit = omit,
+        static_addressing: WANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> WAN:
         """
         Update a specific Site WAN.
@@ -516,7 +536,12 @@ class AsyncWANsResource(AsyncAPIResource):
         if not wan_id:
             raise ValueError(f"Expected a non-empty value for `wan_id` but received {wan_id!r}")
         return await self._put(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                wan_id=wan_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -547,7 +572,7 @@ class AsyncWANsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[WAN, AsyncSinglePage[WAN]]:
         """
         Lists Site WANs associated with an account.
@@ -570,7 +595,7 @@ class AsyncWANsResource(AsyncAPIResource):
         if not site_id:
             raise ValueError(f"Expected a non-empty value for `site_id` but received {site_id!r}")
         return self._get_api_list(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans",
+            path_template("/accounts/{account_id}/magic/sites/{site_id}/wans", account_id=account_id, site_id=site_id),
             page=AsyncSinglePage[WAN],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -589,7 +614,7 @@ class AsyncWANsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> WAN:
         """
         Remove a specific Site WAN.
@@ -616,7 +641,12 @@ class AsyncWANsResource(AsyncAPIResource):
         if not wan_id:
             raise ValueError(f"Expected a non-empty value for `wan_id` but received {wan_id!r}")
         return await self._delete(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                wan_id=wan_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -633,17 +663,17 @@ class AsyncWANsResource(AsyncAPIResource):
         *,
         account_id: str,
         site_id: str,
-        name: str | NotGiven = NOT_GIVEN,
-        physport: int | NotGiven = NOT_GIVEN,
-        priority: int | NotGiven = NOT_GIVEN,
-        static_addressing: WANStaticAddressingParam | NotGiven = NOT_GIVEN,
-        vlan_tag: int | NotGiven = NOT_GIVEN,
+        name: str | Omit = omit,
+        physport: int | Omit = omit,
+        priority: int | Omit = omit,
+        static_addressing: WANStaticAddressingParam | Omit = omit,
+        vlan_tag: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> WAN:
         """
         Patch a specific Site WAN.
@@ -675,7 +705,12 @@ class AsyncWANsResource(AsyncAPIResource):
         if not wan_id:
             raise ValueError(f"Expected a non-empty value for `wan_id` but received {wan_id!r}")
         return await self._patch(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                wan_id=wan_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -707,7 +742,7 @@ class AsyncWANsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> WAN:
         """
         Get a specific Site WAN.
@@ -734,7 +769,12 @@ class AsyncWANsResource(AsyncAPIResource):
         if not wan_id:
             raise ValueError(f"Expected a non-empty value for `wan_id` but received {wan_id!r}")
         return await self._get(
-            f"/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+            path_template(
+                "/accounts/{account_id}/magic/sites/{site_id}/wans/{wan_id}",
+                account_id=account_id,
+                site_id=site_id,
+                wan_id=wan_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

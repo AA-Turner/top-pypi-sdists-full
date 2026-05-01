@@ -45914,12 +45914,14 @@ class PostgresBranchSpec(dict):
         :param _builtins.str expire_time: (string) - Absolute expiration time for the branch. Empty if expiration is disabled
         :param _builtins.bool is_protected: (boolean) - Whether the branch is protected
         :param _builtins.bool no_expiry: Explicitly disable expiration. When set to true, the branch will not expire.
-               If set to false, the request is invalid; provide either ttl or expire_time instead
+               If set to false, the request is invalid; provide either ttl or expire_time instead.
+               Mutually exclusive with `expire_time` and `ttl`. When updating, use `spec.expiration` in the update_mask
         :param _builtins.str source_branch: (string) - The name of the source branch from which this branch was created.
                Format: projects/{project_id}/branches/{branch_id}
         :param _builtins.str source_branch_lsn: (string) - The Log Sequence Number (LSN) on the source branch from which this branch was created
         :param _builtins.str source_branch_time: (string) - The point in time on the source branch from which this branch was created
-        :param _builtins.str ttl: Relative time-to-live duration. When set, the branch will expire at creation_time + ttl
+        :param _builtins.str ttl: Relative time-to-live duration. When set, the branch will expire at creation_time + ttl.
+               Mutually exclusive with `expire_time` and `no_expiry`. When updating, use `spec.expiration` in the update_mask
         """
         if expire_time is not None:
             pulumi.set(__self__, "expire_time", expire_time)
@@ -45957,7 +45959,8 @@ class PostgresBranchSpec(dict):
     def no_expiry(self) -> Optional[_builtins.bool]:
         """
         Explicitly disable expiration. When set to true, the branch will not expire.
-        If set to false, the request is invalid; provide either ttl or expire_time instead
+        If set to false, the request is invalid; provide either ttl or expire_time instead.
+        Mutually exclusive with `expire_time` and `ttl`. When updating, use `spec.expiration` in the update_mask
         """
         return pulumi.get(self, "no_expiry")
 
@@ -45990,7 +45993,8 @@ class PostgresBranchSpec(dict):
     @pulumi.getter
     def ttl(self) -> Optional[_builtins.str]:
         """
-        Relative time-to-live duration. When set, the branch will expire at creation_time + ttl
+        Relative time-to-live duration. When set, the branch will expire at creation_time + ttl.
+        Mutually exclusive with `expire_time` and `no_expiry`. When updating, use `spec.expiration` in the update_mask
         """
         return pulumi.get(self, "ttl")
 
@@ -46000,7 +46004,9 @@ class PostgresBranchStatus(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "currentState":
+        if key == "branchId":
+            suggest = "branch_id"
+        elif key == "currentState":
             suggest = "current_state"
         elif key == "expireTime":
             suggest = "expire_time"
@@ -46031,6 +46037,7 @@ class PostgresBranchStatus(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 branch_id: Optional[_builtins.str] = None,
                  current_state: Optional[_builtins.str] = None,
                  default: Optional[_builtins.bool] = None,
                  expire_time: Optional[_builtins.str] = None,
@@ -46042,6 +46049,9 @@ class PostgresBranchStatus(dict):
                  source_branch_time: Optional[_builtins.str] = None,
                  state_change_time: Optional[_builtins.str] = None):
         """
+        :param _builtins.str branch_id: The ID to use for the Branch. This becomes the final component of the branch's resource name.
+               The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
+               For example, `development` becomes `projects/my-app/branches/development`
         :param _builtins.str current_state: (string) - The branch's state, indicating if it is initializing, ready for use, or archived. Possible values are: `ARCHIVED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
         :param _builtins.bool default: (boolean) - Whether the branch is the project's default branch
         :param _builtins.str expire_time: (string) - Absolute expiration time for the branch. Empty if expiration is disabled
@@ -46054,6 +46064,8 @@ class PostgresBranchStatus(dict):
         :param _builtins.str source_branch_time: (string) - The point in time on the source branch from which this branch was created
         :param _builtins.str state_change_time: (string) - A timestamp indicating when the `current_state` began
         """
+        if branch_id is not None:
+            pulumi.set(__self__, "branch_id", branch_id)
         if current_state is not None:
             pulumi.set(__self__, "current_state", current_state)
         if default is not None:
@@ -46074,6 +46086,16 @@ class PostgresBranchStatus(dict):
             pulumi.set(__self__, "source_branch_time", source_branch_time)
         if state_change_time is not None:
             pulumi.set(__self__, "state_change_time", state_change_time)
+
+    @_builtins.property
+    @pulumi.getter(name="branchId")
+    def branch_id(self) -> Optional[_builtins.str]:
+        """
+        The ID to use for the Branch. This becomes the final component of the branch's resource name.
+        The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
+        For example, `development` becomes `projects/my-app/branches/development`
+        """
+        return pulumi.get(self, "branch_id")
 
     @_builtins.property
     @pulumi.getter(name="currentState")
@@ -46266,7 +46288,9 @@ class PostgresCatalogStatus(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "postgresDatabase":
+        if key == "catalogId":
+            suggest = "catalog_id"
+        elif key == "postgresDatabase":
             suggest = "postgres_database"
 
         if suggest:
@@ -46282,15 +46306,20 @@ class PostgresCatalogStatus(dict):
 
     def __init__(__self__, *,
                  branch: Optional[_builtins.str] = None,
+                 catalog_id: Optional[_builtins.str] = None,
                  postgres_database: Optional[_builtins.str] = None,
                  project: Optional[_builtins.str] = None):
         """
         :param _builtins.str branch: (string) - The resource path of the branch associated with the catalog.
+        :param _builtins.str catalog_id: The ID in the Unity Catalog.
+               It becomes the full resource name, for example "my_catalog" becomes "catalogs/my_catalog"
         :param _builtins.str postgres_database: (string) - The name of the Postgres database associated with the catalog
         :param _builtins.str project: (string) - The resource path of the project associated with the catalog.
         """
         if branch is not None:
             pulumi.set(__self__, "branch", branch)
+        if catalog_id is not None:
+            pulumi.set(__self__, "catalog_id", catalog_id)
         if postgres_database is not None:
             pulumi.set(__self__, "postgres_database", postgres_database)
         if project is not None:
@@ -46303,6 +46332,15 @@ class PostgresCatalogStatus(dict):
         (string) - The resource path of the branch associated with the catalog.
         """
         return pulumi.get(self, "branch")
+
+    @_builtins.property
+    @pulumi.getter(name="catalogId")
+    def catalog_id(self) -> Optional[_builtins.str]:
+        """
+        The ID in the Unity Catalog.
+        It becomes the full resource name, for example "my_catalog" becomes "catalogs/my_catalog"
+        """
+        return pulumi.get(self, "catalog_id")
 
     @_builtins.property
     @pulumi.getter(name="postgresDatabase")
@@ -46399,7 +46437,9 @@ class PostgresDatabaseStatus(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "postgresDatabase":
+        if key == "databaseId":
+            suggest = "database_id"
+        elif key == "postgresDatabase":
             suggest = "postgres_database"
 
         if suggest:
@@ -46414,12 +46454,40 @@ class PostgresDatabaseStatus(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 database_id: Optional[_builtins.str] = None,
                  postgres_database: Optional[_builtins.str] = None,
                  role: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str database_id: The ID to use for the Database, which will become the final component of
+               the database's resource name.
+               This ID becomes the database name in postgres.
+               
+               This value should be 4-63 characters, and only use characters available in DNS names,
+               as defined by RFC-1123
+               
+               If database_id is not specified in the request, it is generated automatically
+        """
+        if database_id is not None:
+            pulumi.set(__self__, "database_id", database_id)
         if postgres_database is not None:
             pulumi.set(__self__, "postgres_database", postgres_database)
         if role is not None:
             pulumi.set(__self__, "role", role)
+
+    @_builtins.property
+    @pulumi.getter(name="databaseId")
+    def database_id(self) -> Optional[_builtins.str]:
+        """
+        The ID to use for the Database, which will become the final component of
+        the database's resource name.
+        This ID becomes the database name in postgres.
+
+        This value should be 4-63 characters, and only use characters available in DNS names,
+        as defined by RFC-1123
+
+        If database_id is not specified in the request, it is generated automatically
+        """
+        return pulumi.get(self, "database_id")
 
     @_builtins.property
     @pulumi.getter(name="postgresDatabase")
@@ -46505,7 +46573,8 @@ class PostgresEndpointSpec(dict):
                  suspend_timeout_duration: Optional[_builtins.str] = None):
         """
         :param _builtins.str endpoint_type: (string) - The endpoint type. A branch can only have one READ_WRITE endpoint. Possible values are: `ENDPOINT_TYPE_READ_ONLY`, `ENDPOINT_TYPE_READ_WRITE`
-        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units
+        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units. The maximum value is 64.
+               The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         :param _builtins.float autoscaling_limit_min_cu: (number) - The minimum number of Compute Units
         :param _builtins.bool disabled: (boolean) - Whether to restrict connections to the compute endpoint.
                Enabling this option schedules a suspend compute operation.
@@ -46513,7 +46582,8 @@ class PostgresEndpointSpec(dict):
                console action
         :param 'PostgresEndpointSpecGroupArgs' group: (EndpointGroupStatus) - Details on the HA configuration of the endpoint
         :param _builtins.bool no_suspension: When set to true, explicitly disables automatic suspension (never suspend).
-               Should be set to true when provided
+               Should be set to true when provided.
+               Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.suspension` in the update_mask
         :param 'PostgresEndpointSpecSettingsArgs' settings: (EndpointSettings)
         :param _builtins.str suspend_timeout_duration: (string) - Duration of inactivity after which the compute endpoint is automatically suspended
         """
@@ -46545,7 +46615,8 @@ class PostgresEndpointSpec(dict):
     @pulumi.getter(name="autoscalingLimitMaxCu")
     def autoscaling_limit_max_cu(self) -> Optional[_builtins.float]:
         """
-        (number) - The maximum number of Compute Units
+        (number) - The maximum number of Compute Units. The maximum value is 64.
+        The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         """
         return pulumi.get(self, "autoscaling_limit_max_cu")
 
@@ -46581,7 +46652,8 @@ class PostgresEndpointSpec(dict):
     def no_suspension(self) -> Optional[_builtins.bool]:
         """
         When set to true, explicitly disables automatic suspension (never suspend).
-        Should be set to true when provided
+        Should be set to true when provided.
+        Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.suspension` in the update_mask
         """
         return pulumi.get(self, "no_suspension")
 
@@ -46701,6 +46773,8 @@ class PostgresEndpointStatus(dict):
             suggest = "autoscaling_limit_min_cu"
         elif key == "currentState":
             suggest = "current_state"
+        elif key == "endpointId":
+            suggest = "endpoint_id"
         elif key == "endpointType":
             suggest = "endpoint_type"
         elif key == "pendingState":
@@ -46724,6 +46798,7 @@ class PostgresEndpointStatus(dict):
                  autoscaling_limit_min_cu: Optional[_builtins.float] = None,
                  current_state: Optional[_builtins.str] = None,
                  disabled: Optional[_builtins.bool] = None,
+                 endpoint_id: Optional[_builtins.str] = None,
                  endpoint_type: Optional[_builtins.str] = None,
                  group: Optional['outputs.PostgresEndpointStatusGroup'] = None,
                  hosts: Optional['outputs.PostgresEndpointStatusHosts'] = None,
@@ -46731,13 +46806,17 @@ class PostgresEndpointStatus(dict):
                  settings: Optional['outputs.PostgresEndpointStatusSettings'] = None,
                  suspend_timeout_duration: Optional[_builtins.str] = None):
         """
-        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units
+        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units. The maximum value is 64.
+               The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         :param _builtins.float autoscaling_limit_min_cu: (number) - The minimum number of Compute Units
         :param _builtins.str current_state: (string) - Possible values are: `ACTIVE`, `DEGRADED`, `IDLE`, `INIT`
         :param _builtins.bool disabled: (boolean) - Whether to restrict connections to the compute endpoint.
                Enabling this option schedules a suspend compute operation.
                A disabled compute endpoint cannot be enabled by a connection or
                console action
+        :param _builtins.str endpoint_id: The ID to use for the Endpoint. This becomes the final component of the endpoint's resource name.
+               The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
+               For example, `primary` becomes `projects/my-app/branches/development/endpoints/primary`
         :param _builtins.str endpoint_type: (string) - The endpoint type. A branch can only have one READ_WRITE endpoint. Possible values are: `ENDPOINT_TYPE_READ_ONLY`, `ENDPOINT_TYPE_READ_WRITE`
         :param 'PostgresEndpointStatusGroupArgs' group: (EndpointGroupStatus) - Details on the HA configuration of the endpoint
         :param 'PostgresEndpointStatusHostsArgs' hosts: (EndpointHosts) - Contains host information for connecting to the endpoint
@@ -46753,6 +46832,8 @@ class PostgresEndpointStatus(dict):
             pulumi.set(__self__, "current_state", current_state)
         if disabled is not None:
             pulumi.set(__self__, "disabled", disabled)
+        if endpoint_id is not None:
+            pulumi.set(__self__, "endpoint_id", endpoint_id)
         if endpoint_type is not None:
             pulumi.set(__self__, "endpoint_type", endpoint_type)
         if group is not None:
@@ -46770,7 +46851,8 @@ class PostgresEndpointStatus(dict):
     @pulumi.getter(name="autoscalingLimitMaxCu")
     def autoscaling_limit_max_cu(self) -> Optional[_builtins.float]:
         """
-        (number) - The maximum number of Compute Units
+        (number) - The maximum number of Compute Units. The maximum value is 64.
+        The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         """
         return pulumi.get(self, "autoscaling_limit_max_cu")
 
@@ -46800,6 +46882,16 @@ class PostgresEndpointStatus(dict):
         console action
         """
         return pulumi.get(self, "disabled")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointId")
+    def endpoint_id(self) -> Optional[_builtins.str]:
+        """
+        The ID to use for the Endpoint. This becomes the final component of the endpoint's resource name.
+        The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
+        For example, `primary` becomes `projects/my-app/branches/development/endpoints/primary`
+        """
+        return pulumi.get(self, "endpoint_id")
 
     @_builtins.property
     @pulumi.getter(name="endpointType")
@@ -47314,10 +47406,12 @@ class PostgresProjectSpecDefaultEndpointSettings(dict):
         :param _builtins.float autoscaling_limit_max_cu: The maximum number of Compute Units. Minimum value is 0.5
         :param _builtins.float autoscaling_limit_min_cu: The minimum number of Compute Units. Minimum value is 0.5
         :param _builtins.bool no_suspension: When set to true, explicitly disables automatic suspension (never suspend).
-               Should be set to true when provided
+               Should be set to true when provided.
+               Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         :param Mapping[str, _builtins.str] pg_settings: A raw representation of Postgres settings
         :param _builtins.str suspend_timeout_duration: Duration of inactivity after which the compute endpoint is automatically suspended.
-               If specified should be between 60s and 604800s (1 minute to 1 week)
+               If specified should be between 60s and 604800s (1 minute to 1 week).
+               Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         if autoscaling_limit_max_cu is not None:
             pulumi.set(__self__, "autoscaling_limit_max_cu", autoscaling_limit_max_cu)
@@ -47351,7 +47445,8 @@ class PostgresProjectSpecDefaultEndpointSettings(dict):
     def no_suspension(self) -> Optional[_builtins.bool]:
         """
         When set to true, explicitly disables automatic suspension (never suspend).
-        Should be set to true when provided
+        Should be set to true when provided.
+        Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "no_suspension")
 
@@ -47368,7 +47463,8 @@ class PostgresProjectSpecDefaultEndpointSettings(dict):
     def suspend_timeout_duration(self) -> Optional[_builtins.str]:
         """
         Duration of inactivity after which the compute endpoint is automatically suspended.
-        If specified should be between 60s and 604800s (1 minute to 1 week)
+        If specified should be between 60s and 604800s (1 minute to 1 week).
+        Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "suspend_timeout_duration")
 
@@ -47396,6 +47492,8 @@ class PostgresProjectStatus(dict):
             suggest = "history_retention_duration"
         elif key == "pgVersion":
             suggest = "pg_version"
+        elif key == "projectId":
+            suggest = "project_id"
         elif key == "syntheticStorageSizeBytes":
             suggest = "synthetic_storage_size_bytes"
 
@@ -47421,6 +47519,7 @@ class PostgresProjectStatus(dict):
                  history_retention_duration: Optional[_builtins.str] = None,
                  owner: Optional[_builtins.str] = None,
                  pg_version: Optional[_builtins.int] = None,
+                 project_id: Optional[_builtins.str] = None,
                  synthetic_storage_size_bytes: Optional[_builtins.int] = None):
         """
         :param _builtins.int branch_logical_size_limit_bytes: (integer) - The logical size limit for a branch
@@ -47433,6 +47532,9 @@ class PostgresProjectStatus(dict):
         :param _builtins.str history_retention_duration: (string) - The effective number of seconds to retain the shared history for point in time recovery
         :param _builtins.str owner: (string) - The email of the project owner
         :param _builtins.int pg_version: (integer) - The effective major Postgres version number
+        :param _builtins.str project_id: The ID to use for the Project. This becomes the final component of the project's resource name.
+               The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
+               For example, `my-app` becomes `projects/my-app`
         :param _builtins.int synthetic_storage_size_bytes: (integer) - The current space occupied by the project in storage
         """
         if branch_logical_size_limit_bytes is not None:
@@ -47455,6 +47557,8 @@ class PostgresProjectStatus(dict):
             pulumi.set(__self__, "owner", owner)
         if pg_version is not None:
             pulumi.set(__self__, "pg_version", pg_version)
+        if project_id is not None:
+            pulumi.set(__self__, "project_id", project_id)
         if synthetic_storage_size_bytes is not None:
             pulumi.set(__self__, "synthetic_storage_size_bytes", synthetic_storage_size_bytes)
 
@@ -47539,6 +47643,16 @@ class PostgresProjectStatus(dict):
         return pulumi.get(self, "pg_version")
 
     @_builtins.property
+    @pulumi.getter(name="projectId")
+    def project_id(self) -> Optional[_builtins.str]:
+        """
+        The ID to use for the Project. This becomes the final component of the project's resource name.
+        The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
+        For example, `my-app` becomes `projects/my-app`
+        """
+        return pulumi.get(self, "project_id")
+
+    @_builtins.property
     @pulumi.getter(name="syntheticStorageSizeBytes")
     def synthetic_storage_size_bytes(self) -> Optional[_builtins.int]:
         """
@@ -47615,10 +47729,12 @@ class PostgresProjectStatusDefaultEndpointSettings(dict):
         :param _builtins.float autoscaling_limit_max_cu: The maximum number of Compute Units. Minimum value is 0.5
         :param _builtins.float autoscaling_limit_min_cu: The minimum number of Compute Units. Minimum value is 0.5
         :param _builtins.bool no_suspension: When set to true, explicitly disables automatic suspension (never suspend).
-               Should be set to true when provided
+               Should be set to true when provided.
+               Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         :param Mapping[str, _builtins.str] pg_settings: A raw representation of Postgres settings
         :param _builtins.str suspend_timeout_duration: Duration of inactivity after which the compute endpoint is automatically suspended.
-               If specified should be between 60s and 604800s (1 minute to 1 week)
+               If specified should be between 60s and 604800s (1 minute to 1 week).
+               Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         if autoscaling_limit_max_cu is not None:
             pulumi.set(__self__, "autoscaling_limit_max_cu", autoscaling_limit_max_cu)
@@ -47652,7 +47768,8 @@ class PostgresProjectStatusDefaultEndpointSettings(dict):
     def no_suspension(self) -> Optional[_builtins.bool]:
         """
         When set to true, explicitly disables automatic suspension (never suspend).
-        Should be set to true when provided
+        Should be set to true when provided.
+        Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "no_suspension")
 
@@ -47669,7 +47786,8 @@ class PostgresProjectStatusDefaultEndpointSettings(dict):
     def suspend_timeout_duration(self) -> Optional[_builtins.str]:
         """
         Duration of inactivity after which the compute endpoint is automatically suspended.
-        If specified should be between 60s and 604800s (1 minute to 1 week)
+        If specified should be between 60s and 604800s (1 minute to 1 week).
+        Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "suspend_timeout_duration")
 
@@ -47819,6 +47937,8 @@ class PostgresRoleStatus(dict):
             suggest = "membership_roles"
         elif key == "postgresRole":
             suggest = "postgres_role"
+        elif key == "roleId":
+            suggest = "role_id"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PostgresRoleStatus. Access the value via the '{suggest}' property getter instead.")
@@ -47836,7 +47956,18 @@ class PostgresRoleStatus(dict):
                  auth_method: Optional[_builtins.str] = None,
                  identity_type: Optional[_builtins.str] = None,
                  membership_roles: Optional[Sequence[_builtins.str]] = None,
-                 postgres_role: Optional[_builtins.str] = None):
+                 postgres_role: Optional[_builtins.str] = None,
+                 role_id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str role_id: The ID to use for the Role, which will become the final component of
+               the role's resource name.
+               This ID becomes the role in Postgres.
+               
+               This value should be 4-63 characters, and valid characters
+               are lowercase letters, numbers, and hyphens, as defined by RFC 1123.
+               
+               If role_id is not specified in the request, it is generated automatically
+        """
         if attributes is not None:
             pulumi.set(__self__, "attributes", attributes)
         if auth_method is not None:
@@ -47847,6 +47978,8 @@ class PostgresRoleStatus(dict):
             pulumi.set(__self__, "membership_roles", membership_roles)
         if postgres_role is not None:
             pulumi.set(__self__, "postgres_role", postgres_role)
+        if role_id is not None:
+            pulumi.set(__self__, "role_id", role_id)
 
     @_builtins.property
     @pulumi.getter
@@ -47872,6 +48005,21 @@ class PostgresRoleStatus(dict):
     @pulumi.getter(name="postgresRole")
     def postgres_role(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "postgres_role")
+
+    @_builtins.property
+    @pulumi.getter(name="roleId")
+    def role_id(self) -> Optional[_builtins.str]:
+        """
+        The ID to use for the Role, which will become the final component of
+        the role's resource name.
+        This ID becomes the role in Postgres.
+
+        This value should be 4-63 characters, and valid characters
+        are lowercase letters, numbers, and hyphens, as defined by RFC 1123.
+
+        If role_id is not specified in the request, it is generated automatically
+        """
+        return pulumi.get(self, "role_id")
 
 
 @pulumi.output_type
@@ -48237,6 +48385,7 @@ class PostgresSyncedTableStatus(dict):
                  message: Optional[_builtins.str] = None,
                  ongoing_sync_progress: Optional['outputs.PostgresSyncedTableStatusOngoingSyncProgress'] = None,
                  pipeline_id: Optional[_builtins.str] = None,
+                 project: Optional[_builtins.str] = None,
                  provisioning_phase: Optional[_builtins.str] = None,
                  unity_catalog_provisioning_state: Optional[_builtins.str] = None):
         """
@@ -48248,6 +48397,7 @@ class PostgresSyncedTableStatus(dict):
         :param _builtins.str message: (string) - A text description of the current state of the synced table
         :param 'PostgresSyncedTableStatusOngoingSyncProgressArgs' ongoing_sync_progress: (SyncedTablePipelineProgress)
         :param _builtins.str pipeline_id: (string) - ID of the associated pipeline
+        :param _builtins.str project: (string) - The full resource name of the project associated with the table.
         :param _builtins.str provisioning_phase: (string) - The current phase of the data synchronization pipeline. Possible values are: `PROVISIONING_PHASE_INDEX_SCAN`, `PROVISIONING_PHASE_INDEX_SORT`, `PROVISIONING_PHASE_MAIN`
         :param _builtins.str unity_catalog_provisioning_state: (string) - The provisioning state of the synced table entity in Unity Catalog. Possible values are: `ACTIVE`, `DEGRADED`, `DELETING`, `FAILED`, `PROVISIONING`, `UPDATING`
         """
@@ -48265,6 +48415,8 @@ class PostgresSyncedTableStatus(dict):
             pulumi.set(__self__, "ongoing_sync_progress", ongoing_sync_progress)
         if pipeline_id is not None:
             pulumi.set(__self__, "pipeline_id", pipeline_id)
+        if project is not None:
+            pulumi.set(__self__, "project", project)
         if provisioning_phase is not None:
             pulumi.set(__self__, "provisioning_phase", provisioning_phase)
         if unity_catalog_provisioning_state is not None:
@@ -48326,6 +48478,14 @@ class PostgresSyncedTableStatus(dict):
         (string) - ID of the associated pipeline
         """
         return pulumi.get(self, "pipeline_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def project(self) -> Optional[_builtins.str]:
+        """
+        (string) - The full resource name of the project associated with the table.
+        """
+        return pulumi.get(self, "project")
 
     @_builtins.property
     @pulumi.getter(name="provisioningPhase")
@@ -89916,12 +90076,14 @@ class GetPostgresBranchSpecResult(dict):
         :param _builtins.str expire_time: (string) - Absolute expiration time for the branch. Empty if expiration is disabled
         :param _builtins.bool is_protected: (boolean) - Whether the branch is protected
         :param _builtins.bool no_expiry: (boolean) - Explicitly disable expiration. When set to true, the branch will not expire.
-               If set to false, the request is invalid; provide either ttl or expire_time instead
+               If set to false, the request is invalid; provide either ttl or expire_time instead.
+               Mutually exclusive with `expire_time` and `ttl`. When updating, use `spec.expiration` in the update_mask
         :param _builtins.str source_branch: (string) - The name of the source branch from which this branch was created.
                Format: projects/{project_id}/branches/{branch_id}
         :param _builtins.str source_branch_lsn: (string) - The Log Sequence Number (LSN) on the source branch from which this branch was created
         :param _builtins.str source_branch_time: (string) - The point in time on the source branch from which this branch was created
-        :param _builtins.str ttl: (string) - Relative time-to-live duration. When set, the branch will expire at creation_time + ttl
+        :param _builtins.str ttl: (string) - Relative time-to-live duration. When set, the branch will expire at creation_time + ttl.
+               Mutually exclusive with `expire_time` and `no_expiry`. When updating, use `spec.expiration` in the update_mask
         """
         if expire_time is not None:
             pulumi.set(__self__, "expire_time", expire_time)
@@ -89959,7 +90121,8 @@ class GetPostgresBranchSpecResult(dict):
     def no_expiry(self) -> Optional[_builtins.bool]:
         """
         (boolean) - Explicitly disable expiration. When set to true, the branch will not expire.
-        If set to false, the request is invalid; provide either ttl or expire_time instead
+        If set to false, the request is invalid; provide either ttl or expire_time instead.
+        Mutually exclusive with `expire_time` and `ttl`. When updating, use `spec.expiration` in the update_mask
         """
         return pulumi.get(self, "no_expiry")
 
@@ -89992,7 +90155,8 @@ class GetPostgresBranchSpecResult(dict):
     @pulumi.getter
     def ttl(self) -> Optional[_builtins.str]:
         """
-        (string) - Relative time-to-live duration. When set, the branch will expire at creation_time + ttl
+        (string) - Relative time-to-live duration. When set, the branch will expire at creation_time + ttl.
+        Mutually exclusive with `expire_time` and `no_expiry`. When updating, use `spec.expiration` in the update_mask
         """
         return pulumi.get(self, "ttl")
 
@@ -90000,6 +90164,7 @@ class GetPostgresBranchSpecResult(dict):
 @pulumi.output_type
 class GetPostgresBranchStatusResult(dict):
     def __init__(__self__, *,
+                 branch_id: _builtins.str,
                  current_state: _builtins.str,
                  default: _builtins.bool,
                  expire_time: _builtins.str,
@@ -90011,6 +90176,8 @@ class GetPostgresBranchStatusResult(dict):
                  source_branch_time: _builtins.str,
                  state_change_time: _builtins.str):
         """
+        :param _builtins.str branch_id: (string) - The short identifier of the branch, suitable for showing to the users.
+               For a branch with name `projects/my-project/branches/my-branch`, the branch_id is `my-branch`.
         :param _builtins.str current_state: (string) - The branch's state, indicating if it is initializing, ready for use, or archived. Possible values are: `ARCHIVED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
         :param _builtins.bool default: (boolean) - Whether the branch is the project's default branch
         :param _builtins.str expire_time: (string) - Absolute expiration time for the branch. Empty if expiration is disabled
@@ -90023,6 +90190,7 @@ class GetPostgresBranchStatusResult(dict):
         :param _builtins.str source_branch_time: (string) - The point in time on the source branch from which this branch was created
         :param _builtins.str state_change_time: (string) - A timestamp indicating when the `current_state` began
         """
+        pulumi.set(__self__, "branch_id", branch_id)
         pulumi.set(__self__, "current_state", current_state)
         pulumi.set(__self__, "default", default)
         pulumi.set(__self__, "expire_time", expire_time)
@@ -90033,6 +90201,15 @@ class GetPostgresBranchStatusResult(dict):
         pulumi.set(__self__, "source_branch_lsn", source_branch_lsn)
         pulumi.set(__self__, "source_branch_time", source_branch_time)
         pulumi.set(__self__, "state_change_time", state_change_time)
+
+    @_builtins.property
+    @pulumi.getter(name="branchId")
+    def branch_id(self) -> _builtins.str:
+        """
+        (string) - The short identifier of the branch, suitable for showing to the users.
+        For a branch with name `projects/my-project/branches/my-branch`, the branch_id is `my-branch`.
+        """
+        return pulumi.get(self, "branch_id")
 
     @_builtins.property
     @pulumi.getter(name="currentState")
@@ -90248,12 +90425,14 @@ class GetPostgresBranchesBranchSpecResult(dict):
         :param _builtins.str expire_time: (string) - Absolute expiration time for the branch. Empty if expiration is disabled
         :param _builtins.bool is_protected: (boolean) - Whether the branch is protected
         :param _builtins.bool no_expiry: (boolean) - Explicitly disable expiration. When set to true, the branch will not expire.
-               If set to false, the request is invalid; provide either ttl or expire_time instead
+               If set to false, the request is invalid; provide either ttl or expire_time instead.
+               Mutually exclusive with `expire_time` and `ttl`. When updating, use `spec.expiration` in the update_mask
         :param _builtins.str source_branch: (string) - The name of the source branch from which this branch was created.
                Format: projects/{project_id}/branches/{branch_id}
         :param _builtins.str source_branch_lsn: (string) - The Log Sequence Number (LSN) on the source branch from which this branch was created
         :param _builtins.str source_branch_time: (string) - The point in time on the source branch from which this branch was created
-        :param _builtins.str ttl: (string) - Relative time-to-live duration. When set, the branch will expire at creation_time + ttl
+        :param _builtins.str ttl: (string) - Relative time-to-live duration. When set, the branch will expire at creation_time + ttl.
+               Mutually exclusive with `expire_time` and `no_expiry`. When updating, use `spec.expiration` in the update_mask
         """
         if expire_time is not None:
             pulumi.set(__self__, "expire_time", expire_time)
@@ -90291,7 +90470,8 @@ class GetPostgresBranchesBranchSpecResult(dict):
     def no_expiry(self) -> Optional[_builtins.bool]:
         """
         (boolean) - Explicitly disable expiration. When set to true, the branch will not expire.
-        If set to false, the request is invalid; provide either ttl or expire_time instead
+        If set to false, the request is invalid; provide either ttl or expire_time instead.
+        Mutually exclusive with `expire_time` and `ttl`. When updating, use `spec.expiration` in the update_mask
         """
         return pulumi.get(self, "no_expiry")
 
@@ -90324,7 +90504,8 @@ class GetPostgresBranchesBranchSpecResult(dict):
     @pulumi.getter
     def ttl(self) -> Optional[_builtins.str]:
         """
-        (string) - Relative time-to-live duration. When set, the branch will expire at creation_time + ttl
+        (string) - Relative time-to-live duration. When set, the branch will expire at creation_time + ttl.
+        Mutually exclusive with `expire_time` and `no_expiry`. When updating, use `spec.expiration` in the update_mask
         """
         return pulumi.get(self, "ttl")
 
@@ -90332,6 +90513,7 @@ class GetPostgresBranchesBranchSpecResult(dict):
 @pulumi.output_type
 class GetPostgresBranchesBranchStatusResult(dict):
     def __init__(__self__, *,
+                 branch_id: _builtins.str,
                  current_state: _builtins.str,
                  default: _builtins.bool,
                  expire_time: _builtins.str,
@@ -90343,6 +90525,8 @@ class GetPostgresBranchesBranchStatusResult(dict):
                  source_branch_time: _builtins.str,
                  state_change_time: _builtins.str):
         """
+        :param _builtins.str branch_id: (string) - The short identifier of the branch, suitable for showing to the users.
+               For a branch with name `projects/my-project/branches/my-branch`, the branch_id is `my-branch`.
         :param _builtins.str current_state: (string) - The branch's state, indicating if it is initializing, ready for use, or archived. Possible values are: `ARCHIVED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
         :param _builtins.bool default: (boolean) - Whether the branch is the project's default branch
         :param _builtins.str expire_time: (string) - Absolute expiration time for the branch. Empty if expiration is disabled
@@ -90355,6 +90539,7 @@ class GetPostgresBranchesBranchStatusResult(dict):
         :param _builtins.str source_branch_time: (string) - The point in time on the source branch from which this branch was created
         :param _builtins.str state_change_time: (string) - A timestamp indicating when the `current_state` began
         """
+        pulumi.set(__self__, "branch_id", branch_id)
         pulumi.set(__self__, "current_state", current_state)
         pulumi.set(__self__, "default", default)
         pulumi.set(__self__, "expire_time", expire_time)
@@ -90365,6 +90550,15 @@ class GetPostgresBranchesBranchStatusResult(dict):
         pulumi.set(__self__, "source_branch_lsn", source_branch_lsn)
         pulumi.set(__self__, "source_branch_time", source_branch_time)
         pulumi.set(__self__, "state_change_time", state_change_time)
+
+    @_builtins.property
+    @pulumi.getter(name="branchId")
+    def branch_id(self) -> _builtins.str:
+        """
+        (string) - The short identifier of the branch, suitable for showing to the users.
+        For a branch with name `projects/my-project/branches/my-branch`, the branch_id is `my-branch`.
+        """
+        return pulumi.get(self, "branch_id")
 
     @_builtins.property
     @pulumi.getter(name="currentState")
@@ -90533,14 +90727,18 @@ class GetPostgresCatalogSpecResult(dict):
 class GetPostgresCatalogStatusResult(dict):
     def __init__(__self__, *,
                  branch: _builtins.str,
+                 catalog_id: _builtins.str,
                  postgres_database: _builtins.str,
                  project: _builtins.str):
         """
         :param _builtins.str branch: (string) - The resource path of the branch associated with the catalog.
+        :param _builtins.str catalog_id: (string) - The short identifier of the catalog, suitable for showing to the users.
+               For a catalog with name `catalogs/my-catalog`, the catalog_id is `my-catalog`.
         :param _builtins.str postgres_database: (string) - The name of the Postgres database associated with the catalog
         :param _builtins.str project: (string) - The resource path of the project associated with the catalog.
         """
         pulumi.set(__self__, "branch", branch)
+        pulumi.set(__self__, "catalog_id", catalog_id)
         pulumi.set(__self__, "postgres_database", postgres_database)
         pulumi.set(__self__, "project", project)
 
@@ -90551,6 +90749,15 @@ class GetPostgresCatalogStatusResult(dict):
         (string) - The resource path of the branch associated with the catalog.
         """
         return pulumi.get(self, "branch")
+
+    @_builtins.property
+    @pulumi.getter(name="catalogId")
+    def catalog_id(self) -> _builtins.str:
+        """
+        (string) - The short identifier of the catalog, suitable for showing to the users.
+        For a catalog with name `catalogs/my-catalog`, the catalog_id is `my-catalog`.
+        """
+        return pulumi.get(self, "catalog_id")
 
     @_builtins.property
     @pulumi.getter(name="postgresDatabase")
@@ -90623,17 +90830,32 @@ class GetPostgresDatabaseSpecResult(dict):
 @pulumi.output_type
 class GetPostgresDatabaseStatusResult(dict):
     def __init__(__self__, *,
+                 database_id: _builtins.str,
                  postgres_database: Optional[_builtins.str] = None,
                  role: Optional[_builtins.str] = None):
         """
+        :param _builtins.str database_id: (string) - The short identifier of the database, suitable for showing to the users.
+               For a database with name `projects/my-project/branches/my-branch/databases/my-db`,
+               the database_id is `my-db`.
         :param _builtins.str postgres_database: (string) - The name of the Postgres database
         :param _builtins.str role: (string) - The name of the role that owns the database.
                Format: projects/{project_id}/branches/{branch_id}/roles/{role_id}
         """
+        pulumi.set(__self__, "database_id", database_id)
         if postgres_database is not None:
             pulumi.set(__self__, "postgres_database", postgres_database)
         if role is not None:
             pulumi.set(__self__, "role", role)
+
+    @_builtins.property
+    @pulumi.getter(name="databaseId")
+    def database_id(self) -> _builtins.str:
+        """
+        (string) - The short identifier of the database, suitable for showing to the users.
+        For a database with name `projects/my-project/branches/my-branch/databases/my-db`,
+        the database_id is `my-db`.
+        """
+        return pulumi.get(self, "database_id")
 
     @_builtins.property
     @pulumi.getter(name="postgresDatabase")
@@ -90796,17 +91018,32 @@ class GetPostgresDatabasesDatabaseSpecResult(dict):
 @pulumi.output_type
 class GetPostgresDatabasesDatabaseStatusResult(dict):
     def __init__(__self__, *,
+                 database_id: _builtins.str,
                  postgres_database: Optional[_builtins.str] = None,
                  role: Optional[_builtins.str] = None):
         """
+        :param _builtins.str database_id: (string) - The short identifier of the database, suitable for showing to the users.
+               For a database with name `projects/my-project/branches/my-branch/databases/my-db`,
+               the database_id is `my-db`.
         :param _builtins.str postgres_database: (string) - The name of the Postgres database
         :param _builtins.str role: (string) - The name of the role that owns the database.
                Format: projects/{project_id}/branches/{branch_id}/roles/{role_id}
         """
+        pulumi.set(__self__, "database_id", database_id)
         if postgres_database is not None:
             pulumi.set(__self__, "postgres_database", postgres_database)
         if role is not None:
             pulumi.set(__self__, "role", role)
+
+    @_builtins.property
+    @pulumi.getter(name="databaseId")
+    def database_id(self) -> _builtins.str:
+        """
+        (string) - The short identifier of the database, suitable for showing to the users.
+        For a database with name `projects/my-project/branches/my-branch/databases/my-db`,
+        the database_id is `my-db`.
+        """
+        return pulumi.get(self, "database_id")
 
     @_builtins.property
     @pulumi.getter(name="postgresDatabase")
@@ -90875,7 +91112,8 @@ class GetPostgresEndpointSpecResult(dict):
                  suspend_timeout_duration: Optional[_builtins.str] = None):
         """
         :param _builtins.str endpoint_type: (string) - The endpoint type. A branch can only have one READ_WRITE endpoint. Possible values are: `ENDPOINT_TYPE_READ_ONLY`, `ENDPOINT_TYPE_READ_WRITE`
-        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units
+        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units. The maximum value is 64.
+               The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         :param _builtins.float autoscaling_limit_min_cu: (number) - The minimum number of Compute Units
         :param _builtins.bool disabled: (boolean) - Whether to restrict connections to the compute endpoint.
                Enabling this option schedules a suspend compute operation.
@@ -90883,7 +91121,8 @@ class GetPostgresEndpointSpecResult(dict):
                console action
         :param 'GetPostgresEndpointSpecGroupArgs' group: (EndpointGroupStatus) - Details on the HA configuration of the endpoint
         :param _builtins.bool no_suspension: (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-               Should be set to true when provided
+               Should be set to true when provided.
+               Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.suspension` in the update_mask
         :param 'GetPostgresEndpointSpecSettingsArgs' settings: (EndpointSettings)
         :param _builtins.str suspend_timeout_duration: (string) - Duration of inactivity after which the compute endpoint is automatically suspended
         """
@@ -90915,7 +91154,8 @@ class GetPostgresEndpointSpecResult(dict):
     @pulumi.getter(name="autoscalingLimitMaxCu")
     def autoscaling_limit_max_cu(self) -> Optional[_builtins.float]:
         """
-        (number) - The maximum number of Compute Units
+        (number) - The maximum number of Compute Units. The maximum value is 64.
+        The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         """
         return pulumi.get(self, "autoscaling_limit_max_cu")
 
@@ -90951,7 +91191,8 @@ class GetPostgresEndpointSpecResult(dict):
     def no_suspension(self) -> Optional[_builtins.bool]:
         """
         (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-        Should be set to true when provided
+        Should be set to true when provided.
+        Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.suspension` in the update_mask
         """
         return pulumi.get(self, "no_suspension")
 
@@ -91047,6 +91288,7 @@ class GetPostgresEndpointStatusResult(dict):
                  autoscaling_limit_min_cu: _builtins.float,
                  current_state: _builtins.str,
                  disabled: _builtins.bool,
+                 endpoint_id: _builtins.str,
                  endpoint_type: _builtins.str,
                  group: 'outputs.GetPostgresEndpointStatusGroupResult',
                  hosts: 'outputs.GetPostgresEndpointStatusHostsResult',
@@ -91054,13 +91296,17 @@ class GetPostgresEndpointStatusResult(dict):
                  settings: 'outputs.GetPostgresEndpointStatusSettingsResult',
                  suspend_timeout_duration: _builtins.str):
         """
-        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units
+        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units. The maximum value is 64.
+               The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         :param _builtins.float autoscaling_limit_min_cu: (number) - The minimum number of Compute Units
         :param _builtins.str current_state: (string) - Possible values are: `ACTIVE`, `DEGRADED`, `IDLE`, `INIT`
         :param _builtins.bool disabled: (boolean) - Whether to restrict connections to the compute endpoint.
                Enabling this option schedules a suspend compute operation.
                A disabled compute endpoint cannot be enabled by a connection or
                console action
+        :param _builtins.str endpoint_id: (string) - The short identifier of the endpoint, suitable for showing to the users.
+               For an endpoint with name `projects/my-project/branches/my-branch/endpoints/my-endpoint`,
+               the endpoint_id is `my-endpoint`.
         :param _builtins.str endpoint_type: (string) - The endpoint type. A branch can only have one READ_WRITE endpoint. Possible values are: `ENDPOINT_TYPE_READ_ONLY`, `ENDPOINT_TYPE_READ_WRITE`
         :param 'GetPostgresEndpointStatusGroupArgs' group: (EndpointGroupStatus) - Details on the HA configuration of the endpoint
         :param 'GetPostgresEndpointStatusHostsArgs' hosts: (EndpointHosts) - Contains host information for connecting to the endpoint
@@ -91072,6 +91318,7 @@ class GetPostgresEndpointStatusResult(dict):
         pulumi.set(__self__, "autoscaling_limit_min_cu", autoscaling_limit_min_cu)
         pulumi.set(__self__, "current_state", current_state)
         pulumi.set(__self__, "disabled", disabled)
+        pulumi.set(__self__, "endpoint_id", endpoint_id)
         pulumi.set(__self__, "endpoint_type", endpoint_type)
         pulumi.set(__self__, "group", group)
         pulumi.set(__self__, "hosts", hosts)
@@ -91083,7 +91330,8 @@ class GetPostgresEndpointStatusResult(dict):
     @pulumi.getter(name="autoscalingLimitMaxCu")
     def autoscaling_limit_max_cu(self) -> _builtins.float:
         """
-        (number) - The maximum number of Compute Units
+        (number) - The maximum number of Compute Units. The maximum value is 64.
+        The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         """
         return pulumi.get(self, "autoscaling_limit_max_cu")
 
@@ -91113,6 +91361,16 @@ class GetPostgresEndpointStatusResult(dict):
         console action
         """
         return pulumi.get(self, "disabled")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointId")
+    def endpoint_id(self) -> _builtins.str:
+        """
+        (string) - The short identifier of the endpoint, suitable for showing to the users.
+        For an endpoint with name `projects/my-project/branches/my-branch/endpoints/my-endpoint`,
+        the endpoint_id is `my-endpoint`.
+        """
+        return pulumi.get(self, "endpoint_id")
 
     @_builtins.property
     @pulumi.getter(name="endpointType")
@@ -91396,7 +91654,8 @@ class GetPostgresEndpointsEndpointSpecResult(dict):
                  suspend_timeout_duration: Optional[_builtins.str] = None):
         """
         :param _builtins.str endpoint_type: (string) - The endpoint type. A branch can only have one READ_WRITE endpoint. Possible values are: `ENDPOINT_TYPE_READ_ONLY`, `ENDPOINT_TYPE_READ_WRITE`
-        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units
+        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units. The maximum value is 64.
+               The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         :param _builtins.float autoscaling_limit_min_cu: (number) - The minimum number of Compute Units
         :param _builtins.bool disabled: (boolean) - Whether to restrict connections to the compute endpoint.
                Enabling this option schedules a suspend compute operation.
@@ -91404,7 +91663,8 @@ class GetPostgresEndpointsEndpointSpecResult(dict):
                console action
         :param 'GetPostgresEndpointsEndpointSpecGroupArgs' group: (EndpointGroupStatus) - Details on the HA configuration of the endpoint
         :param _builtins.bool no_suspension: (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-               Should be set to true when provided
+               Should be set to true when provided.
+               Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.suspension` in the update_mask
         :param 'GetPostgresEndpointsEndpointSpecSettingsArgs' settings: (EndpointSettings)
         :param _builtins.str suspend_timeout_duration: (string) - Duration of inactivity after which the compute endpoint is automatically suspended
         """
@@ -91436,7 +91696,8 @@ class GetPostgresEndpointsEndpointSpecResult(dict):
     @pulumi.getter(name="autoscalingLimitMaxCu")
     def autoscaling_limit_max_cu(self) -> Optional[_builtins.float]:
         """
-        (number) - The maximum number of Compute Units
+        (number) - The maximum number of Compute Units. The maximum value is 64.
+        The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         """
         return pulumi.get(self, "autoscaling_limit_max_cu")
 
@@ -91472,7 +91733,8 @@ class GetPostgresEndpointsEndpointSpecResult(dict):
     def no_suspension(self) -> Optional[_builtins.bool]:
         """
         (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-        Should be set to true when provided
+        Should be set to true when provided.
+        Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.suspension` in the update_mask
         """
         return pulumi.get(self, "no_suspension")
 
@@ -91568,6 +91830,7 @@ class GetPostgresEndpointsEndpointStatusResult(dict):
                  autoscaling_limit_min_cu: _builtins.float,
                  current_state: _builtins.str,
                  disabled: _builtins.bool,
+                 endpoint_id: _builtins.str,
                  endpoint_type: _builtins.str,
                  group: 'outputs.GetPostgresEndpointsEndpointStatusGroupResult',
                  hosts: 'outputs.GetPostgresEndpointsEndpointStatusHostsResult',
@@ -91575,13 +91838,17 @@ class GetPostgresEndpointsEndpointStatusResult(dict):
                  settings: 'outputs.GetPostgresEndpointsEndpointStatusSettingsResult',
                  suspend_timeout_duration: _builtins.str):
         """
-        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units
+        :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units. The maximum value is 64.
+               The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         :param _builtins.float autoscaling_limit_min_cu: (number) - The minimum number of Compute Units
         :param _builtins.str current_state: (string) - Possible values are: `ACTIVE`, `DEGRADED`, `IDLE`, `INIT`
         :param _builtins.bool disabled: (boolean) - Whether to restrict connections to the compute endpoint.
                Enabling this option schedules a suspend compute operation.
                A disabled compute endpoint cannot be enabled by a connection or
                console action
+        :param _builtins.str endpoint_id: (string) - The short identifier of the endpoint, suitable for showing to the users.
+               For an endpoint with name `projects/my-project/branches/my-branch/endpoints/my-endpoint`,
+               the endpoint_id is `my-endpoint`.
         :param _builtins.str endpoint_type: (string) - The endpoint type. A branch can only have one READ_WRITE endpoint. Possible values are: `ENDPOINT_TYPE_READ_ONLY`, `ENDPOINT_TYPE_READ_WRITE`
         :param 'GetPostgresEndpointsEndpointStatusGroupArgs' group: (EndpointGroupStatus) - Details on the HA configuration of the endpoint
         :param 'GetPostgresEndpointsEndpointStatusHostsArgs' hosts: (EndpointHosts) - Contains host information for connecting to the endpoint
@@ -91593,6 +91860,7 @@ class GetPostgresEndpointsEndpointStatusResult(dict):
         pulumi.set(__self__, "autoscaling_limit_min_cu", autoscaling_limit_min_cu)
         pulumi.set(__self__, "current_state", current_state)
         pulumi.set(__self__, "disabled", disabled)
+        pulumi.set(__self__, "endpoint_id", endpoint_id)
         pulumi.set(__self__, "endpoint_type", endpoint_type)
         pulumi.set(__self__, "group", group)
         pulumi.set(__self__, "hosts", hosts)
@@ -91604,7 +91872,8 @@ class GetPostgresEndpointsEndpointStatusResult(dict):
     @pulumi.getter(name="autoscalingLimitMaxCu")
     def autoscaling_limit_max_cu(self) -> _builtins.float:
         """
-        (number) - The maximum number of Compute Units
+        (number) - The maximum number of Compute Units. The maximum value is 64.
+        The difference between the minimum and maximum Compute Units (max - min) must not exceed 16
         """
         return pulumi.get(self, "autoscaling_limit_max_cu")
 
@@ -91634,6 +91903,16 @@ class GetPostgresEndpointsEndpointStatusResult(dict):
         console action
         """
         return pulumi.get(self, "disabled")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointId")
+    def endpoint_id(self) -> _builtins.str:
+        """
+        (string) - The short identifier of the endpoint, suitable for showing to the users.
+        For an endpoint with name `projects/my-project/branches/my-branch/endpoints/my-endpoint`,
+        the endpoint_id is `my-endpoint`.
+        """
+        return pulumi.get(self, "endpoint_id")
 
     @_builtins.property
     @pulumi.getter(name="endpointType")
@@ -92036,10 +92315,12 @@ class GetPostgresProjectSpecDefaultEndpointSettingsResult(dict):
         :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units. Minimum value is 0.5
         :param _builtins.float autoscaling_limit_min_cu: (number) - The minimum number of Compute Units. Minimum value is 0.5
         :param _builtins.bool no_suspension: (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-               Should be set to true when provided
+               Should be set to true when provided.
+               Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         :param Mapping[str, _builtins.str] pg_settings: (object) - A raw representation of Postgres settings
         :param _builtins.str suspend_timeout_duration: (string) - Duration of inactivity after which the compute endpoint is automatically suspended.
-               If specified should be between 60s and 604800s (1 minute to 1 week)
+               If specified should be between 60s and 604800s (1 minute to 1 week).
+               Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         if autoscaling_limit_max_cu is not None:
             pulumi.set(__self__, "autoscaling_limit_max_cu", autoscaling_limit_max_cu)
@@ -92073,7 +92354,8 @@ class GetPostgresProjectSpecDefaultEndpointSettingsResult(dict):
     def no_suspension(self) -> Optional[_builtins.bool]:
         """
         (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-        Should be set to true when provided
+        Should be set to true when provided.
+        Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "no_suspension")
 
@@ -92090,7 +92372,8 @@ class GetPostgresProjectSpecDefaultEndpointSettingsResult(dict):
     def suspend_timeout_duration(self) -> Optional[_builtins.str]:
         """
         (string) - Duration of inactivity after which the compute endpoint is automatically suspended.
-        If specified should be between 60s and 604800s (1 minute to 1 week)
+        If specified should be between 60s and 604800s (1 minute to 1 week).
+        Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "suspend_timeout_duration")
 
@@ -92108,6 +92391,7 @@ class GetPostgresProjectStatusResult(dict):
                  history_retention_duration: _builtins.str,
                  owner: _builtins.str,
                  pg_version: _builtins.int,
+                 project_id: _builtins.str,
                  synthetic_storage_size_bytes: _builtins.int):
         """
         :param _builtins.int branch_logical_size_limit_bytes: (integer) - The logical size limit for a branch
@@ -92120,6 +92404,8 @@ class GetPostgresProjectStatusResult(dict):
         :param _builtins.str history_retention_duration: (string) - The effective number of seconds to retain the shared history for point in time recovery
         :param _builtins.str owner: (string) - The email of the project owner
         :param _builtins.int pg_version: (integer) - The effective major Postgres version number
+        :param _builtins.str project_id: (string) - The short identifier of the project, suitable for showing to the users.
+               For a project with name `projects/my-project`, the project_id is `my-project`.
         :param _builtins.int synthetic_storage_size_bytes: (integer) - The current space occupied by the project in storage
         """
         pulumi.set(__self__, "branch_logical_size_limit_bytes", branch_logical_size_limit_bytes)
@@ -92132,6 +92418,7 @@ class GetPostgresProjectStatusResult(dict):
         pulumi.set(__self__, "history_retention_duration", history_retention_duration)
         pulumi.set(__self__, "owner", owner)
         pulumi.set(__self__, "pg_version", pg_version)
+        pulumi.set(__self__, "project_id", project_id)
         pulumi.set(__self__, "synthetic_storage_size_bytes", synthetic_storage_size_bytes)
 
     @_builtins.property
@@ -92215,6 +92502,15 @@ class GetPostgresProjectStatusResult(dict):
         return pulumi.get(self, "pg_version")
 
     @_builtins.property
+    @pulumi.getter(name="projectId")
+    def project_id(self) -> _builtins.str:
+        """
+        (string) - The short identifier of the project, suitable for showing to the users.
+        For a project with name `projects/my-project`, the project_id is `my-project`.
+        """
+        return pulumi.get(self, "project_id")
+
+    @_builtins.property
     @pulumi.getter(name="syntheticStorageSizeBytes")
     def synthetic_storage_size_bytes(self) -> _builtins.int:
         """
@@ -92266,10 +92562,12 @@ class GetPostgresProjectStatusDefaultEndpointSettingsResult(dict):
         :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units. Minimum value is 0.5
         :param _builtins.float autoscaling_limit_min_cu: (number) - The minimum number of Compute Units. Minimum value is 0.5
         :param _builtins.bool no_suspension: (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-               Should be set to true when provided
+               Should be set to true when provided.
+               Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         :param Mapping[str, _builtins.str] pg_settings: (object) - A raw representation of Postgres settings
         :param _builtins.str suspend_timeout_duration: (string) - Duration of inactivity after which the compute endpoint is automatically suspended.
-               If specified should be between 60s and 604800s (1 minute to 1 week)
+               If specified should be between 60s and 604800s (1 minute to 1 week).
+               Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         if autoscaling_limit_max_cu is not None:
             pulumi.set(__self__, "autoscaling_limit_max_cu", autoscaling_limit_max_cu)
@@ -92303,7 +92601,8 @@ class GetPostgresProjectStatusDefaultEndpointSettingsResult(dict):
     def no_suspension(self) -> Optional[_builtins.bool]:
         """
         (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-        Should be set to true when provided
+        Should be set to true when provided.
+        Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "no_suspension")
 
@@ -92320,7 +92619,8 @@ class GetPostgresProjectStatusDefaultEndpointSettingsResult(dict):
     def suspend_timeout_duration(self) -> Optional[_builtins.str]:
         """
         (string) - Duration of inactivity after which the compute endpoint is automatically suspended.
-        If specified should be between 60s and 604800s (1 minute to 1 week)
+        If specified should be between 60s and 604800s (1 minute to 1 week).
+        Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "suspend_timeout_duration")
 
@@ -92329,8 +92629,10 @@ class GetPostgresProjectStatusDefaultEndpointSettingsResult(dict):
 class GetPostgresProjectsProjectResult(dict):
     def __init__(__self__, *,
                  create_time: _builtins.str,
+                 delete_time: _builtins.str,
                  initial_endpoint_spec: 'outputs.GetPostgresProjectsProjectInitialEndpointSpecResult',
                  name: _builtins.str,
+                 purge_time: _builtins.str,
                  spec: 'outputs.GetPostgresProjectsProjectSpecResult',
                  status: 'outputs.GetPostgresProjectsProjectStatusResult',
                  uid: _builtins.str,
@@ -92338,12 +92640,16 @@ class GetPostgresProjectsProjectResult(dict):
                  provider_config: Optional['outputs.GetPostgresProjectsProjectProviderConfigResult'] = None):
         """
         :param _builtins.str create_time: (string) - A timestamp indicating when the project was created
-        :param 'GetPostgresProjectsProjectInitialEndpointSpecArgs' initial_endpoint_spec: (InitialEndpointSpec) - Configuration settings for the initial Read/Write endpoint created inside the default branch for a newly
+        :param _builtins.str delete_time: (string) - A timestamp indicating when the project was soft-deleted.
+               Empty if the project is not deleted, otherwise set to a timestamp in the past
+        :param 'GetPostgresProjectsProjectInitialEndpointSpecArgs' initial_endpoint_spec: (InitialEndpointSpec) - Configuration settings for the initial Read/Write endpoint created inside the initial branch for a newly
                created project. If omitted, the initial endpoint created will have default settings, without high availability
                configured. This field does not apply to any endpoints created after project creation. Use
                spec.default_endpoint_settings to configure default settings for endpoints created after project creation
         :param _builtins.str name: (string) - Output only. The full resource path of the project.
                Format: projects/{project_id}
+        :param _builtins.str purge_time: (string) - A timestamp indicating when the project is scheduled for permanent deletion.
+               Empty if the project is not deleted, otherwise set to a timestamp in the future
         :param 'GetPostgresProjectsProjectSpecArgs' spec: (ProjectSpec) - The spec contains the project configuration, including display_name, pg_version (Postgres version), history_retention_duration, and default_endpoint_settings
         :param 'GetPostgresProjectsProjectStatusArgs' status: (ProjectStatus) - The current status of a Project
         :param _builtins.str uid: (string) - System-generated unique ID for the project
@@ -92351,8 +92657,10 @@ class GetPostgresProjectsProjectResult(dict):
         :param 'GetPostgresProjectsProjectProviderConfigArgs' provider_config: Configure the provider for management through account provider.
         """
         pulumi.set(__self__, "create_time", create_time)
+        pulumi.set(__self__, "delete_time", delete_time)
         pulumi.set(__self__, "initial_endpoint_spec", initial_endpoint_spec)
         pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "purge_time", purge_time)
         pulumi.set(__self__, "spec", spec)
         pulumi.set(__self__, "status", status)
         pulumi.set(__self__, "uid", uid)
@@ -92369,10 +92677,19 @@ class GetPostgresProjectsProjectResult(dict):
         return pulumi.get(self, "create_time")
 
     @_builtins.property
+    @pulumi.getter(name="deleteTime")
+    def delete_time(self) -> _builtins.str:
+        """
+        (string) - A timestamp indicating when the project was soft-deleted.
+        Empty if the project is not deleted, otherwise set to a timestamp in the past
+        """
+        return pulumi.get(self, "delete_time")
+
+    @_builtins.property
     @pulumi.getter(name="initialEndpointSpec")
     def initial_endpoint_spec(self) -> 'outputs.GetPostgresProjectsProjectInitialEndpointSpecResult':
         """
-        (InitialEndpointSpec) - Configuration settings for the initial Read/Write endpoint created inside the default branch for a newly
+        (InitialEndpointSpec) - Configuration settings for the initial Read/Write endpoint created inside the initial branch for a newly
         created project. If omitted, the initial endpoint created will have default settings, without high availability
         configured. This field does not apply to any endpoints created after project creation. Use
         spec.default_endpoint_settings to configure default settings for endpoints created after project creation
@@ -92387,6 +92704,15 @@ class GetPostgresProjectsProjectResult(dict):
         Format: projects/{project_id}
         """
         return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="purgeTime")
+    def purge_time(self) -> _builtins.str:
+        """
+        (string) - A timestamp indicating when the project is scheduled for permanent deletion.
+        Empty if the project is not deleted, otherwise set to a timestamp in the future
+        """
+        return pulumi.get(self, "purge_time")
 
     @_builtins.property
     @pulumi.getter
@@ -92661,10 +92987,12 @@ class GetPostgresProjectsProjectSpecDefaultEndpointSettingsResult(dict):
         :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units. Minimum value is 0.5
         :param _builtins.float autoscaling_limit_min_cu: (number) - The minimum number of Compute Units. Minimum value is 0.5
         :param _builtins.bool no_suspension: (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-               Should be set to true when provided
+               Should be set to true when provided.
+               Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         :param Mapping[str, _builtins.str] pg_settings: (object) - A raw representation of Postgres settings
         :param _builtins.str suspend_timeout_duration: (string) - Duration of inactivity after which the compute endpoint is automatically suspended.
-               If specified should be between 60s and 604800s (1 minute to 1 week)
+               If specified should be between 60s and 604800s (1 minute to 1 week).
+               Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         if autoscaling_limit_max_cu is not None:
             pulumi.set(__self__, "autoscaling_limit_max_cu", autoscaling_limit_max_cu)
@@ -92698,7 +93026,8 @@ class GetPostgresProjectsProjectSpecDefaultEndpointSettingsResult(dict):
     def no_suspension(self) -> Optional[_builtins.bool]:
         """
         (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-        Should be set to true when provided
+        Should be set to true when provided.
+        Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "no_suspension")
 
@@ -92715,7 +93044,8 @@ class GetPostgresProjectsProjectSpecDefaultEndpointSettingsResult(dict):
     def suspend_timeout_duration(self) -> Optional[_builtins.str]:
         """
         (string) - Duration of inactivity after which the compute endpoint is automatically suspended.
-        If specified should be between 60s and 604800s (1 minute to 1 week)
+        If specified should be between 60s and 604800s (1 minute to 1 week).
+        Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "suspend_timeout_duration")
 
@@ -92733,6 +93063,7 @@ class GetPostgresProjectsProjectStatusResult(dict):
                  history_retention_duration: _builtins.str,
                  owner: _builtins.str,
                  pg_version: _builtins.int,
+                 project_id: _builtins.str,
                  synthetic_storage_size_bytes: _builtins.int):
         """
         :param _builtins.int branch_logical_size_limit_bytes: (integer) - The logical size limit for a branch
@@ -92745,6 +93076,8 @@ class GetPostgresProjectsProjectStatusResult(dict):
         :param _builtins.str history_retention_duration: (string) - The effective number of seconds to retain the shared history for point in time recovery
         :param _builtins.str owner: (string) - The email of the project owner
         :param _builtins.int pg_version: (integer) - The effective major Postgres version number
+        :param _builtins.str project_id: (string) - The short identifier of the project, suitable for showing to the users.
+               For a project with name `projects/my-project`, the project_id is `my-project`.
         :param _builtins.int synthetic_storage_size_bytes: (integer) - The current space occupied by the project in storage
         """
         pulumi.set(__self__, "branch_logical_size_limit_bytes", branch_logical_size_limit_bytes)
@@ -92757,6 +93090,7 @@ class GetPostgresProjectsProjectStatusResult(dict):
         pulumi.set(__self__, "history_retention_duration", history_retention_duration)
         pulumi.set(__self__, "owner", owner)
         pulumi.set(__self__, "pg_version", pg_version)
+        pulumi.set(__self__, "project_id", project_id)
         pulumi.set(__self__, "synthetic_storage_size_bytes", synthetic_storage_size_bytes)
 
     @_builtins.property
@@ -92840,6 +93174,15 @@ class GetPostgresProjectsProjectStatusResult(dict):
         return pulumi.get(self, "pg_version")
 
     @_builtins.property
+    @pulumi.getter(name="projectId")
+    def project_id(self) -> _builtins.str:
+        """
+        (string) - The short identifier of the project, suitable for showing to the users.
+        For a project with name `projects/my-project`, the project_id is `my-project`.
+        """
+        return pulumi.get(self, "project_id")
+
+    @_builtins.property
     @pulumi.getter(name="syntheticStorageSizeBytes")
     def synthetic_storage_size_bytes(self) -> _builtins.int:
         """
@@ -92891,10 +93234,12 @@ class GetPostgresProjectsProjectStatusDefaultEndpointSettingsResult(dict):
         :param _builtins.float autoscaling_limit_max_cu: (number) - The maximum number of Compute Units. Minimum value is 0.5
         :param _builtins.float autoscaling_limit_min_cu: (number) - The minimum number of Compute Units. Minimum value is 0.5
         :param _builtins.bool no_suspension: (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-               Should be set to true when provided
+               Should be set to true when provided.
+               Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         :param Mapping[str, _builtins.str] pg_settings: (object) - A raw representation of Postgres settings
         :param _builtins.str suspend_timeout_duration: (string) - Duration of inactivity after which the compute endpoint is automatically suspended.
-               If specified should be between 60s and 604800s (1 minute to 1 week)
+               If specified should be between 60s and 604800s (1 minute to 1 week).
+               Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         if autoscaling_limit_max_cu is not None:
             pulumi.set(__self__, "autoscaling_limit_max_cu", autoscaling_limit_max_cu)
@@ -92928,7 +93273,8 @@ class GetPostgresProjectsProjectStatusDefaultEndpointSettingsResult(dict):
     def no_suspension(self) -> Optional[_builtins.bool]:
         """
         (boolean) - When set to true, explicitly disables automatic suspension (never suspend).
-        Should be set to true when provided
+        Should be set to true when provided.
+        Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "no_suspension")
 
@@ -92945,7 +93291,8 @@ class GetPostgresProjectsProjectStatusDefaultEndpointSettingsResult(dict):
     def suspend_timeout_duration(self) -> Optional[_builtins.str]:
         """
         (string) - Duration of inactivity after which the compute endpoint is automatically suspended.
-        If specified should be between 60s and 604800s (1 minute to 1 week)
+        If specified should be between 60s and 604800s (1 minute to 1 week).
+        Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         return pulumi.get(self, "suspend_timeout_duration")
 
@@ -93099,18 +93446,23 @@ class GetPostgresRoleSpecAttributesResult(dict):
 @pulumi.output_type
 class GetPostgresRoleStatusResult(dict):
     def __init__(__self__, *,
+                 role_id: _builtins.str,
                  attributes: Optional['outputs.GetPostgresRoleStatusAttributesResult'] = None,
                  auth_method: Optional[_builtins.str] = None,
                  identity_type: Optional[_builtins.str] = None,
                  membership_roles: Optional[Sequence[_builtins.str]] = None,
                  postgres_role: Optional[_builtins.str] = None):
         """
+        :param _builtins.str role_id: (string) - The short identifier of the role, suitable for showing to the users.
+               For a role with name `projects/my-project/branches/my-branch/roles/my-role`,
+               the role_id is `my-role`.
         :param 'GetPostgresRoleStatusAttributesArgs' attributes: (RoleAttributes) - The PG role attributes associated with the role
         :param _builtins.str auth_method: (string) - Possible values are: `LAKEBASE_OAUTH_V1`, `NO_LOGIN`, `PG_PASSWORD_SCRAM_SHA_256`
         :param _builtins.str identity_type: (string) - The type of the role. Possible values are: `GROUP`, `SERVICE_PRINCIPAL`, `USER`
         :param Sequence[_builtins.str] membership_roles: (list of string) - An enum value for a standard role that this role is a member of
         :param _builtins.str postgres_role: (string) - The name of the Postgres role
         """
+        pulumi.set(__self__, "role_id", role_id)
         if attributes is not None:
             pulumi.set(__self__, "attributes", attributes)
         if auth_method is not None:
@@ -93121,6 +93473,16 @@ class GetPostgresRoleStatusResult(dict):
             pulumi.set(__self__, "membership_roles", membership_roles)
         if postgres_role is not None:
             pulumi.set(__self__, "postgres_role", postgres_role)
+
+    @_builtins.property
+    @pulumi.getter(name="roleId")
+    def role_id(self) -> _builtins.str:
+        """
+        (string) - The short identifier of the role, suitable for showing to the users.
+        For a role with name `projects/my-project/branches/my-branch/roles/my-role`,
+        the role_id is `my-role`.
+        """
+        return pulumi.get(self, "role_id")
 
     @_builtins.property
     @pulumi.getter
@@ -93444,18 +93806,23 @@ class GetPostgresRolesRoleSpecAttributesResult(dict):
 @pulumi.output_type
 class GetPostgresRolesRoleStatusResult(dict):
     def __init__(__self__, *,
+                 role_id: _builtins.str,
                  attributes: Optional['outputs.GetPostgresRolesRoleStatusAttributesResult'] = None,
                  auth_method: Optional[_builtins.str] = None,
                  identity_type: Optional[_builtins.str] = None,
                  membership_roles: Optional[Sequence[_builtins.str]] = None,
                  postgres_role: Optional[_builtins.str] = None):
         """
+        :param _builtins.str role_id: (string) - The short identifier of the role, suitable for showing to the users.
+               For a role with name `projects/my-project/branches/my-branch/roles/my-role`,
+               the role_id is `my-role`.
         :param 'GetPostgresRolesRoleStatusAttributesArgs' attributes: (RoleAttributes) - The PG role attributes associated with the role
         :param _builtins.str auth_method: (string) - Possible values are: `LAKEBASE_OAUTH_V1`, `NO_LOGIN`, `PG_PASSWORD_SCRAM_SHA_256`
         :param _builtins.str identity_type: (string) - The type of the role. Possible values are: `GROUP`, `SERVICE_PRINCIPAL`, `USER`
         :param Sequence[_builtins.str] membership_roles: (list of string) - An enum value for a standard role that this role is a member of
         :param _builtins.str postgres_role: (string) - The name of the Postgres role
         """
+        pulumi.set(__self__, "role_id", role_id)
         if attributes is not None:
             pulumi.set(__self__, "attributes", attributes)
         if auth_method is not None:
@@ -93466,6 +93833,16 @@ class GetPostgresRolesRoleStatusResult(dict):
             pulumi.set(__self__, "membership_roles", membership_roles)
         if postgres_role is not None:
             pulumi.set(__self__, "postgres_role", postgres_role)
+
+    @_builtins.property
+    @pulumi.getter(name="roleId")
+    def role_id(self) -> _builtins.str:
+        """
+        (string) - The short identifier of the role, suitable for showing to the users.
+        For a role with name `projects/my-project/branches/my-branch/roles/my-role`,
+        the role_id is `my-role`.
+        """
+        return pulumi.get(self, "role_id")
 
     @_builtins.property
     @pulumi.getter
@@ -93749,6 +94126,7 @@ class GetPostgresSyncedTableStatusResult(dict):
                  message: _builtins.str,
                  ongoing_sync_progress: 'outputs.GetPostgresSyncedTableStatusOngoingSyncProgressResult',
                  pipeline_id: _builtins.str,
+                 project: _builtins.str,
                  provisioning_phase: _builtins.str,
                  unity_catalog_provisioning_state: _builtins.str):
         """
@@ -93760,6 +94138,7 @@ class GetPostgresSyncedTableStatusResult(dict):
         :param _builtins.str message: (string) - A text description of the current state of the synced table
         :param 'GetPostgresSyncedTableStatusOngoingSyncProgressArgs' ongoing_sync_progress: (SyncedTablePipelineProgress)
         :param _builtins.str pipeline_id: (string) - ID of the associated pipeline
+        :param _builtins.str project: (string) - The full resource name of the project associated with the table.
         :param _builtins.str provisioning_phase: (string) - The current phase of the data synchronization pipeline. Possible values are: `PROVISIONING_PHASE_INDEX_SCAN`, `PROVISIONING_PHASE_INDEX_SORT`, `PROVISIONING_PHASE_MAIN`
         :param _builtins.str unity_catalog_provisioning_state: (string) - The provisioning state of the synced table entity in Unity Catalog. Possible values are: `ACTIVE`, `DEGRADED`, `DELETING`, `FAILED`, `PROVISIONING`, `UPDATING`
         """
@@ -93770,6 +94149,7 @@ class GetPostgresSyncedTableStatusResult(dict):
         pulumi.set(__self__, "message", message)
         pulumi.set(__self__, "ongoing_sync_progress", ongoing_sync_progress)
         pulumi.set(__self__, "pipeline_id", pipeline_id)
+        pulumi.set(__self__, "project", project)
         pulumi.set(__self__, "provisioning_phase", provisioning_phase)
         pulumi.set(__self__, "unity_catalog_provisioning_state", unity_catalog_provisioning_state)
 
@@ -93829,6 +94209,14 @@ class GetPostgresSyncedTableStatusResult(dict):
         (string) - ID of the associated pipeline
         """
         return pulumi.get(self, "pipeline_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def project(self) -> _builtins.str:
+        """
+        (string) - The full resource name of the project associated with the table.
+        """
+        return pulumi.get(self, "project")
 
     @_builtins.property
     @pulumi.getter(name="provisioningPhase")

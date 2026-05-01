@@ -29,6 +29,7 @@ class TestDomains:
         domain = client.intel.domains.get(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             domain="domain",
+            skip_dns=True,
         )
         assert_matches_type(Optional[Domain], domain, path=["response"])
 
@@ -65,7 +66,9 @@ class TestDomains:
 
 
 class TestAsyncDomains:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_get(self, async_client: AsyncCloudflare) -> None:
@@ -79,6 +82,7 @@ class TestAsyncDomains:
         domain = await async_client.intel.domains.get(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             domain="domain",
+            skip_dns=True,
         )
         assert_matches_type(Optional[Domain], domain, path=["response"])
 

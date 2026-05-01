@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llm-tracekit
-Version: 2.8.0
+Version: 2.8.1
 Summary: Meta-package for LLM Tracekit - OpenTelemetry instrumentations for LLM providers.
 Project-URL: homepage, https://coralogix.com
 Project-URL: repository, https://github.com/coralogix/llm-tracekit.git

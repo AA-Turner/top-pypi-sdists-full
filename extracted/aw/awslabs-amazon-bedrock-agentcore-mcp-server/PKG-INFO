@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.amazon-bedrock-agentcore-mcp-server
-Version: 0.0.18
+Version: 0.0.19
 Summary: Model Context Protocol (MCP) server for Amazon Bedrock AgentCore services
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/amazon-bedrock-agentcore-mcp-server/

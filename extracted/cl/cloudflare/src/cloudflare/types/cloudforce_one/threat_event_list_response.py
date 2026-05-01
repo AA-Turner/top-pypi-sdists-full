@@ -11,21 +11,19 @@ __all__ = ["ThreatEventListResponse", "ThreatEventListResponseItem"]
 
 
 class ThreatEventListResponseItem(BaseModel):
-    id: float
-
-    account_id: float = FieldInfo(alias="accountId")
-
     attacker: str
 
     attacker_country: str = FieldInfo(alias="attackerCountry")
 
     category: str
 
-    category_id: float = FieldInfo(alias="categoryId")
+    dataset_id: str = FieldInfo(alias="datasetId")
 
     date: str
 
     event: str
+
+    has_children: bool = FieldInfo(alias="hasChildren")
 
     indicator: str
 
@@ -36,6 +34,8 @@ class ThreatEventListResponseItem(BaseModel):
     kill_chain: float = FieldInfo(alias="killChain")
 
     mitre_attack: List[str] = FieldInfo(alias="mitreAttack")
+
+    mitre_capec: List[str] = FieldInfo(alias="mitreCapec")
 
     num_referenced: float = FieldInfo(alias="numReferenced")
 

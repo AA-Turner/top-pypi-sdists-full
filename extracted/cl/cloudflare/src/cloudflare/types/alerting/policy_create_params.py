@@ -16,6 +16,7 @@ class PolicyCreateParams(TypedDict, total=False):
 
     alert_type: Required[
         Literal[
+            "abuse_report_alert",
             "access_custom_certificate_expiration_type",
             "advanced_ddos_attack_l4_alert",
             "advanced_ddos_attack_l7_alert",
@@ -31,6 +32,7 @@ class PolicyCreateParams(TypedDict, total=False):
             "clickhouse_alert_fw_anomaly",
             "clickhouse_alert_fw_ent_anomaly",
             "cloudforce_one_request_notification",
+            "cni_maintenance_notification",
             "custom_analytics",
             "custom_bot_detection_alert",
             "custom_ssl_certificate_event_type",

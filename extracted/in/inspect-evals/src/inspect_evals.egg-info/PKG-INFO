@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_evals
-Version: 0.10.0
+Version: 0.10.1
 Summary: Collection of large language model evaluations
 Author: UK AI Security Institute
 License-Expression: MIT
@@ -171,6 +171,7 @@ Requires-Dist: semgrep>1.68; extra == "cyberseceval-4"
 Provides-Extra: test
 Requires-Dist: anthropic; extra == "test"
 Requires-Dist: openai>=2.26.0; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: inspect_evals[abstention_bench,agentdojo,b3,bold,core_bench,cybench,cybergym,cyberseceval_4,fortress,gdm_capabilities,gdm_self_proliferation,gdpval,ifeval,ifevalcode,mind2web,novelty_bench,paperbench,scbench,sciknoweval,sevenllm,stealth,swe_bench,swe_lancer,vimgolf]; extra == "test"
 Requires-Dist: inspect_evals[kernelbench]; sys_platform != "win32" and extra == "test"
 Provides-Extra: doc
@@ -185,6 +186,8 @@ Dynamic: license-file
 [<img width="295" src="https://inspect.ai-safety-institute.org.uk/images/aisi-logo.svg" alt="UK AISI Logo"/>](https://aisi.gov.uk/)<!-- markdownlint-disable-line MD033 MD041 -->
 
 Welcome to **Inspect Evals**, a repository of community contributed LLM evaluations for [Inspect AI](https://inspect.ai-safety-institute.org.uk/). Inspect Evals was created in collaboration by the [UK AISI](https://aisi.gov.uk/), [Arcadia Impact](https://www.arcadiaimpact.org/), and the [Vector Institute](https://vectorinstitute.ai/).
+
+> **Note:** Adding evaluation code directly to `src/inspect_evals/` is being deprecated on **8 May 2026** in favour of the [Inspect Evals Register (beta)](register/README.md). Existing in-tree evals aren't going anywhere — they'll keep working and stay supported. New evaluations, from 8 May 2026 onwards, must be added via the Register.
 
 📚 [Documentation](https://ukgovernmentbeis.github.io/inspect_evals/)
 
@@ -1079,7 +1082,7 @@ For running evaluations from the Harbor Framework (e.g. Terminal-Bench 2.0, SWE-
   uv run inspect eval inspect_evals/drop
   ```
 
-- ### [Hangman Bench](https://github.com/MattFisher/hangman-bench)
+- ### ![external](https://img.shields.io/badge/external-orange) [Hangman Bench](https://github.com/MattFisher/hangman-bench)
 
   A benchmark for testing AI models' ability to play the classic game of Hangman.
   Built as a demonstration of how to enable models to play games using tools
@@ -1087,8 +1090,10 @@ For running evaluations from the Harbor Framework (e.g. Terminal-Bench 2.0, SWE-
   <sub><sup>Contributed by: [@Scott-Simmons](https://github.com/Scott-Simmons) • Maintained upstream by: [@MattFisher](https://github.com/MattFisher)</sub></sup>
 
   ```bash
-  uv pip install git+https://github.com/MattFisher/hangman-bench@9f1f396e68191eb5ec99dbffbc6fea63609bd0b6
-  uv run inspect eval hangman_bench/hangman
+  git clone https://github.com/MattFisher/hangman-bench
+  cd hangman-bench && git checkout 9f1f396e68191eb5ec99dbffbc6fea63609bd0b6
+  uv sync
+  uv run inspect eval src/hangman_bench/hangman.py@hangman
   ```
 
 - ### [HellaSwag: Commonsense Event Continuation](src/inspect_evals/hellaswag)

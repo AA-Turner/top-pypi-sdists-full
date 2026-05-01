@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from loguru import logger as loguru_logger
+
 from cuga.config import settings
 
 logger = logging.getLogger("cuga.demo")
@@ -344,7 +346,7 @@ def get_default_apps_for_preset(preset: str) -> dict[str, bool]:
             "email": False,
             "digital_sales": False,
             "docs": False,
-            "filesystem": True,
+            "filesystem": False,
             "oak_health": False,
             "knowledge": True,  # Always enabled for demo_knowledge
         }
@@ -646,100 +648,72 @@ def _resolve_oobe_knowledge_pdf_path() -> Path | None:
     return None
 
 
-def _demo_backend_base_url(demo_port: int) -> str:
-    """Same origin as the FastAPI app that mounts knowledge routes (port = demo/uvicorn)."""
-    from urllib.parse import urlparse
+async def seed_demo_knowledge_oobe_pdf_via_engine_if_needed(app_state: Any) -> None:
+    """Ingest packaged OOBE PDF into agent KB in-process.
 
-    env = os.environ.get("CUGA_BACKEND_URL", "").strip().rstrip("/")
-    if env:
-        try:
-            p = urlparse(env)
-            if p.scheme and p.netloc:
-                return env
-        except Exception:
-            pass
-    return f"http://127.0.0.1:{demo_port}"
+    Intended to run immediately after KnowledgeEngine.warmup() succeeds on the demo server
+    (`mcp_transport == http`). Requires CUGA_DEMO_MODE knowledge / demo_knowledge.
+    Caller must invoke only while knowledge subsystem is ``ready``.
+    """
+    from cuga.backend.knowledge.auth import resolve_agent_collection
+    from cuga.backend.knowledge.engine import DocumentExistsError
 
+    mode = os.environ.get("CUGA_DEMO_MODE", "").strip().lower()
+    loguru_logger.info("OOBE PDF seed check started (mode={!r})", mode)
+    if mode not in ("knowledge", "demo_knowledge"):
+        loguru_logger.info("OOBE PDF seed skipped: unsupported CUGA_DEMO_MODE={!r}", mode)
+        return
 
-def seed_demo_knowledge_oobe_pdf_if_needed(demo_port: int, agent_id: str = "cuga-default") -> None:
-    """Ingest the OOBE PDF into agent knowledge once the demo server is up; no-op if already indexed."""
-    import time
-
-    import httpx
-
-    from cuga.backend.knowledge.routes import KNOWLEDGE_HTTP_PREFIX
+    st = app_state.get_subsystem_status("knowledge")
+    if st["state"] != "ready":
+        if st["state"] == "failed":
+            loguru_logger.warning("Knowledge subsystem failed; skip OOBE PDF seed")
+        else:
+            loguru_logger.warning(
+                "OOBE PDF seed skipped: knowledge subsystem not ready yet (state={})",
+                st["state"],
+            )
+        return
 
     pdf_path = _resolve_oobe_knowledge_pdf_path()
     if pdf_path is None:
         from cuga.config import DEMO_TOOLS_ROOT
 
-        logger.warning(
-            "OOBE knowledge PDF not found (tried %s and cuga_workspace/); skipping seed",
+        loguru_logger.warning(
+            "OOBE knowledge PDF not found (tried {} and cuga_workspace/); skipping seed",
             DEMO_TOOLS_ROOT / "huggingface" / DEMO_KNOWLEDGE_OOBE_PDF_NAME,
         )
         return
+    loguru_logger.info("OOBE knowledge PDF resolved to {}", pdf_path)
 
-    base = _demo_backend_base_url(demo_port)
-    k_docs = f"{base}{KNOWLEDGE_HTTP_PREFIX}/documents"
-    ready = False
-    failed = False
-    for _ in range(720):
-        try:
-            with httpx.Client(timeout=5.0, verify=False) as client:
-                r = client.get(
-                    f"{base}/health/readiness",
-                    params={"subsystem": "knowledge"},
-                )
-                if r.status_code == 200:
-                    data = r.json()
-                    if data.get("status") == "failed":
-                        failed = True
-                        break
-                    if data.get("ready"):
-                        ready = True
-                        break
-        except httpx.RequestError:
-            pass
-        time.sleep(0.5)
-    if failed:
-        logger.warning("Knowledge subsystem failed; skip OOBE PDF seed")
-        return
-    if not ready:
-        logger.warning("Knowledge subsystem not ready in time; skip OOBE PDF seed")
+    engine = getattr(app_state, "knowledge_engine", None)
+    if engine is None:
+        loguru_logger.warning("Knowledge engine missing; skip OOBE PDF seed")
         return
 
-    token_path = Path.cwd() / ".cuga" / ".internal_token"
-    if not token_path.is_file():
-        logger.warning("Internal token missing at %s; skip OOBE PDF seed", token_path)
-        return
-    token = token_path.read_text(encoding="utf-8").strip()
-    headers = {"X-Internal-Token": token, "X-Agent-ID": agent_id}
+    if not getattr(app_state, "knowledge_config_hash", None):
+        cfg = getattr(engine, "_config", None)
+        if cfg is not None:
+            app_state.knowledge_config_hash = cfg.vector_config_hash()
+
+    agent_id = os.environ.get(
+        "CUGA_AGENT_ID", getattr(app_state, "agent_id", "cuga-default") or "cuga-default"
+    )
+    collection = resolve_agent_collection(agent_id, app_state)
+    loguru_logger.info(
+        "OOBE PDF seed targeting collection {} for agent_id={}",
+        collection,
+        agent_id,
+    )
+
     try:
-        with httpx.Client(timeout=300.0, verify=False) as client:
-            r = client.get(
-                k_docs,
-                params={"scope": "agent"},
-                headers=headers,
-            )
-            if r.status_code != 200:
-                logger.warning("Could not list knowledge documents (%s): %s", r.status_code, r.text[:300])
-                return
-            docs = r.json().get("documents") or []
-            if any(d.get("filename") == DEMO_KNOWLEDGE_OOBE_PDF_NAME for d in docs):
-                logger.info("OOBE knowledge PDF already indexed; skip ingest")
-                return
-            with pdf_path.open("rb") as f:
-                r2 = client.post(
-                    k_docs,
-                    headers=headers,
-                    data={"scope": "agent", "replace_duplicates": "true"},
-                    files={"files": (DEMO_KNOWLEDGE_OOBE_PDF_NAME, f, "application/pdf")},
-                )
-            if r2.status_code == 409:
-                logger.info("OOBE knowledge PDF already present; skip ingest")
-            elif r2.status_code >= 400:
-                logger.warning("OOBE PDF ingest failed (%s): %s", r2.status_code, r2.text[:500])
-            else:
-                logger.info("Ingested OOBE knowledge PDF %s", DEMO_KNOWLEDGE_OOBE_PDF_NAME)
+        docs = await engine.list_documents(collection)
+        if any(d.filename == DEMO_KNOWLEDGE_OOBE_PDF_NAME for d in docs):
+            loguru_logger.info("OOBE knowledge PDF already indexed; skip ingest")
+            return
+        await engine.ingest(collection, pdf_path, True, DEMO_KNOWLEDGE_OOBE_PDF_NAME)
+        loguru_logger.info("Ingested OOBE knowledge PDF {}", DEMO_KNOWLEDGE_OOBE_PDF_NAME)
+    except DocumentExistsError:
+        loguru_logger.info("OOBE knowledge PDF already present; skip ingest")
     except Exception as e:
-        logger.warning("OOBE PDF seed failed: %s", e)
+        loguru_logger.warning("OOBE PDF seed failed: {}", e)

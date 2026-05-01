@@ -1241,6 +1241,7 @@ __all__ = (
     "InferenceComponentDeploymentConfigTypeDef",
     "InferenceComponentDeploymentConfigUnionTypeDef",
     "InferenceComponentMetadataTypeDef",
+    "InferenceComponentPlacementStatusTypeDef",
     "InferenceComponentRollingUpdatePolicyTypeDef",
     "InferenceComponentRuntimeConfigSummaryTypeDef",
     "InferenceComponentRuntimeConfigTypeDef",
@@ -1276,6 +1277,8 @@ __all__ = (
     "InstancePlacementConfigOutputTypeDef",
     "InstancePlacementConfigTypeDef",
     "InstancePlacementConfigUnionTypeDef",
+    "InstancePoolSummaryTypeDef",
+    "InstancePoolTypeDef",
     "IntegerParameterRangeSpecificationTypeDef",
     "IntegerParameterRangeTypeDef",
     "JupyterLabAppImageConfigOutputTypeDef",
@@ -1803,12 +1806,14 @@ __all__ = (
     "ProductionVariantCoreDumpConfigTypeDef",
     "ProductionVariantManagedInstanceScalingScaleInPolicyTypeDef",
     "ProductionVariantManagedInstanceScalingTypeDef",
+    "ProductionVariantOutputTypeDef",
     "ProductionVariantRoutingConfigTypeDef",
     "ProductionVariantServerlessConfigTypeDef",
     "ProductionVariantServerlessUpdateConfigTypeDef",
     "ProductionVariantStatusTypeDef",
     "ProductionVariantSummaryTypeDef",
     "ProductionVariantTypeDef",
+    "ProductionVariantUnionTypeDef",
     "ProfilerConfigForUpdateTypeDef",
     "ProfilerConfigOutputTypeDef",
     "ProfilerConfigTypeDef",
@@ -3835,10 +3840,6 @@ class DescribeImageVersionRequestTypeDef(TypedDict):
 class DescribeInferenceComponentInputTypeDef(TypedDict):
     InferenceComponentName: str
 
-class InferenceComponentRuntimeConfigSummaryTypeDef(TypedDict):
-    DesiredCopyCount: NotRequired[int]
-    CurrentCopyCount: NotRequired[int]
-
 class DescribeInferenceExperimentRequestTypeDef(TypedDict):
     Name: str
 
@@ -4521,6 +4522,10 @@ class InferenceComponentDataCacheConfigTypeDef(TypedDict):
 class InferenceComponentMetadataTypeDef(TypedDict):
     Arn: NotRequired[str]
 
+class InferenceComponentPlacementStatusTypeDef(TypedDict):
+    InstanceType: ProductionVariantInstanceTypeType
+    CurrentCopyCount: int
+
 class InferenceComponentStartupParametersTypeDef(TypedDict):
     ModelDataDownloadTimeoutInSeconds: NotRequired[int]
     ContainerStartupHealthCheckTimeoutInSeconds: NotRequired[int]
@@ -4575,6 +4580,15 @@ class InstanceGroupTypeDef(TypedDict):
 class PlacementSpecificationTypeDef(TypedDict):
     InstanceCount: int
     UltraServerId: NotRequired[str]
+
+class InstancePoolSummaryTypeDef(TypedDict):
+    InstanceType: ProductionVariantInstanceTypeType
+    CurrentInstanceCount: int
+
+class InstancePoolTypeDef(TypedDict):
+    InstanceType: ProductionVariantInstanceTypeType
+    Priority: int
+    ModelNameOverride: NotRequired[str]
 
 class IntegerParameterRangeSpecificationTypeDef(TypedDict):
     MinValue: str
@@ -9384,6 +9398,11 @@ class InferenceComponentRollingUpdatePolicyTypeDef(TypedDict):
     MaximumExecutionTimeoutInSeconds: NotRequired[int]
     RollbackMaximumBatchSize: NotRequired[InferenceComponentCapacitySizeTypeDef]
 
+class InferenceComponentRuntimeConfigSummaryTypeDef(TypedDict):
+    DesiredCopyCount: NotRequired[int]
+    CurrentCopyCount: NotRequired[int]
+    PlacementStatus: NotRequired[list[InferenceComponentPlacementStatusTypeDef]]
+
 class ListInferenceComponentsOutputTypeDef(TypedDict):
     InferenceComponents: list[InferenceComponentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -10778,6 +10797,7 @@ class WorkerAccessConfigurationTypeDef(TypedDict):
 InferenceComponentSpecificationSummaryTypeDef = TypedDict(
     "InferenceComponentSpecificationSummaryTypeDef",
     {
+        "InstanceType": NotRequired[ProductionVariantInstanceTypeType],
         "ModelName": NotRequired[str],
         "Container": NotRequired[InferenceComponentContainerSpecificationSummaryTypeDef],
         "StartupParameters": NotRequired[InferenceComponentStartupParametersTypeDef],
@@ -10792,6 +10812,7 @@ InferenceComponentSpecificationSummaryTypeDef = TypedDict(
 InferenceComponentSpecificationTypeDef = TypedDict(
     "InferenceComponentSpecificationTypeDef",
     {
+        "InstanceType": NotRequired[ProductionVariantInstanceTypeType],
         "ModelName": NotRequired[str],
         "Container": NotRequired[InferenceComponentContainerSpecificationTypeDef],
         "StartupParameters": NotRequired[InferenceComponentStartupParametersTypeDef],
@@ -11103,12 +11124,33 @@ class PendingProductionVariantSummaryTypeDef(TypedDict):
     CurrentInstanceCount: NotRequired[int]
     DesiredInstanceCount: NotRequired[int]
     InstanceType: NotRequired[ProductionVariantInstanceTypeType]
+    InstancePools: NotRequired[list[InstancePoolSummaryTypeDef]]
     AcceleratorType: NotRequired[ProductionVariantAcceleratorTypeType]
     VariantStatus: NotRequired[list[ProductionVariantStatusTypeDef]]
     CurrentServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
     DesiredServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
     ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
     RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
+
+class ProductionVariantOutputTypeDef(TypedDict):
+    VariantName: str
+    ModelName: NotRequired[str]
+    InitialInstanceCount: NotRequired[int]
+    InstanceType: NotRequired[ProductionVariantInstanceTypeType]
+    InstancePools: NotRequired[list[InstancePoolTypeDef]]
+    VariantInstanceProvisionTimeoutInSeconds: NotRequired[int]
+    InitialVariantWeight: NotRequired[float]
+    AcceleratorType: NotRequired[ProductionVariantAcceleratorTypeType]
+    CoreDumpConfig: NotRequired[ProductionVariantCoreDumpConfigTypeDef]
+    ServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
+    VolumeSizeInGB: NotRequired[int]
+    ModelDataDownloadTimeoutInSeconds: NotRequired[int]
+    ContainerStartupHealthCheckTimeoutInSeconds: NotRequired[int]
+    EnableSSMAccess: NotRequired[bool]
+    ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
+    RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
+    InferenceAmiVersion: NotRequired[ProductionVariantInferenceAmiVersionType]
+    CapacityReservationConfig: NotRequired[ProductionVariantCapacityReservationConfigTypeDef]
 
 class ProductionVariantSummaryTypeDef(TypedDict):
     VariantName: str
@@ -11117,6 +11159,7 @@ class ProductionVariantSummaryTypeDef(TypedDict):
     DesiredWeight: NotRequired[float]
     CurrentInstanceCount: NotRequired[int]
     DesiredInstanceCount: NotRequired[int]
+    InstancePools: NotRequired[list[InstancePoolSummaryTypeDef]]
     VariantStatus: NotRequired[list[ProductionVariantStatusTypeDef]]
     CurrentServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
     DesiredServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
@@ -11129,6 +11172,8 @@ class ProductionVariantTypeDef(TypedDict):
     ModelName: NotRequired[str]
     InitialInstanceCount: NotRequired[int]
     InstanceType: NotRequired[ProductionVariantInstanceTypeType]
+    InstancePools: NotRequired[Sequence[InstancePoolTypeDef]]
+    VariantInstanceProvisionTimeoutInSeconds: NotRequired[int]
     InitialVariantWeight: NotRequired[float]
     AcceleratorType: NotRequired[ProductionVariantAcceleratorTypeType]
     CoreDumpConfig: NotRequired[ProductionVariantCoreDumpConfigTypeDef]
@@ -11786,6 +11831,7 @@ class CreateInferenceComponentInputTypeDef(TypedDict):
     EndpointName: str
     VariantName: NotRequired[str]
     Specification: NotRequired[InferenceComponentSpecificationTypeDef]
+    Specifications: NotRequired[Sequence[InferenceComponentSpecificationTypeDef]]
     RuntimeConfig: NotRequired[InferenceComponentRuntimeConfigTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
@@ -11797,6 +11843,7 @@ class DescribeInferenceComponentOutputTypeDef(TypedDict):
     VariantName: str
     FailureReason: str
     Specification: InferenceComponentSpecificationSummaryTypeDef
+    Specifications: list[InferenceComponentSpecificationSummaryTypeDef]
     RuntimeConfig: InferenceComponentRuntimeConfigSummaryTypeDef
     CreationTime: datetime
     LastModifiedTime: datetime
@@ -12173,6 +12220,8 @@ class PendingDeploymentSummaryTypeDef(TypedDict):
     ProductionVariants: NotRequired[list[PendingProductionVariantSummaryTypeDef]]
     StartTime: NotRequired[datetime]
     ShadowProductionVariants: NotRequired[list[PendingProductionVariantSummaryTypeDef]]
+
+ProductionVariantUnionTypeDef = Union[ProductionVariantTypeDef, ProductionVariantOutputTypeDef]
 
 class CreateProjectInputTypeDef(TypedDict):
     ProjectName: str
@@ -12603,13 +12652,13 @@ RecommendationJobInputConfigUnionTypeDef = Union[
 class DescribeEndpointConfigOutputTypeDef(TypedDict):
     EndpointConfigName: str
     EndpointConfigArn: str
-    ProductionVariants: list[ProductionVariantTypeDef]
+    ProductionVariants: list[ProductionVariantOutputTypeDef]
     DataCaptureConfig: DataCaptureConfigOutputTypeDef
     KmsKeyId: str
     CreationTime: datetime
     AsyncInferenceConfig: AsyncInferenceConfigOutputTypeDef
     ExplainerConfig: ExplainerConfigOutputTypeDef
-    ShadowProductionVariants: list[ProductionVariantTypeDef]
+    ShadowProductionVariants: list[ProductionVariantOutputTypeDef]
     ExecutionRoleArn: str
     VpcConfig: VpcConfigOutputTypeDef
     EnableNetworkIsolation: bool
@@ -12644,6 +12693,7 @@ class UpdateWorkteamResponseTypeDef(TypedDict):
 class UpdateInferenceComponentInputTypeDef(TypedDict):
     InferenceComponentName: str
     Specification: NotRequired[InferenceComponentSpecificationTypeDef]
+    Specifications: NotRequired[Sequence[InferenceComponentSpecificationTypeDef]]
     RuntimeConfig: NotRequired[InferenceComponentRuntimeConfigTypeDef]
     DeploymentConfig: NotRequired[InferenceComponentDeploymentConfigUnionTypeDef]
 
@@ -13181,13 +13231,13 @@ class CreateInferenceRecommendationsJobRequestTypeDef(TypedDict):
 
 class CreateEndpointConfigInputTypeDef(TypedDict):
     EndpointConfigName: str
-    ProductionVariants: Sequence[ProductionVariantTypeDef]
+    ProductionVariants: Sequence[ProductionVariantUnionTypeDef]
     DataCaptureConfig: NotRequired[DataCaptureConfigUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
     KmsKeyId: NotRequired[str]
     AsyncInferenceConfig: NotRequired[AsyncInferenceConfigUnionTypeDef]
     ExplainerConfig: NotRequired[ExplainerConfigUnionTypeDef]
-    ShadowProductionVariants: NotRequired[Sequence[ProductionVariantTypeDef]]
+    ShadowProductionVariants: NotRequired[Sequence[ProductionVariantUnionTypeDef]]
     ExecutionRoleArn: NotRequired[str]
     VpcConfig: NotRequired[VpcConfigUnionTypeDef]
     EnableNetworkIsolation: NotRequired[bool]
@@ -13416,13 +13466,13 @@ class ClusterRestrictedInstanceGroupSpecificationTypeDef(TypedDict):
     InstanceGroupName: str
     InstanceType: ClusterInstanceTypeType
     ExecutionRole: str
-    EnvironmentConfig: EnvironmentConfigTypeDef
     ThreadsPerCore: NotRequired[int]
     InstanceStorageConfigs: NotRequired[Sequence[ClusterInstanceStorageConfigTypeDef]]
     OnStartDeepHealthChecks: NotRequired[Sequence[DeepHealthCheckTypeType]]
     TrainingPlanArn: NotRequired[str]
     OverrideVpcConfig: NotRequired[VpcConfigUnionTypeDef]
     ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigUnionTypeDef]
+    EnvironmentConfig: NotRequired[EnvironmentConfigTypeDef]
 
 class AlgorithmValidationSpecificationOutputTypeDef(TypedDict):
     ValidationRole: str
